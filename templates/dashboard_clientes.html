@@ -1,0 +1,1061 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <!-- ESTILOS PERSONALIZADOS -->
+    <style>
+        /* ==========================================
+        ANIMACIÓN SUAVE DEL MODAL (IGUAL QUE COTIZACIONES)
+        ========================================== */
+        .modal.fade .modal-dialog {
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease-out !important;
+            transform: scale(0.9) translateY(-50px) !important;
+            opacity: 0;
+        }
+        .modal.show .modal-dialog {
+            transform: scale(1) translateY(0) !important;
+            opacity: 1 !important;
+        }
+
+        /* ==========================================
+        ICONOS DE ACCIÓN
+        ========================================== */
+        .icon-action {
+            color: #adb5bd;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            text-decoration: none !important;
+        }
+        .icon-action:hover {
+            color: #00b8b9;
+            transform: scale(1.15);
+        }
+        .icon-action:active {
+            transform: scale(0.95);
+        }
+        .modal-backdrop {
+            background-color: rgba(26, 37, 47, 0.9) !important;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        /* ==========================================
+        PILLS FINAS (ESTADO, TIPO, RELACIÓN)
+        ========================================== */
+        .client-pill {
+            display: inline-flex;
+            align-items: center;
+            font-size: 0.7rem;
+            line-height: 1;
+            padding: 0.25em 0.6em;
+            font-weight: 600;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: middle;
+            border-radius: 50px;
+            text-transform: capitalize;
+            letter-spacing: 0.3px;
+            transition: all 0.2s ease-in-out;
+        }
+
+        /* --- ESTADOS --- */
+        .status-activo {
+            background-color: #ebfbee;
+            color: #2f9e44;
+            border: 1px solid #b2f2bb;
+        }
+        .status-suspendido {
+            background-color: #fff9db;
+            color: #f59f00;
+            border: 1px solid #ffec99;
+        }
+        .status-inactivo {
+            background-color: #f1f3f5;
+            color: #495057;
+            border: 1px solid #e9ecef;
+        }
+
+        /* --- TIPOS --- */
+        .type-prospecto {
+            background-color: #e7f5ff;
+            color: #1971c2;
+            border: 1px solid #d0ebff;
+        }
+        .type-cliente-nuevo {
+            background-color: #e6fcf5;
+            color: #0ca678;
+            border: 1px solid #96f2d7;
+        }
+        .type-cliente-activo {
+            background-color: #d3f9d8;
+            color: #2b8a3e;
+            border: 1px solid #8ce99a;
+        }
+        .type-cliente-inactivo {
+            background-color: #f8f9fa;
+            color: #868e96;
+            border: 1px solid #dee2e6;
+        }
+        .type-vip {
+            background-color: #f3d9fa;
+            color: #ae3ec9;
+            border: 1px solid #e599f7;
+            font-weight: 700; /* Más grueso para VIP */
+        }
+
+        /* --- RELACIÓN --- */
+        .rel-directo {
+            background-color: #e9ecef;
+            color: #495057;
+            border: 1px solid #dee2e6;
+        }
+        .rel-referido {
+            background-color: #e6fafc;
+            color: #1098ad;
+            border: 1px solid #99e9f2;
+        }
+        .rel-revendedor {
+            background-color: #e0e7ff;
+            color: #4c6ef5;
+            border: 1px solid #a5b4fc;
+        }
+
+        /* ==========================================
+        ESTILO MODAL (IGUAL QUE ACTIVIDADES)
+        ========================================== */
+        .modal-sheet .modal-content {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            overflow: hidden; /* Importante: corta el contenido redondeado */
+        }
+        
+        /* Aquí está la magia: El body crece hasta 70vh y hace scroll */
+        .modal-sheet .modal-body {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        /* Barra de scroll fina y bonita */
+        .modal-sheet .modal-body::-webkit-scrollbar { width: 6px; }
+        .modal-sheet .modal-body::-webkit-scrollbar-thumb { background-color: #dee2e6; border-radius: 4px; }
+        .modal-sheet .modal-body::-webkit-scrollbar-track { background-color: #f1f3f5; }
+    </style>
+
+<div class="container-fluid py-2 px-4">
+
+    <!-- HEADER -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <div>
+            <h4 class="section-title mb-0">Clientes</h4>
+            <span class="section-subtitle">Directorio de clientes y contactos</span>
+        </div>
+        
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-brand text-white btn-pro" 
+                    data-bs-toggle="modal" 
+                    data-bs-target="#modalCrearCliente">
+                <i></i> + Nuevo Cliente
+            </button>
+        </div>
+    </div>
+
+    <!-- TARJETA TABLA -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-pro mb-0">
+                    <thead>
+                        <tr>
+                            <th class="text-center" style="width: 80px;">Acciones</th>
+                            <th class="text-center" style="width: 60px;">ID</th>
+                            <th class="text-center">Cliente</th>
+                            <th class="text-center">RFC</th>
+                            <th class="text-center">Correo</th>
+                            <th class="text-center">Teléfono</th>
+                            <th class="text-center">Tipo</th> <!-- NUEVO -->
+                            <th class="text-center">Relación</th> <!-- NUEVO -->
+                            <th class="text-center">Estado</th> <!-- ACTUALIZADO -->
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in clientes %}
+                        <tr>
+                            <!-- 1. Acciones -->
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-1">
+                                    <span onclick="cargarClienteEdicion({{ c.id }}); return false;" class="icon-action" title="Editar">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </span>
+                                    <button onclick="abrirAgenda({{ c.id }}, '{{ c.nombre_completo|escapejs }}')" class="icon-action border-0 bg-transparent p-0 m-0" title="Agenda de Contactos">
+                                        <i class="bi bi-journal-bookmark"></i>
+                                    </button>
+                                </div>
+                            </td>
+
+                            <!-- 2. ID -->
+                            <td class="text-center text-muted font-monospace">{{ c.id }}</td>
+                            
+                            <!-- 3. Nombre -->
+                            <td class="text-center">
+                                <div class="fw-bold text-dark">{{ c.nombre_completo }}</div>
+                                {% if c.razon_social %}
+                                <div class="text-muted small">Contacto: {{ c.nombre }} {{ c.apellidos }}</div>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- 4. RFC -->
+                            <td class="text-center">
+                                <span class="text-muted small text-uppercase font-monospace">{{ c.rfc|default:"--" }}</span>
+                            </td>
+                            
+                            <!-- 5. Contacto -->
+                            <td class="text-center">
+                                <div class="text-dark small">{{ c.email|default:"--" }}</div>
+                            </td>
+                            
+                            <!-- 6. Teléfono -->
+                            <td class="text-center">
+                                <span class="text-muted small">{{ c.telefono|default:"--" }}</span>
+                            </td>
+
+                            <!-- 7. TIPO (NUEVO) -->
+                            <td class="text-center">
+                                {% if c.tipo == 'prospecto' %}
+                                    <span class="client-pill type-prospecto">Prospecto</span>
+                                {% elif c.tipo == 'cliente_nuevo' %}
+                                    <span class="client-pill type-cliente-nuevo">Nuevo</span>
+                                {% elif c.tipo == 'cliente_activo' %}
+                                    <span class="client-pill type-cliente-activo">Activo</span>
+                                {% elif c.tipo == 'cliente_inactivo' %}
+                                    <span class="client-pill type-cliente-inactivo">Inactivo</span>
+                                {% elif c.tipo == 'vip' %}
+                                    <span class="client-pill type-vip">VIP</span>
+                                {% else %}
+                                    <span class="client-pill">{{ c.tipo|default:"--"|title }}</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- 8. RELACIÓN (NUEVO) -->
+                            <td class="text-center">
+                                {% if c.relacion == 'directo' %}
+                                    <span class="client-pill rel-directo">Directo</span>
+                                {% elif c.relacion == 'referido' %}
+                                    <span class="client-pill rel-referido">Referido</span>
+                                {% elif c.relacion == 'revendedor' %}
+                                    <span class="client-pill rel-revendedor">Revendedor</span>
+                                {% else %}
+                                    <span class="client-pill">{{ c.relacion|default:"--"|title }}</span>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- 9. ESTADO (ACTUALIZADO) -->
+                            <td class="text-center">
+                                {% if c.estado == 'activo' %}
+                                    <span class="client-pill status-activo">Activo</span>
+                                {% elif c.estado == 'suspendido' %}
+                                    <span class="client-pill status-suspendido">Suspendido</span>
+                                {% elif c.estado == 'inactivo' %}
+                                    <span class="client-pill status-inactivo">Inactivo</span>
+                                {% else %}
+                                    <span class="client-pill">{{ c.estado|default:"--"|title }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-5">
+                                <i class="bi bi-people display-6 text-muted mb-2 d-block"></i>
+                                <span class="text-muted fst-italic small">No hay clientes registrados</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-white border-0 py-2 px-4 d-flex justify-content-between align-items-center">
+            <span class="text-muted small" style="font-size: 0.75rem;">{{ clientes|length}} resultados</span>
+            <div class="d-flex gap-1">
+                 <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;</button>
+                 <button class="btn btn-sm btn-light border-0 text-dark fw-bold">1</button>
+                 <button class="btn btn-sm btn-light border-0 text-muted">&raquo;</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ============================================== -->
+<!-- MODAL: CREAR / EDITAR CLIENTE                 -->
+<!-- ============================================== -->
+<div class="modal fade" id="modalCrearCliente" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+        <div class="modal-content">
+            
+            <div class="modal-header border-bottom bg-light">
+                <h5 class="modal-title fw-bold" id="tituloModalCliente">Nuevo Cliente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body p-3 bg-light">
+                <!-- Mostramos errores globales si existen -->
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger py-2 small">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                <!-- IMPORTANTE: El ID 'formCliente' es vital para que el botón del footer funcione -->
+                <form method="post" action="{% url 'crear_cliente' %}" id="formCliente">
+                    {% csrf_token %}
+                    
+                    <!-- SECCIÓN 1: CLASIFICACIÓN -->
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body p-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Clasificación</h6>
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-secondary">Estado</label>
+                                    <select name="estado" id="inputEstado" class="form-select form-select-sm">
+                                        <option value="activo">Activo</option>
+                                        <option value="suspendido">Suspendido</option>
+                                        <option value="inactivo">Inactivo</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-secondary">Tipo</label>
+                                    <select name="tipo" id="inputTipo" class="form-select form-select-sm">
+                                        <option value="prospecto">Prospecto</option>
+                                        <option value="cliente_nuevo">Cliente Nuevo</option>
+                                        <option value="cliente_activo">Cliente Activo</option>
+                                        <option value="cliente_inactivo">Cliente Inactivo</option>
+                                        <option value="vip">VIP</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-secondary">Relación</label>
+                                    <select name="relacion" id="inputRelacion" class="form-select form-select-sm">
+                                        <option value="directo">Directo</option>
+                                        <option value="referido">Referido</option>
+                                        <option value="revendedor">Revendedor</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 2: DATOS PERSONALES Y FISCALES -->
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body p-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Información General</h6>
+                            <div class="row g-3">
+                                <!-- Fila 1: Datos de Persona -->
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-secondary">Nombre</label>
+                                    {{ form.nombre }}
+                                    {% if form.nombre.errors %}
+                                        <div class="text-danger small mt-1">{{ form.nombre.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-secondary">Apellidos</label>
+                                    {{ form.apellidos }}
+                                    {% if form.apellidos.errors %}
+                                        <div class="text-danger small mt-1">{{ form.apellidos.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Fila 2: Datos Fiscales -->
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-secondary">Razón Social <span class="text-muted fw-normal">(Opcional - Empresas)</span></label>
+                                    {{ form.razon_social }}
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-secondary">RFC</label>
+                                    {{ form.rfc }}
+                                    {% if form.rfc.errors %}
+                                        <div class="text-danger small mt-1">{{ form.rfc.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Fila 3: Contacto -->
+                                <div class="col-12">
+                                    <label class="form-label small fw-bold text-secondary">Correo Electrónico</label>
+                                    {{ form.email }}
+                                    {% if form.email.errors %}
+                                        <div class="text-danger small mt-1">{{ form.email.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label small fw-bold text-secondary">Teléfono</label>
+                                    {{ form.telefono }}
+                                    {% if form.telefono.errors %}
+                                        <div class="text-danger small mt-1">{{ form.telefono.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 3: DIRECCIÓN (COLAPSABLE) -->
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body p-0">
+                            <button class="btn btn-sm btn-light border text-secondary w-100 d-flex justify-content-between align-items-center px-3 py-2" 
+                                    type="button" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#collapseDireccion" 
+                                    aria-expanded="false" 
+                                    aria-controls="collapseDireccion">
+                                <span><i class="bi bi-geo-alt-fill text-primary me-2"></i>Información de Dirección</span>
+                                <i class="bi bi-chevron-down small transition-icon"></i>
+                            </button>
+                        </div>
+                        <div class="collapse" id="collapseDireccion">
+                            <div class="bg-light p-3 border-top">
+                                <div class="row g-2">
+                                    <div class="col-md-8">
+                                        <label class="form-label small text-muted mb-0">Calle</label>
+                                        <input type="text" name="calle" id="inputCalle" class="form-control form-control-sm" placeholder="Calle y número">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted mb-0">Num. Ext</label>
+                                        <input type="text" name="numero_ext" id="inputNumExt" class="form-control form-control-sm" placeholder="#">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted mb-0">Num. Int</label>
+                                        <input type="text" name="numero_int" id="inputNumInt" class="form-control form-control-sm" placeholder="Int (Opc)">
+                                    </div>
+                                    <div class="col-md-8">
+                                        <label class="form-label small text-muted mb-0">Colonia</label>
+                                        <input type="text" name="colonia" id="inputColonia" class="form-control form-control-sm" placeholder="Colonia">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted mb-0">Estado</label>
+                                        <input type="text" name="estado_dir" id="inputEstadoDir" class="form-control form-control-sm" placeholder="Estado">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted mb-0">C.P.</label>
+                                        <input type="text" name="cp" id="inputCP" class="form-control form-control-sm" placeholder="Código Postal">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 4: DIRECCIÓN DE ENVÍO (COLAPSABLE) -->
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body p-0">
+                            <button class="btn btn-sm btn-light border text-secondary w-100 d-flex justify-content-between align-items-center px-3 py-2" 
+                                    type="button" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#collapseDireccionEnvio" 
+                                    aria-expanded="false" 
+                                    aria-controls="collapseDireccionEnvio">
+                                <span><i class="bi bi-truck text-success me-2"></i>Información de Envío</span>
+                                <i class="bi bi-chevron-down small transition-icon"></i>
+                            </button>
+                        </div>
+                        <div class="collapse" id="collapseDireccionEnvio">
+                            <div class="bg-light p-3 border-top">
+                                <div class="row g-2">
+                                    <!-- Dirección Física Envío -->
+                                    <div class="col-md-8">
+                                        <label class="form-label small text-muted mb-0">Calle Envío</label>
+                                        <input type="text" name="envio_calle" id="inputEnvioCalle" class="form-control form-control-sm" placeholder="Calle y número">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted mb-0">Num. Ext</label>
+                                        <input type="text" name="envio_numero_ext" id="inputEnvioNumExt" class="form-control form-control-sm" placeholder="#">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted mb-0">Num. Int</label>
+                                        <input type="text" name="envio_numero_int" id="inputEnvioNumInt" class="form-control form-control-sm" placeholder="Int (Opc)">
+                                    </div>
+                                    <div class="col-md-8">
+                                        <label class="form-label small text-muted mb-0">Colonia Envío</label>
+                                        <input type="text" name="envio_colonia" id="inputEnvioColonia" class="form-control form-control-sm" placeholder="Colonia">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted mb-0">Estado Envío</label>
+                                        <input type="text" name="envio_estado" id="inputEnvioEstado" class="form-control form-control-sm" placeholder="Estado">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted mb-0">C.P. Envío</label>
+                                        <input type="text" name="envio_cp" id="inputEnvioCP" class="form-control form-control-sm" placeholder="Código Postal">
+                                    </div>
+
+                                    <hr class="my-2 text-muted">
+
+                                    <!-- Datos de Recepción -->
+                                    <div class="col-12">
+                                        <label class="form-label small fw-bold text-secondary mb-1">Datos de Recepción</label>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="text" name="envio_quien_recibe" id="inputEnvioRecibe" class="form-control form-control-sm" placeholder="Quién recibe">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="text" name="envio_telefono" id="inputEnvioTel" class="form-control form-control-sm" placeholder="Teléfono">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="email" name="envio_correo" id="inputEnvioCorreo" class="form-control form-control-sm" placeholder="Correo">
+                                    </div>
+                                    <div class="col-12 mt-2">
+                                        <input type="text" name="envio_notas" id="inputEnvioNotas" class="form-control form-control-sm" placeholder="Notas de envío (Ej: Entregar con portón azul)">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- NOTA: Ya no hay botones aquí, el formulario se cierra abajo -->
+                </form> 
+            </div>
+
+            <!-- FOOTER (BOTONES FIJOS) -->
+            <div class="modal-footer border-top bg-white">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <!-- El atributo 'form' vincula este botón con el formulario de arriba -->
+                <button type="submit" form="formCliente" class="btn btn-brand px-4">Guardar</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- ============================================== -->
+<!-- MODAL: AGENDA PRINCIPAL (SOLO LECTURA / LISTA) -->
+<!-- ============================================== -->
+<div class="modal fade" id="modalAgenda" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+        <div class="modal-content">
+            <div class="modal-header border-0 bg-light">
+                <div class="d-flex flex-column">
+                    <h5 class="modal-title fw-bold mb-0">
+                        <i class="bi bi-journal-bookmark me-2 text-secondary"></i>Agenda
+                    </h5>
+                    <small class="text-muted" id="agendaClienteNombre">Cliente</small>
+                </div>
+                
+                <div class="d-flex align-items-center gap-2">
+                    <!-- Botón para abrir el modal de CREAR -->
+                    <button type="button" class="btn btn-brand btn-sm px-3 shadow-sm" 
+                            onclick="abrirModalContacto('crear')">
+                        <i class="bi bi-plus-lg me-1"></i> Agregar Contacto
+                    </button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+            </div>
+            
+            <div class="modal-body p-3 bg-light">
+                <!-- TABLA DE CONTACTOS -->
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body p-0">
+                        <table class="table table-sm table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3">Contacto</th>
+                                    <th>Teléfonos</th>
+                                    <th>Correos</th>
+                                    <th class="text-end pe-3" style="width: 100px;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaAgendaCuerpo">
+                                <!-- Filas dinámicas -->
+                            </tbody>
+                        </table>
+                        <div id="agendaVacio" class="text-center py-5 text-muted small fst-italic bg-white">
+                            <i class="bi bi-person-x display-6 d-block mb-2 text-muted opacity-50"></i>
+                            No hay contactos registrados.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer border-0 bg-white">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-brand btn-sm px-4 shadow-sm" onclick="guardarAgenda()">
+                    <i class="bi bi-save me-1"></i> Guardar Cambios
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================== -->
+<!-- MODAL SECUNDARIO: CREAR / EDITAR CONTACTO      -->
+<!-- ============================================== -->
+<div class="modal fade" id="modalFormularioContacto" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold" id="tituloModalContacto">Nuevo Contacto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body p-4">
+                <!-- Input oculto para saber si estamos editando o creando -->
+                <input type="hidden" id="contactoIdTemp">
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-secondary">Nombre Completo <span class="text-danger">*</span></label>
+                    <input type="text" id="inputNombreContacto" class="form-control" placeholder="Ej. Juan Pérez">
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label small text-muted">Teléfono 1</label>
+                        <input type="text" id="inputT1Contacto" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small text-muted">Teléfono 2</label>
+                        <input type="text" id="inputT2Contacto" class="form-control form-control-sm">
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label small text-muted">Correo 1</label>
+                        <input type="email" id="inputE1Contacto" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small text-muted">Correo 2</label>
+                        <input type="email" id="inputE2Contacto" class="form-control form-control-sm">
+                    </div>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label small text-muted">Notas</label>
+                    <textarea id="inputNotasContacto" class="form-control form-control-sm" rows="2" placeholder="Detalles adicionales..."></textarea>
+                </div>
+            </div>
+            
+            <div class="modal-footer border-0 bg-white">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-brand btn-sm px-4" onclick="guardarContactoIndividual()">
+                    Aceptar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+
+    let clienteIdAgenda = null;
+    let filaEditando = null; 
+
+    // ==========================================
+    // 1. FUNCIÓN: Resetear Modal Cliente
+    // ==========================================
+    function resetModalCliente() {
+        const form = document.querySelector('#formCliente');
+        if (form) form.reset();
+
+        document.querySelector('#tituloModalCliente').innerHTML = 'Nuevo Cliente';
+        form.action = "{% url 'crear_cliente' %}";
+
+        // --- LIMPIEZA DE CAMPOS PRINCIPALES ---
+        const campos = [
+            { name: 'nombre', ph: 'Nombre' },
+            { name: 'apellidos', ph: 'Apellidos' },
+            { name: 'razon_social', ph: 'Razón Social (Opcional - Empresas)' },
+            { name: 'rfc', ph: 'RFC' },
+            { name: 'email', ph: 'Correo Electrónico' },
+            { name: 'telefono', ph: 'Teléfono' }
+        ];
+
+        campos.forEach(campo => {
+            const input = document.querySelector(`input[name="${campo.name}"]`);
+            if (input) {
+                input.value = '';
+                input.placeholder = campo.ph;
+            }
+        });
+
+        // --- NUEVO: LIMPIEZA DE CLASIFICACIÓN (NUEVOS CAMPOS) ---
+        document.getElementById('inputEstado').value = 'activo';
+        document.getElementById('inputTipo').value = 'prospecto';
+        document.getElementById('inputRelacion').value = 'directo';
+
+        // --- LIMPIEZA DE DIRECCIÓN DE ENVÍO (NUEVO) ---
+        const envioCampos = [
+            { name: 'envio_calle', id: 'inputEnvioCalle', ph: 'Calle' },
+            { name: 'envio_numero_ext', id: 'inputEnvioNumExt', ph: '#' },
+            { name: 'envio_numero_int', id: 'inputEnvioNumInt', ph: 'Int' },
+            { name: 'envio_colonia', id: 'inputEnvioColonia', ph: 'Colonia' },
+            { name: 'envio_estado', id: 'inputEnvioEstado', ph: 'Estado' },
+            { name: 'envio_cp', id: 'inputEnvioCP', ph: 'CP' },
+            { name: 'envio_quien_recibe', id: 'inputEnvioRecibe', ph: 'Quién recibe' },
+            { name: 'envio_telefono', id: 'inputEnvioTel', ph: 'Teléfono' },
+            { name: 'envio_correo', id: 'inputEnvioCorreo', ph: 'Correo' },
+            { name: 'envio_notas', id: 'inputEnvioNotas', ph: 'Notas' }
+        ];
+
+        envioCampos.forEach(campo => {
+            const input = document.getElementById(campo.id);
+            if (input) {
+                input.value = '';
+                input.placeholder = campo.ph;
+            }
+        });
+
+        // Cerrar el colapsable de dirección al resetear
+        const collapseElement = document.getElementById('collapseDireccion');
+        if (collapseElement && collapseElement.classList.contains('show')) {
+            const bsCollapse = new bootstrap.Collapse(collapseElement, {toggle: true});
+        }
+    }
+
+    // ==========================================
+    // 2. LÓGICA MODAL AGENDA (REDISEÑADA)
+    // ==========================================
+    
+    // Instancias de modales para controlar mejor la apertura/cierre
+    let modalAgendaInstance = null;
+    let modalFormularioInstance = null;
+
+    function abrirAgenda(id, nombreCliente) {
+        clienteIdAgenda = id;
+        document.getElementById('agendaClienteNombre').textContent = nombreCliente || '';
+        
+        // Limpiar tabla
+        document.getElementById('tablaAgendaCuerpo').innerHTML = '';
+        document.getElementById('agendaVacio').style.display = 'block';
+
+        // Cargar contactos existentes
+        fetch(`/api/clientes/${id}/contactos/`)
+            .then(response => response.json())
+            .then(data => {
+                data.forEach(c => {
+                    agregarFilaAgenda(c.id, c.nombre, c.t1, c.t2, c.e1, c.e2, c.notas);
+                });
+                
+                if(data.length > 0) {
+                    document.getElementById('agendaVacio').style.display = 'none';
+                }
+            });
+
+        // Inicializar y mostrar modal principal
+        const elModalAgenda = document.getElementById('modalAgenda');
+        modalAgendaInstance = new bootstrap.Modal(elModalAgenda);
+        modalAgendaInstance.show();
+    }
+
+    // --- Función para abrir el modal de CREAR o EDITAR (ACTUALIZADA) ---
+    function abrirModalContacto(modo, btnEditar = null) {
+        const modalFormEl = document.getElementById('modalFormularioContacto');
+        modalFormularioInstance = new bootstrap.Modal(modalFormEl);
+        
+        const titulo = document.getElementById('tituloModalContacto');
+        const idInput = document.getElementById('contactoIdTemp');
+        const nombreInput = document.getElementById('inputNombreContacto');
+        const t1Input = document.getElementById('inputT1Contacto');
+        const t2Input = document.getElementById('inputT2Contacto');
+        const e1Input = document.getElementById('inputE1Contacto');
+        const e2Input = document.getElementById('inputE2Contacto');
+        const notasInput = document.getElementById('inputNotasContacto');
+
+        if (modo === 'crear') {
+            // Limpiar campos para nuevo contacto
+            titulo.textContent = 'Nuevo Contacto';
+            idInput.value = '';
+            nombreInput.value = '';
+            t1Input.value = '';
+            t2Input.value = '';
+            e1Input.value = '';
+            e2Input.value = '';
+            notasInput.value = '';
+        } else if (modo === 'editar' && btnEditar) {
+            // Llenar campos con datos de la fila
+            const fila = btnEditar.closest('tr');
+            
+            titulo.textContent = 'Editar Contacto';
+            idInput.value = fila.querySelector('.data-id').value;
+            nombreInput.value = fila.querySelector('.data-nombre').value;
+            t1Input.value = fila.querySelector('.data-t1').value;
+            t2Input.value = fila.querySelector('.data-t2').value;
+            e1Input.value = fila.querySelector('.data-e1').value;
+            e2Input.value = fila.querySelector('.data-e2').value;
+            notasInput.value = fila.querySelector('.data-notas').value;
+        }
+
+        // Mostrar el modal secundario
+        modalFormularioInstance.show();
+
+        // ==========================================
+        // FIX: Asegurar que el fondo tape el modal anterior
+        // ==========================================
+        setTimeout(() => {
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            // El último backdrop añadido pertenece a este modal
+            if(backdrops.length > 0) {
+                const activeBackdrop = backdrops[backdrops.length - 1];
+                // Ponemos el backdrop por encima del contenido del modal agenda (1055)
+                activeBackdrop.style.zIndex = '1060'; 
+            }
+            // Ponemos el modal formulario por encima de su propio backdrop
+            document.getElementById('modalFormularioContacto').style.zIndex = '1065';
+        }, 100);
+    }
+
+    // --- Función llamada al dar Aceptar en el modal secundario ---
+    function guardarContactoIndividual() {
+        // Obtener valores
+        const id = document.getElementById('contactoIdTemp').value;
+        const nombre = document.getElementById('inputNombreContacto').value;
+        const t1 = document.getElementById('inputT1Contacto').value;
+        const t2 = document.getElementById('inputT2Contacto').value;
+        const e1 = document.getElementById('inputE1Contacto').value;
+        const e2 = document.getElementById('inputE2Contacto').value;
+        const notas = document.getElementById('inputNotasContacto').value;
+
+        if (!nombre.trim()) {
+            alert('El nombre es obligatorio');
+            return;
+        }
+
+        if (id) {
+            // MODO EDICIÓN: Actualizar la fila existente en la tabla
+            // Buscamos la fila por el ID almacenado en el hidden
+            const filas = document.querySelectorAll('#tablaAgendaCuerpo tr');
+            let filaAEditar = null;
+            filas.forEach(f => {
+                if (f.querySelector('.data-id').value == id) {
+                    filaAEditar = f;
+                }
+            });
+
+            if (filaAEditar) {
+                // Actualizamos el HTML de la fila
+                const telefonos = [t1, t2].filter(t => t).join(' / ');
+                const correos = [e1, e2].filter(e => e).join(' / ');
+
+                filaAEditar.cells[0].innerHTML = `
+                    <div class="fw-bold small text-dark">${nombre}</div>
+                    ${notas ? `<div class="text-muted" style="font-size:0.7rem;">${notas}</div>` : ''}
+                    
+                    <input type="hidden" class="data-id" value="${id}">
+                    <input type="hidden" class="data-nombre" value="${nombre}">
+                    <input type="hidden" class="data-t1" value="${t1}">
+                    <input type="hidden" class="data-t2" value="${t2}">
+                    <input type="hidden" class="data-e1" value="${e1}">
+                    <input type="hidden" class="data-e2" value="${e2}">
+                    <input type="hidden" class="data-notas" value="${notas}">
+                `;
+                filaAEditar.cells[1].textContent = telefonos || '--';
+                filaAEditar.cells[2].textContent = correos || '--';
+            }
+
+        } else {
+            // MODO CREAR: Agregar nueva fila
+            agregarFilaAgenda(null, nombre, t1, t2, e1, e2, notas);
+        }
+
+        // Ocultar modal secundario y limpiar mensaje de vacío
+        modalFormularioInstance.hide();
+        document.getElementById('agendaVacio').style.display = 'none';
+    }
+
+  // --- Función auxiliar para agregar fila HTML (ACTUALIZADA) ---
+    function agregarFilaAgenda(id, nombre, t1, t2, e1, e2, notas) {
+        const telefonos = [t1, t2].filter(t => t).join(' / ');
+        const correos = [e1, e2].filter(e => e).join(' / ');
+
+        const fila = document.createElement('tr');
+        fila.innerHTML = `
+            <td class="ps-3">
+                <div class="fw-bold small text-dark">${nombre || ''}</div>
+                ${notas ? `<div class="text-muted" style="font-size:0.7rem;">${notas}</div>` : ''}
+                
+                <input type="hidden" class="data-id" value="${id || ''}">
+                <input type="hidden" class="data-nombre" value="${nombre || ''}">
+                <input type="hidden" class="data-t1" value="${t1 || ''}">
+                <input type="hidden" class="data-t2" value="${t2 || ''}">
+                <input type="hidden" class="data-e1" value="${e1 || ''}">
+                <input type="hidden" class="data-e2" value="${e2 || ''}">
+                <input type="hidden" class="data-notas" value="${notas || ''}">
+            </td>
+            <td class="small text-muted">${telefonos || '--'}</td>
+            <td class="small text-muted">${correos || '--'}</td>
+            <td class="text-end pe-3">
+                <div class="d-flex justify-content-end gap-1">
+                    <!-- Botón Editar con estilo .icon-action -->
+                    <span onclick="abrirModalContacto('editar', this)" class="icon-action" title="Editar">
+                        <i class="bi bi-pencil-square"></i>
+                    </span>
+                    
+                    <!-- Botón Eliminar con estilo .icon-action -->
+                    <span onclick="eliminarFilaAgenda(this)" class="icon-action" title="Eliminar">
+                        <i class="bi bi-trash"></i>
+                    </span>
+                </div>
+            </td>
+        `;
+        
+        document.getElementById('tablaAgendaCuerpo').appendChild(fila);
+    }
+
+    function eliminarFilaAgenda(btn) {
+        if(confirm('¿Seguro que deseas eliminar este contacto de la lista?')) {
+            const fila = btn.closest('tr');
+            fila.remove();
+            if(document.getElementById('tablaAgendaCuerpo').children.length === 0) {
+                document.getElementById('agendaVacio').style.display = 'block';
+            }
+        }
+    }
+
+    function guardarAgenda() {
+        // Esta función sigue siendo la misma, recorre las filas visibles
+        const filas = document.querySelectorAll('#tablaAgendaCuerpo tr');
+        let contactos = [];
+
+        filas.forEach(fila => {
+            contactos.push({
+                'id': fila.querySelector('.data-id').value,
+                'nombre': fila.querySelector('.data-nombre').value,
+                't1': fila.querySelector('.data-t1').value,
+                't2': fila.querySelector('.data-t2').value,
+                'e1': fila.querySelector('.data-e1').value,
+                'e2': fila.querySelector('.data-e2').value,
+                'notas': fila.querySelector('.data-notas').value,
+            });
+        });
+
+        fetch(`/api/clientes/guardar/${clienteIdAgenda}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ contactos: contactos })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.success) {
+                alert(`Se guardaron ${data.count} contactos correctamente.`);
+                modalAgendaInstance.hide();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    }
+
+    // ==========================================
+    // 3. LÓGICA MODAL CLIENTE (CREAR/EDITAR)
+    // ==========================================
+
+    function cargarClienteEdicion(id) {
+        // 1. Limpiar el formulario primero
+        resetModalCliente();
+
+        document.querySelector('#tituloModalCliente').innerHTML = 'Editar Cliente';
+        document.querySelector('#formCliente').action = `/clientes/actualizar/${id}/`;
+
+        // 2. Pedir datos al servidor
+        fetch(`/api/clientes/${id}/`)
+            .then(response => response.json())
+            .then(data => {
+                
+                // --- A. Llenar Datos Básicos ---
+                document.querySelector('input[name="nombre"]').value = data.nombre || '';
+                document.querySelector('input[name="apellidos"]').value = data.apellidos || '';
+                document.querySelector('input[name="razon_social"]').value = data.razon_social || '';
+                document.querySelector('input[name="rfc"]').value = data.rfc || '';
+                document.querySelector('input[name="email"]').value = data.email || '';
+                document.querySelector('input[name="telefono"]').value = data.telefono || '';
+
+                // --- B. Llenar Clasificación ---
+                document.getElementById('inputEstado').value = data.estado || 'activo';
+                document.getElementById('inputTipo').value = data.tipo || 'prospecto';
+                document.getElementById('inputRelacion').value = data.relacion || 'directo';
+
+                // --- C. Llenar Datos de Dirección FISCAL (Esta es la parte crítica) ---
+                // Usamos los IDs correctos que definiste en el HTML
+                document.getElementById('inputCalle').value = data.calle || '';
+                document.getElementById('inputNumExt').value = data.numero_ext || '';
+                document.getElementById('inputNumInt').value = data.numero_int || '';
+                document.getElementById('inputColonia').value = data.colonia || '';
+                
+                // IMPORTANTE: En el modelo es 'estado_dir', asegúrate que el HTML tenga ese ID
+                document.getElementById('inputEstadoDir').value = data.estado_dir || '';
+                
+                document.getElementById('inputCP').value = data.cp || '';
+
+                // Si hay datos de dirección fiscal, abrir el colapsable automáticamente
+                if (data.calle || data.colonia || data.cp) {
+                    const collapseElement = document.getElementById('collapseDireccion');
+                    if(collapseElement) {
+                        const bsCollapse = new bootstrap.Collapse(collapseElement, {toggle: true});
+                    }
+                }
+
+                // --- D. Llenar Datos de Dirección de ENVÍO ---
+                document.getElementById('inputEnvioCalle').value = data.envio_calle || '';
+                document.getElementById('inputEnvioNumExt').value = data.envio_numero_ext || '';
+                document.getElementById('inputEnvioNumInt').value = data.envio_numero_int || '';
+                document.getElementById('inputEnvioColonia').value = data.envio_colonia || '';
+                document.getElementById('inputEnvioEstado').value = data.envio_estado || '';
+                document.getElementById('inputEnvioCP').value = data.envio_cp || '';
+                document.getElementById('inputEnvioRecibe').value = data.envio_quien_recibe || '';
+                document.getElementById('inputEnvioTel').value = data.envio_telefono || '';
+                document.getElementById('inputEnvioCorreo').value = data.envio_correo || '';
+                document.getElementById('inputEnvioNotas').value = data.envio_notas || '';
+
+                // Si hay datos de envío, abrir el colapsable automáticamente
+                if (data.envio_calle || data.envio_quien_recibe) {
+                    const collapseElement = document.getElementById('collapseDireccionEnvio');
+                    if(collapseElement) {
+                        const bsCollapse = new bootstrap.Collapse(collapseElement, {toggle: true});
+                    }
+                }
+
+                // 3. Mostrar el modal
+                const myModal = new bootstrap.Modal(document.getElementById('modalCrearCliente'));
+                myModal.show();
+            })
+            .catch(error => {
+                console.error('Error al cargar cliente:', error);
+                alert('Hubo un error al cargar los datos del cliente.');
+            });
+    }
+
+    // ==========================================
+    // 4. EVENT LISTENERS
+    // ==========================================
+
+    document.getElementById('modalCrearCliente').addEventListener('hidden.bs.modal', function() {
+        resetModalCliente();
+    });
+
+    document.querySelector('[data-bs-target="#modalCrearCliente"]').addEventListener('click', function() {
+        resetModalCliente();
+    });
+
+    document.getElementById('modalAgenda').addEventListener('hidden.bs.modal', function() {
+        document.getElementById('tablaAgendaCuerpo').innerHTML = '';
+        document.getElementById('agendaVacio').style.display = 'block';
+        document.getElementById('agendaClienteNombre').textContent = '';
+        clienteIdAgenda = null;
+        
+        const btnAgregar = document.querySelector('#modalAgenda button[onclick^="agregarContactoLista"]');
+        if(btnAgregar) {
+            btnAgregar.textContent = 'Agregar';
+            btnAgregar.classList.remove('btn-warning');
+            btnAgregar.classList.add('btn-brand');
+        }
+        filaEditando = null;
+    });
+
+</script>
+{% endblock %}

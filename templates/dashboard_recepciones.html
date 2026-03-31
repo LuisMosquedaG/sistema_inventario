@@ -1,0 +1,214 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- CARGAR CSS ESPECÍFICO -->
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/recepciones.css' %}">
+
+<!-- CONTENEDOR PRINCIPAL -->
+<div class="container-fluid py-2 px-4">
+
+    <!-- HEADER -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <div>
+            <h4 class="section-title mb-0">Recepciones</h4>
+            <span class="section-subtitle">Validación y entrada de mercancía a almacén</span>
+        </div>
+        
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-brand text-white btn-pro" 
+                    data-bs-toggle="modal" 
+                    data-bs-target="#modalNuevaRecepcion">
+                <i class="bi bi-box-seam me-1"></i> Nueva Recepción
+            </button>
+        </div>
+    </div>
+
+    <!-- TARJETA TABLA DE HISTORIAL -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-pro mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th class="text-center" style="width: 80px;">Acciones</th>
+                            <th class="text-center" style="width: 80px;">Folio</th>
+                            <th class="text-center">Orden Compra</th>
+                            <th class="text-center">Proveedor</th>
+                            <th class="text-center">Almacén</th>
+                            <th class="text-center">Fecha</th>
+                            <th class="text-center" style="width: 120px;">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in page_obj %}
+                        <tr>
+                            <!-- 1. ACCIONES -->
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center">
+                                    <span onclick="verDetalleRecepcion({{ r.id }})" class="icon-action" title="Ver Detalle">
+                                        <i class="bi bi-eye"></i>
+                                    </span>
+
+                                    {% if r.estado == 'pendiente' or r.estado == 'parcial' %}
+                                        <span onclick="cambiarEstadoRecepcion({{ r.id }}, 'completada')" class="icon-action state-complete" title="Finalizar Entrada">
+                                            <i class="bi bi-check-all"></i>
+                                        </span>
+                                    {% elif r.estado == 'completada' %}
+                                        <span class="icon-action" title="Imprimir">
+                                            <i class="bi bi-printer"></i>
+                                        </span>
+                                    {% elif r.estado == 'cancelada' %}
+                                        <span class="icon-action state-cancel" title="Cancelada">
+                                            <i class="bi bi-x-circle-fill"></i>
+                                        </span>
+                                    {% endif %}
+
+                                    {% if r.estado != 'cancelada' %}
+                                        <span onclick="cancelarRecepcionDesdeTabla({{ r.id }})" class="icon-action state-cancel" title="Cancelar Recepción">
+                                            <i class="bi bi-x-circle"></i>
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </td>
+
+                            <!-- 2. FOLIO -->
+                            <td class="text-center font-monospace small">
+                                <span class="text-dark">{{ r.id }}</span>
+                            </td>
+                            
+                            <!-- 3. ORDEN DE COMPRA -->
+                            <td class="text-center">
+                                <div class="text-dark small">
+                                    {% if r.orden_compra %}
+                                        {{ r.orden_compra.id }}
+                                    {% else %}
+                                        <span class="text-muted">Directa</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+
+                            <!-- 4. PROVEEDOR -->
+                            <td class="text-center">
+                                <div class="text-dark">
+                                    {% if r.orden_compra %}
+                                        {{ r.orden_compra.proveedor }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </div>
+                            </td>
+
+                            <!-- 5. ALMACÉN -->
+                            <td class="text-center">
+                                <span class="text-dark">
+                                    {{ r.almacen.nombre|default:"General" }}
+                                </span>
+                            </td>
+
+                            <!-- 6. FECHA -->
+                            <td class="text-center">
+                                <div class="text-dark small">{{ r.fecha|date:"d M Y" }}</div>
+                            </td>
+
+                            <!-- 7. ESTADO -->
+                            <td class="text-center">
+                                {% if r.estado == 'pendiente' %}
+                                    <span class="status-pill status-pendiente">Pendiente</span>
+                                {% elif r.estado == 'parcial' %}
+                                    <span class="status-pill status-parcial">Parcial</span>
+                                {% elif r.estado == 'completada' %}
+                                    <span class="status-pill status-completada">Completada</span>
+                                {% elif r.estado == 'cancelada' %}
+                                    <span class="status-pill status-cancelada">Cancelada</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5"> 
+                                <i class="bi bi-inbox display-6 text-muted mb-2 d-block"></i>
+                                <span class="text-muted fst-italic small">No hay recepciones registradas</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- FOOTER CON PAGINACIÓN -->
+        <div class="card-footer bg-white border-0 py-2 px-4 d-flex justify-content-between align-items-center">
+            <span class="text-muted small" style="font-size: 0.75rem;">
+                Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }}
+            </span>
+            
+            <div class="d-flex gap-1">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-sm btn-light border-0 text-muted">&laquo;</a>
+                {% else %}
+                    <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;</button>
+                {% endif %}
+                
+                <button class="btn btn-sm btn-light border-0 text-dark fw-bold">{{ page_obj.number }}</button>
+                
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}" class="btn btn-sm btn-light border-0 text-muted">&raquo;</a>
+                {% else %}
+                    <button class="btn btn-sm btn-light border-0 text-muted" disabled>&raquo;</button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ============================================== -->
+<!-- INCLUSIÓN DE MODALES -->
+<!-- ============================================== -->
+
+{% include "recepciones/modals/modal_nueva_recepcion.html" %}
+{% include "recepciones/modals/modal_detalle_recepcion.html" %}
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- 1. DEFINIMOS LAS URLS PARA EL JS -->
+<script>
+    const APP_URLS = {
+        api_obtener_items_oc: "/recepciones/api/obtener-items-oc/",
+        api_cambiar_estado: "/recepciones/cambiar-estado/",
+        api_detalle_recepcion: "/recepciones/api/detalle-recepcion/",
+        api_cancelar: "/recepciones/cancelar/"
+    };
+</script>
+
+<!-- 2. CARGAMOS EL JS LIMPIO CON MARCA PARA FORZAR ACTUALIZACIÓN -->
+<script src="{% static 'js/recepciones.js' %}?v={% now 'U' %}"></script>
+
+<script>
+    // Lógica para abrir el modal automáticamente si viene de la oficina de Compras
+    document.addEventListener("DOMContentLoaded", function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const ocId = urlParams.get('oc_id');
+
+        if (ocId) {
+            // 1. Buscamos el modal y el select
+            const modalEl = document.getElementById('modalNuevaRecepcion');
+            const selectOC = document.getElementById('selectOrdenCompra');
+
+            if (modalEl && selectOC) {
+                // 2. Seleccionamos la OC en el dropdown
+                selectOC.value = ocId;
+
+                // 3. Disparamos la carga de artículos (función que ya tienes en recepciones.js)
+                cargarItemsOrdenCompra();
+
+                // 4. Abrimos el modal con estilo
+                const myModal = new bootstrap.Modal(modalEl);
+                myModal.show();
+            }
+        }
+    });
+</script>
+{% endblock %}

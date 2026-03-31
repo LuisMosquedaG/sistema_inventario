@@ -1,0 +1,280 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <style>
+        .icon-action { 
+            color: #adb5bd; font-size: 1.1rem; cursor: pointer; transition: all 0.2s ease; 
+            display: inline-flex; align-items: center; justify-content: center; 
+            width: 32px; height: 32px; border-radius: 6px; 
+            text-decoration: none !important; background: transparent; border: none; 
+        }
+        .icon-action:hover { color: #00b8b9; transform: scale(1.15); background-color: transparent; }
+        
+        .modal.fade .modal-dialog { transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease-out !important; transform: scale(0.9) translateY(-50px) !important; opacity: 0; }
+        .modal.show .modal-dialog { transform: scale(1) translateY(0) !important; opacity: 1; }
+        .modal-sheet .modal-content { border-radius: 12px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.15); overflow: hidden; }
+        
+        .table-pro tbody tr:hover td { background-color: #f8f9fa; }
+        .table-pro tbody tr:last-child td { border-bottom: none; }
+    </style>
+
+    <div class="container-fluid py-2 px-4">
+        <!-- HEADER -->
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+                <h4 class="section-title mb-0">Catálogo de Tests</h4>
+                <span class="section-subtitle">Manuales de revisión y check-lists de calidad</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-brand text-white btn-pro" data-bs-toggle="modal" data-bs-target="#modalNuevoTest">
+                    <i class="bi bi-plus-lg me-1"></i> Nuevo Test
+                </button>
+            </div>
+        </div>
+
+        <!-- TABLA DE TESTS -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-pro mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th class="text-center" style="width: 80px;">Acciones</th>
+                                <th class="ps-4">Nombre del Test</th>
+                                <th>Descripción</th>
+                                <th class="text-center">Tareas</th>
+                                <th class="text-center">Fecha Creación</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for t in tests %}
+                            <tr>
+                                <td class="text-center">
+                                    <div class="d-flex justify-content-center gap-1">
+                                        <span class="icon-action" title="Editar" onclick="abrirModalEdicion({{ t.id }})"><i class="bi bi-pencil-square"></i></span>
+                                        <span class="icon-action" title="Eliminar" onclick="eliminarTest({{ t.id }}, '{{ t.nombre|escapejs }}')"><i class="bi bi-x-circle"></i></span>
+                                    </div>
+                                </td>
+                                <td class="ps-4">
+                                    <div class="fw-bold text-dark">{{ t.nombre }}</div>
+                                </td>
+                                <td class="text-muted small">{{ t.descripcion|default:"--" }}</td>
+                                <td class="text-center">
+                                    <span class="badge bg-light text-brand border">{{ t.items.count }} pasos</span>
+                                </td>
+                                <td class="text-center small text-muted">{{ t.fecha_creacion|date:"d/m/Y" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="text-center py-5 text-muted">No has creado ningún test de calidad todavía.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: NUEVO TEST -->
+    <div class="modal fade" id="modalNuevoTest" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+            <div class="modal-content">
+                <div class="modal-header border-bottom bg-light py-2">
+                    <h5 class="modal-title fw-bold text-dark" id="modalTitulo"><i class="bi bi-check2-square me-2 text-brand"></i>Configurar Nuevo Test</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-3 bg-light">
+                    <!-- ID OCULTO PARA EDICIÓN -->
+                    <input type="hidden" id="testIdActual" value="">
+
+                    <!-- CABECERA DEL TEST -->
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body p-3">
+                            <div class="row g-2">
+                                <div class="col-md-12">
+                                    <label class="form-label small fw-bold text-secondary">Nombre del Test <span class="text-danger">*</span></label>
+                                    <input type="text" id="inputNombreTest" class="form-control form-control-sm" placeholder="Ej. Revisión Final de PC">
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label small fw-bold text-secondary">Descripción / Objetivo</label>
+                                    <textarea id="inputDescTest" class="form-control form-control-sm" rows="1" placeholder="¿Qué se valida en este test?"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LISTADO DE TAREAS (CHECKLIST) -->
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="text-uppercase text-muted fw-bold m-0" style="font-size: 0.75rem; letter-spacing: 1px;">Pasos del Check-list</h6>
+                                <button type="button" class="btn btn-sm btn-brand py-0 px-2 shadow-sm" onclick="agregarFilaTarea()">
+                                    <i class="bi bi-plus-lg"></i> Agregar Tarea
+                                </button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th class="ps-3">Descripción de la Tarea / Verificación</th>
+                                            <th style="width: 40px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tbodyTareas">
+                                        <!-- Filas dinámicas -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div id="msgVacioTareas" class="text-center py-3 text-muted small fst-italic">
+                                No has agregado tareas a este test.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top bg-white py-2">
+                    <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-brand btn-sm px-4 shadow-sm" onclick="guardarTest()">
+                        <i class="bi bi-save me-1"></i> Guardar Test
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function agregarFilaTarea(valor = '') {
+            const tbody = document.getElementById('tbodyTareas');
+            const msgVacio = document.getElementById('msgVacioTareas');
+            msgVacio.style.display = 'none';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="ps-2">
+                    <input type="text" class="form-control form-control-sm border-0 bg-transparent input-tarea" 
+                           placeholder="Escribe la tarea aquí..." value="${valor}">
+                </td>
+                <td class="text-center">
+                    <i class="bi bi-trash text-danger" style="cursor:pointer;" onclick="eliminarFilaTarea(this)"></i>
+                </td>
+            `;
+            tbody.appendChild(tr);
+            tr.querySelector('input').focus();
+        }
+
+        function eliminarFilaTarea(btn) {
+            btn.closest('tr').remove();
+            const tbody = document.getElementById('tbodyTareas');
+            if (tbody.children.length === 0) {
+                document.getElementById('msgVacioTareas').style.display = 'block';
+            }
+        }
+
+        function resetModal() {
+            document.getElementById('modalTitulo').innerHTML = '<i class="bi bi-check2-square me-2 text-brand"></i>Configurar Nuevo Test';
+            document.getElementById('testIdActual').value = '';
+            document.getElementById('inputNombreTest').value = '';
+            document.getElementById('inputDescTest').value = '';
+            document.getElementById('tbodyTareas').innerHTML = '';
+            document.getElementById('msgVacioTareas').style.display = 'block';
+        }
+
+        function abrirModalEdicion(id) {
+            resetModal();
+            document.getElementById('modalTitulo').innerHTML = '<i class="bi bi-pencil-square me-2 text-brand"></i>Editar Test de Calidad';
+            document.getElementById('testIdActual').value = id;
+
+            fetch(`/produccion/api/detalle-test/${id}/`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('inputNombreTest').value = data.nombre;
+                        document.getElementById('inputDescTest').value = data.descripcion || '';
+                        
+                        if (data.tareas && data.tareas.length > 0) {
+                            data.tareas.forEach(t => agregarFilaTarea(t.tarea));
+                        } else {
+                            agregarFilaTarea();
+                        }
+                        
+                        new bootstrap.Modal(document.getElementById('modalNuevoTest')).show();
+                    } else {
+                        alert('Error al cargar datos: ' + data.error);
+                    }
+                });
+        }
+
+        function guardarTest() {
+            const id = document.getElementById('testIdActual').value;
+            const nombre = document.getElementById('inputNombreTest').value;
+            const descripcion = document.getElementById('inputDescTest').value;
+            const tareas = [];
+
+            document.querySelectorAll('.input-tarea').forEach(input => {
+                if (input.value.trim()) tareas.push(input.value.trim());
+            });
+
+            if (!nombre) { alert('El nombre del test es obligatorio mi chingon.'); return; }
+            if (tareas.length === 0) { alert('Debes agregar al menos una tarea al check-list.'); return; }
+
+            const data = {
+                nombre: nombre,
+                descripcion: descripcion,
+                tareas: tareas
+            };
+
+            const url = id ? `/produccion/api/actualizar-test/${id}/` : "{% url 'crear_test_ajax' %}";
+
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    alert(res.message);
+                    location.reload();
+                } else {
+                    alert('Error: ' + res.error);
+                }
+            })
+            .catch(e => {
+                console.error(e);
+                alert('Hubo un error al conectar con el servidor.');
+            });
+        }
+
+        function eliminarTest(id, nombre) {
+            if (!confirm(`¿Estás seguro de eliminar el test "${nombre}"?\nEsta acción no se puede deshacer.`)) return;
+
+            fetch(`/produccion/api/eliminar-test/${id}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    alert(res.message);
+                    location.reload();
+                } else {
+                    alert('Error: ' + res.error);
+                }
+            });
+        }
+
+        // Al abrir el modal para "Nuevo", resetear todo
+        document.querySelector('[data-bs-target="#modalNuevoTest"]').addEventListener('click', resetModal);
+
+        // Agregar una fila vacía al abrir el modal por primera vez si no hay nada
+        document.getElementById('modalNuevoTest').addEventListener('shown.bs.modal', function () {
+            const tbody = document.getElementById('tbodyTareas');
+            if (tbody.children.length === 0) {
+                agregarFilaTarea();
+            }
+        });
+    </script>
+{% endblock %}

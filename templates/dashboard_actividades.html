@@ -1,0 +1,759 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <!-- ESTILOS -->
+    <style>
+        /* --- ICONOS DE ACCIÓN --- */
+        .icon-action {
+            color: #adb5bd; font-size: 1.1rem; cursor: pointer; transition: all 0.2s ease;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 32px; height: 32px; border-radius: 6px; text-decoration: none !important;
+        }
+        .icon-action:hover { color: #00b8b9; transform: scale(1.15); }
+        .icon-action:active { transform: scale(0.95); }
+        .icon-action.state-completed:hover { color: #198754 !important; }
+        .icon-action.state-cancelled:hover { color: #dc3545 !important; }
+        
+        /* --- DROPDOWN PERSONALIZADO --- */
+        .custom-select-wrapper { position: relative; user-select: none; width: 100%; }
+        .custom-select { position: relative; display: flex; flex-direction: column; }
+        .custom-select__trigger {
+            position: relative; display: flex; align-items: center;
+            background-color: #fff; border: 1px solid #ced4da; border-radius: 0.25rem;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-box; height: 31px;
+        }
+        .custom-select.open .custom-select__trigger { border-color: #00b8b9; box-shadow: 0 0 0 3px rgba(0, 184, 185, 0.1); }
+        .custom-select__trigger input {
+            width: 100%; border: none; outline: none; background: transparent;
+            padding: 0.375rem 0.75rem; font-size: 0.875rem; color: #212529;
+            font-family: inherit; z-index: 2;
+        }
+        .custom-select__trigger i { position: absolute; right: 10px; color: #6c757d; pointer-events: none; z-index: 1; }
+        .custom-options {
+            position: absolute; display: block; top: 100%; left: 0; right: 0;
+            border: 1px solid #ced4da; border-top: 0; background: #fff;
+            transition: all 0.2s; opacity: 0; visibility: hidden; pointer-events: none;
+            z-index: 2000; max-height: 250px; overflow-y: auto;
+            border-radius: 0 0 0.25rem 0.25rem; box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        }
+        .custom-select.open .custom-options { opacity: 1; visibility: visible; pointer-events: all; margin-top: 2px; }
+        .custom-option {
+            position: relative; display: flex; align-items: center; padding: 8px 12px;
+            font-size: 0.85rem; cursor: pointer; transition: all 0.2s;
+            border-bottom: 1px solid #f1f3f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .custom-option:hover { background-color: #f8f9fa; }
+        .custom-option.selected { background-color: #e6fcf5; color: #0ca678; }
+        .opt-razon { font-weight: 700 !important; color: #212529 !important; margin-right: 8px; flex-shrink: 0; }
+        .opt-contacto { font-weight: 400 !important; color: #6c757d !important; opacity: 1; }
+        .opt-separator { color: #dee2e6; margin-right: 8px; font-size: 0.8rem; }
+        .real-input-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; background: transparent;
+            color: transparent !important; -webkit-text-fill-color: transparent !important; text-shadow: none !important;
+            opacity: 1; padding: 0.375rem 0.75rem; margin: 0; font-size: 0.875rem;
+            font-family: inherit; line-height: 1.5; box-sizing: border-box; z-index: 2; outline: none; caret-color: #000;
+        }
+        .fake-input-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 0.375rem 0.75rem; margin: 0;
+            display: flex; align-items: center; z-index: 1; pointer-events: none;
+            overflow: hidden; white-space: nowrap; box-sizing: border-box; line-height: 1.5;
+        }
+        .typing-text { color: #212529; }
+        .input-cliente-seleccionado { background-color: #f0fff4 !important; border-color: #00b8b9 !important; }
+
+        /* ==========================================
+        PILLS FINAS (ESTADOS Y PRIORIDADES)
+        ========================================== */
+        .status-pill, .priority-pill {
+            display: inline-flex;
+            align-items: center;
+            font-size: 0.7rem;
+            line-height: 1;
+            padding: 0.25em 0.6em;
+            font-weight: 600;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: middle;
+            border-radius: 50px;
+            text-transform: capitalize;
+            letter-spacing: 0.3px;
+            transition: all 0.2s ease-in-out;
+        }
+        /* Borrador - Gris */
+        .status-borrador { background-color: #f1f3f5; color: #495057; border: 1px solid #e9ecef; }
+        /* Pendiente - Amarillo */
+        .status-pendiente { background-color: #fff9db; color: #f59f00; border: 1px solid #ffec99; }
+        /* Completada - Verde */
+        .status-completada { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
+        /* Cancelada - Rojo */
+        .status-cancelada { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
+        /* Prioridades */
+        .priority-low { background-color: #e7f5ff; color: #1971c2; border: 1px solid #d0ebff; }
+        .priority-medium { background-color: #fff4e6; color: #d9480f; border: 1px solid #ffe8cc; }
+        .priority-high { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
+        .priority-urgent { background-color: #ffe3e3; color: #c92a2a; border: 1px solid #ffa8a8; font-weight: 700; }
+
+        /* ==========================================
+        ANIMACIÓN MODAL (IGUAL QUE COTIZACIONES)
+        ========================================== */
+        .modal.fade .modal-dialog {
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease-out !important;
+            transform: scale(0.9) translateY(-50px) !important;
+            opacity: 0;
+        }
+        .modal.show .modal-dialog {
+            transform: scale(1) translateY(0) !important;
+            opacity: 1 !important;
+        }
+        .modal-backdrop {
+            background-color: rgba(26, 37, 47, 0.9) !important;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        .modal-sheet .modal-content {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            overflow: hidden;
+        }
+        .modal-sheet .modal-body {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        .modal-sheet .modal-body::-webkit-scrollbar { width: 6px; }
+        .modal-sheet .modal-body::-webkit-scrollbar-thumb { background-color: #dee2e6; border-radius: 4px; }
+    </style>
+
+    <div class="container-fluid py-2 px-4">
+        <!-- HEADER -->
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+                <h4 class="section-title mb-0">Actividades</h4>
+                <span class="section-subtitle">Gestión de tareas y seguimiento</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-brand text-white btn-pro" data-bs-toggle="modal" data-bs-target="#modalNuevaActividad">
+                    <i class="bi bi-plus-lg me-1"></i> Nueva Actividad
+                </button>
+            </div>
+        </div>
+
+        <!-- TARJETA TABLA -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-pro mb-0">
+                        <thead>
+                            <tr>
+                                <th class="text-center" style="width: 100px;">Acciones</th>
+                                <th class="text-center">Cliente / Cotización</th>
+                                <th class="text-center">Actividad</th>
+                                <th class="text-center">Fecha / Hora</th>
+                                <th class="text-center">Tipo</th>
+                                <th class="text-center">Prioridad</th>
+                                <th class="text-center">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in actividades %}
+                            <tr>
+                                <!-- 1. ACCIONES -->
+                                <td class="text-center">
+                                    <div class="d-flex justify-content-center gap-1">
+                                        {% if a.estado == 'borrador' %}
+                                            <span onclick="cargarParaEdicion({{ a.id }})" class="icon-action" title="Editar"><i class="bi bi-pencil-square"></i></span>
+                                            <span onclick="cambiarEstado({{ a.id }}, 'pendiente')" class="icon-action" title="Aprobar"><i class="bi bi-check-lg"></i></span>
+                                        {% elif a.estado == 'pendiente' %}
+                                            <span onclick="cambiarEstado({{ a.id }}, 'completada')" class="icon-action" title="Completar"><i class="bi bi-check2-circle"></i></span>
+                                            <span onclick="prepararReprogramar({{ a.id }})" class="icon-action" title="Reprogramar"><i class="bi bi-calendar-event"></i></span>
+                                            <span onclick="abrirModalCancelar({{ a.id }})" class="icon-action" title="Cancelar"><i class="bi bi-x-circle"></i></span>
+                                        {% elif a.estado == 'completada' %}
+                                            <span class="icon-action state-completed" style="cursor: default;" title="Finalizada"><i class="bi bi-check-circle"></i></span>
+                                        {% elif a.estado == 'cancelada' %}
+                                            <span class="icon-action state-cancelled" style="cursor: default;" title="Cancelada"><i class="bi bi-x-circle"></i></span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <!-- 2. CLIENTE / COTIZACIÓN -->
+                                <td class="text-center small">
+                                    <div class="fw-bold text-dark">{{ a.cliente.nombre_completo|truncatechars:20 }}</div>
+                                    {% if a.cotizacion %}
+                                    <div class="text-muted" style="font-size: 0.7rem;">Cot: {{ a.cotizacion.folio_completo }}</div>
+                                    {% endif %}
+                                </td>
+                                <!-- 3. ACTIVIDAD -->
+                                <td class="text-center fw-bold text-dark">{{ a.nombre }}</td>
+                                <!-- 4. FECHA / HORA -->
+                                <td class="text-center small">
+                                    <div>{{ a.fecha|date:"d M Y" }}</div>
+                                    <div class="text-muted">{{ a.hora_inicio }} - {{ a.hora_fin|default:"--:--" }}</div>
+                                </td>
+                                <!-- 5. TIPO -->
+                                <td class="text-center">
+                                    <span class="badge bg-light text-secondary border">{{ a.get_tipo_display }}</span>
+                                </td>
+                                <!-- 6. PRIORIDAD -->
+                                <td class="text-center">
+                                    {% if a.prioridad == 'baja' %}<span class="priority-pill priority-low">Baja</span>
+                                    {% elif a.prioridad == 'media' %}<span class="priority-pill priority-medium">Media</span>
+                                    {% elif a.prioridad == 'alta' %}<span class="priority-pill priority-high">Alta</span>
+                                    {% elif a.prioridad == 'urgente' %}<span class="priority-pill priority-urgent">Urgente</span>{% endif %}
+                                </td>
+                                <!-- 7. ESTADO -->
+                                <td class="text-center">
+                                    {% if a.estado == 'borrador' %}<span class="status-pill status-borrador">Borrador</span>
+                                    {% elif a.estado == 'pendiente' %}<span class="status-pill status-pendiente">Pendiente</span>
+                                    {% elif a.estado == 'completada' %}<span class="status-pill status-completada">Completada</span>
+                                    {% elif a.estado == 'cancelada' %}<span class="status-pill status-cancelada">Cancelada</span>{% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-5">
+                                    <i class="bi bi-calendar-x display-6 text-muted mb-2 d-block"></i>
+                                    <span class="text-muted fst-italic small">No hay actividades programadas</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer bg-white border-0 py-2 px-4 d-flex justify-content-between align-items-center">
+                <span class="text-muted small" style="font-size: 0.75rem;">{{ actividades|length }} resultados</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 1: CREAR / EDITAR ACTIVIDAD -->
+    <div class="modal fade" id="modalNuevaActividad" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+            <div class="modal-content">
+                <div class="modal-header border-bottom bg-light">
+                    <h5 class="modal-title fw-bold text-dark" id="tituloModalActividad">
+                        <i class="bi bi-calendar-plus me-2" style="color: #00b8b9;"></i> Nueva Actividad
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="formActividad" method="post" action="{% url 'crear_actividad' %}" novalidate>
+                    {% csrf_token %}
+                    <input type="hidden" name="actividad_id" id="actividad_id_input">
+                    <input type="hidden" name="estado" value="borrador">
+                    
+                    <div class="modal-body p-3 bg-light">
+                        <!-- SECCIÓN 1: DATOS GENERALES -->
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-body p-3">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem;">Información de la Actividad</h6>
+                                <div class="row g-2">
+                                    <div class="col-md-12">
+                                        <label class="form-label small fw-bold text-secondary">Actividad</label>
+                                        <input type="text" name="nombre" id="inputNombre" class="form-control form-control-sm" placeholder="Ej. Seguimiento..." required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Tipo</label>
+                                        <select name="tipo" id="inputTipo" class="form-select form-select-sm">
+                                            <option value="llamada">Llamada</option>
+                                            <option value="visita">Visita</option>
+                                            <option value="reunion">Reunión</option>
+                                            <option value="envio">Envío de Propuesta</option>
+                                            <option value="seguimiento">Seguimiento</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Prioridad</label>
+                                        <select name="prioridad" id="inputPrioridad" class="form-select form-select-sm">
+                                            <option value="baja">Baja</option>
+                                            <option value="media" selected>Media</option>
+                                            <option value="alta">Alta</option>
+                                            <option value="urgente">Urgente</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold text-secondary">Fecha</label>
+                                        <input type="date" name="fecha" id="inputFecha" class="form-control form-control-sm" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold text-secondary">Hora Inicio</label>
+                                        <input type="time" name="hora_inicio" id="inputHoraInicio" class="form-control form-control-sm" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold text-secondary">Hora Fin</label>
+                                        <input type="time" name="hora_fin" id="inputHoraFin" class="form-control form-control-sm">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECCIÓN 2: RELACIÓN -->
+                        <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
+                            <div class="card-body p-3">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem;">Relación con Cliente</h6>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Cliente</label>
+                                        <input type="hidden" name="cliente" id="cliente_id_input" required>
+                                        <div class="custom-select-wrapper" id="wrapperCliente">
+                                            <div class="custom-select">
+                                                <div class="custom-select__trigger">
+                                                    <div id="cliente_display_fake" class="fake-input-layer"><span class="text-muted">Buscar cliente...</span></div>
+                                                    <input type="text" id="cliente_busqueda" autocomplete="off" class="real-input-layer">
+                                                    <i class="bi bi-search"></i>
+                                                </div>
+                                                <div class="custom-options">
+                                                    {% for c in clientes %}
+                                                    <span class="custom-option" data-value="{{ c.id }}" data-search="{{ c.razon_social }} {{ c.nombre }} {{ c.apellidos }}" data-email="{{ c.email }}" data-calle="{{ c.calle|default:'' }}" data-num-ext="{{ c.numero_ext|default:'' }}" data-num-int="{{ c.numero_int|default:'' }}" data-colonia="{{ c.colonia|default:'' }}" data-estado="{{ c.estado_dir|default:'' }}" data-cp="{{ c.cp|default:'' }}">
+                                                        {% if c.razon_social %}<span class="opt-razon">{{ c.razon_social }}</span><span class="opt-separator">|</span><span class="opt-contacto">{{ c.nombre }} {{ c.apellidos }}</span>{% else %}<span class="opt-razon">{{ c.nombre }} {{ c.apellidos }}</span><span class="opt-separator">|</span><span class="opt-contacto">Persona Física</span>{% endif %}
+                                                    </span>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Contacto</label>
+                                        <input type="hidden" name="contacto" id="contacto_id_input">
+                                        <div class="custom-select-wrapper" id="wrapperContacto">
+                                            <div class="custom-select">
+                                                <div class="custom-select__trigger">
+                                                    <div id="contacto_display_fake" class="fake-input-layer"><span class="text-muted">Selecciona cliente...</span></div>
+                                                    <input type="text" id="contacto_busqueda" autocomplete="off" class="real-input-layer" placeholder="" disabled>
+                                                    <i class="bi bi-person"></i>
+                                                </div>
+                                                <div class="custom-options"><span class="custom-option disabled text-muted small">Selecciona un cliente</span></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Cotización</label>
+                                        <input type="hidden" name="cotizacion" id="cotizacion_id_input">
+                                        <div class="custom-select-wrapper" id="wrapperCotizacion">
+                                            <div class="custom-select">
+                                                <div class="custom-select__trigger">
+                                                    <div id="cotizacion_display_fake" class="fake-input-layer"><span class="text-muted">Selecciona cliente...</span></div>
+                                                    <input type="text" id="cotizacion_busqueda" autocomplete="off" class="real-input-layer" placeholder="" disabled>
+                                                    <i class="bi bi-file-earmark-text"></i>
+                                                </div>
+                                                <div class="custom-options"><span class="custom-option disabled text-muted small">Selecciona un cliente</span></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Correo</label>
+                                        <!-- QUITAMOS 'readonly' y 'bg-light' -->
+                                        <input type="email" name="correo" id="inputCorreo" class="form-control form-control-sm" placeholder="Correo electrónico...">
+                                    </div>
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-md-12">
+                                        <label class="form-label small fw-bold text-secondary">Dirección</label>
+                                        <!-- QUITAMOS 'readonly' y 'bg-light' -->
+                                        <input type="text" name="direccion" id="inputDireccion" class="form-control form-control-sm" placeholder="Dirección completa...">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- DESCRIPCIÓN -->
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body p-3">
+                                <label class="form-label small fw-bold text-secondary">Descripción</label>
+                                <textarea name="descripcion" id="inputDescripcion" class="form-control form-control-sm" rows="3" placeholder="Detalles..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-top bg-white">
+                        <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-brand btn-sm px-4">Guardar Actividad</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: CANCELAR ACTIVIDAD -->
+    <!-- AGREGADA CLASE 'modal-sheet' PARA EL ESTILO VISUAL CONSISTENTE -->
+    <div class="modal fade" id="modalCancelarActividad" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sheet">
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold text-danger">Cancelar Actividad</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="cancelar_id_input">
+                    <label class="form-label small fw-bold text-secondary">Motivo de cancelación:</label>
+                    <textarea id="cancelar_motivo" class="form-control" rows="4" placeholder="Escribe el motivo..."></textarea>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light text-secondary" data-bs-dismiss="modal">Volver</button>
+                    <button type="button" onclick="confirmarCancelar()" class="btn btn-danger">Confirmar Cancelación</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: REPROGRAMAR ACTIVIDAD -->
+    <!-- AGREGADA CLASE 'modal-sheet' PARA EL ESTILO VISUAL CONSISTENTE -->
+    <div class="modal fade" id="modalReprogramarActividad" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sheet">
+            <div class="modal-content">
+                <div class="modal-header border-bottom bg-light">
+                    <h5 class="modal-title fw-bold text-dark">Reprogramar Actividad</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="formReprogramar">
+                    {% csrf_token %}
+                    <input type="hidden" id="reprogramar_id_input">
+                    <div class="modal-body p-4">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-secondary">Nueva Fecha</label>
+                            <input type="date" id="reprogramar_fecha" class="form-control" required>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <label class="form-label small fw-bold text-secondary">Hora Inicio</label>
+                                <input type="time" id="reprogramar_hora_inicio" class="form-control" required>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small fw-bold text-secondary">Hora Fin</label>
+                                <input type="time" id="reprogramar_hora_fin" class="form-control">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-secondary">Descripción / Notas</label>
+                            <textarea id="reprogramar_descripcion" class="form-control" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0">
+                        <button type="button" class="btn btn-light text-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-brand">Guardar Cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- VARIABLES GLOBALES CLIENTE ---
+        const wrapperCliente = document.getElementById('wrapperCliente');
+        const selectCliente = wrapperCliente.querySelector('.custom-select');
+        const inputCliente = document.getElementById('cliente_busqueda');
+        const fakeCliente = document.getElementById('cliente_display_fake');
+        const hiddenCliente = document.getElementById('cliente_id_input');
+        const optionsClienteContainer = wrapperCliente.querySelector('.custom-options');
+        const opcionesCliente = optionsClienteContainer.querySelectorAll('.custom-option');
+        
+        const wrapperContacto = document.getElementById('wrapperContacto');
+        const selectContacto = wrapperContacto.querySelector('.custom-select');
+        const inputContacto = document.getElementById('contacto_busqueda');
+        const fakeContacto = document.getElementById('contacto_display_fake');
+        const hiddenContacto = document.getElementById('contacto_id_input');
+        const optionsContacto = wrapperContacto.querySelector('.custom-options');
+
+        const wrapperCotizacion = document.getElementById('wrapperCotizacion');
+        const selectCotizacion = wrapperCotizacion.querySelector('.custom-select');
+        const inputCotizacion = document.getElementById('cotizacion_busqueda');
+        const fakeCotizacion = document.getElementById('cotizacion_display_fake');
+        const hiddenCotizacion = document.getElementById('cotizacion_id_input');
+        const optionsCotizacion = wrapperCotizacion.querySelector('.custom-options');
+
+        // --- LÓGICA DE LIMPIEZA ---
+        function limpiarFormularioActividad() {
+            document.getElementById('formActividad').reset();
+            document.getElementById('formActividad').action = "{% url 'crear_actividad' %}";
+            document.getElementById('actividad_id_input').value = '';
+            document.getElementById('tituloModalActividad').innerHTML = '<i class="bi bi-calendar-plus me-2" style="color: #00b8b9;"></i> Nueva Actividad';
+            
+            hiddenCliente.value = ''; inputCliente.value = ''; 
+            fakeCliente.innerHTML = '<span class="text-muted">Buscar cliente...</span>';
+            opcionesCliente.forEach(opt => opt.classList.remove('selected'));
+            hiddenContacto.value = ''; inputContacto.value = ''; inputContacto.disabled = true;
+            fakeContacto.textContent = 'Selecciona cliente...';
+            optionsContacto.innerHTML = '<span class="custom-option disabled text-muted small">Selecciona un cliente</span>';
+            hiddenCotizacion.value = ''; inputCotizacion.value = ''; inputCotizacion.disabled = true;
+            fakeCotizacion.textContent = 'Selecciona cliente...';
+            optionsCotizacion.innerHTML = '<span class="custom-option disabled text-muted small">Selecciona un cliente</span>';
+            document.getElementById('inputCorreo').value = '';
+            document.getElementById('inputDireccion').value = '';
+        }
+
+        const modalActividad = document.getElementById('modalNuevaActividad');
+        if (modalActividad) {
+            modalActividad.addEventListener('show.bs.modal', function () {
+                if(!document.getElementById('actividad_id_input').value) {
+                    limpiarFormularioActividad();
+                }
+            });
+        }
+
+        // --- LÓGICA CLIENTE, CONTACTO, COTIZACIÓN ---
+        inputCliente.addEventListener('input', function() {
+            const term = this.value.toLowerCase();
+            fakeCliente.innerHTML = `<span class="typing-text">${this.value}</span>`;
+            opcionesCliente.forEach(opt => {
+                const search = opt.getAttribute('data-search').toLowerCase();
+                opt.style.display = search.includes(term) ? 'flex' : 'none';
+            });
+            selectCliente.classList.add('open');
+        });
+
+        inputCliente.addEventListener('focus', () => selectCliente.classList.add('open'));
+        
+        opcionesCliente.forEach(opt => {
+            opt.addEventListener('click', function(e) {
+                e.stopPropagation(); 
+                opcionesCliente.forEach(o => o.classList.remove('selected'));
+                this.classList.add('selected'); 
+                fakeCliente.innerHTML = this.innerHTML;
+                inputCliente.value = this.textContent.replace(/\s+/g, ' ').trim();
+                hiddenCliente.value = this.getAttribute('data-value');
+                selectCliente.classList.remove('open');
+                
+                cargarDependencias(hiddenCliente.value);
+
+                // Lógica Correo
+                const emailCliente = this.getAttribute('data-email');
+                document.getElementById('inputCorreo').value = emailCliente || '';
+
+                // --- NUEVA LÓGICA CON ETIQUETAS EXPLÍCITAS ---
+                const partes = [];
+                
+                const calle = this.getAttribute('data-calle') || '';
+                const numExt = this.getAttribute('data-num-ext') || '';
+                const numInt = this.getAttribute('data-num-int') || '';
+                const colonia = this.getAttribute('data-colonia') || '';
+                const estado = this.getAttribute('data-estado') || ''; 
+                const cp = this.getAttribute('data-cp') || '';
+
+                // Agregamos etiqueta a cada campo si tiene valor
+                if (calle) partes.push('Calle: ' + calle);
+                if (numExt) partes.push('Num ext: ' + numExt);
+                if (numInt) partes.push('Num int: ' + numInt);
+                if (colonia) partes.push('Col: ' + colonia);
+                if (estado) partes.push('Est: ' + estado);
+                if (cp) partes.push('Cp: ' + cp);
+
+                document.getElementById('inputDireccion').value = partes.join(', ');
+                // ------------------------------------------------
+            });
+        });
+
+        function cargarDependencias(clienteId) {
+            if(!clienteId) return;
+            fetch(`/actividades/api/cliente/${clienteId}/datos/`).then(response => response.json()).then(data => {
+                optionsContacto.innerHTML = '';
+                if(data.contactos.length > 0) {
+                    data.contactos.forEach(c => {
+                        optionsContacto.insertAdjacentHTML('beforeend', `<span class="custom-option" data-value="${c.id}" data-correo="${c.correo_1}"><span class="opt-razon">${c.nombre_completo}</span></span>`);
+                    });
+                    inputContacto.disabled = false; fakeContacto.textContent = 'Seleccionar contacto...';
+                    activarLogicaContacto();
+                } else {
+                    optionsContacto.innerHTML = '<span class="custom-option disabled text-muted small">Sin contactos</span>';
+                    inputContacto.disabled = true; fakeContacto.textContent = 'Sin contactos';
+                }
+                optionsCotizacion.innerHTML = '';
+                if(data.cotizaciones.length > 0) {
+                    data.cotizaciones.forEach(c => {
+                        optionsCotizacion.insertAdjacentHTML('beforeend', `<span class="custom-option" data-value="${c.id}"><span class="opt-razon">${c.folio_completo}</span></span>`);
+                    });
+                    inputCotizacion.disabled = false; fakeCotizacion.textContent = 'Seleccionar cotización...';
+                    activarLogicaCotizacion();
+                } else {
+                    optionsCotizacion.innerHTML = '<span class="custom-option disabled text-muted small">Sin cotizaciones</span>';
+                    inputCotizacion.disabled = true; fakeCotizacion.textContent = 'Sin cotizaciones';
+                }
+            });
+        }
+        function activarLogicaContacto() {
+            const opts = optionsContacto.querySelectorAll('.custom-option:not(.disabled)');
+            opts.forEach(opt => {
+                if(opt.hasAttribute('data-listener')) return; opt.setAttribute('data-listener', 'true');
+                opt.addEventListener('click', function(e){
+                    e.stopPropagation(); opts.forEach(o => o.classList.remove('selected')); this.classList.add('selected');
+                    const nombre = this.querySelector('.opt-razon').textContent; const correoContacto = this.getAttribute('data-correo');
+                    fakeContacto.textContent = nombre; inputContacto.value = nombre;
+                    hiddenContacto.value = this.getAttribute('data-value'); selectContacto.classList.remove('open');
+                    if(correoContacto) document.getElementById('inputCorreo').value = correoContacto;
+                });
+            });
+        }
+        function activarLogicaCotizacion() {
+            const opts = optionsCotizacion.querySelectorAll('.custom-option:not(.disabled)');
+            opts.forEach(opt => {
+                if(opt.hasAttribute('data-listener')) return; opt.setAttribute('data-listener', 'true');
+                opt.addEventListener('click', function(e){
+                    e.stopPropagation(); opts.forEach(o => o.classList.remove('selected')); this.classList.add('selected');
+                    fakeCotizacion.textContent = this.querySelector('.opt-razon').textContent;
+                    inputCotizacion.value = fakeCotizacion.textContent;
+                    hiddenCotizacion.value = this.getAttribute('data-value');
+                    selectCotizacion.classList.remove('open');
+                });
+            });
+        }
+        inputContacto.addEventListener('focus', () => { if(!inputContacto.disabled) selectContacto.classList.add('open'); });
+        inputCotizacion.addEventListener('focus', () => { if(!inputCotizacion.disabled) selectCotizacion.classList.add('open'); });
+        window.addEventListener('click', (e) => {
+            if(!selectCliente.contains(e.target)) {
+                selectCliente.classList.remove('open');
+                if(inputCliente.value === '' && !hiddenCliente.value) fakeCliente.innerHTML = '<span class="text-muted">Buscar cliente...</span>';
+            }
+            if(!selectContacto.contains(e.target)) selectContacto.classList.remove('open');
+            if(!selectCotizacion.contains(e.target)) selectCotizacion.classList.remove('open');
+        });
+
+        // --- FUNCIONES DE ESTADOS ---
+
+        window.cambiarEstado = function(id, nuevoEstado) {
+            if(!confirm('¿Confirmas que deseas cambiar el estado de esta actividad?')) return;
+            
+            const formData = new FormData();
+            formData.append('nuevo_estado', nuevoEstado);
+
+            fetch(`/actividades/cambiar-estado/${id}/`, {
+                method: 'POST',
+                body: formData,
+                headers: {'X-CSRFToken': getCookie('csrftoken')}
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.success) {
+                    alert(data.mensaje);
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            });
+        };
+
+        window.prepararReprogramar = function(id) {
+            fetch(`/actividades/api/datos/${id}/`)
+            .then(res => res.json())
+            .then(data => {
+                if(data.error) { alert(data.error); return; }
+                document.getElementById('reprogramar_id_input').value = id;
+                document.getElementById('reprogramar_fecha').value = data.fecha;
+                document.getElementById('reprogramar_hora_inicio').value = data.hora_inicio;
+                document.getElementById('reprogramar_hora_fin').value = data.hora_fin;
+                document.getElementById('reprogramar_descripcion').value = data.descripcion;
+                new bootstrap.Modal(document.getElementById('modalReprogramarActividad')).show();
+            });
+        };
+        
+        document.getElementById('formReprogramar').addEventListener('submit', function(e){
+            e.preventDefault();
+            const id = document.getElementById('reprogramar_id_input').value;
+            
+            const formData = new FormData();
+            formData.append('fecha', document.getElementById('reprogramar_fecha').value);
+            formData.append('hora_inicio', document.getElementById('reprogramar_hora_inicio').value);
+            formData.append('hora_fin', document.getElementById('reprogramar_hora_fin').value);
+            formData.append('descripcion', document.getElementById('reprogramar_descripcion').value);
+
+            fetch(`/actividades/reprogramar/${id}/`, {
+                method: 'POST',
+                body: formData,
+                headers: {'X-CSRFToken': getCookie('csrftoken')}
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.success) {
+                    alert('Actividad reprogramada.');
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            });
+        });
+
+        window.abrirModalCancelar = function(id) {
+            document.getElementById('cancelar_id_input').value = id;
+            document.getElementById('cancelar_motivo').value = '';
+            new bootstrap.Modal(document.getElementById('modalCancelarActividad')).show();
+        };
+
+        window.confirmarCancelar = function() {
+            const id = document.getElementById('cancelar_id_input').value;
+            const motivo = document.getElementById('cancelar_motivo').value;
+            if(!motivo) return alert('El motivo es obligatorio');
+
+            const formData = new FormData();
+            formData.append('motivo', motivo);
+
+            fetch(`/actividades/cancelar/${id}/`, {
+                method: 'POST',
+                body: formData,
+                headers: {'X-CSRFToken': getCookie('csrftoken')}
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.success) {
+                    alert('Actividad cancelada.');
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            });
+        };
+
+        window.cargarParaEdicion = function(id) {
+            fetch(`/actividades/api/datos/${id}/`)
+            .then(res => res.json())
+            .then(data => {
+                if(data.error) { alert(data.error); return; }
+                
+                limpiarFormularioActividad();
+                document.getElementById('formActividad').action = `/actividades/editar/${id}/`;
+                document.getElementById('actividad_id_input').value = id;
+                document.getElementById('tituloModalActividad').innerHTML = '<i class="bi bi-pencil-square me-2" style="color: #00b8b9;"></i> Editar Actividad';
+                
+                document.getElementById('inputNombre').value = data.nombre;
+                document.getElementById('inputTipo').value = data.tipo;
+                document.getElementById('inputPrioridad').value = data.prioridad;
+                document.getElementById('inputFecha').value = data.fecha;
+                document.getElementById('inputHoraInicio').value = data.hora_inicio;
+                document.getElementById('inputHoraFin').value = data.hora_fin;
+                document.getElementById('inputDescripcion').value = data.descripcion;
+                
+                const optCliente = document.querySelector(`.custom-option[data-value="${data.cliente}"]`);
+                if(optCliente) { optCliente.click(); cargarDependencias(data.cliente); }
+
+                setTimeout(() => {
+                    if(data.contacto) {
+                        const optContacto = document.querySelector(`#wrapperContacto .custom-option[data-value="${data.contacto}"]`);
+                        if(optContacto) optContacto.click();
+                    }
+                    if(data.cotizacion) {
+                        const optCot = document.querySelector(`#wrapperCotizacion .custom-option[data-value="${data.cotizacion}"]`);
+                        if(optCot) optCot.click();
+                    }
+                }, 400);
+
+                new bootstrap.Modal(document.getElementById('modalNuevaActividad')).show();
+            });
+        };
+
+        document.getElementById('formActividad').addEventListener('submit', function(e){
+            e.preventDefault();
+            const formData = new FormData(this);
+            fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: {'X-CSRFToken': getCookie('csrftoken')}
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.success) { location.reload(); } 
+                else { alert('Error: ' + data.error); }
+            });
+        });
+    });
+</script>
+{% endblock %}

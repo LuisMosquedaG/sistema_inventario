@@ -1,0 +1,174 @@
+<div class="modal fade" id="modalCrearArticulo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+        <div class="modal-content">
+            <div class="modal-header border-bottom bg-light py-2"> 
+                <h5 class="modal-title fw-bold">Nuevo Artículo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body bg-light">
+                <form id="formCrearArticulo">
+                    {% csrf_token %}
+                    <input type="hidden" name="producto_id" id="productoId" value="">
+                    
+                    <!-- SECCIÓN 1: IDENTIFICACIÓN -->
+                    <div class="card border-0 shadow-sm mb-2">
+                        <div class="card-body p-2">
+                            <h6 class="text-uppercase text-muted fw-bold mb-2" style="font-size: 0.7rem; letter-spacing: 1px;">1. Identificación</h6>
+                            <div class="row g-2">
+                                <div class="col-md-8">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Nombre <span class="text-danger">*</span></label>
+                                    <input type="text" name="nombre" class="form-control form-control-sm" placeholder="Ej. Laptop Dell Latitude" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Tipo</label>
+                                    <select name="tipo" class="form-select form-select-sm">
+                                        <option value="producto">Producto</option>
+                                        <option value="servicio">Servicio</option>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label small text-muted mb-1">Descripción</label>
+                                    <textarea name="descripcion" class="form-control form-control-sm" rows="1" placeholder="Detalles adicionales..."></textarea>
+                                </div>
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Estado</label>
+                                    <select name="estado" class="form-select form-select-sm">
+                                        <option value="activo" selected>Activo</option>
+                                        <option value="inactivo">Inactivo</option>
+                                        <option value="descontinuado">Descontinuado</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Abastecimiento</label>
+                                    <select name="tipo_abastecimiento" id="selectAbastecimiento" class="form-select form-select-sm" onchange="toggleTestCalidad()">
+                                        <option value="compra" selected>Compra</option>
+                                        <option value="stock">Stock</option>
+                                        <option value="produccion">Producción</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Test de Calidad</label>
+                                    <select name="test_calidad" id="selectTestCalidad" class="form-select form-select-sm" disabled>
+                                        <option value="">-- Sin Test --</option>
+                                        {% for t in tests_calidad %}
+                                            <option value="{{ t.id }}">{{ t.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <script>
+                        function toggleTestCalidad() {
+                            const val = document.getElementById('selectAbastecimiento').value;
+                            const selectTest = document.getElementById('selectTestCalidad');
+                            if (val === 'produccion') {
+                                selectTest.disabled = false;
+                                selectTest.classList.remove('bg-light'); // Le quitamos el sombreado
+                            } else {
+                                selectTest.disabled = true;
+                                selectTest.value = "";
+                                selectTest.classList.add('bg-light'); // Lo sombreamos como la subcategoría
+                            }
+                        }
+                    </script>
+
+                    <!-- SECCIÓN 2: CLASIFICACIÓN -->
+                    <div class="card border-0 shadow-sm mb-2">
+                        <div class="card-body p-2">
+                            <h6 class="text-uppercase text-muted fw-bold mb-2" style="font-size: 0.7rem; letter-spacing: 1px;">2. Clasificación</h6>
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <label class="form-label small text-muted mb-1">Categoría</label>
+                                    <select name="categoria" id="selectCategoria" class="form-select form-select-sm">
+                                        <option value="">Seleccionar...</option>
+                                        {% for cat in categorias %}
+                                            <option value="{{ cat.nombre }}">{{ cat.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <label class="form-label small text-muted mb-1">Subcategoría</label>
+                                    <select name="subcategoria" id="selectSubcategoria" class="form-select form-select-sm" disabled>
+                                        <option value="">Selecciona categoría primero...</option>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted mb-1">Marca</label>
+                                    <input type="text" name="marca" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted mb-1">Modelo</label>
+                                    <input type="text" name="modelo" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted mb-1">Línea</label>
+                                    <input type="text" name="linea" class="form-control form-control-sm">
+                                </div>
+                                <!-- Fila modificada para incluir Unidad, IVA e IEPS -->
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted mb-1">Unidad</label>
+                                    <input type="text" name="unidad_medida" class="form-control form-control-sm" value="PZA">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted mb-1">IVA (%)</label>
+                                    <input type="number" step="0.01" name="iva" class="form-control form-control-sm" value="0" placeholder="0.00">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted mb-1">IEPS (%)</label>
+                                    <input type="number" step="0.01" name="ieps" class="form-control form-control-sm" value="0" placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 3: INVENTARIO Y LOGÍSTICA -->
+                    <div class="card border-0 shadow-sm mb-2">
+                        <div class="card-body p-2">
+                            <h6 class="text-uppercase text-muted fw-bold mb-2" style="font-size: 0.7rem; letter-spacing: 1px;">3. Inventario y Precios</h6>
+                            <div class="row g-2">
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Costo <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.01" name="precio_costo" class="form-control form-control-sm" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Venta <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.01" name="precio_venta" class="form-control form-control-sm" required>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small text-muted mb-1">Mínimo</label>
+                                    <input type="number" name="stock_minimo" class="form-control form-control-sm" value="0">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small text-muted mb-1">Máximo</label>
+                                    <input type="number" name="stock_maximo" class="form-control form-control-sm" value="1000">
+                                </div>
+                                
+                                <div class="col-md-6 d-flex align-items-center pt-2">
+                                    <div class="form-check form-switch me-4">
+                                        <input class="form-check-input" type="checkbox" name="maneja_lote" id="checkLote">
+                                        <label class="form-check-label small text-muted" for="checkLote">Maneja Lote</label>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" name="maneja_serie" id="checkSerie">
+                                        <label class="form-check-label small text-muted" for="checkSerie">Maneja No. Serie</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="modal-footer border-top bg-white py-2">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-brand btn-sm px-4" onclick="guardarProducto()">Guardar Artículo</button>
+            </div>
+        </div>
+    </div>
+</div>

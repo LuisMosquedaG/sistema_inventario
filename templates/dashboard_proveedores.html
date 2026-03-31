@@ -1,0 +1,494 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+    <!-- ==========================================
+         ESTILOS ESPECÍFICOS DEL MÓDULO
+         ========================================== -->
+    <style>
+
+        /* Iconos de Acción */
+        .icon-action {
+            color: #adb5bd;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            text-decoration: none !important;
+        }
+
+        .icon-action:hover {
+            color: #00b8b9;
+            transform: scale(1.15);
+        }
+
+        .icon-action:active {
+            transform: scale(0.95);
+        }
+
+        .icon-action.delete:hover { color: #dc3545; background-color: rgba(220, 53, 69, 0.05); }
+
+        /* Animación Suave del Modal */
+        .modal.fade .modal-dialog {
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease-out !important;
+            transform: scale(0.9) translateY(-50px) !important;
+            opacity: 0;
+        }
+
+        .modal.show .modal-dialog {
+            transform: scale(1) translateY(0) !important;
+            opacity: 1 !important;
+        }
+
+        /* Estilo de la Tabla */
+        .table-pro tbody tr { transition: background-color 0.2s; }
+        .table-pro tbody tr:hover td { background-color: #f8f9fa; }
+        .table-pro tbody tr:last-child td { border-bottom: none; }
+
+        /* Estilos del Modal Sheet */
+        .modal-sheet .modal-content {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            overflow: hidden;
+        }
+        
+        .modal-sheet .modal-body {
+            max-height: 75vh;
+            overflow-y: auto;
+            padding: 1.5rem;
+        }
+        
+        /* Scrollbar fina */
+        .modal-sheet .modal-body::-webkit-scrollbar { width: 6px; }
+        .modal-sheet .modal-body::-webkit-scrollbar-thumb {
+            background-color: #dee2e6;
+            border-radius: 4px;
+        }
+        .modal-sheet .modal-body::-webkit-scrollbar-thumb:hover { background-color: #adb5bd; }
+
+        /* Labels personalizados */
+        .form-label-crossover {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 0.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* ==========================================
+           PILLS DE ESTADO (Proveedores)
+           ========================================== */
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            font-size: 0.75rem;
+            line-height: 1;
+            padding: 0.3em 0.8em;
+            font-weight: 600;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: middle;
+            border-radius: 50px;
+            text-transform: capitalize;
+            transition: all 0.2s ease-in-out;
+            border: 1px solid transparent;
+        }
+
+        /* Estado: Activo */
+        .status-activo {
+            background-color: #ebfbee;
+            color: #2f9e44;
+            border-color: #b2f2bb;
+        }
+        .status-activo:hover { background-color: #d3f9d8; }
+
+        /* Estado: Inactivo */
+        .status-inactivo {
+            background-color: #f8f9fa;
+            color: #868e96;
+            border-color: #dee2e6;
+        }
+        .status-inactivo:hover { background-color: #e9ecef; color: #495057; }
+
+        /* Estado: Suspendido */
+        .status-suspendido {
+            background-color: #fff9db;
+            color: #f08c00;
+            border-color: #ffec99;
+        }
+        .status-suspendido:hover { background-color: #ffe8cc; }
+
+        /* Estado: Revisión */
+        .status-revision {
+            background-color: #fff9db;
+            color: #f08c00;
+            border-color: #ffec99;
+        }
+        .status-revision:hover { background-color: #ffe8cc; }
+
+        /* Input Group Personalizado */
+        .input-group-text {
+            background-color: #f8f9fa;
+            border-color: #ced4da;
+            color: #6c757d;
+            font-size: 0.875rem;
+        }
+    </style>
+
+    <!-- CONTENEDOR PRINCIPAL -->
+    <div class="container-fluid py-2 px-4">
+
+        <!-- HEADER DEL MÓDULO (IGUAL QUE CLIENTES) -->
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+                <!-- CAMBIO: Clase 'section-title' en lugar de estilos manuales -->
+                <h4 class="section-title mb-0">Proveedores</h4>
+                <!-- CAMBIO: Clase 'section-subtitle' -->
+                <span class="section-subtitle">Directorio de proveedores y contactos</span>
+            </div>
+            
+            <div class="d-flex align-items-center gap-2">
+                <!-- Botón Exportar -->
+                <button class="btn btn-light border text-secondary btn-sm px-3" style="border-radius: 6px;">
+                    <i class="bi bi-download me-1"></i> Exportar
+                </button>
+                
+                <!-- Botón Nuevo Proveedor -->
+                <button class="btn text-white btn-sm px-3 d-flex align-items-center" 
+                        style="background-color: #00b8b9; border-radius: 6px; box-shadow: 0 2px 6px rgba(0, 184, 185, 0.3); transition: all 0.2s;"
+                        data-bs-toggle="modal" 
+                        data-bs-target="#modalNuevoProveedor">
+                    <i class="bi bi-plus-lg me-1"></i> Nuevo Proveedor
+                </button>
+            </div>
+        </div>
+
+        <!-- TARJETA DE TABLA -->
+        <div class="card border-0 shadow-sm" style="border-radius: 10px;">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-pro mb-0 align-middle" style="font-size: 0.9rem;">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="text-center" style="width: 80px; border-bottom: 2px solid #dee2e6;">Acciones</th>
+                                <th class="text-center" style="border-bottom: 2px solid #dee2e6;">Proveedor</th>
+                                <th class="text-center" style="border-bottom: 2px solid #dee2e6;">Contacto Principal</th>
+                                <th class="text-center" style="width: 120px; border-bottom: 2px solid #dee2e6;">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- CICLO PARA RECORRER PROVEEDORES -->
+                            {% for p in proveedores %}
+                            <tr>
+                                <td class="text-center">
+                                    <div class="d-flex justify-content-center gap-1">
+                                        <span class="icon-action" title="Editar Proveedor" onclick="abrirModalEdicion({{ p.id }})">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </span>
+                                        <span class="icon-action delete" title="Desactivar" onclick="confirmarDesactivacion({{ p.id }})">
+                                            <i class="bi bi-trash"></i>
+                                        </span>
+                                    </div>
+                                </td>
+                                <!-- Columna Proveedor -->
+                                <td class="text-center">
+                                    <div>
+                                        <div class="fw-bold text-dark" style="font-size: 0.9rem;">{{ p.razon_social }}</div>
+                                        <div class="text-muted small" style="font-size: 0.75rem;">{{ p.rfc|upper }}</div>
+                                    </div>
+                                </td>
+                                <!-- Columna Contacto Principal -->
+                                <td class="text-center">
+                                    <div>
+                                        <div class="fw-bold text-dark small">{{ p.contacto_nombre|default:"--" }}</div>
+                                        <div class="text-muted small" style="font-size: 0.75rem;">{{ p.contacto_email|default:"--" }}</div>
+                                    </div>
+                                </td>
+                                <!-- Columna Estado -->
+                                <td class="text-center">
+                                    {% if p.estado == 'activo' %}
+                                        <span class="status-pill status-activo">Activo</span>
+                                    {% elif p.estado == 'suspendido' %}
+                                        <span class="status-pill status-suspendido">Suspendido</span>
+                                    {% elif p.estado == 'revision' %}
+                                        <span class="status-pill status-revision">Revisión</span>
+                                    {% else %}
+                                        <span class="status-pill status-inactivo">Inactivo</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <!-- CASO VACÍO -->
+                            <tr>
+                                <td colspan="4" class="text-center py-5"> 
+                                    <i class="bi bi-inbox display-6 text-muted mb-2 d-block"></i>
+                                    <span class="text-muted fst-italic small">No hay proveedores registrados</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- Footer de la Tabla -->
+            <div class="card-footer bg-white border-0 py-2 px-4 d-flex justify-content-between align-items-center">
+                <span class="text-muted small" style="font-size: 0.75rem;">{{ proveedores|length}} resultados</span>
+                
+                <!-- PAGINACIÓN SIMPLE (SOLO PÁGINA 1) -->
+                <div class="d-flex gap-1">
+                     <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;</button>
+                     <button class="btn btn-sm btn-light border-0 text-dark fw-bold">1</button>
+                     <button class="btn btn-sm btn-light border-0 text-muted">&raquo;</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ==========================================
+         MODAL: NUEVO PROVEEDOR
+         ========================================== -->
+    <div class="modal fade" id="modalNuevoProveedor" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+            <div class="modal-content">
+                
+                <!-- Header Modal -->
+                <div class="modal-header border-bottom-0 pb-0">
+                    <div class="d-flex align-items-center w-100">
+                        <div class="bg-primary bg-opacity-10 p-2 rounded me-3" style="color: #00b8b9;">
+                            <i class="bi bi-building-add fs-4"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold mb-0" id="modalProveedorLabel">Nuevo Proveedor</h5>
+                            <small class="text-muted">Registra los datos fiscales y de contacto</small>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <!-- Cuerpo Modal -->
+                <form id="formProveedor" method="post" action="/proveedores/crear/">
+                    {% csrf_token %}
+                    
+                    <div class="modal-body pt-3">
+                        
+                        <!-- SECCIÓN 1: DATOS FISCALES -->
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-body p-3 bg-light rounded-3">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">Datos Fiscales</h6>
+                                
+                                <div class="row g-3">
+                                    <div class="col-md-12">
+                                        <label class="form-label-crossover">Razón Social</label>
+                                        <input type="text" class="form-control form-control-sm" name="razon_social" placeholder="Ej. CrossoverSuite" required>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <label class="form-label-crossover">RFC</label>
+                                        <input type="text" class="form-control form-control-sm font-monospace" name="rfc" placeholder="XAXX010101000" required style="text-transform: uppercase;">
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label-crossover">Código Postal</label>
+                                        <input type="text" class="form-control form-control-sm" name="cp" placeholder="00000">
+                                    </div>
+
+                                    <div class="col-md-12">
+                                        <label class="form-label-crossover">Domicilio Fiscal Completo</label>
+                                        <input type="text" class="form-control form-control-sm" name="domicilio" placeholder="Calle, Número, Colonia, Ciudad, Estado">
+                                    </div>
+
+                                    <!-- CAMPO: ESTADO -->
+                                    <div class="col-md-12 mt-2">
+                                        <label class="form-label-crossover">Estado del Proveedor</label>
+                                        <select class="form-select form-select-sm" name="estado">
+                                            <option value="activo" selected>Activo</option>
+                                            <option value="suspendido">Suspendido</option>
+                                            <option value="inactivo">Inactivo</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECCIÓN 2: CONTACTO -->
+                        <div class="card border-0 shadow-sm mb-0">
+                            <div class="card-body p-3 bg-light rounded-3">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">Contacto Principal</h6>
+                                
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label-crossover">Nombre Completo</label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                            <input type="text" class="form-control" name="contacto_nombre" placeholder="Ej. Juan Pérez">
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label-crossover">Teléfono / Móvil</label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text"><i class="bi bi-telephone"></i></span>
+                                            <input type="tel" class="form-control" name="contacto_telefono" placeholder="(55) 1234 5678">
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-12">
+                                        <label class="form-label-crossover">Correo Electrónico</label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                                            <input type="email" class="form-control" name="contacto_email" placeholder="ventas@empresa.com">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Footer Modal -->
+                    <div class="modal-footer border-top bg-white p-3">
+                        <button type="button" class="btn btn-light text-secondary btn-sm px-3" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-sm px-4 text-white" style="background-color: #00b8b9; border-radius: 6px;">Guardar Proveedor</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        // Función para cargar datos en el formulario de edición
+        function abrirModalEdicion(id) {
+            const modalTitle = document.getElementById('modalProveedorLabel');
+            modalTitle.innerText = "Editar Proveedor #" + id;
+            
+            // Llamada real al backend
+            fetch(`/api/proveedores/${id}/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert("Error: " + data.error);
+                        return;
+                    }
+                    // Llenar campos del formulario
+                    document.querySelector('[name="razon_social"]').value = data.razon_social || '';
+                    document.querySelector('[name="rfc"]').value = data.rfc || '';
+                    document.querySelector('[name="cp"]').value = data.cp || '';
+                    document.querySelector('[name="domicilio"]').value = data.domicilio || '';
+                    
+                    // Cargar campo Estado
+                    document.querySelector('[name="estado"]').value = data.estado || 'activo';
+                    
+                    document.querySelector('[name="contacto_nombre"]').value = data.contacto_nombre || '';
+                    document.querySelector('[name="contacto_telefono"]').value = data.contacto_telefono || '';
+                    document.querySelector('[name="contacto_email"]').value = data.contacto_email || '';
+
+                    // Cambiar action del formulario para editar
+                    const form = document.getElementById('formProveedor');
+                    form.action = `/proveedores/actualizar/${id}/`;
+                    
+                    // Mostrar modal
+                    const myModal = new bootstrap.Modal(document.getElementById('modalNuevoProveedor'));
+                    myModal.show();
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        // Resetear modal al cerrar
+        document.getElementById('modalNuevoProveedor').addEventListener('hidden.bs.modal', function () {
+            document.getElementById('modalProveedorLabel').innerText = "Nuevo Proveedor";
+            const form = document.getElementById('formProveedor');
+            form.reset();
+            document.querySelector('[name="estado"]').value = 'activo'; 
+            form.action = "/proveedores/crear/"; 
+        });
+
+        // Manejo del envío del formulario (Create o Update)
+        document.getElementById('formProveedor').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const form = this;
+            const formData = new FormData(form);
+            const btn = form.querySelector('button[type="submit"]');
+            const originalText = btn.innerText;
+            
+            btn.innerText = "Procesando...";
+            btn.disabled = true;
+
+            const url = form.action;
+
+            fetch(url, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken') 
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                btn.innerText = originalText;
+                btn.disabled = false;
+
+                if (data.success) {
+                    const modalEl = document.getElementById('modalNuevoProveedor');
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    modal.hide();
+                    location.reload(); 
+                } else {
+                    alert('Error: ' + (data.error || 'Ocurrió un error desconocido'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                btn.innerText = originalText;
+                btn.disabled = false;
+                alert('Error de conexión al servidor.');
+            });
+        });
+
+        // Función para Desactivar (Borrado lógico)
+        function confirmarDesactivacion(id) {
+            if(confirm('¿Estás seguro de desactivar este proveedor?')) {
+                fetch(`/proveedores/desactivar/${id}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if(data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                });
+            }
+        }
+        
+         function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+{% endblock %}

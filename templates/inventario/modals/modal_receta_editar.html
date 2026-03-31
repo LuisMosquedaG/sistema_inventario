@@ -1,0 +1,88 @@
+<div class="modal fade" id="modalProduccion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+        <div class="modal-content">
+            <div class="modal-header border-bottom bg-light py-2"> 
+                <h5 class="modal-title fw-bold text-dark">
+                    <i class="bi bi-list-check me-2 text-brand"></i>Configurar Receta
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body p-3 bg-light">
+                <form id="formReceta">
+                    {% csrf_token %}
+                    
+                    <!-- Selección del Producto Final -->
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body p-2">
+                            <label class="form-label small fw-bold text-secondary mb-1">Producto a Ensamblar (Padre)</label>
+                            <select id="selectRecetaPadre" class="form-select form-select-sm" onchange="cargarRecetaExistente()">
+                                <option value="">Seleccionar Producto (Tipo: Producción)...</option>
+                                {% for p in productos %}
+                                    {% if p.tipo_abastecimiento == 'produccion' %}
+                                    <option value="{{ p.id }}"> {{ p.nombre }} </option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Agregar Componentes -->
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body p-2">
+                            <label class="form-label small fw-bold text-secondary mb-1">Agregar Componente</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white border-end-0"><i class="bi bi-box-seam"></i></span>
+                                <select id="selectComponente" class="form-select border-start-0">
+                                    <option value="">Seleccionar componente...</option>
+                                    {% for p in productos %}
+                                        <option value="{{ p.id }}">{{ p.nombre }}</option>
+                                    {% endfor %}
+                                </select>
+                                <input type="number" id="cantComponente" class="form-control" placeholder="Cant" style="max-width: 80px;" value="1" min="1">
+                                <button class="btn btn-brand" type="button" onclick="agregarComponenteReceta()">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de Componentes -->
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body p-0">
+                            <div class="table-responsive bg-white rounded">
+                                <table class="table table-sm table-hover mb-0 align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th class="ps-3">Componente</th>
+                                            <th class="text-center" style="width: 100px;">Cantidad</th>
+                                            <th class="text-end" style="width: 100px;">Costo Unit.</th>
+                                            <th class="text-end" style="width: 100px;">Subtotal</th>
+                                            <th style="width: 50px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tbodyRecetaEdit">
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center p-2 border-top">
+                                <span class="fw-bold text-secondary small">COSTO TOTAL DE ENSAMBLE:</span>
+                                <span id="totalCostoReceta" class="fw-bold text-brand fs-5">$0.00</span>
+                            </div>
+                            <div id="msgVacioReceta" class="text-center py-3 text-muted small fst-italic">
+                                No hay componentes en la receta.
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- FOOTER CON BOTÓN GUARDAR -->
+            <div class="modal-footer border-top bg-white py-2">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-brand btn-sm px-4" onclick="guardarReceta()">Guardar Receta</button>
+            </div>
+
+        </div>
+    </div>
+</div>

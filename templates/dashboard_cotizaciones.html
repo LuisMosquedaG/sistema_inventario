@@ -1,0 +1,1104 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+    <!-- ESTILOS PERSONALIZADOS -->
+    <style>
+
+        /* ==========================================
+        ICONOS DE ACCIÓN (SIN FONDO, GRIS A COLOR)
+        ========================================== */
+        .icon-action {
+            color: #adb5bd; /* Gris elegante y suave */
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            text-decoration: none !important;
+        }
+
+        .icon-action:hover {
+            color: #00b8b9; /* Color de marca */
+            transform: scale(1.15);
+        }
+
+        .icon-action:active {
+            transform: scale(0.95);
+        }
+
+        .icon-action.state-sold:hover { color: #198754; }
+        .icon-action.state-cancelled:hover { color: #dc3545; }
+
+        /* ==========================================
+        ANIMACIÓN SUAVE DEL MODAL GENERAL
+        ========================================== */
+        .modal.fade .modal-dialog {
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease-out !important;
+            transform: scale(0.9) translateY(-50px) !important;
+            opacity: 0;
+        }
+
+        .modal.show .modal-dialog {
+            transform: scale(1) translateY(0) !important;
+            opacity: 1 !important;
+        }
+
+        .table-pro tbody tr:hover td { background-color: #f8f9fa; }
+        .table-pro tbody tr:last-child td { border-bottom: none; }
+
+        /* ESTILOS PARA EL MODAL FULLSCREEN */
+        .modal-backdrop {
+            background-color: rgba(26, 37, 47, 0.9) !important;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .modal-fullscreen .modal-content {
+            background-color: #f8f9fa;
+            border: none;
+        }
+
+        .form-label-crossover {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 0.25rem;
+        }
+
+        .modal-sheet .modal-content {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            overflow: hidden;
+        }
+        .modal-sheet .modal-body {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        .modal-sheet .modal-body::-webkit-scrollbar { width: 6px; }
+        .modal-sheet .modal-body::-webkit-scrollbar-thumb {
+            background-color: #dee2e6;
+            border-radius: 4px;
+        }
+
+        /* ==========================================
+        NUEVO DISEÑO DE ESTADOS (PILLS / BADGES)
+        ========================================== */
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            
+            /* --- AJUSTES PARA FINURA --- */
+            font-size: 0.7rem;       /* Letra un poco más pequeña */
+            line-height: 1;          /* Altura de línea mínima (clave para la finura) */
+            padding: 0.25em 0.6em;   /* Padding ajustado vertical y horizontalmente */
+            /* -------------------------- */
+            
+            font-weight: 600;       /* Reduje de 700 a 600 para que se vea menos "gruesa" la letra */
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: middle;  /* Mejor alineación en tablas */
+            border-radius: 50px;     /* Mantenemos bordes redondos */
+            text-transform: capitalize;
+            letter-spacing: 0.3px;
+            transition: all 0.2s ease-in-out;
+        }
+
+        /* 1. BORRADOR - GRIS */
+        .status-borrador {
+            background-color: #f1f3f5;
+            color: #495057;
+            border: 1px solid #e9ecef;
+        }
+        .status-borrador:hover { background-color: #e9ecef; }
+
+        /* 2. APROBADA - AZUL */
+        .status-aprobada {
+            background-color: #e7f5ff;
+            color: #1971c2;
+            border: 1px solid #d0ebff;
+        }
+        .status-aprobada:hover { background-color: #d0ebff; }
+
+        /* 3. VENDIDA - VERDE */
+        .status-vendida {
+            background-color: #ebfbee;
+            color: #2f9e44;
+            border: 1px solid #b2f2bb;
+        }
+        .status-vendida:hover { background-color: #d3f9d8; }
+
+        /* 4. CANCELADA - ROJO */
+        .status-cancelada {
+            background-color: #fff5f5;
+            color: #e03131;
+            border: 1px solid #ffc9c9;
+        }
+        .status-cancelada:hover { background-color: #ffe3e3; }
+
+
+        /* --- ESTILOS DROPDOWN PERSONALIZADO --- */
+        .custom-select-wrapper {
+            position: relative;
+            user-select: none;
+            width: 100%;
+        }
+        
+        .custom-select {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .custom-select__trigger {
+            position: relative;
+            display: flex;
+            align-items: center;
+            background-color: #fff;
+            border: 1px solid #ced4da;
+            border-radius: 0.25rem;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-box;
+            height: 31px;
+        }
+        
+        .custom-select__trigger:hover { border-color: #adb5bd; }
+
+        .custom-select__trigger input {
+            width: 100%;
+            border: none;
+            outline: none;
+            background: transparent;
+            padding: 0.375rem 0.75rem;
+            font-size: 0.875rem;
+            color: #212529;
+            font-family: inherit;
+        }
+
+        .custom-select__trigger i {
+            position: absolute;
+            right: 10px;
+            color: #6c757d;
+            pointer-events: none;
+        }
+        
+        .custom-options {
+            position: absolute;
+            display: block;
+            top: 100%;
+            left: 0;
+            right: 0;
+            border: 1px solid #ced4da;
+            border-top: 0;
+            background: #fff;
+            transition: all 0.2s;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            z-index: 1050;
+            max-height: 250px;
+            overflow-y: auto;
+            border-radius: 0 0 0.25rem 0.25rem;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        }
+        
+        .custom-select.open .custom-options {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: all;
+            margin-top: 2px;
+        }
+        
+        .custom-option {
+            position: relative;
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 1px solid #f1f3f5;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .custom-option:hover { background-color: #f8f9fa; }
+        .custom-option.selected {
+            background-color: #e6fcf5;
+            color: #0ca678;
+        }
+        
+        .opt-razon {
+            font-weight: 700 !important;
+            color: #212529 !important;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+        
+        .opt-contacto {
+            font-weight: 400 !important;
+            color: #6c757d !important;
+            opacity: 1;
+        }
+        
+        .opt-separator {
+            color: #dee2e6;
+            margin-right: 8px;
+            font-size: 0.8rem;
+        }
+        .input-cliente-seleccionado {
+            background-color: #f8f9fa !important;
+            border-color: #00b8b9 !important;
+        }
+
+        .real-input-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: transparent;
+            color: transparent;
+            caret-color: #000;
+            padding: 0.375rem 0.75rem;
+            font-size: 0.875rem;
+            font-family: inherit;
+            z-index: 2;
+            outline: none;
+        }
+
+        .fake-input-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 0.375rem 0.75rem;
+            display: flex;
+            align-items: center;
+            z-index: 1;
+            pointer-events: none;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        .typing-text { color: #212529; }
+    </style>
+
+    <!-- CONTENEDOR -->
+    <div class="container-fluid py-2 px-4">
+
+        <!-- HEADER -->
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+                <h4 class="section-title mb-0">Cotizaciones</h4>
+                <span class="section-subtitle">Gestión de propuestas y presupuestos</span>
+            </div>
+            
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-light border text-secondary btn-pro">
+                    <i class="bi bi-download me-1"></i> Exportar
+                </button>
+                
+                <button class="btn btn-brand text-white btn-pro" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#modalNuevaCotizacion">
+                    <i class="bi bi-plus-lg me-1"></i> Nueva Cotización
+                </button>
+            </div>
+        </div>
+
+        <!-- TARJETA TABLA -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-pro mb-0">
+                        <thead>
+                            <tr>
+                                <th class="text-center" style="width: 80px;">Acciones</th>
+                                <th class="text-center" style="width: 100px;">Folio</th>
+                                <th class="text-center">Cliente/Contacto</th>
+                                <th class="text-center">Fecha</th>
+                                <th class="text-center">Vence</th>
+                                <th class="text-center">Total</th>
+                                <th class="text-center">Estado</th>
+                            </tr>
+                        </thead>
+                            <tbody>
+                                {% for c in cotizaciones %}
+                                <tr>
+                                    <!-- 1. ACCIONES -->
+                                    <td class="text-center">
+                                        <div class="d-flex justify-content-center">
+                                            
+                                            <!-- 1. ESTADO BORRADOR -->
+                                            {% if c.estado == 'borrador' %}
+                                            
+                                            <span onclick="confirmarAprobacion({{ c.id }})" class="icon-action" title="Aprobar">
+                                                <i class="bi bi-check2-circle"></i>
+                                            </span>
+                                            
+                                            <span onclick="cargarParaEdicion({{ c.id }})" class="icon-action" title="Editar">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </span>
+
+                                            <!-- 2. ESTADO APROBADA -->
+                                            {% elif c.estado == 'aprobada' %}
+                                            <a href="{% url 'crear_pedido_desde_cotizacion' c.id %}" class="icon-action" title="Crear Pedido">
+                                                <i class="bi bi-box-seam"></i> <!-- Icono de caja/paquete -->
+                                            </a>
+                                            
+                                            
+                                            <form method="post" action="/cotizaciones/recotizar/{{ c.id }}/" style="display:inline;">
+                                                {% csrf_token %}
+                                                <button type="submit" class="icon-action border-0 bg-transparent p-0 m-0" title="Recotizar" onclick="return confirm('¿Deseas cancelar esta cotización y generar una nueva versión?')">
+                                                    <i class="bi bi-arrow-repeat"></i>
+                                                </button>
+                                            </form>
+
+                <!-- 3. ESTADO VENDIDA -->
+                {% elif c.estado == 'vendida' %}
+                <span class="icon-action state-sold" title="Vendida">
+                    <i class="bi bi-bag-check"></i>
+                </span>
+                
+                <!-- 4. ESTADO CANCELADA -->
+                {% elif c.estado == 'cancelada' %}
+                <span class="icon-action state-cancelled" title="Cancelada">
+                    <i class="bi bi-x-circle"></i>
+                </span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+
+                                    <!-- 2. FOLIO -->
+                                    <td class="text-center font-monospace small">
+                                        <span class="fw-bold text-dark">{{ c.folio_completo }}</span>
+                                        {% if c.parent_quote %}
+                                        <sup class="text-muted" style="font-size:0.6rem;">(Rev.)</sup>
+                                        {% endif %}
+                                    </td>
+                                    
+                                    <!-- 3. CLIENTE/CONTACTO -->
+                                    <td class="text-center">
+                                        <div class="fw-bold text-dark" style="line-height: 1.2;">
+                                            {% if c.cliente.razon_social %}
+                                                {{ c.cliente.razon_social }}
+                                            {% else %}
+                                                {{ c.cliente.nombre }} {{ c.cliente.apellidos }}
+                                            {% endif %}
+                                        </div>
+                                        <div class="text-secondary small mt-1" style="font-size: 0.75rem; line-height: 1.4;">
+                                            {% if c.contacto %}
+                                                <i class=></i>{{ c.contacto.nombre_completo }}
+                                            {% else %}
+                                                <span class="text-muted fst-italic">-- Sin contacto --</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+
+                                    <!-- 4. FECHA -->
+                                    <td class="text-center">
+                                        <div class="text-dark fw-medium">{{ c.creado_en|date:"d M Y" }}</div>
+                                    </td>
+
+                                    <!-- 5. VENCE -->
+                                    <td class="text-center">
+                                        <div class="text-dark small fw-bold">{{ c.fecha_fin|date:"d M Y" }}</div>
+                                    </td>
+
+                                    <!-- 6. TOTAL -->
+                                    <td class="text-center">
+                                        <span class="fw-bold text-success">${{ c.calcular_total }}</span>
+                                    </td>
+
+                                    <!-- 7. ESTADO (DISEÑO NUEVO) -->
+                                    <td class="text-center">
+                                        {% if c.estado == 'borrador' %}
+                                            <span class="status-pill status-borrador">Borrador</span>
+                                        {% elif c.estado == 'aprobada' %}
+                                            <span class="status-pill status-aprobada">Aprobada</span>
+                                        {% elif c.estado == 'vendida' %}
+                                            <span class="status-pill status-vendida">Vendida</span>
+                                        {% elif c.estado == 'cancelada' %}
+                                            <span class="status-pill status-cancelada">Cancelada</span>
+                                        {% else %}
+                                            <span class="status-pill bg-secondary">{{ c.estado|title }}</span>
+                                        {% endif %}
+                                    </td>
+
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-5"> 
+                                        <i class="bi bi-clipboard-x display-6 text-muted mb-2 d-block"></i>
+                                        <span class="text-muted fst-italic small">No hay cotizaciones registradas</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- Footer Minimalista -->
+            <div class="card-footer bg-white border-0 py-2 px-4 d-flex justify-content-between align-items-center">
+                <span class="text-muted small" style="font-size: 0.75rem;">{{ cotizaciones|length }} resultados</span>
+                <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;</button>
+                    <button class="btn btn-sm btn-light border-0 text-dark fw-bold">1</button>
+                    <button class="btn btn-sm btn-light border-0 text-muted">&raquo;</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MODAL: NUEVA COTIZACIÓN -->
+    <div class="modal fade" id="modalNuevaCotizacion" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+            <div class="modal-content">
+                
+                <!-- HEADER -->
+                <div class="modal-header border-bottom bg-light">
+                    <h5 class="modal-title fw-bold text-dark">
+                        <i class="bi bi-file-earmark-plus me-2" style="color: #00b8b9;"></i>
+                        Nueva Cotización
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <form id="formCotizacion" method="post" action="{% url 'crear_cotizacion' %}" novalidate>
+                    {% csrf_token %}
+                    
+                    <div class="modal-body p-3 bg-light">
+                        
+                        <!-- SECCIÓN 1: CABECERA -->
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-body p-3">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Datos de la Cotización</h6>
+                                <div class="row g-2">
+                                    
+                                    <!-- RENGLÓN 1: CLIENTES -->
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Cliente</label>
+                                        <input type="hidden" name="cliente" id="cliente_id_input" required>
+                                        
+                                        <div class="custom-select-wrapper" id="wrapperCliente">
+                                            <div class="custom-select">
+                                                <div class="custom-select__trigger">
+                                                    <div id="cliente_display_fake" class="fake-input-layer">
+                                                        <span class="text-muted" style="font-weight:400;">Buscar cliente...</span>
+                                                    </div>
+                                                    <input type="text" id="cliente_busqueda" autocomplete="off" class="real-input-layer">
+                                                    <i class="bi bi-search" style="z-index:3; pointer-events:none;"></i>
+                                                </div>
+                                                <div class="custom-options">
+                                                    {% for c in clientes %}
+                                                    <span class="custom-option" 
+                                                        data-value="{{ c.id }}" 
+                                                        data-search="{{ c.razon_social }} {{ c.nombre }} {{ c.apellidos }}"
+                                                        data-calle="{{ c.calle|default:'' }}"
+                                                        data-num-ext="{{ c.numero_ext|default:'' }}"
+                                                        data-num-int="{{ c.numero_int|default:'' }}"
+                                                        data-colonia="{{ c.colonia|default:'' }}"
+                                                        data-estado="{{ c.estado_dir|default:'' }}"
+                                                        data-cp="{{ c.cp|default:'' }}">
+                                                        
+                                                        {% if c.razon_social %}
+                                                            <span class="opt-razon">{{ c.razon_social }}</span>
+                                                            <span class="opt-separator">|</span>
+                                                            <span class="opt-contacto">{{ c.nombre }} {{ c.apellidos }}</span>
+                                                        {% else %}
+                                                            <span class="opt-razon">{{ c.nombre }} {{ c.apellidos }}</span>
+                                                            <span class="opt-separator">|</span>
+                                                            <span class="opt-contacto">Persona Física</span>
+                                                        {% endif %}
+                                                    </span>
+                                                    {% endfor %}
+                                                    
+                                                    <span class="custom-option disabled" id="sin-resultados" style="display:none; cursor:default; color: #999;">No se encontraron clientes</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div id="cliente-error" class="text-danger small mt-1" style="display:none;">Debes seleccionar un cliente.</div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Contacto Asignado</label>
+                                        <input type="hidden" name="contacto" id="contacto_id_input">
+                                        
+                                        <div class="custom-select-wrapper" id="wrapperContacto">
+                                            <div class="custom-select">
+                                                <div class="custom-select__trigger">
+                                                    <div id="contacto_display_fake" class="fake-input-layer">
+                                                        <span class="text-muted" style="font-weight:400;">Selecciona cliente primero...</span>
+                                                    </div>
+                                                    <input type="text" id="contacto_busqueda" autocomplete="off" class="real-input-layer" placeholder="" disabled>
+                                                    <i class="bi bi-person" style="z-index:3; pointer-events:none;"></i>
+                                                </div>
+                                                <div class="custom-options">
+                                                    <span class="custom-option disabled text-muted small" style="cursor:default;">Selecciona un cliente para ver contactos</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- RENGLÓN 2: FECHAS Y ORIGEN -->
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold text-secondary">Fecha de Cotización</label>
+                                        <input type="date" name="fecha_inicio" id="fecha_inicio" class="form-control form-control-sm" required>
+                                    </div>
+                                    
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold text-secondary">Vence</label>
+                                        <input type="date" name="fecha_fin" id="fecha_fin" class="form-control form-control-sm" required>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Origen</label>
+                                        <input type="text" name="origen" class="form-control form-control-sm" placeholder="Ej. WhatsApp, Página Web..." required>
+                                    </div>
+
+                                    <!-- RENGLÓN 3: DIRECCIÓN -->
+                                    <div class="col-md-12">
+                                        <label class="form-label small fw-bold text-secondary">Dirección de Entrega</label>
+                                        <input type="text" name="direccion_entrega" class="form-control form-control-sm" placeholder="Calle, Número, Colonia, Ciudad, CP..." required>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECCIÓN 2: CUERPO (Agregar Artículo) -->
+                        <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
+                            <div class="card-body p-3">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Agregar Artículo</h6>
+                                
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-5">
+                                        <label class="form-label small text-muted">Producto</label>
+                                        <select id="selectProductoAgregar" class="form-select form-select-sm">
+                                            <option value="" selected>Seleccionar...</option>
+                                            {% for p in productos %}
+                                            <option value="{{ p.id }}" data-precio="{{ p.precio_venta }}">
+                                                {{ p.nombre }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small text-muted">Cant.</label>
+                                        <input type="number" id="inputCantidadAgregar" class="form-control form-control-sm text-center" value="1" min="1">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small text-muted">Precio Unit.</label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text">$</span>
+                                            <input type="number" id="inputPrecioAgregar" class="form-control form-control-sm" value="0.00" step="0.01">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button type="button" class="btn btn-brand btn-sm w-100" onclick="agregarALista()">
+                                            <i class="bi bi-plus-lg"></i> Agregar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECCIÓN 3: LISTA APILADA -->
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body p-0">
+                                <table class="table table-sm table-hover mb-0 align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th class="ps-3">Artículo</th>
+                                            <th class="text-center" style="width: 80px;">Cant.</th>
+                                            <th class="text-end" style="width: 100px;">Precio</th>
+                                            <th class="text-end" style="width: 100px;">Total</th>
+                                            <th style="width: 50px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tablaCuerpo">
+                                        <!-- JS insertará filas aquí -->
+                                    </tbody>
+                                </table>
+                                <div id="mensajeVacio" class="text-center py-3 text-muted small fst-italic">
+                                    No hay artículos agregados aún.
+                                </div>
+                            </div>
+                            <div class="card-footer bg-white border-0 py-2 d-flex justify-content-end">
+                                <div class="me-3">
+                                    <span class="text-muted small">Total Cotización:</span>
+                                </div>
+                                <div class="fw-bold fs-5 text-success" id="granTotalModal">$0.00</div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- FOOTER -->
+                    <div class="modal-footer border-top bg-white">
+                        <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-brand btn-sm px-4">Guardar Cotización</button>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MODAL DE CONFIRMACIÓN DE APROBACIÓN -->
+    <div class="modal fade" id="modalConfirmarAprobacion" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold w-100 text-center">Confirmar Acción</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <i class="bi bi-exclamation-circle text-warning display-4 mb-3 d-block"></i>
+                    <h6>¿Estás seguro de aprobar esta cotización?</h6>
+                    <p class="text-muted small">Al aprobar, el estado cambiará a <strong>"Aprobada"</strong> y <strong>no podrás editarla</strong> nuevamente.</p>
+                </div>
+                <div class="modal-footer border-0 justify-content-center">
+                    <button type="button" class="btn btn-light text-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" id="btnConfirmarAprobar" class="btn btn-brand px-4">Sí, Aprobar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        // 1. EVENTO: Al seleccionar producto en el panel de agregar, llenar precio
+        document.getElementById('selectProductoAgregar').addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const precio = selectedOption.getAttribute('data-precio');
+            if(precio) {
+                document.getElementById('inputPrecioAgregar').value = precio;
+            }
+        });
+
+        // 2. FUNCIÓN: Agregar a la lista
+        function agregarALista() {
+            const select = document.getElementById('selectProductoAgregar');
+            const productId = select.value;
+            const productName = select.options[select.selectedIndex].text;
+            const cantidad = document.getElementById('inputCantidadAgregar').value;
+            const precio = document.getElementById('inputPrecioAgregar').value;
+            const total = (parseFloat(cantidad) * parseFloat(precio)).toFixed(2);
+
+            if (!productId || cantidad <= 0) {
+                alert("Por favor selecciona un producto y una cantidad válida.");
+                return;
+            }
+
+            const filaHtml = `
+                <tr>
+                    <td class="ps-3">
+                        <div class="fw-semibold small text-dark">${productName}</div>
+                        <input type="hidden" name="producto_id[]" value="${productId}">
+                    </td>
+                    <td class="text-center">
+                        <span class="small text-dark">${cantidad}</span>
+                        <input type="hidden" name="cantidad[]" value="${cantidad}">
+                    </td>
+                    <td class="text-end">
+                        <span class="small text-muted">$${parseFloat(precio).toFixed(2)}</span>
+                        <input type="hidden" name="precio_unitario[]" value="${precio}">
+                    </td>
+                    <td class="text-end">
+                        <span class="fw-bold small text-dark">$${total}</span>
+                    </td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-sm text-danger p-0" onclick="eliminarDeLista(this)">
+                            <i class="bi bi-x-circle-fill"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+            const tbody = document.getElementById('tablaCuerpo');
+            tbody.insertAdjacentHTML('beforeend', filaHtml);
+            document.getElementById('mensajeVacio').style.display = 'none';
+            select.value = "";
+            document.getElementById('inputCantidadAgregar').value = 1;
+            document.getElementById('inputPrecioAgregar').value = "0.00";
+            calcularGranTotalLista();
+        }
+
+        function eliminarDeLista(boton) {
+            const fila = boton.closest('tr');
+            fila.remove();
+            if (document.getElementById('tablaCuerpo').children.length === 0) {
+                document.getElementById('mensajeVacio').style.display = 'block';
+            }
+            calcularGranTotalLista();
+        }
+
+        function calcularGranTotalLista() {
+            let granTotal = 0;
+            document.querySelectorAll('#tablaCuerpo tr').forEach(fila => {
+                const textoTotal = fila.cells[3].innerText.replace('$', '');
+                granTotal += parseFloat(textoTotal);
+            });
+            document.getElementById('granTotalModal').innerText = '$' + granTotal.toFixed(2);
+        }
+
+        function agregarFilaVisual(id, nombre, cant, precio, total) {
+            const filaHtml = `
+                <tr>
+                    <td class="ps-3">
+                        <div class="fw-semibold small text-dark">${nombre}</div>
+                        <input type="hidden" name="producto_id[]" value="${id}">
+                    </td>
+                    <td class="text-center">
+                        <span class="small text-dark">${cant}</span>
+                        <input type="hidden" name="cantidad[]" value="${cant}">
+                    </td>
+                    <td class="text-end">
+                        <span class="small text-muted">$${parseFloat(precio).toFixed(2)}</span>
+                        <input type="hidden" name="precio_unitario[]" value="${precio}">
+                    </td>
+                    <td class="text-end">
+                        <span class="fw-bold small text-dark">$${total}</span>
+                    </td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-sm text-danger p-0" onclick="eliminarDeLista(this)">
+                            <i class="bi bi-x-circle-fill"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+            document.getElementById('tablaCuerpo').insertAdjacentHTML('beforeend', filaHtml);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            
+            // --- 1. VARIABLES GLOBALES PARA CLIENTE ---
+            const wrapperCliente = document.getElementById('wrapperCliente');
+            const selectCliente = wrapperCliente.querySelector('.custom-select');
+            const inputCliente = document.getElementById('cliente_busqueda');
+            const fakeCliente = document.getElementById('cliente_display_fake');
+            const hiddenCliente = document.getElementById('cliente_id_input');
+            const optionsCliente = wrapperCliente.querySelectorAll('.custom-option:not(.disabled)');
+
+            let isSelectingCliente = false;
+
+            wrapperCliente.addEventListener('click', function(e) {
+                if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'I') {
+                    inputCliente.focus();
+                }
+            });
+
+            inputCliente.addEventListener('focus', function() {
+                selectCliente.classList.add('open');
+                if (!hiddenCliente.value && inputCliente.value === '') {
+                    fakeCliente.innerHTML = '<span class="typing-text"></span>';
+                }
+            });
+
+            inputCliente.addEventListener('input', function() {
+                if (isSelectingCliente) return;
+                hiddenCliente.value = ""; 
+                inputCliente.classList.remove('input-cliente-seleccionado');
+                fakeCliente.innerHTML = `<span class="typing-text">${this.value}</span>`;
+                document.getElementById('cliente-error').style.display = 'none';
+                selectCliente.querySelector('.custom-select__trigger').style.borderColor = "#ced4da";
+
+                const term = this.value.toLowerCase();
+                let visibleCount = 0;
+                optionsCliente.forEach(option => {
+                    const searchText = option.getAttribute('data-search').toLowerCase();
+                    if (searchText.includes(term)) {
+                        option.style.display = 'flex';
+                        visibleCount++;
+                    } else {
+                        option.style.display = 'none';
+                    }
+                });
+                document.getElementById('sin-resultados').style.display = (visibleCount === 0) ? 'block' : 'none';
+                selectCliente.classList.add('open');
+            });
+
+            window.addEventListener('click', function(e) {
+                if (!selectCliente.contains(e.target)) {
+                    selectCliente.classList.remove('open');
+                    if (!hiddenCliente.value && inputCliente.value === '') {
+                        fakeCliente.innerHTML = '<span class="text-muted" style="font-weight:400;">Buscar cliente...</span>';
+                    }
+                }
+            });
+
+            optionsCliente.forEach(option => {
+                option.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    isSelectingCliente = true;
+                    optionsCliente.forEach(opt => opt.classList.remove('selected'));
+                    this.classList.add('selected');
+
+                    fakeCliente.innerHTML = this.innerHTML;
+                    inputCliente.value = this.textContent.replace(/\s+/g, ' ').trim();
+                    inputCliente.classList.add('input-cliente-seleccionado');
+                    hiddenCliente.value = this.getAttribute('data-value');
+
+                    const direccionInput = document.querySelector('input[name="direccion_entrega"]');
+                    
+                    // --- NUEVA LÓGICA CON ETIQUETAS EXPLÍCITAS ---
+                    const partes = [];
+                    
+                    const calle = this.getAttribute('data-calle') || '';
+                    const numExt = this.getAttribute('data-num-ext') || '';
+                    const numInt = this.getAttribute('data-num-int') || '';
+                    const colonia = this.getAttribute('data-colonia') || '';
+                    const estado = this.getAttribute('data-estado') || ''; 
+                    const cp = this.getAttribute('data-cp') || '';
+
+                    // Agregamos etiqueta a cada campo si tiene valor
+                    if (calle) partes.push('Calle: ' + calle);
+                    if (numExt) partes.push('Num ext: ' + numExt);
+                    if (numInt) partes.push('Num int: ' + numInt);
+                    if (colonia) partes.push('Col: ' + colonia);
+                    if (estado) partes.push('Est: ' + estado);
+                    if (cp) partes.push('Cp: ' + cp);
+
+                    direccionInput.value = partes.join(', ');
+                    // ----------------------------------------------
+
+                    cargarContactos(hiddenCliente.value); 
+
+                    document.getElementById('cliente-error').style.display = 'none';
+                    selectCliente.classList.remove('open');
+                    setTimeout(() => { isSelectingCliente = false; }, 50);
+                });
+            });
+
+            // --- 3. CONTACTO ---
+            const wrapperContacto = document.getElementById('wrapperContacto');
+            const selectContacto = wrapperContacto.querySelector('.custom-select');
+            const inputContacto = document.getElementById('contacto_busqueda');
+            const fakeContacto = document.getElementById('contacto_display_fake');
+            const hiddenContacto = document.getElementById('contacto_id_input');
+            const optionsContacto = wrapperContacto.querySelector('.custom-options');
+
+            function cargarContactos(clienteId) {
+                inputContacto.value = '';
+                fakeContacto.innerHTML = '<span class="text-muted">Cargando...</span>';
+                hiddenContacto.value = '';
+                inputContacto.disabled = true;
+
+                if (!clienteId) {
+                    fakeContacto.innerHTML = '<span class="text-muted">Selecciona cliente primero...</span>';
+                    inputContacto.disabled = true;
+                    return;
+                }
+
+                fetch(`/api/clientes/${clienteId}/contactos/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        optionsContacto.innerHTML = '';
+                        if (data.length === 0) {
+                            optionsContacto.innerHTML = '<span class="custom-option disabled text-muted small">Este cliente no tiene contactos</span>';
+                            fakeContacto.innerHTML = '<span class="text-muted">Sin contactos</span>';
+                            inputContacto.disabled = true;
+                        } else {
+                            data.forEach(c => {
+                                const htmlOpcion = `
+                                    <span class="custom-option" data-value="${c.id}">
+                                        <span class="opt-razon">${c.nombre}</span>
+                                        <span class="opt-separator">|</span>
+                                        <span class="opt-contacto">${c.e1 || 'Sin correo'}</span>
+                                        <span class="opt-separator">|</span>
+                                        <span class="opt-contacto">${c.t1 || 'Sin teléfono'}</span>
+                                    </span>
+                                `;
+                                optionsContacto.insertAdjacentHTML('beforeend', htmlOpcion);
+                            });
+                            fakeContacto.innerHTML = '<span class="text-muted">Seleccionar contacto...</span>';
+                            inputContacto.disabled = false;
+                            activarLogicaContacto();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error cargando contactos:', error);
+                        fakeContacto.innerHTML = '<span class="text-danger">Error al cargar</span>';
+                    });
+            }
+
+            function activarLogicaContacto() {
+                const nuevasOpciones = optionsContacto.querySelectorAll('.custom-option:not(.disabled)');
+                nuevasOpciones.forEach(opt => {
+                    if (opt.hasAttribute('data-listener')) return;
+                    opt.setAttribute('data-listener', 'true');
+
+                    opt.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        nuevasOpciones.forEach(o => o.classList.remove('selected'));
+                        this.classList.add('selected');
+                        fakeContacto.innerHTML = this.innerHTML;
+                        inputContacto.value = this.textContent.replace(/\s+/g, ' ').trim();
+                        hiddenContacto.value = this.getAttribute('data-value');
+                        inputContacto.classList.add('input-cliente-seleccionado');
+                        selectContacto.classList.remove('open');
+                    });
+                });
+            }
+
+            inputContacto.addEventListener('focus', function() {
+                if(!this.disabled) selectContacto.classList.add('open');
+            });
+            wrapperContacto.addEventListener('click', function(e) {
+                if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'I') {
+                    if(!inputContacto.disabled) inputContacto.focus();
+                }
+            });
+            window.addEventListener('click', function(e) {
+                if (!selectContacto.contains(e.target)) {
+                    selectContacto.classList.remove('open');
+                }
+            });
+
+            const form = document.getElementById('formCotizacion');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    if (!hiddenCliente.value) {
+                        e.preventDefault();
+                        document.getElementById('cliente-error').style.display = 'block';
+                        inputCliente.classList.remove('input-cliente-seleccionado');
+                        selectCliente.querySelector('.custom-select__trigger').style.borderColor = "#dc3545";
+                        selectCliente.classList.add('open');
+                        inputCliente.focus();
+                    }
+                });
+            }
+
+            window.cargarParaEdicion = function(id) {
+                document.getElementById('formCotizacion').reset();
+                document.getElementById('tablaCuerpo').innerHTML = ''; 
+                document.getElementById('granTotalModal').innerText = '$0.00';
+                document.getElementById('mensajeVacio').style.display = 'block';
+
+                fakeCliente.innerHTML = '<span class="text-muted">Buscar cliente...</span>';
+                fakeContacto.innerHTML = '<span class="text-muted">Selecciona cliente primero...</span>';
+                inputContacto.disabled = true;
+                inputContacto.classList.remove('input-cliente-seleccionado');
+                inputCliente.classList.remove('input-cliente-seleccionado');
+
+                document.querySelector('.modal-title').innerHTML = '<i class="bi bi-pencil-square me-2" style="color: #00b8b9;"></i> Editar Cotización #' + id;
+                document.getElementById('formCotizacion').action = `/cotizaciones/actualizar/${id}/`;
+
+                fetch(`/api/cotizaciones/${id}/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if(data.error) {
+                            alert(data.error);
+                            return;
+                        }
+
+                        document.querySelector('input[name="fecha_inicio"]').value = data.fecha_inicio;
+                        document.querySelector('input[name="fecha_fin"]').value = data.fecha_fin;
+                        document.querySelector('input[name="origen"]').value = data.origen;
+                        document.querySelector('input[name="direccion_entrega"]').value = data.direccion_entrega;
+
+                        const optionCliente = document.querySelector(`.custom-option[data-value="${data.cliente}"]`);
+                        if (optionCliente) {
+                            optionCliente.click();
+                        }
+
+                        let totalAcumulado = 0;
+                        data.detalles.forEach(det => {
+                            agregarFilaVisual(det.producto_id, det.producto_nombre, det.cantidad, det.precio, det.total);
+                            totalAcumulado += parseFloat(det.total);
+                        });
+                        
+                        if(data.detalles.length > 0) {
+                            document.getElementById('mensajeVacio').style.display = 'none';
+                        }
+                        document.getElementById('granTotalModal').innerText = '$' + totalAcumulado.toFixed(2);
+
+                        if (data.contacto_id) {
+                            setTimeout(() => {
+                                const optionContacto = document.querySelector(`#wrapperContacto .custom-option[data-value="${data.contacto_id}"]`);
+                                if (optionContacto) {
+                                    optionContacto.click();
+                                }
+                            }, 400);
+                        }
+
+                        const myModal = new bootstrap.Modal(document.getElementById('modalNuevaCotizacion'));
+                        myModal.show();
+                    })
+                    .catch(error => console.error('Error:', error));
+            };
+        });
+
+        // EVENTOS GLOBALES FUERA DE DOMContentLoaded
+
+        document.querySelector('[data-bs-target="#modalNuevaCotizacion"]').addEventListener('click', function() {
+            document.querySelector('.modal-title').innerHTML = '<i class="bi bi-file-earmark-plus me-2" style="color: #00b8b9;"></i> Nueva Cotización';
+            document.getElementById('formCotizacion').action = "{% url 'crear_cotizacion' %}";
+
+            const hoy = new Date().toISOString().split('T')[0];
+            document.getElementById('fecha_inicio').value = hoy;
+            document.getElementById('fecha_fin').value = hoy;
+            
+            const inputCliente = document.getElementById('cliente_busqueda');
+            const fakeCliente = document.getElementById('cliente_display_fake');
+            const hiddenCliente = document.getElementById('cliente_id_input');
+            const inputContacto = document.getElementById('contacto_busqueda');
+            const fakeContacto = document.getElementById('contacto_display_fake');
+            const hiddenContacto = document.getElementById('contacto_id_input');
+
+            inputCliente.value = '';
+            fakeCliente.innerHTML = '<span class="text-muted" style="font-weight:400;">Buscar cliente...</span>';
+            hiddenCliente.value = '';
+            inputCliente.classList.remove('input-cliente-seleccionado');
+
+            inputContacto.value = '';
+            fakeContacto.innerHTML = '<span class="text-muted">Selecciona cliente primero...</span>';
+            hiddenContacto.value = '';
+            inputContacto.disabled = true;
+            inputContacto.classList.remove('input-cliente-seleccionado');
+
+            document.querySelector('input[name="direccion_entrega"]').value = '';
+        });
+
+        let idAprobarTemporal = null;
+        window.confirmarAprobacion = function(id) {
+            idAprobarTemporal = id;
+            const modal = new bootstrap.Modal(document.getElementById('modalConfirmarAprobacion'));
+            modal.show();
+        };
+
+        document.getElementById('btnConfirmarAprobar').addEventListener('click', function() {
+            if (!idAprobarTemporal) return;
+            fetch(`/cotizaciones/aprobar/${idAprobarTemporal}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const modalEl = document.getElementById('modalConfirmarAprobacion');
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    modal.hide();
+                    location.reload(); 
+                } else {
+                    alert('Error al aprobar: ' + data.error);
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        });
+    </script>
+{% endblock %}

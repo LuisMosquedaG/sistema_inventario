@@ -1,0 +1,344 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- ESTILOS ESPECÍFICOS DEL MÓDULO -->
+<style>
+    /* Iconos de Acción */
+    .icon-action {
+        color: #adb5bd;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        text-decoration: none !important;
+    }
+    .icon-action:hover {
+        color: #00b8b9;
+        transform: scale(1.15);
+    }
+    .icon-action:active {
+        transform: scale(0.95);
+    }
+
+    /* Estilos del Modal Compacto */
+    .modal-sheet .modal-content {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        overflow: hidden;
+    }
+    .modal-sheet .modal-body {
+        max-height: 80vh;
+        overflow-y: auto;
+        padding: 0.5rem !important;
+    }
+    .modal-sheet .modal-body::-webkit-scrollbar { width: 6px; }
+    .modal-sheet .modal-body::-webkit-scrollbar-thumb { background-color: #dee2e6; border-radius: 4px; }
+</style>
+
+<!-- CONTENEDOR PRINCIPAL -->
+<div class="container-fluid py-2 px-4">
+
+    <!-- HEADER -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <div>
+            <h4 class="section-title mb-0">Almacenes</h4>
+            <span class="section-subtitle">Gestión de ubicaciones físicas</span>
+        </div>
+        
+        <div class="d-flex align-items-center gap-2">
+            <!-- Botón Descargar (Placeholder) -->
+            <button class="btn btn-light border text-secondary btn-pro">
+                <i class="bi bi-download me-1"></i> Exportar
+            </button>
+            
+            <!-- Botón Nuevo Almacén -->
+            <button class="btn btn-brand text-white btn-pro" data-bs-toggle="modal" data-bs-target="#modalCrearAlmacen">
+                <i class="bi bi-plus-lg me-1"></i> Nuevo Almacén
+            </button>
+        </div>
+    </div>
+
+    <!-- TARJETA DE TABLA -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-pro mb-0">
+                    <thead>
+                        <tr>
+                            <th class="text-center" style="width: 60px;">Acciones</th>
+                            <th class="text-center">Nombre</th>
+                            <th class="text-center">Dirección Completa</th>
+                            <th class="text-center">Ubicación</th>
+                            <th class="text-center">Contacto</th>
+                            <th class="text-center">Responsable</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in almacenes %}
+                        <tr>
+                            <!-- ACCIONES -->
+                            <td class="text-center">
+                                <span data-id="{{ a.id }}" onclick="cargarAlmacenEdicion(this)" class="icon-action" title="Editar Almacén">
+                                    <i class="bi bi-pencil-square"></i>
+                                </span>
+                            </td>
+
+                            <!-- NOMBRE -->
+                            <td class="text-center">
+                                <div class="fw-bold text-dark">{{ a.nombre }}</div>
+                            </td>
+                            
+                            <!-- DIRECCIÓN -->
+                            <td class="text-center">
+                                <div class="small text-dark">
+                                    {{ a.calle }} {{ a.numero_ext }}{% if a.numero_int %} Int: {{ a.numero_int }}{% endif %},
+                                    {{ a.colonia }}
+                                </div>
+                            </td>
+                            
+                            <!-- UBICACIÓN (Estado/CP) -->
+                            <td class="text-center">
+                                <div class="small text-dark">{{ a.estado }}</div>
+                                <div class="text-muted small" style="font-size: 0.75rem;">CP: {{ a.cp }}</div>
+                            </td>
+
+                            <!-- CONTACTO -->
+                            <td class="text-center">
+                                <div class="small text-dark">{{ a.telefono|default:"--" }}</div>
+                            </td>
+
+                            <!-- RESPONSABLE -->
+                            <td class="text-center">
+                                <div class="badge bg-light text-dark border">{{ a.responsable|default:"--" }}</div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5">
+                                <i class="bi bi-house-slash display-6 text-muted mb-2 d-block opacity-50"></i>
+                                <span class="text-muted fst-italic small">No hay almacenes registrados</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <!-- Footer -->
+        <div class="card-footer bg-white border-0 py-2 px-4 d-flex justify-content-between align-items-center">
+            <span class="text-muted small" style="font-size: 0.75rem;">{{ almacenes|length }} almacenes</span>
+            <div class="d-flex gap-1">
+                 <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;</button>
+                 <button class="btn btn-sm btn-light border-0 text-dark fw-bold">1</button>
+                 <button class="btn btn-sm btn-light border-0 text-muted">&raquo;</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ============================================== -->
+<!-- MODAL: CREAR/EDITAR ALMACÉN (COMPACTO)         -->
+<!-- ============================================== -->
+<div class="modal fade" id="modalCrearAlmacen" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+        <div class="modal-content">
+            <div class="modal-header border-bottom bg-light py-2">
+                <h5 class="modal-title fw-bold">Nuevo Almacén</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body bg-light">
+                <form id="formAlmacen">
+                    {% csrf_token %}
+                    <input type="hidden" name="almacen_id" id="almacenId" value="">
+                    
+                    <!-- SECCIÓN 1: DATOS GENERALES -->
+                    <div class="card border-0 shadow-sm mb-2">
+                        <div class="card-body p-2">
+                            <h6 class="text-uppercase text-muted fw-bold mb-2" style="font-size: 0.7rem; letter-spacing: 1px;">1. Identificación</h6>
+                            <div class="row g-2">
+                                <div class="col-md-12">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Nombre del Almacén <span class="text-danger">*</span></label>
+                                    <input type="text" name="nombre" class="form-control form-control-sm" placeholder="Ej. Almacén Central Norte" required>
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Responsable</label>
+                                    <input type="text" name="responsable" class="form-control form-control-sm" placeholder="Ej. Juan Pérez">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 2: DIRECCIÓN FÍSICA -->
+                    <div class="card border-0 shadow-sm mb-2">
+                        <div class="card-body p-2">
+                            <h6 class="text-uppercase text-muted fw-bold mb-2" style="font-size: 0.7rem; letter-spacing: 1px;">2. Ubicación</h6>
+                            <div class="row g-2">
+                                <div class="col-md-8">
+                                    <label class="form-label small text-muted mb-1">Calle</label>
+                                    <input type="text" name="calle" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small text-muted mb-1">Num. Ext</label>
+                                    <input type="text" name="numero_ext" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small text-muted mb-1">Num. Int</label>
+                                    <input type="text" name="numero_int" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small text-muted mb-1">Colonia</label>
+                                    <input type="text" name="colonia" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small text-muted mb-1">Estado</label>
+                                    <input type="text" name="estado" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted mb-1">Código Postal (CP)</label>
+                                    <input type="text" name="cp" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label small text-muted mb-1">Teléfono</label>
+                                    <input type="text" name="telefono" class="form-control form-control-sm" placeholder="Ej. +52 55 1234 5678">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+
+            <div class="modal-footer border-top bg-white py-2">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-brand btn-sm px-4" onclick="guardarAlmacen()">Guardar Almacén</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // --- FUNCIÓN CSRF ---
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // --- ABRIR MODAL LIMPIO ---
+    document.querySelector('button[data-bs-target="#modalCrearAlmacen"]').addEventListener('click', function() {
+        resetFormularioAlmacen();
+        document.querySelector('#modalCrearAlmacen .modal-title').innerText = "Nuevo Almacén";
+    });
+
+    function resetFormularioAlmacen() {
+        const form = document.getElementById('formAlmacen');
+        if(form) form.reset();
+        const idField = document.getElementById('almacenId');
+        if(idField) idField.value = "";
+    }
+
+    // --- CARGAR PARA EDICIÓN ---
+    function cargarAlmacenEdicion(elemento) {
+        const id = elemento.getAttribute('data-id');
+        resetFormularioAlmacen(); 
+        document.querySelector('#modalCrearAlmacen .modal-title').innerText = "Editar Almacén";
+
+        // CAMBIO AQUÍ: Agregado '/inventario/api/almacen/...'
+        fetch(`/inventario/api/almacen/${id}/`)
+            .then(response => response.json())
+            .then(data => {
+                if(data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
+                document.getElementById('almacenId').value = data.id;
+                document.querySelector('[name="nombre"]').value = data.nombre;
+                document.querySelector('[name="responsable"]').value = data.responsable;
+                document.querySelector('[name="calle"]').value = data.calle;
+                document.querySelector('[name="numero_ext"]').value = data.numero_ext;
+                document.querySelector('[name="numero_int"]').value = data.numero_int;
+                document.querySelector('[name="colonia"]').value = data.colonia;
+                document.querySelector('[name="estado"]').value = data.estado;
+                document.querySelector('[name="cp"]').value = data.cp;
+                document.querySelector('[name="telefono"]').value = data.telefono;
+
+                const myModal = new bootstrap.Modal(document.getElementById('modalCrearAlmacen'));
+                myModal.show();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al cargar los datos.');
+            });
+    }
+
+    // --- GUARDAR (CREAR O ACTUALIZAR) ---
+    function guardarAlmacen() {
+        const form = document.getElementById('formAlmacen');
+        const formData = new FormData(form);
+        const almacenId = document.getElementById('almacenId').value;
+
+        // Validación simple
+        if (!formData.get('nombre')) {
+            alert('El nombre del almacén es obligatorio.');
+            return;
+        }
+
+        // Definir URL y Método
+        // CAMBIO AQUÍ: Agregado '/inventario/api/crear-almacen/'
+        let url = '/inventario/api/crear-almacen/';
+        let method = 'POST';
+
+        if (almacenId) {
+            // CAMBIO AQUÍ: Agregado '/inventario/api/actualizar-almacen/...'
+            url = `/inventario/api/actualizar-almacen/${almacenId}/`;
+        }
+
+        fetch(url, {
+            method: method,
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.success) {
+                alert(data.message);
+                const modalEl = document.getElementById('modalCrearAlmacen');
+                const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if(modalInstance) modalInstance.hide();
+                location.reload(); 
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Hubo un error de conexión o en el servidor.');
+        });
+    }
+</script>
+
+{% endblock %}

@@ -1,0 +1,124 @@
+<div class="modal fade" id="modalDetalleDocumento" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+        <div class="modal-content">
+            
+            <!-- HEADER -->
+            <div class="modal-header border-bottom bg-light py-2"> 
+                <h5 class="modal-title fw-bold" id="docModalTitle">Detalle de Documento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <!-- BODY -->
+            <div class="modal-body p-3 bg-light">
+                
+                <!-- SECCIÓN 1: INFORMACIÓN PRINCIPAL -->
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body p-3">
+                        <!-- Fila Superior: Folio y Estado -->
+                        <div class="row g-3 mb-3 pb-3 border-bottom border-light">
+                            <div class="col-8 d-flex align-items-center">
+                                <div class="me-3">
+                                    <label class="small text-muted mb-1 d-block">Folio Documento</label>
+                                    <div class="fw-bold text-dark fs-5" id="docModalFolio">-</div>
+                                </div>
+                                <div>
+                                    <label class="small text-muted mb-1 d-block">Fecha</label>
+                                    <div class="fw-bold text-secondary" id="docModalFecha">-</div>
+                                </div>
+                            </div>
+                            <div class="col-4 text-end d-flex flex-column justify-content-center align-items-end">
+                                <span id="docModalEstado" class="doc-pill status-default">Estado</span>
+                            </div>
+                        </div>
+
+                        <!-- Fila Inferior: Proveedor y OC -->
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="small text-muted mb-1">Proveedor</label>
+                                <div class="fw-bold text-dark" id="docModalProveedor">-</div>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <label class="small text-muted mb-1">Orden de Compra</label>
+                                <div class="fw-bold text-brand" id="docModalOC">-</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 2: DETALLES LOGÍSTICOS (COLAPSABLE) -->
+                <div class="card border-0 shadow-sm mb-3" id="cardLogistica" style="display:none;">
+                    <div class="card-body p-0">
+                        <button class="btn btn-sm btn-light border text-secondary w-100 d-flex justify-content-between align-items-center px-3 py-2" 
+                                type="button" 
+                                data-bs-toggle="collapse" 
+                                data-bs-target="#collapseLogistica" 
+                                aria-expanded="false" 
+                                aria-controls="collapseLogistica">
+                            <span><i class="bi bi-box-seam me-2 text-primary"></i>Logística y Aduana</span>
+                            <i class="bi bi-chevron-down small transition-icon"></i>
+                        </button>
+                    </div>
+                    <div class="collapse" id="collapseLogistica">
+                        <div class="bg-light p-3 border-top">
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <label class="small text-muted mb-0">Almacén</label>
+                                    <div class="fw-bold text-dark small" id="docModalAlmacen">-</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="small text-muted mb-0">Factura</label>
+                                    <div class="fw-bold text-dark small" id="docModalFactura">-</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="small text-muted mb-0">Pedimento</label>
+                                    <div class="fw-bold text-dark small font-monospace" id="docModalPedimento">-</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="small text-muted mb-0">Aduana</label>
+                                    <div class="fw-bold text-dark small" id="docModalAduana">-</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="small text-muted mb-0">Fecha Pedimento</label>
+                                    <div class="fw-bold text-dark small" id="docModalFechaPedimento">-</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 3: PARTIDAS (TABLA) -->
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-2">
+                        <h6 class="text-uppercase text-muted fw-bold mb-2" style="font-size: 0.7rem; letter-spacing: 1px;">Partidas</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="ps-3" style="font-weight: 500; color: #495057; font-size: 0.8rem;">Producto</th>
+                                        <th class="text-center" style="font-weight: 500; color: #495057; font-size: 0.8rem;">Cant.</th>
+                                        <th class="text-end" style="font-weight: 500; color: #495057; font-size: 0.8rem;">Precio</th>
+                                        <th class="text-end pe-3" style="font-weight: 500; color: #495057; font-size: 0.8rem;">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="docModalTableBody"></tbody>
+                                <tfoot class="bg-light border-top">
+                                    <tr>
+                                        <td colspan="3" class="text-end fw-bold text-muted small pt-2">Total Documento:</td>
+                                        <td class="text-end fw-bold text-brand fs-6 pe-3 pt-2" id="docModalTotal">$0.00</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- FOOTER -->
+            <div class="modal-footer border-top bg-white">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+
+        </div>
+    </div>
+</div>

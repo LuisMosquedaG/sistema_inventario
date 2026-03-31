@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- CARGAR CSS ESPECÍFICO -->
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/inventario.css' %}">
+
+<!-- CONTENEDOR COMPACTO -->
+<div class="container-fluid py-2 px-4">
+    <!-- HEADER COMPACTO -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <div>
+            <h4 class="section-title mb-0">Inventario</h4>
+            <span class="section-subtitle">Catálogo de productos y stock</span>
+        </div>
+        
+        <div class="d-flex align-items-center gap-2">
+            <!-- Botón Receta (Ahora abre por JS) -->
+            <button class="btn btn-light border text-secondary btn-pro" onclick="abrirConfigurarReceta()">
+                <i class="bi bi-gear-fill me-1"></i> Receta
+            </button>
+            
+            <!-- Botón Nuevo (Ahora abre por JS) -->
+            <button class="btn btn-brand text-white btn-pro" onclick="abrirNuevoArticulo()">
+                <i class="bi bi-plus-lg me-1"></i> Nuevo Artículo
+            </button>
+        </div>
+    </div>
+
+    <!-- TARJETA DE TABLA -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-pro mb-0">
+                    <thead>
+                        <tr>
+                            <th class="text-center" style="width: 90px;">Acciones</th>
+                            <th class="text-center">Nombre</th>
+                            <th class="text-center">Categoría / Subcategoría</th>
+                            <th class="text-center">Marca / Modelo</th>
+                            <th class="text-center">Stock</th>
+                            <th class="text-center">Límites (Min/Max)</th>
+                            <th class="text-center">Costos</th>
+                            <th class="text-center">Precios</th>
+                            <th class="text-center">Costo Inventario</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in productos %}
+                        <tr>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-1">
+                                    <!-- QUITAMOS DATA-BS-TOGGLE Y TARGET PARA QUE JS MANEJE TODO -->
+                                    <span data-id="{{ p.id }}" onclick="cargarProductoEdicion(this)" class="icon-action" title="Editar Artículo"><i class="bi bi-pencil-square"></i></span>
+                                    <span onclick="abrirModalListaPrecios({{ p.id }}, '{{ p.nombre|escapejs }}', '{{ p.unidad_medida }}', {{ p.precio_costo }}, {{ p.precio_venta }})" class="icon-action" title="Lista de Precios y Costos"><i class="bi bi-tags"></i></span>
+                                    <span onclick="verDetalleInventario({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action" title="Ver Existencias / Lotes / Series"><i class="bi bi-layers"></i></span>
+                                    {% if p.tipo_abastecimiento == 'produccion' %}
+                                        <span onclick="verRecetaProduccion({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action" title="Ver Receta de Ensamble"><i class="bi bi-diagram-3"></i></span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <div class="fw-bold text-dark text-truncate d-inline-block" style="max-width: 200px;" title="{{ p.descripcion }}">{{ p.nombre }}</div>
+                                <div class="text-muted small text-capitalize">Tipo: {{ p.tipo }}</div>
+                            </td>
+                            <td class="text-center">
+                                <div class="text-dark small fw-semibold">{{ p.categoria|default:"--" }}</div>
+                                <div class="text-muted small">{{ p.subcategoria|default:"--" }}</div>
+                            </td>
+                            <td class="text-center">
+                                <div class="text-dark small fw-semibold">{{ p.marca|default:"--" }}</div>
+                                <div class="text-muted small">{{ p.modelo|default:"--" }}</div>
+                            </td>
+                            <td class="text-center">
+                                <div class="text-muted" style="font-size: 0.75rem;">Exist: <span class="{% if p.stock_total < p.stock_minimo %}text-danger{% else %}text-success{% endif %} fw-bold">{{ p.stock_total }}</span></div>
+                                <div class="text-muted" style="font-size: 0.75rem;">Reser: <span class="text-warning fw-bold">{{ p.stock_reservado }}</span></div>
+                                <div class="text-muted" style="font-size: 0.75rem;">Dispo: <span class="text-success fw-bold">{{ p.stock_disponible }}</span></div>
+                            </td>
+                            <td class="text-center">
+                                <div class="text-muted small">Min: {{ p.stock_minimo }}</div>
+                                <div class="text-muted small">Max: {{ p.stock_maximo }}</div>
+                            </td>
+                            <td class="text-center small text-muted">
+                                Prom: ${{ p.costo_promedio_anotado|floatformat:2|default:"-" }}
+                            </td>
+                            <td class="text-center small text-muted">
+                                Prom: ${{ p.precio_promedio_venta|floatformat:2|default:"-" }}
+                            </td>
+                            <td class="text-center">
+                                <div class="text-muted small">${{ p.costo_inventario_anotado|floatformat:2|default:"0.00" }}</div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODALES -->
+{% include "inventario/modals/modal_crear_articulo.html" %}
+{% include "inventario/modals/modal_receta_editar.html" %}
+{% include "inventario/modals/modal_detalle_inventario.html" %}
+{% include "inventario/modals/modal_ver_receta.html" %}
+{% include "inventario/modals/modal_detalle_documento.html" %}
+{% include "inventario/modals/modal_lista_precios.html" %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const APP_URLS = {
+        api_subcategorias: "/inventario/api/subcategorias/",
+        api_detalle_producto: "/inventario/api/detalle-producto/",
+        api_detalle_documento: "/inventario/api/detalle-documento/",
+        api_receta: "/inventario/api/receta/",
+        api_guardar_receta: "/inventario/api/guardar-receta/",
+        api_producto: "/api/producto/0/", 
+        api_crear_producto: "/api/crear-producto/",
+        api_actualizar_producto: "/api/actualizar-producto/0/",
+        api_actualizar_precio: "/api/actualizar-precio-producto/0/"
+    };
+</script>
+<script src="{% static 'js/inventario.js' %}?v={% now 'U' %}"></script>
+{% endblock %}

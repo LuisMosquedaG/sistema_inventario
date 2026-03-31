@@ -1,0 +1,52 @@
+<div class="modal fade" id="modalVerReceta" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+        <div class="modal-content">
+            
+            <!-- HEADER -->
+            <div class="modal-header border-bottom bg-light"> 
+                <h5 class="modal-title fw-bold text-dark">
+                    <i class="bi bi-diagram-3-fill me-2 text-brand"></i>Receta de Ensamble
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <!-- BODY -->
+            <div class="modal-body p-3 bg-light">
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body p-3">
+                        <h6 class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.75rem;">Producto Final</h6>
+                        <h4 id="tituloRecetaModal" class="mb-0 fw-bold text-dark">Nombre del Producto</h4>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-0">
+                        <div class="table-responsive bg-white rounded">
+                            <table class="table table-sm table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="ps-3 fw-bold text-secondary">Componente</th>
+                                        <th class="text-center fw-bold text-secondary" style="width: 150px;">Cantidad Requerida</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablaBodyRecetaUnica">
+                                    <!-- JS Llenará esto -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <!-- Mensaje si está vacío -->
+                        <div id="msgRecetaVacia" class="text-center py-4 text-muted small fst-italic bg-light border rounded mt-2 d-none">
+                            Este producto no tiene componentes configurados.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FOOTER -->
+            <div class="modal-footer border-top bg-white">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+
+        </div>
+    </div>
+</div>

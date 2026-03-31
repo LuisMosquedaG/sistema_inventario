@@ -1,0 +1,299 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    /* Iconos de Acción */
+    .icon-action {
+        color: #adb5bd;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        text-decoration: none !important;
+    }
+    .icon-action:hover {
+        color: #00b8b9;
+        transform: scale(1.15);
+    }
+    
+    /* Estilos para los badges de subcategoría */
+    .badge-sub {
+        background-color: #e9ecef;
+        color: #495057;
+        border: 1px solid #dee2e6;
+        font-size: 0.75rem;
+        padding: 0.25em 0.6em;
+        border-radius: 4px;
+        margin-right: 4px;
+        margin-bottom: 4px;
+        display: inline-block;
+    }
+
+    /* Modal Compacto */
+    .modal-sheet .modal-content {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        overflow: hidden;
+    }
+    .modal-sheet .modal-body {
+        max-height: 80vh;
+        overflow-y: auto;
+        padding: 0.5rem !important;
+    }
+</style>
+
+<!-- CONTENEDOR -->
+<div class="container-fluid py-2 px-4">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <div>
+            <h4 class="section-title mb-0">Categorías</h4>
+            <span class="section-subtitle">Clasificación de productos</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-brand text-white btn-pro" data-bs-toggle="modal" data-bs-target="#modalCrearCategoria">
+                <i class="bi bi-plus-lg me-1"></i> Nueva Categoría
+            </button>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-pro mb-0">
+                    <thead>
+                        <tr>
+                            <th class="text-center" style="width: 60px;">Acciones</th>
+                            <th class="text-center">Nombre</th>
+                            <th class="text-center">Subcategorías</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in categorias %}
+                        <tr>
+                            <td class="text-center">
+                                <span data-id="{{ c.id }}" onclick="cargarCategoriaEdicion(this)" class="icon-action" title="Editar">
+                                    <i class="bi bi-pencil-square"></i>
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <div class="fw-bold text-dark">{{ c.nombre }}</div>
+                            </td>
+                            <td class="text-center">
+                                <!-- Mostramos las subcategorías como badges pequeños -->
+                                <div>
+                                    {% for sub in c.subcategorias.all %}
+                                        <span class="badge-sub">{{ sub.nombre }}</span>
+                                    {% empty %}
+                                        <span class="text-muted small fst-italic">Sin subcategorías</span>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center py-5">
+                                <i class="bi bi-tags display-6 text-muted mb-2 d-block opacity-50"></i>
+                                <span class="text-muted fst-italic small">No hay categorías registradas</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal fade" id="modalCrearCategoria" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+        <div class="modal-content">
+            <div class="modal-header border-bottom bg-light py-2">
+                <h5 class="modal-title fw-bold">Nueva Categoría</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body bg-light">
+                <form id="formCategoria">
+                    {% csrf_token %}
+                    <input type="hidden" name="categoria_id" id="categoriaId" value="">
+                    
+                    <div class="card border-0 shadow-sm mb-2">
+                        <div class="card-body p-2">
+                            <h6 class="text-uppercase text-muted fw-bold mb-2" style="font-size: 0.7rem; letter-spacing: 1px;">Datos Generales</h6>
+                            <div class="row g-2">
+                                <div class="col-md-12">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Nombre de la Categoría <span class="text-danger">*</span></label>
+                                    <input type="text" name="nombre" id="inputNombre" class="form-control form-control-sm" required>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card border-0 shadow-sm mb-2">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="text-uppercase text-muted fw-bold m-0" style="font-size: 0.7rem; letter-spacing: 1px;">Subcategorías</h6>
+                            </div>
+                            
+                            <!-- CONTENEDOR DINÁMICO -->
+                            <div id="contenedorSubcategorias">
+                                <!-- Aquí se inyectarán los inputs vía JS -->
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-top bg-white py-2">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-brand btn-sm px-4" onclick="guardarCategoria()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    document.querySelector('button[data-bs-target="#modalCrearCategoria"]').addEventListener('click', function() {
+        resetFormulario();
+        document.querySelector('#modalCrearCategoria .modal-title').innerText = "Nueva Categoría";
+    });
+
+    function resetFormulario() {
+        document.getElementById('formCategoria').reset();
+        document.getElementById('categoriaId').value = "";
+        document.getElementById('contenedorSubcategorias').innerHTML = ""; // Limpiar subcategorías
+        // Agregar una fila vacía por defecto
+        agregarFilaSubcategoria();
+    }
+
+    // FUNCIÓN PARA AGREGAR UNA FILA DE SUBCATEGORÍA
+    function agregarFilaSubcategoria(valor = "", mostrarBotonAgregar = true) {
+        const container = document.getElementById('contenedorSubcategorias');
+        const fila = document.createElement('div');
+        fila.className = 'input-group input-group-sm mb-2';
+        
+        // El HTML del input siempre va
+        let html = `
+            <input type="text" name="subcategorias[]" class="form-control" placeholder="Nombre de subcategoría" value="${valor}">
+        `;
+
+        // SOLO si mostrarBotonAgregar es TRUE, agregamos el botón verde (+)
+        if (mostrarBotonAgregar) {
+            html += `
+                <button class="btn btn-outline-success" type="button" onclick="agregarFilaSubcategoria()" title="Agregar otra subcategoría">
+                    <i class="bi bi-plus-lg"></i>
+                </button>
+            `;
+        }
+
+        // El botón de eliminar (rojo) siempre va
+        html += `
+            <button class="btn btn-outline-danger" type="button" onclick="this.parentElement.remove()" title="Eliminar esta fila">
+                <i class="bi bi-trash"></i>
+            </button>
+        `;
+
+        fila.innerHTML = html;
+        container.appendChild(fila);
+    }
+
+        function cargarCategoriaEdicion(elemento) {
+        const id = elemento.getAttribute('data-id');
+        
+        // 1. Reseteamos el formulario (esto limpia el contenedor y agrega la PRIMERA fila vacía con botón +)
+        resetFormulario();
+        
+        document.querySelector('#modalCrearCategoria .modal-title').innerText = "Editar Categoría";
+
+        fetch(`/inventario/api/categoria/${id}/`)
+            .then(response => response.json())
+            .then(data => {
+                if(data.error) { alert(data.error); return; }
+                
+                document.getElementById('categoriaId').value = data.id;
+                document.getElementById('inputNombre').value = data.nombre;
+                
+                // Obtenemos el contenedor. 
+                // NOTA: Ya tiene la fila vacía inicial gracias a resetFormulario() que se ejecutó arriba.
+                const container = document.getElementById('contenedorSubcategorias');
+                
+                // 2. Recorremos las subcategorías existentes y las agregamos
+                if (data.subcategorias && data.subcategorias.length > 0) {
+                    data.subcategorias.forEach(sub => {
+                        // Pasamos 'false' como segundo argumento para que NO muestre el botón de agregar (+)
+                        agregarFilaSubcategoria(sub.nombre, false);
+                    });
+                }
+
+                new bootstrap.Modal(document.getElementById('modalCrearCategoria')).show();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al cargar los datos.');
+            });
+    }
+
+    function guardarCategoria() {
+        const form = document.getElementById('formCategoria');
+        const formData = new FormData(form);
+        const id = document.getElementById('categoriaId').value;
+
+        if (!formData.get('nombre')) {
+            alert('El nombre de la categoría es obligatorio.');
+            return;
+        }
+
+        let url = '/inventario/api/crear-categoria/';
+        
+        if (id) {
+            url = `/inventario/api/actualizar-categoria/${id}/`;
+        }
+
+        fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.success) {
+                alert(data.message);
+                bootstrap.Modal.getInstance(document.getElementById('modalCrearCategoria')).hide();
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Hubo un error.');
+        });
+    }
+</script>
+{% endblock %}

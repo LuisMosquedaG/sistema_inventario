@@ -1,0 +1,325 @@
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404
+from django.http import JsonResponse
+from django.forms.models import model_to_dict
+from django.db import transaction
+from panel.models import Empresa
+from pedidos.models import Pedido, DetallePedido
+from .models import SolicitudCompra, DetalleSolicitudCompra
+from core.models import DetalleReceta
+from produccion.models import OrdenProduccion
+from proveedores.models import Proveedor
+from almacenes.models import Almacen
+from preferencias.models import Moneda
+
+def get_empresa_actual(request):
+    username = request.user.username
+    if '@' in username:
+        subdominio = username.split('@')[1]
+        try:
+            return Empresa.objects.get(subdominio=subdominio)
+        except Empresa.DoesNotExist:
+            return None
+    return None
+
+@login_required(login_url='/login/')
+def dashboard_solicitudcompras(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return render(request, 'error_sin_empresa.html', status=403)
+    
+    solicitudes = SolicitudCompra.objects.filter(empresa=empresa_actual).select_related('pedido_origen').order_by('-fecha_creacion')
+    
+    # --- NUEVO: Obtener catálogos para los selects del modal ---
+    lista_proveedores = Proveedor.objects.filter(empresa=empresa_actual).values('id', 'razon_social')
+    lista_almacenes = Almacen.objects.filter(empresa=empresa_actual).values('id', 'nombre')
+    lista_monedas = Moneda.objects.filter(empresa=empresa_actual).values('id', 'siglas', 'simbolo')
+    
+    contexto = {
+        'solicitudes': solicitudes,
+        'proveedores': list(lista_proveedores),
+        'almacenes': list(lista_almacenes),
+        'monedas': list(lista_monedas)
+    }
+    return render(request, 'dashboard_solicitudcompras.html', contexto)
+
+@login_required(login_url='/login/')
+def crear_solicitud_desde_pedido(request, detalle_id):
+    empresa_actual = get_empresa_actual(request)
+    detalle = get_object_or_404(DetallePedido, id=detalle_id)
+    
+    # Seguridad: Verificar que el pedido pertenezca a la empresa
+    pedido = get_object_or_404(Pedido, id=detalle.pedido.id, empresa=empresa_actual)
+    producto = detalle.producto
+
+    # Verificamos si YA existe una solicitud abierta para este pedido para agrupar
+    solicitud_existente = SolicitudCompra.objects.filter(
+        pedido_origen=pedido, 
+        estado='borrador', 
+        empresa=empresa_actual
+    ).first()
+
+    if solicitud_existente:
+        target_solicitud = solicitud_existente
+    else:
+        target_solicitud = SolicitudCompra.objects.create(
+            pedido_origen=pedido, 
+            solicitante=request.user, 
+            empresa=empresa_actual, 
+            estado='borrador'
+        )
+
+    # --- INTELIGENCIA: ¿ES PRODUCCIÓN? ---
+    if producto.tipo_abastecimiento == 'produccion':
+        # 1. Crear la Orden de Producción vinculada al pedido (En Borrador)
+        op = OrdenProduccion.objects.create(
+            empresa=empresa_actual,
+            producto=producto,
+            cantidad=detalle.cantidad_solicitada,
+            pedido_origen=pedido,
+            solicitante=request.user,
+            almacen=Almacen.objects.filter(empresa=empresa_actual).first(), # Almacen por defecto
+            estado='borrador',
+            notas=f"Generada desde Pedido #{pedido.id} (Partida Individual)"
+        )
+
+        # 2. Obtener Receta y copiar a DetalleOrdenProduccion
+        receta = DetalleReceta.objects.filter(producto_padre=producto)
+        
+        if not receta.exists():
+            messages.error(request, f'El producto "{producto.nombre}" es de producción pero NO TIENE RECETA. No se puede generar solicitud.')
+            return redirect('dashboard_pedidos')
+
+        # 3. Calcular necesidades y crear detalles
+        items_a_solicitar = []
+        for item in receta:
+            # Copiar a la tabla de la orden específica
+            from produccion.models import DetalleOrdenProduccion
+            DetalleOrdenProduccion.objects.create(
+                orden_produccion=op,
+                producto=item.componente,
+                cantidad=item.cantidad * detalle.cantidad_solicitada
+            )
+
+            componente = item.componente
+            cantidad_necesaria = item.cantidad * detalle.cantidad_solicitada
+            
+            stock_componente = componente.stock_disponible
+            
+            if stock_componente < cantidad_necesaria:
+                faltante = cantidad_necesaria - stock_componente
+                items_a_solicitar.append({
+                    'producto': componente,
+                    'cantidad': faltante,
+                    'costo': componente.precio_costo
+                })
+
+        if not items_a_solicitar:
+            messages.info(request, f'Para producir {producto.nombre} ya tienes todos los componentes necesarios en stock. No se generó solicitud.')
+            # Podríamos cambiar el estado a 'pendiente' si quisieras, pero lo dejamos así.
+            return redirect('dashboard_pedidos')
+
+        # 3. Crear Detalles en la Solicitud
+        for item in items_a_solicitar:
+            # Verificar si ya existe ese componente en la solicitud actual para no duplicar
+            det_existente = DetalleSolicitudCompra.objects.filter(
+                solicitud=target_solicitud,
+                producto=item['producto']
+            ).first()
+            
+            if det_existente:
+                det_existente.cantidad_solicitada += item['cantidad']
+                det_existente.save()
+            else:
+                DetalleSolicitudCompra.objects.create(
+                    solicitud=target_solicitud,
+                    producto=item['producto'],
+                    cantidad_solicitada=item['cantidad'],
+                    costo_unitario=item['costo'],
+                    detalle_pedido_origen=detalle # Vinculamos al pedido original
+                )
+        
+        detalle.estado_linea = 'en_proceso' # Marcamos que ya se inició el trámite
+        detalle.save()
+        
+        messages.success(request, f'Solicitud de componentes para "{producto.nombre}" generada correctamente.')
+
+    else:
+        # --- CASO NORMAL: COMPRAR EL PRODUCTO DIRECTO ---
+        DetalleSolicitudCompra.objects.create(
+            solicitud=target_solicitud,
+            producto=producto,
+            cantidad_solicitada=detalle.cantidad_solicitada,
+            costo_unitario=producto.precio_costo,
+            detalle_pedido_origen=detalle
+        )
+        
+        detalle.estado_linea = 'en_proceso'
+        detalle.save()
+        
+        messages.success(request, f'Producto agregado a la Solicitud #{target_solicitud.id}.')
+
+    return redirect('dashboard_solicitudcompras')
+
+def obtener_solicitud_json(request, solicitud_id):
+    """Devuelve los datos de una solicitud específica para el Modal"""
+    try:
+        empresa_actual = get_empresa_actual(request) 
+        solicitud = get_object_or_404(SolicitudCompra, id=solicitud_id, empresa=empresa_actual)
+        
+        # Convertimos el modelo principal a diccionario
+        data = model_to_dict(solicitud)
+        
+        # --- Construir el objeto anidado del Pedido ---
+        if solicitud.pedido_origen:
+            data['pedido_origen'] = {
+                'id': solicitud.pedido_origen.id,
+                'cotizacion_origen_id': solicitud.pedido_origen.cotizacion_origen_id,
+                'cliente': {
+                    'nombre': solicitud.pedido_origen.cliente.nombre,
+                    'apellidos': solicitud.pedido_origen.cliente.apellidos,
+                    'razon_social': solicitud.pedido_origen.cliente.razon_social,
+                    'nombre_completo': solicitud.pedido_origen.cliente.nombre_completo
+                }
+            }
+        else:
+            data['pedido_origen'] = None
+
+        # --- CORRECCIÓN AQUÍ: Usar 'cantidad_solicitada' en lugar de 'cantidad' ---
+        detalles_list = []
+        for det in solicitud.detalles.all():
+            detalles_list.append({
+                'id': det.id,
+                'producto_id': det.producto.id,
+                'producto_nombre': det.producto.nombre,
+                'cantidad': det.cantidad_solicitada,
+                'proveedor_id': det.proveedor.id if det.proveedor else None,
+                'costo_unitario': str(det.costo_unitario),
+                'almacen_id': det.almacen.id if det.almacen else None,
+                'moneda_id': det.moneda.id if det.moneda else None, # <--- NUEVO
+                'detalle_pedido_origen_id': det.detalle_pedido_origen.id if det.detalle_pedido_origen else None 
+            })
+        data['detalles'] = detalles_list
+
+        return JsonResponse(data)
+    
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+@login_required(login_url='/login/')
+def actualizar_solicitud(request, solicitud_id):
+    if request.method == 'POST':
+        try:
+            empresa_actual = get_empresa_actual(request)
+            solicitud = get_object_or_404(SolicitudCompra, id=solicitud_id, empresa=empresa_actual)
+
+            # SEGURIDAD: Solo editar si está en borrador
+            if solicitud.estado != 'borrador':
+                return JsonResponse({'success': False, 'error': 'Solo se pueden editar solicitudes en Borrador.'})
+
+            solicitud.notas = request.POST.get('notas', '')
+            solicitud.save()
+
+            # Borrar y recrear detalles (simplificación para este ejemplo)
+            solicitud.detalles.all().delete()
+
+            productos_ids = request.POST.getlist('producto_id[]')
+            cantidades = request.POST.getlist('cantidad[]')
+            proveedores_ids = request.POST.getlist('proveedor_id[]')
+            costos = request.POST.getlist('costo_unitario[]')
+            almacenes_ids = request.POST.getlist('almacen_id[]')
+            monedas_ids = request.POST.getlist('moneda_id[]') # <--- NUEVO
+            pedidos_det_ids = request.POST.getlist('pedido_det_id[]') 
+
+            # Zip de todas las listas
+            for p_id, cant, prov_id, cost, alm_id, mon_id, p_det_id in zip(productos_ids, cantidades, proveedores_ids, costos, almacenes_ids, monedas_ids, pedidos_det_ids):
+                if p_id and p_id != '':
+                    DetalleSolicitudCompra.objects.create(
+                        solicitud=solicitud,
+                        producto_id=p_id,
+                        cantidad_solicitada=cant,
+                        proveedor_id=prov_id if prov_id else None,
+                        costo_unitario=cost,
+                        almacen_id=alm_id if alm_id else None,
+                        moneda_id=mon_id if mon_id else None, # <--- GUARDADO
+                        detalle_pedido_origen_id=p_det_id if p_det_id else None 
+                    )
+            
+            messages.success(request, f'Solicitud #{solicitud.id} actualizada.')
+            return JsonResponse({'success': True})
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+@login_required(login_url='/login/')
+@transaction.atomic 
+def autorizar_solicitud(request, solicitud_id):
+    empresa_actual = get_empresa_actual(request)
+    solicitud = get_object_or_404(SolicitudCompra, id=solicitud_id, empresa=empresa_actual)
+
+    if solicitud.estado != 'borrador':
+        messages.warning(request, 'Solo se pueden autorizar solicitudes en estado Borrador.')
+        return redirect('dashboard_solicitudcompras')
+    
+    # 1. Validar
+    for det in solicitud.detalles.all():
+        if not det.proveedor or not det.almacen:
+            messages.error(request, 'Faltan datos de Proveedor o Almacén.')
+            return redirect('dashboard_solicitudcompras')
+
+    from compras.models import OrdenCompra, DetalleCompra
+    from collections import defaultdict
+
+    items_por_proveedor = defaultdict(list)
+    almacenes_por_proveedor = {} 
+
+    for det in solicitud.detalles.all():
+        items_por_proveedor[det.proveedor].append(det)
+        if det.proveedor.id not in almacenes_por_proveedor:
+            almacenes_por_proveedor[det.proveedor.id] = det.almacen
+
+    ordenes_creadas = []
+
+    # 3. Crear OC
+    for proveedor, lista_detalles in items_por_proveedor.items():
+        # Tomamos la moneda y el factor de la primera partida de este proveedor
+        primera_partida = lista_detalles[0]
+        moneda_solicitada = primera_partida.moneda
+        tc_aplicar = moneda_solicitada.factor if moneda_solicitada else 1.0000
+
+        nueva_oc = OrdenCompra.objects.create(
+            proveedor=proveedor,
+            usuario=request.user,
+            empresa=empresa_actual,
+            estado='borrador',
+            almacen_destino=almacenes_por_proveedor[proveedor.id],
+            moneda=moneda_solicitada, # <--- HEREDA MONEDA
+            tipo_cambio=tc_aplicar,    # <--- HEREDA TIPO DE CAMBIO
+            notas=f"Generada desde Solicitud #{solicitud.id}.",
+            solicitud_origen=solicitud 
+        )
+
+        for det_solicitud in lista_detalles:
+            DetalleCompra.objects.create(
+                orden_compra=nueva_oc,
+                producto=det_solicitud.producto,
+                cantidad=det_solicitud.cantidad_solicitada,
+                precio_costo=det_solicitud.costo_unitario,
+                detalle_pedido_origen=det_solicitud.detalle_pedido_origen # <--- PASO DE ETIQUETA CRÍTICO
+            )
+            
+            # Actualizamos el estado del pedido a 'comprado'
+            if det_solicitud.detalle_pedido_origen:
+                det_solicitud.detalle_pedido_origen.estado_linea = 'comprado'
+                det_solicitud.detalle_pedido_origen.save()
+        
+        ordenes_creadas.append(nueva_oc.id)
+
+    solicitud.estado = 'atendida'
+    solicitud.save()
+
+    messages.success(request, f'Solicitud autorizada. Revisa la consola para detalles.')
+    return redirect('dashboard_solicitudcompras')
