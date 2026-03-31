@@ -23,10 +23,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-p&b82aq^^#@-crz5%b8o1=ol*%evjm@_4vn(beud^4(m3%b@%y'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['suite.crossovermx.com', 'localhost', '127.0.0.1']
 
+# CSRF (importante para formularios)
+CSRF_TRUSTED_ORIGINS = ['http://suite.crossovermx.com', 'https://suite.crossovermx.com']
+
+# Archivos estáticos
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [BASE_DIR / 'static']
 
 # Application definition
 
