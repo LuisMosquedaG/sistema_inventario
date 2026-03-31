@@ -20,3 +20,15 @@ jobs:
           environment-variables: |
             DEBUG=False
             PYTHONUNBUFFERED=1
+
+      - name: Copy static files to Nginx
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 31.220.55.104
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /var/www/django/sistema_inventario
+            docker cp sistema_inventario_web_1:/app/staticfiles/. /var/www/django/sistema_inventario/staticfiles/
+            chmod -R 755 /var/www/django/sistema_inventario/staticfiles/
+            systemctl reload nginx
