@@ -9,7 +9,7 @@ from almacenes.models import Almacen
 from proveedores.models import Proveedor
 from django.core.paginator import Paginator
 from recepciones.models import Recepcion, DetalleRecepcion, DetalleRecepcionExtra
-from django.db.models import Sum, Q, Subquery, OuterRef, DecimalField, Avg
+from django.db.models import Sum, Q, Subquery, OuterRef, DecimalField, Avg, ExpressionWrapper, F, FloatField
 from collections import defaultdict
 from compras.models import OrdenCompra
 from django.db import transaction
@@ -203,34 +203,40 @@ def dashboard_inventario(request):
         producto=OuterRef('pk')
     ).order_by('-precio_unitario').values('precio_unitario')[:1]
 
-# ==========================================
-    # 3. SUBCONSULTA: COSTO MÁXIMO DE COMPRA
+    # ==========================================
+    # 3. SUBCONSULTA: COSTO MÁXIMO DE COMPRA (CONVERTIDO A PESOS)
     # ==========================================
     max_costo_compra = DetalleRecepcion.objects.filter(
         producto=OuterRef('pk')
-    ).order_by('-costo_unitario').values('costo_unitario')[:1]
+    ).annotate(
+        costo_pesos=ExpressionWrapper(
+            F('costo_unitario') * F('recepcion__tipo_cambio'),
+            output_field=DecimalField(max_digits=10, decimal_places=2)
+        )
+    ).order_by('-costo_pesos').values('costo_pesos')[:1]
 
-# ==========================================
-    # 4. SUBCONSULTA: COSTO PROMEDIO HISTÓRICO DE COMPRAS
-    # Calcula el promedio simple de costo_unitario de todas
-    # las recepciones del producto, independientemente de si
-    # hay stock actual o no.
     # ==========================================
-    from django.db.models import FloatField, ExpressionWrapper, F
-
+    # 4. SUBCONSULTA: COSTO PROMEDIO HISTÓRICO DE COMPRAS (CONVERTIDO A PESOS)
+    # Calcula el promedio ponderado por tipo de cambio de todas
+    # las recepciones del producto.
+    # ==========================================
     costo_promedio_subquery = DetalleRecepcion.objects.filter(
         producto=OuterRef('pk')
+    ).annotate(
+        costo_pesos=ExpressionWrapper(
+            F('costo_unitario') * F('recepcion__tipo_cambio'),
+            output_field=FloatField()
+        )
     ).values('producto').annotate(
-        promedio_historico=Avg('costo_unitario')
+        promedio_historico=Avg('costo_pesos')
     ).values('promedio_historico')[:1]
 
-# ==========================================
+    # ==========================================
     # 5. SUBCONSULTA: COSTO PROMEDIO DE INVENTARIO ACTUAL
     # Solo considera productos que tienen existencias actualmente.
     # Fórmula: suma(cantidad * costo_promedio) / suma(cantidad)
     # ==========================================
     from almacenes.models import Inventario
-    from django.db.models import FloatField, ExpressionWrapper, F
 
     costo_inventario_subquery = Inventario.objects.filter(
         producto=OuterRef('pk'),

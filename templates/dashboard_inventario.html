@@ -77,10 +77,12 @@
                                 Min: {{ p.stock_minimo }}<br>Max: {{ p.stock_maximo }}
                             </td>
                             <td class="text-center small text-muted">
-                                Prom: ${{ p.costo_promedio_anotado|floatformat:2|default:"-" }}
+                                <div>Prom: ${{ p.costo_promedio_anotado|floatformat:2|default:"-" }}</div>
+                                <div>Max: ${{ p.costo_max_compra|floatformat:2|default:"-" }}</div>
                             </td>
                             <td class="text-center small text-muted">
-                                Prom: ${{ p.precio_promedio_venta|floatformat:2|default:"-" }}
+                                <div>Prom: ${{ p.precio_promedio_venta|floatformat:2|default:"-" }}</div>
+                                <div>Max: ${{ p.precio_max_venta|floatformat:2|default:"-" }}</div>
                             </td>
                             <td class="text-center">
                                 <div class="text-muted small">${{ p.costo_inventario_anotado|floatformat:2|default:"0.00" }}</div>
