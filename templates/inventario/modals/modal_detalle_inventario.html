@@ -1,129 +1,31 @@
 <div class="modal fade" id="modalDetalleInventario" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl modal-sheet"> 
         <div class="modal-content">
-            
             <div class="modal-header border-bottom bg-light py-2"> 
-                <h5 class="modal-title fw-bold" id="tituloModalDetalle">
-                    <i class="bi bi-layers-half me-2 text-secondary"></i>Detalle de Existencias
-                </h5>
+                <h5 class="modal-title fw-bold" id="tituloModalDetalle">Detalle de Existencias</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             
             <div class="modal-body p-3 bg-light">
-                
-                <ul class="nav nav-tabs nav-fill" id="myTab" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active rounded-0" id="tab-proveedor-tab" data-bs-toggle="tab" data-bs-target="#tab-proveedor" type="button">
-                            Por Proveedor
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link rounded-0" id="tab-serie-tab" data-bs-toggle="tab" data-bs-target="#tab-serie" type="button">
-                            Nº Serie
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link rounded-0" id="tab-lote-tab" data-bs-toggle="tab" data-bs-target="#tab-lote" type="button">
-                            Lotes
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link rounded-0" id="tab-importacion-tab" data-bs-toggle="tab" data-bs-target="#tab-importacion" type="button">
-                            Importación
-                        </button>
-                    </li>
-
-                </ul>
-
-                <div class="tab-content p-3" id="myTabContent">
-                    
-                    <!-- TAB 1: POR PROVEEDOR -->
-                    <div class="tab-pane fade show active" id="tab-proveedor" role="tabpanel">
-                        <div class="table-shadow-card">
-                            <div class="table-responsive">
-                                <table class="table table-pro table-sm mb-0 align-middle">
-                                    <thead>
-                                        <tr>
-                                            <th class="text-center" style="font-weight: normal;">Folio OC</th>
-                                            <th class="text-center" style="font-weight: normal;">Folio Rec.</th>
-                                            <th class="text-center" style="font-weight: normal;">Proveedor</th>
-                                            <th class="text-center" style="font-weight: normal;">Fecha Ingreso</th>
-                                            <th class="text-center" style="font-weight: normal;">Cantidad</th>
-                                            <th class="text-end" style="font-weight: normal;">Costo Unit.</th>
-                                            <th class="text-end" style="font-weight: normal;">Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="tablaBodyProveedor"></tbody>
-                                </table>
-                            </div>
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="text-center">Folio OC</th>
+                                        <th class="text-center">Folio Rec.</th>
+                                        <th class="text-center">Proveedor</th>
+                                        <th class="text-center">Fecha</th>
+                                        <th class="text-center">Cantidad</th>
+                                        <th class="text-end">Costo Unit.</th>
+                                        <th class="text-end">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablaBodyProveedor"></tbody>
+                            </table>
                         </div>
-                        <div id="msgProveedor" class="text-center text-muted small py-3 mt-2">Sin movimientos.</div>
                     </div>
-
-                    <!-- TAB 2: SERIES -->
-                    <div class="tab-pane fade" id="tab-serie" role="tabpanel">
-                        <div class="table-shadow-card">
-                            <div class="table-responsive">
-                                <table class="table table-pro table-sm mb-0 align-middle">
-                                    <thead>
-                                        <tr>
-                                            <th class="text-center" style="font-weight: normal;">Número de Serie</th>
-                                            <th class="text-center" style="font-weight: normal;">Folio OC</th>
-                                            <th class="text-center" style="font-weight: normal;">Folio Rec.</th>
-                                            <th class="text-center" style="font-weight: normal;">Proveedor</th>
-                                            <th class="text-center" style="font-weight: normal;">Fecha Ingreso</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="tablaBodySerie"></tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <div id="msgSerie" class="text-center text-muted small py-3 mt-2">Este artículo no maneja series o no tiene registros.</div>
-                    </div>
-
-                    <!-- TAB 3: LOTES -->
-                    <div class="tab-pane fade" id="tab-lote" role="tabpanel">
-                        <div class="table-shadow-card">
-                            <div class="table-responsive">
-                                <table class="table table-pro table-sm mb-0 align-middle">
-                                    <thead>
-                                        <tr>
-                                            <th class="text-center" style="font-weight: normal;">Lote</th>
-                                            <th class="text-center" style="font-weight: normal;">Cantidad</th>
-                                            <th class="text-center" style="font-weight: normal;">Folio OC</th>
-                                            <th class="text-center" style="font-weight: normal;">Folio Rec.</th>
-                                            <th class="text-center" style="font-weight: normal;">Proveedor</th>
-                                            <th class="text-center" style="font-weight: normal;">Fecha Ingreso</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="tablaBodyLote"></tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <div id="msgLote" class="text-center text-muted small py-3 mt-2">Este artículo no maneja lotes o no tiene registros.</div>
-                    </div>
-
-                    <!-- TAB 4: IMPORTACIÓN -->
-                    <div class="tab-pane fade" id="tab-importacion" role="tabpanel">
-                        <div class="table-shadow-card">
-                            <div class="table-responsive">
-                                <table class="table table-pro table-sm mb-0 align-middle">
-                                    <thead>
-                                        <tr>
-                                            <th class="text-center" style="font-weight: normal;">Pedimento</th>
-                                            <th class="text-center" style="font-weight: normal;">Aduana</th>
-                                            <th class="text-center" style="font-weight: normal;">Fecha</th>
-                                            <th class="text-center" style="font-weight: normal;">Folio OC</th>
-                                            <th class="text-center" style="font-weight: normal;">Folio Rec</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="tablaBodyImportacion"></tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <div id="msgImportacion" class="text-center text-muted small py-3 mt-2">No hay datos de importación asociados a este producto.</div>
-                    </div>
-
                 </div>
             </div>
             

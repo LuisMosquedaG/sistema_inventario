@@ -1,5 +1,5 @@
 // ============================================
-// INVENTARIO.JS — Lógica Simplificada
+// INVENTARIO.JS — Lógica Reforzada
 // ============================================
 
 function getCookie(name) {
@@ -17,44 +17,51 @@ function getCookie(name) {
     return cookieValue;
 }
 
-// Función Maestra para abrir modales de forma segura
-function openModal(id) {
-    const el = document.getElementById(id);
-    if (!el) { console.error("No se encontró el modal:", id); return; }
-    const modal = bootstrap.Modal.getOrCreateInstance(el);
-    modal.show();
-}
-
 // --- 1. GESTIÓN DE ARTÍCULOS ---
 
 function abrirNuevoArticulo() {
     const form = document.getElementById('formCrearArticulo');
     if(form) form.reset();
-    document.getElementById('productoId').value = '';
-    document.querySelector('#modalCrearArticulo .modal-title').innerText = "Nuevo Artículo";
-    openModal('modalCrearArticulo');
+    const idF = document.getElementById('productoId');
+    if(idF) idF.value = '';
+    const modal = new bootstrap.Modal(document.getElementById('modalCrearArticulo'));
+    modal.show();
 }
 
 function cargarProductoEdicion(id) {
-    document.querySelector('#modalCrearArticulo .modal-title').innerText = "Editar Artículo";
     fetch(APP_URLS.api_producto.replace('0', id))
         .then(r => r.json()).then(data => {
-            document.getElementById('productoId').value = data.id;
+            const idF = document.getElementById('productoId');
+            if(idF) idF.value = data.id;
             document.querySelector('[name="nombre"]').value = data.nombre;
             document.querySelector('[name="precio_costo"]').value = data.precio_costo;
             document.querySelector('[name="precio_venta"]').value = data.precio_venta;
-            openModal('modalCrearArticulo');
+            const modal = new bootstrap.Modal(document.getElementById('modalCrearArticulo'));
+            modal.show();
         });
+}
+
+function guardarProducto() {
+    const form = document.getElementById('formCrearArticulo');
+    const id = document.getElementById('productoId').value;
+    let url = id ? APP_URLS.api_actualizar_producto.replace('0', id) : APP_URLS.api_crear_producto;
+    fetch(url, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken') }
+    }).then(r => r.json()).then(data => { if(data.success) location.reload(); });
 }
 
 // --- 2. EXISTENCIAS ---
 
 function abrirModalExistencias(id, nombre) {
-    document.getElementById('tituloModalDetalle').innerText = `Existencias: ${nombre}`;
+    const t = document.getElementById('tituloModalDetalle');
+    if(t) t.innerText = `Existencias: ${nombre}`;
     const tbody = document.getElementById('tablaBodyProveedor');
-    if(tbody) tbody.innerHTML = '<tr><td colspan="7" class="text-center">Cargando...</td></tr>';
+    if(tbody) tbody.innerHTML = '<tr><td colspan="7" class="text-center py-3">Cargando...</td></tr>';
     
-    openModal('modalDetalleInventario');
+    const modal = new bootstrap.Modal(document.getElementById('modalDetalleInventario'));
+    modal.show();
 
     fetch(`${APP_URLS.api_detalle_producto}${id}/`).then(r => r.json()).then(data => {
         if(tbody) {
@@ -69,23 +76,23 @@ function abrirModalExistencias(id, nombre) {
 // --- 3. RECETAS ---
 
 function abrirConfigurarReceta() {
-    const form = document.getElementById('formReceta');
-    if(form) form.reset();
-    document.getElementById('tbodyRecetaEdit').innerHTML = '';
-    openModal('modalProduccion');
+    const modal = new bootstrap.Modal(document.getElementById('modalProduccion'));
+    modal.show();
 }
 
 function abrirModalReceta(id, nombre) {
-    document.getElementById('tituloRecetaModal').innerText = nombre;
+    const t = document.getElementById('tituloRecetaModal');
+    if(t) t.innerText = nombre;
     const tbody = document.getElementById('tablaBodyRecetaUnica');
-    if(tbody) tbody.innerHTML = '<tr><td colspan="2" class="text-center">Cargando...</td></tr>';
+    if(tbody) tbody.innerHTML = '<tr><td colspan="2" class="text-center py-3">Cargando...</td></tr>';
     
-    openModal('modalVerReceta');
+    const modal = new bootstrap.Modal(document.getElementById('modalVerReceta'));
+    modal.show();
     
     fetch(`${APP_URLS.api_receta}${id}/`).then(r => r.json()).then(data => {
         if(tbody) {
             tbody.innerHTML = '';
-            data.forEach(i => { tbody.insertAdjacentHTML('beforeend', `<tr><td class="ps-3 fw-semibold">${i.nombre}</td><td class="text-center"><span class="badge bg-light text-dark border">${i.cant} pz</span></td></tr>`); });
+            data.forEach(i => { tbody.insertAdjacentHTML('beforeend', `<tr><td class="ps-3 fw-semibold">${i.nombre}</td><td class="text-center">${i.cant} pz</td></tr>`); });
         }
     });
 }
@@ -93,13 +100,13 @@ function abrirModalReceta(id, nombre) {
 // --- 4. PRECIOS ---
 
 function abrirModalPrecios(id, nombre) {
-    const label = document.getElementById('lpNombre');
-    if(label) label.innerText = nombre;
-    
+    const t = document.getElementById('lpNombre');
+    if(t) t.innerText = nombre;
     const tp = document.getElementById('lpTablaPrecios'); if(tp) tp.innerHTML = '';
     const tc = document.getElementById('lpTablaCostos'); if(tc) tc.innerHTML = '';
 
-    openModal('modalListaPrecios');
+    const modal = new bootstrap.Modal(document.getElementById('modalListaPrecios'));
+    modal.show();
 
     fetch(APP_URLS.api_producto.replace('0', id)).then(r => r.json()).then(data => {
         const bc = document.getElementById('lpBaseCosto'); if(bc) bc.value = data.precio_costo;
