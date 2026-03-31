@@ -1,4 +1,4 @@
-<div class="modal" id="modalCrearArticulo" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalCrearArticulo" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
         <div class="modal-content">
             <div class="modal-header border-bottom bg-light py-2"> 
@@ -31,7 +31,9 @@
                                     <label class="form-label small text-muted mb-1">Descripción</label>
                                     <textarea name="descripcion" class="form-control form-control-sm" rows="1" placeholder="Detalles adicionales..."></textarea>
                                 </div>
-                            <div class="row g-2">
+                            </div> <!-- Closing first row -->
+
+                            <div class="row g-2 mt-2"> <!-- Added mt-2 for spacing and closed previous row -->
                                 <div class="col-md-4">
                                     <label class="form-label small fw-bold text-secondary mb-1">Estado</label>
                                     <select name="estado" class="form-select form-select-sm">
