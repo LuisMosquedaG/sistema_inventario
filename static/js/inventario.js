@@ -2,9 +2,7 @@
 // INVENTARIO.JS — Lógica Reforzada y Centralizada
 // ============================================
 
-/**
- * Helper para obtener el token CSRF de las cookies
- */
+// --- Helpers Globales ---
 function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
@@ -20,10 +18,6 @@ function getCookie(name) {
     return cookieValue;
 }
 
-/**
- * Función centralizada para abrir modales de forma segura
- * @param {string} id - ID del elemento modal
- */
 function mostrarModal(id) {
     const el = document.getElementById(id);
     if (!el) {
@@ -37,7 +31,7 @@ function mostrarModal(id) {
 
 // --- 1. GESTIÓN DE ARTÍCULOS (NUEVO / EDITAR) ---
 
-function abrirNuevoArticulo() {
+window.abrirNuevoArticulo = function() {
     const form = document.getElementById('formCrearArticulo');
     if (form) form.reset();
     
@@ -60,7 +54,7 @@ function abrirNuevoArticulo() {
     mostrarModal('modalCrearArticulo');
 }
 
-function cargarProductoEdicion(id) {
+window.cargarProductoEdicion = function(id) {
     const url = APP_URLS.api_producto.replace('0', id);
     
     fetch(url)
@@ -114,7 +108,7 @@ function cargarProductoEdicion(id) {
         .catch(err => alert(err.message));
 }
 
-function guardarProducto() {
+window.guardarProducto = function() {
     const form = document.getElementById('formCrearArticulo');
     if (!form) return;
     
@@ -180,7 +174,7 @@ document.addEventListener('change', function(e) {
 
 // --- 2. EXISTENCIAS ---
 
-function abrirModalExistencias(id, nombre) {
+window.abrirModalExistencias = function(id, nombre) {
     const t = document.getElementById('tituloModalDetalle');
     if (t) t.innerText = `Existencias: ${nombre}`;
     
@@ -215,7 +209,7 @@ function abrirModalExistencias(id, nombre) {
 
 // --- 3. RECETAS (MRP) ---
 
-function abrirConfigurarReceta() {
+window.abrirConfigurarReceta = function() {
     const form = document.getElementById('formReceta');
     if (form) form.reset();
     const tbody = document.getElementById('tbodyRecetaEdit');
@@ -225,7 +219,7 @@ function abrirConfigurarReceta() {
     mostrarModal('modalProduccion');
 }
 
-function cargarRecetaExistente() {
+window.cargarRecetaExistente = function() {
     const pId = document.getElementById('selectRecetaPadre').value;
     const tbody = document.getElementById('tbodyRecetaEdit');
     const msg = document.getElementById('msgVacioReceta');
@@ -269,7 +263,7 @@ function cargarRecetaExistente() {
         });
 }
 
-function agregarComponenteReceta() {
+window.agregarComponenteReceta = function() {
     const sel = document.getElementById('selectComponente');
     const pId = sel.value;
     const pName = sel.options[sel.selectedIndex].text;
@@ -309,7 +303,7 @@ function agregarComponenteReceta() {
         });
 }
 
-function recalcularTotalesReceta() {
+window.recalcularTotalesReceta = function() {
     let total = 0;
     document.querySelectorAll('#tbodyRecetaEdit tr').forEach(tr => {
         const costo = parseFloat(tr.dataset.costo) || 0;
@@ -321,7 +315,7 @@ function recalcularTotalesReceta() {
     document.getElementById('totalCostoReceta').innerText = '$' + total.toFixed(2);
 }
 
-function guardarReceta() {
+window.guardarReceta = function() {
     const pId = document.getElementById('selectRecetaPadre').value;
     if (!pId) return alert("Selecciona el producto final");
     const componentes = [];
@@ -340,7 +334,7 @@ function guardarReceta() {
     });
 }
 
-function abrirModalReceta(id, nombre) {
+window.abrirModalReceta = function(id, nombre) {
     const t = document.getElementById('tituloRecetaModal');
     if (t) t.innerText = `Receta: ${nombre}`;
     const tbody = document.getElementById('tablaBodyRecetaUnica');
@@ -361,7 +355,7 @@ function abrirModalReceta(id, nombre) {
 
 // --- 4. PRECIOS Y COSTOS ---
 
-function abrirModalPrecios(id, nombre) {
+window.abrirModalPrecios = function(id, nombre) {
     const t = document.getElementById('lpNombre');
     if (t) t.innerText = nombre;
     const tp = document.getElementById('lpTablaPrecios'); if (tp) tp.innerHTML = '';
@@ -396,7 +390,7 @@ function abrirModalPrecios(id, nombre) {
         });
 }
 
-function guardarCambiosListaPrecios() {
+window.guardarCambiosListaPrecios = function() {
     const id = document.getElementById('modalListaPrecios').dataset.productoId;
     const costoBase = document.getElementById('lpBaseCosto').value;
     const ventaBase = document.getElementById('lpBaseVenta').value;
@@ -426,7 +420,7 @@ function guardarCambiosListaPrecios() {
 
 // --- 5. DETALLE DE DOCUMENTO ---
 
-function verDetalleDoc(tipo, id) {
+window.verDetalleDoc = function(tipo, id) {
     if (!id) return;
     fetch(`${APP_URLS.api_detalle_documento}?tipo=${tipo}&id=${id}`)
         .then(r => r.json())
@@ -467,3 +461,290 @@ function verDetalleDoc(tipo, id) {
             mostrarModal('modalDetalleDocumento');
         });
 }
+
+// --- FUNCIONES ESPECÍFICAS DE TRASLADO ---
+
+// Esta función se llama cuando se selecciona un almacén origen
+function cargarProductosEnOrigen() {
+    const almacenOrigenId = document.getElementById('selectAlmacenOrigen').value;
+    const selectProducto = document.getElementById('selectProductoTraslado');
+    const inputCantidad = document.getElementById('inputCantidadTraslado');
+    const inputLote = document.getElementById('inputLoteTraslado');
+    const inputSerie = document.getElementById('inputSerieTraslado');
+    const infoStockTotal = document.getElementById('infoStockTotal');
+    const infoStockReservado = document.getElementById('infoStockReservado');
+    const infoStockDisponible = document.getElementById('infoStockDisponible');
+    const tbody = document.getElementById('tbodyTraslado');
+
+    // Resetear campos
+    selectProducto.innerHTML = '<option value="">Selecciona almacén origen primero...</option>';
+    inputCantidad.value = 1;
+    inputLote.disabled = inputSerie.disabled = true;
+    inputLote.value = inputSerie.value = '';
+    infoStockTotal.innerText = infoStockReservado.innerText = infoStockDisponible.innerText = '-';
+    tbody.innerHTML = '';
+    document.getElementById('granTotalTraslado').innerText = '$0.00';
+    productoSeleccionadoTraslado = null;
+    selectedExtraId = null;
+
+    if (!almacenOrigenId) return;
+
+    // Cargar productos con stock en este almacén
+    fetch(`${APP_URLS.api_productos_con_stock}${almacenOrigenId}/`)
+        .then(r => r.json())
+        .then(data => {
+            selectProducto.innerHTML = '<option value="">Seleccionar producto...</option>';
+            if (data.length > 0) {
+                data.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.dataset.stockInfo = JSON.stringify(p); // Guardamos info de stock en dataset
+                    opt.textContent = `${p.nombre} (Disp: ${p.disponible})`;
+                    selectProducto.appendChild(opt);
+                });
+            } else {
+                selectProducto.innerHTML = '<option value="">Sin productos con stock</option>';
+            }
+        });
+}
+
+// Se llama cuando se selecciona un producto en el modal de traslado
+function cargarExtrasYStock() {
+    const almacenOrigenId = document.getElementById('selectAlmacenOrigen').value;
+    const productoId = document.getElementById('selectProductoTraslado').value;
+    const inputCantidad = document.getElementById('inputCantidadTraslado');
+    const inputLote = document.getElementById('inputLoteTraslado');
+    const inputSerie = document.getElementById('inputSerieTraslado');
+    const infoStockTotal = document.getElementById('infoStockTotal');
+    const infoStockReservado = document.getElementById('infoStockReservado');
+    const infoStockDisponible = document.getElementById('infoStockDisponible');
+
+    inputLote.value = inputSerie.value = '';
+    inputLote.disabled = inputSerie.disabled = true;
+    selectedExtraId = null;
+
+    if (!almacenOrigenId || !productoId) return;
+
+    const selectedOption = document.getElementById('selectProductoTraslado').selectedOptions[0];
+    if (!selectedOption) return;
+    const stockInfo = JSON.parse(selectedOption.dataset.stockInfo || '{}');
+
+    infoStockTotal.innerText = stockInfo.total || '0';
+    infoStockReservado.innerText = stockInfo.reservado || '0';
+    infoStockDisponible.innerText = stockInfo.disponible || '0';
+    
+    inputCantidad.max = stockInfo.disponible || 1; // Máximo a lo disponible
+    inputCantidad.value = 1; // Resetear a 1
+
+    if (stockInfo.maneja_lote || stockInfo.maneja_serie) {
+        fetch(`${APP_URLS.api_extras_producto}${almacenOrigenId}/${productoId}/`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.length > 0) {
+                    const lotes = data.filter(item => item.tipo === 'lote' && item.lote);
+                    const series = data.filter(item => item.tipo === 'serie' && item.serie);
+
+                    if (lotes.length > 0) {
+                        inputLote.disabled = false;
+                        inputLote.value = lotes[0].lote; 
+                        inputLote.dataset.extraId = lotes[0].id; // Guardamos ID para referencia
+                    }
+                    if (series.length > 0) {
+                        inputSerie.disabled = false;
+                        inputSerie.value = series[0].serie;
+                        inputSerie.dataset.extraId = series[0].id; // Guardamos ID para referencia
+                    }
+                }
+            });
+    }
+}
+
+function agregarItemTraslado() {
+    const almacenOrigenId = document.getElementById('selectAlmacenOrigen').value;
+    const almacenDestinoId = document.getElementById('selectAlmacenDestino').value;
+    const productoSelect = document.getElementById('selectProductoTraslado');
+    const productoId = productoSelect.value;
+    const productoNombre = productoSelect.options[productoSelect.selectedIndex]?.text.split(' (Disp:')[0]; // Extraer solo el nombre
+    const cantidad = parseInt(document.getElementById('inputCantidadTraslado').value);
+    const inputLote = document.getElementById('inputLoteTraslado');
+    const inputSerie = document.getElementById('inputSerieTraslado');
+    const extraId = inputLote.dataset.extraId || inputSerie.dataset.extraId; // ID del lote/serie si aplica
+    const disponible = parseInt(document.getElementById('infoStockDisponible').innerText);
+    
+    if (!almacenOrigenId || !almacenDestinoId || !productoId || !cantidad || cantidad <= 0) {
+        alert("Por favor, completa todos los campos: origen, destino, producto y cantidad válida.");
+        return;
+    }
+
+    if (cantidad > disponible) {
+        alert(`¡Alerta! La cantidad solicitada (${cantidad}) excede el stock disponible (${disponible}). Las piezas excedentes se transferirán como reservadas si aplica.`);
+        // Nota: La lógica de "pasarán con el mismo estado reservadas para el pedido" es compleja
+        // y requeriría conocer el pedido asociado. Por ahora, solo alertamos.
+    }
+
+    const lote = inputLote.value || null;
+    const serie = inputSerie.value || null;
+    const tbody = document.getElementById('tbodyTraslado');
+    
+    // Validar si ya existe este ítem (mismo producto, mismo lote/serie)
+    const rows = tbody.querySelectorAll('tr');
+    for (const row of rows) {
+        if (row.dataset.productoId === productoId && 
+            ( (!lote && row.dataset.lote === 'null') || (lote && row.dataset.lote === lote) ) &&
+            ( (!serie && row.dataset.serie === 'null') || (serie && row.dataset.serie === serie) )) {
+            
+            const cantInput = row.querySelector('.inp-cant-traslado');
+            const subtotalSpan = row.querySelector('.subtotal-traslado');
+            const currentCant = parseInt(cantInput.value);
+            const newCant = currentCant + cantidad;
+            cantInput.value = newCant;
+            
+            const precioUnitario = parseFloat(row.dataset.precioUnitario);
+            subtotalSpan.innerText = '$' + (newCant * precioUnitario).toFixed(2);
+            actualizarGranTotal();
+            alert("Cantidad actualizada para este item.");
+            return; // Salir si ya existe
+        }
+    }
+
+    // Si no existe, crear nueva fila
+    fetch(`${APP_URLS.api_producto.replace('0', productoId)}`) // Obtenemos info del producto (precio)
+        .then(r => r.json())
+        .then(prodData => {
+            const precioUnitario = parseFloat(prodData.precio_costo); // Usamos precio_costo como referencia
+            const subtotal = cantidad * precioUnitario;
+            
+            const tr = document.createElement('tr');
+            tr.dataset.productoId = productoId;
+            tr.dataset.precioUnitario = precioUnitario;
+            tr.dataset.lote = lote || 'null';
+            tr.dataset.serie = serie || 'null';
+            tr.dataset.extraId = extraId;
+
+            tr.innerHTML = `
+                <td class="ps-3">${productoNombre}</td>
+                <td class="text-center">${lote || serie || '--'}</td>
+                <td class="text-center">
+                    <input type="number" class="form-control form-control-sm text-center inp-cant-traslado" value="${cantidad}" min="1" onchange="actualizarGranTotal()">
+                </td>
+                <td class="text-end pe-3 fw-bold subtotal-traslado">$${subtotal.toFixed(2)}</td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); actualizarGranTotal();">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+            actualizarGranTotal();
+        });
+}
+
+function actualizarGranTotal() {
+    let total = 0;
+    document.querySelectorAll('#tbodyTraslado tr').forEach(tr => {
+        const cant = parseInt(tr.querySelector('.inp-cant-traslado').value) || 0;
+        const precio = parseFloat(tr.dataset.precioUnitario) || 0;
+        const sub = cant * precio;
+        tr.querySelector('.subtotal-traslado').innerText = '$' + sub.toFixed(2);
+        total += sub;
+    });
+    document.getElementById('granTotalTraslado').innerText = '$' + total.toFixed(2);
+}
+
+function confirmarTraslado() {
+    const tbody = document.getElementById('tbodyTraslado');
+    const almacenOrigenId = document.getElementById('selectAlmacenOrigen').value;
+    const almacenDestinoId = document.getElementById('selectAlmacenDestino').value;
+
+    if (tbody.children.length === 0) {
+        alert("Agrega al menos un artículo para trasladar.");
+        return;
+    }
+
+    const items = [];
+    let valid = true;
+    tbody.querySelectorAll('tr').forEach(tr => {
+        const producto_id = tr.dataset.productoId;
+        const cantidad = parseInt(tr.querySelector('.inp-cant-traslado').value);
+        const extra_id = tr.dataset.extraId === 'null' ? null : tr.dataset.extraId; // Manejar null
+        
+        // Validación simple de cantidad
+        if (isNaN(cantidad) || cantidad <= 0) {
+            valid = false;
+        }
+        items.push({ producto_id, cantidad, extra_id });
+    });
+
+    if (!valid) {
+        alert("Verifica las cantidades ingresadas. Deben ser números positivos.");
+        return;
+    }
+
+    const dataToSend = {
+        almacen_origen: almacenOrigenId,
+        almacen_destino: almacenDestinoId,
+        items: items
+    };
+
+    const btn = document.querySelector('#modalTraslado .btn-brand');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Trasladando...';
+
+    fetch(APP_URLS.api_ejecutar_traslado, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify(dataToSend)
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            alert(res.message);
+            location.reload();
+        } else {
+            alert("Error: " + res.error);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-arrow-left-right me-1"></i> Confirmar Traslado';
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert("Error de conexión o servidor.");
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-arrow-left-right me-1"></i> Confirmar Traslado';
+    });
+}
+
+// --- Inicialización ---
+document.addEventListener('DOMContentLoaded', function() {
+    const origenSelect = document.getElementById('selectAlmacenOrigen');
+    if (origenSelect && origenSelect.value) {
+        cargarProductosEnOrigen();
+    }
+});
+// Ajustes para el selector de producto
+document.getElementById('selectAlmacenOrigen').addEventListener('change', function() {
+    document.getElementById('selectProductoTraslado').value = ''; // Resetear producto
+    document.getElementById('inputLoteTraslado').value = document.getElementById('inputSerieTraslado').value = '';
+    document.getElementById('inputLoteTraslado').disabled = document.getElementById('inputSerieTraslado').disabled = true;
+    document.getElementById('infoStockTotal').innerText = document.getElementById('infoStockReservado').innerText = document.getElementById('infoStockDisponible').innerText = '-';
+    document.getElementById('tbodyTraslado').innerHTML = '';
+    document.getElementById('granTotalTraslado').innerText = '$0.00';
+    productoSeleccionadoTraslado = null;
+    selectedExtraId = null;
+});
+document.getElementById('selectProductoTraslado').addEventListener('change', cargarExtrasYStock);
+
+document.getElementById('inputCantidadTraslado').addEventListener('input', function() {
+    // Actualizar info de stock disponible si el usuario cambia la cantidad
+    const disponible = parseInt(document.getElementById('infoStockDisponible').innerText);
+    if (parseInt(this.value) > disponible) {
+        this.classList.add('is-invalid'); // Añadir clase de Bootstrap para feedback visual
+    } else {
+        this.classList.remove('is-invalid');
+    }
+    actualizarGranTotal(); // Re-calcular al cambiar cantidad
+});
+// --- FIN TRASLADOS ---
+
+// --- Funciones generales (como las de edición de artículo, etc.) ---
+// ... (mantener otras funciones existentes) ...

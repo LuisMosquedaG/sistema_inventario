@@ -416,14 +416,20 @@ def avanzar_estado_produccion(request, orden_id):
             # Bloqueamos y validamos stock
             with transaction.atomic():
                 for d in detalles:
-                    inv = Inventario.objects.select_for_update().get(producto=d.producto, almacen=orden.almacen)
-                    # Calculamos disponible: Total Físico - Reservado
-                    disponible = inv.cantidad - inv.reservado
+                    # Usamos filter().first() en lugar de .get() para evitar el error si no existe el registro
+                    inv = Inventario.objects.select_for_update().filter(producto=d.producto, almacen=orden.almacen).first()
+                    
+                    # Si no existe el registro, el stock disponible es 0
+                    disponible = (inv.cantidad - inv.reservado) if inv else 0
                     
                     if disponible < d.cantidad:
                         raise Exception(f"Stock insuficiente de {d.producto.nombre} en {orden.almacen.nombre}. (Disponible: {disponible}, Requerido: {d.cantidad})")
                     
-                    # PASAMOS A RESERVADO (No quitamos de existencias todavía)
+                    # Si todo bien, actualizamos la reserva (asegurando que exista el registro)
+                    if not inv:
+                        # Este caso técnicamente no debería pasar por el check de arriba, pero por seguridad:
+                        inv = Inventario.objects.create(producto=d.producto, almacen=orden.almacen, cantidad=0, empresa=empresa_actual)
+                    
                     inv.reservado = F('reservado') + d.cantidad
                     inv.save()
 
@@ -467,23 +473,26 @@ def finalizar_produccion_logica(request, orden):
 
         # 1. Ejecutar Movimientos de Salida (Limpiar Reserva y Quitar Físico)
         for det in detalles_orden:
-            inv_comp = Inventario.objects.select_for_update().get(
-                producto_id=det.producto_id,
-                almacen=almacen
+            # Usamos el método centralizado para que se registre en el Kardex
+            Inventario.registrar_salida(
+                almacen=almacen,
+                producto=det.producto,
+                cantidad_salida=det.cantidad,
+                referencia=f"OP-{orden.id:04d} (Consumo)"
             )
-            # Restamos de ambos lados
-            inv_comp.cantidad = F('cantidad') - det.cantidad
-            inv_comp.reservado = F('reservado') - det.cantidad
-            inv_comp.save()
+            # Limpiamos la reserva manualmente ya que registrar_salida no toca 'reservado'
+            Inventario.objects.filter(producto=det.producto, almacen=almacen).update(
+                reservado=F('reservado') - det.cantidad
+            )
 
         # 2. Sumar Producto Terminado
-        inv_final, _ = Inventario.objects.get_or_create(
-            producto=producto,
+        Inventario.registrar_ingreso(
             almacen=almacen,
-            defaults={'cantidad': 0, 'costo_promedio': Decimal('0.00'), 'empresa': orden.empresa}
+            producto=producto,
+            cantidad_ingreso=cantidad_producir,
+            costo_unitario=producto.precio_costo, # O el costo calculado de la receta
+            referencia=f"OP-{orden.id:04d} (Ensamble)"
         )
-        inv_final.cantidad = F('cantidad') + cantidad_producir
-        inv_final.save()
 
         # 5. Finalizar Orden
         orden.estado = 'terminado'

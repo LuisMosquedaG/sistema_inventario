@@ -64,8 +64,11 @@ def procesar_recepcion_servicio(data_post, empresa_actual):
     input_acumulado_por_producto = defaultdict(int)
 
     # RECORREMOS USANDO ZIP PARA EVITAR EL ERROR DE ÍNDICE
-    # Si una lista es más corta, el zip se detiene ahí y no truena.
-    for det_id_raw, cant_raw, costo_raw in zip(detalle_ids, cantidades_recibidas, costos):
+    for i in range(len(detalle_ids)):
+        det_id_raw = detalle_ids[i]
+        cant_raw = cantidades_recibidas[i] if i < len(cantidades_recibidas) else 0
+        costo_raw = costos[i] if i < len(costos) else 0.0
+
         if not det_id_raw: continue
         
         try:
@@ -124,27 +127,39 @@ def procesar_recepcion_servicio(data_post, empresa_actual):
             tipo_cambio_aplicar = Decimal(orden_compra.tipo_cambio or '1.0000')
             costo_en_pesos = costo * tipo_cambio_aplicar
 
+            # CARGAR LOTES Y SERIES PARA EL KARDEX
+            extra_data_json = data_post.get(f'extra_data_{detalle_original.id}')
+            lote_kardex = None
+            serie_kardex = None
+            
+            if extra_data_json:
+                try:
+                    extras_list = json.loads(extra_data_json)
+                    for extra in extras_list:
+                        DetalleRecepcionExtra.objects.create(
+                            detalle_recepcion=detalle_recepcion_creado,
+                            tipo=extra['tipo'],
+                            lote=extra.get('lote'),
+                            cantidad_lote=extra.get('cantidad_lote', 0),
+                            serie=extra.get('serie'),
+                            almacen=almacen  # <--- ASIGNAR ALMACÉN INICIAL
+                        )
+                        # Capturar el primero para el Kardex
+                        if extra['tipo'] == 'lote' and not lote_kardex:
+                            lote_kardex = extra.get('lote')
+                        if extra['tipo'] == 'serie' and not serie_kardex:
+                            serie_kardex = extra.get('serie')
+                except json.JSONDecodeError: pass
+
             Inventario.registrar_ingreso(
                 almacen=almacen,
                 producto=producto,
                 cantidad_ingreso=cant_rec,
-                costo_unitario=costo_en_pesos
+                costo_unitario=costo_en_pesos,
+                referencia=f"REC-{recepcion.id:04d}",
+                lote=lote_kardex,
+                serie=serie_kardex
             )
-            
-            if producto.maneja_lote or producto.maneja_serie:
-                extra_data_json = data_post.get(f'extra_data_{detalle_original.id}')
-                if extra_data_json:
-                    try:
-                        extras_list = json.loads(extra_data_json)
-                        for extra in extras_list:
-                            DetalleRecepcionExtra.objects.create(
-                                detalle_recepcion=detalle_recepcion_creado,
-                                tipo=extra['tipo'],
-                                lote=extra.get('lote'),
-                                cantidad_lote=extra.get('cantidad_lote', 0),
-                                serie=extra.get('serie')
-                            )
-                    except json.JSONDecodeError: pass
 
     # 7. ACTUALIZAR ESTADO DE LA OC
     orden_completa = True

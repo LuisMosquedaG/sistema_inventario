@@ -129,6 +129,9 @@ class DetalleRecepcionExtra(models.Model):
     lote = models.CharField(max_length=50, blank=True, null=True)
     cantidad_lote = models.PositiveIntegerField(default=0)
     serie = models.CharField(max_length=100, blank=True, null=True)
+    
+    # NUEVO: RASTREO DE UBICACIÓN ACTUAL
+    almacen = models.ForeignKey('almacenes.Almacen', on_delete=models.CASCADE, related_name='items_extra', null=True, blank=True)
 
     def __str__(self):
-        return f"{self.tipo}: {self.lote or self.serie}"
+        return f"{self.tipo}: {self.lote or self.serie} ({self.almacen.nombre if self.almacen else 'Sin almacén'})"

@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8001:8000"
+    volumes:
+      - .:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DEBUG=False
+      - DJANGO_SETTINGS_MODULE=sistema_inventario.settings
+    command: gunicorn sistema_inventario.wsgi:application --bind 0.0.0.0:8000
+    restart: unless-stopped
+
+volumes:
+  static_volume:
+  media_volume:

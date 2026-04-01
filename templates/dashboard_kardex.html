@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .status-pill {
+        display: inline-flex; align-items: center; font-size: 0.7rem; line-height: 1; padding: 0.25em 0.6em;
+        font-weight: 600; text-align: center; white-space: nowrap; border-radius: 50px; text-transform: capitalize;
+    }
+    .status-entrada { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
+    .status-salida { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
+    .status-ajuste { background-color: #f1f3f5; color: #495057; border: 1px solid #dee2e6; }
+
+    .table-pro tbody tr { transition: background-color 0.2s; }
+    .table-pro tbody tr:hover td { background-color: #f8f9fa; }
+    
+    /* Forzar que los encabezados no se rompan en varias líneas */
+    .table-pro thead th { white-space: nowrap !important; }
+</style>
+
+<div class="container-fluid py-2 px-4">
+    <!-- HEADER -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h4 class="section-title mb-0">Kardex de Inventario</h4>
+            <span class="section-subtitle">Historial detallado de movimientos y existencias</span>
+        </div>
+    </div>
+
+    <!-- FILTROS AUTOMÁTICOS -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+            <form method="get" id="formFiltrosKardex" class="row g-2 align-items-end">
+                <!-- 1. Búsqueda General -->
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text-secondary">Búsqueda General</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                        <input type="text" name="q" class="form-control border-start-0" placeholder="Producto, lote, serie..." value="{{ filtros.q }}">
+                    </div>
+                </div>
+
+                <!-- 2. Producto -->
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text-secondary">Producto</label>
+                    <select name="producto" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todos los productos...</option>
+                        {% for p in productos %}
+                        <option value="{{ p.id }}" {% if filtros.producto == p.id %}selected{% endif %}>{{ p.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- 3. Almacén -->
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text-secondary">Almacén</label>
+                    <select name="almacen" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todos los almacenes...</option>
+                        {% for a in almacenes %}
+                        <option value="{{ a.id }}" {% if filtros.almacen == a.id %}selected{% endif %}>{{ a.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- 4. Movimiento -->
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text-secondary">Movimiento</label>
+                    <select name="tipo_movimiento" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todos los movimientos...</option>
+                        <option value="entrada" {% if filtros.tipo_movimiento == 'entrada' %}selected{% endif %}>Entrada</option>
+                        <option value="salida" {% if filtros.tipo_movimiento == 'salida' %}selected{% endif %}>Salida</option>
+                        <option value="ajuste" {% if filtros.tipo_movimiento == 'ajuste' %}selected{% endif %}>Ajuste</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TABLA DE MOVIMIENTOS -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-pro mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th class="text-center" style="width: 150px;">Fecha / Hora</th>
+                            <th class="ps-3">Producto</th>
+                            <th class="text-center">Almacén</th>
+                            <th class="text-center">Movimiento</th>
+                            <th class="text-center">Lote / Serie</th>
+                            <th class="text-center">Referencia</th>
+                            <th class="text-end">Stock Ant.</th>
+                            <th class="text-end" style="width: 110px;">Cant. Movida</th>
+                            <th class="text-end pe-3" style="width: 110px;">Stock Nuevo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in movimientos %}
+                        <tr>
+                            <td class="text-center small">
+                                <div class="fw-bold text-dark">{{ m.fecha|date:"d/m/Y" }}</div>
+                                <div class="text-muted" style="font-size: 0.7rem;">{{ m.fecha|date:"H:i" }} hrs</div>
+                            </td>
+                            <td class="ps-3">
+                                <div class="fw-bold text-dark">{{ m.producto.nombre }}</div>
+                                <div class="text-muted small" style="font-size: 0.7rem;">ID: {{ m.producto.id }}</div>
+                            </td>
+                            <td class="text-center small">{{ m.almacen.nombre }}</td>
+                            <td class="text-center">
+                                <span class="status-pill status-{{ m.tipo_movimiento }}">
+                                    {{ m.get_tipo_movimiento_display }}
+                                </span>
+                            </td>
+                            <td class="text-center small">
+                                {% if m.lote %}
+                                    <div class="text-dark"><span class="text-muted">L:</span> {{ m.lote }}</div>
+                                {% endif %}
+                                {% if m.serie %}
+                                    <div class="text-dark"><span class="text-muted">S:</span> {{ m.serie }}</div>
+                                {% endif %}
+                                {% if not m.lote and not m.serie %}
+                                    <span class="text-muted">--</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center small text-muted">{{ m.referencia|default:"--" }}</td>
+                            
+                            <td class="text-end text-muted small">{{ m.stock_anterior|floatformat:0 }}</td>
+                            
+                            <td class="text-end fw-bold {% if m.tipo_movimiento == 'entrada' %}text-success{% else %}text-danger{% endif %}">
+                                {% if m.tipo_movimiento == 'entrada' %}+{% else %}-{% endif %}{{ m.cantidad|floatformat:0 }}
+                            </td>
+                            
+                            <td class="text-end pe-3 fw-bold text-dark">{{ m.stock_nuevo|floatformat:0 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-5">
+                                <i class="bi bi-clock-history display-6 text-muted mb-2 d-block opacity-50"></i>
+                                <span class="text-muted fst-italic small">No hay movimientos que coincidan con la búsqueda</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-white border-0 py-2 px-4">
+            <span class="text-muted small" style="font-size: 0.75rem;">Mostrando los últimos {{ movimientos|length }} movimientos</span>
+        </div>
+    </div>
+</div>
+{% endblock %}

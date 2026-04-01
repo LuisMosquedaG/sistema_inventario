@@ -1,0 +1,55 @@
+/* ============================================
+   INVENTARIO.CSS — Estilos del Módulo
+   ============================================ */
+
+/* Estilos de las Filas y Tabla */
+.table-pro tbody tr { transition: background-color 0.2s; }
+.table-pro tbody tr:hover td { background-color: #f8f9fa; }
+.table-pro tbody tr:last-child td { border-bottom: none; }
+
+.icon-action {
+    color: #adb5bd;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+}
+.icon-action:hover { color: #00b8b9; transform: scale(1.15); }
+
+/* Estilos de los Modales (Limpios para evitar bloqueos) */
+.modal-sheet .modal-content {
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+}
+
+.modal-sheet .modal-body {
+    max-height: 75vh;
+    overflow-y: auto;
+}
+
+/* Tabs */
+.nav-tabs .nav-link {
+    color: #495057;
+    font-weight: 500;
+    border: none;
+    border-bottom: 2px solid transparent;
+}
+.nav-tabs .nav-link.active {
+    color: #00b8b9;
+    border-bottom: 2px solid #00b8b9;
+    background: transparent;
+}
+
+/* Status Pills */
+.status-pill {
+    font-size: 0.75rem;
+    padding: 0.25em 0.8em;
+    font-weight: 600;
+    border-radius: 50px;
+}

@@ -55,7 +55,7 @@ class Inventario(models.Model):
     # MÉTODO CENTRALIZADO PARA INGRESOS (COMPRAS/PRODUCCIÓN)
     # -----------------------------------------------------------
     @classmethod
-    def registrar_ingreso(cls, almacen, producto, cantidad_ingreso, costo_unitario):
+    def registrar_ingreso(cls, almacen, producto, cantidad_ingreso, costo_unitario, referencia="Ingreso", lote=None, serie=None):
         """
         Registra una entrada de stock y recalcula el costo promedio.
         Maneja la concurrencia internamente mediante select_for_update.
@@ -91,6 +91,20 @@ class Inventario(models.Model):
         inventario.cantidad = nuevo_total
         inventario.costo_promedio = nuevo_promedio
         inventario.save()
+
+        # REGISTRAR EN KARDEX
+        Kardex.objects.create(
+            empresa=almacen.empresa,
+            producto=producto,
+            almacen=almacen,
+            tipo_movimiento='entrada',
+            cantidad=cantidad_nueva,
+            stock_anterior=cantidad_anterior,
+            stock_nuevo=nuevo_total,
+            referencia=referencia,
+            lote=lote,
+            serie=serie
+        )
         
         return inventario
 
@@ -98,7 +112,7 @@ class Inventario(models.Model):
     # MÉTODO CENTRALIZADO PARA SALIDAS (VENTAS)
     # -----------------------------------------------------------
     @classmethod
-    def registrar_salida(cls, almacen, producto, cantidad_salida):
+    def registrar_salida(cls, almacen, producto, cantidad_salida, referencia="Salida", lote=None, serie=None):
         """
         Registra una salida de stock de forma atómica.
         Lanza IntegrityError si no hay stock suficiente.
@@ -119,9 +133,58 @@ class Inventario(models.Model):
                 f"Disponible: {inventario.cantidad}, Solicitado: {cantidad_a_restar}"
             )
         
-        # Resta atómica con F()
-        inventario.cantidad = F('cantidad') - cantidad_a_restar
+        cantidad_anterior = Decimal(inventario.cantidad)
+        nuevo_total = cantidad_anterior - cantidad_a_restar
+
+        # Resta atómica
+        inventario.cantidad = nuevo_total
         inventario.save()
+
+        # REGISTRAR EN KARDEX
+        Kardex.objects.create(
+            empresa=almacen.empresa,
+            producto=producto,
+            almacen=almacen,
+            tipo_movimiento='salida',
+            cantidad=cantidad_a_restar,
+            stock_anterior=cantidad_anterior,
+            stock_nuevo=nuevo_total,
+            referencia=referencia,
+            lote=lote,
+            serie=serie
+        )
         
-        # Nota: No modificamos el costo promedio en salidas (Estándar contable)
         return inventario
+
+# --- MODELO: KARDEX ---
+class Kardex(models.Model):
+    TIPO_MOVIMIENTO = [
+        ('entrada', 'Entrada'),
+        ('salida', 'Salida'),
+        ('ajuste', 'Ajuste'),
+    ]
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
+    producto = models.ForeignKey('core.Producto', on_delete=models.CASCADE, related_name='movimientos_kardex')
+    almacen = models.ForeignKey(Almacen, on_delete=models.CASCADE, related_name='movimientos_kardex')
+    
+    fecha = models.DateTimeField(auto_now_add=True)
+    tipo_movimiento = models.CharField(max_length=10, choices=TIPO_MOVIMIENTO)
+    cantidad = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    stock_anterior = models.DecimalField(max_digits=10, decimal_places=2)
+    stock_nuevo = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    # NUEVOS CAMPOS: LOTE Y SERIE
+    lote = models.CharField(max_length=100, blank=True, null=True, verbose_name="Lote")
+    serie = models.CharField(max_length=100, blank=True, null=True, verbose_name="Núm. Serie")
+    
+    referencia = models.CharField(max_length=200, blank=True, null=True, help_text="Ej: REC-0001, OV-0005, Ajuste manual")
+
+    class Meta:
+        verbose_name = "Movimiento de Kardex"
+        verbose_name_plural = "Movimientos de Kardex"
+        ordering = ['-fecha']
+
+    def __str__(self):
+        return f"{self.producto.nombre} - {self.tipo_movimiento} ({self.cantidad})"

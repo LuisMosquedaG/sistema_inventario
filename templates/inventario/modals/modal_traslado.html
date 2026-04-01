@@ -1,0 +1,124 @@
+<div class="modal fade" id="modalTraslado" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-sheet">
+        <div class="modal-content">
+            <div class="modal-header border-bottom bg-light py-2"> 
+                <h5 class="modal-title fw-bold text-dark">
+                    <i class="bi bi-arrow-left-right me-2 text-brand"></i>
+                    Traslado de Stock
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body p-3 bg-light">
+                <form id="formTraslado">
+                    {% csrf_token %}
+                    <input type="hidden" name="accion" value="traslado">
+
+                    <!-- SECCIÓN 1: SELECCIÓN DE ALMACENES Y PRODUCTO -->
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body p-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Origen y Destino</h6>
+                            <div class="row g-2">
+                                <div class="col-md-5">
+                                    <label class="form-label small fw-bold text-secondary">Almacén Origen</label>
+                                    <select name="almacen_origen" id="selectAlmacenOrigen" class="form-select form-select-sm" required onchange="cargarProductosEnOrigen()">
+                                        <option value="">Seleccionar...</option>
+                                        {% for a in almacenes %}
+                                        <option value="{{ a.id }}">{{ a.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-1 text-center" style="margin-top: 25px;">
+                                    <i class="bi bi-arrow-right fs-4 text-muted"></i>
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label small fw-bold text-secondary">Almacén Destino</label>
+                                    <select name="almacen_destino" id="selectAlmacenDestino" class="form-select form-select-sm" required>
+                                        <option value="">Seleccionar...</option>
+                                        {% for a in almacenes %}
+                                        <option value="{{ a.id }}">{{ a.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 2: SELECCIÓN DE PRODUCTO Y CANTIDAD -->
+                    <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
+                        <div class="card-body p-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Artículo a Trasladar</h6>
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-5">
+                                    <label class="form-label small text-muted">Producto</label>
+                                    <select id="selectProductoTraslado" class="form-select form-select-sm">
+                                        <option value="">Selecciona Origen primero...</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small text-muted">Cantidad</label>
+                                    <input type="number" id="inputCantidadTraslado" class="form-control form-control-sm text-center" value="1" min="1" >
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small text-muted">Lote</label>
+                                    <input type="text" id="inputLoteTraslado" class="form-control form-control-sm" disabled>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small text-muted">Serie</label>
+                                    <input type="text" id="inputSerieTraslado" class="form-control form-control-sm" disabled>
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="button" class="btn btn-brand btn-sm w-100" onclick="agregarItemTraslado()">
+                                        <i class="bi bi-plus-lg"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- Info de Stock -->
+                            <div class="row g-2 mt-2">
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted">Total en Origen:</label>
+                                    <span id="infoStockTotal" class="fw-bold text-dark">-</span>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted">Reservado:</label>
+                                    <span id="infoStockReservado" class="fw-bold text-warning">-</span>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted">Disponible:</label>
+                                    <span id="infoStockDisponible" class="fw-bold text-success">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 3: LISTA DE ARTÍCULOS A MOVER -->
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body p-0">
+                            <table class="table table-sm table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="ps-3">Artículo</th>
+                                        <th class="text-center">Lote/Serie</th>
+                                        <th class="text-center" style="width: 100px;">Cant.</th>
+                                        <th class="text-end pe-3" style="width: 100px;">Subtotal</th>
+                                        <th style="width: 50px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyTraslado"></tbody>
+                            </table>
+                        </div>
+                        <div class="card-footer bg-white border-0 py-2 px-3 d-flex justify-content-end">
+                            <div class="me-3"><span class="text-muted small">Total a Trasladar:</span></div>
+                            <div class="fw-bold fs-5 text-brand" id="granTotalTraslado">$0.00</div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="modal-footer border-top bg-white py-2">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-brand btn-sm px-4" onclick="confirmarTraslado()">Confirmar Traslado</button>
+            </div>
+        </div>
+    </div>
+</div>

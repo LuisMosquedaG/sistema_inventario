@@ -292,6 +292,20 @@ def ejecutar_surtido(request, ov_id):
                         cantidad=F('cantidad') - quitar,
                         reservado=F('reservado') - quitar
                     )
+
+                    # REGISTRAR EN KARDEX MANUALMENTE YA QUE USAMOS UPDATE()
+                    from almacenes.models import Kardex
+                    Kardex.objects.create(
+                        empresa=empresa_actual,
+                        producto=producto,
+                        almacen=inv.almacen,
+                        tipo_movimiento='salida',
+                        cantidad=quitar,
+                        stock_anterior=inv.cantidad,
+                        stock_nuevo=inv.cantidad - quitar,
+                        referencia=f"OV-{ov.id:04d}"
+                    )
+                    
                     pendiente -= quitar
 
             if pendiente > 0:

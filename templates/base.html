@@ -392,6 +392,11 @@
                                     <i class="bi bi-box-seam me-2 small"></i> Inventarios
                                 </a>
                             </li>
+                            <li>
+                                <a href="/inventario/kardex/" class="sidebar-link sidebar-level-2 {% if '/kardex/' in request.path %}sidebar-sub-active{% endif %}">
+                                    <i class="bi bi-clock-history me-2 small"></i> Kardex
+                                </a>
+                            </li>
                                 <a href="#submenu-catalogos" 
                                    data-bs-toggle="collapse" 
                                    class="sidebar-link sidebar-level-2 {% if '/almacenes/' in request.path or '/categorias/' in request.path or '/subcategorias/' in request.path %}sidebar-active{% endif %}"
