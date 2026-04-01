@@ -8,7 +8,7 @@ from decimal import Decimal
 from .models import OrdenVenta, DetalleOrdenVenta
 from pedidos.models import Pedido, DetallePedido
 from panel.models import Empresa
-from almacenes.models import Inventario # Asegúrate de importar tu modelo Inventario
+from almacenes.models import Inventario
 from django.db.models import F
 
 def get_empresa_actual(request):
@@ -27,56 +27,48 @@ def dashboard_ventas(request):
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)
 
-    # 1. Cargamos las órdenes con sus relaciones principales
     ordenes = OrdenVenta.objects.filter(empresa=empresa_actual).select_related('pedido_origen', 'cliente').order_by('-fecha_creacion')
     
-    # 2. Recolectamos los IDs de cotización únicos que están en los pedidos
     cotizaciones_ids = set()
     for orden in ordenes:
         if orden.pedido_origen and orden.pedido_origen.cotizacion_origen_id:
             cotizaciones_ids.add(orden.pedido_origen.cotizacion_origen_id)
     
-    # 3. Mapa de fechas
-    # NOTA: Usamos 'creado_en' porque así se llama el campo en tu modelo Cotizacion
     fechas_map = {}
     if cotizaciones_ids:
         from cotizaciones.models import Cotizacion 
-        # CORRECCIÓN: Usamos 'creado_en' en lugar de 'fecha_creacion'
         datos_cot = Cotizacion.objects.filter(id__in=cotizaciones_ids).values('id', 'creado_en')
         for dato in datos_cot:
             fechas_map[dato['id']] = dato['creado_en']
 
-    # 4. Adjuntamos la fecha a cada objeto 'orden' como un atributo temporal
     for orden in ordenes:
         orden.fecha_cotizacion_display = None
         if orden.pedido_origen and orden.pedido_origen.cotizacion_origen_id:
             orden.fecha_cotizacion_display = fechas_map.get(orden.pedido_origen.cotizacion_origen_id)
 
-    contexto = {'ordenes': ordenes}
+    # LISTA DE ALMACENES PARA EL MODAL
+    almacenes = list(empresa_actual.almacen_set.all().values('id', 'nombre'))
+
+    contexto = {'ordenes': ordenes, 'almacenes_json': almacenes}
     return render(request, 'dashboard_ventas.html', contexto)
 
 @login_required
 @transaction.atomic
 def crear_orden_venta(request, pedido_id):
-    """Crea una Orden de Venta en Borrador basada en un Pedido Confirmado"""
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
         messages.error(request, "Empresa no detectada")
         return redirect('dashboard_pedidos')
 
     pedido = get_object_or_404(Pedido, id=pedido_id, empresa=empresa_actual)
-
-    # Validamos que el pedido esté en estado 'confirmado' o 'completo' (todo reservado)
     if pedido.estado not in ['confirmado', 'completo']:
         messages.error(request, 'Solo se pueden generar Órdenes de Venta desde pedidos confirmados.')
         return redirect('dashboard_pedidos')
 
-    # Verificamos si ya existe una OV para este pedido
     if hasattr(pedido, 'orden_venta'):
         messages.warning(request, 'Este pedido ya tiene una Orden de Venta generada.')
         return redirect('dashboard_ventas')
 
-    # 1. Crear Cabecera OV
     ov = OrdenVenta.objects.create(
         pedido_origen=pedido,
         cliente=pedido.cliente,
@@ -85,10 +77,7 @@ def crear_orden_venta(request, pedido_id):
         estado='borrador'
     )
 
-    # 2. Copiar Detalles (solo las líneas principales, omitimos hijos si los hubo de splits)
-    # Opcional: Podrías querer aplanar todo, pero asumiremos las líneas principales.
     lineas_pedido = pedido.detalles.filter(parent_line__isnull=True)
-    
     for linea in lineas_pedido:
         DetalleOrdenVenta.objects.create(
             orden_venta=ov,
@@ -102,37 +91,33 @@ def crear_orden_venta(request, pedido_id):
 
 @login_required
 def cambiar_estado_ov(request, ov_id, nuevo_estado):
-    """Cambia estados simples (Borrador -> Aprobado)"""
     empresa_actual = get_empresa_actual(request)
     ov = get_object_or_404(OrdenVenta, id=ov_id, empresa=empresa_actual)
-
     if nuevo_estado == 'aprobado' and ov.estado == 'borrador':
         ov.estado = 'aprobado'
         ov.save()
         messages.success(request, 'Orden de Venta Aprobada. Lista para surtir.')
-    
     return redirect('dashboard_ventas')
 
 @login_required
 def api_preparar_surtido(request, ov_id):
-    """Retorna JSON detallado para el Modal de Surtido con jerarquía de datos"""
     empresa_actual = get_empresa_actual(request)
     ov = get_object_or_404(OrdenVenta, id=ov_id, empresa=empresa_actual)
 
-    # Permitimos ver los detalles si está Aprobada (para surtir) o Surtida (para consultar)
     if ov.estado not in ['aprobado', 'surtido']:
         return JsonResponse({'success': False, 'error': 'Estado inválido para ver detalles.'})
+
+    almacen_id_req = request.GET.get('almacen_id')
+    almacen_final_id = almacen_id_req or (ov.almacen.id if ov.almacen else None)
 
     cliente = ov.cliente
     pedido_origen = ov.pedido_origen
     
-    # --- 1. DATOS DEL CLIENTE PRINCIPAL (Solo lectura) ---
     razon_social = cliente.razon_social if cliente.razon_social else ""
     nombre_completo = f"{cliente.nombre} {cliente.apellidos}" if not razon_social else ""
     correo_cliente = getattr(cliente, 'email', '')
     telefono_cliente = getattr(cliente, 'telefono', '')
     
-    # Construir dirección fiscal completa
     dir_parts = []
     if cliente.calle: dir_parts.append(cliente.calle)
     if cliente.numero_ext: dir_parts.append(f"#{cliente.numero_ext}")
@@ -142,25 +127,17 @@ def api_preparar_surtido(request, ov_id):
     if cliente.estado_dir: dir_parts.append(cliente.estado_dir)
     direccion_completa = ", ".join(dir_parts)
 
-    # --- 2. DATOS DEL CONTACTO (De la Cotización si existe) ---
-    contacto_nombre = ""
-    contacto_correo = ""
-    contacto_telefono = ""
-    
+    contacto_nombre, contacto_correo, contacto_telefono = "", "", ""
     if pedido_origen.cotizacion_origen_id:
         try:
             from cotizaciones.models import Cotizacion
-            cotizacion = Cotizacion.objects.get(id=pedido_origen.cotizacion_origen_id, empresa=empresa_actual)
-            if cotizacion.contacto:
-                contacto_nombre = cotizacion.contacto.nombre_completo
-                contacto_correo = cotizacion.contacto.correo_1 or cotizacion.contacto.correo_2 or ""
-                contacto_telefono = cotizacion.contacto.telefono_1 or cotizacion.contacto.telefono_2 or ""
-        except:
-            pass
+            cot = Cotizacion.objects.get(id=pedido_origen.cotizacion_origen_id, empresa=empresa_actual)
+            if cot.contacto:
+                contacto_nombre = cot.contacto.nombre_completo
+                contacto_correo = cot.contacto.correo_1 or cot.contacto.correo_2 or ""
+                contacto_telefono = cot.contacto.telefono_1 or cot.contacto.telefono_2 or ""
+        except: pass
 
-    # --- 3. DATOS DE ENVÍO (CON JERARQUÍA: OV -> CLIENTE -> CONTACTO) ---
-    
-    # A. Construir dirección de envío por defecto del Cliente
     envio_parts = []
     if getattr(cliente, 'envio_calle', ''): envio_parts.append(cliente.envio_calle)
     if getattr(cliente, 'envio_numero_ext', ''): envio_parts.append(f"#{cliente.envio_numero_ext}")
@@ -170,150 +147,83 @@ def api_preparar_surtido(request, ov_id):
     if getattr(cliente, 'envio_estado', ''): envio_parts.append(cliente.envio_estado)
     direccion_cliente_envio = ", ".join(envio_parts)
 
-    # B. Determinar "Quién Recibe"
-    # 1. Si ya está guardado en la OV -> Usar ese.
-    # 2. Si no -> Usar "Envio Quien Recibe" del cliente.
-    # 3. Si no -> Usar el nombre del cliente.
-    final_quien_recibe = ov.quien_recibe
-    if not final_quien_recibe:
-        final_quien_recibe = getattr(cliente, 'envio_quien_recibe', '') or cliente.nombre
+    final_quien_recibe = ov.quien_recibe or getattr(cliente, 'envio_quien_recibe', '') or cliente.nombre
+    final_telefono = ov.telefono_recibe or getattr(cliente, 'envio_telefono', '') or contacto_telefono or telefono_cliente
+    final_correo = ov.contacto_envio or getattr(cliente, 'envio_correo', '') or contacto_correo or correo_cliente
+    final_notas = ov.notas_envio or getattr(cliente, 'envio_notas', '')
 
-    # C. Determinar "Teléfono Recibe"
-    # 1. OV -> 2. Cliente Envio -> 3. Contacto Cotización -> 4. Cliente General
-    final_telefono = ov.telefono_recibe
-    if not final_telefono:
-        final_telefono = getattr(cliente, 'envio_telefono', '') or contacto_telefono or telefono_cliente
-
-    # D. Determinar "Correo Recibe"
-    # 1. OV -> 2. Cliente Envio -> 3. Contacto Cotización -> 4. Cliente General
-    final_correo = ov.contacto_envio
-    if not final_correo:
-        final_correo = getattr(cliente, 'envio_correo', '') or contacto_correo or correo_cliente
-
-    # E. Determinar Notas
-    final_notas = ov.notas_envio
-    if not final_notas:
-        final_notas = getattr(cliente, 'envio_notas', '')
-
-    # --- 4. DETALLES DE ARTÍCULOS ---
+    from recepciones.models import DetalleRecepcionExtra
     detalles_data = []
     total_calculado = 0
     for det in ov.detalles.all():
         subtotal = float(det.subtotal)
         total_calculado += subtotal
+        extras_disponibles = []
+        if (det.producto.maneja_lote or det.producto.maneja_serie) and almacen_final_id:
+            extras_qs = DetalleRecepcionExtra.objects.filter(almacen_id=almacen_final_id, detalle_recepcion__producto=det.producto)
+            for extra in extras_qs:
+                if extra.tipo == 'lote' and extra.cantidad_lote <= 0: continue
+                extras_disponibles.append({'id': extra.id, 'tipo': extra.tipo, 'lote': extra.lote, 'serie': extra.serie, 'cantidad': extra.cantidad_lote if extra.tipo == 'lote' else 1})
+
         detalles_data.append({
-            'producto': det.producto.nombre,
-            'cantidad': det.cantidad,
-            'precio': float(det.precio_unitario),
-            'subtotal': subtotal
+            'id': det.id, 'producto_id': det.producto.id, 'producto_nombre': det.producto.nombre,
+            'cantidad': det.cantidad, 'precio': float(det.precio_unitario), 'subtotal': subtotal,
+            'maneja_lote': det.producto.maneja_lote, 'maneja_serie': det.producto.maneja_serie, 'extras': extras_disponibles
         })
 
-    data = {
-        'id': ov.id,
-        
-        # Sección Cliente
-        'cliente_razon': razon_social,
-        'cliente_nombre': nombre_completo,
-        'cliente_correo': correo_cliente,
-        'cliente_telefono': telefono_cliente,
-        'cliente_direccion': direccion_completa,
-        
-        # Subsección Contacto
-        'contacto_nombre': contacto_nombre,
-        'contacto_correo': contacto_correo,
-        'contacto_telefono': contacto_telefono,
-        
-        # Sección Envío (Campos para el formulario)
-        # Si la OV tiene datos, usa esos (para reedición). Si no, usa los defaults calculados arriba.
-        'direccion_envio': ov.direccion_envio if ov.direccion_envio else direccion_cliente_envio,
-        'quien_recibe': final_quien_recibe,
-        'telefono_recibe': final_telefono,
-        'email': final_correo, 
-        'guia': ov.guia or '',
-        'notas_envio': final_notas,
-        
-        # Artículos y Total
-        'detalles': detalles_data,
-        'total': total_calculado
-    }
-    return JsonResponse(data)
+    return JsonResponse({
+        'success': True, 'id': ov.id, 'almacen_id': almacen_final_id,
+        'cliente_razon': razon_social, 'cliente_nombre': nombre_completo, 'cliente_correo': correo_cliente, 'cliente_telefono': telefono_cliente, 'cliente_direccion': direccion_completa,
+        'contacto_nombre': contacto_nombre, 'contacto_correo': contacto_correo, 'contacto_telefono': contacto_telefono,
+        'direccion_envio': ov.direccion_envio or direccion_cliente_envio,
+        'quien_recibe': final_quien_recibe, 'telefono_recibe': final_telefono, 'email': final_correo, 'guia': ov.guia or '', 'notas_envio': final_notas,
+        'detalles': detalles_data, 'total': total_calculado
+    })
 
 @login_required
 @transaction.atomic
 def ejecutar_surtido(request, ov_id):
-    """Procesa el surtido con todos los nuevos campos"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Método no permitido'})
-
-    empresa_actual = get_empresa_actual(request)
-    ov = get_object_or_404(OrdenVenta, id=ov_id, empresa=empresa_actual)
-
-    if ov.estado != 'aprobado':
-        return JsonResponse({'success': False, 'error': 'Estado inválido'})
-
-    # 1. Actualizar todos los campos de envío
-    ov.direccion_envio = request.POST.get('direccion')
-    ov.quien_recibe = request.POST.get('quien_recibe')
-    ov.telefono_recibe = request.POST.get('telefono_recibe')
-    ov.guia = request.POST.get('guia')
-    ov.notas_envio = request.POST.get('notas')
-    
-    # El contacto_envio (correo) se guarda si quieres, pero ya lo tenemos en la cotización
-    
-    ov.fecha_surtido = timezone.now()
-    
+    if request.method != 'POST': return JsonResponse({'success': False, 'error': 'Método no permitido'})
     try:
-        # 2. Lógica de Descontar Inventario (Misma que antes)
+        empresa_actual = get_empresa_actual(request)
+        ov = get_object_or_404(OrdenVenta, id=ov_id, empresa=empresa_actual)
+        almacen_id = request.POST.get('almacen_id')
+        if not almacen_id: raise ValueError("Debes seleccionar un almacén de salida.")
+        from almacenes.models import Almacen
+        ov.almacen = get_object_or_404(Almacen, id=almacen_id, empresa=empresa_actual)
+        ov.direccion_envio, ov.quien_recibe = request.POST.get('direccion'), request.POST.get('quien_recibe')
+        ov.telefono_recibe, ov.guia, ov.notas_envio = request.POST.get('telefono_recibe'), request.POST.get('guia'), request.POST.get('notas')
+        ov.fecha_surtido = timezone.now()
+        almacen = ov.almacen
+        from almacenes.models import Inventario
         for det in ov.detalles.all():
-            producto = det.producto
-            cantidad_a_descontar = det.cantidad
-
-            # Usamos select_for_update() para bloquear las filas durante
-            # la transacción y evitar condiciones de carrera entre usuarios.
-            inventarios = Inventario.objects.select_for_update().filter(
-                producto=producto,
-                reservado__gt=0
-            ).order_by('id')
-
-            pendiente = cantidad_a_descontar
-            for inv in inventarios:
-                if pendiente <= 0:
-                    break
-
-                reservado_aqui = inv.reservado
-                if reservado_aqui > 0:
-                    quitar = min(pendiente, reservado_aqui)
-
-                    # CORRECCIÓN PRINCIPAL: Usamos update() en lugar de
-                    # asignar F() al objeto y llamar save().
-                    # update() modifica SOLO los campos indicados directamente
-                    # en la BD, sin tocar costo_promedio ni ningún otro campo.
-                    Inventario.objects.filter(pk=inv.pk).update(
-                        cantidad=F('cantidad') - quitar,
-                        reservado=F('reservado') - quitar
-                    )
-
-                    # REGISTRAR EN KARDEX MANUALMENTE YA QUE USAMOS UPDATE()
-                    from almacenes.models import Kardex
-                    Kardex.objects.create(
-                        empresa=empresa_actual,
-                        producto=producto,
-                        almacen=inv.almacen,
-                        tipo_movimiento='salida',
-                        cantidad=quitar,
-                        stock_anterior=inv.cantidad,
-                        stock_nuevo=inv.cantidad - quitar,
-                        referencia=f"OV-{ov.id:04d}"
-                    )
-                    
-                    pendiente -= quitar
-
-            if pendiente > 0:
-                raise Exception(f"Stock insuficiente para surtir {producto.nombre}.")
-
+            producto, cantidad_a_descontar = det.producto, det.cantidad
+            extra_ids = request.POST.getlist(f'extra_id_{det.id}[]')
+            inv = Inventario.objects.select_for_update().get(almacen=almacen, producto=producto)
+            if inv.cantidad < cantidad_a_descontar: raise ValueError(f"Stock insuficiente para {producto.nombre} en {almacen.nombre}.")
+            quitar_reserva = min(cantidad_a_descontar, inv.reservado)
+            Inventario.objects.filter(pk=inv.pk).update(cantidad=F('cantidad') - cantidad_a_descontar, reservado=F('reservado') - quitar_reserva)
+            from recepciones.models import DetalleRecepcionExtra
+            lote_ref, serie_ref = None, None
+            if extra_ids:
+                for eid in extra_ids:
+                    extra = DetalleRecepcionExtra.objects.get(id=eid, almacen=almacen)
+                    if extra.tipo == 'serie':
+                        extra.almacen = None
+                        extra.save()
+                        serie_ref = extra.serie
+                    else:
+                        if extra.cantidad_lote >= cantidad_a_descontar:
+                            extra.cantidad_lote = F('cantidad_lote') - cantidad_a_descontar
+                            extra.save()
+                            lote_ref = extra.lote
+                        else: raise ValueError(f"El lote {extra.lote} no tiene cantidad suficiente.")
+            from almacenes.models import Kardex
+            Kardex.objects.create(empresa=empresa_actual, producto=producto, almacen=almacen, tipo_movimiento='salida', cantidad=cantidad_a_descontar, stock_anterior=inv.cantidad, stock_nuevo=inv.cantidad - cantidad_a_descontar, referencia=f"OV-{ov.id:04d}", lote=lote_ref, serie=serie_ref)
         ov.estado = 'surtido'
         ov.save()
+        pedido = ov.pedido_origen
+        pedido.estado = 'completo'
+        pedido.save()
         return JsonResponse({'success': True, 'message': 'Orden surtida correctamente.'})
-
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+    except Exception as e: return JsonResponse({'success': False, 'error': str(e)})

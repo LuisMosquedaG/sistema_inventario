@@ -56,26 +56,21 @@
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body p-3">
             <form method="get" id="formFiltrosInventario" class="row g-2 align-items-end">
-                <div class="col-md-6">
+                <div class="col-md-3">
                     <label class="form-label small fw-bold text-secondary">Búsqueda General</label>
                     <div class="input-group input-group-sm">
                         <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
-                        <input type="text" name="q" class="form-control border-start-0" placeholder="Nombre, marca, categoría..." value="{{ filtros.q }}">
+                        <input type="text" name="q" class="form-control border-start-0" placeholder="Buscar..." value="{{ filtros.q }}">
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-2">
                     <label class="form-label small fw-bold text-secondary">Almacén</label>
                     <select name="almacen" class="form-select form-select-sm" onchange="this.form.submit()">
-                        <option value="">Todos los almacenes...</option>
+                        <option value="">Todos...</option>
                         {% for a in almacenes %}
                         <option value="{{ a.id }}" {% if filtros.almacen == a.id %}selected{% endif %}>{{ a.nombre }}</option>
                         {% endfor %}
                     </select>
-                </div>
-                <div class="col-md-2 text-end">
-                    <a href="{% url 'dash_inventario' %}" class="btn btn-light border btn-sm w-100">
-                        <i class="bi bi-arrow-counterclockwise me-1"></i> Limpiar
-                    </a>
                 </div>
             </form>
         </div>
@@ -184,10 +179,10 @@
         api_crear_producto: "/inventario/api/crear-producto/",
         api_actualizar_producto: "/inventario/api/actualizar-producto/0/",
         api_actualizar_precio: "/inventario/api/actualizar-precio-producto/0/",
-        // NUEVAS URLS PARA TRASLADOS
-        api_productos_con_stock: "/almacenes/api/productos-con-stock/",
-        api_extras_producto: "/almacenes/api/extras-producto/",
-        api_ejecutar_traslado: "/almacenes/api/ejecutar-traslado/",
+        // NUEVAS URLS PARA TRASLADOS (CORREGIDAS)
+        api_productos_con_stock: "/inventario/api/productos-con-stock/",
+        api_extras_producto: "/inventario/api/extras-producto/",
+        api_ejecutar_traslado: "/inventario/api/ejecutar-traslado/",
     };
 </script>
 <script src="{% static 'js/inventario.js' %}?v={% now 'U' %}"></script>

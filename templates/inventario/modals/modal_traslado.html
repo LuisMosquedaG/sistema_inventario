@@ -1,5 +1,5 @@
 <div class="modal fade" id="modalTraslado" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-xl modal-sheet">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
         <div class="modal-content">
             <div class="modal-header border-bottom bg-light py-2"> 
                 <h5 class="modal-title fw-bold text-dark">
@@ -21,7 +21,7 @@
                             <div class="row g-2">
                                 <div class="col-md-5">
                                     <label class="form-label small fw-bold text-secondary">Almacén Origen</label>
-                                    <select name="almacen_origen" id="selectAlmacenOrigen" class="form-select form-select-sm" required onchange="cargarProductosEnOrigen()">
+                                    <select name="almacen_origen" id="selectAlmacenOrigen" class="form-select form-select-sm" required>
                                         <option value="">Seleccionar...</option>
                                         {% for a in almacenes %}
                                         <option value="{{ a.id }}">{{ a.nombre }}</option>
@@ -61,11 +61,15 @@
                                 </div>
                                 <div class="col-md-2">
                                     <label class="form-label small text-muted">Lote</label>
-                                    <input type="text" id="inputLoteTraslado" class="form-control form-control-sm" disabled>
+                                    <select id="selectLoteTraslado" class="form-select form-select-sm" disabled>
+                                        <option value="">-- N/A --</option>
+                                    </select>
                                 </div>
                                 <div class="col-md-2">
                                     <label class="form-label small text-muted">Serie</label>
-                                    <input type="text" id="inputSerieTraslado" class="form-control form-control-sm" disabled>
+                                    <select id="selectSerieTraslado" class="form-select form-select-sm" disabled>
+                                        <option value="">-- N/A --</option>
+                                    </select>
                                 </div>
                                 <div class="col-md-1">
                                     <button type="button" class="btn btn-brand btn-sm w-100" onclick="agregarItemTraslado()">

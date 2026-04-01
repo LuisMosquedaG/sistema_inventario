@@ -272,26 +272,32 @@
                             </div>
                         </div>
 
-                        <!-- SECCIÓN 2: DIRECCIÓN DE ENVÍO (Editable) -->
+                        <!-- SECCIÓN 2: DIRECCIÓN DE ENVÍO Y ALMACÉN (Editable) -->
                         <div class="card border-0 bg-white border-start border-4 border-info mb-3 shadow-sm">
                             <div class="card-body p-3">
-                                <h6 class="fw-bold text-dark mb-2"><i class="bi bi-truck me-2 text-info"></i>Información de Envío</h6>
+                                <h6 class="fw-bold text-dark mb-2"><i class="bi bi-truck me-2 text-info"></i>Logística y Envío</h6>
                                 <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label-crossover small fw-bold">Almacén de Salida</label>
+                                        <select name="almacen_id" id="inputAlmacenSurtido" class="form-select form-select-sm" required onchange="recargarItemsSurtido()">
+                                            <option value="">Seleccionar...</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-crossover">Guía (Tracking)</label>
+                                        <input type="text" name="guia" id="inputGuia" class="form-control form-control-sm">
+                                    </div>
                                     <div class="col-12">
                                         <label class="form-label-crossover">Dirección de Envío</label>
                                         <textarea name="direccion" id="inputDireccion" class="form-control form-control-sm" rows="2" required placeholder="Calle, Número, Colonia..."></textarea>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-6">
                                         <label class="form-label-crossover">Quién Recibe</label>
                                         <input type="text" name="quien_recibe" id="inputRecibe" class="form-control form-control-sm">
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-6">
                                         <label class="form-label-crossover">Teléfono Recibe</label>
                                         <input type="text" name="telefono_recibe" id="inputTelRecibe" class="form-control form-control-sm">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label-crossover">Guía (Tracking)</label>
-                                        <input type="text" name="guia" id="inputGuia" class="form-control form-control-sm">
                                     </div>
                                     <div class="col-12">
                                         <label class="form-label-crossover">Notas de Envío</label>
@@ -452,17 +458,42 @@
 
 {% block extra_js %}
     <script>
-        function abrirModalSurtido(ovId) {
-            const modal = new bootstrap.Modal(document.getElementById('modalSurtido'));
+        let currentOvId = null;
+        const ALMACENES_DISPONIBLES = {{ almacenes_json|safe }};
+
+        function recargarItemsSurtido() {
+            const almacenId = document.getElementById('inputAlmacenSurtido').value;
+            if (currentOvId) {
+                abrirModalSurtido(currentOvId, almacenId);
+            }
+        }
+
+        function abrirModalSurtido(ovId, forceAlmacenId = null) {
+            currentOvId = ovId;
+            const modalEl = document.getElementById('modalSurtido');
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
             const form = document.getElementById('formSurtido');
             const tbody = document.getElementById('tablaArticulosSurtido');
             const btnSubmit = form.querySelector('button[type="submit"]');
+            const selectAlmacen = document.getElementById('inputAlmacenSurtido');
 
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3"><span class="spinner-border spinner-border-sm"></span> Cargando...</td></tr>';
+            // Mostrar estado de carga en la tabla
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3"><span class="spinner-border spinner-border-sm"></span> Actualizando existencias...</td></tr>';
             btnSubmit.disabled = true;
-            form.action = `/ventas/surtir/${ovId}/`;
 
-            fetch(`/ventas/api/preparar-surtido/${ovId}/`)
+            // Inicializar select de almacenes solo la primera vez (cuando no hay forceAlmacenId)
+            if (!forceAlmacenId) {
+                selectAlmacen.innerHTML = '<option value="">Seleccionar...</option>';
+                ALMACENES_DISPONIBLES.forEach(a => {
+                    selectAlmacen.insertAdjacentHTML('beforeend', `<option value="${a.id}">${a.nombre}</option>`);
+                });
+                form.action = `/ventas/surtir/${ovId}/`;
+            }
+
+            let url = `/ventas/api/preparar-surtido/${ovId}/`;
+            if (forceAlmacenId) url += `?almacen_id=${forceAlmacenId}`;
+
+            fetch(url)
                 .then(response => response.json())
                 .then(data => {
                     if (data.success === false) {
@@ -471,28 +502,60 @@
                         return;
                     }
 
-                    // 1. Llenar Datos Cliente
-                    document.getElementById('dispClienteNombre').innerText = data.cliente_razon || data.cliente_nombre;
-                    document.getElementById('dispClienteTel').innerText = data.cliente_telefono || '-';
-                    document.getElementById('dispClienteEmail').innerText = data.cliente_correo || '-';
-                    document.getElementById('dispClienteDir').innerText = data.cliente_direccion || '-';
+                    // 1. Llenar Datos Cliente (Solo si no es recarga de almacén)
+                    if (!forceAlmacenId) {
+                        document.getElementById('dispClienteNombre').innerText = data.cliente_razon || data.cliente_nombre;
+                        document.getElementById('dispClienteTel').innerText = data.cliente_telefono || '-';
+                        document.getElementById('dispClienteEmail').innerText = data.cliente_correo || '-';
+                        document.getElementById('dispClienteDir').innerText = data.cliente_direccion || '-';
 
-                    // 2. Llenar Datos Envío
-                    document.getElementById('inputDireccion').value = data.direccion_envio || '';
-                    document.getElementById('inputRecibe').value = data.quien_recibe || '';
-                    document.getElementById('inputTelRecibe').value = data.telefono_recibe || '';
-                    document.getElementById('inputGuia').value = data.guia || '';
-                    document.getElementById('inputNotas').value = data.notas_envio || '';
+                        document.getElementById('inputDireccion').value = data.direccion_envio || '';
+                        document.getElementById('inputRecibe').value = data.quien_recibe || '';
+                        document.getElementById('inputTelRecibe').value = data.telefono_recibe || '';
+                        document.getElementById('inputGuia').value = data.guia || '';
+                        document.getElementById('inputNotas').value = data.notas_envio || '';
+                        
+                        if (data.almacen_id) selectAlmacen.value = data.almacen_id;
+                    }
 
-                    // 3. Llenar Tabla Artículos y Total
+                    // 2. Llenar Tabla Artículos (Siempre se reconstruye)
                     tbody.innerHTML = '';
                     let totalFinal = 0;
                     
                     data.detalles.forEach(det => {
                         totalFinal += det.subtotal;
                         const tr = document.createElement('tr');
+                        
+                        let extraHtml = '';
+                        if (det.maneja_lote || det.maneja_serie) {
+                            let options = '<option value="">Seleccionar...</option>';
+                            if (det.extras && det.extras.length > 0) {
+                                det.extras.forEach(ex => {
+                                    const label = ex.tipo === 'lote' ? `${ex.lote} (Stock: ${ex.cantidad})` : ex.serie;
+                                    options += `<option value="${ex.id}">${label}</option>`;
+                                });
+                            } else {
+                                options = '<option value="">Sin existencias en este almacén</option>';
+                            }
+                            
+                            const multiple = det.maneja_serie ? 'multiple' : ''; 
+                            const helpText = det.maneja_serie ? '<small class="text-muted d-block" style="font-size:0.7rem">Ctrl+Click p/varios</small>' : '';
+
+                            extraHtml = `
+                                <div class="mt-1">
+                                    <select name="extra_id_${det.id}[]" class="form-select form-select-sm" ${multiple} required>
+                                        ${options}
+                                    </select>
+                                    ${helpText}
+                                </div>
+                            `;
+                        }
+
                         tr.innerHTML = `
-                            <td>${det.producto}</td>
+                            <td>
+                                <div class="fw-bold">${det.producto_nombre}</div>
+                                ${extraHtml}
+                            </td>
                             <td class="text-center">${det.cantidad}</td>
                             <td class="text-end">$${det.precio.toFixed(2)}</td>
                             <td class="text-end">$${det.subtotal.toFixed(2)}</td>
@@ -501,9 +564,9 @@
                     });
 
                     document.getElementById('totalSurtido').innerText = '$' + totalFinal.toFixed(2);
-
                     btnSubmit.disabled = false;
-                    modal.show();
+                    
+                    if (!forceAlmacenId) modal.show();
                 })
                 .catch(error => {
                     console.error('Error:', error);
@@ -606,7 +669,7 @@
                         totalFinal += det.subtotal;
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
-                            <td>${det.producto}</td>
+                            <td>${det.producto_nombre}</td>
                             <td class="text-center">${det.cantidad}</td>
                             <td class="text-end">$${det.precio.toFixed(2)}</td>
                             <td class="text-end">$${det.subtotal.toFixed(2)}</td>

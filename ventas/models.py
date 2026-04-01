@@ -34,6 +34,7 @@ class OrdenVenta(models.Model):
     
     # Estados y Datos de Envío
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='borrador')
+    almacen = models.ForeignKey('almacenes.Almacen', on_delete=models.PROTECT, null=True, blank=True, verbose_name="Almacén de Salida")
     
     # Datos de envío (se llenan al momento de surtir)
     direccion_envio = models.TextField(blank=True, verbose_name="Dirección de Envío")

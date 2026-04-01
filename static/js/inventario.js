@@ -469,8 +469,8 @@ function cargarProductosEnOrigen() {
     const almacenOrigenId = document.getElementById('selectAlmacenOrigen').value;
     const selectProducto = document.getElementById('selectProductoTraslado');
     const inputCantidad = document.getElementById('inputCantidadTraslado');
-    const inputLote = document.getElementById('inputLoteTraslado');
-    const inputSerie = document.getElementById('inputSerieTraslado');
+    const selectLote = document.getElementById('selectLoteTraslado');
+    const selectSerie = document.getElementById('selectSerieTraslado');
     const infoStockTotal = document.getElementById('infoStockTotal');
     const infoStockReservado = document.getElementById('infoStockReservado');
     const infoStockDisponible = document.getElementById('infoStockDisponible');
@@ -479,13 +479,11 @@ function cargarProductosEnOrigen() {
     // Resetear campos
     selectProducto.innerHTML = '<option value="">Selecciona almacén origen primero...</option>';
     inputCantidad.value = 1;
-    inputLote.disabled = inputSerie.disabled = true;
-    inputLote.value = inputSerie.value = '';
+    selectLote.disabled = selectSerie.disabled = true;
+    selectLote.innerHTML = selectSerie.innerHTML = '<option value="">-- N/A --</option>';
     infoStockTotal.innerText = infoStockReservado.innerText = infoStockDisponible.innerText = '-';
     tbody.innerHTML = '';
     document.getElementById('granTotalTraslado').innerText = '$0.00';
-    productoSeleccionadoTraslado = null;
-    selectedExtraId = null;
 
     if (!almacenOrigenId) return;
 
@@ -498,7 +496,7 @@ function cargarProductosEnOrigen() {
                 data.forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = p.id;
-                    opt.dataset.stockInfo = JSON.stringify(p); // Guardamos info de stock en dataset
+                    opt.dataset.stockInfo = JSON.stringify(p);
                     opt.textContent = `${p.nombre} (Disp: ${p.disponible})`;
                     selectProducto.appendChild(opt);
                 });
@@ -513,15 +511,14 @@ function cargarExtrasYStock() {
     const almacenOrigenId = document.getElementById('selectAlmacenOrigen').value;
     const productoId = document.getElementById('selectProductoTraslado').value;
     const inputCantidad = document.getElementById('inputCantidadTraslado');
-    const inputLote = document.getElementById('inputLoteTraslado');
-    const inputSerie = document.getElementById('inputSerieTraslado');
+    const selectLote = document.getElementById('selectLoteTraslado');
+    const selectSerie = document.getElementById('selectSerieTraslado');
     const infoStockTotal = document.getElementById('infoStockTotal');
     const infoStockReservado = document.getElementById('infoStockReservado');
     const infoStockDisponible = document.getElementById('infoStockDisponible');
 
-    inputLote.value = inputSerie.value = '';
-    inputLote.disabled = inputSerie.disabled = true;
-    selectedExtraId = null;
+    selectLote.innerHTML = selectSerie.innerHTML = '<option value="">-- N/A --</option>';
+    selectLote.disabled = selectSerie.disabled = true;
 
     if (!almacenOrigenId || !productoId) return;
 
@@ -533,8 +530,7 @@ function cargarExtrasYStock() {
     infoStockReservado.innerText = stockInfo.reservado || '0';
     infoStockDisponible.innerText = stockInfo.disponible || '0';
     
-    inputCantidad.max = stockInfo.disponible || 1; // Máximo a lo disponible
-    inputCantidad.value = 1; // Resetear a 1
+    inputCantidad.value = 1;
 
     if (stockInfo.maneja_lote || stockInfo.maneja_serie) {
         fetch(`${APP_URLS.api_extras_producto}${almacenOrigenId}/${productoId}/`)
@@ -545,14 +541,24 @@ function cargarExtrasYStock() {
                     const series = data.filter(item => item.tipo === 'serie' && item.serie);
 
                     if (lotes.length > 0) {
-                        inputLote.disabled = false;
-                        inputLote.value = lotes[0].lote; 
-                        inputLote.dataset.extraId = lotes[0].id; // Guardamos ID para referencia
+                        selectLote.disabled = false;
+                        selectLote.innerHTML = '<option value="">Seleccionar Lote...</option>';
+                        lotes.forEach(l => {
+                            const opt = document.createElement('option');
+                            opt.value = l.id;
+                            opt.textContent = `${l.lote} (Cant: ${l.cantidad})`;
+                            selectLote.appendChild(opt);
+                        });
                     }
                     if (series.length > 0) {
-                        inputSerie.disabled = false;
-                        inputSerie.value = series[0].serie;
-                        inputSerie.dataset.extraId = series[0].id; // Guardamos ID para referencia
+                        selectSerie.disabled = false;
+                        selectSerie.innerHTML = '<option value="">Seleccionar Serie...</option>';
+                        series.forEach(s => {
+                            const opt = document.createElement('option');
+                            opt.value = s.id;
+                            opt.textContent = s.serie;
+                            selectSerie.appendChild(opt);
+                        });
                     }
                 }
             });
@@ -564,66 +570,52 @@ function agregarItemTraslado() {
     const almacenDestinoId = document.getElementById('selectAlmacenDestino').value;
     const productoSelect = document.getElementById('selectProductoTraslado');
     const productoId = productoSelect.value;
-    const productoNombre = productoSelect.options[productoSelect.selectedIndex]?.text.split(' (Disp:')[0]; // Extraer solo el nombre
+    const productoNombre = productoSelect.options[productoSelect.selectedIndex]?.text.split(' (Disp:')[0];
     const cantidad = parseInt(document.getElementById('inputCantidadTraslado').value);
-    const inputLote = document.getElementById('inputLoteTraslado');
-    const inputSerie = document.getElementById('inputSerieTraslado');
-    const extraId = inputLote.dataset.extraId || inputSerie.dataset.extraId; // ID del lote/serie si aplica
+    const selectLote = document.getElementById('selectLoteTraslado');
+    const selectSerie = document.getElementById('selectSerieTraslado');
+    
+    const extraId = selectLote.value || selectSerie.value || null;
+    const extraNombre = selectLote.value ? selectLote.options[selectLote.selectedIndex].text : (selectSerie.value ? selectSerie.options[selectSerie.selectedIndex].text : null);
+    
     const disponible = parseInt(document.getElementById('infoStockDisponible').innerText);
     
     if (!almacenOrigenId || !almacenDestinoId || !productoId || !cantidad || cantidad <= 0) {
-        alert("Por favor, completa todos los campos: origen, destino, producto y cantidad válida.");
+        alert("Por favor, completa todos los campos.");
         return;
     }
 
     if (cantidad > disponible) {
-        alert(`¡Alerta! La cantidad solicitada (${cantidad}) excede el stock disponible (${disponible}). Las piezas excedentes se transferirán como reservadas si aplica.`);
-        // Nota: La lógica de "pasarán con el mismo estado reservadas para el pedido" es compleja
-        // y requeriría conocer el pedido asociado. Por ahora, solo alertamos.
+        alert(`¡Alerta! La cantidad solicitada (${cantidad}) excede el stock disponible (${disponible}). Las piezas excedentes se transferirán como reservadas.`);
     }
 
-    const lote = inputLote.value || null;
-    const serie = inputSerie.value || null;
     const tbody = document.getElementById('tbodyTraslado');
     
-    // Validar si ya existe este ítem (mismo producto, mismo lote/serie)
+    // Validar si ya existe este ítem
     const rows = tbody.querySelectorAll('tr');
     for (const row of rows) {
-        if (row.dataset.productoId === productoId && 
-            ( (!lote && row.dataset.lote === 'null') || (lote && row.dataset.lote === lote) ) &&
-            ( (!serie && row.dataset.serie === 'null') || (serie && row.dataset.serie === serie) )) {
-            
+        if (row.dataset.productoId === productoId && row.dataset.extraId === (extraId || 'null')) {
             const cantInput = row.querySelector('.inp-cant-traslado');
-            const subtotalSpan = row.querySelector('.subtotal-traslado');
-            const currentCant = parseInt(cantInput.value);
-            const newCant = currentCant + cantidad;
-            cantInput.value = newCant;
-            
-            const precioUnitario = parseFloat(row.dataset.precioUnitario);
-            subtotalSpan.innerText = '$' + (newCant * precioUnitario).toFixed(2);
+            cantInput.value = parseInt(cantInput.value) + cantidad;
             actualizarGranTotal();
-            alert("Cantidad actualizada para este item.");
-            return; // Salir si ya existe
+            return;
         }
     }
 
-    // Si no existe, crear nueva fila
-    fetch(`${APP_URLS.api_producto.replace('0', productoId)}`) // Obtenemos info del producto (precio)
+    fetch(`${APP_URLS.api_producto.replace('0', productoId)}`)
         .then(r => r.json())
         .then(prodData => {
-            const precioUnitario = parseFloat(prodData.precio_costo); // Usamos precio_costo como referencia
+            const precioUnitario = parseFloat(prodData.precio_costo);
             const subtotal = cantidad * precioUnitario;
             
             const tr = document.createElement('tr');
             tr.dataset.productoId = productoId;
             tr.dataset.precioUnitario = precioUnitario;
-            tr.dataset.lote = lote || 'null';
-            tr.dataset.serie = serie || 'null';
-            tr.dataset.extraId = extraId;
+            tr.dataset.extraId = extraId || 'null';
 
             tr.innerHTML = `
                 <td class="ps-3">${productoNombre}</td>
-                <td class="text-center">${lote || serie || '--'}</td>
+                <td class="text-center">${extraNombre || '--'}</td>
                 <td class="text-center">
                     <input type="number" class="form-control form-control-sm text-center inp-cant-traslado" value="${cantidad}" min="1" onchange="actualizarGranTotal()">
                 </td>
@@ -666,9 +658,8 @@ function confirmarTraslado() {
     tbody.querySelectorAll('tr').forEach(tr => {
         const producto_id = tr.dataset.productoId;
         const cantidad = parseInt(tr.querySelector('.inp-cant-traslado').value);
-        const extra_id = tr.dataset.extraId === 'null' ? null : tr.dataset.extraId; // Manejar null
+        const extra_id = tr.dataset.extraId === 'null' ? null : tr.dataset.extraId;
         
-        // Validación simple de cantidad
         if (isNaN(cantidad) || cantidad <= 0) {
             valid = false;
         }
@@ -676,7 +667,7 @@ function confirmarTraslado() {
     });
 
     if (!valid) {
-        alert("Verifica las cantidades ingresadas. Deben ser números positivos.");
+        alert("Verifica las cantidades ingresadas.");
         return;
     }
 
@@ -716,33 +707,54 @@ function confirmarTraslado() {
 
 // --- Inicialización ---
 document.addEventListener('DOMContentLoaded', function() {
-    const origenSelect = document.getElementById('selectAlmacenOrigen');
-    if (origenSelect && origenSelect.value) {
-        cargarProductosEnOrigen();
-    }
-});
-// Ajustes para el selector de producto
-document.getElementById('selectAlmacenOrigen').addEventListener('change', function() {
-    document.getElementById('selectProductoTraslado').value = ''; // Resetear producto
-    document.getElementById('inputLoteTraslado').value = document.getElementById('inputSerieTraslado').value = '';
-    document.getElementById('inputLoteTraslado').disabled = document.getElementById('inputSerieTraslado').disabled = true;
-    document.getElementById('infoStockTotal').innerText = document.getElementById('infoStockReservado').innerText = document.getElementById('infoStockDisponible').innerText = '-';
-    document.getElementById('tbodyTraslado').innerHTML = '';
-    document.getElementById('granTotalTraslado').innerText = '$0.00';
-    productoSeleccionadoTraslado = null;
-    selectedExtraId = null;
-});
-document.getElementById('selectProductoTraslado').addEventListener('change', cargarExtrasYStock);
+    // Usamos delegación de eventos para el cambio de almacén origen
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.id === 'selectAlmacenOrigen') {
+            console.log("Cambiando almacén origen a ID:", e.target.value);
+            
+            // Limpiar campos dependientes al cambiar origen
+            const selectProducto = document.getElementById('selectProductoTraslado');
+            const selectLote = document.getElementById('selectLoteTraslado');
+            const selectSerie = document.getElementById('selectSerieTraslado');
+            const infoStockTotal = document.getElementById('infoStockTotal');
+            const infoStockReservado = document.getElementById('infoStockReservado');
+            const infoStockDisponible = document.getElementById('infoStockDisponible');
+            const tbody = document.getElementById('tbodyTraslado');
 
-document.getElementById('inputCantidadTraslado').addEventListener('input', function() {
-    // Actualizar info de stock disponible si el usuario cambia la cantidad
-    const disponible = parseInt(document.getElementById('infoStockDisponible').innerText);
-    if (parseInt(this.value) > disponible) {
-        this.classList.add('is-invalid'); // Añadir clase de Bootstrap para feedback visual
-    } else {
-        this.classList.remove('is-invalid');
+            if (selectProducto) {
+                selectProducto.innerHTML = '<option value="">Cargando productos...</option>';
+            }
+            if (selectLote) { selectLote.innerHTML = '<option value="">-- N/A --</option>'; selectLote.disabled = true; }
+            if (selectSerie) { selectSerie.innerHTML = '<option value="">-- N/A --</option>'; selectSerie.disabled = true; }
+            if (infoStockTotal) infoStockTotal.innerText = '-';
+            if (infoStockReservado) infoStockReservado.innerText = '-';
+            if (infoStockDisponible) infoStockDisponible.innerText = '-';
+            if (tbody) tbody.innerHTML = '';
+            
+            const granTotal = document.getElementById('granTotalTraslado');
+            if (granTotal) granTotal.innerText = '$0.00';
+
+            // Cargar productos con stock
+            cargarProductosEnOrigen();
+        }
+        
+        // Listener para cambio de producto en traslado
+        if (e.target && e.target.id === 'selectProductoTraslado') {
+            cargarExtrasYStock();
+        }
+    });
+
+    const cantInput = document.getElementById('inputCantidadTraslado');
+    if (cantInput) {
+        cantInput.addEventListener('input', function() {
+            const disponible = parseInt(document.getElementById('infoStockDisponible').innerText) || 0;
+            if (parseInt(this.value) > disponible) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+        });
     }
-    actualizarGranTotal(); // Re-calcular al cambiar cantidad
 });
 // --- FIN TRASLADOS ---
 
