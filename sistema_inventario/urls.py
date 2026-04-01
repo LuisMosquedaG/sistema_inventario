@@ -18,7 +18,8 @@ from cotizaciones.views import (
 from clientes.views import dashboard_clientes, crear_cliente, obtener_cliente_json, actualizar_cliente, obtener_contactos_cliente, guardar_contactos_cliente
 from preferencias.views import (
     dashboard_preferencias, crear_usuario_ajax, crear_moneda_ajax,
-    api_detalle_usuario, actualizar_usuario_ajax
+    api_detalle_usuario, actualizar_usuario_ajax,
+    api_detalle_moneda, actualizar_moneda_ajax
 )
 from django.contrib.auth import views as auth_views 
 from django.contrib.auth import logout
@@ -44,6 +45,8 @@ urlpatterns = [
     path('preferencias/api/usuario/<int:user_id>/', api_detalle_usuario, name='api_detalle_usuario'),
     path('preferencias/actualizar-usuario/<int:user_id>/', actualizar_usuario_ajax, name='actualizar_usuario_ajax'),
     path('preferencias/crear-moneda/', crear_moneda_ajax, name='crear_moneda_ajax'),
+    path('preferencias/api/moneda/<int:moneda_id>/', api_detalle_moneda, name='api_detalle_moneda'),
+    path('preferencias/actualizar-moneda/<int:moneda_id>/', actualizar_moneda_ajax, name='actualizar_moneda_ajax'),
     path('admin/', admin.site.urls),
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
     path('logout/', vista_salir, name='logout'),

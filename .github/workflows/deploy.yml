@@ -1,4 +1,4 @@
-name: Deploy to Hostinger VPS
+name: Deploy to VPS
 
 on:
   push:
@@ -8,15 +8,16 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Deploy to Hostinger
-        uses: hostinger/deploy-on-vps@v2
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          api-key: ${{ secrets.HOSTINGER_API_KEY }}
-          virtual-machine: ${{ vars.HOSTINGER_VM_ID }}
-          project-name: sistema-inventario
-          environment-variables: |
-            DEBUG=False
-            PYTHONUNBUFFERED=1
+          host: srv1254281.hstgr.cloud
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /var/www/django/sistema_inventario
+            git fetch origin
+            git reset --hard origin/main
+            docker compose exec -T web python manage.py migrate
+            docker compose exec -T web python manage.py collectstatic --noinput
+            docker compose restart web

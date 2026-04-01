@@ -77,6 +77,35 @@ def crear_moneda_ajax(request):
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
+@login_required
+def api_detalle_moneda(request, moneda_id):
+    empresa_actual = get_empresa_actual(request)
+    moneda = get_object_or_404(Moneda, id=moneda_id, empresa=empresa_actual)
+    return JsonResponse({
+        'success': True,
+        'id': moneda.id,
+        'nombre': moneda.nombre,
+        'siglas': moneda.siglas,
+        'simbolo': moneda.simbolo,
+        'factor': str(moneda.factor)
+    })
+
+@login_required
+def actualizar_moneda_ajax(request, moneda_id):
+    if request.method == 'POST':
+        try:
+            empresa_actual = get_empresa_actual(request)
+            moneda = get_object_or_404(Moneda, id=moneda_id, empresa=empresa_actual)
+            moneda.nombre = request.POST.get('nombre')
+            moneda.siglas = request.POST.get('siglas')
+            moneda.simbolo = request.POST.get('simbolo')
+            moneda.factor = request.POST.get('factor')
+            moneda.save()
+            return JsonResponse({'success': True, 'message': 'Moneda actualizada correctamente.'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
 # --- VISTA: CREAR USUARIO (REGLA 2: PREFIJO AUTOMÁTICO) ---
 @login_required(login_url='/login/')
 def crear_usuario_ajax(request):
