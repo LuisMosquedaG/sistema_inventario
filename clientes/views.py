@@ -51,6 +51,14 @@ def crear_cliente(request):
             cliente.empresa = empresa_actual
             cliente.save()
             
+            # --- SOPORTE PARA AJAX (MODAL RÁPIDO) ---
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True, 
+                    'id': cliente.id, 
+                    'nombre_completo': cliente.nombre_completo
+                })
+            
             messages.success(request, 'Cliente creado correctamente.')
             return redirect('dashboard_clientes')
         else:

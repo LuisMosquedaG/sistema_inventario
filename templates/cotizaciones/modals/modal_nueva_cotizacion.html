@@ -27,47 +27,55 @@
                                 <div class="col-md-6">
                                     <label class="form-label small fw-bold text-secondary">Cliente</label>
                                     <input type="hidden" name="cliente" id="cliente_id_input" required>
-                                    
-                                    <div class="custom-select-wrapper" id="wrapperCliente">
-                                        <div class="custom-select">
-                                            <div class="custom-select__trigger">
-                                                <div id="cliente_display_fake" class="fake-input-layer">
-                                                    <span class="text-muted" style="font-weight:400;">Buscar cliente...</span>
+
+                                    <div class="d-flex align-items-center">
+                                        <div class="custom-select-wrapper flex-grow-1" id="wrapperCliente">
+                                            <div class="custom-select">
+                                                <div class="custom-select__trigger" style="border-top-right-radius: 0; border-bottom-right-radius: 0;">
+                                                    <div id="cliente_display_fake" class="fake-input-layer">
+                                                        <span class="text-muted" style="font-weight:400;">Buscar cliente...</span>
+                                                    </div>
+                                                    <input type="text" id="cliente_busqueda" autocomplete="off" class="real-input-layer">
+                                                    <i class="bi bi-search" style="z-index:3; pointer-events:none;"></i>
                                                 </div>
-                                                <input type="text" id="cliente_busqueda" autocomplete="off" class="real-input-layer">
-                                                <i class="bi bi-search" style="z-index:3; pointer-events:none;"></i>
-                                            </div>
-                                            <div class="custom-options">
-                                                {% for c in clientes %}
-                                                <span class="custom-option" 
-                                                    data-value="{{ c.id }}" 
-                                                    data-search="{{ c.razon_social }} {{ c.nombre }} {{ c.apellidos }}"
-                                                    data-calle="{{ c.calle|default:'' }}"
-                                                    data-num-ext="{{ c.numero_ext|default:'' }}"
-                                                    data-num-int="{{ c.numero_int|default:'' }}"
-                                                    data-colonia="{{ c.colonia|default:'' }}"
-                                                    data-estado="{{ c.estado_dir|default:'' }}"
-                                                    data-cp="{{ c.cp|default:'' }}">
-                                                    
-                                                    {% if c.razon_social %}
-                                                        <span class="opt-razon">{{ c.razon_social }}</span>
-                                                        <span class="opt-separator">|</span>
-                                                        <span class="opt-contacto">{{ c.nombre }} {{ c.apellidos }}</span>
-                                                    {% else %}
-                                                        <span class="opt-razon">{{ c.nombre }} {{ c.apellidos }}</span>
-                                                        <span class="opt-separator">|</span>
-                                                        <span class="opt-contacto">Persona Física</span>
-                                                    {% endif %}
-                                                </span>
-                                                {% endfor %}
-                                                
-                                                <span class="custom-option disabled" id="sin-resultados" style="display:none; cursor:default; color: #999;">No se encontraron clientes</span>
+                                                <div class="custom-options">
+                                                    {% for c in clientes %}
+                                                    <span class="custom-option" 
+                                                        data-value="{{ c.id }}" 
+                                                        data-search="{{ c.razon_social }} {{ c.nombre }} {{ c.apellidos }}"
+                                                        data-calle="{{ c.calle|default:'' }}"
+                                                        data-num-ext="{{ c.numero_ext|default:'' }}"
+                                                        data-num-int="{{ c.numero_int|default:'' }}"
+                                                        data-colonia="{{ c.colonia|default:'' }}"
+                                                        data-estado="{{ c.estado_dir|default:'' }}"
+                                                        data-cp="{{ c.cp|default:'' }}">
+
+                                                        {% if c.razon_social %}
+                                                            <span class="opt-razon">{{ c.razon_social }}</span>
+                                                            <span class="opt-separator">|</span>
+                                                            <span class="opt-contacto">{{ c.nombre }} {{ c.apellidos }}</span>
+                                                        {% else %}
+                                                            <span class="opt-razon">{{ c.nombre }} {{ c.apellidos }}</span>
+                                                            <span class="opt-separator">|</span>
+                                                            <span class="opt-contacto">Persona Física</span>
+                                                        {% endif %}
+                                                    </span>
+                                                    {% endfor %}
+
+                                                    <span class="custom-option disabled" id="sin-resultados" style="display:none; cursor:default; color: #999;">No se encontraron clientes</span>
+                                                </div>
                                             </div>
                                         </div>
+                                        <!-- BOTÓN NUEVO CLIENTE (EXTENSION) -->
+                                        <button type="button" class="btn btn-brand btn-sm shadow-none" 
+                                                style="height: 31px; width: 31px; border-radius: 0 0.25rem 0.25rem 0; display: flex; align-items: center; justify-content: center; padding: 0; margin-left: -1px; border-left: none;" 
+                                                onclick="mostrarModal('modalCrearClienteRapido')"
+                                                title="Nuevo Cliente">
+                                            <i class="bi bi-plus-lg" style="font-size: 1rem;"></i>
+                                        </button>
                                     </div>
                                     <div id="cliente-error" class="text-danger small mt-1" style="display:none;">Debes seleccionar un cliente.</div>
                                 </div>
-
                                 <div class="col-md-6">
                                     <label class="form-label small fw-bold text-secondary">Contacto Asignado</label>
                                     <input type="hidden" name="contacto" id="contacto_id_input">
