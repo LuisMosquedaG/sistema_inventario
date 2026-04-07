@@ -1,0 +1,20 @@
+<!-- MODAL DE CONFIRMACIÓN DE APROBACIÓN -->
+<div class="modal fade" id="modalConfirmarAprobacion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold w-100 text-center">Confirmar Acción</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <i class="bi bi-exclamation-circle text-warning display-4 mb-3 d-block"></i>
+                <h6>¿Estás seguro de aprobar esta cotización?</h6>
+                <p class="text-muted small">Al aprobar, el estado cambiará a <strong>"Aprobada"</strong> y <strong>no podrás editarla</strong> nuevamente.</p>
+            </div>
+            <div class="modal-footer border-0 justify-content-center">
+                <button type="button" class="btn btn-light text-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btnConfirmarAprobar" class="btn btn-brand px-4">Sí, Aprobar</button>
+            </div>
+        </div>
+    </div>
+</div>
