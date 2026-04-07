@@ -9,6 +9,8 @@ from .models import OrdenVenta, DetalleOrdenVenta
 from pedidos.models import Pedido, DetallePedido
 from panel.models import Empresa
 from almacenes.models import Inventario
+from clientes.models import Cliente
+from core.models import Producto
 from django.db.models import F
 
 def get_empresa_actual(request):
@@ -49,8 +51,58 @@ def dashboard_ventas(request):
     # LISTA DE ALMACENES PARA EL MODAL
     almacenes = list(empresa_actual.almacen_set.all().values('id', 'nombre'))
 
-    contexto = {'ordenes': ordenes, 'almacenes_json': almacenes}
+    contexto = {'ordenes': ordenes, 'almacenes_json': almacenes, 'clientes': Cliente.objects.filter(empresa=empresa_actual), 'productos': Producto.objects.filter(empresa=empresa_actual)}
     return render(request, 'dashboard_ventas.html', contexto)
+
+@login_required
+@transaction.atomic
+def crear_salida_directa(request):
+    """Crea una Orden de Salida (Venta) directa sin pedido previo"""
+    if request.method != 'POST':
+        return redirect('dashboard_ventas')
+    
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        messages.error(request, "Empresa no detectada")
+        return redirect('dashboard_ventas')
+
+    try:
+        cliente_id = request.POST.get('cliente')
+        cliente = get_object_or_404(Cliente, id=cliente_id, empresa=empresa_actual)
+        
+        # 1. Crear la cabecera
+        ov = OrdenVenta.objects.create(
+            pedido_origen=None,
+            cliente=cliente,
+            vendedor=request.user,
+            empresa=empresa_actual,
+            estado='borrador'
+        )
+
+        # 2. Crear los detalles
+        productos_ids = request.POST.getlist('producto_id[]')
+        cantidades = request.POST.getlist('cantidad[]')
+        precios = request.POST.getlist('precio_unitario[]')
+
+        if not productos_ids:
+            raise ValueError("Debes agregar al menos un artículo a la salida.")
+
+        for i in range(len(productos_ids)):
+            prod_id = productos_ids[i]
+            producto = get_object_or_404(Producto, id=prod_id, empresa=empresa_actual)
+            
+            DetalleOrdenVenta.objects.create(
+                orden_venta=ov,
+                producto=producto,
+                cantidad=int(cantidades[i]),
+                precio_unitario=Decimal(precios[i])
+            )
+
+        messages.success(request, f'Orden de Salida OS-{ov.id:04d} creada correctamente.')
+    except Exception as e:
+        messages.error(request, f'Error al crear salida: {str(e)}')
+
+    return redirect('dashboard_ventas')
 
 @login_required
 @transaction.atomic
@@ -128,7 +180,7 @@ def api_preparar_surtido(request, ov_id):
     direccion_completa = ", ".join(dir_parts)
 
     contacto_nombre, contacto_correo, contacto_telefono = "", "", ""
-    if pedido_origen.cotizacion_origen_id:
+    if pedido_origen and pedido_origen.cotizacion_origen_id:
         try:
             from cotizaciones.models import Cotizacion
             cot = Cotizacion.objects.get(id=pedido_origen.cotizacion_origen_id, empresa=empresa_actual)
@@ -222,8 +274,12 @@ def ejecutar_surtido(request, ov_id):
             Kardex.objects.create(empresa=empresa_actual, producto=producto, almacen=almacen, tipo_movimiento='salida', cantidad=cantidad_a_descontar, stock_anterior=inv.cantidad, stock_nuevo=inv.cantidad - cantidad_a_descontar, referencia=f"OV-{ov.id:04d}", lote=lote_ref, serie=serie_ref)
         ov.estado = 'surtido'
         ov.save()
-        pedido = ov.pedido_origen
-        pedido.estado = 'completo'
-        pedido.save()
+
+        # Solo actualizar pedido si existe (Salidas con pedido previo)
+        if ov.pedido_origen:
+            pedido = ov.pedido_origen
+            pedido.estado = 'completo'
+            pedido.save()
+
         return JsonResponse({'success': True, 'message': 'Orden surtida correctamente.'})
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})

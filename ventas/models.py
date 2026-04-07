@@ -17,14 +17,17 @@ class OrdenVenta(models.Model):
         ('cancelado', 'Cancelado'),
     )
 
-    # Referencias
+    # REFERENCIAS
     pedido_origen = models.OneToOneField(
         'pedidos.Pedido', 
-        on_delete=models.CASCADE, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
         related_name='orden_venta',
         verbose_name="Pedido de Origen"
     )
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, verbose_name="Cliente")
+
     vendedor = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Vendedor")
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
     

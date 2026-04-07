@@ -1,6 +1,8 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
+{% load static %}
 
 {% block content %}
+
 
     <!-- ESTILOS PERSONALIZADOS -->
     <style>
@@ -89,8 +91,8 @@
                     <i class="bi bi-download me-1"></i> Exportar
                 </button>
                 
-                <button class="btn btn-brand text-white btn-pro" disabled title="Las ventas se generan desde Pedidos">
-                    <i class="bi bi-plus-lg me-1"></i> Nueva Venta
+                <button class="btn btn-brand text-white btn-pro" data-bs-toggle="modal" data-bs-target="#modalNuevaSalidaDirecta">
+                    <i class="bi bi-plus-lg me-1"></i> Nueva Salida
                 </button>
             </div>
         </div>
@@ -103,7 +105,7 @@
                         <thead>
                             <tr>
                                 <th class="text-center" style="width: 80px;">Acciones</th>
-                                <th class="text-center" style="width: 180px;">Folio Venta / Fecha</th>
+                                <th class="text-center" style="width: 180px;">Folio Salida / Fecha</th>
                                 <th class="text-center" style="width: 180px;">Folio Cotiz. / Fecha</th>
                                 <th class="text-center" style="width: 180px;">Folio Pedido / Fecha</th>
                                 <th class="text-center" style="width: 180px;">Cliente / Contacto</th>
@@ -341,7 +343,11 @@
         </div>
     </div>
 
-        <!-- MODAL: VER DETALLE (Solo Lectura) -->
+    <!-- MODALES -->
+    {% include "ventas/modals/modal_nueva_salida_directa.html" %}
+
+    <!-- MODAL: VER DETALLE (Solo Lectura) -->
+
     <div class="modal fade" id="modalDetalleVenta" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
             <div class="modal-content">
@@ -452,234 +458,7 @@
 
 {% block extra_js %}
     <script>
-        let currentOvId = null;
-        const ALMACENES_DISPONIBLES = {{ almacenes_json|safe }};
-
-        function recargarItemsSurtido() {
-            const almacenId = document.getElementById('inputAlmacenSurtido').value;
-            if (currentOvId) {
-                abrirModalSurtido(currentOvId, almacenId);
-            }
-        }
-
-        function abrirModalSurtido(ovId, forceAlmacenId = null) {
-            currentOvId = ovId;
-            const modalEl = document.getElementById('modalSurtido');
-            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-            const form = document.getElementById('formSurtido');
-            const tbody = document.getElementById('tablaArticulosSurtido');
-            const btnSubmit = form.querySelector('button[type="submit"]');
-            const selectAlmacen = document.getElementById('inputAlmacenSurtido');
-
-            // Mostrar estado de carga en la tabla
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3"><span class="spinner-border spinner-border-sm"></span> Actualizando existencias...</td></tr>';
-            btnSubmit.disabled = true;
-
-            // Inicializar select de almacenes solo la primera vez (cuando no hay forceAlmacenId)
-            if (!forceAlmacenId) {
-                selectAlmacen.innerHTML = '<option value="">Seleccionar...</option>';
-                ALMACENES_DISPONIBLES.forEach(a => {
-                    selectAlmacen.insertAdjacentHTML('beforeend', `<option value="${a.id}">${a.nombre}</option>`);
-                });
-                form.action = `/ventas/surtir/${ovId}/`;
-            }
-
-            let url = `/ventas/api/preparar-surtido/${ovId}/`;
-            if (forceAlmacenId) url += `?almacen_id=${forceAlmacenId}`;
-
-            fetch(url)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success === false) {
-                        alert('Error: ' + data.error);
-                        modal.hide();
-                        return;
-                    }
-
-                    // 1. Llenar Datos Cliente (Solo si no es recarga de almacén)
-                    if (!forceAlmacenId) {
-                        document.getElementById('dispClienteNombre').innerText = data.cliente_razon || data.cliente_nombre;
-                        document.getElementById('dispClienteTel').innerText = data.cliente_telefono || '-';
-                        document.getElementById('dispClienteEmail').innerText = data.cliente_correo || '-';
-                        document.getElementById('dispClienteDir').innerText = data.cliente_direccion || '-';
-
-                        document.getElementById('inputDireccion').value = data.direccion_envio || '';
-                        document.getElementById('inputRecibe').value = data.quien_recibe || '';
-                        document.getElementById('inputTelRecibe').value = data.telefono_recibe || '';
-                        document.getElementById('inputGuia').value = data.guia || '';
-                        document.getElementById('inputNotas').value = data.notas_envio || '';
-                        
-                        if (data.almacen_id) selectAlmacen.value = data.almacen_id;
-                    }
-
-                    // 2. Llenar Tabla Artículos (Siempre se reconstruye)
-                    tbody.innerHTML = '';
-                    let totalFinal = 0;
-                    
-                    data.detalles.forEach(det => {
-                        totalFinal += det.subtotal;
-                        const tr = document.createElement('tr');
-                        
-                        let extraHtml = '';
-                        if (det.maneja_lote || det.maneja_serie) {
-                            let options = '<option value="">Seleccionar...</option>';
-                            if (det.extras && det.extras.length > 0) {
-                                det.extras.forEach(ex => {
-                                    const label = ex.tipo === 'lote' ? `${ex.lote} (Stock: ${ex.cantidad})` : ex.serie;
-                                    options += `<option value="${ex.id}">${label}</option>`;
-                                });
-                            } else {
-                                options = '<option value="">Sin existencias en este almacén</option>';
-                            }
-                            
-                            const multiple = det.maneja_serie ? 'multiple' : ''; 
-                            const helpText = det.maneja_serie ? '<small class="text-muted d-block" style="font-size:0.7rem">Ctrl+Click p/varios</small>' : '';
-
-                            extraHtml = `
-                                <div class="mt-1">
-                                    <select name="extra_id_${det.id}[]" class="form-select form-select-sm" ${multiple} required>
-                                        ${options}
-                                    </select>
-                                    ${helpText}
-                                </div>
-                            `;
-                        }
-
-                        tr.innerHTML = `
-                            <td>
-                                <div class="fw-bold">${det.producto_nombre}</div>
-                                ${extraHtml}
-                            </td>
-                            <td class="text-center">${det.cantidad}</td>
-                            <td class="text-end">$${det.precio.toFixed(2)}</td>
-                            <td class="text-end">$${det.subtotal.toFixed(2)}</td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
-
-                    document.getElementById('totalSurtido').innerText = '$' + totalFinal.toFixed(2);
-                    btnSubmit.disabled = false;
-                    
-                    if (!forceAlmacenId) modal.show();
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error al cargar datos de la orden.');
-                    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error de conexión</td></tr>';
-                });
-        }
-
-        document.getElementById('formSurtido').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const form = this;
-            const formData = new FormData(form);
-            const btn = form.querySelector('button[type="submit"]');
-            const originalText = btn.innerHTML;
-
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando...';
-
-            fetch(form.action, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken')
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const modalEl = document.getElementById('modalSurtido');
-                    const modalInstance = bootstrap.Modal.getInstance(modalEl);
-                    modalInstance.hide();
-                    
-                    alert(data.message);
-                    location.reload(); 
-                } else {
-                    alert('Error: ' + data.error);
-                    btn.disabled = false;
-                    btn.innerHTML = originalText;
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Hubo un error de comunicación.');
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-            });
-        });
-
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            return cookieValue;
-        }
-
-                // FUNCIÓN PARA ABRIR EL MODAL DE DETALLE
-        function abrirModalDetalle(ovId) {
-            const modal = new bootstrap.Modal(document.getElementById('modalDetalleVenta'));
-            const tbody = document.getElementById('tablaArticulosDetalle');
-            
-            // Resetear / Cargando
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3"><span class="spinner-border spinner-border-sm"></span> Cargando...</td></tr>';
-
-            fetch(`/ventas/api/preparar-surtido/${ovId}/`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success === false) {
-                        alert('Error: ' + data.error);
-                        modal.hide();
-                        return;
-                    }
-
-                    // 1. Llenar Datos Cliente
-                    document.getElementById('detClienteNombre').innerText = data.cliente_razon || data.cliente_nombre;
-                    document.getElementById('detClienteTel').innerText = data.cliente_telefono || '-';
-                    document.getElementById('detClienteEmail').innerText = data.cliente_correo || '-';
-                    document.getElementById('detClienteDir').innerText = data.cliente_direccion || '-';
-
-                    // 2. Llenar Datos Envío (Solo lectura)
-                    document.getElementById('detDireccion').innerText = data.direccion_envio || 'Sin dirección registrada';
-                    document.getElementById('detRecibe').innerText = data.quien_recibe || '-';
-                    document.getElementById('detTelRecibe').innerText = data.telefono_recibe || '-';
-                    document.getElementById('detGuia').innerText = data.guia || 'Pendiente';
-                    document.getElementById('detNotas').innerText = data.notas_envio || 'Sin notas';
-
-                    // 3. Llenar Tabla Artículos y Total
-                    tbody.innerHTML = '';
-                    let totalFinal = 0;
-                    
-                    data.detalles.forEach(det => {
-                        totalFinal += det.subtotal;
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td>${det.producto_nombre}</td>
-                            <td class="text-center">${det.cantidad}</td>
-                            <td class="text-end">$${det.precio.toFixed(2)}</td>
-                            <td class="text-end">$${det.subtotal.toFixed(2)}</td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
-
-                    document.getElementById('totalDetalleVenta').innerText = '$' + totalFinal.toFixed(2);
-
-                    modal.show();
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error al cargar datos de la orden.');
-                    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error de conexión</td></tr>';
-                });
-        }
+        window.ALMACENES_DISPONIBLES = {{ almacenes_json|safe }};
     </script>
+    <script src="{% static 'js/ventas.js' %}?v={% now 'U' %}"></script>
 {% endblock %}
