@@ -9,7 +9,7 @@ from almacenes.models import Inventario, Almacen
 from core.models import Producto
 
 @transaction.atomic
-def procesar_recepcion_servicio(data_post, empresa_actual):
+def procesar_recepcion_servicio(data_post, empresa_actual, usuario=None):
     """
     Servicio que procesa una recepción completa.
     Maneja validaciones, inventario, lotes/series y actualización de OC.
@@ -158,7 +158,8 @@ def procesar_recepcion_servicio(data_post, empresa_actual):
                 costo_unitario=costo_en_pesos,
                 referencia=f"REC-{recepcion.id:04d}",
                 lote=lote_kardex,
-                serie=serie_kardex
+                serie=serie_kardex,
+                usuario=usuario
             )
 
     # 7. ACTUALIZAR ESTADO DE LA OC

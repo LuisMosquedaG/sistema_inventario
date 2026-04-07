@@ -1,6 +1,7 @@
 from django.db import models
 from django.db.models import F
 from decimal import Decimal
+from django.contrib.auth.models import User
 from panel.models import Empresa
 
 class Almacen(models.Model):
@@ -55,7 +56,7 @@ class Inventario(models.Model):
     # MÉTODO CENTRALIZADO PARA INGRESOS (COMPRAS/PRODUCCIÓN)
     # -----------------------------------------------------------
     @classmethod
-    def registrar_ingreso(cls, almacen, producto, cantidad_ingreso, costo_unitario, referencia="Ingreso", lote=None, serie=None):
+    def registrar_ingreso(cls, almacen, producto, cantidad_ingreso, costo_unitario, referencia="Ingreso", lote=None, serie=None, usuario=None):
         """
         Registra una entrada de stock y recalcula el costo promedio.
         Maneja la concurrencia internamente mediante select_for_update.
@@ -103,7 +104,8 @@ class Inventario(models.Model):
             stock_nuevo=nuevo_total,
             referencia=referencia,
             lote=lote,
-            serie=serie
+            serie=serie,
+            usuario=usuario
         )
         
         return inventario
@@ -112,7 +114,7 @@ class Inventario(models.Model):
     # MÉTODO CENTRALIZADO PARA SALIDAS (VENTAS)
     # -----------------------------------------------------------
     @classmethod
-    def registrar_salida(cls, almacen, producto, cantidad_salida, referencia="Salida", lote=None, serie=None):
+    def registrar_salida(cls, almacen, producto, cantidad_salida, referencia="Salida", lote=None, serie=None, usuario=None):
         """
         Registra una salida de stock de forma atómica.
         Lanza IntegrityError si no hay stock suficiente.
@@ -151,7 +153,8 @@ class Inventario(models.Model):
             stock_nuevo=nuevo_total,
             referencia=referencia,
             lote=lote,
-            serie=serie
+            serie=serie,
+            usuario=usuario
         )
         
         return inventario
@@ -180,6 +183,9 @@ class Kardex(models.Model):
     serie = models.CharField(max_length=100, blank=True, null=True, verbose_name="Núm. Serie")
     
     referencia = models.CharField(max_length=200, blank=True, null=True, help_text="Ej: REC-0001, OV-0005, Ajuste manual")
+    
+    # NUEVO CAMPO: USUARIO
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Usuario Responsable")
 
     class Meta:
         verbose_name = "Movimiento de Kardex"

@@ -105,7 +105,8 @@ def crear_recepcion(request):
 
             recepcion = procesar_recepcion_servicio(
                 data_post=request.POST,
-                empresa_actual=empresa_actual 
+                empresa_actual=empresa_actual,
+                usuario=request.user
             )
             return JsonResponse({'success': True, 'message': 'Recepción procesada exitosamente.'})
         except Exception as e:

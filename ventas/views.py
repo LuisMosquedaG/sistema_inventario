@@ -271,7 +271,19 @@ def ejecutar_surtido(request, ov_id):
                             lote_ref = extra.lote
                         else: raise ValueError(f"El lote {extra.lote} no tiene cantidad suficiente.")
             from almacenes.models import Kardex
-            Kardex.objects.create(empresa=empresa_actual, producto=producto, almacen=almacen, tipo_movimiento='salida', cantidad=cantidad_a_descontar, stock_anterior=inv.cantidad, stock_nuevo=inv.cantidad - cantidad_a_descontar, referencia=f"OV-{ov.id:04d}", lote=lote_ref, serie=serie_ref)
+            Kardex.objects.create(
+                empresa=empresa_actual, 
+                producto=producto, 
+                almacen=almacen, 
+                tipo_movimiento='salida', 
+                cantidad=cantidad_a_descontar, 
+                stock_anterior=inv.cantidad, 
+                stock_nuevo=inv.cantidad - cantidad_a_descontar, 
+                referencia=f"OS-{ov.id:04d}", 
+                lote=lote_ref, 
+                serie=serie_ref,
+                usuario=request.user
+            )
         ov.estado = 'surtido'
         ov.save()
 

@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import F, Q
 import json
@@ -42,8 +43,9 @@ def dashboard_kardex(request):
     producto_id = request.GET.get('producto')
     almacen_id = request.GET.get('almacen')
     tipo_movimiento = request.GET.get('tipo_movimiento')
+    usuario_id = request.GET.get('usuario')
 
-    movimientos = Kardex.objects.filter(empresa=empresa_actual).select_related('producto', 'almacen').order_by('-fecha')
+    movimientos = Kardex.objects.filter(empresa=empresa_actual).select_related('producto', 'almacen', 'usuario').order_by('-fecha')
 
     if q:
         movimientos = movimientos.filter(
@@ -55,19 +57,35 @@ def dashboard_kardex(request):
         movimientos = movimientos.filter(almacen_id=almacen_id)
     if tipo_movimiento:
         movimientos = movimientos.filter(tipo_movimiento=tipo_movimiento)
+    if usuario_id:
+        movimientos = movimientos.filter(usuario_id=usuario_id)
+
+    # Procesar nombres de usuario para quitar el @subdominio
+    for m in movimientos:
+        if m.usuario:
+            m.display_user = m.usuario.username.split('@')[0]
+        else:
+            m.display_user = "Sistema"
 
     productos = Producto.objects.filter(empresa=empresa_actual).order_by('nombre')
     almacenes = Almacen.objects.filter(empresa=empresa_actual).order_by('nombre')
+    
+    # Obtener usuarios que pertenecen a esta empresa (mismo subdominio)
+    usuarios_list = User.objects.filter(username__icontains=f"@{empresa_actual.subdominio}")
+    for u in usuarios_list:
+        u.clean_name = u.username.split('@')[0]
 
     contexto = {
         'movimientos': movimientos[:100],
         'productos': productos,
         'almacenes': almacenes,
+        'usuarios': usuarios_list,
         'filtros': {
             'q': q or '',
             'producto': int(producto_id) if producto_id else '',
             'almacen': int(almacen_id) if almacen_id else '',
-            'tipo_movimiento': tipo_movimiento or ''
+            'tipo_movimiento': tipo_movimiento or '',
+            'usuario': int(usuario_id) if usuario_id else ''
         }
     }
     return render(request, 'dashboard_kardex.html', contexto)
@@ -257,7 +275,7 @@ def api_ejecutar_traslado(request):
                     lote_ref = extra.lote
 
             # 5. REGISTRAR EN KARDEX (DOBLE ASIENTO)
-            ref_folio = f"TRASLADO-{origen.id}>{destino.id}"
+            ref_folio = "TRASLADO"
             # Refrescamos objetos para tener el valor numérico real para el Kardex
             inv_origen.refresh_from_db()
             inv_destino.refresh_from_db()
@@ -265,12 +283,14 @@ def api_ejecutar_traslado(request):
             Kardex.objects.create(
                 empresa=empresa_actual, producto=producto, almacen=origen, tipo_movimiento='salida',
                 cantidad=cantidad, stock_anterior=inv_origen.cantidad + cantidad, stock_nuevo=inv_origen.cantidad,
-                referencia=ref_folio, lote=lote_ref, serie=serie_ref
+                referencia=ref_folio, lote=lote_ref, serie=serie_ref,
+                usuario=request.user
             )
             Kardex.objects.create(
                 empresa=empresa_actual, producto=producto, almacen=destino, tipo_movimiento='entrada',
                 cantidad=cantidad, stock_anterior=inv_destino.cantidad - cantidad, stock_nuevo=inv_destino.cantidad,
-                referencia=ref_folio, lote=lote_ref, serie=serie_ref
+                referencia=ref_folio, lote=lote_ref, serie=serie_ref,
+                usuario=request.user
             )
 
         return JsonResponse({'success': True, 'message': 'Traslado realizado correctamente.'})

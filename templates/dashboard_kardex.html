@@ -31,11 +31,11 @@
         <div class="card-body p-3">
             <form method="get" id="formFiltrosKardex" class="row g-2 align-items-end">
                 <!-- 1. Búsqueda General -->
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label small fw-bold text-secondary">Búsqueda General</label>
                     <div class="input-group input-group-sm">
                         <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
-                        <input type="text" name="q" class="form-control border-start-0" placeholder="Producto, lote, serie..." value="{{ filtros.q }}">
+                        <input type="text" name="q" class="form-control border-start-0" placeholder="Producto, lote..." value="{{ filtros.q }}">
                     </div>
                 </div>
 
@@ -51,7 +51,7 @@
                 </div>
 
                 <!-- 3. Almacén -->
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label small fw-bold text-secondary">Almacén</label>
                     <select name="almacen" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="">Todos los almacenes...</option>
@@ -61,11 +61,22 @@
                     </select>
                 </div>
 
-                <!-- 4. Movimiento -->
+                <!-- 4. Usuario -->
                 <div class="col-md-3">
+                    <label class="form-label small fw-bold text-secondary">Usuario</label>
+                    <select name="usuario" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todos los usuarios...</option>
+                        {% for u in usuarios %}
+                        <option value="{{ u.id }}" {% if filtros.usuario == u.id %}selected{% endif %}>{{ u.clean_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- 5. Movimiento -->
+                <div class="col-md-2">
                     <label class="form-label small fw-bold text-secondary">Movimiento</label>
                     <select name="tipo_movimiento" class="form-select form-select-sm" onchange="this.form.submit()">
-                        <option value="">Todos los movimientos...</option>
+                        <option value="">Todos...</option>
                         <option value="entrada" {% if filtros.tipo_movimiento == 'entrada' %}selected{% endif %}>Entrada</option>
                         <option value="salida" {% if filtros.tipo_movimiento == 'salida' %}selected{% endif %}>Salida</option>
                         <option value="ajuste" {% if filtros.tipo_movimiento == 'ajuste' %}selected{% endif %}>Ajuste</option>
@@ -86,6 +97,7 @@
                             <th class="ps-3">Producto</th>
                             <th class="text-center">Almacén</th>
                             <th class="text-center">Movimiento</th>
+                            <th class="text-center">Usuario</th>
                             <th class="text-center">Lote / Serie</th>
                             <th class="text-center">Referencia</th>
                             <th class="text-end">Stock Ant.</th>
@@ -109,6 +121,9 @@
                                 <span class="status-pill status-{{ m.tipo_movimiento }}">
                                     {{ m.get_tipo_movimiento_display }}
                                 </span>
+                            </td>
+                            <td class="text-center small">
+                                <div class="text-dark">{{ m.display_user }}</div>
                             </td>
                             <td class="text-center small">
                                 {% if m.lote %}
