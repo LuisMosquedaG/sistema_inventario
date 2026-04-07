@@ -3,6 +3,7 @@ from . import views
 
 urlpatterns = [
     path('', views.dashboard_pedidos, name='dashboard_pedidos'),
+    path('crear/', views.crear_pedido_manual, name='crear_pedido_manual'),
     path('crear-desde-cotizacion/<int:cotizacion_id>/', views.crear_pedido_desde_cotizacion, name='crear_pedido_desde_cotizacion'),
     path('validar/<int:pedido_id>/', views.validar_pedido, name='validar_pedido'),
     path('api/detalle/<int:pedido_id>/', views.api_detalle_pedido, name='api_detalle_pedido'),

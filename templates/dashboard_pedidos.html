@@ -56,6 +56,11 @@
                 <h4 class="section-title mb-0">Pedidos</h4>
                 <span class="section-subtitle">Gestión de órdenes de venta</span>
             </div>
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoPedido">
+                    <i class="bi bi-plus-lg me-1"></i> Nuevo Pedido
+                </button>
+            </div>
         </div>
 
         <!-- TABLA PRINCIPAL -->
@@ -289,10 +294,209 @@
         </div>
     </div>
 
+    <!-- MODAL: NUEVO PEDIDO MANUAL -->
+    <div class="modal fade" id="modalNuevoPedido" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+            <div class="modal-content">
+                <div class="modal-header border-bottom bg-light">
+                    <h5 class="modal-title fw-bold text-dark">
+                        <i class="bi bi-plus-circle me-2" style="color: #00b8b9;"></i>
+                        Nuevo Pedido Manual
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <form id="formNuevoPedido" method="post" action="{% url 'crear_pedido_manual' %}" novalidate>
+                    {% csrf_token %}
+                    <div class="modal-body p-3 bg-light">
+                        
+                        <!-- SECCIÓN 1: CABECERA -->
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-body p-3">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Datos del Cliente</h6>
+                                <div class="row g-2">
+                                    <!-- CLIENTE -->
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Cliente</label>
+                                        <select name="cliente" id="selectClienteNuevo" class="form-select form-select-sm" required onchange="cargarContactosNuevoPedido(this.value)">
+                                            <option value="">Seleccionar cliente...</option>
+                                            {% for c in clientes %}
+                                            <option value="{{ c.id }}">{{ c.nombre_completo }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+
+                                    <!-- CONTACTO -->
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Contacto</label>
+                                        <select name="contacto" id="selectContactoNuevo" class="form-select form-select-sm" disabled>
+                                            <option value="">Selecciona cliente primero...</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- NOTAS -->
+                                    <div class="col-md-12 mt-2">
+                                        <label class="form-label small fw-bold text-secondary">Notas Internas</label>
+                                        <textarea name="notas" class="form-control form-control-sm" rows="2" placeholder="Opcional..."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECCIÓN 2: AGREGAR ARTÍCULO -->
+                        <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
+                            <div class="card-body p-3">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Agregar Artículo</h6>
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-5">
+                                        <label class="form-label small text-muted">Producto</label>
+                                        <select id="selectProductoNuevo" class="form-select form-select-sm">
+                                            <option value="">Seleccionar...</option>
+                                            {% for p in productos %}
+                                            <option value="{{ p.id }}" data-precio="{{ p.precio_venta }}">{{ p.nombre }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small text-muted">Cant.</label>
+                                        <input type="number" id="inputCantNuevo" class="form-control form-control-sm text-center" value="1" min="1">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small text-muted">Precio Unit.</label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text">$</span>
+                                            <input type="number" id="inputPrecioNuevo" class="form-control form-control-sm" value="0.00" step="0.01">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button type="button" class="btn btn-brand btn-sm w-100" onclick="agregarArticuloNuevoPedido()">
+                                            <i class="bi bi-plus-lg"></i> Agregar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECCIÓN 3: LISTA -->
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body p-0">
+                                <table class="table table-sm table-hover mb-0 align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th class="ps-3">Artículo</th>
+                                            <th class="text-center" style="width: 80px;">Cant.</th>
+                                            <th class="text-end" style="width: 100px;">Precio</th>
+                                            <th class="text-end" style="width: 100px;">Total</th>
+                                            <th style="width: 50px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tablaCuerpoNuevo"></tbody>
+                                </table>
+                                <div id="mensajeVacioNuevo" class="text-center py-3 text-muted small fst-italic">No hay artículos agregados.</div>
+                            </div>
+                            <div class="card-footer bg-white border-0 py-2 d-flex justify-content-end">
+                                <div class="me-3"><span class="text-muted small">Total Pedido:</span></div>
+                                <div class="fw-bold fs-5 text-success" id="granTotalNuevo">$0.00</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer border-top bg-white py-2">
+                        <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-brand btn-sm px-4">Guardar Pedido</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
+    // --- LÓGICA PARA NUEVO PEDIDO MANUAL ---
+
+    function cargarContactosNuevoPedido(clienteId) {
+        const select = document.getElementById('selectContactoNuevo');
+        select.innerHTML = '<option value="">Cargando...</option>';
+        select.disabled = true;
+
+        if (!clienteId) {
+            select.innerHTML = '<option value="">Selecciona cliente primero...</option>';
+            return;
+        }
+
+        fetch(`/api/clientes/${clienteId}/contactos/`)
+            .then(r => r.json())
+            .then(data => {
+                select.innerHTML = '<option value="">Seleccionar contacto...</option>';
+                if (data.length > 0) {
+                    data.forEach(c => {
+                        select.insertAdjacentHTML('beforeend', `<option value="${c.id}">${c.nombre}</option>`);
+                    });
+                    select.disabled = false;
+                } else {
+                    select.innerHTML = '<option value="">Sin contactos</option>';
+                }
+            });
+    }
+
+    document.getElementById('selectProductoNuevo').addEventListener('change', function() {
+        const opt = this.options[this.selectedIndex];
+        document.getElementById('inputPrecioNuevo').value = opt.dataset.precio || "0.00";
+    });
+
+    function agregarArticuloNuevoPedido() {
+        const select = document.getElementById('selectProductoNuevo');
+        const pId = select.value;
+        const pName = select.options[select.selectedIndex].text;
+        const cant = document.getElementById('inputCantNuevo').value;
+        const prec = document.getElementById('inputPrecioNuevo').value;
+
+        if (!pId || cant <= 0) return alert("Selecciona producto y cantidad válida.");
+
+        const total = (parseFloat(cant) * parseFloat(prec)).toFixed(2);
+        const fila = `
+            <tr>
+                <td class="ps-3"><div class="fw-semibold small text-dark">${pName}</div><input type="hidden" name="producto_id[]" value="${pId}"></td>
+                <td class="text-center"><span class="small text-dark">${cant}</span><input type="hidden" name="cantidad[]" value="${cant}"></td>
+                <td class="text-end"><span class="small text-muted">$${parseFloat(prec).toFixed(2)}</span><input type="hidden" name="precio_unitario[]" value="${prec}"></td>
+                <td class="text-end"><span class="fw-bold small text-dark">$${total}</span></td>
+                <td class="text-center"><button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); calcularTotalNuevo();"><i class="bi bi-x-circle-fill"></i></button></td>
+            </tr>`;
+        
+        document.getElementById('tablaCuerpoNuevo').insertAdjacentHTML('beforeend', fila);
+        document.getElementById('mensajeVacioNuevo').style.display = 'none';
+        calcularTotalNuevo();
+    }
+
+    function calcularTotalNuevo() {
+        let total = 0;
+        document.querySelectorAll('#tablaCuerpoNuevo tr').forEach(tr => {
+            total += parseFloat(tr.cells[3].innerText.replace('$', ''));
+        });
+        document.getElementById('granTotalNuevo').innerText = '$' + total.toFixed(2);
+        if (document.querySelectorAll('#tablaCuerpoNuevo tr').length === 0) document.getElementById('mensajeVacioNuevo').style.display = 'block';
+    }
+
+    document.getElementById('formNuevoPedido').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btn = this.querySelector('button[type="submit"]');
+        btn.disabled = true; btn.innerText = "Guardando...";
+
+        fetch(this.action, {
+            method: 'POST',
+            body: new FormData(this),
+            headers: {'X-CSRFToken': getCookie('csrftoken')}
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) location.reload();
+            else { alert('Error: ' + data.error); btn.disabled = false; btn.innerText = "Guardar Pedido"; }
+        });
+    });
+
+    // --- FIN LÓGICA NUEVO PEDIDO ---
 
     function cargarDetallePedido(elemento) {
         const pedidoId = elemento.dataset.id;

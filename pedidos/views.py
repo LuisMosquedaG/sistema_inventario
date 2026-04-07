@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from .models import Pedido, DetallePedido
 from django.contrib import messages
-from clientes.models import Cliente
+from clientes.models import Cliente, ContactoCliente
 from core.models import Producto, DetalleReceta
 from cotizaciones.models import Cotizacion
 from almacenes.models import Inventario, Almacen
@@ -38,13 +38,84 @@ def get_empresa_actual(request):
     return None
 
 @login_required(login_url='/login/')
+@transaction.atomic
+def crear_pedido_manual(request):
+    """Crea un pedido directamente desde el dashboard de pedidos"""
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Empresa no detectada'})
+
+    if request.method == 'POST':
+        try:
+            cliente_id = request.POST.get('cliente')
+            contacto_id = request.POST.get('contacto')
+            notas = request.POST.get('notas', '')
+
+            if not cliente_id:
+                return JsonResponse({'success': False, 'error': 'El cliente es obligatorio.'})
+
+            cliente = get_object_or_404(Cliente, id=cliente_id, empresa=empresa_actual)
+            contacto = None
+            if contacto_id:
+                contacto = get_object_or_404(ContactoCliente, id=contacto_id, cliente=cliente)
+
+            # 1. Crear Cabecera
+            nuevo_pedido = Pedido.objects.create(
+                cliente=cliente,
+                contacto=contacto,
+                vendedor=request.user,
+                empresa=empresa_actual,
+                estado='borrador',
+                notas=notas
+            )
+
+            # 2. Guardar Detalles
+            productos_ids = request.POST.getlist('producto_id[]')
+            cantidades = request.POST.getlist('cantidad[]')
+            precios = request.POST.getlist('precio_unitario[]')
+
+            count = 0
+            for prod_id, cant, prec in zip(productos_ids, cantidades, precios):
+                if prod_id and prod_id != '':
+                    producto_obj = get_object_or_404(Producto, id=prod_id, empresa=empresa_actual)
+                    DetallePedido.objects.create(
+                        pedido=nuevo_pedido,
+                        producto=producto_obj,
+                        cantidad_solicitada=cant,
+                        precio_unitario=prec,
+                        estado_linea='pendiente'
+                    )
+                    count += 1
+            
+            if count == 0:
+                # Si no hay productos, cancelamos la transacción (por el atomic)
+                raise Exception("Debes agregar al menos un producto al pedido.")
+
+            messages.success(request, f'Pedido #{nuevo_pedido.id} creado correctamente.')
+            return JsonResponse({'success': True})
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+@login_required(login_url='/login/')
 def dashboard_pedidos(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)
 
     lista_pedidos = Pedido.objects.filter(empresa=empresa_actual).order_by('-fecha_creacion')
-    contexto = {'pedidos': lista_pedidos}
+    
+    # --- DATOS PARA EL MODAL DE NUEVO PEDIDO ---
+    clientes = Cliente.objects.filter(empresa=empresa_actual)
+    productos = Producto.objects.filter(empresa=empresa_actual)
+
+    contexto = {
+        'pedidos': lista_pedidos,
+        'clientes': clientes,
+        'productos': productos
+    }
     return render(request, 'dashboard_pedidos.html', contexto)
 
 @login_required(login_url='/login/')
