@@ -3,90 +3,224 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - CrossoverSuite</title>
+    <title>Acceso | CrossoverSuite</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    {% load static %}
+    
     <style>
+        :root {
+            --brand-primary: #00b8b9;
+            --brand-dark: #008a8b;
+            --bg-light: #f4f7f9;
+            --card-bg: #ffffff;
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f2f5;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-light);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(0, 184, 185, 0.05) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(0, 86, 179, 0.05) 0px, transparent 50%);
+            min-height: 100vh;
             display: flex;
-            justify-content: center;
             align-items: center;
-            height: 100vh;
+            justify-content: center;
+            padding: 1.5rem;
             margin: 0;
+            color: #334155;
         }
-        .login-container {
-            background-color: white;
-            padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            width: 300px;
-            text-align: center;
+
+        .login-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 360px; /* Tamaño reducido */
+            padding: 2rem;
+            border: 1px solid #e2e8f0;
+            animation: fadeInScale 0.5s ease-out;
         }
-        h2 {
-            color: #333;
-            margin-bottom: 20px;
+
+        @keyframes fadeInScale {
+            from { transform: scale(0.98); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
         }
-        .form-group {
-            margin-bottom: 15px;
-            text-align: left;
-        }
-        label {
+
+        .login-logo {
             display: block;
-            margin-bottom: 5px;
-            color: #666;
+            margin: 0 auto 1.2rem;
+            max-width: 140px; /* Logo un poco más pequeño */
+            height: auto;
         }
-        input[type="text"], input[type="password"] {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            box-sizing: border-box; /* Importante para el padding */
+
+        .login-title {
+            font-weight: 700;
+            color: #1e293b;
+            text-align: center;
+            margin-bottom: 0.25rem;
+            letter-spacing: -0.5px;
+            font-size: 1.5rem;
         }
-        button {
-            width: 100%;
-            padding: 10px;
-            background-color: #007bff; /* Color azul típico */
+
+        .login-subtitle {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.85rem;
+            margin-bottom: 2rem;
+            font-weight: 500;
+        }
+
+        .form-label {
+            font-weight: 600;
+            font-size: 0.75rem;
+            color: #475569;
+            margin-bottom: 0.4rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .input-group {
+            background: #ffffff;
+            border-radius: 10px;
+            border: 1.5px solid #e2e8f0;
+            transition: all 0.2s ease;
+        }
+
+        .input-group:focus-within {
+            border-color: var(--brand-primary);
+            box-shadow: 0 0 0 3px rgba(0, 184, 185, 0.1);
+        }
+
+        .input-group-text {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            padding-left: 0.8rem;
+        }
+
+        .form-control {
+            background: transparent;
+            border: none;
+            color: #1e293b;
+            padding: 0.65rem 0.8rem 0.65rem 0.4rem;
+            font-size: 0.9rem;
+        }
+
+        .form-control::placeholder {
+            color: #cbd5e1;
+        }
+
+        .form-control:focus {
+            box-shadow: none;
+        }
+
+        .btn-login {
+            background: var(--brand-primary);
             color: white;
             border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
+            padding: 0.75rem;
+            border-radius: 10px;
+            font-weight: 600;
+            width: 100%;
+            margin-top: 1.5rem;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
         }
-        button:hover {
-            background-color: #0056b3;
+
+        .btn-login:hover {
+            background: var(--brand-dark);
+            transform: translateY(-1px);
+            color: white;
         }
-        .error {
-            color: red;
-            font-size: 14px;
-            margin-bottom: 10px;
+
+        .alert-error {
+            background: #fff1f2;
+            color: #e11d48;
+            border: 1px solid #fecdd3;
+            border-radius: 10px;
+            padding: 0.6rem;
+            font-size: 0.8rem;
+            margin-bottom: 1.2rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .footer-text {
+            text-align: center;
+            margin-top: 2rem;
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+
+        .link-brand {
+            color: var(--brand-primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .link-brand:hover {
+            color: var(--brand-dark);
         }
     </style>
 </head>
 <body>
 
-    <div class="login-container">
-        <h2>CrossoverSuite</h2>
+    <div class="login-card">
+        <img src="{% static 'img/Logo.png' %}" alt="CrossoverSuite Logo" class="login-logo">
         
-        <!-- Si hay errores, los mostramos aquí -->
+        <h3 class="login-title">Acceso</h3>
+        <p class="login-subtitle">CrossoverSuite</p>
+
         {% if form.errors %}
-            <p class="error">Usuario o contraseña incorrectos.</p>
+            <div class="alert-error">
+                <i class="bi bi-shield-lock me-2"></i>
+                Credenciales incorrectas.
+            </div>
         {% endif %}
 
         <form method="post" action="{% url 'login' %}">
             {% csrf_token %}
             
-            <div class="form-group">
-                <label for="id_username">Usuario:</label>
-                {{ form.username }}
-            </div>
-            
-            <div class="form-group">
-                <label for="id_password">Contraseña:</label>
-                {{ form.password }}
+            <div class="mb-3">
+                <label for="id_username" class="form-label">Usuario</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                    <input type="text" name="username" id="id_username" class="form-control" placeholder="nombre@dominio" required autofocus>
+                </div>
             </div>
 
-            <button type="submit">Ingresar</button>
+            <div class="mb-3">
+                <label for="id_password" class="form-label">Contraseña</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-key"></i></span>
+                    <input type="password" name="password" id="id_password" class="form-control" placeholder="••••••••" required>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="rememberMe">
+                    <label class="form-check-label small text-muted" for="rememberMe" style="font-size: 0.75rem;">Mantener sesión</label>
+                </div>
+                <a href="#" class="link-brand" style="font-size: 0.75rem;">¿Olvidaste tu clave?</a>
+            </div>
+
+            <button type="submit" class="btn btn-login">
+                Entrar ahora <i class="bi bi-chevron-right ms-1 small"></i>
+            </button>
+
+            <input type="hidden" name="next" value="{{ next }}">
         </form>
+
+        <p class="footer-text">
+            CrossoverSuite {% now "Y" %} <br>
+            Soporte: <a href="mailto:soporte@crossovermx.com" class="link-brand">soporte@crossovermx.com</a>
+        </p>
     </div>
 
 </body>

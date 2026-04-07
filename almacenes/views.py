@@ -63,17 +63,20 @@ def dashboard_kardex(request):
     # Procesar nombres de usuario para quitar el @subdominio
     for m in movimientos:
         if m.usuario:
-            m.display_user = m.usuario.username.split('@')[0]
+            # Si el usuario tiene @, lo cortamos, si no, lo dejamos igual
+            m.display_user = m.usuario.username.split('@')[0] if '@' in m.usuario.username else m.usuario.username
         else:
             m.display_user = "Sistema"
 
     productos = Producto.objects.filter(empresa=empresa_actual).order_by('nombre')
     almacenes = Almacen.objects.filter(empresa=empresa_actual).order_by('nombre')
     
-    # Obtener usuarios que pertenecen a esta empresa (mismo subdominio)
-    usuarios_list = User.objects.filter(username__icontains=f"@{empresa_actual.subdominio}")
+    # Obtener usuarios: Todos los que han hecho movimientos en esta empresa + los actuales
+    ids_usuarios_kardex = Kardex.objects.filter(empresa=empresa_actual).values_list('usuario_id', flat=True).distinct()
+    usuarios_list = User.objects.filter(Q(id__in=ids_usuarios_kardex) | Q(username__icontains=f"@{empresa_actual.subdominio}") | Q(is_superuser=True)).distinct()
+    
     for u in usuarios_list:
-        u.clean_name = u.username.split('@')[0]
+        u.clean_name = u.username.split('@')[0] if '@' in u.username else u.username
 
     contexto = {
         'movimientos': movimientos[:100],
