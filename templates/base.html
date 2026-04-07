@@ -219,6 +219,18 @@
                 pointer-events: none; 
             }
 
+            /* ==========================================
+            EFECTO AZUL EXCLUSIVO PARA BACKDROP
+            ========================================== */
+            body .modal-backdrop {
+                background-color: #1a252f !important; /* Tono de tu barra lateral */
+            }
+            body .modal-backdrop.show {
+                opacity: 0.7 !important; /* Claridad controlada */
+                backdrop-filter: blur(4px) !important;
+                -webkit-backdrop-filter: blur(4px) !important;
+            }
+
             /* Asegura que el texto esté encima de la imagen */
             .sidebar > * {
                 position: relative;
