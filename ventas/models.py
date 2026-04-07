@@ -46,7 +46,7 @@ class OrdenVenta(models.Model):
     guia = models.CharField(max_length=100, blank=True, verbose_name="Número de Guía")
 
     def __str__(self):
-        return f"OV-{self.id:04d} | {self.cliente}"
+        return f"OS-{self.id:04d} | {self.cliente}"
 
     @property
     def total_orden(self):
