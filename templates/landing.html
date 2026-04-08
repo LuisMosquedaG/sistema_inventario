@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrossoverSuite | Plataforma de Gestión Operativa Integral</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    {% load static %}
+    
+    <style>
+        :root {
+            --brand-primary: #00b8b9;
+            --brand-dark: #008a8b;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --bg-light: #f8fafc;
+            --panel-dark: #1a252f;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            color: var(--text-main);
+            background-color: #ffffff;
+            scroll-behavior: smooth;
+            overflow-x: hidden;
+        }
+
+        /* Navbar Corporativa */
+        .navbar {
+            padding: 1rem 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(15px);
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .btn-nav-login {
+            background: var(--brand-primary);
+            color: white;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 0.6rem 1.5rem;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .btn-nav-login:hover {
+            background: var(--brand-dark);
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 184, 185, 0.2);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 80px 0 80px;
+            background: radial-gradient(circle at 0% 0%, rgba(0, 184, 185, 0.05) 0%, transparent 30%),
+                        radial-gradient(circle at 100% 100%, rgba(0, 138, 139, 0.03) 0%, transparent 30%);
+        }
+        .hero-title {
+            font-size: 3.75rem;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            letter-spacing: -0.03em;
+        }
+        .hero-title span { color: var(--brand-primary); }
+        .hero-subtitle {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            margin-bottom: 2.5rem;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        /* Ecosystem Visualizer (Hero Image) */
+        .ecosystem-flow {
+            background: white;
+            border-radius: 24px;
+            padding: 2rem;
+            box-shadow: 0 30px 60px -12px rgba(0,0,0,0.1);
+            border: 1px solid #f1f5f9;
+            position: relative;
+        }
+        .flow-step {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem;
+            border-radius: 12px;
+            margin-bottom: 0.75rem;
+            transition: all 0.3s;
+            border: 1px solid transparent;
+        }
+        .flow-step:hover {
+            background: var(--bg-light);
+            border-color: #e2e8f0;
+            transform: translateX(5px);
+        }
+        .flow-icon {
+            width: 40px; height: 40px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+        .step-info .step-name { font-weight: 700; font-size: 0.85rem; display: block; }
+        .step-info .step-desc { font-size: 0.75rem; color: var(--text-muted); }
+
+        .line-connector {
+            width: 2px; height: 20px;
+            background: #e2e8f0;
+            margin-left: 28px;
+        }
+
+        /* Colors by Area */
+        .bg-crm { background: rgba(13, 110, 253, 0.1); color: #0d6efd; }
+        .bg-quote { background: rgba(102, 16, 242, 0.1); color: #6610f2; }
+        .bg-order { background: rgba(25, 135, 84, 0.1); color: #198754; }
+        .bg-mrp { background: rgba(253, 126, 20, 0.1); color: #fd7e14; }
+        .bg-inv { background: rgba(0, 184, 185, 0.1); color: var(--brand-primary); }
+        .bg-out { background: rgba(220, 53, 69, 0.1); color: #dc3545; }
+
+        /* Estilo de Fases */
+        .phase-number { font-weight: 800; color: var(--brand-primary); opacity: 0.15; font-size: 4rem; line-height: 1; margin-bottom: -1rem; }
+        .phase-title { font-weight: 700; font-size: 1.75rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem; }
+        .phase-title i { color: var(--brand-primary); }
+        .list-feature { list-style: none; padding: 0; }
+        .list-feature li { margin-bottom: 1rem; display: flex; gap: 0.75rem; font-size: 1rem; }
+        .list-feature li i { color: var(--brand-primary); margin-top: 3px; }
+
+        /* Corazón del Sistema */
+        .heart-section {
+            background-color: var(--panel-dark);
+            color: white;
+            padding: 100px 0;
+            border-radius: 40px;
+            margin: 60px 0;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        .heart-badge { background: #ef4444; color: white; padding: 4px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+
+        footer { padding: 80px 0 40px; background: #ffffff; border-top: 1px solid #f1f5f9; }
+    </style>
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar sticky-top">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="#">
+                <img src="{% static 'img/Logo.png' %}" alt="CrossoverSuite" class="me-2" height="32">
+                <span class="fw-bold fs-4" style="letter-spacing: -1px;">Crossover<span style="color:var(--brand-primary)">Suite</span></span>
+            </a>
+            <div class="ms-auto">
+                <a href="{% url 'login' %}" class="btn btn-nav-login">Inicia Sesión</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero">
+        <div class="container">
+            <div class="row align-items-center g-5">
+                <div class="col-lg-6 text-center text-lg-start">
+                    <h1 class="hero-title">
+                        La Suite <span>Operativa</span> que conecta todo tu negocio.
+                    </h1>
+                    <p class="hero-subtitle">
+                        Gestión unificada desde la primera cotización hasta la salida final de almacén. Automatiza tu flujo operativo con CrossoverSuite.
+                    </p>
+                    <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center justify-content-lg-start">
+                        <a href="{% url 'login' %}" class="btn btn-nav-login btn-lg px-5 py-3 fs-6">Comenzar Gestión</a>
+                        <a href="#proceso" class="btn btn-outline-secondary btn-lg px-5 py-3 border-2 fw-semibold">Explorar el Flujo</a>
+                    </div>
+                </div>
+                
+                <div class="col-lg-6 d-none d-lg-block">
+                    <div class="ecosystem-flow">
+                        <div class="fw-bold text-uppercase text-muted mb-4" style="font-size: 0.7rem; letter-spacing: 1px;">Flujo Maestro CrossoverSuite</div>
+                        
+                        <!-- Flujo Visual -->
+                        <div class="flow-step">
+                            <div class="flow-icon bg-crm"><i class="bi bi-person-badge"></i></div>
+                            <div class="step-info"><span class="step-name">CRM & Clientes</span><span class="step-desc">Prospección y Agenda</span></div>
+                        </div>
+                        <div class="line-connector"></div>
+                        <div class="flow-step">
+                            <div class="flow-icon bg-quote"><i class="bi bi-file-earmark-ruled"></i></div>
+                            <div class="step-info"><span class="step-name">Cotización</span><span class="step-desc">Oferta y Versiones</span></div>
+                        </div>
+                        <div class="line-connector"></div>
+                        <div class="flow-step" style="border-color: #e2e8f0; background: var(--bg-light);">
+                            <div class="flow-icon bg-order"><i class="bi bi-cpu-fill"></i></div>
+                            <div class="step-info"><span class="step-name">Pedido Inteligente</span><span class="step-desc">Diagnóstico de Stock</span></div>
+                        </div>
+                        <div class="line-connector"></div>
+                        <div class="flow-step">
+                            <div class="flow-icon bg-mrp"><i class="bi bi-gear-wide-connected"></i></div>
+                            <div class="step-info"><span class="step-name">Compras & Producción</span><span class="step-desc">Abastecimiento Automático</span></div>
+                        </div>
+                        <div class="line-connector"></div>
+                        <div class="flow-step">
+                            <div class="flow-icon bg-inv"><i class="bi bi-box-seam"></i></div>
+                            <div class="step-info"><span class="step-name">Gestión de Inventario</span><span class="step-desc">Entradas y Reservas</span></div>
+                        </div>
+                        <div class="line-connector"></div>
+                        <div class="flow-step">
+                            <div class="flow-icon bg-out"><i class="bi bi-truck"></i></div>
+                            <div class="step-info"><span class="step-name">Orden de Salida</span><span class="step-desc">Surtido y Logística</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FASES DETALLADAS (REUTILIZANDO TU LÓGICA) -->
+    <section id="proceso" class="py-5 bg-light">
+        <div class="container py-5">
+            <!-- FASE 1 & 2 -->
+            <div class="row g-5 align-items-center mb-5">
+                <div class="col-lg-6">
+                    <div class="phase-number">01</div>
+                    <h3 class="phase-title"><i class="bi bi-people-fill"></i> Prospección y CRM</h3>
+                    <ul class="list-feature">
+                        <li><i class="bi bi-check2-circle"></i> <strong>Clientes:</strong> Datos fiscales y múltiples direcciones de envío.</li>
+                        <li><i class="bi bi-check2-circle"></i> <strong>Agenda:</strong> Gestión de contactos clave por área.</li>
+                        <li><i class="bi bi-check2-circle"></i> <strong>Actividades:</strong> Seguimiento productivo para detonar oportunidades.</li>
+                    </ul>
+                </div>
+                <div class="col-lg-6">
+                    <div class="phase-number">02</div>
+                    <h3 class="phase-title"><i class="bi bi-file-earmark-text"></i> Oferta y Cotización</h3>
+                    <ul class="list-feature">
+                        <li><i class="bi bi-check2-circle"></i> <strong>Versiones:</strong> Recotiza sin perder el historial (Recotización).</li>
+                        <li><i class="bi bi-check2-circle"></i> <strong>Precios:</strong> Listas generales o precios personalizados.</li>
+                        <li><i class="bi bi-check2-circle"></i> <strong>Aprobación:</strong> Conversión inmediata a pedido tras validación.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- FASE 3: EL CORAZÓN -->
+            <div class="heart-section px-4 px-md-5">
+                <div class="row align-items-center">
+                    <div class="col-lg-7 text-center text-lg-start">
+                        <span class="heart-badge mb-3 d-inline-block">El Corazón del Sistema</span>
+                        <h2 class="fw-bold mb-4">Fase 03: Pedidos e Inteligencia de Stock</h2>
+                        <p class="fs-5 opacity-75 mb-4">El motor de decisión. Al validar un pedido, CrossoverSuite analiza tus almacenes en tiempo real:</p>
+                        <ul class="list-feature text-start">
+                            <li class="text-white"><i class="bi bi-lightning-fill text-warning"></i> <strong>Reservas Automáticas:</strong> Asegura mercancía para tus ventas confirmadas.</li>
+                            <li class="text-white"><i class="bi bi-exclamation-triangle-fill text-danger"></i> <strong>Faltantes en Rojo:</strong> Identifica al instante qué productos requieren compra.</li>
+                            <li class="text-white"><i class="bi bi-diagram-3-fill text-info"></i> <strong>Explosión de Kits:</strong> Valida componentes de productos ensamblados.</li>
+                        </ul>
+                    </div>
+                    <div class="col-lg-5 text-center d-none d-lg-block">
+                        <i class="bi bi-cpu display-1 opacity-25"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FASE 4 & 5 -->
+            <div class="row g-5 py-5">
+                <div class="col-lg-6">
+                    <div class="phase-number">04</div>
+                    <h3 class="phase-title"><i class="bi bi-boxes"></i> Abastecimiento (MRP)</h3>
+                    <div class="mb-4">
+                        <h6 class="fw-bold"><i class="bi bi-cart-check me-2"></i> Ruta A: Compras</h6>
+                        <p class="text-muted small">Requisiciones y órdenes de compra con aviso automático de llegada de mercancía.</p>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold"><i class="bi bi-gear-wide-connected me-2"></i> Ruta B: Producción</h6>
+                        <p class="text-muted small">Órdenes de producción, reserva de materia prima y control de calidad integral.</p>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="phase-number">05</div>
+                    <h3 class="phase-title"><i class="bi bi-truck-flatbed"></i> Ejecución y Logística</h3>
+                    <ul class="list-feature">
+                        <li><i class="bi bi-check2-circle"></i> <strong>Orden de Salida (OS):</strong> El paso final de la operación.</li>
+                        <li><i class="bi bi-check2-circle"></i> <strong>Surtido Maestro:</strong> Registro de guías y lotes/series específicos.</li>
+                        <li><i class="bi bi-check2-circle"></i> <strong>Baja Permanente:</strong> Actualización atómica del stock físico al confirmar envío.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <section class="py-5 text-center">
+        <div class="container py-5">
+            <h2 class="fw-extrabold mb-4">Potencia tu operación corporativa</h2>
+            <p class="text-muted mb-5 fs-5">Únete a la nueva era de gestión con CrossoverSuite.</p>
+            <a href="{% url 'login' %}" class="btn btn-nav-login btn-lg px-5 py-3 fw-bold">Iniciar Sesión Ahora</a>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+        <div class="container">
+            <div class="row align-items-center text-center text-md-start">
+                <div class="col-md-6 mb-4 mb-md-0">
+                    <img src="{% static 'img/Logo.png' %}" alt="Logo" height="28" class="mb-3">
+                    <p class="text-muted small mb-0"><strong>CrossoverSuite 2026</strong> - Sistema ERP de Gestión Operativa.</p>
+                    <p class="text-muted small">Soporte Corporativo: <a href="mailto:soporte@crossovermx.com" class="text-decoration-none" style="color:var(--brand-primary)">soporte@crossovermx.com</a></p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <p class="text-muted small mb-0">© 2026 CrossoverSuite. Todos los derechos reservados.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap 5 Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

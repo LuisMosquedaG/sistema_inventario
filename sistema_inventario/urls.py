@@ -23,7 +23,7 @@ from preferencias.views import (
 )
 from django.contrib.auth import views as auth_views 
 from django.contrib.auth import logout
-from django.shortcuts import redirect
+from django.shortcuts import render, redirect
 
 # --- IMPORT DE PROVEEDORES ---
 from proveedores.views import (
@@ -38,7 +38,15 @@ def vista_salir(request):
     logout(request)
     return redirect('login')
 
+from django.views.generic import TemplateView
+
+def index_view(request):
+    if request.user.is_authenticated:
+        return redirect('dash_inventario')
+    return render(request, 'landing.html')
+
 urlpatterns = [
+    path('', index_view, name='landing'),
     path('panel/', include('panel.urls')),
     
     path('preferencias/crear-usuario/', crear_usuario_ajax, name='crear_usuario_ajax'),
@@ -50,8 +58,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
     path('logout/', vista_salir, name='logout'),
-    
-    path('', dashboard_inventario, name='home'),
     
     # --- RUTAS PRINCIPALES DE MÓDULOS ---
     path('inventario/', dashboard_inventario, name='dash_inventario'),
