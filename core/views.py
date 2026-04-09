@@ -71,7 +71,6 @@ def crear_producto_ajax(request):
 
 @login_required(login_url='/login/')
 def dashboard_inventario(request):
-    from .forms import ProductoForm
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)
@@ -175,38 +174,32 @@ def obtener_producto_json(request, producto_id):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=404)
 
-@login_required
+@login_required(login_url='/login/')
 def actualizar_producto_ajax(request, producto_id):
     if request.method == 'POST':
         try:
+            from .forms import ProductoForm
             empresa_actual = get_empresa_actual(request)
             producto = get_object_or_404(Producto, id=producto_id, empresa=empresa_actual)
-            producto.nombre = request.POST.get('nombre')
-            producto.descripcion = request.POST.get('descripcion')
-            producto.tipo = request.POST.get('tipo')
-            producto.tipo_abastecimiento = request.POST.get('tipo_abastecimiento')
-            producto.estado = request.POST.get('estado')
-            producto.categoria = request.POST.get('categoria')
-            producto.subcategoria = request.POST.get('subcategoria')
-            producto.marca = request.POST.get('marca')
-            producto.modelo = request.POST.get('modelo')
-            producto.linea = request.POST.get('linea')
-            producto.unidad_medida = request.POST.get('unidad_medida')
-            producto.iva = request.POST.get('iva', 0)
-            producto.ieps = request.POST.get('ieps', 0)
-            producto.precio_costo = request.POST.get('precio_costo')
-            producto.precio_venta = request.POST.get('precio_venta')
-            producto.stock_minimo = request.POST.get('stock_minimo')
-            producto.stock_maximo = request.POST.get('stock_maximo')
-            producto.maneja_lote = request.POST.get('maneja_lote') == 'on'
-            producto.maneja_serie = request.POST.get('maneja_serie') == 'on'
-            test_id = request.POST.get('test_calidad')
-            if test_id:
-                from produccion.models import Test
-                producto.test_calidad = Test.objects.filter(id=test_id, empresa=empresa_actual).first()
-            else: producto.test_calidad = None
-            producto.save()
-            return JsonResponse({'success': True, 'message': 'Artículo actualizado correctamente.'})
+            
+            form = ProductoForm(request.POST, instance=producto)
+            if form.is_valid():
+                producto = form.save(commit=False)
+                # Maneja el switch manual para lote/serie ya que vienen como 'on'
+                producto.maneja_lote = request.POST.get('maneja_lote') == 'on'
+                producto.maneja_serie = request.POST.get('maneja_serie') == 'on'
+                
+                test_id = request.POST.get('test_calidad')
+                if test_id:
+                    from produccion.models import Test
+                    producto.test_calidad = Test.objects.filter(id=test_id, empresa=empresa_actual).first()
+                else:
+                    producto.test_calidad = None
+                
+                producto.save()
+                return JsonResponse({'success': True, 'message': 'Artículo actualizado correctamente.'})
+            else:
+                return JsonResponse({'success': False, 'error': form.errors})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Método no permitido'})

@@ -61,8 +61,6 @@ urlpatterns = [
     
     # --- RUTAS PRINCIPALES DE MÓDULOS ---
     path('inventario/', dashboard_inventario, name='dash_inventario'),
-    path('inventario/api/detalle-producto/<int:producto_id>/', api_detalle_producto_inventario, name='api_detalle_producto_inventario'),
-    path('inventario/api/detalle-documento/', api_detalle_documento, name='api_detalle_documento'),
     path('ventas/', include('ventas.urls')),
     
     # --- CORRECCIÓN COMPRAS ---
@@ -95,13 +93,7 @@ urlpatterns = [
     path('proveedores/desactivar/<int:proveedor_id>/', desactivar_proveedor, name='desactivar_proveedor'),
 
     # --- CORE Y OTROS INCLUDES ---
-    path('inventario/api/crear-producto/', crear_producto_ajax, name='crear_producto_ajax'),
-    path('inventario/api/producto/<int:producto_id>/', obtener_producto_json, name='obtener_producto'),
-    path('inventario/api/actualizar-producto/<int:producto_id>/', actualizar_producto_ajax, name='actualizar_producto'),
-    path('inventario/api/actualizar-precio-producto/<int:producto_id>/', actualizar_precio_producto, name='actualizar_precio_producto'),
-    path('inventario/api/detalle-producto/<int:producto_id>/', api_detalle_producto_inventario, name='api_detalle_producto_inventario'),
-    path('inventario/api/detalle-documento/', api_detalle_documento, name='api_detalle_documento'),
-
+    # (Se eliminaron rutas duplicadas que ya vienen en core.urls)
     path('vender/', include('core.urls')),
     path('inventario/', include('core.urls')),
     path('actividades/', include('actividades.urls')),

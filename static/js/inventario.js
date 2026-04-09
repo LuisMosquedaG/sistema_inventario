@@ -123,15 +123,36 @@ window.guardarProducto = function() {
             'X-CSRFToken': getCookie('csrftoken') 
         }
     })
-    .then(r => r.json())
+    .then(response => {
+        if (!response.ok) {
+            // Si la respuesta no es 200 OK, probablemente sea una página de error HTML o login
+            return response.text().then(text => {
+                if (text.includes("<!DOCTYPE") || text.includes("<html")) {
+                    throw new Error("Sesión expirada o error del servidor (HTML recibido). Por favor recarga la página.");
+                }
+                throw new Error(text || `Error del servidor (${response.status})`);
+            });
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             location.reload();
         } else {
-            alert("Error: " + JSON.stringify(data.error));
+            // Manejar errores de validación devueltos como JSON
+            let errorMsg = "Error de validación";
+            if (typeof data.error === 'object') {
+                errorMsg = Object.entries(data.error).map(([key, val]) => `${key}: ${val}`).join('\n');
+            } else {
+                errorMsg = data.error;
+            }
+            alert(errorMsg);
         }
     })
-    .catch(err => alert("Error de conexión: " + err));
+    .catch(err => {
+        console.error("Detalle del error:", err);
+        alert("Error: " + err.message);
+    });
 }
 
 // --- LÓGICA DE CATEGORÍAS ---

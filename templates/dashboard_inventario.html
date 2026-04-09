@@ -108,7 +108,9 @@
                                 </div>
                             </td>
                             <td class="text-center">
-                                <div class="fw-bold text-dark">{{ p.nombre }}</div>
+                                <div class="fw-bold text-dark text-truncate mx-auto" style="max-width: 250px;" title="{{ p.nombre }}">
+                                    {{ p.nombre }}
+                                </div>
                                 <div class="text-muted small">Tipo: {{ p.tipo }}</div>
                             </td>
                             <td class="text-center">
