@@ -9,7 +9,8 @@ from almacenes.models import Almacen, Inventario
 from proveedores.models import Proveedor
 from django.core.paginator import Paginator
 from recepciones.models import Recepcion, DetalleRecepcion, DetalleRecepcionExtra
-from django.db.models import Sum, Q, Subquery, OuterRef, DecimalField, Avg, ExpressionWrapper, F, FloatField
+from django.db.models import Sum, Q, Subquery, OuterRef, DecimalField, Avg, ExpressionWrapper, F, FloatField, IntegerField
+from django.db.models.functions import Coalesce
 from collections import defaultdict
 from compras.models import OrdenCompra
 from django.db import transaction
@@ -115,6 +116,11 @@ def dashboard_inventario(request):
         costo_inventario_anotado=Subquery(costo_inventario_subquery),
         stock_fisico=Subquery(get_stock_sub('cantidad')),
         stock_res=Subquery(get_stock_sub('reservado'))
+    ).annotate(
+        stock_disponible_anotado=ExpressionWrapper(
+            Coalesce(F('stock_fisico'), 0) - Coalesce(F('stock_res'), 0),
+            output_field=IntegerField()
+        )
     ).order_by('nombre')
     
     almacenes = Almacen.objects.filter(empresa=empresa_actual).order_by('nombre')

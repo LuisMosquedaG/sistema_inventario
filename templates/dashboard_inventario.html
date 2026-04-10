@@ -124,7 +124,7 @@
                             <td class="text-center">
                                 <div class="text-muted small">Exist: <span class="{% if p.stock_fisico < p.stock_minimo %}text-danger{% else %}text-success{% endif %} fw-bold">{{ p.stock_fisico|default:0 }}</span></div>
                                 <div class="text-muted small">Reser: <span class="text-warning fw-bold">{{ p.stock_res|default:0 }}</span></div>
-                                <div class="text-muted small">Dispo: <span class="text-success fw-bold">{{ p.stock_fisico|default:0|add:p.stock_res|default:0 }}</span></div>
+                                <div class="text-muted small">Dispo: <span class="text-success fw-bold">{{ p.stock_disponible_anotado|default:0 }}</span></div>
                             </td>
                             <td class="text-center small text-muted">
                                 Min: {{ p.stock_minimo }}<br>Max: {{ p.stock_maximo }}
