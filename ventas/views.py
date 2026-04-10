@@ -250,6 +250,12 @@ def ejecutar_surtido(request, ov_id):
         from almacenes.models import Inventario
         for det in ov.detalles.all():
             producto, cantidad_a_descontar = det.producto, det.cantidad
+            
+            # --- NUEVO: Omitir actualización de inventario para servicios ---
+            if producto.tipo == 'servicio':
+                continue
+            # ----------------------------------------------------------------
+
             extra_ids = request.POST.getlist(f'extra_id_{det.id}[]')
             inv = Inventario.objects.select_for_update().get(almacen=almacen, producto=producto)
             if inv.cantidad < cantidad_a_descontar: raise ValueError(f"Stock insuficiente para {producto.nombre} en {almacen.nombre}.")

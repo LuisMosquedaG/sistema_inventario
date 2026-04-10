@@ -146,7 +146,7 @@
     <div class="container-fluid py-2 px-4">
 
         <!-- HEADER DEL MÓDULO (IGUAL QUE CLIENTES) -->
-        <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
             <div>
                 <!-- CAMBIO: Clase 'section-title' en lugar de estilos manuales -->
                 <h4 class="section-title mb-0">Proveedores</h4>
@@ -154,14 +154,14 @@
                 <span class="section-subtitle">Directorio de proveedores y contactos</span>
             </div>
             
-            <div class="d-flex align-items-center gap-2">
+            <div class="d-flex flex-wrap align-items-center gap-2">
                 <!-- Botón Exportar -->
                 <button class="btn btn-light border text-secondary btn-sm px-3" style="border-radius: 6px;">
                     <i class="bi bi-download me-1"></i> Exportar
                 </button>
                 
                 <!-- Botón Nuevo Proveedor -->
-                <button class="btn text-white btn-sm px-3 d-flex align-items-center" 
+                <button class="btn text-white btn-sm px-3 d-flex align-items-center shadow-sm" 
                         style="background-color: #00b8b9; border-radius: 6px; box-shadow: 0 2px 6px rgba(0, 184, 185, 0.3); transition: all 0.2s;"
                         data-bs-toggle="modal" 
                         data-bs-target="#modalNuevoProveedor">

@@ -176,6 +176,14 @@ def validar_pedido(request, pedido_id):
 
     # 1. Diagnosticar líneas
     for detalle in pedido.detalles.all():
+        
+        # --- NUEVO: Omitir validación de stock para servicios ---
+        if detalle.producto.tipo == 'servicio':
+            detalle.estado_linea = 'pendiente'
+            detalle.save()
+            continue
+        # --------------------------------------------------------
+
         stock_libre = detalle.producto.stock_disponible
         solicitado = detalle.cantidad_solicitada
         
@@ -365,6 +373,23 @@ def ejecutar_reserva(request, detalle_id):
 
     if detalle.estado_linea != 'pendiente':
         return JsonResponse({'success': False, 'error': 'Esta línea ya fue procesada o no se puede reservar.'})
+
+    # --- NUEVO: Omitir reserva física para servicios ---
+    if detalle.producto.tipo == 'servicio':
+        detalle.estado_linea = 'reservado'
+        detalle.save()
+        
+        # Verificar si el pedido está COMPLETO
+        lineas_pendientes = pedido.detalles.filter(
+            estado_linea__in=['pendiente', 'compra', 'en_proceso', 'produccion', 'comprado']
+        ).count()
+
+        if lineas_pendientes == 0:
+            pedido.estado = 'completo'
+            pedido.save()
+
+        return JsonResponse({'success': True, 'message': 'Servicio marcado como listo.'})
+    # ----------------------------------------------------
 
     # 1. Verificar que todavía haya stock libre (por si acaso alguien más compró mientras tanto)
     stock_libre = detalle.producto.stock_disponible
