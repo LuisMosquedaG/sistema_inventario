@@ -496,9 +496,12 @@
         });
     });
 
-    // --- FIN LÓGICA NUEVO PEDIDO ---
+    // --- LÓGICA PARA GESTIONAR PEDIDO (DIAGNÓSTICO) ---
+    
+    let lastPedidoElement = null; // Guardar el botón que abrió el modal para refrescar
 
     function cargarDetallePedido(elemento) {
+        lastPedidoElement = elemento; // Guardamos referencia
         const pedidoId = elemento.dataset.id;
         const cliRazon = elemento.dataset.clienteNombre;
         const cliApellido = elemento.dataset.clienteApellido;
@@ -636,7 +639,15 @@
             headers: { 'X-CSRFToken': getCookie('csrftoken'), 'Content-Type': 'application/json' }
         })
         .then(response => response.json())
-        .then(data => { if(data.success) { alert(data.message); location.reload(); } else { alert('Error: ' + data.error); } })
+        .then(data => { 
+            if(data.success) { 
+                alert(data.message); 
+                // Refrescamos el modal sin cerrar
+                if(lastPedidoElement) cargarDetallePedido(lastPedidoElement);
+            } else { 
+                alert('Error: ' + data.error); 
+            } 
+        })
         .catch(error => { alert('Hubo un error de conexión.'); });
     }
 
@@ -647,9 +658,22 @@
             headers: { 'X-CSRFToken': getCookie('csrftoken'), 'Content-Type': 'application/json' }
         })
         .then(response => response.json())
-        .then(data => { if(data.success) { alert(data.message); location.reload(); } else { alert('Error: ' + data.error); } })
+        .then(data => { 
+            if(data.success) { 
+                alert(data.message); 
+                // Refrescamos el modal sin cerrar
+                if(lastPedidoElement) cargarDetallePedido(lastPedidoElement);
+            } else { 
+                alert('Error: ' + data.error); 
+            } 
+        })
         .catch(error => { alert('Hubo un error de conexión.'); });
     }
+
+    // --- RECARGAR AL CERRAR DIAGNÓSTICO ---
+    document.getElementById('modalGestionarPedido').addEventListener('hidden.bs.modal', function () {
+        location.reload();
+    });
 
     function getCookie(name) {
         let cookieValue = null;
