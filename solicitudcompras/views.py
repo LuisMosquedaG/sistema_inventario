@@ -8,7 +8,7 @@ from django.db import transaction
 from panel.models import Empresa
 from pedidos.models import Pedido, DetallePedido
 from .models import SolicitudCompra, DetalleSolicitudCompra
-from core.models import DetalleReceta
+from core.models import Producto, DetalleReceta
 from produccion.models import OrdenProduccion
 from proveedores.models import Proveedor
 from almacenes.models import Almacen
@@ -36,12 +36,14 @@ def dashboard_solicitudcompras(request):
     lista_proveedores = Proveedor.objects.filter(empresa=empresa_actual).values('id', 'razon_social')
     lista_almacenes = Almacen.objects.filter(empresa=empresa_actual).values('id', 'nombre')
     lista_monedas = Moneda.objects.filter(empresa=empresa_actual).values('id', 'siglas', 'simbolo')
+    lista_productos = Producto.objects.filter(empresa=empresa_actual).values('id', 'nombre', 'precio_costo')
     
     contexto = {
         'solicitudes': solicitudes,
         'proveedores': list(lista_proveedores),
         'almacenes': list(lista_almacenes),
-        'monedas': list(lista_monedas)
+        'monedas': list(lista_monedas),
+        'productos': list(lista_productos)
     }
     return render(request, 'dashboard_solicitudcompras.html', contexto)
 
@@ -196,12 +198,18 @@ def obtener_solicitud_json(request, solicitud_id):
                 'producto_nombre': det.producto.nombre,
                 'cantidad': det.cantidad_solicitada,
                 'proveedor_id': det.proveedor.id if det.proveedor else None,
+                'proveedor_nombre': det.proveedor.razon_social if det.proveedor else 'No asignado',
                 'costo_unitario': str(det.costo_unitario),
                 'almacen_id': det.almacen.id if det.almacen else None,
-                'moneda_id': det.moneda.id if det.moneda else None, # <--- NUEVO
+                'almacen_nombre': det.almacen.nombre if det.almacen else 'No asignado',
+                'moneda_id': det.moneda.id if det.moneda else None,
+                'moneda_siglas': det.moneda.siglas if det.moneda else 'MXN',
                 'detalle_pedido_origen_id': det.detalle_pedido_origen.id if det.detalle_pedido_origen else None 
             })
         data['detalles'] = detalles_list
+        data['solicitante_nombre'] = solicitud.solicitante.username.split('@')[0] if solicitud.solicitante else 'Sistema'
+        data['fecha_creacion'] = solicitud.fecha_creacion.strftime('%d/%m/%Y %H:%M')
+        data['estado_display'] = solicitud.get_estado_display()
 
         return JsonResponse(data)
     
@@ -248,6 +256,54 @@ def actualizar_solicitud(request, solicitud_id):
                     )
             
             messages.success(request, f'Solicitud #{solicitud.id} actualizada.')
+            return JsonResponse({'success': True})
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+@login_required(login_url='/login/')
+@transaction.atomic
+def crear_solicitud_manual(request):
+    if request.method == 'POST':
+        try:
+            empresa_actual = get_empresa_actual(request)
+            if not empresa_actual:
+                return JsonResponse({'success': False, 'error': 'Empresa no detectada'})
+
+            notas = request.POST.get('notas', '')
+            solicitud = SolicitudCompra.objects.create(
+                solicitante=request.user,
+                empresa=empresa_actual,
+                estado='borrador',
+                notas=notas
+            )
+
+            productos_ids = request.POST.getlist('producto_id[]')
+            cantidades = request.POST.getlist('cantidad[]')
+            proveedores_ids = request.POST.getlist('proveedor_id[]')
+            costos = request.POST.getlist('costo_unitario[]')
+            almacenes_ids = request.POST.getlist('almacen_id[]')
+            monedas_ids = request.POST.getlist('moneda_id[]')
+
+            count = 0
+            for p_id, cant, prov_id, cost, alm_id, mon_id in zip(productos_ids, cantidades, proveedores_ids, costos, almacenes_ids, monedas_ids):
+                if p_id and p_id != '':
+                    DetalleSolicitudCompra.objects.create(
+                        solicitud=solicitud,
+                        producto_id=p_id,
+                        cantidad_solicitada=cant,
+                        proveedor_id=prov_id if prov_id else None,
+                        costo_unitario=cost,
+                        almacen_id=alm_id if alm_id else None,
+                        moneda_id=mon_id if mon_id else None
+                    )
+                    count += 1
+            
+            if count == 0:
+                raise ValueError("Debes agregar al menos un producto a la solicitud.")
+
+            messages.success(request, f'Solicitud #{solicitud.id} creada correctamente.')
             return JsonResponse({'success': True})
 
         except Exception as e:

@@ -55,6 +55,7 @@
         var listaProveedores = {{ proveedores|safe }};
         var listaAlmacenes = {{ almacenes|safe }};
         var listaMonedas = {{ monedas|safe }};
+        var listaProductos = {{ productos|safe }};
     </script>
 
     <!-- 2. CONTENEDOR PRINCIPAL -->
@@ -63,6 +64,11 @@
             <div>
                 <h4 class="section-title mb-0">Solicitudes de Compra</h4>
                 <span class="section-subtitle">Gestión de Requisiciones</span>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaSolicitudManual" onclick="prepararNuevaSolicitud()">
+                    <i class="bi bi-plus-lg me-1"></i> Nueva Solicitud
+                </button>
             </div>
         </div>
 
@@ -87,6 +93,9 @@
                             <tr>
                                 <td class="text-center">
                                     <div class="d-flex justify-content-center">
+                                        <span onclick="verSolicitud({{ s.id }})" class="icon-action" title="Ver Solicitud">
+                                            <i class="bi bi-eye"></i>
+                                        </span>
                                         {% if s.estado == 'borrador' %}
                                         <a href="{% url 'autorizar_solicitud' s.id %}" class="icon-action" title="Autorizar Solicitud" onclick="return confirm('¿Autorizar esta solicitud?')">
                                             <i class="bi bi-check-circle"></i>
@@ -246,10 +255,237 @@
         </div>
     </div>
 
+    <!-- 4. MODAL NUEVA SOLICITUD MANUAL -->
+    <div class="modal fade" id="modalNuevaSolicitudManual" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+            <div class="modal-content">
+                <div class="modal-header border-bottom bg-light py-2">
+                    <h5 class="modal-title fw-bold text-dark">
+                        <i class="bi bi-plus-circle me-2" style="color: #00b8b9;"></i> Nueva solicitud de compra
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                
+                <form id="formNuevaSolicitudManual" method="post" action="{% url 'crear_solicitud_manual' %}">
+                    {% csrf_token %}
+                    <div class="modal-body p-3 bg-light">
+                        
+                        <!-- SECCIÓN 1: NOTAS -->
+                        <div class="card border-0 bg-white border-start border-4 border-info mb-3 shadow-sm" style="border-left-color: #00b8b9 !important;">
+                            <div class="card-body p-3">
+                                <h6 class="text-dark mb-3"><i class="bi bi-pencil-square me-2" style="color: #00b8b9;"></i>Notas de la Solicitud</h6>
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <label class="small fw-bold text-secondary mb-1">Notas / Urgencia</label>
+                                        <textarea name="notas" class="form-control form-control-sm" rows="2" placeholder="Agregar notas adicionales..."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECCIÓN 2: AGREGAR ARTÍCULO -->
+                        <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
+                            <div class="card-body p-3">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Agregar Artículo</h6>
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-5">
+                                        <label class="form-label small text-muted">Producto</label>
+                                        <select id="selectProductoManual" class="form-select form-select-sm">
+                                            <option value="">Seleccionar...</option>
+                                            {% for p in productos %}
+                                            <option value="{{ p.id }}" data-precio="{{ p.precio_costo }}">{{ p.nombre }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small text-muted">Cant.</label>
+                                        <input type="number" id="inputCantManual" class="form-control form-control-sm text-center" value="1" min="1">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small text-muted">Costo Unit.</label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text">$</span>
+                                            <input type="number" id="inputCostoManual" class="form-control form-control-sm" value="0.00" step="0.01">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button type="button" class="btn btn-brand btn-sm w-100" onclick="agregarArticuloManual()">
+                                            <i class="bi bi-plus-lg"></i> Agregar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECCIÓN 3: TABLA DE ARTÍCULOS -->
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover mb-0 align-middle">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th class="ps-3" style="min-width: 180px;">Artículo</th>
+                                                <th style="width: 110px;">Moneda</th>
+                                                <th style="width: 130px;">Proveedor</th>
+                                                <th style="width: 130px;">Almacén</th>
+                                                <th class="text-center" style="width: 70px;">Cant.</th>
+                                                <th style="width: 100px;">Costo</th>
+                                                <th style="width: 40px;"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tablaCuerpoManual">
+                                            <!-- JS rows here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div id="mensajeVacioManual" class="text-center py-3 text-muted small fst-italic">No hay artículos agregados.</div>
+                            </div>
+                        </div>
+
+                    </div>
+                    
+                    <div class="modal-footer border-top bg-white py-2">
+                        <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-brand btn-sm px-4">Crear Solicitud</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. MODAL VER SOLICITUD -->
+    <div class="modal fade" id="modalVerSolicitud" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+            <div class="modal-content">
+                <div class="modal-header border-bottom bg-light py-2">
+                    <h5 class="modal-title fw-bold text-dark">
+                        <i class="bi bi-eye me-2" style="color: #00b8b9;"></i> Detalle de Solicitud: <span id="verFolioSolicitud">-</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-3 bg-light">
+                    <!-- SECCIÓN 1: DATOS GENERALES -->
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body p-3">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="small text-muted d-block">Solicitante</label>
+                                    <strong id="verSolicitante" class="text-dark">-</strong>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="small text-muted d-block">Fecha de Creación</label>
+                                    <strong id="verFechaCreacion" class="text-dark">-</strong>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="small text-muted d-block">Estado</label>
+                                    <span id="verEstadoSolicitud" class="status-pill">-</span>
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="small text-muted d-block">Notas / Urgencia</label>
+                                    <div id="verNotas" class="p-2 bg-light border rounded small text-secondary">-</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 2: DATOS DEL PEDIDO (SI EXISTE) -->
+                    <div class="card border-0 bg-white border-start border-4 border-info mb-3 shadow-sm" id="verCardPedido" style="border-left-color: #00b8b9 !important; display: none;">
+                        <div class="card-body p-3">
+                            <h6 class="text-dark border-bottom pb-2 mb-3"><i class="bi bi-receipt me-2 text-secondary"></i>Pedido Relacionado</h6>
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <span class="d-block small text-muted">Folio Pedido</span>
+                                    <strong id="verFolioPed" class="text-dark">-</strong>
+                                </div>
+                                <div class="col-md-8">
+                                    <span class="d-block small text-muted">Cliente</span>
+                                    <strong id="verCliente" class="text-dark">-</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 3: TABLA DE ARTÍCULOS -->
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover mb-0 align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th class="ps-3">Artículo</th>
+                                            <th class="text-center">Cant.</th>
+                                            <th class="text-center">Moneda</th>
+                                            <th>Proveedor</th>
+                                            <th>Almacén</th>
+                                            <th class="text-end pe-3">Costo Unit.</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="verTablaCuerpo">
+                                        <!-- JS rows here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top bg-white py-2">
+                    <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
+    function verSolicitud(id) {
+        fetch(`/solicitudes-compras/api/solicitud/${id}/`)
+            .then(response => response.json())
+            .then(data => {
+                if(data.error) { alert(data.error); return; }
+                
+                document.getElementById('verFolioSolicitud').innerText = '#' + id;
+                document.getElementById('verSolicitante').innerText = data.solicitante_nombre;
+                document.getElementById('verFechaCreacion').innerText = data.fecha_creacion;
+                
+                const spanEstado = document.getElementById('verEstadoSolicitud');
+                spanEstado.innerText = data.estado_display;
+                spanEstado.className = 'status-pill status-' + data.estado;
+                
+                document.getElementById('verNotas').innerText = data.notas || 'Sin notas';
+                
+                const cardPedido = document.getElementById('verCardPedido');
+                if (data.pedido_origen) {
+                    cardPedido.style.display = 'block';
+                    document.getElementById('verFolioPed').innerText = '#' + data.pedido_origen.id;
+                    document.getElementById('verCliente').innerText = data.pedido_origen.cliente.nombre_completo;
+                } else {
+                    cardPedido.style.display = 'none';
+                }
+
+                const tbody = document.getElementById('verTablaCuerpo');
+                tbody.innerHTML = '';
+                data.detalles.forEach(det => {
+                    const fila = `
+                        <tr>
+                            <td class="ps-3 align-middle">
+                                <div class="fw-semibold small text-dark">${det.producto_nombre}</div>
+                            </td>
+                            <td class="text-center align-middle small">${det.cantidad}</td>
+                            <td class="text-center align-middle small"><span class="badge bg-light text-dark border">${det.moneda_siglas}</span></td>
+                            <td class="align-middle small">${det.proveedor_nombre}</td>
+                            <td class="align-middle small">${det.almacen_nombre}</td>
+                            <td class="text-end pe-3 align-middle fw-bold text-success">$${parseFloat(det.costo_unitario).toFixed(2)}</td>
+                        </tr>
+                    `;
+                    tbody.insertAdjacentHTML('beforeend', fila);
+                });
+
+                new bootstrap.Modal(document.getElementById('modalVerSolicitud')).show();
+            });
+    }
+
     function generarOptions(lista, valorSeleccionado, labelKey = 'nombre') {
         let options = '<option value="">Seleccionar...</option>';
         lista.forEach(item => {
@@ -391,6 +627,102 @@
         if(selProv && listaProveedores) listaProveedores.forEach(i => selProv.add(new Option(i.razon_social || i.nombre, i.id)));
         if(selAlm && listaAlmacenes) listaAlmacenes.forEach(i => selAlm.add(new Option(i.nombre, i.id)));
         if(selMon && listaMonedas) listaMonedas.forEach(i => selMon.add(new Option(i.siglas, i.id)));
+
+        // Llenar selects del modal manual
+        const selProvM = document.getElementById('selGeneralProveedorManual');
+        const selAlmM = document.getElementById('selGeneralAlmacenManual');
+        const selMonM = document.getElementById('selGeneralMonedaManual');
+        if(selProvM && listaProveedores) listaProveedores.forEach(i => selProvM.add(new Option(i.razon_social || i.nombre, i.id)));
+        if(selAlmM && listaAlmacenes) listaAlmacenes.forEach(i => selAlmM.add(new Option(i.nombre, i.id)));
+        if(selMonM && listaMonedas) listaMonedas.forEach(i => selMonM.add(new Option(i.siglas, i.id)));
+    });
+
+    // --- LÓGICA MODAL MANUAL ---
+
+    function prepararNuevaSolicitud() {
+        document.getElementById('formNuevaSolicitudManual').reset();
+        document.getElementById('tablaCuerpoManual').innerHTML = '';
+        document.getElementById('mensajeVacioManual').style.display = 'block';
+    }
+
+    document.getElementById('selectProductoManual').addEventListener('change', function() {
+        const opt = this.options[this.selectedIndex];
+        document.getElementById('inputCostoManual').value = opt.dataset.precio || "0.00";
+    });
+
+    function agregarArticuloManual() {
+        const select = document.getElementById('selectProductoManual');
+        const pId = select.value;
+        const pName = select.options[select.selectedIndex].text;
+        const cant = document.getElementById('inputCantManual').value;
+        const costo = document.getElementById('inputCostoManual').value;
+
+        if (!pId || cant <= 0) return alert("Selecciona un producto y cantidad válida.");
+
+        const provOptions = generarOptions(listaProveedores, '', 'razon_social');
+        const almOptions = generarOptions(listaAlmacenes, '', 'nombre');
+        const monOptions = generarOptions(listaMonedas, '', 'siglas');
+
+        const filaHtml = `
+            <tr>
+                <td class="ps-3 align-middle">
+                    <div class="fw-semibold small text-dark">${pName}</div>
+                    <input type="hidden" name="producto_id[]" value="${pId}">
+                </td>
+                <td class="align-middle">
+                    <select name="moneda_id[]" class="form-select form-select-sm">
+                        ${monOptions}
+                    </select>
+                </td>
+                <td class="align-middle">
+                    <select name="proveedor_id[]" class="form-select form-select-sm">
+                        ${provOptions}
+                    </select>
+                </td>
+                <td class="align-middle">
+                    <select name="almacen_id[]" class="form-select form-select-sm">
+                        ${almOptions}
+                    </select>
+                </td>
+                <td class="text-center align-middle">
+                    <input type="number" name="cantidad[]" class="form-control form-control-sm text-center" value="${cant}" min="1">
+                </td>
+                <td class="align-middle">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">$</span>
+                        <input type="number" name="costo_unitario[]" class="form-control" value="${costo}" step="0.01">
+                    </div>
+                </td>
+                <td class="text-center align-middle">
+                    <button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); checkVacioManual();">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+        document.getElementById('tablaCuerpoManual').insertAdjacentHTML('beforeend', filaHtml);
+        document.getElementById('mensajeVacioManual').style.display = 'none';
+    }
+
+    function checkVacioManual() {
+        if (document.getElementById('tablaCuerpoManual').children.length === 0) {
+            document.getElementById('mensajeVacioManual').style.display = 'block';
+        }
+    }
+
+    document.getElementById('formNuevaSolicitudManual').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btn = this.querySelector('button[type="submit"]');
+        btn.disabled = true; btn.innerText = "Guardando...";
+
+        fetch(this.action, {
+            method: 'POST',
+            body: new FormData(this),
+            headers: {'X-CSRFToken': getCookie('csrftoken')}
+        }).then(r => r.json()).then(data => {
+            if(data.success) location.reload();
+            else { alert('Error: ' + data.error); btn.disabled = false; btn.innerText = "Crear Solicitud"; }
+        });
     });
 </script>
 {% endblock %}
