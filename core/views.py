@@ -1,3 +1,4 @@
+import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from .models import Producto, Transaccion, DetalleReceta
@@ -143,6 +144,8 @@ def api_detalle_producto_inventario(request, producto_id):
     try:
         empresa_actual = get_empresa_actual(request)
         producto = get_object_or_404(Producto, id=producto_id, empresa=empresa_actual)
+        
+        # 1. HISTORIAL DE RECEPCIONES (EXISTENCIAS)
         detalles = DetalleRecepcion.objects.filter(producto_id=producto_id).select_related('recepcion', 'detalle_compra__orden_compra').order_by('-recepcion__fecha')
         historial_data = []
         for d in detalles:
@@ -156,7 +159,46 @@ def api_detalle_producto_inventario(request, producto_id):
                 'fecha': d.recepcion.fecha.strftime('%d/%m/%Y'), 'cantidad': d.cantidad_recibida,
                 'costo': float(d.costo_unitario), 'total': float(d.cantidad_recibida * d.costo_unitario)
             })
-        return JsonResponse({'historial': historial_data})
+
+        # 2. LOTES Y SERIES (DESDE EXTRAS)
+        extras = DetalleRecepcionExtra.objects.filter(detalle_recepcion__producto_id=producto_id).select_related('almacen', 'detalle_recepcion__recepcion')
+        lotes_data = []
+        series_data = []
+        
+        for e in extras:
+            if e.tipo == 'lote':
+                lotes_data.append({
+                    'lote': e.lote,
+                    'cantidad': e.cantidad_lote,
+                    'almacen': e.almacen.nombre if e.almacen else 'N/A',
+                    'fecha': e.detalle_recepcion.recepcion.fecha.strftime('%d/%m/%Y')
+                })
+            elif e.tipo == 'serie':
+                series_data.append({
+                    'serie': e.serie,
+                    'almacen': e.almacen.nombre if e.almacen else 'N/A',
+                    'fecha': e.detalle_recepcion.recepcion.fecha.strftime('%d/%m/%Y')
+                })
+
+        # 3. PEDIMENTOS (DESDE RECEPCIÓN)
+        # Obtenemos las recepciones únicas que tengan pedimento para este producto
+        recepciones_con_pedimento = Recepcion.objects.filter(detalles__producto_id=producto_id, pedimento__isnull=False).exclude(pedimento='').distinct()
+        pedimentos_data = []
+        for r in recepciones_con_pedimento:
+            pedimentos_data.append({
+                'pedimento': r.pedimento,
+                'aduana': r.aduana or 'N/A',
+                'fecha': r.fecha_pedimento.strftime('%d/%m/%Y') if r.fecha_pedimento else 'N/A',
+                'folio_rec': f"REC-{r.id:04d}",
+                'rec_id': r.id
+            })
+
+        return JsonResponse({
+            'historial': historial_data,
+            'lotes': lotes_data,
+            'series': series_data,
+            'pedimentos': pedimentos_data
+        })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
@@ -278,11 +320,20 @@ def obtener_receta(request, producto_id):
 def actualizar_precio_producto(request, producto_id):
     if request.method == 'POST':
         try:
-            empresa_actual, producto = get_empresa_actual(request), get_object_or_404(Producto, id=producto_id, empresa=empresa_actual)
+            empresa_actual = get_empresa_actual(request)
+            producto = get_object_or_404(Producto, id=producto_id, empresa=empresa_actual)
+            
             nuevo_costo = request.POST.get('precio_costo')
+            nueva_venta = request.POST.get('precio_venta')
+            
             if nuevo_costo: producto.precio_costo = nuevo_costo
-            if request.POST.get('precios_extra'): producto.precios_lista = json.loads(request.POST.get('precios_extra'))
-            if request.POST.get('costos_extra'): producto.costos_lista = json.loads(request.POST.get('costos_extra'))
+            if nueva_venta: producto.precio_venta = nueva_venta
+            
+            if request.POST.get('precios_extra'): 
+                producto.precios_lista = json.loads(request.POST.get('precios_extra'))
+            if request.POST.get('costos_extra'): 
+                producto.costos_lista = json.loads(request.POST.get('costos_extra'))
+                
             producto.save()
             return JsonResponse({'success': True, 'message': 'Datos actualizados.'})
         except Exception as e: return JsonResponse({'success': False, 'error': str(e)})

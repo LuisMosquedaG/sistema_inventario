@@ -199,31 +199,102 @@ window.abrirModalExistencias = function(id, nombre) {
     const t = document.getElementById('tituloModalDetalle');
     if (t) t.innerText = `Existencias: ${nombre}`;
     
-    const tbody = document.getElementById('tablaBodyProveedor');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="text-center py-3"><span class="spinner-border spinner-border-sm"></span> Cargando...</td></tr>';
+    const tbodyHist = document.getElementById('tablaBodyProveedor');
+    const tbodySeries = document.getElementById('tablaBodySeries');
+    const tbodyLotes = document.getElementById('tablaBodyLotes');
+    const tbodyPed = document.getElementById('tablaBodyPedimentos');
+
+    const spinner = '<tr><td colspan="10" class="text-center py-3"><span class="spinner-border spinner-border-sm"></span> Cargando...</td></tr>';
     
+    if (tbodyHist) tbodyHist.innerHTML = spinner;
+    if (tbodySeries) tbodySeries.innerHTML = spinner;
+    if (tbodyLotes) tbodyLotes.innerHTML = spinner;
+    if (tbodyPed) tbodyPed.innerHTML = spinner;
+    
+    // Regresar a la primera pestaña
+    const firstTab = document.querySelector('#tabExistencias button[id="existencias-tab"]');
+    if (firstTab) {
+        const tabTrigger = new bootstrap.Tab(firstTab);
+        tabTrigger.show();
+    }
+
     mostrarModal('modalDetalleInventario');
 
     fetch(`${APP_URLS.api_detalle_producto}${id}/`)
         .then(r => r.json())
         .then(data => {
-            if (!tbody) return;
-            tbody.innerHTML = '';
-            if (data.historial && data.historial.length > 0) {
-                data.historial.forEach(i => {
-                    tbody.insertAdjacentHTML('beforeend', `
-                        <tr>
-                            <td class="text-center"><a href="#" onclick="verDetalleDoc('oc', ${i.oc_id}); return false;" class="text-decoration-none">${i.folio_oc}</a></td>
-                            <td class="text-center"><a href="#" onclick="verDetalleDoc('rec', ${i.rec_id}); return false;" class="text-decoration-none">${i.folio_rec}</a></td>
-                            <td class="text-center">${i.proveedor}</td>
-                            <td class="text-center">${i.fecha}</td>
-                            <td class="text-center">${i.cantidad}</td>
-                            <td class="text-end">$${parseFloat(i.costo).toFixed(2)}</td>
-                            <td class="text-end">$${parseFloat(i.total).toFixed(2)}</td>
-                        </tr>`);
-                });
-            } else {
-                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-3 text-muted italic">Sin movimientos registrados.</td></tr>';
+            // 1. EXISTENCIAS / HISTORIAL
+            if (tbodyHist) {
+                tbodyHist.innerHTML = '';
+                if (data.historial && data.historial.length > 0) {
+                    data.historial.forEach(i => {
+                        tbodyHist.insertAdjacentHTML('beforeend', `
+                            <tr>
+                                <td class="text-center"><a href="#" onclick="verDetalleDoc('oc', ${i.oc_id}); return false;" class="text-decoration-none">${i.folio_oc}</a></td>
+                                <td class="text-center"><a href="#" onclick="verDetalleDoc('rec', ${i.rec_id}); return false;" class="text-decoration-none">${i.folio_rec}</a></td>
+                                <td class="text-center small">${i.proveedor}</td>
+                                <td class="text-center small">${i.fecha}</td>
+                                <td class="text-center fw-bold">${i.cantidad}</td>
+                                <td class="text-end small">$${parseFloat(i.costo).toFixed(2)}</td>
+                                <td class="text-end pe-3 fw-bold">$${parseFloat(i.total).toFixed(2)}</td>
+                            </tr>`);
+                    });
+                } else {
+                    tbodyHist.innerHTML = '<tr><td colspan="7" class="text-center py-3 text-muted italic">Sin movimientos registrados.</td></tr>';
+                }
+            }
+
+            // 2. SERIES
+            if (tbodySeries) {
+                tbodySeries.innerHTML = '';
+                if (data.series && data.series.length > 0) {
+                    data.series.forEach(s => {
+                        tbodySeries.insertAdjacentHTML('beforeend', `
+                            <tr>
+                                <td class="ps-3 fw-bold small">${s.serie}</td>
+                                <td class="text-center small">${s.almacen}</td>
+                                <td class="text-center small">${s.fecha}</td>
+                            </tr>`);
+                    });
+                } else {
+                    tbodySeries.innerHTML = '<tr><td colspan="3" class="text-center py-3 text-muted italic">No hay números de serie registrados.</td></tr>';
+                }
+            }
+
+            // 3. LOTES
+            if (tbodyLotes) {
+                tbodyLotes.innerHTML = '';
+                if (data.lotes && data.lotes.length > 0) {
+                    data.lotes.forEach(l => {
+                        tbodyLotes.insertAdjacentHTML('beforeend', `
+                            <tr>
+                                <td class="ps-3 fw-bold small">${l.lote}</td>
+                                <td class="text-center fw-bold">${l.cantidad}</td>
+                                <td class="text-center small">${l.almacen}</td>
+                                <td class="text-center small">${l.fecha}</td>
+                            </tr>`);
+                    });
+                } else {
+                    tbodyLotes.innerHTML = '<tr><td colspan="4" class="text-center py-3 text-muted italic">No hay lotes registrados.</td></tr>';
+                }
+            }
+
+            // 4. PEDIMENTOS
+            if (tbodyPed) {
+                tbodyPed.innerHTML = '';
+                if (data.pedimentos && data.pedimentos.length > 0) {
+                    data.pedimentos.forEach(p => {
+                        tbodyPed.insertAdjacentHTML('beforeend', `
+                            <tr>
+                                <td class="ps-3 fw-bold small">${p.pedimento}</td>
+                                <td class="text-center small">${p.aduana}</td>
+                                <td class="text-center small">${p.fecha}</td>
+                                <td class="text-center small"><a href="#" onclick="verDetalleDoc('rec', ${p.rec_id}); return false;">${p.folio_rec}</a></td>
+                            </tr>`);
+                    });
+                } else {
+                    tbodyPed.innerHTML = '<tr><td colspan="4" class="text-center py-3 text-muted italic">No hay pedimentos registrados.</td></tr>';
+                }
             }
         });
 }
@@ -381,34 +452,108 @@ window.abrirModalPrecios = function(id, nombre) {
     if (t) t.innerText = nombre;
     const tp = document.getElementById('lpTablaPrecios'); if (tp) tp.innerHTML = '';
     const tc = document.getElementById('lpTablaCostos'); if (tc) tc.innerHTML = '';
+    
+    // Regresar a la primera pestaña
+    const firstTab = document.querySelector('#lpTab button[id="precios-tab"]');
+    if (firstTab) {
+        const tabTrigger = new bootstrap.Tab(firstTab);
+        tabTrigger.show();
+    }
+
     document.getElementById('modalListaPrecios').dataset.productoId = id;
     mostrarModal('modalListaPrecios');
+    
     fetch(APP_URLS.api_producto.replace('0', id))
         .then(r => r.json())
         .then(data => {
             document.getElementById('lpBaseCosto').value = data.precio_costo;
             document.getElementById('lpBaseVenta').value = data.precio_venta;
+            
+            // Sincronizar informativos
+            syncPreciosCostos();
+            
             if (data.precios_lista && tp) {
                 data.precios_lista.forEach(i => {
-                    tp.insertAdjacentHTML('beforeend', `
-                        <tr>
-                            <td class="ps-3"><input type="text" class="form-control form-control-sm lp-name" value="${i.nombre}"></td>
-                            <td class="text-center"><input type="number" step="0.01" class="form-control form-control-sm text-end lp-monto" value="${i.monto}"></td>
-                            <td class="text-center"><button class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>
-                        </tr>`);
+                    agregarFilaPrecio(i.nombre, i.monto);
                 });
             }
             if (data.costos_lista && tc) {
                 data.costos_lista.forEach(i => {
-                    tc.insertAdjacentHTML('beforeend', `
-                        <tr>
-                            <td class="ps-3"><input type="text" class="form-control form-control-sm lc-name" value="${i.nombre}"></td>
-                            <td class="text-center"><input type="number" step="0.01" class="form-control form-control-sm text-end lc-monto" value="${i.monto}"></td>
-                            <td class="text-center"><button class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>
-                        </tr>`);
+                    agregarFilaCosto(i.nombre, i.monto);
                 });
             }
+            recalcularMargenes();
         });
+}
+
+window.syncPreciosCostos = function() {
+    const costo = document.getElementById('lpBaseCosto').value || 0;
+    const venta = document.getElementById('lpBaseVenta').value || 0;
+    
+    const infoCosto = document.getElementById('infoCostoBase');
+    const infoPrecio = document.getElementById('infoPrecioBase');
+    
+    if (infoCosto) infoCosto.innerText = parseFloat(costo).toFixed(2);
+    if (infoPrecio) infoPrecio.innerText = parseFloat(venta).toFixed(2);
+}
+
+window.agregarFilaPrecio = function(nombre = '', monto = 0) {
+    const tp = document.getElementById('lpTablaPrecios');
+    tp.insertAdjacentHTML('beforeend', `
+        <tr>
+            <td class="ps-3"><input type="text" class="form-control form-control-sm lp-name" value="${nombre}" placeholder="Ej: Mayoreo"></td>
+            <td class="text-center"><input type="number" step="0.01" class="form-control form-control-sm text-end lp-monto" value="${monto}" oninput="recalcularMargenes()"></td>
+            <td class="text-center"><span class="badge bg-light text-dark border lp-margen">0%</span></td>
+            <td class="text-center"><button class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); recalcularMargenes();"><i class="bi bi-x-lg"></i></button></td>
+        </tr>`);
+    recalcularMargenes();
+}
+
+window.agregarFilaCosto = function(nombre = '', monto = 0) {
+    const tc = document.getElementById('lpTablaCostos');
+    tc.insertAdjacentHTML('beforeend', `
+        <tr>
+            <td class="ps-3"><input type="text" class="form-control form-control-sm lc-name" value="${nombre}" placeholder="Ej: Embalaje"></td>
+            <td class="text-center"><input type="number" step="0.01" class="form-control form-control-sm text-end lc-monto" value="${monto}" oninput="recalcularMargenes()"></td>
+            <td class="text-center"><span class="badge bg-light text-dark border lc-margen">0%</span></td>
+            <td class="text-center"><button class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); recalcularMargenes();"><i class="bi bi-x-lg"></i></button></td>
+        </tr>`);
+    recalcularMargenes();
+}
+
+window.recalcularMargenes = function() {
+    const costoBase = parseFloat(document.getElementById('lpBaseCosto').value) || 0;
+    const ventaBase = parseFloat(document.getElementById('lpBaseVenta').value) || 0;
+    
+    // Márgenes para Precios
+    document.querySelectorAll('#lpTablaPrecios tr').forEach(tr => {
+        const monto = parseFloat(tr.querySelector('.lp-monto').value) || 0;
+        const span = tr.querySelector('.lp-margen');
+        
+        if (costoBase > 0 && monto > 0) {
+            const margen = ((monto - costoBase) / monto) * 100;
+            span.innerText = margen.toFixed(1) + '%';
+            span.className = margen > 0 ? 'badge bg-success-subtle text-success border border-success-subtle lp-margen' : 'badge bg-danger-subtle text-danger border border-danger-subtle lp-margen';
+        } else {
+            span.innerText = '0%';
+            span.className = 'badge bg-light text-dark border lp-margen';
+        }
+    });
+
+    // Márgenes para Costos (relativos al Precio Base)
+    document.querySelectorAll('#lpTablaCostos tr').forEach(tr => {
+        const montoCosto = parseFloat(tr.querySelector('.lc-monto').value) || 0;
+        const span = tr.querySelector('.lc-margen');
+        
+        if (ventaBase > 0 && montoCosto > 0) {
+            const margen = ((ventaBase - montoCosto) / ventaBase) * 100;
+            span.innerText = margen.toFixed(1) + '%';
+            span.className = margen > 0 ? 'badge bg-success-subtle text-success border border-success-subtle lc-margen' : 'badge bg-danger-subtle text-danger border border-danger-subtle lc-margen';
+        } else {
+            span.innerText = '0%';
+            span.className = 'badge bg-light text-dark border lc-margen';
+        }
+    });
 }
 
 window.guardarCambiosListaPrecios = function() {

@@ -1,29 +1,143 @@
 <div class="modal fade" id="modalDetalleInventario" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl modal-sheet"> 
         <div class="modal-content">
+            <style>
+                /* 1. ESTILO DE PESTAÑAS FANTASMA */
+                #tabExistencias .nav-link {
+                    color: #adb5bd !important; /* Gris claro/fantasma */
+                    border: none;
+                    border-bottom: 2px solid transparent;
+                    transition: all 0.3s ease;
+                    font-weight: 500;
+                    opacity: 0.6;
+                }
+                #tabExistencias .nav-link:hover {
+                    opacity: 1;
+                    color: #6c757d !important;
+                }
+                #tabExistencias .nav-link.active {
+                    color: #00b8b9 !important; /* Color de la marca */
+                    opacity: 1;
+                    background: transparent;
+                    border-bottom: 2px solid #00b8b9;
+                    font-weight: 600;
+                }
+
+                /* 2. OSCURECIMIENTO DE MODALES APILADOS */
+                .modal.show {
+                    background-color: rgba(0, 0, 0, 0.2); /* Oscurece el fondo un poco más por cada modal */
+                }
+                /* Aseguramos que el backdrop del segundo modal esté sobre el primero */
+                .modal-backdrop.show {
+                    opacity: 0.5 !important;
+                }
+            </style>
             <div class="modal-header border-bottom bg-light py-2"> 
                 <h5 class="modal-title fw-bold" id="tituloModalDetalle">Detalle de Existencias</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             
             <div class="modal-body p-3 bg-light">
-                <div class="card border-0 shadow-sm mb-3">
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-sm table-hover mb-0 align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th class="text-center">Folio OC</th>
-                                        <th class="text-center">Folio Rec.</th>
-                                        <th class="text-center">Proveedor</th>
-                                        <th class="text-center">Fecha</th>
-                                        <th class="text-center">Cantidad</th>
-                                        <th class="text-end">Costo Unit.</th>
-                                        <th class="text-end">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tablaBodyProveedor"></tbody>
-                            </table>
+                <!-- TABS PARA FILTRAR VISTA -->
+                <ul class="nav nav-tabs nav-fill mb-3" id="tabExistencias" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active" id="existencias-tab" data-bs-toggle="tab" data-bs-target="#tab-existencias" type="button">Existencias</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" id="series-tab" data-bs-toggle="tab" data-bs-target="#tab-series" type="button">Series</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" id="lotes-tab" data-bs-toggle="tab" data-bs-target="#tab-lotes" type="button">Lotes</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" id="pedimentos-tab" data-bs-toggle="tab" data-bs-target="#tab-pedimentos" type="button">Pedimentos</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <!-- 1. PESTAÑA EXISTENCIAS (HISTORIAL) -->
+                    <div class="tab-pane fade show active" id="tab-existencias">
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover mb-0 align-middle">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th class="text-center">Folio OC</th>
+                                                <th class="text-center">Folio Rec.</th>
+                                                <th class="text-center">Proveedor</th>
+                                                <th class="text-center">Fecha</th>
+                                                <th class="text-center">Cantidad</th>
+                                                <th class="text-end">Costo Unit.</th>
+                                                <th class="text-end pe-3">Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tablaBodyProveedor"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. PESTAÑA SERIES -->
+                    <div class="tab-pane fade" id="tab-series">
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover mb-0 align-middle">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th class="ps-3">Número de Serie</th>
+                                                <th class="text-center">Almacén Actual</th>
+                                                <th class="text-center">Fecha Ingreso</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tablaBodySeries"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. PESTAÑA LOTES -->
+                    <div class="tab-pane fade" id="tab-lotes">
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover mb-0 align-middle">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th class="ps-3">Código de Lote</th>
+                                                <th class="text-center">Cantidad</th>
+                                                <th class="text-center">Almacén</th>
+                                                <th class="text-center">Fecha Ingreso</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tablaBodyLotes"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. PESTAÑA PEDIMENTOS -->
+                    <div class="tab-pane fade" id="tab-pedimentos">
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover mb-0 align-middle">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th class="ps-3">Número de Pedimento</th>
+                                                <th class="text-center">Aduana</th>
+                                                <th class="text-center">Fecha Pedimento</th>
+                                                <th class="text-center">Folio Recepción</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tablaBodyPedimentos"></tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
