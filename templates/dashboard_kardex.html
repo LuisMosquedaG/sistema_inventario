@@ -94,15 +94,15 @@
                     <thead>
                         <tr>
                             <th class="text-center" style="width: 150px;">Fecha / Hora</th>
-                            <th class="ps-3">Producto</th>
+                            <th class="text-center">Producto</th>
                             <th class="text-center">Almacén</th>
                             <th class="text-center">Movimiento</th>
                             <th class="text-center">Usuario</th>
                             <th class="text-center">Lote / Serie</th>
                             <th class="text-center">Referencia</th>
-                            <th class="text-end">Stock Ant.</th>
-                            <th class="text-end" style="width: 110px;">Cant. Movida</th>
-                            <th class="text-end pe-3" style="width: 110px;">Stock Nuevo</th>
+                            <th class="text-center">Stock Ant.</th>
+                            <th class="text-end text-center" style="width: 110px;">Cant. Movida</th>
+                            <th class="text-end text-center pe-3" style="width: 110px;">Stock Nuevo</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -112,8 +112,10 @@
                                 <div class="fw-bold text-dark">{{ m.fecha|date:"d/m/Y" }}</div>
                                 <div class="text-muted" style="font-size: 0.7rem;">{{ m.fecha|date:"H:i" }} hrs</div>
                             </td>
-                            <td class="ps-3">
-                                <div class="fw-bold text-dark">{{ m.producto.nombre }}</div>
+                            <td class="text-center">
+                                <div class="fw-bold text-dark text-truncate mx-auto" style="max-width: 250px;" title="{{ m.producto.nombre }}">
+                                    {{ m.producto.nombre }}
+                                </div>
                                 <div class="text-muted small" style="font-size: 0.7rem;">ID: {{ m.producto.id }}</div>
                             </td>
                             <td class="text-center small">{{ m.almacen.nombre }}</td>
@@ -138,13 +140,13 @@
                             </td>
                             <td class="text-center small text-muted">{{ m.referencia|default:"--" }}</td>
                             
-                            <td class="text-end text-muted small">{{ m.stock_anterior|floatformat:0 }}</td>
+                            <td class="text-center text-muted small">{{ m.stock_anterior|floatformat:0 }}</td>
                             
-                            <td class="text-end fw-bold {% if m.tipo_movimiento == 'entrada' %}text-success{% else %}text-danger{% endif %}">
+                            <td class="text-center fw-bold {% if m.tipo_movimiento == 'entrada' %}text-success{% else %}text-danger{% endif %}">
                                 {% if m.tipo_movimiento == 'entrada' %}+{% else %}-{% endif %}{{ m.cantidad|floatformat:0 }}
                             </td>
                             
-                            <td class="text-end pe-3 fw-bold text-dark">{{ m.stock_nuevo|floatformat:0 }}</td>
+                            <td class="text-center pe-3 fw-bold text-dark">{{ m.stock_nuevo|floatformat:0 }}</td>
                         </tr>
                         {% empty %}
                         <tr>
