@@ -291,6 +291,7 @@ def ejecutar_surtido(request, ov_id):
                 usuario=request.user
             )
         ov.estado = 'surtido'
+        ov.estado_entrega = 'listo'
         ov.save()
 
         # Solo actualizar pedido si existe (Salidas con pedido previo)
@@ -301,3 +302,19 @@ def ejecutar_surtido(request, ov_id):
 
         return JsonResponse({'success': True, 'message': 'Orden surtida correctamente.'})
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def actualizar_estado_entrega(request, ov_id):
+    if request.method != 'POST':
+        return redirect('dashboard_ventas')
+    
+    empresa_actual = get_empresa_actual(request)
+    ov = get_object_or_404(OrdenVenta, id=ov_id, empresa=empresa_actual)
+    nuevo_estado = request.POST.get('nuevo_estado')
+    
+    if nuevo_estado in ['transito', 'entregado']:
+        ov.estado_entrega = nuevo_estado
+        ov.save()
+        messages.success(request, f"Estado de entrega actualizado a {ov.get_estado_entrega_display()}.")
+    
+    return redirect('dashboard_ventas')

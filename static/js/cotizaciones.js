@@ -40,7 +40,7 @@ document.addEventListener('change', function(e) {
     }
 });
 
-// 2. FUNCIÓN: Agregar a la lista
+// 2. FUNCIÓN: Agregar o Actualizar en la lista
 function agregarALista() {
     const select = document.getElementById('selectProductoAgregar');
     const productId = select.value;
@@ -48,6 +48,7 @@ function agregarALista() {
     const cantidad = document.getElementById('inputCantidadAgregar').value;
     const precio = document.getElementById('inputPrecioAgregar').value;
     const total = (parseFloat(cantidad) * parseFloat(precio)).toFixed(2);
+    const editIndex = document.getElementById('edit_index').value;
 
     if (!productId || cantidad <= 0) {
         alert("Por favor selecciona un producto y una cantidad válida.");
@@ -55,36 +56,78 @@ function agregarALista() {
     }
 
     const filaHtml = `
-        <tr>
-            <td class="ps-3">
-                <div class="fw-semibold small text-dark">${productName}</div>
-                <input type="hidden" name="producto_id[]" value="${productId}">
-            </td>
-            <td class="text-center">
-                <span class="small text-dark">${cantidad}</span>
-                <input type="hidden" name="cantidad[]" value="${cantidad}">
-            </td>
-            <td class="text-end">
-                <span class="small text-muted">$${parseFloat(precio).toFixed(2)}</span>
-                <input type="hidden" name="precio_unitario[]" value="${precio}">
-            </td>
-            <td class="text-end">
-                <span class="fw-bold small text-dark">$${total}</span>
-            </td>
-            <td class="text-center">
+        <td class="ps-3">
+            <div class="fw-semibold small text-dark">${productName}</div>
+            <input type="hidden" name="producto_id[]" value="${productId}">
+        </td>
+        <td class="text-center">
+            <span class="small text-dark">${cantidad}</span>
+            <input type="hidden" name="cantidad[]" value="${cantidad}">
+        </td>
+        <td class="text-end">
+            <span class="small text-muted">$${parseFloat(precio).toFixed(2)}</span>
+            <input type="hidden" name="precio_unitario[]" value="${precio}">
+        </td>
+        <td class="text-end">
+            <span class="fw-bold small text-dark">$${total}</span>
+        </td>
+        <td class="text-center">
+            <div class="d-flex justify-content-center gap-2">
+                <button type="button" class="btn btn-sm text-primary p-0" onclick="editarFila(this)">
+                    <i class="bi bi-pencil-fill"></i>
+                </button>
                 <button type="button" class="btn btn-sm text-danger p-0" onclick="eliminarDeLista(this)">
                     <i class="bi bi-x-circle-fill"></i>
                 </button>
-            </td>
-        </tr>
+            </div>
+        </td>
     `;
-    const tbody = document.getElementById('tablaCuerpo');
-    tbody.insertAdjacentHTML('beforeend', filaHtml);
-    document.getElementById('mensajeVacio').style.display = 'none';
+
+    if (editIndex !== "-1") {
+        // ACTUALIZAR FILA EXISTENTE
+        const tbody = document.getElementById('tablaCuerpo');
+        const fila = tbody.rows[parseInt(editIndex)];
+        fila.innerHTML = filaHtml;
+        
+        // Resetear botón y modo edición
+        const btnAgregar = document.querySelector('button[onclick="agregarALista()"]');
+        btnAgregar.innerHTML = '<i class="bi bi-plus-lg"></i> Agregar';
+        document.getElementById('edit_index').value = "-1";
+    } else {
+        // AGREGAR NUEVA FILA
+        const tbody = document.getElementById('tablaCuerpo');
+        const nuevaFila = document.createElement('tr');
+        nuevaFila.innerHTML = filaHtml;
+        tbody.appendChild(nuevaFila);
+        document.getElementById('mensajeVacio').style.display = 'none';
+    }
+
     select.value = "";
     document.getElementById('inputCantidadAgregar').value = 1;
     document.getElementById('inputPrecioAgregar').value = "0.00";
     calcularGranTotalLista();
+}
+
+function editarFila(boton) {
+    const fila = boton.closest('tr');
+    const tbody = document.getElementById('tablaCuerpo');
+    const index = Array.from(tbody.rows).indexOf(fila);
+    
+    // Obtener valores de la fila
+    const productId = fila.querySelector('input[name="producto_id[]"]').value;
+    const cantidad = fila.querySelector('input[name="cantidad[]"]').value;
+    const precio = fila.querySelector('input[name="precio_unitario[]"]').value;
+
+    // Llenar campos de "Agregar Artículo"
+    const select = document.getElementById('selectProductoAgregar');
+    select.value = productId;
+    document.getElementById('inputCantidadAgregar').value = cantidad;
+    document.getElementById('inputPrecioAgregar').value = precio;
+    document.getElementById('edit_index').value = index;
+
+    // Cambiar texto del botón "Agregar" a "Actualizar"
+    const btnAgregar = document.querySelector('button[onclick="agregarALista()"]');
+    btnAgregar.innerHTML = '<i class="bi bi-check-lg"></i> Actualizar';
 }
 
 function eliminarDeLista(boton) {
@@ -93,13 +136,19 @@ function eliminarDeLista(boton) {
     if (document.getElementById('tablaCuerpo').children.length === 0) {
         document.getElementById('mensajeVacio').style.display = 'block';
     }
+    
+    // Si estábamos editando esta fila, resetear modo edición
+    document.getElementById('edit_index').value = "-1";
+    const btnAgregar = document.querySelector('button[onclick="agregarALista()"]');
+    btnAgregar.innerHTML = '<i class="bi bi-plus-lg"></i> Agregar';
+
     calcularGranTotalLista();
 }
 
 function calcularGranTotalLista() {
     let granTotal = 0;
     document.querySelectorAll('#tablaCuerpo tr').forEach(fila => {
-        const textoTotal = fila.cells[3].innerText.replace('$', '');
+        const textoTotal = fila.cells[3].innerText.replace('$', '').replace(',', '');
         granTotal += parseFloat(textoTotal);
     });
     document.getElementById('granTotalModal').innerText = '$' + granTotal.toFixed(2);
@@ -124,9 +173,14 @@ function agregarFilaVisual(id, nombre, cant, precio, total) {
                 <span class="fw-bold small text-dark">$${total}</span>
             </td>
             <td class="text-center">
-                <button type="button" class="btn btn-sm text-danger p-0" onclick="eliminarDeLista(this)">
-                    <i class="bi bi-x-circle-fill"></i>
-                </button>
+                <div class="d-flex justify-content-center gap-2">
+                    <button type="button" class="btn btn-sm text-primary p-0" onclick="editarFila(this)">
+                        <i class="bi bi-pencil-fill"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm text-danger p-0" onclick="eliminarDeLista(this)">
+                        <i class="bi bi-x-circle-fill"></i>
+                    </button>
+                </div>
             </td>
         </tr>
     `;
@@ -384,6 +438,11 @@ if (btnNC) {
         document.getElementById('cliente_busqueda').value = '';
         document.getElementById('cliente_display_fake').innerHTML = 'Buscar cliente...';
         document.getElementById('cliente_id_input').value = '';
+        
+        // Resetear modo edición de artículos
+        document.getElementById('edit_index').value = "-1";
+        const btnAgregar = document.querySelector('button[onclick="agregarALista()"]');
+        if (btnAgregar) btnAgregar.innerHTML = '<i class="bi bi-plus-lg"></i> Agregar';
     });
 }
 

@@ -19,4 +19,7 @@ urlpatterns = [
 
     # 5. Ejecución del surtido (POST)
     path('surtir/<int:ov_id>/', views.ejecutar_surtido, name='ejecutar_surtido'),
+    
+    # 6. Actualización de estado de entrega
+    path('actualizar-entrega/<int:ov_id>/', views.actualizar_estado_entrega, name='actualizar_estado_entrega'),
 ]

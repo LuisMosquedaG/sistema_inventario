@@ -17,6 +17,13 @@ class OrdenVenta(models.Model):
         ('cancelado', 'Cancelado'),
     )
 
+    ENTREGA_CHOICES = (
+        ('pendiente', 'Pendiente'),
+        ('listo', 'Listo para enviar'),
+        ('transito', 'En tránsito'),
+        ('entregado', 'Entregado'),
+    )
+
     # REFERENCIAS
     pedido_origen = models.OneToOneField(
         'pedidos.Pedido', 
@@ -37,6 +44,7 @@ class OrdenVenta(models.Model):
     
     # Estados y Datos de Envío
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='borrador')
+    estado_entrega = models.CharField(max_length=20, choices=ENTREGA_CHOICES, default='pendiente', verbose_name="Estado de Entrega")
     almacen = models.ForeignKey('almacenes.Almacen', on_delete=models.PROTECT, null=True, blank=True, verbose_name="Almacén de Salida")
     
     # Datos de envío (se llenan al momento de surtir)

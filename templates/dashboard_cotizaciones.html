@@ -35,7 +35,7 @@
                     <table class="table table-pro mb-0">
                         <thead>
                             <tr>
-                                <th class="text-center" style="width: 80px;">Acciones</th>
+                                <th class="text-center" style="width: 120px;">Acciones</th>
                                 <th class="text-center" style="width: 100px;">Folio</th>
                                 <th class="text-center">Cliente/Contacto</th>
                                 <th class="text-center">Fecha</th>
@@ -62,11 +62,22 @@
                                                 <i class="bi bi-pencil-square"></i>
                                             </span>
 
+                                            {% if not c.tiene_pedido %}
+                                            <form method="post" action="{% url 'cancelar_cotizacion' c.id %}" style="display:inline;">
+                                                {% csrf_token %}
+                                                <button type="submit" class="icon-action state-cancelled border-0 bg-transparent p-0 m-0" title="Cancelar" onclick="return confirm('¿Deseas cancelar esta cotización?')">
+                                                    <i class="bi bi-x-circle"></i>
+                                                </button>
+                                            </form>
+                                            {% endif %}
+
                                             <!-- 2. ESTADO APROBADA -->
                                             {% elif c.estado == 'aprobada' %}
+                                            {% if not c.tiene_pedido %}
                                             <a href="{% url 'crear_pedido_desde_cotizacion' c.id %}" class="icon-action" title="Crear Pedido">
                                                 <i class="bi bi-box-seam"></i>
                                             </a>
+                                            {% endif %}
                                             
                                             <form method="post" action="/cotizaciones/recotizar/{{ c.id }}/" style="display:inline;">
                                                 {% csrf_token %}
@@ -75,9 +86,18 @@
                                                 </button>
                                             </form>
 
-                                            <!-- 3. ESTADO VENDIDA -->
-                                            {% elif c.estado == 'vendida' %}
-                                            <span class="icon-action state-sold" title="Vendida">
+                                            {% if not c.tiene_pedido %}
+                                            <form method="post" action="{% url 'cancelar_cotizacion' c.id %}" style="display:inline;">
+                                                {% csrf_token %}
+                                                <button type="submit" class="icon-action state-cancelled border-0 bg-transparent p-0 m-0" title="Cancelar" onclick="return confirm('¿Deseas cancelar esta cotización?')">
+                                                    <i class="bi bi-x-circle"></i>
+                                                </button>
+                                            </form>
+                                            {% endif %}
+
+                                            <!-- 3. ESTADO GANADA -->
+                                            {% elif c.estado == 'ganada' %}
+                                            <span class="icon-action state-sold" title="Ganada">
                                                 <i class="bi bi-bag-check"></i>
                                             </span>
                                             
@@ -134,15 +154,15 @@
                                     <!-- 7. ESTADO -->
                                     <td class="text-center">
                                         {% if c.estado == 'borrador' %}
-                                            <span class="status-pill status-borrador">Borrador</span>
+                                            <span class="status-pill status-borrador mx-auto">Borrador</span>
                                         {% elif c.estado == 'aprobada' %}
-                                            <span class="status-pill status-aprobada">Aprobada</span>
-                                        {% elif c.estado == 'vendida' %}
-                                            <span class="status-pill status-vendida">Vendida</span>
+                                            <span class="status-pill status-aprobada mx-auto">Aprobada</span>
+                                        {% elif c.estado == 'ganada' %}
+                                            <span class="status-pill status-vendida mx-auto">Ganada</span>
                                         {% elif c.estado == 'cancelada' %}
-                                            <span class="status-pill status-cancelada">Cancelada</span>
+                                            <span class="status-pill status-cancelada mx-auto">Cancelada</span>
                                         {% else %}
-                                            <span class="status-pill bg-secondary">{{ c.estado|title }}</span>
+                                            <span class="status-pill bg-secondary mx-auto">{{ c.estado|title }}</span>
                                         {% endif %}
                                     </td>
 

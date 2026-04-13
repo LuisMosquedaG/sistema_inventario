@@ -9,8 +9,15 @@ class Cotizacion(models.Model):
         ('borrador', 'Borrador'),
         ('enviada', 'Enviada'),
         ('aprobada', 'Aprobada'),
+        ('ganada', 'Ganada'),
         ('rechazada', 'Rechazada'),
         ('cancelada', 'Cancelada'), 
+    )
+
+    RESULTADO_CHOICES = (
+        ('pendiente', 'Pendiente'),
+        ('ganada', 'Ganada'),
+        ('perdida', 'Perdida'),
     )
 
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, verbose_name="Cliente")
@@ -36,6 +43,7 @@ class Cotizacion(models.Model):
     direccion_entrega = models.TextField(verbose_name="Dirección de Entrega")
     
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='borrador')
+    resultado = models.CharField(max_length=20, choices=RESULTADO_CHOICES, default='pendiente')
     creado_en = models.DateTimeField(auto_now_add=True, verbose_name="Creado el")
 
     parent_quote = models.ForeignKey(
@@ -46,6 +54,12 @@ class Cotizacion(models.Model):
         verbose_name="Cotización Padre",
         related_name="recotizaciones"
     )
+
+    @property
+    def tiene_pedido(self):
+        """Verifica si esta cotización ya generó un pedido"""
+        from pedidos.models import Pedido
+        return Pedido.objects.filter(cotizacion_origen_id=self.id, empresa=self.empresa).exists()
 
     def __str__(self):
         return f"Cotización #{self.id} - {self.cliente}"

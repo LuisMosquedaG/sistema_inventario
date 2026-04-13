@@ -242,7 +242,9 @@ def recotizar(request, cotizacion_id):
                 messages.error(request, 'Solo se pueden recotizar cotizaciones aprobadas.')
                 return redirect('dashboard_cotizaciones')
 
-            original.estado = 'cancelada'
+            # Al recotizar, la original permanece como 'aprobada' (como se pidió),
+            # pero el resultado se mantiene 'pendiente' o se marca internamente si se desea.
+            # No cambiamos el estado a 'cancelada' aquí.
             original.save()
 
             # Clonar
@@ -272,5 +274,30 @@ def recotizar(request, cotizacion_id):
         except Exception as e:
             messages.error(request, f'Error al recotizar: {str(e)}')
             return redirect('dashboard_cotizaciones')
+            
+    return redirect('dashboard_cotizaciones')
+
+@login_required(login_url='/login/')
+def cancelar_cotizacion(request, cotizacion_id):
+    if request.method == 'POST':
+        try:
+            empresa_actual = get_empresa_actual(request)
+            cotizacion = get_object_or_404(Cotizacion, id=cotizacion_id, empresa=empresa_actual)
+            
+            # Validación: No se puede cancelar si ya tiene pedido
+            if cotizacion.tiene_pedido:
+                messages.error(request, 'No se puede cancelar la cotización porque ya tiene un pedido generado.')
+                return redirect('dashboard_cotizaciones')
+
+            if cotizacion.estado in ['borrador', 'aprobada']:
+                cotizacion.estado = 'cancelada'
+                cotizacion.resultado = 'perdida'
+                cotizacion.save()
+                messages.success(request, f'Cotización #{cotizacion.id} cancelada correctamente.')
+            else:
+                messages.error(request, 'Solo se pueden cancelar cotizaciones en estado borrador o aprobada.')
+                
+        except Exception as e:
+            messages.error(request, f'Error al cancelar: {str(e)}')
             
     return redirect('dashboard_cotizaciones')

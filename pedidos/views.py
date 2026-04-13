@@ -154,6 +154,11 @@ def crear_pedido_desde_cotizacion(request, cotizacion_id):
                 estado_linea='pendiente' # Inicialmente pendiente de validación
             )
 
+        # 4. Actualizar estado de la Cotización
+        cotizacion.estado = 'ganada'
+        cotizacion.resultado = 'ganada'
+        cotizacion.save()
+
         messages.success(request, f'Pedido #{nuevo_pedido.id} creado exitosamente. Por favor confírmalo para validar stock.')
         return redirect('dashboard_pedidos')
 

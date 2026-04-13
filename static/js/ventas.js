@@ -101,13 +101,13 @@ function abrirModalSurtido(ovId, forceAlmacenId = null) {
                 }
 
                 tr.innerHTML = `
-                    <td>
-                        <div class="fw-bold">${det.producto_nombre}</div>
+                    <td class="text-center">
+                        <div class="fw-bold text-center">${det.producto_nombre}</div>
                         ${extraHtml}
                     </td>
                     <td class="text-center">${det.cantidad}</td>
-                    <td class="text-end">$${det.precio.toFixed(2)}</td>
-                    <td class="text-end">$${det.subtotal.toFixed(2)}</td>
+                    <td class="text-center">$${det.precio.toFixed(2)}</td>
+                    <td class="text-center">$${det.subtotal.toFixed(2)}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -131,6 +131,13 @@ function abrirModalDetalle(ovId) {
     const modalEl = document.getElementById('modalDetalleVenta');
     const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
     const tbody = document.getElementById('tablaArticulosDetalle');
+    const table = tbody.closest('table');
+    
+    // Centrar encabezados del modal de detalle
+    if (table) {
+        const headers = table.querySelectorAll('thead th');
+        headers.forEach(th => th.classList.add('text-center'));
+    }
     
     tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3"><span class="spinner-border spinner-border-sm"></span> Cargando...</td></tr>';
 
@@ -161,15 +168,25 @@ function abrirModalDetalle(ovId) {
                 totalFinal += det.subtotal;
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td>${det.producto_nombre}</td>
+                    <td class="text-center">${det.producto_nombre}</td>
                     <td class="text-center">${det.cantidad}</td>
-                    <td class="text-end">$${det.precio.toFixed(2)}</td>
-                    <td class="text-end">$${det.subtotal.toFixed(2)}</td>
+                    <td class="text-center">$${det.precio.toFixed(2)}</td>
+                    <td class="text-center">$${det.subtotal.toFixed(2)}</td>
                 `;
                 tbody.appendChild(tr);
             });
 
             document.getElementById('totalDetalleVenta').innerText = '$' + totalFinal.toFixed(2);
+            
+            // Centrar pie de tabla
+            const tfootTd = document.getElementById('totalDetalleVenta').closest('tr').querySelector('td:first-child');
+            if(tfootTd) {
+                tfootTd.classList.remove('text-end');
+                tfootTd.classList.add('text-center');
+            }
+            document.getElementById('totalDetalleVenta').classList.remove('text-end');
+            document.getElementById('totalDetalleVenta').classList.add('text-center');
+
             modal.show();
         })
         .catch(error => {

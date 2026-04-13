@@ -13,7 +13,7 @@ from ventas.views import dashboard_ventas
 from cotizaciones.views import (
     dashboard_cotizaciones, crear_cotizacion, 
     obtener_cotizacion_json, actualizar_cotizacion, 
-    aprobar_cotizacion, recotizar
+    aprobar_cotizacion, recotizar, cancelar_cotizacion
 )
 from clientes.views import dashboard_clientes, crear_cliente, obtener_cliente_json, actualizar_cliente, obtener_contactos_cliente, guardar_contactos_cliente
 from preferencias.views import (
@@ -75,6 +75,7 @@ urlpatterns = [
     path('cotizaciones/actualizar/<int:cotizacion_id>/', actualizar_cotizacion, name='actualizar_cotizacion'),
     path('cotizaciones/aprobar/<int:cotizacion_id>/', aprobar_cotizacion, name='aprobar_cotizacion'),
     path('cotizaciones/recotizar/<int:cotizacion_id>/', recotizar, name='recotizar'),
+    path('cotizaciones/cancelar/<int:cotizacion_id>/', cancelar_cotizacion, name='cancelar_cotizacion'),
     path('cotizaciones/', dashboard_cotizaciones, name='dashboard_cotizaciones'),
 
     # --- RUTAS DE CLIENTES ---

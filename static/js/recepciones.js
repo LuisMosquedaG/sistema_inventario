@@ -109,18 +109,18 @@ function cargarItemsOrdenCompra() {
                 
                 const filaHtml = `
                     <tr data-detalle-id="${item.id}" data-costo="${item.costo}" data-tipo="${item.maneja_serie ? 'serie' : (item.maneja_lote ? 'lote' : 'normal')}">
-                        <td class="ps-3">
+                        <td class="ps-3 text-center">
                             <div class="fw-semibold small text-dark">${item.nombre}</div>
                             <input type="hidden" name="detalle_compra_id[]" value="${item.id}">
                         </td>
                         <td class="text-center small">${item.cant_ordenada}</td>
                         <td class="text-center small text-muted">${item.cant_recibida_anterior}</td>
                         <td class="text-center">${inputHtml}</td>
-                        <td class="text-end small text-muted">
+                        <td class="text-center small text-muted">
                             $${parseFloat(item.costo).toFixed(2)}
                             <input type="hidden" name="costo_unitario[]" value="${item.costo}">
                         </td>
-                        <td class="text-end fw-bold small text-dark row-subtotal">$${subtotal}</td>
+                        <td class="text-center fw-bold small text-dark row-subtotal">$${subtotal}</td>
                     </tr>
                 `;
                 tbody.insertAdjacentHTML('beforeend', filaHtml);
@@ -241,7 +241,7 @@ function verDetalleRecepcion(id) {
             const tbody = document.getElementById('recModalTableBody');
             tbody.innerHTML = '';
             data.detalles.forEach(d => {
-                tbody.insertAdjacentHTML('beforeend', `<tr><td class="ps-3">${d.producto}</td><td class="text-center">${d.cant}</td><td class="text-end">$${d.precio.toFixed(2)}</td><td class="text-end pe-3 fw-bold">$${d.subtotal.toFixed(2)}</td></tr>`);
+                tbody.insertAdjacentHTML('beforeend', `<tr><td class="ps-3 text-center">${d.producto}</td><td class="text-center">${d.cant}</td><td class="text-center">$${d.precio.toFixed(2)}</td><td class="text-center fw-bold">$${d.subtotal.toFixed(2)}</td></tr>`);
             });
             document.getElementById('btnCancelarRecepcion').style.display = (data.estado !== 'CANCELADA') ? 'inline-block' : 'none';
             new bootstrap.Modal(document.getElementById('modalDetalleRecepcion')).show();
