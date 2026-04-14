@@ -46,6 +46,18 @@
         /* ESTILOS ESPECÍFICOS */
         .fila-hija { background-color: #fafafa; border-left: 4px solid #ff9800; }
         .texto-hijo { font-style: italic; color: #6c757d; padding-left: 15px; font-size: 0.9em; }
+
+        /* BARRAS DE AVANCE SÚPER DELGADAS (ESTILO PRODUCCIÓN) */
+        .progress-slim { 
+            display: flex;
+            height: 5px; 
+            border-radius: 10px; 
+            background-color: #f1f3f5; 
+            overflow: hidden; 
+            margin-top: 2px; 
+        }
+        .bg-brand-avance { background-color: #00b8b9 !important; }
+        .progress-label { font-size: 0.6rem; color: #868e96; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
     </style>
 
     <!-- 2. CONTENEDOR PRINCIPAL -->
@@ -71,9 +83,11 @@
                         <thead>
                             <tr>
                                 <th class="text-center align-middle" style="width: 80px;">Acciones</th>
-                                <th class="text-center align-middle" style="width: 80px;">Folio</th>
-                                <th class="text-center align-middle">Cliente/Contacto</th>
-                                <th class="text-center align-middle">Fecha</th>
+                                <th class="text-center align-middle" style="width: 100px;">Folio Ped.</th>
+                                <th class="text-center align-middle" style="width: 100px;">Folio Cot.</th>
+                                <th class="text-center align-middle">Cliente / Contacto</th>
+                                <th class="text-center align-middle" style="width: 120px;">Fecha</th>
+                                <th class="text-center align-middle" style="width: 150px;">Avance</th>
                                 <th class="text-center align-middle" style="width: 120px;">Total</th>
                                 <th class="text-center align-middle" style="width: 120px;">Estado</th>
                             </tr>
@@ -129,11 +143,20 @@
 
                                 <!-- 2. FOLIO -->
                                 <td class="text-center align-middle">
-                                    <span class="fw-bold text-dark">{{ p.id }}</span>
+                                    <span class="fw-bold text-dark font-monospace" style="font-size: 0.9rem;">PED-{{ p.id|stringformat:"04d" }}</span>
+                                </td>
+
+                                <!-- 3. COTIZACIÓN -->
+                                <td class="text-center align-middle">
+                                    {% if p.cotizacion_origen_id %}
+                                        <span class="text-secondary small font-monospace" style="font-size: 0.85rem;">COT-{{ p.cotizacion_origen_id|stringformat:"04d" }}</span>
+                                    {% else %}
+                                        <span class="text-muted small">--</span>
+                                    {% endif %}
                                 </td>
                                 
-                                <!-- 3. CLIENTE / CONTACTO -->
-                                <td class="text-center align-middle">
+                                <!-- 4. CLIENTE / CONTACTO -->
+                                <td class="text-center align-middle" style="min-width: 250px;">
                                     <div class="d-flex flex-column align-items-center">
                                         <div class="fw-bold text-dark" style="line-height: 1.2;">
                                             {% if p.cliente.razon_social %}
@@ -152,12 +175,26 @@
                                     </div>
                                 </td>
 
-                                <!-- 4. FECHA -->
+                                <!-- 5. FECHA -->
                                 <td class="text-center align-middle">
                                     <div class="text-dark fw-medium">{{ p.fecha_creacion|date:"d M Y" }}</div>
                                 </td>
 
-                                <!-- 5. TOTAL -->
+                                <!-- 5. AVANCE -->
+                                <td class="text-center align-middle px-3">
+                                    <div class="mb-1">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="progress-label">Surtido</span>
+                                            <span class="progress-label text-dark">{{ p.porcentaje_avance }}%</span>
+                                        </div>
+                                        <div class="progress-slim">
+                                            <div class="progress-bar bg-brand-avance" 
+                                                 style="width: {{ p.porcentaje_avance }}%"></div>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <!-- 6. TOTAL -->
                                 <td class="text-center align-middle">
                                     <span class="fw-bold text-success">${{ p.total_pedido }}</span>
                                 </td>

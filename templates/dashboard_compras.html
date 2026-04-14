@@ -122,8 +122,9 @@
 
     <!-- MODAL: NUEVA COMPRA -->
     <div class="modal fade" id="modalNuevaCompra" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
-            <div class="modal-content">
+       <div class="modal-dialog modal-dialog-centered modal-xl modal-sheet">
+           <div class="modal-content">
+
                 <div class="modal-header border-bottom bg-light py-2">
                     <h5 class="modal-title fw-bold text-dark"><i class="bi bi-cart-plus me-2" style="color: #00b8b9;"></i>Registrar Compra</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -201,7 +202,15 @@
                         <div class="card border-0 shadow-sm">
                             <div class="card-body p-0">
                                 <table class="table table-sm table-hover mb-0 align-middle">
-                                    <thead class="table-light"><tr><th class="ps-3">Artículo</th><th class="text-center" style="width: 80px;">Cant.</th><th class="text-end" style="width: 100px;">Costo</th><th class="text-end" style="width: 100px;">Total</th><th style="width: 50px;"></th></tr></thead>
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th class="ps-3">Artículo</th>
+                                            <th class="text-center" style="width: 120px;">Cantidad</th>
+                                            <th class="text-center" style="width: 150px;">Costo Unit.</th>
+                                            <th class="text-center" style="width: 150px;">Total</th>
+                                            <th style="width: 50px;"></th>
+                                        </tr>
+                                    </thead>
                                     <tbody id="tablaCuerpo"></tbody>
                                 </table>
                                 <div id="mensajeVacio" class="text-center py-3 text-muted small fst-italic">No hay artículos agregados.</div>
@@ -273,7 +282,7 @@
             const precio = document.getElementById('inputPrecioAgregar').value;
             if (!productId || cantidad <= 0) return alert("Selecciona un producto y cantidad.");
             const total = (parseFloat(cantidad) * parseFloat(precio)).toFixed(2);
-            const filaHtml = `<tr><td class="ps-3"><div class="fw-semibold small text-dark">${productName}</div><input type="hidden" name="producto_id[]" value="${productId}"></td><td class="text-center"><span class="small text-dark">${cantidad}</span><input type="hidden" name="cantidad[]" value="${cantidad}"></td><td class="text-end"><span class="small text-muted">$${parseFloat(precio).toFixed(2)}</span><input type="hidden" name="precio_unitario[]" value="${precio}"></td><td class="text-end"><span class="fw-bold small text-dark">$${total}</span></td><td class="text-center"><button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); calcularGranTotalLista();"><i class="bi bi-x-circle-fill"></i></button></td></tr>`;
+            const filaHtml = `<tr><td class="ps-3"><div class="fw-semibold small text-dark">${productName}</div><input type="hidden" name="producto_id[]" value="${productId}"></td><td class="text-center"><span class="small text-dark">${cantidad}</span><input type="hidden" name="cantidad[]" value="${cantidad}"></td><td class="text-center"><span class="small text-muted">$${parseFloat(precio).toFixed(2)}</span><input type="hidden" name="precio_unitario[]" value="${precio}"></td><td class="text-center"><span class="fw-bold small text-dark">$${total}</span></td><td class="text-center"><button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); calcularGranTotalLista();"><i class="bi bi-x-circle-fill"></i></button></td></tr>`;
             document.getElementById('tablaCuerpo').insertAdjacentHTML('beforeend', filaHtml);
             document.getElementById('mensajeVacio').style.display = 'none';
             calcularGranTotalLista();
@@ -303,7 +312,7 @@
                 if (data.detalles) {
                     data.detalles.forEach(d => {
                         const subtotal = (d.cantidad * d.precio).toFixed(2);
-                        const fila = `<tr><td class="ps-3"><div class="fw-semibold small text-dark">${d.producto_nombre}</div><input type="hidden" name="producto_id[]" value="${d.producto_id}"></td><td class="text-center"><span class="small text-dark">${d.cantidad}</span><input type="hidden" name="cantidad[]" value="${d.cantidad}"></td><td class="text-end"><span class="small text-muted">$${d.precio.toFixed(2)}</span><input type="hidden" name="precio_unitario[]" value="${d.precio}"></td><td class="text-end"><span class="fw-bold small text-dark">$${subtotal}</span></td><td class="text-center"><button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); calcularGranTotalLista();"><i class="bi bi-x-circle-fill"></i></button></td></tr>`;
+                        const fila = `<tr><td class="ps-3"><div class="fw-semibold small text-dark">${d.producto_nombre}</div><input type="hidden" name="producto_id[]" value="${d.producto_id}"></td><td class="text-center"><span class="small text-dark">${d.cantidad}</span><input type="hidden" name="cantidad[]" value="${d.cantidad}"></td><td class="text-center"><span class="small text-muted">$${d.precio.toFixed(2)}</span><input type="hidden" name="precio_unitario[]" value="${d.precio}"></td><td class="text-center"><span class="fw-bold small text-dark">$${subtotal}</span></td><td class="text-center"><button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); calcularGranTotalLista();"><i class="bi bi-x-circle-fill"></i></button></td></tr>`;
                         tbody.insertAdjacentHTML('beforeend', fila);
                     });
                 }

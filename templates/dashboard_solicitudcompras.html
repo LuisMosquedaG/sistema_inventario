@@ -227,12 +227,12 @@
                                     <table class="table table-sm table-hover mb-0 align-middle">
                                         <thead class="table-light">
                                             <tr>
-                                                <th class="ps-3" style="width: 40%;">Artículo</th>
-                                                <th style="width: 120px;">Moneda</th>
-                                                <th style="width: 150px;">Proveedor</th>
-                                                <th style="width: 150px;">Almacén Dest.</th>
+                                                <th class="ps-3">Artículo</th>
+                                                <th class="text-center" style="width: 100px;">Moneda</th>
+                                                <th class="text-center" style="width: 180px;">Proveedor</th>
+                                                <th class="text-center" style="width: 180px;">Almacén Dest.</th>
                                                 <th class="text-center" style="width: 80px;">Cant.</th>
-                                                <th style="width: 110px;">Costo Unit.</th>
+                                                <th class="text-center" style="width: 120px;">Costo Unit.</th>
                                             </tr>
                                         </thead>
                                         <tbody id="tablaCuerpo">
@@ -257,7 +257,7 @@
 
     <!-- 4. MODAL NUEVA SOLICITUD MANUAL -->
     <div class="modal fade" id="modalNuevaSolicitudManual" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+        <div class="modal-dialog modal-dialog-centered modal-xl modal-sheet">
             <div class="modal-content">
                 <div class="modal-header border-bottom bg-light py-2">
                     <h5 class="modal-title fw-bold text-dark">
@@ -324,12 +324,12 @@
                                     <table class="table table-sm table-hover mb-0 align-middle">
                                         <thead class="table-light">
                                             <tr>
-                                                <th class="ps-3" style="min-width: 180px;">Artículo</th>
-                                                <th style="width: 110px;">Moneda</th>
-                                                <th style="width: 130px;">Proveedor</th>
-                                                <th style="width: 130px;">Almacén</th>
-                                                <th class="text-center" style="width: 70px;">Cant.</th>
-                                                <th style="width: 100px;">Costo</th>
+                                                <th class="ps-3">Artículo</th>
+                                                <th class="text-center" style="width: 100px;">Moneda</th>
+                                                <th class="text-center" style="width: 180px;">Proveedor</th>
+                                                <th class="text-center" style="width: 180px;">Almacén</th>
+                                                <th class="text-center" style="width: 80px;">Cant.</th>
+                                                <th class="text-center" style="width: 120px;">Costo</th>
                                                 <th style="width: 40px;"></th>
                                             </tr>
                                         </thead>
@@ -593,17 +593,17 @@
                     <input type="hidden" name="producto_id[]" value="${prodId}">
                     <input type="hidden" name="pedido_det_id[]" value="${pedidoDetId || ''}">
                 </td>
-                <td class="align-middle">
+                <td class="text-center align-middle">
                     <select name="moneda_id[]" class="form-select form-select-sm">
                         ${monOptions}
                     </select>
                 </td>
-                <td class="align-middle">
+                <td class="text-center align-middle">
                     <select name="proveedor_id[]" class="form-select form-select-sm">
                         ${provOptions}
                     </select>
                 </td>
-                <td class="align-middle">
+                <td class="text-center align-middle">
                     <select name="almacen_id[]" class="form-select form-select-sm">
                         ${almOptions}
                     </select>
@@ -611,7 +611,7 @@
                 <td class="text-center align-middle">
                     <input type="number" name="cantidad[]" class="form-control form-control-sm text-center" value="${cantidad}" min="1">
                 </td>
-                <td class="align-middle">
+                <td class="text-center align-middle">
                     <div class="input-group input-group-sm">
                         <span class="input-group-text">$</span>
                         <input type="number" name="costo_unitario[]" class="form-control" value="${costo}" step="0.01">
@@ -696,17 +696,17 @@
                     <div class="fw-semibold small text-dark text-truncate" style="max-width: 450px;" title="${pName}">${pName}</div>
                     <input type="hidden" name="producto_id[]" value="${pId}">
                 </td>
-                <td class="align-middle">
+                <td class="text-center align-middle">
                     <select name="moneda_id[]" class="form-select form-select-sm">
                         ${monOptions}
                     </select>
                 </td>
-                <td class="align-middle">
+                <td class="text-center align-middle">
                     <select name="proveedor_id[]" class="form-select form-select-sm">
                         ${provOptions}
                     </select>
                 </td>
-                <td class="align-middle">
+                <td class="text-center align-middle">
                     <select name="almacen_id[]" class="form-select form-select-sm">
                         ${almOptions}
                     </select>
@@ -714,7 +714,7 @@
                 <td class="text-center align-middle">
                     <input type="number" name="cantidad[]" class="form-control form-control-sm text-center" value="${cant}" min="1">
                 </td>
-                <td class="align-middle">
+                <td class="text-center align-middle">
                     <div class="input-group input-group-sm">
                         <span class="input-group-text">$</span>
                         <input type="number" name="costo_unitario[]" class="form-control" value="${costo}" step="0.01">

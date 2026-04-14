@@ -59,6 +59,17 @@ class Pedido(models.Model):
     def estado_display(self):
         return dict(self.ESTADO_CHOICES).get(self.estado, self.estado)
 
+    @property
+    def porcentaje_avance(self):
+        """Calcula el porcentaje de partidas que ya están listas (reservadas o completas)"""
+        total = self.detalles.count()
+        if total == 0:
+            return 0
+        # Consideramos avanzadas las partidas en estado 'completo' o 'reservado'
+        # ya que ambas indican que el material ya está asegurado para el cliente.
+        listos = self.detalles.filter(estado_linea__in=['completo', 'reservado']).count()
+        return int((listos / total) * 100)
+
 
 # ==========================================
 # 2. MODELO: DETALLE PEDIDO (PARTIDAS)

@@ -62,7 +62,7 @@ class Cotizacion(models.Model):
         return Pedido.objects.filter(cotizacion_origen_id=self.id, empresa=self.empresa).exists()
 
     def __str__(self):
-        return f"Cotización #{self.id} - {self.cliente}"
+        return f"{self.folio_completo} - {self.cliente}"
     
     @property
     def calcular_total(self):
@@ -75,9 +75,9 @@ class Cotizacion(models.Model):
     @property
     def folio_completo(self):
         if self.parent_quote:
-            return f"{self.parent_quote.id}-001"
+            return f"COT-{self.parent_quote.id:04d}-001"
         else:
-            return str(self.id)
+            return f"COT-{self.id:04d}"
 
     class Meta:
         verbose_name = "Cotización"
