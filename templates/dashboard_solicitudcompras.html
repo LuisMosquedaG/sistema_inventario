@@ -97,9 +97,9 @@
                                             <i class="bi bi-eye"></i>
                                         </span>
                                         {% if s.estado == 'borrador' %}
-                                        <a href="{% url 'autorizar_solicitud' s.id %}" class="icon-action" title="Autorizar Solicitud" onclick="return confirm('¿Autorizar esta solicitud?')">
+                                        <span onclick="previsualizarAutorizacion({{ s.id }})" class="icon-action" title="Autorizar Solicitud">
                                             <i class="bi bi-check-circle"></i>
-                                        </a>
+                                        </span>
                                         <span onclick="cargarParaEdicion({{ s.id }})" class="icon-action" title="Editar">
                                             <i class="bi bi-pencil-square"></i>
                                         </span>
@@ -435,6 +435,33 @@
         </div>
     </div>
 
+    <!-- 6. MODAL CONFIRMAR AUTORIZACIÓN -->
+    <div class="modal fade" id="modalConfirmarAutorizacion" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg border-0" style="border-radius: 12px;">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold text-dark w-100 text-center">Confirmar Autorización</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center p-4">
+                    <div class="mb-3">
+                        <i class="bi bi-info-circle text-info display-4" style="color: #00b8b9 !important;"></i>
+                    </div>
+                    <p class="mb-3" id="pResumenAutorizacion">Analizando solicitud...</p>
+                    <div id="divAlertasProveedores" class="text-start mb-0">
+                        <!-- Alertas dinámicas aquí -->
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0 justify-content-center">
+                    <button type="button" class="btn btn-light text-secondary btn-sm px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" id="btnConfirmarFinal" class="btn btn-brand btn-sm px-4 text-white shadow-sm">
+                        Autorizar y Generar OCs
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -709,6 +736,85 @@
             document.getElementById('mensajeVacioManual').style.display = 'block';
         }
     }
+
+    let idSolicitudProcesando = null;
+
+    function previsualizarAutorizacion(id) {
+        idSolicitudProcesando = id;
+        const divAlertas = document.getElementById('divAlertasProveedores');
+        const pResumen = document.getElementById('pResumenAutorizacion');
+        const btnConfirmar = document.getElementById('btnConfirmarFinal');
+
+        divAlertas.innerHTML = '';
+        pResumen.innerText = 'Analizando solicitud...';
+        btnConfirmar.disabled = true;
+
+        const modal = new bootstrap.Modal(document.getElementById('modalConfirmarAutorizacion'));
+        modal.show();
+
+        fetch(`/solicitudes-compras/autorizar/${id}/?preview=1`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    pResumen.innerHTML = `Se generarán <strong>${data.total_ordenes}</strong> órdenes de compra en total.`;
+                    
+                    let hayMultiples = false;
+                    data.desglose.forEach(item => {
+                        if (item.total_oc > 1) {
+                            hayMultiples = true;
+                            const alertHtml = `
+                                <div class="alert alert-warning py-2 mb-2 shadow-none border-0" style="font-size: 0.85rem; background-color: #fff9db; color: #856404;">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                    Para <strong>${item.proveedor}</strong> se crearán <strong>${item.total_oc}</strong> órdenes (por moneda o almacén).
+                                </div>`;
+                            divAlertas.insertAdjacentHTML('beforeend', alertHtml);
+                        }
+                    });
+
+                    if (!hayMultiples) {
+                        divAlertas.innerHTML = '<div class="text-muted small text-center">Todo unificado correctamente.</div>';
+                    }
+
+                    btnConfirmar.disabled = false;
+                } else {
+                    alert('Error: ' + data.error);
+                    modal.hide();
+                }
+            })
+            .catch(e => {
+                alert('Error de conexión');
+                modal.hide();
+            });
+    }
+
+    document.getElementById('btnConfirmarFinal').addEventListener('click', function() {
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando...';
+
+        fetch(`/solicitudes-compras/autorizar/${idSolicitudProcesando}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+                btn.disabled = false;
+                btn.innerText = 'Autorizar y Generar OCs';
+            }
+        })
+        .catch(e => {
+            alert('Error crítico al autorizar');
+            btn.disabled = false;
+            btn.innerText = 'Autorizar y Generar OCs';
+        });
+    });
 
     document.getElementById('formNuevaSolicitudManual').addEventListener('submit', function(e) {
         e.preventDefault();

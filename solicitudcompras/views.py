@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.forms.models import model_to_dict
 from django.db import transaction
+from collections import defaultdict
 from panel.models import Empresa
 from pedidos.models import Pedido, DetallePedido
 from .models import SolicitudCompra, DetalleSolicitudCompra
@@ -317,65 +318,87 @@ def autorizar_solicitud(request, solicitud_id):
     solicitud = get_object_or_404(SolicitudCompra, id=solicitud_id, empresa=empresa_actual)
 
     if solicitud.estado != 'borrador':
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Solo se pueden autorizar solicitudes en estado Borrador.'})
         messages.warning(request, 'Solo se pueden autorizar solicitudes en estado Borrador.')
         return redirect('dashboard_solicitudcompras')
-    
-    # 1. Validar
+
+    # 1. Validar que todas las partidas tengan proveedor, almacén y moneda
     for det in solicitud.detalles.all():
-        if not det.proveedor or not det.almacen:
-            messages.error(request, 'Faltan datos de Proveedor o Almacén.')
+        if not det.proveedor or not det.almacen or not det.moneda:
+            error_msg = f'Faltan datos (Proveedor, Almacén o Moneda) en el producto {det.producto.nombre}.'
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': error_msg})
+            messages.error(request, error_msg)
             return redirect('dashboard_solicitudcompras')
 
-    from compras.models import OrdenCompra, DetalleCompra
-    from collections import defaultdict
-
-    items_por_proveedor = defaultdict(list)
-    almacenes_por_proveedor = {} 
-
+    # 2. Agrupar ítems por (Proveedor, Moneda, Almacén)
+    items_agrupados = defaultdict(list)
     for det in solicitud.detalles.all():
-        items_por_proveedor[det.proveedor].append(det)
-        if det.proveedor.id not in almacenes_por_proveedor:
-            almacenes_por_proveedor[det.proveedor.id] = det.almacen
+        llave = (det.proveedor, det.moneda, det.almacen)
+        items_agrupados[llave].append(det)
 
-    ordenes_creadas = []
+    # 3. Si es una previsualización (AJAX)
+    if request.GET.get('preview') == '1':
+        desglose = []
+        # Agrupamos por proveedor para el mensaje de alerta
+        conteo_por_proveedor = defaultdict(int)
+        for (prov, mon, alm) in items_agrupados.keys():
+            conteo_por_proveedor[prov.razon_social] += 1
 
-    # 3. Crear OC
-    for proveedor, lista_detalles in items_por_proveedor.items():
-        # Tomamos la moneda y el factor de la primera partida de este proveedor
-        primera_partida = lista_detalles[0]
-        moneda_solicitada = primera_partida.moneda
-        tc_aplicar = moneda_solicitada.factor if moneda_solicitada else 1.0000
+        for prov_nombre, total_oc in conteo_por_proveedor.items():
+            desglose.append({
+                'proveedor': prov_nombre,
+                'total_oc': total_oc
+            })
 
-        nueva_oc = OrdenCompra.objects.create(
-            proveedor=proveedor,
-            usuario=request.user,
-            empresa=empresa_actual,
-            estado='borrador',
-            almacen_destino=almacenes_por_proveedor[proveedor.id],
-            moneda=moneda_solicitada, # <--- HEREDA MONEDA
-            tipo_cambio=tc_aplicar,    # <--- HEREDA TIPO DE CAMBIO
-            notas=f"Generada desde Solicitud #{solicitud.id}.",
-            solicitud_origen=solicitud 
-        )
+        return JsonResponse({
+            'success': True,
+            'total_ordenes': len(items_agrupados),
+            'desglose': desglose
+        })
 
-        for det_solicitud in lista_detalles:
-            DetalleCompra.objects.create(
-                orden_compra=nueva_oc,
-                producto=det_solicitud.producto,
-                cantidad=det_solicitud.cantidad_solicitada,
-                precio_costo=det_solicitud.costo_unitario,
-                detalle_pedido_origen=det_solicitud.detalle_pedido_origen # <--- PASO DE ETIQUETA CRÍTICO
+    # 4. Procesar creación física (POST)
+    if request.method == 'POST':
+        from compras.models import OrdenCompra, DetalleCompra
+
+        ordenes_creadas_count = 0
+        for (proveedor, moneda, almacen), lista_detalles in items_agrupados.items():
+            nueva_oc = OrdenCompra.objects.create(
+                proveedor=proveedor,
+                usuario=request.user,
+                empresa=empresa_actual,
+                estado='borrador',
+                almacen_destino=almacen,
+                moneda=moneda,
+                tipo_cambio=moneda.factor if moneda else 1.0000,
+                notas=f"Generada desde Solicitud #{solicitud.id}.",
+                solicitud_origen=solicitud 
             )
-            
-            # Actualizamos el estado del pedido a 'comprado'
-            if det_solicitud.detalle_pedido_origen:
-                det_solicitud.detalle_pedido_origen.estado_linea = 'comprado'
-                det_solicitud.detalle_pedido_origen.save()
-        
-        ordenes_creadas.append(nueva_oc.id)
 
-    solicitud.estado = 'atendida'
-    solicitud.save()
+            for det_solicitud in lista_detalles:
+                DetalleCompra.objects.create(
+                    orden_compra=nueva_oc,
+                    producto=det_solicitud.producto,
+                    cantidad=det_solicitud.cantidad_solicitada,
+                    precio_costo=det_solicitud.costo_unitario,
+                    detalle_pedido_origen=det_solicitud.detalle_pedido_origen
+                )
 
-    messages.success(request, f'Solicitud autorizada. Revisa la consola para detalles.')
+                if det_solicitud.detalle_pedido_origen:
+                    det_solicitud.detalle_pedido_origen.estado_linea = 'comprado'
+                    det_solicitud.detalle_pedido_origen.save()
+
+            ordenes_creadas_count += 1
+
+        solicitud.estado = 'atendida'
+        solicitud.save()
+
+        msg = f'Solicitud autorizada. Se generaron {ordenes_creadas_count} órdenes de compra.'
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'message': msg})
+
+        messages.success(request, msg)
+        return redirect('dashboard_solicitudcompras')
+
     return redirect('dashboard_solicitudcompras')
