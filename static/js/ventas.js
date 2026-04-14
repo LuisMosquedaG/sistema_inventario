@@ -54,6 +54,7 @@ function abrirModalSurtido(ovId, forceAlmacenId = null) {
             }
 
             if (!forceAlmacenId) {
+                modalEl.querySelector('.modal-title').innerHTML = `<i class="bi bi-box-seam me-2 text-success"></i> Surtir Orden: ${data.folio_display}`;
                 document.getElementById('dispClienteNombre').innerText = data.cliente_razon || data.cliente_nombre;
                 document.getElementById('dispClienteTel').innerText = data.cliente_telefono || '-';
                 document.getElementById('dispClienteEmail').innerText = data.cliente_correo || '-';
@@ -69,11 +70,11 @@ function abrirModalSurtido(ovId, forceAlmacenId = null) {
             }
 
             tbody.innerHTML = '';
-            let totalFinal = 0;
             
             data.detalles.forEach(det => {
-                totalFinal += det.subtotal;
                 const tr = document.createElement('tr');
+                tr.dataset.precio = det.precio;
+                tr.dataset.id = det.id;
                 
                 let extraHtml = '';
                 if (det.maneja_lote || det.maneja_serie) {
@@ -106,13 +107,21 @@ function abrirModalSurtido(ovId, forceAlmacenId = null) {
                         ${extraHtml}
                     </td>
                     <td class="text-center">${det.cantidad}</td>
+                    <td class="text-center">0</td>
+                    <td class="text-center">
+                        <input type="number" name="cantidad_entregar_${det.id}" 
+                               class="form-control form-control-sm text-center mx-auto input-entregar" 
+                               style="max-width: 80px;"
+                               value="${det.cantidad}" min="0" max="${det.cantidad}"
+                               oninput="recalcularSurtido()">
+                    </td>
                     <td class="text-center">$${det.precio.toFixed(2)}</td>
-                    <td class="text-center">$${det.subtotal.toFixed(2)}</td>
+                    <td class="text-center fw-bold subtotal-item">$${det.subtotal.toFixed(2)}</td>
                 `;
                 tbody.appendChild(tr);
             });
 
-            document.getElementById('totalSurtido').innerText = '$' + totalFinal.toFixed(2);
+            recalcularSurtido();
             btnSubmit.disabled = false;
             
             if (!forceAlmacenId) modal.show();
@@ -120,8 +129,27 @@ function abrirModalSurtido(ovId, forceAlmacenId = null) {
         .catch(error => {
             console.error('Error:', error);
             alert('Error al cargar datos de la orden.');
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error de conexión</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error de conexión</td></tr>';
         });
+}
+
+/**
+ * Recalcula subtotales y total general en el modal de surtido
+ */
+function recalcularSurtido() {
+    let granTotal = 0;
+    document.querySelectorAll('#tablaArticulosSurtido tr').forEach(tr => {
+        const input = tr.querySelector('.input-entregar');
+        if (!input) return;
+        
+        const cant = parseInt(input.value) || 0;
+        const precio = parseFloat(tr.dataset.precio) || 0;
+        const subtotal = cant * precio;
+        
+        tr.querySelector('.subtotal-item').innerText = '$' + subtotal.toFixed(2);
+        granTotal += subtotal;
+    });
+    document.getElementById('totalSurtido').innerText = '$' + granTotal.toFixed(2);
 }
 
 /**

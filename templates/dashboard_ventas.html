@@ -176,7 +176,7 @@
 
                                 <!-- 2. FOLIO VENTA / FECHA (Replica Cliente) -->
                                 <td class="text-center">
-                                    <div class="fw-bold text-dark font-monospace" style="font-size: 0.9rem; line-height: 1.2;">OS-{{ ov.id|stringformat:"04d" }}</div>
+                                    <div class="fw-bold text-dark font-monospace" style="font-size: 0.9rem; line-height: 1.2;">{{ ov.folio_display }}</div>
                                     <div class="text-secondary mt-1" style="font-size: 0.75rem; line-height: 1.4;">{{ ov.fecha_creacion|date:"d M Y" }}</div>
                                 </td>
 
@@ -368,7 +368,9 @@
                                         <thead class="table-light">
                                             <tr>
                                                 <th class="text-center">Artículo</th>
-                                                <th class="text-center">Cant.</th>
+                                                <th class="text-center" style="width: 100px;">Solicitado</th>
+                                                <th class="text-center" style="width: 100px;">Entregado</th>
+                                                <th class="text-center" style="width: 120px;">A Entregar</th>
                                                 <th class="text-center">Precio Unit.</th>
                                                 <th class="text-center">Subtotal</th>
                                             </tr>
@@ -378,7 +380,7 @@
                                         </tbody>
                                         <tfoot class="table-light fw-bold">
                                             <tr>
-                                                <td colspan="3" class="text-end pe-4">Total a Enviar:</td>
+                                                <td colspan="5" class="text-end pe-4">Total de la Entrega:</td>
                                                 <td class="text-center text-success" id="totalSurtido">$0.00</td>
                                             </tr>
                                         </tfoot>

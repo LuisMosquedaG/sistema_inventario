@@ -25,12 +25,12 @@ class OrdenVenta(models.Model):
     )
 
     # REFERENCIAS
-    pedido_origen = models.OneToOneField(
+    pedido_origen = models.ForeignKey(
         'pedidos.Pedido', 
         on_delete=models.SET_NULL, 
         null=True, 
         blank=True, 
-        related_name='orden_venta',
+        related_name='ordenes_venta',
         verbose_name="Pedido de Origen"
     )
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, verbose_name="Cliente")
@@ -38,6 +38,10 @@ class OrdenVenta(models.Model):
     vendedor = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Vendedor")
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
     
+    # Jerarquía para entregas parciales
+    parent_orden = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='hijas')
+    secuencia = models.PositiveIntegerField(default=0)
+
     # Fechas
     fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Creado el")
     fecha_surtido = models.DateTimeField(null=True, blank=True, verbose_name="Surtido el")
@@ -57,7 +61,13 @@ class OrdenVenta(models.Model):
     guia = models.CharField(max_length=100, blank=True, verbose_name="Número de Guía")
 
     def __str__(self):
-        return f"OS-{self.id:04d} | {self.cliente}"
+        return f"{self.folio_display} | {self.cliente}"
+
+    @property
+    def folio_display(self):
+        if self.secuencia > 0 and self.parent_orden:
+            return f"OS-{self.parent_orden.id:04d}.{self.secuencia}"
+        return f"OS-{self.id:04d}"
 
     @property
     def total_orden(self):

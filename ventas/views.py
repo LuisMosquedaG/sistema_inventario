@@ -117,8 +117,11 @@ def crear_orden_venta(request, pedido_id):
         messages.error(request, 'Solo se pueden generar Órdenes de Venta desde pedidos confirmados.')
         return redirect('dashboard_pedidos')
 
-    if hasattr(pedido, 'orden_venta'):
-        messages.warning(request, 'Este pedido ya tiene una Orden de Venta generada.')
+    # Permitir creación solo si no hay una orden de venta ABIERTA para este pedido
+    # (Borrador o Aprobado)
+    orden_abierta = OrdenVenta.objects.filter(pedido_origen=pedido, estado__in=['borrador', 'aprobado']).exists()
+    if orden_abierta:
+        messages.warning(request, 'Este pedido ya tiene una Orden de Salida activa.')
         return redirect('dashboard_ventas')
 
     ov = OrdenVenta.objects.create(
@@ -225,6 +228,7 @@ def api_preparar_surtido(request, ov_id):
 
     return JsonResponse({
         'success': True, 'id': ov.id, 'almacen_id': almacen_final_id,
+        'folio_display': ov.folio_display,
         'cliente_razon': razon_social, 'cliente_nombre': nombre_completo, 'cliente_correo': correo_cliente, 'cliente_telefono': telefono_cliente, 'cliente_direccion': direccion_completa,
         'contacto_nombre': contacto_nombre, 'contacto_correo': contacto_correo, 'contacto_telefono': contacto_telefono,
         'direccion_envio': ov.direccion_envio or direccion_cliente_envio,
@@ -239,69 +243,151 @@ def ejecutar_surtido(request, ov_id):
     try:
         empresa_actual = get_empresa_actual(request)
         ov = get_object_or_404(OrdenVenta, id=ov_id, empresa=empresa_actual)
+        
+        if ov.estado == 'surtido':
+            return JsonResponse({'success': False, 'error': 'Esta orden ya ha sido surtida.'})
+
         almacen_id = request.POST.get('almacen_id')
         if not almacen_id: raise ValueError("Debes seleccionar un almacén de salida.")
-        from almacenes.models import Almacen
-        ov.almacen = get_object_or_404(Almacen, id=almacen_id, empresa=empresa_actual)
+        
+        from almacenes.models import Almacen, Inventario, Kardex
+        from recepciones.models import DetalleRecepcionExtra
+        
+        almacen = get_object_or_404(Almacen, id=almacen_id, empresa=empresa_actual)
+        ov.almacen = almacen
         ov.direccion_envio, ov.quien_recibe = request.POST.get('direccion'), request.POST.get('quien_recibe')
         ov.telefono_recibe, ov.guia, ov.notas_envio = request.POST.get('telefono_recibe'), request.POST.get('guia'), request.POST.get('notas')
         ov.fecha_surtido = timezone.now()
-        almacen = ov.almacen
-        from almacenes.models import Inventario
-        for det in ov.detalles.all():
-            producto, cantidad_a_descontar = det.producto, det.cantidad
+        
+        # 1. Preparar Orden Hija (Backorder) si es necesario
+        orden_hija = None
+        detalles_actuales = list(ov.detalles.all())
+        
+        for det in detalles_actuales:
+            producto = det.producto
+            cant_solicitada = det.cantidad
+            cant_a_entregar = int(request.POST.get(f'cantidad_entregar_{det.id}', cant_solicitada))
             
-            # --- NUEVO: Omitir actualización de inventario para servicios ---
-            if producto.tipo == 'servicio':
-                continue
-            # ----------------------------------------------------------------
+            if cant_a_entregar < 0: raise ValueError(f"Cantidad inválida para {producto.nombre}")
+            if cant_a_entregar > cant_solicitada: raise ValueError(f"No puedes entregar más de lo solicitado ({cant_solicitada}) para {producto.nombre}")
 
-            extra_ids = request.POST.getlist(f'extra_id_{det.id}[]')
-            inv = Inventario.objects.select_for_update().get(almacen=almacen, producto=producto)
-            if inv.cantidad < cantidad_a_descontar: raise ValueError(f"Stock insuficiente para {producto.nombre} en {almacen.nombre}.")
-            quitar_reserva = min(cantidad_a_descontar, inv.reservado)
-            Inventario.objects.filter(pk=inv.pk).update(cantidad=F('cantidad') - cantidad_a_descontar, reservado=F('reservado') - quitar_reserva)
-            from recepciones.models import DetalleRecepcionExtra
-            lote_ref, serie_ref = None, None
-            if extra_ids:
-                for eid in extra_ids:
-                    extra = DetalleRecepcionExtra.objects.get(id=eid, almacen=almacen)
-                    if extra.tipo == 'serie':
-                        extra.almacen = None
-                        extra.save()
-                        serie_ref = extra.serie
-                    else:
-                        if extra.cantidad_lote >= cantidad_a_descontar:
-                            extra.cantidad_lote = F('cantidad_lote') - cantidad_a_descontar
+            # Lógica de Partición: Si queda pendiente
+            if cant_a_entregar < cant_solicitada:
+                if not orden_hija:
+                    # Crear la cabecera de la hija una sola vez
+                    # Determinamos la secuencia: madre.hijas.count() + 1
+                    parent = ov.parent_orden if ov.parent_orden else ov
+                    nueva_secuencia = parent.hijas.count() + 1
+                    
+                    orden_hija = OrdenVenta.objects.create(
+                        pedido_origen=ov.pedido_origen,
+                        cliente=ov.cliente,
+                        vendedor=ov.vendedor,
+                        empresa=ov.empresa,
+                        estado='aprobado', # Lista para surtir el resto
+                        parent_orden=parent,
+                        secuencia=nueva_secuencia,
+                        direccion_envio=ov.direccion_envio,
+                        contacto_envio=ov.contacto_envio,
+                        notas_envio=ov.notas_envio,
+                        quien_recibe=ov.quien_recibe,
+                        telefono_recibe=ov.telefono_recibe
+                    )
+                
+                # Crear detalle en la hija con el pendiente
+                DetalleOrdenVenta.objects.create(
+                    orden_venta=orden_hija,
+                    producto=producto,
+                    cantidad=cant_solicitada - cant_a_entregar,
+                    precio_unitario=det.precio_unitario
+                )
+                
+                # Ajustar la orden actual con lo que realmente se entrega
+                det.cantidad = cant_a_entregar
+                det.save()
+
+            # 2. Procesar Salida de Almacén (Solo si se entrega algo)
+            if cant_a_entregar > 0 and producto.tipo != 'servicio':
+                extra_ids = request.POST.getlist(f'extra_id_{det.id}[]')
+                
+                # Bloqueo de stock
+                inv = Inventario.objects.select_for_update().get(almacen=almacen, producto=producto)
+                if inv.cantidad < cant_a_entregar:
+                    raise ValueError(f"Stock insuficiente para {producto.nombre} en {almacen.nombre}. Disponible: {inv.cantidad}, Requerido: {cant_a_entregar}")
+                
+                # Restar stock y reserva
+                quitar_reserva = min(cant_a_entregar, inv.reservado)
+                inv.cantidad = F('cantidad') - cant_a_entregar
+                inv.reservado = F('reservado') - quitar_reserva
+                inv.save()
+                
+                # Procesar Lotes/Series si aplica
+                lote_ref, serie_ref = None, None
+                if extra_ids:
+                    piezas_por_asignar = cant_a_entregar
+                    for eid in extra_ids:
+                        if piezas_por_asignar <= 0: break
+                        extra = DetalleRecepcionExtra.objects.get(id=eid, almacen=almacen)
+                        if extra.tipo == 'serie':
+                            extra.almacen = None # Sale de almacén
+                            extra.save()
+                            serie_ref = extra.serie # Nota: Solo guarda el último para el Kardex general
+                            piezas_por_asignar -= 1
+                        else:
+                            # Lote
+                            cantidad_lote_disponible = extra.cantidad_lote
+                            a_quitar_de_lote = min(piezas_por_asignar, cantidad_lote_disponible)
+                            
+                            extra.cantidad_lote = F('cantidad_lote') - a_quitar_de_lote
                             extra.save()
                             lote_ref = extra.lote
-                        else: raise ValueError(f"El lote {extra.lote} no tiene cantidad suficiente.")
-            from almacenes.models import Kardex
-            Kardex.objects.create(
-                empresa=empresa_actual, 
-                producto=producto, 
-                almacen=almacen, 
-                tipo_movimiento='salida', 
-                cantidad=cantidad_a_descontar, 
-                stock_anterior=inv.cantidad, 
-                stock_nuevo=inv.cantidad - cantidad_a_descontar, 
-                referencia=f"OS-{ov.id:04d}", 
-                lote=lote_ref, 
-                serie=serie_ref,
-                usuario=request.user
-            )
+                            piezas_por_asignar -= a_quitar_de_lote
+                
+                # Registrar en Kardex
+                Kardex.objects.create(
+                    empresa=empresa_actual, producto=producto, almacen=almacen,
+                    tipo_movimiento='salida', cantidad=cant_a_entregar,
+                    stock_anterior=inv.cantidad + cant_a_entregar, # Refrescamos mentalmente
+                    stock_nuevo=inv.cantidad,
+                    referencia=f"{ov.folio_display}", 
+                    lote=lote_ref, serie=serie_ref,
+                    usuario=request.user
+                )
+            
+            # Si se entregó 0 y no se ha creado hija, hay que forzar creación de hija para no perder la partida
+            elif cant_a_entregar == 0 and not orden_hija:
+                # (Mismo bloque de creación de hija que arriba)
+                parent = ov.parent_orden if ov.parent_orden else ov
+                nueva_secuencia = parent.hijas.count() + 1
+                orden_hija = OrdenVenta.objects.create(
+                    pedido_origen=ov.pedido_origen, cliente=ov.cliente, vendedor=ov.vendedor,
+                    empresa=ov.empresa, estado='aprobado', parent_orden=parent, secuencia=nueva_secuencia,
+                    direccion_envio=ov.direccion_envio, contacto_envio=ov.contacto_envio
+                )
+                DetalleOrdenVenta.objects.create(
+                    orden_venta=orden_hija, producto=producto, cantidad=cant_solicitada, precio_unitario=det.precio_unitario
+                )
+                det.delete() # Se movió completa a la hija
+
         ov.estado = 'surtido'
         ov.estado_entrega = 'listo'
         ov.save()
 
-        # Solo actualizar pedido si existe (Salidas con pedido previo)
+        # Solo actualizar pedido si NO hay más órdenes pendientes para este pedido
         if ov.pedido_origen:
-            pedido = ov.pedido_origen
-            pedido.estado = 'completo'
-            pedido.save()
+            ordenes_pendientes = OrdenVenta.objects.filter(pedido_origen=ov.pedido_origen).exclude(estado__in=['surtido', 'cancelado']).count()
+            if ordenes_pendientes == 0:
+                pedido = ov.pedido_origen
+                pedido.estado = 'completo'
+                pedido.save()
 
-        return JsonResponse({'success': True, 'message': 'Orden surtida correctamente.'})
-    except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
+        msg = f'Orden {ov.folio_display} surtida correctamente.'
+        if orden_hija:
+            msg += f' Se creó la orden pendiente {orden_hija.folio_display}.'
+            
+        return JsonResponse({'success': True, 'message': msg})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required
 def actualizar_estado_entrega(request, ov_id):
