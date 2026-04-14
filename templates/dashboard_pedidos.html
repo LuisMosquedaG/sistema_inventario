@@ -82,12 +82,12 @@
                     <table class="table table-pro mb-0 align-middle">
                         <thead>
                             <tr>
-                                <th class="text-center align-middle" style="width: 80px;">Acciones</th>
-                                <th class="text-center align-middle" style="width: 100px;">Folio Ped.</th>
-                                <th class="text-center align-middle" style="width: 100px;">Folio Cot.</th>
-                                <th class="text-center align-middle">Cliente / Contacto</th>
-                                <th class="text-center align-middle" style="width: 120px;">Fecha</th>
-                                <th class="text-center align-middle" style="width: 150px;">Avance</th>
+                                <th class="text-center align-middle" style="width: 100px;">Acciones</th>
+                                <th class="text-center align-middle" style="width: 120px;">Folio Ped.</th>
+                                <th class="text-center align-middle" style="width: 120px;">Folio Cot.</th>
+                                <th class="text-center align-middle" style="width: 120px;">Cliente / Contacto</th>
+                                <th class="text-center align-middle" style="width: 130px;">Fecha</th>
+                                <th class="text-center align-middle" style="width: 160px;">Avance</th>
                                 <th class="text-center align-middle" style="width: 120px;">Total</th>
                                 <th class="text-center align-middle" style="width: 120px;">Estado</th>
                             </tr>
@@ -217,7 +217,7 @@
                                 </td>
                             </tr>
                             {% empty %}
-                            <tr><td colspan="6" class="text-center py-5">No hay pedidos.</td></tr>
+                            <tr><td colspan="8" class="text-center py-5">No hay pedidos.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -302,12 +302,12 @@
                                 <table class="table table-sm table-pro mb-0 align-middle">
                                     <thead class="table-light">
                                         <tr>
-                                            <th>Artículos</th>
-                                            <th class="text-center" style="width: 90px;">Solicitado</th>
-                                            <th class="text-center" style="width: 110px;">Stock Total</th>
-                                            <th class="text-center" style="width: 90px;">Disponible</th>
-                                            <th class="text-center" style="width: 110px;">Estado</th>
-                                            <th class="text-center" style="width: 130px;">Acción</th>
+                                            <th class="text-center align-middle">Artículos</th>
+                                            <th class="text-center align-middle" style="width: 90px;">Solicitado</th>
+                                            <th class="text-center align-middle" style="width: 110px;">Stock Total</th>
+                                            <th class="text-center align-middle" style="width: 90px;">Disponible</th>
+                                            <th class="text-center align-middle" style="width: 110px;">Estado</th>
+                                            <th class="text-center align-middle" style="width: 130px;">Acción</th>
                                         </tr>
                                     </thead>
                                     <tbody id="tablaDetallePedidoBody">
@@ -420,20 +420,23 @@
                                 <table class="table table-sm table-hover mb-0 align-middle">
                                     <thead class="table-light">
                                         <tr>
-                                            <th class="ps-3">Artículo</th>
-                                            <th class="text-center" style="width: 80px;">Cant.</th>
-                                            <th class="text-end" style="width: 100px;">Precio</th>
-                                            <th class="text-end" style="width: 100px;">Total</th>
+                                            <th class="text-center align-middle">Artículo</th>
+                                            <th class="text-center align-middle" style="width: 100px;">Cantidad</th>
+                                            <th class="text-center align-middle" style="width: 120px;">Precio Unit.</th>
+                                            <th class="text-center align-middle" style="width: 120px;">Total</th>
                                             <th style="width: 50px;"></th>
                                         </tr>
                                     </thead>
                                     <tbody id="tablaCuerpoNuevo"></tbody>
+                                    <tfoot class="table-light fw-bold">
+                                        <tr>
+                                            <td colspan="3" class="text-end pe-3 border-0">Total Pedido:</td>
+                                            <td class="text-center text-success border-0" id="granTotalNuevo">$0.00</td>
+                                            <td class="border-0"></td>
+                                        </tr>
+                                    </tfoot>
                                 </table>
                                 <div id="mensajeVacioNuevo" class="text-center py-3 text-muted small fst-italic">No hay artículos agregados.</div>
-                            </div>
-                            <div class="card-footer bg-white border-0 py-2 d-flex justify-content-end">
-                                <div class="me-3"><span class="text-muted small">Total Pedido:</span></div>
-                                <div class="fw-bold fs-5 text-success" id="granTotalNuevo">$0.00</div>
                             </div>
                         </div>
                     </div>
@@ -495,11 +498,11 @@
         const total = (parseFloat(cant) * parseFloat(prec)).toFixed(2);
         const fila = `
             <tr>
-                <td class="ps-3"><div class="fw-semibold small text-dark">${pName}</div><input type="hidden" name="producto_id[]" value="${pId}"></td>
-                <td class="text-center"><span class="small text-dark">${cant}</span><input type="hidden" name="cantidad[]" value="${cant}"></td>
-                <td class="text-end"><span class="small text-muted">$${parseFloat(prec).toFixed(2)}</span><input type="hidden" name="precio_unitario[]" value="${prec}"></td>
-                <td class="text-end"><span class="fw-bold small text-dark">$${total}</span></td>
-                <td class="text-center"><button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); calcularTotalNuevo();"><i class="bi bi-x-circle-fill"></i></button></td>
+                <td class="text-center align-middle"><div class="fw-semibold small text-dark">${pName}</div><input type="hidden" name="producto_id[]" value="${pId}"></td>
+                <td class="text-center align-middle"><span class="small text-dark">${cant}</span><input type="hidden" name="cantidad[]" value="${cant}"></td>
+                <td class="text-center align-middle"><span class="small text-muted">$${parseFloat(prec).toFixed(2)}</span><input type="hidden" name="precio_unitario[]" value="${prec}"></td>
+                <td class="text-center align-middle"><span class="fw-bold small text-dark">$${total}</span></td>
+                <td class="text-center align-middle"><button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); calcularTotalNuevo();"><i class="bi bi-x-circle-fill"></i></button></td>
             </tr>`;
         
         document.getElementById('tablaCuerpoNuevo').insertAdjacentHTML('beforeend', fila);
@@ -633,12 +636,12 @@
 
                     const row = `
                         <tr id="fila-detalle-${det.id}" class="${filaClase}">
-                            <td class="${productoClase}" style="padding-left: ${esHijo ? '1.5rem' : '1rem'};">${textoProducto}</td>
-                            <td class="text-center"><span class="text-dark">${det.solicitado}</span></td>
-                            <td class="text-center text-muted small">${det.stock_total}</td>
-                            <td class="text-center"><span class="${det.stock_disponible < 0 ? 'text-danger' : 'text-success'}">${det.stock_disponible}</span></td>
-                            <td class="text-center"><span class="status-pill ${pillClass}">${pillText}</span></td>
-                            <td class="text-center">${accionIcon}</td>
+                            <td class="text-center align-middle ${productoClase}" style="padding-left: ${esHijo ? '1.5rem' : '1rem'};">${textoProducto}</td>
+                            <td class="text-center align-middle"><span class="text-dark">${det.solicitado}</span></td>
+                            <td class="text-center align-middle text-muted small">${det.stock_total}</td>
+                            <td class="text-center align-middle"><span class="${det.stock_disponible < 0 ? 'text-danger' : 'text-success'}">${det.stock_disponible}</span></td>
+                            <td class="text-center align-middle"><span class="status-pill ${pillClass}">${pillText}</span></td>
+                            <td class="text-center align-middle">${accionIcon}</td>
                         </tr>
                     `;
                     tbody.insertAdjacentHTML('beforeend', row);
