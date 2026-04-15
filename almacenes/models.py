@@ -81,8 +81,13 @@ class Inventario(models.Model):
         nuevo_total = cantidad_anterior + cantidad_nueva
 
         # Cálculo del nuevo costo promedio
-        if cantidad_anterior == 0:
+        # 1. Si no había stock o era negativo, el nuevo costo es el de esta compra
+        if cantidad_anterior <= 0:
             nuevo_promedio = costo_compra
+        # 2. Si el nuevo total es 0 (ej. ingreso negativo que anula el stock), mantenemos el costo anterior para no dividir por cero
+        elif nuevo_total == 0:
+            nuevo_promedio = costo_anterior
+        # 3. Caso normal: promedio ponderado
         else:
             valor_anterior = cantidad_anterior * costo_anterior
             valor_compra_total = cantidad_nueva * costo_compra
