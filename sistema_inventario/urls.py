@@ -106,3 +106,10 @@ urlpatterns = [
     path('inventario/', include('almacenes.urls')), 
     path('inventario/', include('categorias.urls')),
 ]
+
+# Servir archivos media en desarrollo
+from django.conf import settings
+from django.conf.urls.static import static
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

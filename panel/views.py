@@ -30,6 +30,11 @@ def crear_empresa(request):
         subdominio = request.POST.get('subdominio').strip().lower() 
         correo = request.POST.get('correo_contacto')
         estado_str = request.POST.get('activa', 'True')
+        
+        # Nuevos campos
+        nombre_contacto = request.POST.get('nombre_contacto')
+        telefono_contacto = request.POST.get('telefono_contacto')
+        logo = request.FILES.get('logo')
 
         try:
             # 1. Crear la Empresa (Tenant)
@@ -37,6 +42,9 @@ def crear_empresa(request):
                 nombre=nombre,
                 subdominio=subdominio,
                 correo_contacto=correo,
+                nombre_contacto=nombre_contacto,
+                telefono_contacto=telefono_contacto,
+                logo=logo,
                 activa=(estado_str == 'True')
             )
 
@@ -132,6 +140,9 @@ def obtener_empresa_json(request, empresa_id):
         'nombre': empresa.nombre,
         'subdominio': empresa.subdominio,
         'correo_contacto': empresa.correo_contacto,
+        'nombre_contacto': empresa.nombre_contacto or '',
+        'telefono_contacto': empresa.telefono_contacto or '',
+        'logo_url': empresa.logo.url if empresa.logo else '',
         'activa': 'True' if empresa.activa else 'False',
     }
     return JsonResponse(data)
@@ -143,21 +154,29 @@ def actualizar_empresa(request, empresa_id):
     if request.method == 'POST':
         try:
             empresa = get_object_or_404(Empresa, id=empresa_id)
-            
+
             # Actualizamos los campos
             empresa.nombre = request.POST.get('nombre')
             empresa.subdominio = request.POST.get('subdominio').strip().lower()
             empresa.correo_contacto = request.POST.get('correo_contacto')
+
+            # Nuevos campos
+            empresa.nombre_contacto = request.POST.get('nombre_contacto')
+            empresa.telefono_contacto = request.POST.get('telefono_contacto')
+
+            if request.FILES.get('logo'):
+                empresa.logo = request.FILES.get('logo')
+
             empresa.activa = (request.POST.get('activa') == 'True')
-            
+
             # NOTA: Si cambias el subdominio aquí, los usuarios creados anteriormente
             # (ej: sadmin@viejo) no se renombran automáticamente a sadmin@nuevo.
             # Para este ejemplo, actualizamos solo la empresa.
-            
+
             empresa.save()
             return JsonResponse({'success': True, 'message': 'Empresa actualizada correctamente.'})
-            
+
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
-            
+
     return JsonResponse({'success': False, 'error': 'Método no permitido'})

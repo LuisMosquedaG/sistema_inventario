@@ -140,6 +140,10 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
+# Archivos Media (Logos, Documentos subidos)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 # Si el login es exitoso, a dónde va? (A tu dashboard de inventario)
 LOGIN_REDIRECT_URL = 'dash_inventario' 
 
