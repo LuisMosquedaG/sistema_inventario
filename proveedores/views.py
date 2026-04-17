@@ -1,9 +1,12 @@
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
-from .models import Proveedor
-from panel.models import Empresa  # <--- ASEGÚRATE DE IMPORTAR ESTO
+from django.db import transaction
+from .models import Proveedor, SucursalProveedor
+from compras.models import OrdenCompra  # <--- PARA VERIFICAR HISTORIAL
+from panel.models import Empresa
 from django.utils import timezone
+import json
 
 # --- 1. FUNCIÓN AYUDANTE RESTAURADA (Igual a Clientes) ---
 def get_empresa_actual(request):
@@ -41,6 +44,7 @@ def dashboard_proveedores(request):
 
 # --- 3. CREAR PROVEEDOR ---
 @login_required
+@transaction.atomic
 def crear_proveedor(request):
     if request.method == 'POST':
         try:
@@ -79,6 +83,18 @@ def crear_proveedor(request):
                 empresa=empresa_actual  # <--- ASIGNACIÓN EXPLÍCITA
             )
 
+            # 3. Guardar sucursales dinámicas
+            sucursal_nombres = request.POST.getlist('sucursal_nombre[]')
+            sucursal_direcciones = request.POST.getlist('sucursal_direccion[]')
+
+            for nom, dir in zip(sucursal_nombres, sucursal_direcciones):
+                if nom.strip():
+                    SucursalProveedor.objects.create(
+                        proveedor=proveedor,
+                        nombre=nom.strip(),
+                        direccion=dir.strip()
+                    )
+
             return JsonResponse({'success': True, 'message': 'Proveedor creado correctamente.'})
 
         except Exception as e:
@@ -93,11 +109,10 @@ def obtener_proveedor_json(request, proveedor_id):
         # Obtenemos empresa por el usuario
         empresa_actual = get_empresa_actual(request)
         
-        proveedor = get_object_or_404(Proveedor, id=proveedor_id)
+        proveedor = get_object_or_404(Proveedor, id=proveedor_id, empresa=empresa_actual)
         
-        # SEGURIDAD: Verificamos que el proveedor pertenezca a la empresa del usuario
-        if empresa_actual and proveedor.empresa != empresa_actual:
-            return JsonResponse({'error': 'Acceso denegado'}, status=403)
+        # Jalar sucursales
+        sucursales = list(proveedor.sucursales.all().values('id', 'nombre', 'direccion'))
         
         data = {
             'id': proveedor.id,
@@ -108,22 +123,21 @@ def obtener_proveedor_json(request, proveedor_id):
             'contacto_nombre': proveedor.contacto_nombre,
             'contacto_telefono': proveedor.contacto_telefono,
             'contacto_email': proveedor.contacto_email,
-            'estado': proveedor.estado, 
+            'estado': proveedor.estado,
+            'sucursales': sucursales
         }
         return JsonResponse(data)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=404)
 
 # --- 5. ACTUALIZAR PROVEEDOR ---
+@login_required
+@transaction.atomic
 def actualizar_proveedor(request, proveedor_id):
     if request.method == 'POST':
         try:
             empresa_actual = get_empresa_actual(request)
-            proveedor = get_object_or_404(Proveedor, id=proveedor_id)
-            
-            # SEGURIDAD: Verificamos propiedad
-            if empresa_actual and proveedor.empresa != empresa_actual:
-                return JsonResponse({'success': False, 'error': 'Acceso denegado. No puedes editar este proveedor.'})
+            proveedor = get_object_or_404(Proveedor, id=proveedor_id, empresa=empresa_actual)
             
             proveedor.razon_social = request.POST.get('razon_social')
             proveedor.rfc = request.POST.get('rfc')
@@ -135,6 +149,19 @@ def actualizar_proveedor(request, proveedor_id):
             proveedor.estado = request.POST.get('estado', proveedor.estado)
             
             proveedor.save()
+
+            # Actualizar sucursales (Limpiar y recrear)
+            proveedor.sucursales.all().delete()
+            sucursal_nombres = request.POST.getlist('sucursal_nombre[]')
+            sucursal_direcciones = request.POST.getlist('sucursal_direccion[]')
+
+            for nom, dir in zip(sucursal_nombres, sucursal_direcciones):
+                if nom.strip():
+                    SucursalProveedor.objects.create(
+                        proveedor=proveedor,
+                        nombre=nom.strip(),
+                        direccion=dir.strip()
+                    )
             
             return JsonResponse({'success': True, 'message': 'Proveedor actualizado correctamente.'})
             
@@ -143,20 +170,32 @@ def actualizar_proveedor(request, proveedor_id):
     
     return JsonResponse({'success': False, 'error': 'Método no permitido.'})
 
-# --- 6. DESACTIVAR PROVEEDOR ---
+# --- 6. ELIMINAR O DESACTIVAR PROVEEDOR ---
 def desactivar_proveedor(request, proveedor_id):
     if request.method == 'POST':
         try:
             empresa_actual = get_empresa_actual(request)
-            proveedor = get_object_or_404(Proveedor, id=proveedor_id)
+            proveedor = get_object_or_404(Proveedor, id=proveedor_id, empresa=empresa_actual)
             
-            # SEGURIDAD: Verificamos propiedad
-            if empresa_actual and proveedor.empresa != empresa_actual:
-                return JsonResponse({'success': False, 'error': 'Acceso denegado.'})
+            # Verificar si tiene Órdenes de Compra
+            tiene_historial = OrdenCompra.objects.filter(proveedor=proveedor).exists()
 
-            proveedor.estado = 'inactivo'
-            proveedor.save()
-            return JsonResponse({'success': True, 'message': 'Proveedor desactivado.'})
+            if tiene_historial:
+                # Solo desactivar
+                proveedor.estado = 'inactivo'
+                proveedor.save()
+                return JsonResponse({
+                    'success': True, 
+                    'message': 'El proveedor tiene órdenes de compra asociadas, por lo que ha sido marcado como INACTIVO.'
+                })
+            else:
+                # Borrado físico
+                proveedor.delete()
+                return JsonResponse({
+                    'success': True, 
+                    'message': 'El proveedor no tiene historial y ha sido ELIMINADO permanentemente.'
+                })
+                
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
-    return JsonResponse({'success': False, 'error': 'Método no permitido.'})
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})

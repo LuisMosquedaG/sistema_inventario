@@ -46,6 +46,7 @@ class DetalleSolicitudCompra(models.Model):
     cantidad_solicitada = models.PositiveIntegerField(verbose_name="Cant. Solicitada")
     
     proveedor = models.ForeignKey('proveedores.Proveedor', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Proveedor Sugerido")
+    sucursal = models.ForeignKey('proveedores.SucursalProveedor', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
     almacen = models.ForeignKey('almacenes.Almacen', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Almacén Destino")
     costo_unitario = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="Costo Unitario")
     

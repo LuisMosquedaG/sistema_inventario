@@ -39,14 +39,14 @@ def dashboard_compras(request):
     productos = Producto.objects.filter(empresa=empresa_actual)
     almacenes = Almacen.objects.filter(empresa=empresa_actual)
     proveedores = Proveedor.objects.filter(empresa=empresa_actual, estado='activo')
-    monedas = Moneda.objects.filter(empresa=empresa_actual) # <--- NUEVO
+    monedas = Moneda.objects.filter(empresa=empresa_actual)
 
     context = {
         'page_obj': page_obj,
         'productos': productos,
         'almacenes': almacenes,
         'proveedores': proveedores,
-        'monedas': monedas, # <--- PASAR AL HTML
+        'monedas': monedas,
         'section': 'compras',
     }
     return render(request, 'dashboard_compras.html', context)
@@ -59,7 +59,6 @@ def crear_compra(request):
             if not empresa_actual:
                  return JsonResponse({'success': False, 'error': 'No se pudo detectar tu empresa.'})
 
-            # Pasar datos adicionales al servicio
             orden = crear_orden_compra_servicio(
                 usuario=request.user,
                 data_post=request.POST,
@@ -79,8 +78,6 @@ def cambiar_estado_compra(request, compra_id):
         compra = get_object_or_404(OrdenCompra, id=compra_id, empresa=empresa_actual)
         
         if nuevo_estado in ['borrador', 'aprobada', 'recibida', 'cancelada', 'parcial']:
-            # Al aprobar, podríamos forzar a que el tipo de cambio sea el actual si no se puso,
-            # pero por ahora respetamos lo que el usuario escribió o el default 1.0
             compra.estado = nuevo_estado
             compra.save()
             return JsonResponse({'success': True, 'message': f'Estado cambiado a {nuevo_estado}'})
@@ -98,9 +95,10 @@ def obtener_compra_json(request, compra_id):
         data = {
             'id': orden.id,
             'proveedor': orden.proveedor.id,
+            'sucursal_id': orden.sucursal.id if orden.sucursal else '',
             'almacen': orden.almacen_destino.id if orden.almacen_destino else '',
-            'moneda': orden.moneda.id if orden.moneda else '', # <--- NUEVO
-            'tipo_cambio': str(orden.tipo_cambio), # <--- NUEVO
+            'moneda': orden.moneda.id if orden.moneda else '',
+            'tipo_cambio': str(orden.tipo_cambio),
             'fecha': orden.fecha.strftime('%Y-%m-%d'),
             'notas': orden.notas,
             'estado': orden.estado,
@@ -127,9 +125,10 @@ def actualizar_compra(request, compra_id):
 
             # 1. Actualizar Cabecera
             orden.proveedor_id = request.POST.get('proveedor')
+            orden.sucursal_id = request.POST.get('sucursal')
             orden.almacen_destino_id = request.POST.get('almacen')
-            orden.moneda_id = request.POST.get('moneda') # <--- NUEVO
-            orden.tipo_cambio = request.POST.get('tipo_cambio', '1.0000') # <--- NUEVO
+            orden.moneda_id = request.POST.get('moneda')
+            orden.tipo_cambio = request.POST.get('tipo_cambio', '1.0000')
             
             nueva_fecha_str = request.POST.get('fecha')
             if nueva_fecha_str:
@@ -150,6 +149,7 @@ def actualizar_compra(request, compra_id):
 
             for i in range(len(productos_ids)):
                 prod_id = productos_ids[i]
+                if not prod_id: continue
                 cant = int(cantidades[i])
                 precio = float(precios[i])
                 if prod_id and cant > 0:
@@ -163,3 +163,90 @@ def actualizar_compra(request, compra_id):
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+@login_required
+@transaction.atomic
+def consolidar_compras_ajax(request):
+    if request.method == 'POST':
+        try:
+            empresa_actual = get_empresa_actual(request)
+            if not empresa_actual:
+                return JsonResponse({'success': False, 'message': 'Empresa no detectada.'})
+
+            # 1. Obtener órdenes en borrador
+            ordenes_borrador = OrdenCompra.objects.filter(
+                empresa=empresa_actual, 
+                estado='borrador'
+            ).select_related('proveedor', 'sucursal', 'moneda', 'almacen_destino')
+
+            if not ordenes_borrador.exists():
+                return JsonResponse({'success': False, 'message': 'No hay órdenes en borrador para consolidar.'})
+
+            # 2. Agrupar por (Proveedor, Sucursal, Moneda, Almacén)
+            grupos = {}
+            for oc in ordenes_borrador:
+                llave = (
+                    oc.proveedor_id, 
+                    oc.sucursal_id, 
+                    oc.moneda_id, 
+                    oc.almacen_destino_id
+                )
+                if llave not in grupos:
+                    grupos[llave] = []
+                grupos[llave].append(oc)
+
+            ordenes_creadas_count = 0
+            
+            # 3. Procesar cada grupo
+            for llave, lista_ocs in grupos.items():
+                if len(lista_ocs) < 2:
+                    continue 
+
+                # Datos base de la nueva OC
+                oc_base = lista_ocs[0]
+                
+                # Folios a consolidar
+                folios = [f"OC-{oc.id:04d}" for oc in lista_ocs]
+                leyenda_notas = f"Orden de compra creada de los folios {', '.join(folios)}"
+
+                # Crear la nueva OC
+                nueva_oc = OrdenCompra.objects.create(
+                    proveedor_id=llave[0],
+                    sucursal_id=llave[1],
+                    moneda_id=llave[2],
+                    almacen_destino_id=llave[3],
+                    tipo_cambio=oc_base.tipo_cambio,
+                    fecha=timezone.now(),
+                    estado='borrador',
+                    empresa=empresa_actual,
+                    usuario=request.user,
+                    notas=leyenda_notas
+                )
+
+                # Mover detalles
+                for oc_original in lista_ocs:
+                    for det in oc_original.detalles.all():
+                        DetalleCompra.objects.create(
+                            orden_compra=nueva_oc,
+                            producto=det.producto,
+                            cantidad=det.cantidad,
+                            precio_costo=det.precio_costo,
+                            detalle_pedido_origen=det.detalle_pedido_origen
+                        )
+                    
+                    # Cancelar la original
+                    oc_original.estado = 'cancelada'
+                    oc_original.notas = f"{oc_original.notas or ''} [CONSOLIDADA EN OC-{nueva_oc.id:04d}]".strip()
+                    oc_original.save()
+
+                ordenes_creadas_count += 1
+
+            if ordenes_creadas_count > 0:
+                return JsonResponse({'success': True, 'message': f'Consolidación exitosa. Se generaron {ordenes_creadas_count} nuevas órdenes unificadas.'})
+            else:
+                return JsonResponse({'success': False, 'message': 'No se encontraron órdenes que pudieran ser agrupadas (mismo proveedor, sucursal, moneda y almacén).'})
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})
+    
+    return JsonResponse({'success': False, 'message': 'Método no permitido.'})

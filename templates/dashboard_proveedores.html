@@ -27,6 +27,29 @@
             transform: scale(1.15);
         }
 
+        .icon-action.state-cancelled:hover { color: #e03131; }
+
+        /* ESTILO DE PESTAÑAS FANTASMA (GHOST TABS) */
+        #tabProveedor .nav-link {
+            color: #adb5bd !important;
+            border: none;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            opacity: 0.6;
+        }
+        #tabProveedor .nav-link:hover {
+            opacity: 1;
+            color: #6c757d !important;
+        }
+        #tabProveedor .nav-link.active {
+            color: #00b8b9 !important;
+            opacity: 1;
+            background: transparent;
+            border-bottom: 2px solid #00b8b9;
+            font-weight: 600;
+        }
+
         .icon-action:active {
             transform: scale(0.95);
         }
@@ -140,6 +163,22 @@
             color: #6c757d;
             font-size: 0.875rem;
         }
+
+        /* ESTILO LISTA DINÁMICA SUCURSALES */
+        .sucursal-row {
+            padding: 12px;
+            border-radius: 8px;
+            background-color: #fff;
+            border: 1px solid #e9ecef;
+            margin-bottom: 10px;
+            transition: all 0.2s;
+        }
+        .sucursal-row:hover, .card-section-hover:hover { border-color: #00b8b9 !important; }
+
+        .card-section-hover {
+            border: 1px solid #e9ecef !important;
+            transition: all 0.2s ease;
+        }
     </style>
 
     <!-- CONTENEDOR PRINCIPAL -->
@@ -162,11 +201,13 @@
                 
                 <!-- Botón Nuevo Proveedor -->
                 <button class="btn text-white btn-sm px-3 d-flex align-items-center shadow-sm" 
-                        style="background-color: #00b8b9; border-radius: 6px; box-shadow: 0 2px 6px rgba(0, 184, 185, 0.3); transition: all 0.2s;"
+                        style="background-color: #00b8b9; border-radius: 6px; box-shadow: 0 2px 6px rgba(0, 184, 185, 0.3); transition: all 0.2; border: none;"
+                        onclick="prepararNuevoProveedor()"
                         data-bs-toggle="modal" 
                         data-bs-target="#modalNuevoProveedor">
                     <i class="bi bi-plus-lg me-1"></i> Nuevo Proveedor
                 </button>
+
             </div>
         </div>
 
@@ -192,8 +233,8 @@
                                         <span class="icon-action" title="Editar Proveedor" onclick="abrirModalEdicion({{ p.id }})">
                                             <i class="bi bi-pencil-square"></i>
                                         </span>
-                                        <span class="icon-action delete" title="Desactivar" onclick="confirmarDesactivacion({{ p.id }})">
-                                            <i class="bi bi-trash"></i>
+                                        <span class="icon-action state-cancelled" title="Eliminar/Desactivar" onclick="confirmarDesactivacion({{ p.id }})">
+                                            <i class="bi bi-x-circle"></i>
                                         </span>
                                     </div>
                                 </td>
@@ -277,79 +318,110 @@
                 <form id="formProveedor" method="post" action="/proveedores/crear/">
                     {% csrf_token %}
                     
-                    <div class="modal-body pt-3">
+                    <div class="modal-body p-3 bg-light">
                         
-                        <!-- SECCIÓN 1: DATOS FISCALES -->
-                        <div class="card border-0 shadow-sm mb-3">
-                            <div class="card-body p-3 bg-light rounded-3">
-                                <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">Datos Fiscales</h6>
-                                
-                                <div class="row g-3">
-                                    <div class="col-md-12">
-                                        <label class="form-label-crossover">Razón Social</label>
-                                        <input type="text" class="form-control form-control-sm" name="razon_social" placeholder="Ej. CrossoverSuite" required>
-                                    </div>
-                                    
-                                    <div class="col-md-6">
-                                        <label class="form-label-crossover">RFC</label>
-                                        <input type="text" class="form-control form-control-sm font-monospace" name="rfc" placeholder="XAXX010101000" required style="text-transform: uppercase;">
-                                    </div>
+                        <!-- PESTAÑAS (GHOST TABS) -->
+                        <ul class="nav nav-tabs nav-fill mb-3" id="tabProveedor" role="tablist">
+                            <li class="nav-item">
+                                <button class="nav-link active" id="datos-tab" data-bs-toggle="tab" data-bs-target="#tab-datos" type="button">Datos Generales</button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link" id="sucursales-tab" data-bs-toggle="tab" data-bs-target="#tab-sucursales" type="button">Sucursales</button>
+                            </li>
+                        </ul>
 
-                                    <div class="col-md-6">
-                                        <label class="form-label-crossover">Código Postal</label>
-                                        <input type="text" class="form-control form-control-sm" name="cp" placeholder="00000">
-                                    </div>
-
-                                    <div class="col-md-12">
-                                        <label class="form-label-crossover">Domicilio Fiscal Completo</label>
-                                        <input type="text" class="form-control form-control-sm" name="domicilio" placeholder="Calle, Número, Colonia, Ciudad, Estado">
-                                    </div>
-
-                                    <!-- CAMPO: ESTADO -->
-                                    <div class="col-md-12 mt-2">
-                                        <label class="form-label-crossover">Estado del Proveedor</label>
-                                        <select class="form-select form-select-sm" name="estado">
-                                            <option value="activo" selected>Activo</option>
-                                            <option value="suspendido">Suspendido</option>
-                                            <option value="inactivo">Inactivo</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- SECCIÓN 2: CONTACTO -->
-                        <div class="card border-0 shadow-sm mb-0">
-                            <div class="card-body p-3 bg-light rounded-3">
-                                <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">Contacto Principal</h6>
-                                
-                                <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <label class="form-label-crossover">Nombre Completo</label>
-                                        <div class="input-group input-group-sm">
-                                            <span class="input-group-text"><i class="bi bi-person"></i></span>
-                                            <input type="text" class="form-control" name="contacto_nombre" placeholder="Ej. Juan Pérez">
-                                        </div>
-                                    </div>
-
-                                    <div class="col-md-6">
-                                        <label class="form-label-crossover">Teléfono / Móvil</label>
-                                        <div class="input-group input-group-sm">
-                                            <span class="input-group-text"><i class="bi bi-telephone"></i></span>
-                                            <input type="tel" class="form-control" name="contacto_telefono" placeholder="(55) 1234 5678">
-                                        </div>
-                                    </div>
-
-                                    <div class="col-md-12">
-                                        <label class="form-label-crossover">Correo Electrónico</label>
-                                        <div class="input-group input-group-sm">
-                                            <span class="input-group-text"><i class="bi bi-envelope"></i></span>
-                                            <input type="email" class="form-control" name="contacto_email" placeholder="ventas@empresa.com">
+                        <div class="tab-content">
+                            
+                            <!-- PESTAÑA 1: DATOS GENERALES -->
+                            <div class="tab-pane fade show active" id="tab-datos">
+                                <!-- SECCIÓN 1: DATOS FISCALES -->
+                                <div class="card card-section-hover shadow-sm mb-3">
+                                    <div class="card-body p-3 bg-white rounded-3">
+                                        <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">Datos Fiscales</h6>
+                                        <div class="row g-3">
+                                            <div class="col-md-12">
+                                                <label class="form-label-crossover">Razón Social</label>
+                                                <input type="text" class="form-control form-control-sm" name="razon_social" placeholder="Ej. CrossoverSuite" required>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label-crossover">RFC</label>
+                                                <input type="text" class="form-control form-control-sm font-monospace" name="rfc" placeholder="XAXX010101000" required style="text-transform: uppercase;">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label-crossover">Código Postal</label>
+                                                <input type="text" class="form-control form-control-sm" name="cp" placeholder="00000">
+                                            </div>
+                                            <div class="col-md-12">
+                                                <label class="form-label-crossover">Domicilio Fiscal Completo</label>
+                                                <input type="text" class="form-control form-control-sm" name="domicilio" placeholder="Calle, Número, Colonia, Ciudad, Estado">
+                                            </div>
+                                            <div class="col-md-12 mt-2">
+                                                <label class="form-label-crossover">Estado del Proveedor</label>
+                                                <select class="form-select form-select-sm" name="estado">
+                                                    <option value="activo" selected>Activo</option>
+                                                    <option value="suspendido">Suspendido</option>
+                                                    <option value="inactivo">Inactivo</option>
+                                                </select>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+
+                                <!-- SECCIÓN 2: CONTACTO -->
+                                <div class="card card-section-hover shadow-sm mb-0">
+                                    <div class="card-body p-3 bg-white rounded-3">
+                                        <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">Contacto Principal</h6>
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label-crossover">Nombre Completo</label>
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                                    <input type="text" class="form-control" name="contacto_nombre" placeholder="Ej. Juan Pérez">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label-crossover">Teléfono / Móvil</label>
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text"><i class="bi bi-telephone"></i></span>
+                                                    <input type="tel" class="form-control" name="contacto_telefono" placeholder="(55) 1234 5678">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-12">
+                                                <label class="form-label-crossover">Correo Electrónico</label>
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                                                    <input type="email" class="form-control" name="contacto_email" placeholder="ventas@empresa.com">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+
+                            <!-- PESTAÑA 2: SUCURSALES -->
+                            <div class="tab-pane fade" id="tab-sucursales">
+                                <div class="card border-0 shadow-sm">
+                                    <div class="card-body p-3 bg-white rounded-3">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h6 class="text-uppercase text-muted fw-bold m-0" style="font-size: 0.7rem; letter-spacing: 1px;">Sucursales y Sedes</h6>
+                                            <button type="button" class="btn btn-brand btn-sm" onclick="agregarFilaSucursal()">
+                                                <i class="bi bi-plus-lg me-1"></i> Agregar Sucursal
+                                            </button>
+                                        </div>
+
+                                        <div id="contenedorSucursales">
+                                            <!-- JS inyectará filas aquí -->
+                                        </div>
+                                        
+                                        <div id="msgVacioSucursales" class="text-center py-5 text-muted small fst-italic">
+                                            <i class="bi bi-geo-alt display-6 d-block mb-2 opacity-50"></i>
+                                            No hay sucursales registradas para este proveedor.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div> <!-- fin tab-content -->
 
                     </div>
 
@@ -367,72 +439,119 @@
 
 {% block extra_js %}
     <script>
-        // Función para cargar datos en el formulario de edición
+        function prepararNuevoProveedor() {
+            document.getElementById('modalProveedorLabel').innerText = "Nuevo Proveedor";
+            const form = document.getElementById('formProveedor');
+            form.reset();
+            form.action = "/proveedores/crear/";
+            if(form.estado) form.estado.value = 'activo';
+
+            // Limpiar sucursales
+            document.getElementById('contenedorSucursales').innerHTML = "";
+            document.getElementById('msgVacioSucursales').classList.remove('d-none');
+
+            // Resetear pestaña activa
+            const firstTabEl = document.querySelector('#tabProveedor button[data-bs-target="#tab-datos"]');
+            if (firstTabEl) {
+                const firstTab = bootstrap.Tab.getOrCreateInstance(firstTabEl);
+                firstTab.show();
+            }
+        }
+
         function abrirModalEdicion(id) {
-            const modalTitle = document.getElementById('modalProveedorLabel');
-            modalTitle.innerText = "Editar Proveedor #" + id;
-            
-            // Llamada real al backend
+            prepararNuevoProveedor();
+            document.getElementById('modalProveedorLabel').innerText = "Editar Proveedor #" + id;
+
+            // Abrir modal inmediatamente para feedback visual
+            const modalEl = document.getElementById('modalNuevoProveedor');
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+
+            // Cargar datos reales
             fetch(`/api/proveedores/${id}/`)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) throw new Error("Error en la respuesta del servidor");
+                    return response.json();
+                })
                 .then(data => {
                     if (data.error) {
                         alert("Error: " + data.error);
                         return;
                     }
-                    // Llenar campos del formulario
-                    document.querySelector('[name="razon_social"]').value = data.razon_social || '';
-                    document.querySelector('[name="rfc"]').value = data.rfc || '';
-                    document.querySelector('[name="cp"]').value = data.cp || '';
-                    document.querySelector('[name="domicilio"]').value = data.domicilio || '';
-                    
-                    // Cargar campo Estado
-                    document.querySelector('[name="estado"]').value = data.estado || 'activo';
-                    
-                    document.querySelector('[name="contacto_nombre"]').value = data.contacto_nombre || '';
-                    document.querySelector('[name="contacto_telefono"]').value = data.contacto_telefono || '';
-                    document.querySelector('[name="contacto_email"]').value = data.contacto_email || '';
+                    const f = document.getElementById('formProveedor');
+                    f.razon_social.value = data.razon_social || '';
+                    f.rfc.value = data.rfc || '';
+                    f.cp.value = data.cp || '';
+                    f.domicilio.value = data.domicilio || '';
+                    f.estado.value = data.estado || 'activo';
+                    f.contacto_nombre.value = data.contacto_nombre || '';
+                    f.contacto_telefono.value = data.contacto_telefono || '';
+                    f.contacto_email.value = data.contacto_email || '';
 
-                    // Cambiar action del formulario para editar
-                    const form = document.getElementById('formProveedor');
-                    form.action = `/proveedores/actualizar/${id}/`;
-                    
-                    // Mostrar modal
-                    const myModal = new bootstrap.Modal(document.getElementById('modalNuevoProveedor'));
-                    myModal.show();
+                    // Cargar sucursales
+                    if (data.sucursales && data.sucursales.length > 0) {
+                        data.sucursales.forEach(s => agregarFilaSucursal(s.nombre, s.direccion));
+                    }
+
+                    f.action = `/proveedores/actualizar/${id}/`;
                 })
-                .catch(error => console.error('Error:', error));
+                .catch(error => {
+                    console.error('Error al cargar proveedor:', error);
+                    alert("No se pudieron cargar los datos del proveedor.");
+                });
+        }
+        // --- FUNCIONES SUCURSALES ---
+        function agregarFilaSucursal(nombre = "", direccion = "") {
+            const contenedor = document.getElementById('contenedorSucursales');
+            const msgVacio = document.getElementById('msgVacioSucursales');
+
+            msgVacio.classList.add('d-none');
+
+            const div = document.createElement('div');
+            div.className = "sucursal-row shadow-sm";
+            div.innerHTML = `
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-4">
+                        <label class="form-label-crossover" style="font-size:0.6rem">Nombre Sucursal</label>
+                        <input type="text" name="sucursal_nombre[]" class="form-control form-control-sm" value="${nombre}" placeholder="Ej. Matriz" required>
+                    </div>
+                    <div class="col-md-7">
+                        <label class="form-label-crossover" style="font-size:0.6rem">Dirección</label>
+                        <input type="text" name="sucursal_direccion[]" class="form-control form-control-sm" value="${direccion}" placeholder="Dirección completa" required>
+                    </div>
+                    <div class="col-md-1 text-end">
+                        <span class="icon-action state-cancelled mt-3" title="Eliminar Sucursal" onclick="eliminarFilaSucursal(this)">
+                            <i class="bi bi-x-circle"></i>
+                        </span>
+                    </div>
+                </div>
+            `;
+            contenedor.appendChild(div);
         }
 
-        // Resetear modal al cerrar
-        document.getElementById('modalNuevoProveedor').addEventListener('hidden.bs.modal', function () {
-            document.getElementById('modalProveedorLabel').innerText = "Nuevo Proveedor";
-            const form = document.getElementById('formProveedor');
-            form.reset();
-            document.querySelector('[name="estado"]').value = 'activo'; 
-            form.action = "/proveedores/crear/"; 
-        });
+        function eliminarFilaSucursal(btn) {
+            btn.closest('.sucursal-row').remove();
+            if (document.getElementById('contenedorSucursales').children.length === 0) {
+                document.getElementById('msgVacioSucursales').classList.remove('d-none');
+            }
+        }
 
-        // Manejo del envío del formulario (Create o Update)
+        // Manejo del envío del formulario
         document.getElementById('formProveedor').addEventListener('submit', function(e) {
             e.preventDefault();
-            
+
             const form = this;
             const formData = new FormData(form);
             const btn = form.querySelector('button[type="submit"]');
             const originalText = btn.innerText;
-            
+
             btn.innerText = "Procesando...";
             btn.disabled = true;
 
-            const url = form.action;
-
-            fetch(url, {
+            fetch(form.action, {
                 method: 'POST',
                 body: formData,
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken') 
-                }
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
             })
             .then(response => response.json())
             .then(data => {
@@ -440,43 +559,35 @@
                 btn.disabled = false;
 
                 if (data.success) {
-                    const modalEl = document.getElementById('modalNuevoProveedor');
-                    const modal = bootstrap.Modal.getInstance(modalEl);
-                    modal.hide();
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalNuevoProveedor')).hide();
                     location.reload(); 
                 } else {
-                    alert('Error: ' + (data.error || 'Ocurrió un error desconocido'));
+                    alert('Error: ' + (data.error || 'Ocurrió un error'));
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
                 btn.innerText = originalText;
                 btn.disabled = false;
-                alert('Error de conexión al servidor.');
+                alert('Error de conexión.');
             });
         });
 
-        // Función para Desactivar (Borrado lógico)
         function confirmarDesactivacion(id) {
             if(confirm('¿Estás seguro de desactivar este proveedor?')) {
                 fetch(`/proveedores/desactivar/${id}/`, {
                     method: 'POST',
-                    headers: {
-                        'X-CSRFToken': getCookie('csrftoken')
-                    }
+                    headers: { 'X-CSRFToken': getCookie('csrftoken') }
                 })
                 .then(response => response.json())
                 .then(data => {
-                    if(data.success) {
-                        location.reload();
-                    } else {
-                        alert('Error: ' + data.error);
-                    }
+                    if(data.success) location.reload();
+                    else alert('Error: ' + data.error);
                 });
             }
         }
-        
-         function getCookie(name) {
+
+        function getCookie(name) {
             let cookieValue = null;
             if (document.cookie && document.cookie !== '') {
                 const cookies = document.cookie.split(';');
@@ -491,4 +602,5 @@
             return cookieValue;
         }
     </script>
+
 {% endblock %}

@@ -12,9 +12,10 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual):
     
     # 1. Validaciones y Extracción de Datos de Cabecera
     proveedor = data_post.get('proveedor')
+    sucursal_id = data_post.get('sucursal') # <--- NUEVO
     almacen_id = data_post.get('almacen')
-    moneda_id = data_post.get('moneda') # <--- NUEVO
-    tipo_cambio = data_post.get('tipo_cambio', '1.0000') # <--- NUEVO
+    moneda_id = data_post.get('moneda')
+    tipo_cambio = data_post.get('tipo_cambio', '1.0000')
     fecha = data_post.get('fecha')
     notas = data_post.get('notas')
 
@@ -24,9 +25,10 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual):
     # 2. Crear la Cabecera (OrdenCompra)
     orden = OrdenCompra.objects.create(
         proveedor_id=proveedor,
+        sucursal_id=sucursal_id if sucursal_id else None, # <--- ASIGNAR
         almacen_destino_id=almacen_id if almacen_id else None,
-        moneda_id=moneda_id if moneda_id else None, # <--- ASIGNAR
-        tipo_cambio=tipo_cambio, # <--- ASIGNAR
+        moneda_id=moneda_id if moneda_id else None,
+        tipo_cambio=tipo_cambio,
         fecha=fecha,
         notas=notas,
         estado='borrador',

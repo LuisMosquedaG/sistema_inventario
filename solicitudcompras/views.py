@@ -200,6 +200,8 @@ def obtener_solicitud_json(request, solicitud_id):
                 'cantidad': det.cantidad_solicitada,
                 'proveedor_id': det.proveedor.id if det.proveedor else None,
                 'proveedor_nombre': det.proveedor.razon_social if det.proveedor else 'No asignado',
+                'sucursal_id': det.sucursal.id if det.sucursal else None,
+                'sucursal_nombre': det.sucursal.nombre if det.sucursal else '',
                 'costo_unitario': str(det.costo_unitario),
                 'almacen_id': det.almacen.id if det.almacen else None,
                 'almacen_nombre': det.almacen.nombre if det.almacen else 'No asignado',
@@ -237,19 +239,21 @@ def actualizar_solicitud(request, solicitud_id):
             productos_ids = request.POST.getlist('producto_id[]')
             cantidades = request.POST.getlist('cantidad[]')
             proveedores_ids = request.POST.getlist('proveedor_id[]')
+            sucursales_ids = request.POST.getlist('sucursal_id[]') # <--- NUEVO
             costos = request.POST.getlist('costo_unitario[]')
             almacenes_ids = request.POST.getlist('almacen_id[]')
             monedas_ids = request.POST.getlist('moneda_id[]') # <--- NUEVO
             pedidos_det_ids = request.POST.getlist('pedido_det_id[]') 
 
             # Zip de todas las listas
-            for p_id, cant, prov_id, cost, alm_id, mon_id, p_det_id in zip(productos_ids, cantidades, proveedores_ids, costos, almacenes_ids, monedas_ids, pedidos_det_ids):
+            for p_id, cant, prov_id, suc_id, cost, alm_id, mon_id, p_det_id in zip(productos_ids, cantidades, proveedores_ids, sucursales_ids, costos, almacenes_ids, monedas_ids, pedidos_det_ids):
                 if p_id and p_id != '':
                     DetalleSolicitudCompra.objects.create(
                         solicitud=solicitud,
                         producto_id=p_id,
                         cantidad_solicitada=cant,
                         proveedor_id=prov_id if prov_id else None,
+                        sucursal_id=suc_id if (suc_id and suc_id != '') else None, # <--- GUARDADO
                         costo_unitario=cost,
                         almacen_id=alm_id if alm_id else None,
                         moneda_id=mon_id if mon_id else None, # <--- GUARDADO
@@ -283,18 +287,20 @@ def crear_solicitud_manual(request):
             productos_ids = request.POST.getlist('producto_id[]')
             cantidades = request.POST.getlist('cantidad[]')
             proveedores_ids = request.POST.getlist('proveedor_id[]')
+            sucursales_ids = request.POST.getlist('sucursal_id[]')
             costos = request.POST.getlist('costo_unitario[]')
             almacenes_ids = request.POST.getlist('almacen_id[]')
             monedas_ids = request.POST.getlist('moneda_id[]')
 
             count = 0
-            for p_id, cant, prov_id, cost, alm_id, mon_id in zip(productos_ids, cantidades, proveedores_ids, costos, almacenes_ids, monedas_ids):
+            for p_id, cant, prov_id, suc_id, cost, alm_id, mon_id in zip(productos_ids, cantidades, proveedores_ids, sucursales_ids, costos, almacenes_ids, monedas_ids):
                 if p_id and p_id != '':
                     DetalleSolicitudCompra.objects.create(
                         solicitud=solicitud,
                         producto_id=p_id,
                         cantidad_solicitada=cant,
                         proveedor_id=prov_id if prov_id else None,
+                        sucursal_id=suc_id if (suc_id and suc_id != '') else None,
                         costo_unitario=cost,
                         almacen_id=alm_id if alm_id else None,
                         moneda_id=mon_id if mon_id else None
@@ -332,10 +338,10 @@ def autorizar_solicitud(request, solicitud_id):
             messages.error(request, error_msg)
             return redirect('dashboard_solicitudcompras')
 
-    # 2. Agrupar ítems por (Proveedor, Moneda, Almacén)
+    # 2. Agrupar ítems por (Proveedor, Sucursal, Moneda, Almacén)
     items_agrupados = defaultdict(list)
     for det in solicitud.detalles.all():
-        llave = (det.proveedor, det.moneda, det.almacen)
+        llave = (det.proveedor, det.sucursal, det.moneda, det.almacen)
         items_agrupados[llave].append(det)
 
     # 3. Si es una previsualización (AJAX)
@@ -343,7 +349,7 @@ def autorizar_solicitud(request, solicitud_id):
         desglose = []
         # Agrupamos por proveedor para el mensaje de alerta
         conteo_por_proveedor = defaultdict(int)
-        for (prov, mon, alm) in items_agrupados.keys():
+        for (prov, suc, mon, alm) in items_agrupados.keys():
             conteo_por_proveedor[prov.razon_social] += 1
 
         for prov_nombre, total_oc in conteo_por_proveedor.items():
@@ -363,9 +369,10 @@ def autorizar_solicitud(request, solicitud_id):
         from compras.models import OrdenCompra, DetalleCompra
 
         ordenes_creadas_count = 0
-        for (proveedor, moneda, almacen), lista_detalles in items_agrupados.items():
+        for (proveedor, sucursal, moneda, almacen), lista_detalles in items_agrupados.items():
             nueva_oc = OrdenCompra.objects.create(
                 proveedor=proveedor,
+                sucursal=sucursal,
                 usuario=request.user,
                 empresa=empresa_actual,
                 estado='borrador',

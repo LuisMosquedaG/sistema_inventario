@@ -5,18 +5,13 @@ class Proveedor(models.Model):
     # Opciones actualizadas para el estado (Sincronizadas con el HTML)
     ESTADO_CHOICES = [
         ('activo', 'Activo'),
-        ('suspendido', 'Suspendido'), # Agregado para que coincida con el HTML
+        ('suspendido', 'Suspendido'), 
         ('inactivo', 'Inactivo'),
-        # ('revision', 'En Revisión'), # Eliminado si ya no se usa
     ]
 
     # --- DATOS FISCALES ---
     razon_social = models.CharField(max_length=200, verbose_name="Razón Social")
     rfc = models.CharField(max_length=13, verbose_name="RFC", unique=True)
-    
-    # --- ELIMINADO AQUÍ ---
-    # regimen_fiscal = models.CharField(max_length=100, default="601", verbose_name="Régimen Fiscal")
-    
     cp = models.CharField(max_length=10, blank=True, null=True, verbose_name="Código Postal")
     domicilio = models.TextField(blank=True, null=True, verbose_name="Domicilio Fiscal")
     
@@ -46,3 +41,12 @@ class Proveedor(models.Model):
 
     def __str__(self):
         return f"{self.razon_social} ({self.rfc})"
+
+class SucursalProveedor(models.Model):
+    """ Sedes o sucursales de un proveedor """
+    proveedor = models.ForeignKey(Proveedor, on_delete=models.CASCADE, related_name='sucursales')
+    nombre = models.CharField(max_length=150, verbose_name="Nombre de Sucursal")
+    direccion = models.TextField(verbose_name="Dirección")
+
+    def __str__(self):
+        return f"{self.nombre} - {self.proveedor.razon_social}"
