@@ -80,10 +80,15 @@
                                 <i class="bi bi-sliders"></i> General
                                 <i class="bi bi-chevron-down ms-auto small"></i>
                             </a>
-                            <div class="collapse {% if seccion == 'monedas' %}show{% endif %}" id="menuGeneral">
+                            <div class="collapse {% if seccion == 'monedas' or seccion == 'datos' %}show{% endif %}" id="menuGeneral">
                                 <a href="?section=monedas" class="sub-nav-link {% if seccion == 'monedas' %}active{% endif %}">
                                     <i class="bi bi-currency-exchange me-2"></i> Tipos de Moneda
                                 </a>
+                                {% if user.is_staff %}
+                                <a href="?section=datos" class="sub-nav-link {% if seccion == 'datos' %}active{% endif %}">
+                                    <i class="bi bi-database-fill-gear me-2"></i> Datos
+                                </a>
+                                {% endif %}
                             </div>
                         </div>
                     </nav>
@@ -184,6 +189,52 @@
                                 {% endfor %}
                             </tbody>
                         </table>
+                    </div>
+                </div>
+                {% elif seccion == 'datos' %}
+                <!-- SECCIÓN GESTIÓN DE DATOS -->
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-database-fill-gear me-2 text-secondary"></i>Gestión de Datos</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-4">
+                        <!-- Card: Respaldo -->
+                        <div class="col-md-6">
+                            <div class="card border shadow-sm h-100">
+                                <div class="card-body text-center p-4">
+                                    <div class="bg-brand bg-opacity-10 text-brand rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 60px; height: 60px;">
+                                        <i class="bi bi-file-earmark-arrow-down fs-2"></i>
+                                    </div>
+                                    <h6 class="fw-bold text-dark">Generar Respaldo</h6>
+                                    <p class="text-muted small">Descarga un archivo ZIP con toda la información de tu empresa en formato CSV (Excel).</p>
+                                    <a href="{% url 'exportar_datos_zip' %}" class="btn btn-brand text-white px-4 w-100">
+                                        <i class="bi bi-download me-2"></i>Descargar Backup
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card: Reinicio -->
+                        <div class="col-md-6">
+                            <div class="card border border-danger shadow-sm h-100">
+                                <div class="card-body text-center p-4">
+                                    <div class="bg-danger bg-opacity-10 text-danger rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 60px; height: 60px;">
+                                        <i class="bi bi-exclamation-triangle fs-2"></i>
+                                    </div>
+                                    <h6 class="fw-bold text-danger">Reiniciar Datos</h6>
+                                    <p class="text-muted small">Limpia la información de tu empresa. Esta acción es irreversible. Se recomienda descargar un respaldo primero.</p>
+                                    
+                                    <div class="d-grid gap-2">
+                                        <button class="btn btn-outline-danger btn-sm" onclick="confirmarReinicio('transacciones')">
+                                            <i class="bi bi-trash3 me-1"></i> Borrar Transacciones
+                                        </button>
+                                        <button class="btn btn-danger btn-sm" onclick="confirmarReinicio('catalogos')">
+                                            <i class="bi bi-trash3-fill me-1"></i> Borrar Catálogos
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 {% endif %}
@@ -388,6 +439,48 @@
             if(data.success) { alert(data.message); location.reload(); } 
             else { alert('Error: ' + data.error); } 
         });
+    }
+
+    // --- LÓGICA DE REINICIO DE DATOS ---
+    function confirmarReinicio(tipo) {
+        const msg = tipo === 'transacciones' 
+            ? '¿Estás ABSOLUTAMENTE SEGURO de eliminar todas las transacciones (Ventas, Compras, Pedidos, Producción)?\n\nEl stock de todos los productos volverá a 0.' 
+            : '¿Estás ABSOLUTAMENTE SEGURO de eliminar TODOS LOS CATÁLOGOS (Productos, Clientes, Proveedores, Almacenes)?\n\nEsto borrará TODA la información de la empresa.';
+        
+        if (confirm(msg)) {
+            const extraMsg = "Esta acción no se puede deshacer. Escribe 'BORRAR' para confirmar:";
+            const confirmacion = prompt(extraMsg);
+            
+            if (confirmacion === 'BORRAR') {
+                ejecutarReinicio(tipo);
+            } else {
+                alert("Operación cancelada.");
+            }
+        }
+    }
+
+    function ejecutarReinicio(tipo) {
+        const url = tipo === 'transacciones' 
+            ? "{% url 'reiniciar_transacciones_ajax' %}" 
+            : "{% url 'reiniciar_catalogos_ajax' %}";
+        
+        fetch(url, {
+            method: 'POST',
+            headers: { 
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.href = "?section=datos";
+            } else {
+                alert("Error: " + data.error);
+            }
+        })
+        .catch(err => alert("Error de comunicación: " + err));
     }
 </script>
 
