@@ -10,4 +10,5 @@ urlpatterns = [
     path('completar-linea/<int:detalle_id>/', views.completar_linea_pedido, name='completar_linea_pedido'),
     path('ejecutar-reserva/<int:detalle_id>/', views.ejecutar_reserva, name='ejecutar_reserva'),
     path('generar-solicitud-global/<int:pedido_id>/', views.generar_solicitud_global, name='generar_solicitud_global'),
+    path('api/ver/<int:pedido_id>/', views.obtener_pedido_json, name='obtener_pedido_json'),
 ]

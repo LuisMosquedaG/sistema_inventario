@@ -61,6 +61,12 @@
         .check-item input[type="checkbox"] { width: 18px; height: 18px; margin-right: 15px; cursor: pointer; accent-color: #00b8b9; }
         .check-text { font-size: 0.9rem; color: #495057; flex-grow: 1; }
         .check-user { font-size: 0.7rem; color: #adb5bd; font-style: italic; }
+
+        /* AJUSTE PARA MODAL SCROLLABLE */
+        #modalNuevaOrdenManual .modal-body {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
     </style>
 
     <div class="container-fluid py-2 px-4">
@@ -71,7 +77,7 @@
                 <span class="section-subtitle">Gestión de órdenes de fabricación y procesos</span>
             </div>
             <div class="d-flex flex-wrap align-items-center gap-2">
-                <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaOrdenProduccion">
+                <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaOrdenManual">
                     <i class="bi bi-plus-lg me-1"></i> Nueva Orden
                 </button>
             </div>
@@ -97,6 +103,8 @@
                             <tr data-id-orden="{{ o.id }}">
                                 <td class="text-center">
                                     <div class="d-flex justify-content-center gap-1">
+                                        <span onclick="verOrdenProduccion({{ o.id }})" class="icon-action" title="Ver Detalle"><i class="bi bi-eye"></i></span>
+                                        
                                         {% if o.estado == 'borrador' %}
                                             <span onclick="abrirModalEdicion({{ o.id }})" class="icon-action" title="Editar Materiales"><i class="bi bi-pencil-square"></i></span>
                                             <a href="{% url 'avanzar_estado_produccion' o.id %}?estado=en_proceso" class="icon-action" title="Iniciar Trabajo" onclick="return confirm('¿Comenzar fabricación?')"><i class="bi bi-play-fill"></i></a>
@@ -168,106 +176,208 @@
         </div>
     </div>
 
-    <!-- MODAL: NUEVA ORDEN MANUAL -->
+    <!-- MODAL: NUEVA ORDEN (REDISEÑADO) -->
     <div class="modal fade" id="modalNuevaOrdenManual" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-sheet">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header border-bottom bg-light py-2">
                     <h5 class="modal-title fw-bold text-dark"><i class="bi bi-plus-lg me-2 text-brand"></i>Nueva Orden de Producción</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="post" action="{% url 'crear_orden_produccion' %}">
+                <form method="post" action="{% url 'crear_orden_produccion' %}" id="formNuevaOrden">
                     {% csrf_token %}
-                    <div class="modal-body p-4 bg-light">
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold text-secondary">Producto a Fabricar</label>
-                            <select name="producto" class="form-select" required>
-                                <option value="">Seleccionar...</option>
-                                {% for p in productos_finales %}
-                                <option value="{{ p.id }}">{{ p.nombre }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="row mb-3">
-                            <div class="col-6">
-                                <label class="form-label small fw-bold text-secondary">Cantidad</label>
-                                <input type="number" name="cantidad" class="form-control" value="1" min="1" required>
+                    <div class="modal-body p-3 bg-light">
+                        
+                        <!-- SECCIÓN 1: DATOS DE ORDEN -->
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-body p-3">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Datos de Orden de Producción</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Cliente (Opcional)</label>
+                                        <select name="cliente" class="form-select form-select-sm">
+                                            <option value="">-- Seleccionar Cliente --</option>
+                                            {% for c in clientes %}
+                                            <option value="{{ c.id }}">{{ c.nombre_completo }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Fecha de OP</label>
+                                        <input type="date" name="fecha_op" class="form-control form-control-sm" value="{% now 'Y-m-d' %}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Almacén de Salida (MP)</label>
+                                        <select name="almacen_salida" class="form-select form-select-sm" required>
+                                            {% for a in almacenes %}
+                                            <option value="{{ a.id }}">{{ a.nombre }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Almacén de Entrada (PT)</label>
+                                        <select name="almacen_entrada" class="form-select form-select-sm" required>
+                                            {% for a in almacenes %}
+                                            <option value="{{ a.id }}" {% if forloop.first %}selected{% endif %}>{{ a.nombre }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="col-6">
-                                <label class="form-label small fw-bold text-secondary">Almacén / Taller</label>
-                                <select name="almacen" class="form-select" required>
-                                    {% for a in almacenes %}
-                                    <option value="{{ a.id }}">{{ a.nombre }}</option>
-                                    {% endfor %}
-                                </select>
+                        </div>
+
+                        <!-- SECCIÓN 2: AGREGAR ARTÍCULO -->
+                        <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
+                            <div class="card-body p-3">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Agregar Artículo</h6>
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-8">
+                                        <label class="form-label small fw-bold text-secondary">Artículo a Producir</label>
+                                        <select id="selProductoNuevo" class="form-select form-select-sm">
+                                            <option value="">Seleccionar producto...</option>
+                                            {% for p in productos_finales %}
+                                            <option value="{{ p.id }}">{{ p.nombre }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small fw-bold text-secondary">Cantidad</label>
+                                        <input type="number" id="cantProductoNuevo" class="form-control form-control-sm text-center" value="1" min="1">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button type="button" class="btn btn-brand btn-sm w-100" onclick="agregarArticuloALista()">
+                                            <i class="bi bi-plus-lg"></i> Agregar
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
+
+                        <!-- SECCIÓN 3: LISTADO DE ARTÍCULOS -->
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body p-0">
+                                <h6 class="text-uppercase text-muted fw-bold p-3 mb-0" style="font-size: 0.75rem; letter-spacing: 1px;">Listado de Artículos y Explosión</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th class="ps-3">Artículo / Componente</th>
+                                                <th class="text-center" style="width: 100px;">Cantidad</th>
+                                                <th style="width: 50px;"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tbodyNuevaOrden">
+                                            <!-- JS rows here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div id="mensajeVacio" class="p-4 text-center text-muted">
+                                    <i class="bi bi-cart-x display-6 d-block mb-2"></i>
+                                    <small>No hay artículos agregados todavía.</small>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                     <div class="modal-footer border-top bg-white py-2">
-                        <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-brand btn-sm px-4">Crear Orden</button>
+                        <button type="button" class="btn btn-light text-secondary btn-sm px-4" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-brand btn-sm px-4 shadow-sm" id="btnGuardarOrden" disabled>Crear Orden de Producción</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- MODAL: EDICIÓN DE ORDEN -->
+    <!-- MODAL: EDICIÓN DE ORDEN (REDISEÑADO) -->
     <div class="modal fade" id="modalEditarOrden" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header border-bottom bg-light py-2">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2 text-brand"></i>Editar Orden: <span id="spanFolio">-</span></h5>
+                    <h5 class="modal-title fw-bold text-dark"><i class="bi bi-pencil-square me-2 text-brand"></i>Editar Orden: <span id="spanFolio">-</span></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body p-3 bg-light">
+                <div class="modal-body p-3 bg-light" style="max-height: 70vh; overflow-y: auto;">
+                    
+                    <!-- SECCIÓN 1: PRODUCTO A PRODUCIR -->
                     <div class="card border-0 shadow-sm mb-3">
                         <div class="card-body p-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Producto a Producir</h6>
                             <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label class="small text-muted d-block">Producto a Producir</label>
-                                    <strong id="dispProducto" class="text-dark fs-5">-</strong>
+                                    <label class="form-label small fw-bold text-secondary mb-0">Artículo</label>
+                                    <div id="dispProducto" class="text-dark fw-semibold fs-6">--</div>
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="small text-muted d-block">Cantidad</label>
-                                    <strong id="dispCantidad" class="text-dark fs-5">-</strong>
+                                    <label class="form-label small fw-bold text-secondary mb-0">Cantidad</label>
+                                    <div id="dispCantidad" class="text-dark fw-bold fs-6">--</div>
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="small text-muted d-block">Pedido Origen</label>
-                                    <strong id="dispPedido" class="text-brand">-</strong>
+                                    <label class="form-label small fw-bold text-secondary mb-0">Folio de Pedido</label>
+                                    <div id="dispPedido" class="text-brand fw-bold">--</div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="card border-0 shadow-sm">
+
+                    <!-- SECCIÓN 2: AGREGAR MATERIAL -->
+                    <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
                         <div class="card-body p-3">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h6 class="text-uppercase text-muted fw-bold m-0" style="font-size: 0.75rem;">Materiales y Componentes</h6>
-                                <button type="button" class="btn btn-sm btn-brand py-0 px-2 shadow-sm" onclick="agregarFilaMaterial()">
-                                    <i class="bi bi-plus-lg"></i> Agregar
-                                </button>
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Agregar Material a la Receta</h6>
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-8">
+                                    <label class="form-label small fw-bold text-secondary">Seleccionar Componente</label>
+                                    <select id="selMaterialNuevo" class="form-select form-select-sm">
+                                        <option value="">Seleccionar...</option>
+                                        {% for p in todos_productos_qs %}
+                                        <option value="{{ p.id }}">{{ p.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold text-secondary">Cantidad</label>
+                                    <input type="number" id="cantMaterialNuevo" class="form-control form-control-sm text-center" value="1" min="1">
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="button" class="btn btn-brand btn-sm w-100" onclick="agregarMaterialEdicion()">
+                                        <i class="bi bi-plus-lg"></i> Agregar
+                                    </button>
+                                </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 3: MATERIALES (LISTADO EDITABLE) -->
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body p-0">
+                            <h6 class="text-uppercase text-muted fw-bold p-3 mb-0" style="font-size: 0.75rem; letter-spacing: 1px;">Materiales y Componentes</h6>
                             <div class="table-responsive">
-                                <table class="table table-sm table-hover align-middle">
+                                <table class="table table-sm mb-0 align-middle">
                                     <thead class="table-light">
                                         <tr>
-                                            <th>Componente</th>
+                                            <th class="ps-3">Componente</th>
                                             <th class="text-center" style="width: 120px;">Cantidad</th>
-                                            <th style="width: 40px;"></th>
+                                            <th style="width: 50px;"></th>
                                         </tr>
                                     </thead>
-                                    <tbody id="tbodyMateriales"></tbody>
+                                    <tbody id="tbodyMateriales">
+                                        <!-- La primera fila será el padre (PT) y luego los componentes -->
+                                    </tbody>
                                 </table>
-                            </div>
-                            <div class="mt-3">
-                                <label class="small fw-bold text-secondary">Notas / Instrucciones del Taller</label>
-                                <textarea id="inputNotas" class="form-control form-control-sm" rows="2"></textarea>
                             </div>
                         </div>
                     </div>
+
+                    <!-- SECCIÓN 4: NOTAS -->
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-2" style="font-size: 0.75rem; letter-spacing: 1px;">Notas para Producción</h6>
+                            <textarea id="inputNotas" class="form-control form-control-sm" rows="2" placeholder="Instrucciones especiales para el taller..."></textarea>
+                        </div>
+                    </div>
+
                 </div>
                 <div class="modal-footer border-top bg-white py-2">
-                    <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-light text-secondary btn-sm px-4" data-bs-dismiss="modal">Cerrar</button>
                     <button type="button" class="btn btn-brand btn-sm px-4 shadow-sm" onclick="guardarCambiosOrden()">Guardar Cambios</button>
                 </div>
             </div>
@@ -303,8 +413,101 @@
     </div>
 
     <script>
-        let currentOrdenId = null;
-        const listaProductos = {{ productos_json|safe }};
+        let itemsProduccion = [];
+
+        function agregarArticuloALista() {
+            const sel = document.getElementById('selProductoNuevo');
+            const cantInput = document.getElementById('cantProductoNuevo');
+            const pId = sel.value;
+            const qty = parseInt(cantInput.value);
+
+            if (!pId || qty <= 0) {
+                alert("Selecciona un producto y una cantidad válida.");
+                return;
+            }
+
+            // Evitar duplicados (opcional, aquí permitiremos varios si se desea)
+            
+            fetch(`/produccion/api/receta/${pId}/`)
+                .then(r => r.json())
+                .then(data => {
+                    if(!data.success) { alert("Error al cargar receta."); return; }
+
+                    const item = {
+                        id: pId,
+                        nombre: data.producto,
+                        cantidad: qty,
+                        componentes: data.items
+                    };
+                    
+                    itemsProduccion.push(item);
+                    renderizarTablaNuevaOrden();
+                    
+                    // Limpiar selección
+                    sel.value = '';
+                    cantInput.value = 1;
+                });
+        }
+
+        function quitarArticulo(index) {
+            itemsProduccion.splice(index, 1);
+            renderizarTablaNuevaOrden();
+        }
+
+        function renderizarTablaNuevaOrden() {
+            const tbody = document.getElementById('tbodyNuevaOrden');
+            const msg = document.getElementById('mensajeVacio');
+            const btn = document.getElementById('btnGuardarOrden');
+            
+            tbody.innerHTML = '';
+            
+            if (itemsProduccion.length === 0) {
+                msg.style.display = 'block';
+                btn.disabled = true;
+                return;
+            }
+
+            msg.style.display = 'none';
+            btn.disabled = false;
+
+            itemsProduccion.forEach((item, index) => {
+                // Fila del Producto Final (Partida Padre)
+                const filaPadre = `
+                    <tr class="border-bottom-0">
+                        <td class="ps-3 align-middle" style="background-color: #e6f8f9 !important;">
+                            <input type="hidden" name="producto_id[]" value="${item.id}">
+                            <input type="hidden" name="cantidad[]" value="${item.cantidad}">
+                            <div class="fw-bold text-dark"><i class="bi bi-box-seam me-2"></i>${item.nombre}</div>
+                        </td>
+                        <td class="text-center align-middle fw-bold" style="background-color: #e6f8f9 !important;">${item.cantidad} pz</td>
+                        <td class="text-center align-middle" style="background-color: #e6f8f9 !important;">
+                            <i class="bi bi-trash text-danger" style="cursor:pointer;" onclick="quitarArticulo(${index})"></i>
+                        </td>
+                    </tr>
+                `;
+                tbody.insertAdjacentHTML('beforeend', filaPadre);
+
+                // Filas de Componentes
+                item.componentes.forEach(comp => {
+                    const cantTotal = (comp.cantidad * item.cantidad).toFixed(2);
+                    const filaHijo = `
+                        <tr class="bg-light">
+                            <td class="ps-5 align-middle">
+                                <div class="small text-secondary"><i class="bi bi-arrow-return-right me-2"></i>${comp.nombre}</div>
+                            </td>
+                            <td class="text-center align-middle small text-muted">${cantTotal} u.</td>
+                            <td></td>
+                        </tr>
+                    `;
+                    tbody.insertAdjacentHTML('beforeend', filaHijo);
+                });
+            });
+        }
+
+        let materialesEdicion = [];
+        let currentProductoPadre = "";
+        let currentProductoPadreId = null;
+        let currentCantidadPadre = 0;
 
         function abrirModalEdicion(id) {
             currentOrdenId = id;
@@ -314,37 +517,141 @@
                     document.getElementById('spanFolio').innerText = data.folio;
                     document.getElementById('dispProducto').innerText = data.producto_nombre;
                     document.getElementById('dispCantidad').innerText = data.cantidad_producir + ' pz';
-                    document.getElementById('dispPedido').innerText = '#' + data.pedido_id;
+                    document.getElementById('dispPedido').innerText = data.pedido_id === 'Manual' ? 'Manual' : '#' + data.pedido_id;
                     document.getElementById('inputNotas').value = data.notas;
-                    const tbody = document.getElementById('tbodyMateriales');
-                    tbody.innerHTML = '';
-                    data.detalles.forEach(d => agregarFilaMaterial(d.producto_id, d.cantidad));
+                    
+                    currentProductoPadre = data.producto_nombre;
+                    currentProductoPadreId = data.producto_id;
+                    currentCantidadPadre = data.cantidad_producir;
+                    
+                    materialesEdicion = data.detalles.map(d => ({
+                        producto_id: d.producto_id,
+                        nombre: d.producto_nombre,
+                        cantidad: d.cantidad
+                    }));
+
+                    renderizarTablaEdicion();
                     new bootstrap.Modal(document.getElementById('modalEditarOrden')).show();
                 });
         }
 
-        function agregarFilaMaterial(prodId = '', cant = 1) {
+        function cambiarProductoPadre(newId, newNombre) {
+            currentProductoPadreId = newId;
+            currentProductoPadre = newNombre;
+            document.getElementById('dispProducto').innerText = newNombre;
+        }
+
+        function agregarMaterialEdicion() {
+            const sel = document.getElementById('selMaterialNuevo');
+            const cantInput = document.getElementById('cantMaterialNuevo');
+            const pId = sel.value;
+            const qty = parseFloat(cantInput.value);
+
+            if (!pId || qty <= 0) {
+                alert("Selecciona un material y cantidad válida.");
+                return;
+            }
+
+            const nombre = sel.options[sel.selectedIndex].text;
+            materialesEdicion.push({ producto_id: pId, nombre: nombre, cantidad: qty });
+            
+            renderizarTablaEdicion();
+            sel.value = '';
+            cantInput.value = 1;
+        }
+
+        function quitarMaterialEdicion(index) {
+            materialesEdicion.splice(index, 1);
+            renderizarTablaEdicion();
+        }
+
+        function recalcularCantidadesComponentes(nuevaCantPadre) {
+            if (nuevaCantPadre <= 0) return;
+            
+            const factor = nuevaCantPadre / currentCantidadPadre;
+            materialesEdicion.forEach(mat => {
+                mat.cantidad = (mat.cantidad * factor).toFixed(2);
+            });
+            
+            currentCantidadPadre = nuevaCantPadre;
+            renderizarTablaEdicion();
+        }
+
+        function renderizarTablaEdicion() {
             const tbody = document.getElementById('tbodyMateriales');
-            const tr = document.createElement('tr');
-            let options = '<option value="">Seleccionar...</option>';
-            listaProductos.forEach(p => { options += `<option value="${p.id}" ${p.id == prodId ? 'selected' : ''}>${p.nombre}</option>`; });
-            tr.innerHTML = `<td><select class="form-select form-select-sm sel-prod">${options}</select></td><td><input type="number" class="form-control form-control-sm text-center inp-cant" value="${cant}" min="1"></td><td class="text-center"><i class="bi bi-trash text-danger" style="cursor:pointer;" onclick="this.closest('tr').remove()"></i></td>`;
-            tbody.appendChild(tr);
+            tbody.innerHTML = '';
+
+            // 1. Fila del Producto Padre (Editable)
+            let opcionesProductos = '';
+            {% for p in productos_finales %}
+                opcionesProductos += `<option value="{{ p.id }}" ${currentProductoPadreId == {{ p.id }} ? 'selected' : ''}>{{ p.nombre }}</option>`;
+            {% endfor %}
+
+            const filaPadre = `
+                <tr style="background-color: #e6f8f9 !important;">
+                    <td class="ps-3 align-middle" style="background-color: #e6f8f9 !important;">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-box-seam me-2 text-brand"></i>
+                            <select class="form-select form-select-sm border-brand fw-bold" 
+                                    style="background-color: #fff; min-width: 250px;"
+                                    onchange="cambiarProductoPadre(this.value, this.options[this.selectedIndex].text)">
+                                ${opcionesProductos}
+                            </select>
+                        </div>
+                    </td>
+                    <td class="text-center align-middle" style="background-color: #e6f8f9 !important;">
+                        <input type="number" class="form-control form-control-sm text-center mx-auto fw-bold" 
+                               style="width: 100px; background-color: #fff;" value="${currentCantidadPadre}" min="1"
+                               onchange="recalcularCantidadesComponentes(parseFloat(this.value))">
+                    </td>
+                    <td style="background-color: #e6f8f9 !important;"></td>
+                </tr>
+            `;
+            tbody.insertAdjacentHTML('beforeend', filaPadre);
+
+            // 2. Filas de Materiales (Editables)
+            materialesEdicion.forEach((mat, index) => {
+                const fila = `
+                    <tr>
+                        <td class="ps-4 align-middle">
+                            <div class="small text-secondary"><i class="bi bi-arrow-return-right me-2"></i>${mat.nombre}</div>
+                        </td>
+                        <td class="text-center align-middle">
+                            <input type="number" class="form-control form-control-sm text-center mx-auto" 
+                                   style="width: 100px;" value="${mat.cantidad}" step="0.01"
+                                   onchange="materialesEdicion[${index}].cantidad = this.value">
+                        </td>
+                        <td class="text-center align-middle">
+                            <span class="icon-action" title="Quitar Material" onclick="quitarMaterialEdicion(${index})">
+                                <i class="bi bi-x-lg" style="font-size: 0.9rem;"></i>
+                            </span>
+                        </td>
+                    </tr>
+                `;
+                tbody.insertAdjacentHTML('beforeend', fila);
+            });
         }
 
         function guardarCambiosOrden() {
-            const componentes = [];
-            document.querySelectorAll('#tbodyMateriales tr').forEach(tr => {
-                const pId = tr.querySelector('.sel-prod').value;
-                const cant = tr.querySelector('.inp-cant').value;
-                if(pId) componentes.push({ producto_id: pId, cantidad: parseInt(cant) });
-            });
-            const data = { notas: document.getElementById('inputNotas').value, componentes: componentes };
+            const data = { 
+                notas: document.getElementById('inputNotas').value, 
+                componentes: materialesEdicion,
+                cantidad_padre: currentCantidadPadre,
+                producto_id: currentProductoPadreId
+            };
+            
             fetch(`/produccion/actualizar/${currentOrdenId}/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
                 body: JSON.stringify(data)
-            }).then(r => r.json()).then(res => { if(res.success) { alert('Cambios guardados.'); location.reload(); } else { alert('Error: ' + res.error); } });
+            }).then(r => r.json()).then(res => { 
+                if(res.success) { 
+                    alert('Cambios guardados correctamente.'); 
+                    location.reload(); 
+                } else { 
+                    alert('Error: ' + res.error); 
+                } 
+            });
         }
 
         function prepararFinalizacion(id) {

@@ -19,4 +19,5 @@ urlpatterns = [
     path('api/detalle-test/<int:test_id>/', views.api_detalle_test, name='api_detalle_test'),
     path('api/actualizar-test/<int:test_id>/', views.actualizar_test_ajax, name='actualizar_test_ajax'),
     path('api/eliminar-test/<int:test_id>/', views.eliminar_test_ajax, name='eliminar_test_ajax'),
+    path('api/receta/<int:producto_id>/', views.api_obtener_receta, name='api_obtener_receta'),
 ]

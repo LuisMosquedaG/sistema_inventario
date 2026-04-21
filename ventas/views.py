@@ -159,7 +159,7 @@ def api_preparar_surtido(request, ov_id):
     empresa_actual = get_empresa_actual(request)
     ov = get_object_or_404(OrdenVenta, id=ov_id, empresa=empresa_actual)
 
-    if ov.estado not in ['aprobado', 'surtido']:
+    if ov.estado not in ['borrador', 'aprobado', 'surtido']:
         return JsonResponse({'success': False, 'error': 'Estado inválido para ver detalles.'})
 
     almacen_id_req = request.GET.get('almacen_id')

@@ -575,3 +575,34 @@ def generar_solicitud_global(request, pedido_id):
 
     messages.success(request, f'Solicitud Global generada exitosamente con {len(mapa_solicitud)} ítems únicos.')
     return redirect('dashboard_solicitudcompras')
+
+@login_required(login_url='/login/')
+def obtener_pedido_json(request, pedido_id):
+    """Devuelve los datos de un pedido específico para visualizar"""
+    try:
+        empresa_actual = get_empresa_actual(request)
+        pedido = get_object_or_404(Pedido, id=pedido_id, empresa=empresa_actual)
+        
+        data = {
+            'folio': f"PED-{pedido.id:04d}",
+            'cliente_nombre': pedido.cliente.razon_social or f"{pedido.cliente.nombre} {pedido.cliente.apellidos}",
+            'cliente_tel': pedido.cliente.telefono or '--',
+            'cliente_email': pedido.cliente.email or '--',
+            'contacto_nombre': pedido.contacto.nombre_completo if pedido.contacto else 'Sin contacto',
+            'contacto_tel': pedido.contacto.telefono_1 if pedido.contacto else '--',
+            'contacto_email': pedido.contacto.correo_1 if pedido.contacto else '--',
+            'fecha': pedido.fecha_creacion.strftime('%d/%m/%Y'),
+            'cotizacion_folio': f"COT-{pedido.cotizacion_origen_id:04d}" if pedido.cotizacion_origen_id else '--',
+            'detalles': []
+        }
+
+        for det in pedido.detalles.all():
+            data['detalles'].append({
+                'producto': det.producto.nombre,
+                'solicitado': det.cantidad_solicitada,
+                'estado': det.get_estado_linea_display()
+            })
+
+        return JsonResponse(data)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

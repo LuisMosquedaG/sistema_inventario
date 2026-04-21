@@ -220,31 +220,59 @@ function calcularTotalRecepcion() {
     if(gt) gt.innerText = '$' + t.toFixed(2);
 }
 
-function verDetalleRecepcion(id) {
-    window.currentRecId = id;
+function verRecepcion(id) {
+    const tbody = document.getElementById('ver_rec_tabla_cuerpo');
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</td></tr>';
+    
     fetch(`/recepciones/api/detalle-recepcion/${id}/`)
         .then(r => r.json())
         .then(data => {
-            document.getElementById('recModalTitleText').innerText = data.folio;
-            document.getElementById('recModalFecha').innerText = data.fecha;
-            document.getElementById('recModalProveedor').innerText = data.proveedor;
-            document.getElementById('recModalTotal').innerText = `$${data.total.toFixed(2)}`;
-            const st = document.getElementById('recModalEstado');
-            st.innerText = data.estado; st.className = 'status-pill status-' + data.estado.toLowerCase();
-            document.getElementById('recModalOC').innerText = data.oc_folio.replace('OC-', '');
-            document.getElementById('recModalAlmacen').innerText = data.almacen || '-';
-            document.getElementById('recModalFactura').innerText = data.factura || '-';
-            document.getElementById('recModalPedimento').innerText = data.pedimento || '-';
-            document.getElementById('recModalAduana').innerText = data.aduana || '-';
-            document.getElementById('recModalFechaPedimento').innerText = data.fecha_pedimento || '-';
-            document.getElementById('recCardLogistica').style.display = 'block';
-            const tbody = document.getElementById('recModalTableBody');
+            if(data.error) { alert(data.error); return; }
+
+            document.getElementById('ver_rec_folio').innerText = data.folio;
+            
+            // SECCIÓN 1: DATOS DE COMPRA
+            document.getElementById('ver_rec_proveedor').innerText = data.proveedor;
+            document.getElementById('ver_rec_sucursal').innerText = data.sucursal;
+            document.getElementById('ver_rec_oc_folio').innerText = data.oc_folio;
+            document.getElementById('ver_rec_oc_fecha').innerText = data.oc_fecha;
+
+            // SECCIÓN 2: DATOS DE RECEPCIÓN
+            document.getElementById('ver_rec_almacen').innerText = data.almacen;
+            document.getElementById('ver_rec_folio_val').innerText = data.folio;
+            document.getElementById('ver_rec_fecha').innerText = data.fecha;
+            document.getElementById('ver_rec_factura').innerText = data.factura;
+            document.getElementById('ver_rec_fecha_fact').innerText = data.fecha; // Usamos la misma fecha de recepción si no hay campo específico
+            document.getElementById('ver_rec_pedimento').innerText = data.pedimento;
+            document.getElementById('ver_rec_fecha_ped').innerText = data.fecha_pedimento;
+            document.getElementById('ver_rec_aduana').innerText = data.aduana;
+
+            // SECCIÓN 3: LISTADO DE ARTÍCULOS
             tbody.innerHTML = '';
-            data.detalles.forEach(d => {
-                tbody.insertAdjacentHTML('beforeend', `<tr><td class="ps-3 text-center">${d.producto}</td><td class="text-center">${d.cant}</td><td class="text-center">$${d.precio.toFixed(2)}</td><td class="text-center fw-bold">$${d.subtotal.toFixed(2)}</td></tr>`);
+            let totalG = 0;
+            data.detalles.forEach(det => {
+                const fila = `
+                    <tr>
+                        <td class="ps-3">
+                            <div class="fw-semibold small text-dark">${det.producto}</div>
+                        </td>
+                        <td class="text-center small">${det.cant}</td>
+                        <td class="text-end small text-muted">$${parseFloat(det.precio).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                        <td class="text-end pe-3 fw-bold small text-dark">$${parseFloat(det.subtotal).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                    </tr>
+                `;
+                tbody.insertAdjacentHTML('beforeend', fila);
+                totalG += parseFloat(det.subtotal);
             });
-            document.getElementById('btnCancelarRecepcion').style.display = (data.estado !== 'CANCELADA') ? 'inline-block' : 'none';
-            new bootstrap.Modal(document.getElementById('modalDetalleRecepcion')).show();
+
+            document.getElementById('ver_rec_gran_total').innerText = '$' + totalG.toLocaleString('en-US', {minimumFractionDigits: 2});
+            
+            const modal = new bootstrap.Modal(document.getElementById('modalVerRecepcion'));
+            modal.show();
+        })
+        .catch(err => {
+            console.error('Error:', err);
+            alert('No se pudo cargar la información de la recepción.');
         });
 }
 

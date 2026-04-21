@@ -51,6 +51,10 @@
                                     <td class="text-center">
                                         <div class="d-flex justify-content-center">
                                             
+                                            <span onclick="verCotizacion({{ c.id }})" class="icon-action" title="Ver">
+                                                <i class="bi bi-eye"></i>
+                                            </span>
+
                                             <!-- 1. ESTADO BORRADOR -->
                                             {% if c.estado == 'borrador' %}
                                             
@@ -193,6 +197,7 @@
     </div>
 
     <!-- MODALES -->
+    {% include "cotizaciones/modals/modal_ver_cotizacion.html" %}
     {% include "cotizaciones/modals/modal_nueva_cotizacion.html" %}
     {% include "cotizaciones/modals/modal_confirmar_aprobacion.html" %}
     {% include "cotizaciones/modals/modal_crear_cliente_rapido.html" %}

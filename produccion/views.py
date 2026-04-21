@@ -63,13 +63,19 @@ def dashboard_produccion(request):
     # PRODUCTOS QUE SE PUEDEN PRODUCIR
     productos_finales = Producto.objects.filter(empresa=empresa_actual, tipo_abastecimiento='produccion')
     almacenes = Almacen.objects.filter(empresa=empresa_actual)
-    todos_productos = Producto.objects.filter(empresa=empresa_actual).values('id', 'nombre')
+    todos_productos_qs = Producto.objects.filter(empresa=empresa_actual)
+    todos_productos_json = list(todos_productos_qs.values('id', 'nombre'))
+    
+    from clientes.models import Cliente
+    clientes = Cliente.objects.filter(empresa=empresa_actual)
     
     contexto = {
         'ordenes': ordenes,
         'productos_finales': productos_finales,
         'almacenes': almacenes,
-        'productos_json': list(todos_productos),
+        'clientes': clientes,
+        'productos_json': todos_productos_json,
+        'todos_productos_qs': todos_productos_qs,
         'section': 'produccion'
     }
     return render(request, 'produccion/dashboard_produccion.html', contexto)
@@ -297,39 +303,72 @@ def eliminar_test_ajax(request, test_id):
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
 @login_required
+def api_obtener_receta(request, producto_id):
+    """Devuelve los componentes de un producto final"""
+    empresa_actual = get_empresa_actual(request)
+    producto = get_object_or_404(Producto, id=producto_id, empresa=empresa_actual)
+    
+    receta = DetalleReceta.objects.filter(producto_padre=producto).select_related('componente')
+    items = []
+    for r in receta:
+        items.append({
+            'id': r.componente.id,
+            'nombre': r.componente.nombre,
+            'cantidad': float(r.cantidad)
+        })
+    
+    return JsonResponse({'success': True, 'producto': producto.nombre, 'items': items})
+
+@login_required
 @transaction.atomic
 def crear_orden_produccion(request):
-    """Crea una orden de producción manual y copia la receta base"""
+    """Crea órdenes de producción desde el nuevo modal multicartas"""
     if request.method == 'POST':
         try:
             empresa_actual = get_empresa_actual(request)
-            producto_id = request.POST.get('producto')
-            cantidad = int(request.POST.get('cantidad', 1))
-            almacen_id = request.POST.get('almacen')
+            cliente_id = request.POST.get('cliente')
+            almacen_mp_id = request.POST.get('almacen_salida')
+            almacen_pt_id = request.POST.get('almacen_entrada')
             
-            producto = get_object_or_404(Producto, id=producto_id, empresa=empresa_actual)
-            almacen = get_object_or_404(Almacen, id=almacen_id, empresa=empresa_actual)
+            # Listas de artículos
+            productos_ids = request.POST.getlist('producto_id[]')
+            cantidades = request.POST.getlist('cantidad[]')
             
-            # 1. Crear Cabecera
-            op = OrdenProduccion.objects.create(
-                empresa=empresa_actual,
-                producto=producto,
-                cantidad=cantidad,
-                almacen=almacen,
-                solicitante=request.user,
-                estado='borrador'
-            )
-            
-            # 2. Copiar Receta Base
-            receta_base = DetalleReceta.objects.filter(producto_padre=producto)
-            for item in receta_base:
-                DetalleOrdenProduccion.objects.create(
-                    orden_produccion=op,
-                    producto=item.componente,
-                    cantidad=item.cantidad * cantidad
+            if not productos_ids:
+                raise Exception("Debes agregar al menos un artículo a producir.")
+
+            count = 0
+            for i in range(len(productos_ids)):
+                p_id = productos_ids[i]
+                qty = int(cantidades[i])
+                
+                if not p_id or qty <= 0: continue
+                
+                producto = get_object_or_404(Producto, id=p_id, empresa=empresa_actual)
+                
+                # 1. Crear OP
+                op = OrdenProduccion.objects.create(
+                    empresa=empresa_actual,
+                    cliente_id=cliente_id if cliente_id else None,
+                    producto=producto,
+                    cantidad=qty,
+                    almacen_id=almacen_pt_id,
+                    almacen_materia_prima_id=almacen_mp_id,
+                    solicitante=request.user,
+                    estado='borrador'
                 )
                 
-            messages.success(request, f'Orden {op.folio} creada en Borrador.')
+                # 2. Copiar Componentes (Receta)
+                receta_base = DetalleReceta.objects.filter(producto_padre=producto)
+                for r in receta_base:
+                    DetalleOrdenProduccion.objects.create(
+                        orden_produccion=op,
+                        producto=r.componente,
+                        cantidad=r.cantidad * qty
+                    )
+                count += 1
+                
+            messages.success(request, f'Se han generado {count} órdenes de producción exitosamente.')
             return redirect('dashboard_produccion')
         except Exception as e:
             messages.error(request, f'Error al crear: {str(e)}')
@@ -338,7 +377,7 @@ def crear_orden_produccion(request):
 
 @login_required
 def api_detalle_orden(request, orden_id):
-    """Retorna datos de la orden y sus componentes para el modal"""
+    """Retorna datos de la orden y sus componentes para el modal de visualización"""
     empresa_actual = get_empresa_actual(request)
     orden = get_object_or_404(OrdenProduccion, id=orden_id, empresa=empresa_actual)
     
@@ -348,15 +387,22 @@ def api_detalle_orden(request, orden_id):
             'id': d.id,
             'producto_id': d.producto.id,
             'producto_nombre': d.producto.nombre,
-            'cantidad': d.cantidad
+            'cantidad': float(d.cantidad)
         })
         
     data = {
         'id': orden.id,
         'folio': orden.folio,
+        'cliente_nombre': orden.cliente.nombre_completo if orden.cliente else 'Sin cliente',
+        'fecha_op': orden.fecha_creacion.strftime('%d/%m/%Y'),
+        'almacen_entrada': orden.almacen.nombre,
+        'almacen_salida': orden.almacen_materia_prima.nombre if orden.almacen_materia_prima else 'No asignado',
+        'pedido_id': orden.pedido_origen.id if orden.pedido_origen else 'Manual',
+        'pedido_folio': f"PED-{orden.pedido_origen.id:04d}" if orden.pedido_origen else 'Manual',
+        'pedido_fecha': orden.pedido_origen.fecha_creacion.strftime('%d/%m/%Y') if orden.pedido_origen else '--',
+        'producto_id': orden.producto.id,
         'producto_nombre': orden.producto.nombre,
         'cantidad_producir': orden.cantidad,
-        'pedido_id': orden.pedido_origen.id if orden.pedido_origen else 'Manual',
         'solicitante': orden.solicitante.username.split('@')[0] if orden.solicitante else 'Sistema',
         'estado': orden.estado,
         'notas': orden.notas,
@@ -376,9 +422,13 @@ def actualizar_orden_produccion(request, orden_id):
             if orden.estado != 'borrador':
                 return JsonResponse({'success': False, 'error': 'Solo se pueden editar órdenes en Borrador.'})
 
-            # 1. Actualizar Notas
+            # 1. Actualizar Notas, Cantidad y Producto Principal
             data = json.loads(request.body)
             orden.notas = data.get('notas', '')
+            if 'cantidad_padre' in data:
+                orden.cantidad = int(data['cantidad_padre'])
+            if 'producto_id' in data:
+                orden.producto_id = int(data['producto_id'])
             orden.save()
 
             # 2. Actualizar Componentes

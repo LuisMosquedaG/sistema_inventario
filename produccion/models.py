@@ -17,13 +17,15 @@ class OrdenProduccion(models.Model):
     )
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa (Tenant)")
+    cliente = models.ForeignKey('clientes.Cliente', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Cliente")
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, verbose_name="Producto a Fabricar", limit_choices_to={'tipo_abastecimiento': 'produccion'})
     cantidad = models.PositiveIntegerField(verbose_name="Cantidad a Producir")
     
     pedido_origen = models.ForeignKey(Pedido, on_delete=models.SET_NULL, null=True, blank=True, related_name='ordenes_produccion', verbose_name="Pedido Origen")
     solicitante = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='solicitudes_produccion', verbose_name="Usuario que solicitó")
     
-    almacen = models.ForeignKey(Almacen, on_delete=models.PROTECT, verbose_name="Almacén / Taller")
+    almacen = models.ForeignKey(Almacen, on_delete=models.PROTECT, verbose_name="Almacén de Entrada (PT)", related_name='ordenes_entrada')
+    almacen_materia_prima = models.ForeignKey(Almacen, on_delete=models.PROTECT, verbose_name="Almacén de Salida (MP)", related_name='ordenes_salida', null=True, blank=True)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='borrador')
     
     responsable = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='trabajos_asignados', verbose_name="Responsable del Taller")

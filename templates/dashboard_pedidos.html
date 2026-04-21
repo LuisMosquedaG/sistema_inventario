@@ -99,6 +99,10 @@
                                 <td class="text-center align-middle">
                                     <div class="d-flex justify-content-center">
                                         
+                                        <span onclick="verPedido({{ p.id }})" class="icon-action" title="Ver">
+                                            <i class="bi bi-eye"></i>
+                                        </span>
+
                                         <!-- ESTADO: BORRADOR -->
                                         {% if p.estado == 'borrador' %}
                                             <a href="{% url 'validar_pedido' p.id %}" class="icon-action" title="Validar Stock" onclick="return confirm('¿Validar disponibilidad de stock?')">
@@ -225,6 +229,8 @@
             </div>
         </div>
     </div>
+
+    {% include "pedidos/modals/modal_ver_pedido.html" %}
 
     <!-- MODAL: GESTIONAR PEDIDO -->
     <div class="modal fade" id="modalGestionarPedido" tabindex="-1">
@@ -728,6 +734,44 @@
             }
         }
         return cookieValue;
+    }
+
+    function verPedido(id) {
+        const tbody = document.getElementById('ver_pedido_tabla_cuerpo');
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</td></tr>';
+        
+        const modal = new bootstrap.Modal(document.getElementById('modalVerPedido'));
+        modal.show();
+
+        fetch(`/pedidos/api/ver/${id}/`)
+            .then(r => r.json())
+            .then(data => {
+                if(data.error) { alert(data.error); return; }
+
+                document.getElementById('ver_pedido_folio').innerText = data.folio;
+                document.getElementById('ver_pedido_cliente').innerText = data.cliente_nombre;
+                document.getElementById('ver_pedido_contacto').innerText = data.contacto_nombre;
+                document.getElementById('ver_pedido_cliente_tel').innerText = data.cliente_tel;
+                document.getElementById('ver_pedido_cliente_email').innerText = data.cliente_email;
+                document.getElementById('ver_pedido_fecha').innerText = data.fecha;
+                document.getElementById('ver_pedido_cotizacion').innerText = data.cotizacion_folio;
+                document.getElementById('ver_pedido_contacto_nom').innerText = data.contacto_nombre;
+                document.getElementById('ver_pedido_contacto_tel').innerText = data.contacto_tel;
+                document.getElementById('ver_pedido_contacto_email').innerText = data.contacto_email;
+
+                tbody.innerHTML = '';
+                data.detalles.forEach(det => {
+                    tbody.insertAdjacentHTML('beforeend', `
+                        <tr>
+                            <td class="ps-3 fw-semibold small text-dark">${det.producto}</td>
+                            <td class="text-center small">${det.solicitado}</td>
+                            <td class="text-center">
+                                <span class="status-pill status-confirmado" style="font-size: 0.65rem;">${det.estado}</span>
+                            </td>
+                        </tr>
+                    `);
+                });
+            });
     }
 </script>
 {% endblock %}

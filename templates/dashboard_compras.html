@@ -72,6 +72,8 @@
                             <tr>
                                 <td class="text-center">
                                     <div class="d-flex justify-content-center">
+                                        <span onclick="verCompra({{ c.id }})" class="icon-action" title="Ver"><i class="bi bi-eye"></i></span>
+
                                         {% if c.estado == 'borrador' %}
                                             <span onclick="cambiarEstadoCompra({{ c.id }}, 'aprobada')" class="icon-action" title="Aprobar Orden"><i class="bi bi-check2-circle"></i></span>
                                             <span onclick="cargarParaEdicionCompra({{ c.id }})" class="icon-action" title="Editar"><i class="bi bi-pencil-square"></i></span>
@@ -123,6 +125,9 @@
         </div>
     </div>
 
+    <!-- MODALES -->
+    {% include "compras/modal_ver_compra.html" %}
+    
     <!-- MODAL: NUEVA COMPRA -->
     <div class="modal fade" id="modalNuevaCompra" tabindex="-1" aria-hidden="true">
        <div class="modal-dialog modal-dialog-centered modal-xl modal-sheet">
@@ -247,6 +252,52 @@
 
 {% block extra_js %}
     <script>
+        function verCompra(id) {
+            const tbody = document.getElementById('ver_compra_tabla_cuerpo');
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</td></tr>';
+            
+            fetch(`/compras/api/compras/${id}/`)
+                .then(r => r.json())
+                .then(data => {
+                    if(data.error) { alert(data.error); return; }
+
+                    document.getElementById('ver_compra_folio').innerText = data.folio;
+                    document.getElementById('ver_compra_proveedor').innerText = data.proveedor_nombre;
+                    document.getElementById('ver_compra_sucursal').innerText = data.sucursal_nombre;
+                    document.getElementById('ver_compra_fecha').innerText = data.fecha_formateada;
+                    document.getElementById('ver_compra_moneda').innerText = data.moneda_nombre;
+                    document.getElementById('ver_compra_tc').innerText = parseFloat(data.tipo_cambio).toFixed(4);
+                    document.getElementById('ver_compra_almacen').innerText = data.almacen_nombre;
+                    document.getElementById('ver_compra_notas').innerText = data.notas || 'Sin notas';
+
+                    tbody.innerHTML = '';
+                    let totalG = 0;
+                    data.detalles.forEach(det => {
+                        const fila = `
+                            <tr>
+                                <td class="ps-3">
+                                    <div class="fw-semibold small text-dark">${det.producto_nombre}</div>
+                                </td>
+                                <td class="text-center small">${det.cantidad}</td>
+                                <td class="text-end small text-muted">$${parseFloat(det.precio).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                <td class="text-end pe-3 fw-bold small text-dark">$${parseFloat(det.total).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                            </tr>
+                        `;
+                        tbody.insertAdjacentHTML('beforeend', fila);
+                        totalG += parseFloat(det.total);
+                    });
+
+                    document.getElementById('ver_compra_gran_total').innerText = '$' + totalG.toLocaleString('en-US', {minimumFractionDigits: 2});
+                    
+                    const modal = new bootstrap.Modal(document.getElementById('modalVerCompra'));
+                    modal.show();
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    alert('No se pudo cargar la información de la compra.');
+                });
+        }
+
         function prepararNuevaCompra() {
             const form = document.getElementById('formCompra');
             form.reset();

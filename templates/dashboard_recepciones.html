@@ -46,7 +46,7 @@
                             <!-- 1. ACCIONES -->
                             <td class="text-center">
                                 <div class="d-flex justify-content-center">
-                                    <span onclick="verDetalleRecepcion({{ r.id }})" class="icon-action" title="Ver Detalle">
+                                    <span onclick="verRecepcion({{ r.id }})" class="icon-action" title="Ver Detalle">
                                         <i class="bi bi-eye"></i>
                                     </span>
 
@@ -74,14 +74,14 @@
 
                             <!-- 2. FOLIO -->
                             <td class="text-center font-monospace small">
-                                <span class="text-dark">{{ r.id }}</span>
+                                <span class="text-dark">REC-{{ r.id|stringformat:"04d" }}</span>
                             </td>
                             
                             <!-- 3. ORDEN DE COMPRA -->
                             <td class="text-center">
-                                <div class="text-dark small">
+                                <div class="text-dark small font-monospace">
                                     {% if r.orden_compra %}
-                                        {{ r.orden_compra.id }}
+                                        OC-{{ r.orden_compra.id|stringformat:"04d" }}
                                     {% else %}
                                         <span class="text-muted">Directa</span>
                                     {% endif %}
@@ -168,7 +168,7 @@
 <!-- ============================================== -->
 
 {% include "recepciones/modals/modal_nueva_recepcion.html" %}
-{% include "recepciones/modals/modal_detalle_recepcion.html" %}
+{% include "recepciones/modals/modal_ver_recepcion.html" %}
 
 {% endblock %}
 

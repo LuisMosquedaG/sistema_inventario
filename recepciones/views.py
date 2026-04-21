@@ -131,21 +131,24 @@ def api_detalle_recepcion(request, recepcion_id):
     try:
         empresa_actual = get_empresa_actual(request)
         rec = get_object_or_404(Recepcion, id=recepcion_id, empresa=empresa_actual)
+        oc = rec.orden_compra
         
         data = {
             'titulo': 'Detalle Recepción',
             'folio': f"REC-{rec.id:04d}",
             'fecha': rec.fecha.strftime('%d/%m/%Y') if rec.fecha else '-',
             'estado': rec.estado.upper(),
-            'proveedor': str(rec.orden_compra.proveedor) if rec.orden_compra else "Directo / Sin OC",
+            'proveedor': str(oc.proveedor) if oc else "Directo / Sin OC",
+            'sucursal': oc.sucursal.nombre if (oc and oc.sucursal) else 'Matriz / Principal',
             'almacen': str(rec.almacen),
             'factura': rec.factura or '-',
             'total': float(rec.total),
             'pedimento': rec.pedimento or '-',
             'aduana': rec.aduana or '-',
             'fecha_pedimento': rec.fecha_pedimento.strftime('%d/%m/%Y') if rec.fecha_pedimento else '-',
-            'oc_id': rec.orden_compra.id if rec.orden_compra else None,
-            'oc_folio': f"OC-{rec.orden_compra.id:04d}" if rec.orden_compra else '-',
+            'oc_id': oc.id if oc else None,
+            'oc_folio': f"OC-{oc.id:04d}" if oc else '-',
+            'oc_fecha': oc.fecha.strftime('%d/%m/%Y') if (oc and oc.fecha) else '-',
             'detalles': [
                 {
                     'producto': d.producto.nombre,

@@ -94,13 +94,19 @@ def obtener_compra_json(request, compra_id):
         
         data = {
             'id': orden.id,
-            'proveedor': orden.proveedor.id,
+            'folio': f"OC-{orden.id:04d}",
+            'proveedor_id': orden.proveedor.id,
+            'proveedor_nombre': orden.proveedor.razon_social,
             'sucursal_id': orden.sucursal.id if orden.sucursal else '',
-            'almacen': orden.almacen_destino.id if orden.almacen_destino else '',
-            'moneda': orden.moneda.id if orden.moneda else '',
+            'sucursal_nombre': orden.sucursal.nombre if orden.sucursal else 'Matriz / Principal',
+            'almacen_id': orden.almacen_destino.id if orden.almacen_destino else '',
+            'almacen_nombre': orden.almacen_destino.nombre if orden.almacen_destino else 'No asignado',
+            'moneda_id': orden.moneda.id if orden.moneda else '',
+            'moneda_nombre': orden.moneda.siglas if orden.moneda else 'MXN',
             'tipo_cambio': str(orden.tipo_cambio),
             'fecha': orden.fecha.strftime('%Y-%m-%d'),
-            'notas': orden.notas,
+            'fecha_formateada': orden.fecha.strftime('%d/%m/%Y'),
+            'notas': orden.notas or '',
             'estado': orden.estado,
             'detalles': [
                 {
@@ -108,6 +114,7 @@ def obtener_compra_json(request, compra_id):
                     'producto_nombre': d.producto.nombre,
                     'cantidad': d.cantidad,
                     'precio': float(d.precio_costo),
+                    'total': float(d.subtotal),
                 } for d in detalles
             ]
         }

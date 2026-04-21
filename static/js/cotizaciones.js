@@ -188,6 +188,59 @@ function agregarFilaVisual(id, nombre, cant, precio, total) {
 }
 
 // ==========================================
+// VER COTIZACIÓN
+// ==========================================
+window.verCotizacion = function(id) {
+    const tablaVer = document.getElementById('ver_tabla_cuerpo');
+    tablaVer.innerHTML = '<tr><td colspan="4" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</td></tr>';
+    
+    fetch(`/api/cotizaciones/${id}/`)
+        .then(response => response.json())
+        .then(data => {
+            if(data.error) { alert(data.error); return; }
+
+            // Actualizar el folio en el título
+            document.getElementById('ver_folio').innerText = data.folio_completo;
+            
+            document.getElementById('ver_cliente').innerText = data.cliente_nombre;
+            document.getElementById('ver_contacto').innerText = data.contacto_nombre || 'Sin contacto';
+            document.getElementById('ver_fecha_inicio').innerText = data.fecha_inicio;
+            document.getElementById('ver_fecha_fin').innerText = data.fecha_fin;
+            document.getElementById('ver_origen').innerText = data.origen || '--';
+            document.getElementById('ver_direccion').innerText = data.direccion_entrega || '--';
+
+            tablaVer.innerHTML = '';
+            let totalG = 0;
+            data.detalles.forEach(det => {
+                const fila = `
+                    <tr>
+                        <td class="ps-3">
+                            <div class="fw-semibold small text-dark">${det.producto_nombre}</div>
+                        </td>
+                        <td class="text-center small">${det.cantidad}</td>
+                        <td class="text-end small text-muted">$${parseFloat(det.precio).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                        <td class="text-end pe-3 fw-bold small text-dark">$${parseFloat(det.total).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                    </tr>
+                `;
+                tablaVer.insertAdjacentHTML('beforeend', fila);
+                totalG += parseFloat(det.total);
+            });
+
+            if (data.detalles.length === 0) {
+                tablaVer.innerHTML = '<tr><td colspan="4" class="text-center py-3 text-muted fst-italic">No hay artículos en esta cotización.</td></tr>';
+            }
+
+            document.getElementById('ver_gran_total').innerText = '$' + totalG.toLocaleString('en-US', {minimumFractionDigits: 2});
+            
+            mostrarModal('modalVerCotizacion');
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('No se pudo cargar la información de la cotización.');
+        });
+};
+
+// ==========================================
 // EDICIÓN DE COTIZACIÓN (GLOBAL)
 // ==========================================
 window.cargarParaEdicion = function(id) {

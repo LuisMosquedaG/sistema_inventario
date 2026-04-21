@@ -79,12 +79,12 @@
                         <thead>
                             <tr>
                                 <th class="text-center" style="width: 100px;">Acciones</th>
-                                <th class="text-center" style="width: 80px;">Folio</th>
+                                <th class="text-center" style="width: 100px;">Solicitud</th>
                                 <th class="text-center" style="width: 100px;">Cotización</th>
-                                <th class="text-center">Pedido Origen</th>
-                                <th class="text-center">Solicitante</th>
-                                <th class="text-center">Fecha</th>
-                                <th class="text-center">Items</th>
+                                <th class="text-center" style="width: 100px;">Pedido Origen</th>
+                                <th class="text-center" style="width: 100px;">Solicitante</th>
+                                <th class="text-center" style="width: 100px;">Fecha</th>
+                                <th class="text-center" style="width: 100px;">Items</th>
                                 <th class="text-center" style="width: 120px;">Estado</th>
                             </tr>
                         </thead>
@@ -106,18 +106,22 @@
                                         {% endif %}
                                     </div>
                                 </td>
-                                <td class="text-center font-monospace small"><span class="text-dark">{{ s.id }}</span></td>
+                                <td class="text-center font-monospace small"><span class="text-dark">SOL-{{ s.id|stringformat:"04d" }}</span></td>
                                 <td class="text-center">
                                     {% if s.pedido_origen and s.pedido_origen.cotizacion_origen_id %}
-                                        <a href="/cotizaciones/editar/{{ s.pedido_origen.cotizacion_origen_id }}/" class="text-decoration-none text-secondary" title="Ver Cotización">
-                                            {{ s.pedido_origen.cotizacion_origen_id }}
+                                        <a href="/cotizaciones/editar/{{ s.pedido_origen.cotizacion_origen_id }}/" class="text-decoration-none text-secondary font-monospace" title="Ver Cotización">
+                                            COT-{{ s.pedido_origen.cotizacion_origen_id|stringformat:"04d" }}
                                         </a>
                                     {% else %}
                                         <span class="text-muted small">-</span>
                                     {% endif %}
                                 </td>
                                 <td class="text-center">
-                                    {% if s.pedido_origen %}<a href="/pedidos/" class="text-decoration-none text-dark">{{ s.pedido_origen.id }}</a>{% else %}<span class="text-muted">Manual</span>{% endif %}
+                                    {% if s.pedido_origen %}
+                                        <a href="/pedidos/" class="text-decoration-none text-dark font-monospace">PED-{{ s.pedido_origen.id|stringformat:"04d" }}</a>
+                                    {% else %}
+                                        <span class="text-muted">Manual</span>
+                                    {% endif %}
                                 </td>
                                 <td class="text-center"><div style="font-size: 0.9rem;">{{ s.solicitante_nombre_corto }}</div></td>
                                 <td class="text-center"><div class="text-dark">{{ s.fecha_creacion|date:"d M Y" }}</div></td>
@@ -391,7 +395,7 @@
 
     <!-- 5. MODAL VER SOLICITUD -->
     <div class="modal fade" id="modalVerSolicitud" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+        <div class="modal-dialog modal-dialog-centered modal-xl modal-sheet">
             <div class="modal-content">
                 <div class="modal-header border-bottom bg-light py-2">
                     <h5 class="modal-title fw-bold text-dark">
@@ -400,61 +404,55 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-3 bg-light">
+                    
                     <!-- SECCIÓN 1: DATOS GENERALES -->
-                    <div class="card border-0 shadow-sm mb-3">
+                    <div class="card border-0 bg-white shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
                         <div class="card-body p-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Datos Generales</h6>
                             <div class="row g-3">
                                 <div class="col-md-4">
-                                    <label class="small text-muted d-block">Solicitante</label>
-                                    <strong id="verSolicitante" class="text-dark">-</strong>
+                                    <label class="form-label small fw-bold text-secondary mb-0">Cliente</label>
+                                    <div id="verCliente" class="text-dark fw-semibold">--</div>
                                 </div>
-                                <div class="col-md-4">
-                                    <label class="small text-muted d-block">Fecha de Creación</label>
-                                    <strong id="verFechaCreacion" class="text-dark">-</strong>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold text-secondary mb-0">Fecha de solicitud</label>
+                                    <div id="verFechaCreacion" class="text-dark">--</div>
                                 </div>
-                                <div class="col-md-4">
-                                    <label class="small text-muted d-block">Estado</label>
-                                    <span id="verEstadoSolicitud" class="status-pill">-</span>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold text-secondary mb-0">Solicitante</label>
+                                    <div id="verSolicitante" class="text-dark fw-semibold">--</div>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold text-secondary mb-0">Folio de pedido</label>
+                                    <div id="verFolioPed" class="text-dark fw-semibold">--</div>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold text-secondary mb-0">Folio de cotización</label>
+                                    <div id="verFolioCot" class="text-dark fw-semibold">--</div>
                                 </div>
                                 <div class="col-md-12">
-                                    <label class="small text-muted d-block">Notas / Urgencia</label>
-                                    <div id="verNotas" class="p-2 bg-light border rounded small text-secondary">-</div>
+                                    <label class="form-label small fw-bold text-secondary mb-0">Notas / Urgencia</label>
+                                    <div id="verNotas" class="text-dark small">--</div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- SECCIÓN 2: DATOS DEL PEDIDO (SI EXISTE) -->
-                    <div class="card border-0 bg-white border-start border-4 border-info mb-3 shadow-sm" id="verCardPedido" style="border-left-color: #00b8b9 !important; display: none;">
-                        <div class="card-body p-3">
-                            <h6 class="text-dark border-bottom pb-2 mb-3"><i class="bi bi-receipt me-2 text-secondary"></i>Pedido Relacionado</h6>
-                            <div class="row g-2">
-                                <div class="col-md-4">
-                                    <span class="d-block small text-muted">Folio Pedido</span>
-                                    <strong id="verFolioPed" class="text-dark">-</strong>
-                                </div>
-                                <div class="col-md-8">
-                                    <span class="d-block small text-muted">Cliente</span>
-                                    <strong id="verCliente" class="text-dark">-</strong>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- SECCIÓN 3: TABLA DE ARTÍCULOS -->
+                    <!-- SECCIÓN 2: LISTADO DE ARTÍCULOS -->
                     <div class="card border-0 shadow-sm">
                         <div class="card-body p-0">
+                            <h6 class="text-uppercase text-muted fw-bold p-3 mb-0" style="font-size: 0.75rem; letter-spacing: 1px;">Listado de Artículos</h6>
                             <div class="table-responsive">
                                 <table class="table table-sm table-hover mb-0 align-middle">
                                     <thead class="table-light">
                                         <tr>
-                                            <th class="ps-3">Artículo</th>
-                                            <th class="text-center">Cant.</th>
-                                            <th class="text-center">Moneda</th>
-                                            <th>Proveedor</th>
-                                            <th>Sucursal</th>
-                                            <th>Almacén</th>
-                                            <th class="text-end pe-3">Costo Unit.</th>
+                                            <th class="ps-3" style="width: 25%;">Artículo</th>
+                                            <th class="text-center" style="width: 8%;">Cant.</th>
+                                            <th class="text-center" style="width: 8%;">Moneda</th>
+                                            <th class="text-center" style="width: 20%;">Proveedor</th>
+                                            <th style="width: 15%;">Suc/Prov</th>
+                                            <th style="width: 14%;">Almacén</th>
+                                            <th class="text-end pe-3" style="width: 10%;">Costo Unit.</th>
                                         </tr>
                                     </thead>
                                     <tbody id="verTablaCuerpo">
@@ -466,7 +464,7 @@
                     </div>
                 </div>
                 <div class="modal-footer border-top bg-white py-2">
-                    <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-light text-secondary btn-sm px-4" data-bs-dismiss="modal">Cerrar</button>
                 </div>
             </div>
         </div>
@@ -509,23 +507,22 @@
             .then(data => {
                 if(data.error) { alert(data.error); return; }
                 
-                document.getElementById('verFolioSolicitud').innerText = '#' + id;
+                // Formato de folio SOL-XXXX
+                const folioFormateado = "SOL-" + id.toString().padStart(4, '0');
+                document.getElementById('verFolioSolicitud').innerText = folioFormateado;
+
                 document.getElementById('verSolicitante').innerText = data.solicitante_nombre;
                 document.getElementById('verFechaCreacion').innerText = data.fecha_creacion;
-                
-                const spanEstado = document.getElementById('verEstadoSolicitud');
-                spanEstado.innerText = data.estado_display;
-                spanEstado.className = 'status-pill status-' + data.estado;
-                
                 document.getElementById('verNotas').innerText = data.notas || 'Sin notas';
                 
-                const cardPedido = document.getElementById('verCardPedido');
                 if (data.pedido_origen) {
-                    cardPedido.style.display = 'block';
                     document.getElementById('verFolioPed').innerText = '#' + data.pedido_origen.id;
+                    document.getElementById('verFolioCot').innerText = data.pedido_origen.cotizacion_origen_id ? '#' + data.pedido_origen.cotizacion_origen_id : '--';
                     document.getElementById('verCliente').innerText = data.pedido_origen.cliente.nombre_completo;
                 } else {
-                    cardPedido.style.display = 'none';
+                    document.getElementById('verFolioPed').innerText = 'Manual';
+                    document.getElementById('verFolioCot').innerText = '--';
+                    document.getElementById('verCliente').innerText = 'No especificado';
                 }
 
                 const tbody = document.getElementById('verTablaCuerpo');
@@ -534,11 +531,11 @@
                     const fila = `
                         <tr>
                             <td class="ps-3 align-middle">
-                                <div class="fw-semibold small text-dark text-truncate" style="max-width: 450px;" title="${det.producto_nombre}">${det.producto_nombre}</div>
+                                <div class="fw-semibold small text-dark text-truncate" title="${det.producto_nombre}">${det.producto_nombre}</div>
                             </td>
                             <td class="text-center align-middle small">${det.cantidad}</td>
                             <td class="text-center align-middle small"><span class="badge bg-light text-dark border">${det.moneda_siglas}</span></td>
-                            <td class="align-middle small">${det.proveedor_nombre}</td>
+                            <td class="text-center align-middle small">${det.proveedor_nombre}</td>
                             <td class="align-middle small">${det.sucursal_nombre || '--'}</td>
                             <td class="align-middle small">${det.almacen_nombre}</td>
                             <td class="text-end pe-3 align-middle fw-bold text-success">$${parseFloat(det.costo_unitario).toFixed(2)}</td>

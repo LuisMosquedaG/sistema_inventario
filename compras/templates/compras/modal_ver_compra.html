@@ -1,0 +1,99 @@
+<!-- MODAL: VER COMPRA -->
+<div class="modal fade" id="modalVerCompra" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+        <div class="modal-content">
+            
+            <!-- HEADER -->
+            <div class="modal-header border-bottom bg-light">
+                <h5 class="modal-title fw-bold text-dark">
+                    <i class="bi bi-eye me-2" style="color: #00b8b9;"></i>
+                    Detalle de Orden de Compra <span id="ver_compra_folio"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body p-3 bg-light">
+                
+                <!-- SECCIÓN 1: DATOS DE COMPRA -->
+                <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
+                    <div class="card-body p-3">
+                        <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Datos de Compra</h6>
+                        <div class="row g-3">
+                            
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-secondary mb-0">Proveedor</label>
+                                <div id="ver_compra_proveedor" class="text-dark fw-semibold">--</div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-secondary mb-0">Sucursal de Proveedor</label>
+                                <div id="ver_compra_sucursal" class="text-dark fw-semibold">--</div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-secondary mb-0">Fecha de OC</label>
+                                <div id="ver_compra_fecha" class="text-dark">--</div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-secondary mb-0">Tipo de Moneda</label>
+                                <div id="ver_compra_moneda" class="text-dark">--</div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-secondary mb-0">TC</label>
+                                <div id="ver_compra_tc" class="text-dark">--</div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-secondary mb-0">Almacén de Entrada</label>
+                                <div id="ver_compra_almacen" class="text-dark">--</div>
+                            </div>
+
+                            <div class="col-md-12">
+                                <label class="form-label small fw-bold text-secondary mb-0">Notas</label>
+                                <div id="ver_compra_notas" class="text-dark small">--</div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 2: LISTADO DE ARTÍCULOS -->
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-0">
+                        <h6 class="text-uppercase text-muted fw-bold p-3 mb-0" style="font-size: 0.75rem; letter-spacing: 1px;">Listado de Artículos</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="ps-3">Artículo</th>
+                                        <th class="text-center" style="width: 100px;">Cantidad</th>
+                                        <th class="text-end" style="width: 120px;">Costo Unit.</th>
+                                        <th class="text-end pe-3" style="width: 120px;">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ver_compra_tabla_cuerpo">
+                                    <!-- JS insertará filas aquí -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white border-0 py-3 d-flex justify-content-end">
+                        <div class="me-3 mt-1">
+                            <span class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem; letter-spacing: 1px;">Total OC:</span>
+                        </div>
+                        <div class="fw-bold fs-4 text-success" id="ver_compra_gran_total">$0.00</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- FOOTER -->
+            <div class="modal-footer border-top bg-white">
+                <button type="button" class="btn btn-light text-secondary btn-sm px-4" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+
+        </div>
+    </div>
+</div>

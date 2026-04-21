@@ -128,10 +128,15 @@ def obtener_cotizacion_json(request, cotizacion_id):
         cotizacion = get_object_or_404(Cotizacion, id=cotizacion_id, empresa=empresa_actual)
         
         data = model_to_dict(cotizacion)
+        data['folio_completo'] = cotizacion.folio_completo
         data['fecha_inicio'] = cotizacion.fecha_inicio.strftime('%Y-%m-%d') if cotizacion.fecha_inicio else ''
         data['fecha_fin'] = cotizacion.fecha_fin.strftime('%Y-%m-%d') if cotizacion.fecha_fin else ''
         data['cliente_nombre'] = f"{cotizacion.cliente.nombre} {cotizacion.cliente.apellidos}"
+        if cotizacion.cliente.razon_social:
+            data['cliente_nombre'] = cotizacion.cliente.razon_social
+            
         data['contacto_id'] = cotizacion.contacto.id if cotizacion.contacto else None
+        data['contacto_nombre'] = cotizacion.contacto.nombre_completo if cotizacion.contacto else 'Sin contacto'
         
 
         detalles_list = []
