@@ -351,6 +351,34 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     vincularClickOpciones(optionsCliente);
 
+    // --- LÓGICA DE BÚSQUEDA DE CONTACTOS ---
+    const inputContacto = document.getElementById('contacto_busqueda');
+    const selectContacto = document.getElementById('wrapperContacto').querySelector('.custom-select');
+    const fakeContacto = document.getElementById('contacto_display_fake');
+
+    if (inputContacto) {
+        inputContacto.addEventListener('focus', () => {
+            if (!inputContacto.disabled) selectContacto.classList.add('open');
+        });
+
+        inputContacto.addEventListener('input', function() {
+            const term = this.value.toLowerCase();
+            fakeContacto.innerHTML = `<span class="typing-text">${this.value}</span>`;
+            const options = document.querySelectorAll('#wrapperContacto .custom-option:not(.disabled)');
+            options.forEach(opt => {
+                const text = opt.textContent.toLowerCase();
+                opt.style.display = text.includes(term) ? 'flex' : 'none';
+            });
+            selectContacto.classList.add('open');
+        });
+    }
+
+    // Cerrar selects al hacer click fuera
+    window.addEventListener('click', (e) => {
+        if (!wrapperCliente.contains(e.target)) selectCliente.classList.remove('open');
+        if (wrapperContacto && !wrapperContacto.contains(e.target)) selectContacto.classList.remove('open');
+    });
+
     // ==========================================
     // LÓGICA: CREAR CLIENTE RÁPIDO (AJAX)
     // ==========================================

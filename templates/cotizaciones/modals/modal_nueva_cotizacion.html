@@ -99,12 +99,12 @@
                                 <!-- RENGLÓN 2: FECHAS Y ORIGEN -->
                                 <div class="col-md-3">
                                     <label class="form-label small fw-bold text-secondary">Fecha de Cotización</label>
-                                    <input type="date" name="fecha_inicio" id="fecha_inicio" class="form-control form-control-sm" required>
+                                    <input type="date" name="fecha_inicio" id="fecha_inicio" class="form-control form-control-sm" value="{% now 'Y-m-d' %}" required>
                                 </div>
                                 
                                 <div class="col-md-3">
                                     <label class="form-label small fw-bold text-secondary">Vence</label>
-                                    <input type="date" name="fecha_fin" id="fecha_fin" class="form-control form-control-sm" required>
+                                    <input type="date" name="fecha_fin" id="fecha_fin" class="form-control form-control-sm" value="{% now 'Y-m-d' %}" required>
                                 </div>
 
                                 <div class="col-md-6">
