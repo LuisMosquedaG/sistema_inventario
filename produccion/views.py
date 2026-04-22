@@ -389,6 +389,25 @@ def api_detalle_orden(request, orden_id):
             'producto_nombre': d.producto.nombre,
             'cantidad': float(d.cantidad)
         })
+    
+    # Cálculos de avance (Misma lógica que en dashboard_produccion)
+    mapa_estados = {
+        'borrador': 0,
+        'en_proceso': 33,
+        'testeo': 66,
+        'terminado': 100,
+        'cancelada': 0
+    }
+    porcentaje_estado = mapa_estados.get(orden.estado, 0)
+    
+    porcentaje_calidad = 0
+    if orden.producto.test_calidad:
+        total_tareas = orden.producto.test_calidad.items.count()
+        if total_tareas > 0:
+            completadas = orden.resultados_test.filter(completado=True).count()
+            porcentaje_calidad = int((completadas / total_tareas) * 100)
+    else:
+        porcentaje_calidad = 100 if orden.estado == 'terminado' else 0
         
     data = {
         'id': orden.id,
@@ -405,6 +424,9 @@ def api_detalle_orden(request, orden_id):
         'cantidad_producir': orden.cantidad,
         'solicitante': orden.solicitante.username.split('@')[0] if orden.solicitante else 'Sistema',
         'estado': orden.estado,
+        'estado_display': orden.get_estado_display(),
+        'porcentaje_estado': porcentaje_estado,
+        'porcentaje_calidad': porcentaje_calidad,
         'notas': orden.notas,
         'detalles': detalles
     }

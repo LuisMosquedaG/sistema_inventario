@@ -412,8 +412,59 @@
         </div>
     </div>
 
+    {% include "produccion/modals/modal_ver_produccion.html" %}
+
     <script>
         let itemsProduccion = [];
+
+        function verOrdenProduccion(id) {
+            const tbody = document.getElementById('ver_op_tabla_materiales');
+            tbody.innerHTML = '<tr><td colspan="2" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</td></tr>';
+            
+            fetch(`/produccion/api/detalle/${id}/`)
+                .then(r => r.json())
+                .then(data => {
+                    if(data.error) { alert(data.error); return; }
+
+                    document.getElementById('ver_op_folio').innerText = data.folio;
+                    document.getElementById('ver_op_producto').innerText = data.producto_nombre;
+                    document.getElementById('ver_op_cantidad').innerText = data.cantidad_producir + ' pz';
+                    document.getElementById('ver_op_pedido').innerText = data.pedido_folio;
+                    document.getElementById('ver_op_notas').innerText = data.notas || 'Sin notas';
+                    
+                    const elEstado = document.getElementById('ver_op_estado');
+                    elEstado.innerText = data.estado_display;
+                    elEstado.className = 'status-pill status-' + data.estado;
+
+                    // Actualizar Avances
+                    document.getElementById('ver_op_avance_proceso_pct').innerText = data.porcentaje_estado + '%';
+                    document.getElementById('ver_op_avance_proceso_bar').style.width = data.porcentaje_estado + '%';
+                    
+                    document.getElementById('ver_op_avance_calidad_pct').innerText = data.porcentaje_calidad + '%';
+                    document.getElementById('ver_op_avance_calidad_bar').style.width = data.porcentaje_calidad + '%';
+
+                    tbody.innerHTML = '';
+                    data.detalles.forEach(det => {
+                        const fila = `
+                            <tr>
+                                <td class="ps-3 fw-semibold small text-dark">${det.producto_nombre}</td>
+                                <td class="text-center small">${det.cantidad} u.</td>
+                            </tr>
+                        `;
+                        tbody.insertAdjacentHTML('beforeend', fila);
+                    });
+
+                    if (data.detalles.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="2" class="text-center py-3 text-muted fst-italic">No hay componentes registrados para esta orden.</td></tr>';
+                    }
+
+                    new bootstrap.Modal(document.getElementById('modalVerOrdenProduccion')).show();
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    alert('No se pudo cargar la información de la orden.');
+                });
+        }
 
         function agregarArticuloALista() {
             const sel = document.getElementById('selProductoNuevo');
