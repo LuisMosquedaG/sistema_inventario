@@ -166,12 +166,14 @@
                                         
                                         <!-- ESTADO: COMPLETO -->
                                         {% elif p.estado == 'completo' %}
-                                            <a href="{% url 'crear_orden_venta' p.id %}" 
-                                               class="icon-action" 
-                                               title="Generar Orden de Venta ($)"
-                                               onclick="return confirm('¿Generar Orden de Venta para este pedido?');">
-                                                <i class="bi bi-currency-dollar"></i>
-                                            </a>
+                                            {% if not p.tiene_orden_venta %}
+                                                <a href="{% url 'crear_orden_venta' p.id %}" 
+                                                   class="icon-action" 
+                                                   title="Generar Orden de Salida ($)"
+                                                   onclick="return confirm('¿Generar Orden de Salida para este pedido?');">
+                                                    <i class="bi bi-currency-dollar"></i>
+                                                </a>
+                                            {% endif %}
                                         {% endif %}
                                     </div>
                                 </td>

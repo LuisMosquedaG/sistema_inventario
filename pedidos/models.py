@@ -56,6 +56,11 @@ class Pedido(models.Model):
         return total
     
     @property
+    def tiene_orden_venta(self):
+        """Verifica si este pedido ya tiene al menos una orden de venta (salida) generada"""
+        return self.ordenes_venta.exists()
+
+    @property
     def estado_display(self):
         return dict(self.ESTADO_CHOICES).get(self.estado, self.estado)
 

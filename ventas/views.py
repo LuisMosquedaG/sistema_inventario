@@ -141,7 +141,7 @@ def crear_orden_venta(request, pedido_id):
             precio_unitario=linea.precio_unitario
         )
 
-    messages.success(request, f'Orden de Venta #{ov.id} creada en estado Borrador.')
+    messages.success(request, f'Orden de Salida #{ov.id} creada en estado Borrador.')
     return redirect('dashboard_ventas')
 
 @login_required
@@ -151,7 +151,7 @@ def cambiar_estado_ov(request, ov_id, nuevo_estado):
     if nuevo_estado == 'aprobado' and ov.estado == 'borrador':
         ov.estado = 'aprobado'
         ov.save()
-        messages.success(request, 'Orden de Venta Aprobada. Lista para surtir.')
+        messages.success(request, 'Orden de Salida Aprobada. Lista para surtir.')
     return redirect('dashboard_ventas')
 
 @login_required
