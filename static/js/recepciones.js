@@ -281,7 +281,15 @@ document.getElementById('formRecepcion').addEventListener('submit', function(e) 
     const btn = this.querySelector('button[type="submit"]');
     btn.disabled = true; btn.innerText = "Procesando...";
     fetch(this.action, { method: 'POST', body: new FormData(this), headers: { 'X-CSRFToken': getCookie('csrftoken') } })
-    .then(r => r.json()).then(d => { if(d.success) { alert(d.message); location.reload(); } else { throw new Error(d.error); } })
+    .then(r => r.json()).then(d => { 
+        if(d.success) { 
+            alert(d.message); 
+            // Redirigir a la URL limpia para que no se vuelva a abrir el modal por el parámetro oc_id
+            window.location.href = "/recepciones/"; 
+        } else { 
+            throw new Error(d.error); 
+        } 
+    })
     .catch(e => { alert(e.message); btn.disabled = false; btn.innerText = "Procesar Entrada"; });
 });
 

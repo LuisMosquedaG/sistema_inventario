@@ -251,11 +251,70 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // --- LÓGICA NUEVA SALIDA DIRECTA ---
-    const selectProd = document.getElementById('selectProductoSalida');
-    if (selectProd) {
-        selectProd.addEventListener('change', function() {
-            const precio = this.options[this.selectedIndex].getAttribute('data-precio');
-            document.getElementById('inputPrecioSalida').value = precio || '0.00';
+    const wrapperProd = document.getElementById('wrapperProductoSalida');
+    if (wrapperProd) {
+        const select = wrapperProd.querySelector('.custom-select');
+        const input = document.getElementById('producto_busqueda_salida');
+        const fake = document.getElementById('producto_display_fake_salida');
+        const hidden = document.getElementById('selectProductoSalida');
+        const options = wrapperProd.querySelectorAll('.custom-option');
+
+        const updateFakeVisibility = () => {
+            if (document.activeElement === input || input.value.length > 0) {
+                fake.style.opacity = "0";
+            } else {
+                fake.style.opacity = "1";
+            }
+        };
+
+        input.addEventListener('focus', () => { 
+            select.classList.add('open'); 
+            updateFakeVisibility(); 
+        });
+        
+        input.addEventListener('blur', () => {
+            setTimeout(() => {
+                select.classList.remove('open');
+                updateFakeVisibility();
+            }, 200);
+        });
+
+        input.addEventListener('input', function() {
+            const term = this.value.toLowerCase();
+            if (term.length > 0) {
+                fake.innerHTML = `<span class="typing-text">${this.value}</span>`;
+            } else {
+                fake.innerHTML = '<span class="text-muted" style="font-weight:400;">Seleccionar...</span>';
+            }
+            options.forEach(opt => {
+                const search = opt.getAttribute('data-search').toLowerCase();
+                opt.style.display = search.includes(term) ? '-webkit-box' : 'none';
+            });
+            select.classList.add('open');
+            updateFakeVisibility();
+        });
+
+        options.forEach(opt => {
+            opt.addEventListener('click', function() {
+                options.forEach(o => o.classList.remove('selected'));
+                this.classList.add('selected');
+                fake.innerHTML = this.innerHTML;
+                fake.setAttribute('title', this.textContent.trim());
+                input.value = this.textContent.trim();
+                hidden.value = this.getAttribute('data-value');
+                const precio = this.getAttribute('data-precio');
+                if (precio) {
+                    document.getElementById('inputPrecioSalida').value = precio;
+                }
+                select.classList.remove('open');
+                updateFakeVisibility();
+            });
+        });
+
+        window.addEventListener('click', (e) => {
+            if (!wrapperProd.contains(e.target)) {
+                select.classList.remove('open');
+            }
         });
     }
 });
@@ -264,9 +323,10 @@ document.addEventListener('DOMContentLoaded', function() {
  * Agrega un artículo a la lista de la nueva salida directa
  */
 function agregarAListaSalida() {
-    const select = document.getElementById('selectProductoSalida');
-    const prodId = select.value;
-    const prodNombre = select.options[select.selectedIndex].text;
+    const hidden = document.getElementById('selectProductoSalida');
+    const fake = document.getElementById('producto_display_fake_salida');
+    const prodId = hidden.value;
+    const prodNombre = fake.innerText.trim();
     const cant = document.getElementById('inputCantidadSalida').value;
     const precio = document.getElementById('inputPrecioSalida').value;
     const total = (parseFloat(cant) * parseFloat(precio)).toFixed(2);
@@ -305,7 +365,9 @@ function agregarAListaSalida() {
     document.getElementById('mensajeVacioSalida').style.display = 'none';
     
     // Reset inputs
-    select.value = "";
+    hidden.value = "";
+    document.getElementById('producto_busqueda_salida').value = "";
+    fake.innerHTML = '<span class="text-muted" style="font-weight:400;">Seleccionar...</span>';
     document.getElementById('inputCantidadSalida').value = 1;
     document.getElementById('inputPrecioSalida').value = "0.00";
     

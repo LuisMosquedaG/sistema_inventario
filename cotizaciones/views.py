@@ -35,11 +35,15 @@ def dashboard_cotizaciones(request):
     # --- CORRECCIÓN: Filtramos Productos por empresa ---
     # (Revisamos core/models.py y SÍ tiene el campo empresa)
     todos_los_productos = Producto.objects.filter(empresa=empresa_actual)
+
+    from categorias.models import Categoria as CategoriaCatalogo
+    todas_categorias = CategoriaCatalogo.objects.filter(empresa=empresa_actual)
     
     contexto = {
         'cotizaciones': lista_cotizaciones,
         'clientes': todos_los_clientes,
-        'productos': todos_los_productos
+        'productos': todos_los_productos,
+        'categorias_catalogo': todas_categorias
     }
     return render(request, 'dashboard_cotizaciones.html', contexto)
 
@@ -224,6 +228,15 @@ def aprobar_cotizacion(request, cotizacion_id):
             empresa_actual = get_empresa_actual(request)
             cotizacion = get_object_or_404(Cotizacion, id=cotizacion_id, empresa=empresa_actual)
             
+            # --- VALIDACIÓN: No aprobar si hay productos en REVISIÓN ---
+            productos_revision = cotizacion.detalles.filter(producto__estado='revision')
+            if productos_revision.exists():
+                nombres = ", ".join([d.producto.nombre for d in productos_revision])
+                return JsonResponse({
+                    'success': False, 
+                    'error': f'No se puede aprobar la cotización porque contiene productos en revisión: {nombres}. Por favor, activa los productos en el inventario primero.'
+                })
+
             if cotizacion.estado == 'borrador':
                 cotizacion.estado = 'aprobada'
                 cotizacion.save()

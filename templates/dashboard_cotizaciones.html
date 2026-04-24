@@ -3,7 +3,7 @@
 
 {% block content %}
     <!-- CARGAR CSS ESPECÍFICO -->
-    <link rel="stylesheet" href="{% static 'css/cotizaciones.css' %}">
+    <link rel="stylesheet" href="{% static 'css/cotizaciones.css' %}?v={% now 'U' %}">
 
     <!-- CONTENEDOR -->
     <div class="container-fluid py-2 px-4">
@@ -201,6 +201,7 @@
     {% include "cotizaciones/modals/modal_nueva_cotizacion.html" %}
     {% include "cotizaciones/modals/modal_confirmar_aprobacion.html" %}
     {% include "cotizaciones/modals/modal_crear_cliente_rapido.html" %}
+    {% include "cotizaciones/modals/modal_crear_producto_rapido.html" %}
 
 {% endblock %}
 

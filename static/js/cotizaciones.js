@@ -44,13 +44,14 @@ document.addEventListener('change', function(e) {
 function agregarALista() {
     const select = document.getElementById('selectProductoAgregar');
     const productId = select.value;
-    const productName = select.options[select.selectedIndex].text;
+    const fakeProd = document.getElementById('producto_display_fake');
+    const productName = fakeProd.innerText.trim();
     const cantidad = document.getElementById('inputCantidadAgregar').value;
     const precio = document.getElementById('inputPrecioAgregar').value;
     const total = (parseFloat(cantidad) * parseFloat(precio)).toFixed(2);
     const editIndex = document.getElementById('edit_index').value;
 
-    if (!productId || cantidad <= 0) {
+    if (!productId || productId === "" || cantidad <= 0) {
         alert("Por favor selecciona un producto y una cantidad válida.");
         return;
     }
@@ -102,7 +103,10 @@ function agregarALista() {
         document.getElementById('mensajeVacio').style.display = 'none';
     }
 
+    // LIMPIAR CAMPOS DE AGREGAR
     select.value = "";
+    document.getElementById('producto_busqueda').value = "";
+    document.getElementById('producto_display_fake').innerHTML = '<span class="text-muted" style="font-weight:400;">Seleccionar...</span>';
     document.getElementById('inputCantidadAgregar').value = 1;
     document.getElementById('inputPrecioAgregar').value = "0.00";
     calcularGranTotalLista();
@@ -250,6 +254,16 @@ window.cargarParaEdicion = function(id) {
     document.getElementById('granTotalModal').innerText = '$0.00';
     document.getElementById('mensajeVacio').style.display = 'block';
 
+    // Limpiar sección de agregar artículo
+    document.getElementById('selectProductoAgregar').value = "";
+    document.getElementById('producto_busqueda').value = "";
+    document.getElementById('producto_display_fake').innerHTML = '<span class="text-muted" style="font-weight:400;">Seleccionar...</span>';
+    document.getElementById('inputCantidadAgregar').value = 1;
+    document.getElementById('inputPrecioAgregar').value = "0.00";
+    document.getElementById('edit_index').value = "-1";
+    const btnAgregarArt = document.querySelector('button[onclick="agregarALista()"]');
+    if (btnAgregarArt) btnAgregarArt.innerHTML = '<i class="bi bi-plus-lg"></i> Agregar';
+
     const inputCliente = document.getElementById('cliente_busqueda');
     const fakeCliente = document.getElementById('cliente_display_fake');
     const inputContacto = document.getElementById('contacto_busqueda');
@@ -318,7 +332,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const term = this.value.toLowerCase();
         optionsCliente.forEach(opt => {
             const search = opt.getAttribute('data-search').toLowerCase();
-            opt.style.display = search.includes(term) ? 'flex' : 'none';
+            opt.style.display = search.includes(term) ? '-webkit-box' : 'none';
         });
         selectCliente.classList.add('open');
     });
@@ -367,7 +381,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const options = document.querySelectorAll('#wrapperContacto .custom-option:not(.disabled)');
             options.forEach(opt => {
                 const text = opt.textContent.toLowerCase();
-                opt.style.display = text.includes(term) ? 'flex' : 'none';
+                opt.style.display = text.includes(term) ? '-webkit-box' : 'none';
             });
             selectContacto.classList.add('open');
         });
@@ -375,9 +389,76 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Cerrar selects al hacer click fuera
     window.addEventListener('click', (e) => {
-        if (!wrapperCliente.contains(e.target)) selectCliente.classList.remove('open');
-        if (wrapperContacto && !wrapperContacto.contains(e.target)) selectContacto.classList.remove('open');
+        if (wrapperCliente && !wrapperCliente.contains(e.target)) selectCliente.classList.remove('open');
+        const wrapperContacto = document.getElementById('wrapperContacto');
+        if (wrapperContacto && !wrapperContacto.contains(e.target)) {
+            const sc = wrapperContacto.querySelector('.custom-select');
+            if (sc) sc.classList.remove('open');
+        }
+        const wrapperProducto = document.getElementById('wrapperProductoAgregar');
+        if (wrapperProducto && !wrapperProducto.contains(e.target)) {
+            const sp = wrapperProducto.querySelector('.custom-select');
+            if (sp) sp.classList.remove('open');
+        }
     });
+
+    // --- LÓGICA DE BÚSQUEDA DE PRODUCTOS ---
+    const wrapperProducto = document.getElementById('wrapperProductoAgregar');
+    if (wrapperProducto) {
+        const selectProd = wrapperProducto.querySelector('.custom-select');
+        const inputProd = document.getElementById('producto_busqueda');
+        const fakeProd = document.getElementById('producto_display_fake');
+        const hiddenProd = document.getElementById('selectProductoAgregar');
+        const optionsProd = wrapperProducto.querySelectorAll('.custom-option');
+
+        const updateFakeVisibility = () => {
+            if (document.activeElement === inputProd || inputProd.value.length > 0) {
+                fakeProd.style.opacity = "0";
+            } else {
+                fakeProd.style.opacity = "1";
+            }
+        };
+
+        inputProd.addEventListener('focus', () => {
+            selectProd.classList.add('open');
+            updateFakeVisibility();
+        });
+        
+        inputProd.addEventListener('blur', updateFakeVisibility);
+
+        inputProd.addEventListener('input', function() {
+            updateFakeVisibility();
+            const term = this.value.toLowerCase();
+            optionsProd.forEach(opt => {
+                const search = opt.getAttribute('data-search').toLowerCase();
+                opt.style.display = search.includes(term) ? '-webkit-box' : 'none';
+            });
+            selectProd.classList.add('open');
+        });
+
+        optionsProd.forEach(option => {
+            option.addEventListener('click', function() {
+                optionsProd.forEach(opt => opt.classList.remove('selected'));
+                this.classList.add('selected');
+                
+                const fullText = this.textContent.trim();
+                fakeProd.innerHTML = this.innerHTML;
+                fakeProd.setAttribute('title', fullText); // Tooltip para nombre completo
+                
+                inputProd.value = ''; // Limpiamos el input para evitar el desfase visual
+                hiddenProd.value = this.getAttribute('data-value');
+                
+                // Auto-llenar precio
+                const precio = this.getAttribute('data-precio');
+                if (precio) {
+                    document.getElementById('inputPrecioAgregar').value = precio;
+                }
+                
+                selectProd.classList.remove('open');
+                updateFakeVisibility();
+            });
+        });
+    }
 
     // ==========================================
     // LÓGICA: CREAR CLIENTE RÁPIDO (AJAX)
@@ -456,7 +537,91 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // ==========================================
+    // LÓGICA: CREAR PRODUCTO RÁPIDO (AJAX)
+    // ==========================================
+    const formPR = document.getElementById('formProductoRapido');
+    if (formPR) {
+        formPR.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const btn = document.querySelector(`button[form="${this.id}"]`);
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
+            }
+
+            fetch(this.action, {
+                method: 'POST',
+                body: new FormData(this),
+                headers: { 'X-CSRFToken': getCookie('csrftoken'), 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    // 1. Crear la nueva opción en el selector personalizado de productos
+                    const container = document.querySelector('#wrapperProductoAgregar .custom-options');
+                    if (container) {
+                        const nuevaOpt = document.createElement('span');
+                        nuevaOpt.className = 'custom-option';
+                        nuevaOpt.setAttribute('data-value', data.id);
+                        nuevaOpt.setAttribute('data-precio', data.precio_venta);
+                        nuevaOpt.setAttribute('data-search', data.nombre);
+                        nuevaOpt.setAttribute('title', data.nombre);
+                        nuevaOpt.innerHTML = data.nombre;
+
+                        // Insertar al inicio de la lista
+                        container.prepend(nuevaOpt);
+
+                        // Vincular evento de clic a la nueva opción
+                        nuevaOpt.addEventListener('click', function() {
+                            const options = container.querySelectorAll('.custom-option');
+                            options.forEach(opt => opt.classList.remove('selected'));
+                            this.classList.add('selected');
+
+                            const fakeProd = document.getElementById('producto_display_fake');
+                            const inputProd = document.getElementById('producto_busqueda');
+                            const hiddenProd = document.getElementById('selectProductoAgregar');
+
+                            fakeProd.innerHTML = this.innerHTML;
+                            fakeProd.setAttribute('title', this.textContent.trim());
+                            fakeProd.style.opacity = "1";
+
+                            inputProd.value = '';
+                            hiddenProd.value = this.getAttribute('data-value');
+
+                            document.getElementById('inputPrecioAgregar').value = this.getAttribute('data-precio');
+
+                            document.querySelector('#wrapperProductoAgregar .custom-select').classList.remove('open');
+                        });
+
+                        // Seleccionarla automáticamente
+                        nuevaOpt.click();
+                    }
+
+                    // 2. Cerrar modal y resetear form
+                    const modalEl = document.getElementById('modalCrearProductoRapido');
+                    const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                    if (modalInstance) modalInstance.hide();
+                    this.reset();
+                } else {
+                    alert('Error al guardar producto: ' + data.error);
+                }
+            })
+            .catch(err => {
+                console.error('Error AJAX:', err);
+                alert('Ocurrió un error al procesar la solicitud.');
+            })
+            .finally(() => {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = 'Guardar Producto';
+                }
+            });
+        });
+    }
+
     // FIX STACKED MODALS Z-INDEX
+
     document.addEventListener('show.bs.modal', function (event) {
         const zIndex = 1040 + (10 * document.querySelectorAll('.modal.show').length);
         event.target.style.zIndex = zIndex;
@@ -515,12 +680,18 @@ if (btnNC) {
         document.getElementById('formCotizacion').action = "/cotizaciones/crear/";
         document.getElementById('formCotizacion').reset();
         document.getElementById('tablaCuerpo').innerHTML = '';
+        document.getElementById('mensajeVacio').style.display = 'block';
         document.getElementById('granTotalModal').innerText = '$0.00';
         document.getElementById('cliente_busqueda').value = '';
         document.getElementById('cliente_display_fake').innerHTML = 'Buscar cliente...';
         document.getElementById('cliente_id_input').value = '';
         
-        // Resetear modo edición de artículos
+        // Resetear sección de agregar artículo
+        document.getElementById('selectProductoAgregar').value = "";
+        document.getElementById('producto_busqueda').value = "";
+        document.getElementById('producto_display_fake').innerHTML = '<span class="text-muted" style="font-weight:400;">Seleccionar...</span>';
+        document.getElementById('inputCantidadAgregar').value = 1;
+        document.getElementById('inputPrecioAgregar').value = "0.00";
         document.getElementById('edit_index').value = "-1";
         const btnAgregar = document.querySelector('button[onclick="agregarALista()"]');
         if (btnAgregar) btnAgregar.innerHTML = '<i class="bi bi-plus-lg"></i> Agregar';
@@ -537,3 +708,25 @@ window.confirmarAprobacion = function(id) {
         }).then(r => r.json()).then(d => { if(d.success) location.reload(); else alert(d.error); });
     };
 };
+
+// AUTO-OPEN NUEVA COTIZACIÓN DESDE OTROS MÓDULOS (Ej. Clientes)
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const nuevoClienteId = urlParams.get('nuevo_cliente_id');
+    
+    if (nuevoClienteId) {
+        // 1. Simular clic en el botón de Nueva Cotización para limpiar y preparar el modal
+        const btnNC = document.querySelector('[data-bs-target="#modalNuevaCotizacion"]');
+        if (btnNC) {
+            btnNC.click();
+            
+            // 2. Esperar a que el modal y el selector estén listos para seleccionar al cliente
+            setTimeout(() => {
+                const option = document.querySelector(`#wrapperCliente .custom-option[data-value="${nuevoClienteId}"]`);
+                if (option) {
+                    option.click();
+                }
+            }, 300);
+        }
+    }
+});

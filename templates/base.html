@@ -11,7 +11,7 @@
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <!-- Estilos Globales -->
-    <link rel="stylesheet" href="{% static 'css/global.css' %}">
+    <link rel="stylesheet" href="{% static 'css/global.css' %}?v={% now 'U' %}">
     
     <style>
         :root {
@@ -242,7 +242,7 @@
                     <ul class="list-unstyled mb-0">
                         <li><a href="/clientes/" class="sidebar-link sidebar-level-2 {% if request.path == '/clientes/' %}sidebar-sub-active{% endif %}"><i class="bi bi-people me-2 small"></i> Clientes</a></li>
                         <li><a href="/actividades/" class="sidebar-link sidebar-level-2 {% if request.path == '/actividades/' %}sidebar-sub-active{% endif %}"><i class="bi bi-calendar-event me-2 small"></i> Actividades</a></li>
-                        <li><a href="/cotizaciones/" class="sidebar-link sidebar-level-2 {% if request.path == '/cotizaciones/' %}sidebar-sub-active{% endif %}"><i class="bi bi-file-earmark-text me-2 small"></i> Cotización</a></li>
+                        <li><a href="/cotizaciones/" class="sidebar-link sidebar-level-2 {% if request.path == '/cotizaciones/' %}sidebar-sub-active{% endif %}"><i class="bi bi-file-earmark-text me-2 small"></i> Cotizaciones</a></li>
                         <li><a href="/pedidos/" class="sidebar-link sidebar-level-2 {% if request.path == '/pedidos/' %}sidebar-sub-active{% endif %}"><i class="bi bi-box-seam me-2 small"></i> Pedidos</a></li>
                         <li><a href="/ventas/" class="sidebar-link sidebar-level-2 {% if request.path == '/ventas/' %}sidebar-sub-active{% endif %}"><i class="bi bi-receipt-cutoff me-2 small"></i> Salidas</a></li>
                     </ul>

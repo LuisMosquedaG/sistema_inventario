@@ -43,12 +43,24 @@
                             <div class="row g-2 align-items-end">
                                 <div class="col-md-5">
                                     <label class="form-label small text-muted">Producto</label>
-                                    <select id="selectProductoSalida" class="form-select form-select-sm">
-                                        <option value="" selected disabled>Seleccionar...</option>
-                                        {% for p in productos %}
-                                        <option value="{{ p.id }}" data-precio="{{ p.precio_venta }}">{{ p.nombre }}</option>
-                                        {% endfor %}
-                                    </select>
+                                    <div class="custom-select-wrapper" id="wrapperProductoSalida">
+                                        <div class="custom-select">
+                                            <div class="custom-select__trigger">
+                                                <div id="producto_display_fake_salida" class="fake-input-layer" title="">
+                                                    <span class="text-muted" style="font-weight:400;">Seleccionar...</span>
+                                                </div>
+                                                <input type="text" id="producto_busqueda_salida" autocomplete="off" class="real-input-layer">
+                                                <input type="hidden" id="selectProductoSalida" value="">
+                                            </div>
+                                            <div class="custom-options">
+                                                {% for p in productos %}
+                                                <span class="custom-option" data-value="{{ p.id }}" data-precio="{{ p.precio_venta }}" data-search="{{ p.nombre }}" title="{{ p.nombre }}">
+                                                    {{ p.nombre }}
+                                                </span>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="col-md-2">
                                     <label class="form-label small text-muted">Cant.</label>

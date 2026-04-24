@@ -18,6 +18,8 @@ from django.db import transaction
 # Se movió la importación de ProductoForm dentro de las funciones para evitar error de carga de modelos relacionados
 from ventas.models import DetalleOrdenVenta
 
+from django.views.decorators.http import require_POST
+
 # --- 1. FUNCIÓN AYUDANTE ESTÁNDAR ---
 def get_empresa_actual(request):
     username = request.user.username
@@ -28,6 +30,51 @@ def get_empresa_actual(request):
         except Empresa.DoesNotExist:
             return None
     return None
+
+@require_POST
+@login_required(login_url='/login/')
+def crear_producto_rapido(request):
+    empresa = get_empresa_actual(request)
+    if not empresa:
+        return JsonResponse({'success': False, 'error': 'No se encontró la empresa'}, status=403)
+    
+    try:
+        nombre = request.POST.get('nombre')
+        tipo = request.POST.get('tipo', 'producto')
+        tipo_abastecimiento = request.POST.get('tipo_abastecimiento', 'compra')
+        categoria_id = request.POST.get('categoria', '')
+        subcategoria = request.POST.get('subcategoria', '')
+        
+        categoria_nombre = ""
+        if categoria_id:
+            from categorias.models import Categoria as CategoriaCatalogo
+            cat_obj = CategoriaCatalogo.objects.filter(id=categoria_id, empresa=empresa).first()
+            if cat_obj:
+                categoria_nombre = cat_obj.nombre
+        
+        if not nombre:
+            return JsonResponse({'success': False, 'error': 'El nombre es obligatorio'}, status=400)
+            
+        producto = Producto.objects.create(
+            nombre=nombre,
+            tipo=tipo,
+            tipo_abastecimiento=tipo_abastecimiento,
+            categoria=categoria_nombre,
+            subcategoria=subcategoria,
+            estado='revision',
+            precio_costo=0.00,
+            precio_venta=0.00,
+            empresa=empresa
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'id': producto.id,
+            'nombre': producto.nombre,
+            'precio_venta': str(producto.precio_venta)
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 @login_required(login_url='/login/')
 def punto_de_venta(request):
@@ -80,6 +127,7 @@ def dashboard_inventario(request):
     # --- FILTROS ---
     almacen_id = request.GET.get('almacen')
     q = request.GET.get('q')
+    estado = request.GET.get('estado')
 
     productos_qs = Producto.objects.filter(empresa=empresa_actual)
     if q:
@@ -87,6 +135,8 @@ def dashboard_inventario(request):
             Q(nombre__icontains=q) | Q(marca__icontains=q) | Q(modelo__icontains=q) |
             Q(categoria__icontains=q) | Q(subcategoria__icontains=q)
         )
+    if estado:
+        productos_qs = productos_qs.filter(estado=estado)
 
     # 1. PRECIO PROMEDIO VENTA (GLOBAL)
     avg_venta_subquery = DetalleOrdenVenta.objects.filter(producto=OuterRef('pk')).values('producto').annotate(promedio=Avg('precio_unitario')).values('promedio')[:1]
@@ -134,7 +184,11 @@ def dashboard_inventario(request):
         'almacenes': almacenes,
         'categorias': todas_categorias,
         'tests_calidad': tests_calidad,
-        'filtros': {'almacen': int(almacen_id) if almacen_id else '', 'q': q or ''},
+        'filtros': {
+            'almacen': int(almacen_id) if almacen_id else '', 
+            'q': q or '',
+            'estado': estado or ''
+        },
         'section': 'inventario'
     }
     return render(request, 'dashboard_inventario.html', contexto)
@@ -161,23 +215,33 @@ def api_detalle_producto_inventario(request, producto_id):
             })
 
         # 2. LOTES Y SERIES (DESDE EXTRAS)
-        extras = DetalleRecepcionExtra.objects.filter(detalle_recepcion__producto_id=producto_id).select_related('almacen', 'detalle_recepcion__recepcion')
+        extras = DetalleRecepcionExtra.objects.filter(
+            Q(detalle_recepcion__producto_id=producto_id) | Q(producto_id=producto_id)
+        ).select_related('almacen', 'detalle_recepcion__recepcion')
+        
         lotes_data = []
         series_data = []
         
         for e in extras:
+            # Determinar fecha: prioridad a recepción, luego fecha creación propia
+            fecha_disp = "--"
+            if e.detalle_recepcion and e.detalle_recepcion.recepcion:
+                fecha_disp = e.detalle_recepcion.recepcion.fecha.strftime('%d/%m/%Y')
+            elif e.fecha_creacion:
+                fecha_disp = e.fecha_creacion.strftime('%d/%m/%Y')
+
             if e.tipo == 'lote':
                 lotes_data.append({
                     'lote': e.lote,
                     'cantidad': e.cantidad_lote,
                     'almacen': e.almacen.nombre if e.almacen else 'N/A',
-                    'fecha': e.detalle_recepcion.recepcion.fecha.strftime('%d/%m/%Y')
+                    'fecha': fecha_disp
                 })
             elif e.tipo == 'serie':
                 series_data.append({
                     'serie': e.serie,
                     'almacen': e.almacen.nombre if e.almacen else 'N/A',
-                    'fecha': e.detalle_recepcion.recepcion.fecha.strftime('%d/%m/%Y')
+                    'fecha': fecha_disp
                 })
 
         # 3. PEDIMENTOS (DESDE RECEPCIÓN)

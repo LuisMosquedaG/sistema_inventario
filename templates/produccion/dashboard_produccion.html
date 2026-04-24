@@ -83,6 +83,22 @@
             </div>
         </div>
 
+        <!-- BLOQUE DE MENSAJES (ALERTAS DE MATERIALES, ETC) -->
+        {% if messages %}
+        <div class="mb-3">
+            {% for message in messages %}
+                {% if 'produccion' in message.tags %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm border-0 mb-2" role="alert" style="border-left: 4px solid 
+                    {% if 'success' in message.tags %}#2f9e44{% elif 'error' in message.tags %}#e03131{% else %}#f08c00{% endif %} !important;">
+                    <i class="bi {% if 'success' in message.tags %}bi-check-circle-fill{% elif 'error' in message.tags %}bi-exclamation-octagon-fill{% else %}bi-info-circle-fill{% endif %} me-2"></i>
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
         <div class="card border-0 shadow-sm">
             <div class="card-body p-0">
                 <div class="table-responsive">
@@ -126,6 +142,15 @@
                                 <td class="text-center font-monospace small"><span class="fw-bold">{{ o.folio }}</span></td>
                                 <td class="text-center">
                                     <div class="fw-bold text-dark" style="line-height: 1.2;">{{ o.producto.nombre }}</div>
+                                    {% if o.faltantes_info %}
+                                        <div class="mt-1">
+                                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle" 
+                                                  style="font-size: 0.65rem;" 
+                                                  title="Faltan: {% for f in o.faltantes_info %}{{ f.nombre }} ({{ f.cantidad|floatformat:0 }} pz){% if not forloop.last %}, {% endif %}{% endfor %}">
+                                                <i class="bi bi-exclamation-triangle-fill me-1"></i> Faltan Materiales
+                                            </span>
+                                        </div>
+                                    {% endif %}
                                     <div class="small mt-1">
                                         <span class="text-brand">Ped: #{{ o.pedido_origen.id|default:"Manual" }}</span>
                                         <span class="text-muted mx-1">|</span>
@@ -711,9 +736,12 @@
                 .then(r => r.json())
                 .then(data => {
                     if (!data.has_test) {
-                        if (confirm('Esta orden no tiene test de calidad. ¿Finalizar fabricación?')) {
-                            window.location.href = `/produccion/avanzar/${id}/?estado=terminado`;
-                        }
+                        // Si no tiene test, vamos directo al modal de recepción de mercancía
+                        fetch(`/produccion/api/detalle/${id}/`)
+                            .then(r => r.json())
+                            .then(ordenData => {
+                                prepararModalFinalizacion(ordenData);
+                            });
                     } else {
                         document.getElementById('testNombreLabel').innerText = data.test_nombre;
                         const container = document.getElementById('checklistContainer');
@@ -831,17 +859,13 @@
         });
 
         function ejecutarFinalizarConTest() {
-            const checks = [];
-            document.querySelectorAll('.chk-tarea:checked').forEach(chk => checks.push(chk.value));
-            const btn = document.getElementById('btnConfirmarCalidad');
-            if(!currentOrdenId) return;
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Finalizando...';
-            fetch(`/produccion/finalizar-con-test/${currentOrdenId}/`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-                body: JSON.stringify({ checks: checks })
-            }).then(r => r.json()).then(res => { if(res.success) { window.location.reload(true); } else { alert('Error: ' + res.error); btn.disabled = false; btn.innerHTML = '<i class="bi bi-patch-check me-1"></i> Finalizar Trabajo'; } }).catch(e => { alert('Error de comunicación.'); btn.disabled = false; btn.innerHTML = '<i class="bi bi-patch-check me-1"></i> Finalizar Trabajo'; });
+            // Este botón ahora solo valida el test y abre el modal de recepción
+            fetch(`/produccion/api/detalle/${currentOrdenId}/`)
+                .then(r => r.json())
+                .then(ordenData => {
+                    bootstrap.Modal.getInstance(document.getElementById('modalChecklistCalidad')).hide();
+                    prepararModalFinalizacion(ordenData);
+                });
         }
 
         function getCookie(name) {
@@ -859,4 +883,6 @@
             return cookieValue;
         }
     </script>
+    {% include 'produccion/modals/modal_ver_produccion.html' %}
+    {% include 'produccion/modals/modal_finalizar_produccion.html' %}
 {% endblock %}

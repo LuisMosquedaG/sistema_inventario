@@ -20,6 +20,8 @@ def get_empresa_actual(request):
             return None
     return None
 
+from core.models import Producto
+
 @login_required(login_url='/login/')
 def dashboard_clientes(request):
     empresa_actual = get_empresa_actual(request)
@@ -29,10 +31,12 @@ def dashboard_clientes(request):
         return render(request, 'error_sin_empresa.html', status=403)
     
     lista_clientes = Cliente.objects.filter(empresa=empresa_actual).order_by('-creado_en')
+    todos_los_productos = Producto.objects.filter(empresa=empresa_actual)
     form = ClienteForm()
     
     contexto = {
         'clientes': lista_clientes,
+        'productos': todos_los_productos,
         'form': form
     }
     return render(request, 'dashboard_clientes.html', contexto)

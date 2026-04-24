@@ -58,6 +58,37 @@
         }
         .bg-brand-avance { background-color: #00b8b9 !important; }
         .progress-label { font-size: 0.6rem; color: #868e96; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* ESTILOS PARA EL BUSCADOR (CUSTOM SELECT) */
+        .custom-select-wrapper { position: relative; user-select: none; width: 100%; }
+        .custom-select { position: relative; display: flex; flex-direction: column; }
+        .custom-select__trigger {
+            position: relative; display: flex; align-items: center; background-color: #fff;
+            border: 1px solid #ced4da; border-radius: 0.25rem; height: 31px; cursor: text;
+            padding: 0 0.75rem;
+        }
+        .custom-select.open .custom-select__trigger { border-color: #00b8b9; box-shadow: 0 0 0 0.2rem rgba(0, 184, 185, 0.1); }
+        .custom-options {
+            position: absolute; display: none; top: 100%; left: 0; right: 0; border: 1px solid #ced4da;
+            border-top: 0; background: #fff; z-index: 1060; max-height: 200px; overflow-y: auto;
+            border-radius: 0 0 0.25rem 0.25rem; box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15); margin-top: 2px;
+        }
+        .custom-select.open .custom-options { display: block; }
+        .custom-option {
+            padding: 8px 12px; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;
+            border-bottom: 1px solid #f1f3f5; color: #495057; display: flex; align-items: center;
+        }
+        .custom-option:hover { background-color: #f8f9fa; color: #00b8b9; }
+        .custom-option.selected { background-color: #e6fcf5; color: #0ca678; }
+        .real-input-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;
+            background: transparent; padding: 0 0.75rem; font-size: 0.875rem; z-index: 2; outline: none;
+        }
+        .fake-input-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 0 0.75rem;
+            display: flex; align-items: center; z-index: 1; pointer-events: none; color: #212529;
+        }
+        .input-seleccionado { background-color: #f8f9fa !important; border-color: #00b8b9 !important; }
     </style>
 
     <!-- 2. CONTENEDOR PRINCIPAL -->
@@ -393,12 +424,25 @@
                                 <div class="row g-2 align-items-end">
                                     <div class="col-md-5">
                                         <label class="form-label small text-muted">Producto</label>
-                                        <select id="selectProductoNuevo" class="form-select form-select-sm">
-                                            <option value="">Seleccionar...</option>
-                                            {% for p in productos %}
-                                            <option value="{{ p.id }}" data-precio="{{ p.precio_venta }}">{{ p.nombre }}</option>
-                                            {% endfor %}
-                                        </select>
+                                        <div class="custom-select-wrapper" id="wrapperProductoNuevo">
+                                            <div class="custom-select">
+                                                <div class="custom-select__trigger">
+                                                    <div id="producto_display_fake" class="fake-input-layer">
+                                                        <span class="text-muted" style="font-weight:400;">Buscar producto...</span>
+                                                    </div>
+                                                    <input type="text" id="producto_busqueda" autocomplete="off" class="real-input-layer">
+                                                    <i class="bi bi-search ms-auto" style="z-index:3; pointer-events:none; font-size: 0.8rem; color: #adb5bd;"></i>
+                                                    <input type="hidden" id="selectProductoNuevo" value="">
+                                                </div>
+                                                <div class="custom-options">
+                                                    {% for p in productos %}
+                                                    <span class="custom-option" data-value="{{ p.id }}" data-precio="{{ p.precio_venta }}" data-search="{{ p.nombre }}">
+                                                        {{ p.nombre }}
+                                                    </span>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="col-md-2">
                                         <label class="form-label small text-muted">Cant.</label>
@@ -462,6 +506,77 @@
 <script>
     // --- LÓGICA PARA NUEVO PEDIDO MANUAL ---
 
+    // Inicializar buscador de productos
+    document.addEventListener('DOMContentLoaded', function() {
+        const wrapper = document.getElementById('wrapperProductoNuevo');
+        if (wrapper) {
+            const select = wrapper.querySelector('.custom-select');
+            const input = document.getElementById('producto_busqueda');
+            const fake = document.getElementById('producto_display_fake');
+            const hidden = document.getElementById('selectProductoNuevo');
+            const options = wrapper.querySelectorAll('.custom-option');
+
+            const updateFakeVisibility = () => {
+                if (document.activeElement === input || input.value.length > 0) {
+                    fake.style.opacity = "0";
+                } else {
+                    fake.style.opacity = "1";
+                }
+            };
+
+            input.addEventListener('focus', () => { 
+                select.classList.add('open'); 
+                updateFakeVisibility(); 
+            });
+            
+            input.addEventListener('blur', () => {
+                setTimeout(() => {
+                    select.classList.remove('open');
+                    updateFakeVisibility();
+                }, 200);
+            });
+
+            input.addEventListener('input', function() {
+                const term = this.value.toLowerCase();
+                if (term.length > 0) {
+                    fake.innerHTML = `<span class="typing-text">${this.value}</span>`;
+                } else {
+                    fake.innerHTML = '<span class="text-muted" style="font-weight:400;">Buscar producto...</span>';
+                }
+                options.forEach(opt => {
+                    const search = opt.getAttribute('data-search').toLowerCase();
+                    opt.style.display = search.includes(term) ? 'flex' : 'none';
+                });
+                select.classList.add('open');
+                updateFakeVisibility();
+            });
+
+            options.forEach(opt => {
+                opt.addEventListener('click', function() {
+                    options.forEach(o => o.classList.remove('selected'));
+                    this.classList.add('selected');
+                    fake.innerHTML = this.innerHTML;
+                    fake.setAttribute('title', this.textContent.trim());
+                    input.value = this.textContent.trim();
+                    input.classList.add('input-seleccionado');
+                    hidden.value = this.getAttribute('data-value');
+                    const precio = this.getAttribute('data-precio');
+                    if (precio) {
+                        document.getElementById('inputPrecioNuevo').value = precio;
+                    }
+                    select.classList.remove('open');
+                    updateFakeVisibility();
+                });
+            });
+
+            window.addEventListener('click', (e) => {
+                if (!wrapper.contains(e.target)) {
+                    select.classList.remove('open');
+                }
+            });
+        }
+    });
+
     function cargarContactosNuevoPedido(clienteId) {
         const select = document.getElementById('selectContactoNuevo');
         select.innerHTML = '<option value="">Cargando...</option>';
@@ -487,15 +602,11 @@
             });
     }
 
-    document.getElementById('selectProductoNuevo').addEventListener('change', function() {
-        const opt = this.options[this.selectedIndex];
-        document.getElementById('inputPrecioNuevo').value = opt.dataset.precio || "0.00";
-    });
-
     function agregarArticuloNuevoPedido() {
-        const select = document.getElementById('selectProductoNuevo');
-        const pId = select.value;
-        const pName = select.options[select.selectedIndex].text;
+        const hidden = document.getElementById('selectProductoNuevo');
+        const fake = document.getElementById('producto_display_fake');
+        const pId = hidden.value;
+        const pName = fake.innerText.trim();
         const cant = document.getElementById('inputCantNuevo').value;
         const prec = document.getElementById('inputPrecioNuevo').value;
 
@@ -513,6 +624,16 @@
         
         document.getElementById('tablaCuerpoNuevo').insertAdjacentHTML('beforeend', fila);
         document.getElementById('mensajeVacioNuevo').style.display = 'none';
+
+        // Limpiar buscador después de agregar
+        hidden.value = "";
+        const inputBusqueda = document.getElementById('producto_busqueda');
+        inputBusqueda.value = "";
+        inputBusqueda.classList.remove('input-seleccionado');
+        fake.innerHTML = '<span class="text-muted" style="font-weight:400;">Buscar producto...</span>';
+        document.getElementById('inputCantNuevo').value = 1;
+        document.getElementById('inputPrecioNuevo').value = "0.00";
+
         calcularTotalNuevo();
     }
 
@@ -631,7 +752,8 @@
                         accionIcon = `<span class="icon-action" style="cursor: not-allowed; opacity: 0.5;" title="En Trámite"><i class="bi bi-hourglass-split"></i></span>`;
                     } else if (det.estado_linea === 'comprado') {
                         pillClass = 'status-confirmado'; pillText = 'Comprado';
-                        accionIcon = `<span class="icon-action" title="Recibir" onclick="confirmarRecepcion(${det.id})"><i class="bi bi-box-seam"></i></span>`;
+                        // Acción 'recibir' eliminada a petición
+                        accionIcon = `<span class="icon-action" style="cursor: default;" title="Comprado"><i class="bi bi-box-seam"></i></span>`;
                     } else if (det.estado_linea === 'reservado') {
                         pillClass = 'status-completo'; pillText = 'Reservado';
                         accionIcon = `<span class="icon-action" style="cursor: default;" title="Listo"><i class="bi bi-check-all"></i></span>`;

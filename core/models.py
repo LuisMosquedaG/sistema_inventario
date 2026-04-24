@@ -44,6 +44,7 @@ class Producto(models.Model):
         ('activo', 'Activo'),
         ('inactivo', 'Inactivo'),
         ('descontinuado', 'Descontinuado'),
+        ('revision', 'Revisión'),
     ]
     estado = models.CharField(max_length=20, choices=ESTADO_OPCIONES, default='activo', verbose_name="Estado")
 

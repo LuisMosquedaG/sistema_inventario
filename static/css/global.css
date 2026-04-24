@@ -81,3 +81,139 @@ body {
     font-weight: 600;
     border-radius: 4px;
 }
+
+/* ============================================
+   ESTILOS DE SELECTOR PERSONALIZADO (DROPDOWN)
+   ============================================ */
+
+.custom-select-wrapper {
+    position: relative;
+    user-select: none;
+    width: 100%;
+}
+
+.custom-select {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.custom-select__trigger {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background-color: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-box;
+    height: 31px;
+}
+
+.custom-select__trigger:hover { border-color: #adb5bd; }
+
+.custom-select__trigger input {
+    width: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+    color: #212529;
+    font-family: inherit;
+}
+
+.custom-select__trigger i {
+    position: absolute;
+    right: 10px;
+    color: #6c757d;
+    pointer-events: none;
+}
+
+.custom-options {
+    position: absolute;
+    display: block;
+    top: 100%;
+    left: 0;
+    right: 0;
+    border: 1px solid #ced4da;
+    border-top: 0;
+    background: #fff;
+    transition: all 0.2s;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    z-index: 2000 !important;
+    max-height: 200px !important;
+    overflow-y: auto !important;
+    border-radius: 0 0 0.25rem 0.25rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.custom-select.open .custom-options {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: all;
+    margin-top: 2px;
+}
+
+.custom-option {
+    position: relative;
+    display: block;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-bottom: 1px solid #f1f3f5;
+    white-space: normal !important;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.3;
+    color: #495057;
+}
+
+.custom-option:hover { 
+    background-color: #f8f9fa !important; 
+    color: #00b8b9 !important;
+}
+
+.custom-option.selected {
+    background-color: #e6fcf5;
+    color: #0ca678;
+}
+
+.real-input-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+    color: transparent;
+    caret-color: #000;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+    font-family: inherit;
+    z-index: 2;
+    outline: none;
+}
+
+.fake-input-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    padding: 0.375rem 0.75rem;
+    display: flex;
+    align-items: center;
+    z-index: 1;
+    pointer-events: none;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.typing-text { color: #212529; }
+

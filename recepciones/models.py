@@ -124,7 +124,8 @@ class DetalleRecepcion(models.Model):
 
 class DetalleRecepcionExtra(models.Model):
     """ Guarda información de Lotes y Números de Serie """
-    detalle_recepcion = models.ForeignKey(DetalleRecepcion, on_delete=models.CASCADE, related_name='extras')
+    detalle_recepcion = models.ForeignKey(DetalleRecepcion, on_delete=models.CASCADE, related_name='extras', null=True, blank=True)
+    producto = models.ForeignKey('core.Producto', on_delete=models.CASCADE, related_name='extras_trazabilidad', null=True, blank=True)
     tipo = models.CharField(max_length=10, choices=[('lote', 'Lote'), ('serie', 'Serie')])
     lote = models.CharField(max_length=50, blank=True, null=True)
     cantidad_lote = models.PositiveIntegerField(default=0)
@@ -132,6 +133,7 @@ class DetalleRecepcionExtra(models.Model):
     
     # NUEVO: RASTREO DE UBICACIÓN ACTUAL
     almacen = models.ForeignKey('almacenes.Almacen', on_delete=models.CASCADE, related_name='items_extra', null=True, blank=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True, null=True, blank=True)
 
     def __str__(self):
         return f"{self.tipo}: {self.lote or self.serie} ({self.almacen.nombre if self.almacen else 'Sin almacén'})"

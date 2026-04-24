@@ -1,0 +1,96 @@
+<!-- MODAL: CREAR PRODUCTO RÁPIDO -->
+<div class="modal fade" id="modalCrearProductoRapido" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-light border-bottom">
+                <h6 class="modal-title fw-bold text-dark">
+                    <i class="bi bi-box-seam-fill me-2 text-brand"></i>Alta Rápida de Producto
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="formProductoRapido" method="post" action="{% url 'crear_producto_rapido' %}">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-secondary">Nombre del Producto</label>
+                        <input type="text" name="nombre" class="form-control form-control-sm" placeholder="Ej: Laptop Dell XPS 13" required>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-bold text-secondary">Tipo</label>
+                            <select name="tipo" class="form-select form-select-sm" required>
+                                <option value="producto" selected>Producto</option>
+                                <option value="servicio">Servicio</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold text-secondary">Abastecimiento</label>
+                            <select name="tipo_abastecimiento" class="form-select form-select-sm" required>
+                                <option value="compra" selected>Compra</option>
+                                <option value="stock">Stock</option>
+                                <option value="produccion">Producción</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-bold text-secondary">Categoría</label>
+                            <select name="categoria" id="quick_product_categoria" class="form-select form-select-sm" onchange="actualizarSubcategoriasRapido()">
+                                <option value="">Seleccionar...</option>
+                                {% for cat in categorias_catalogo %}
+                                    <option value="{{ cat.id }}">{{ cat.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold text-secondary">Subcategoría</label>
+                            <select name="subcategoria" id="quick_product_subcategoria" class="form-select form-select-sm" disabled>
+                                <option value="">Selecciona categoría...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <script>
+                        function actualizarSubcategoriasRapido() {
+                            const catId = document.getElementById('quick_product_categoria').value;
+                            const selectSub = document.getElementById('quick_product_subcategoria');
+                            
+                            if (!catId) {
+                                selectSub.innerHTML = '<option value="">Selecciona categoría...</option>';
+                                selectSub.disabled = true;
+                                return;
+                            }
+
+                            // Usamos el endpoint existente del sistema
+                            fetch(`/inventario/api/subcategorias/?categoria_id=${catId}`)
+                                .then(r => r.json())
+                                .then(data => {
+                                    selectSub.innerHTML = '<option value="">Seleccionar...</option>';
+                                    data.forEach(s => {
+                                        selectSub.insertAdjacentHTML('beforeend', `<option value="${s.nombre}">${s.nombre}</option>`);
+                                    });
+                                    selectSub.disabled = false;
+                                });
+                        }
+                    </script>
+
+                    <!-- Campos ocultos necesarios para el modelo que no se piden en el form rápido -->
+                    <input type="hidden" name="precio_costo" value="0.00">
+                    <input type="hidden" name="precio_venta" value="0.00">
+                    <input type="hidden" name="estado" value="revision">
+
+                    <div class="alert alert-info py-2 px-3 mb-0" style="font-size: 0.75rem;">
+                        <i class="bi bi-info-circle-fill me-2"></i>El producto se creará en estado <strong>Revisión</strong>.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer bg-light border-top p-2">
+                <button type="button" class="btn btn-sm btn-light text-secondary px-3" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="formProductoRapido" class="btn btn-sm btn-brand px-4 fw-bold">Guardar Producto</button>
+            </div>
+        </div>
+    </div>
+</div>

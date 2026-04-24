@@ -5,6 +5,7 @@ urlpatterns = [
     # Esta ruta mantiene activo el Punto de Venta que creamos al principio (en core)
     path('vender/', views.punto_de_venta, name='punto_de_venta'),
     path('api/crear-producto/', views.crear_producto_ajax, name='crear_producto_ajax'),
+    path('api/crear-producto-rapido/', views.crear_producto_rapido, name='crear_producto_rapido'),
     path('api/producto/<int:producto_id>/', views.obtener_producto_json, name='obtener_producto'),
     path('api/actualizar-producto/<int:producto_id>/', views.actualizar_producto_ajax, name='actualizar_producto'),
     path('api/actualizar-precio-producto/<int:producto_id>/', views.actualizar_precio_producto, name='actualizar_precio_producto'),

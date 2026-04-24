@@ -58,6 +58,18 @@ def dashboard_produccion(request):
             # Si no tiene test, lo marcamos como N/A o 100 si ya terminó
             o.porcentaje_calidad = 100 if o.estado == 'terminado' else 0
             
+        # 3. Detectar materiales faltantes (Solo para órdenes que no han iniciado)
+        o.faltantes_info = []
+        if o.estado == 'borrador':
+            for det in o.detalles.all():
+                inv = Inventario.objects.filter(producto=det.producto, almacen=o.almacen).first()
+                disponible = (inv.cantidad - inv.reservado) if inv else 0
+                if disponible < det.cantidad:
+                    o.faltantes_info.append({
+                        'nombre': det.producto.nombre,
+                        'cantidad': det.cantidad - disponible
+                    })
+
         ordenes.append(o)
     
     # PRODUCTOS QUE SE PUEDEN PRODUCIR
@@ -414,6 +426,7 @@ def api_detalle_orden(request, orden_id):
         'folio': orden.folio,
         'cliente_nombre': orden.cliente.nombre_completo if orden.cliente else 'Sin cliente',
         'fecha_op': orden.fecha_creacion.strftime('%d/%m/%Y'),
+        'almacen_entrada_id': orden.almacen.id,
         'almacen_entrada': orden.almacen.nombre,
         'almacen_salida': orden.almacen_materia_prima.nombre if orden.almacen_materia_prima else 'No asignado',
         'pedido_id': orden.pedido_origen.id if orden.pedido_origen else 'Manual',
@@ -421,6 +434,8 @@ def api_detalle_orden(request, orden_id):
         'pedido_fecha': orden.pedido_origen.fecha_creacion.strftime('%d/%m/%Y') if orden.pedido_origen else '--',
         'producto_id': orden.producto.id,
         'producto_nombre': orden.producto.nombre,
+        'maneja_lote': orden.producto.maneja_lote,
+        'maneja_serie': orden.producto.maneja_serie,
         'cantidad_producir': orden.cantidad,
         'solicitante': orden.solicitante.username.split('@')[0] if orden.solicitante else 'Sistema',
         'estado': orden.estado,
@@ -431,6 +446,71 @@ def api_detalle_orden(request, orden_id):
         'detalles': detalles
     }
     return JsonResponse(data)
+
+@login_required
+@transaction.atomic
+def finalizar_produccion_completo(request):
+    """Procesa el ingreso a inventario con series/lotes y finaliza la OP"""
+    if request.method == 'POST':
+        try:
+            orden_id = request.POST.get('orden_id')
+            almacen_id = request.POST.get('almacen_id')
+            empresa_actual = get_empresa_actual(request)
+            orden = get_object_or_404(OrdenProduccion, id=orden_id, empresa=empresa_actual)
+            almacen_destino = get_object_or_404(Almacen, id=almacen_id, empresa=empresa_actual)
+            
+            # 1. Validar que no esté ya terminada
+            if orden.estado == 'terminado':
+                return JsonResponse({'success': False, 'error': 'Esta orden ya fue finalizada.'})
+
+            # Actualizamos el almacén si el usuario lo cambió en el modal
+            if int(almacen_id) != orden.almacen.id:
+                orden.almacen = almacen_destino
+                orden.save()
+
+            # 2. Lógica de trazabilidad (Series / Lotes)
+            from recepciones.models import DetalleRecepcionExtra
+            
+            lote_global = request.POST.get('lote_global')
+            series = request.POST.getlist('serie[]')
+            
+            referencia_extra = ""
+            if lote_global:
+                DetalleRecepcionExtra.objects.create(
+                    producto=orden.producto,
+                    tipo='lote',
+                    lote=lote_global,
+                    cantidad_lote=orden.cantidad,
+                    almacen=almacen_destino
+                )
+                referencia_extra = f" | Lote: {lote_global}"
+            elif any(series):
+                for s in series:
+                    if s.strip():
+                        DetalleRecepcionExtra.objects.create(
+                            producto=orden.producto,
+                            tipo='serie',
+                            serie=s.strip(),
+                            cantidad_lote=1,
+                            almacen=almacen_destino
+                        )
+                series_limpias = [s for s in series if s.strip()]
+                if series_limpias:
+                    referencia_extra = f" | Series: {', '.join(series_limpias[:3])}..."
+
+            # 3. Ejecutar la lógica de finalización estándar (Descontar materia prima y sumar PT)
+            res = finalizar_produccion_logica(request, orden)
+            
+            if res.get('success'):
+                messages.success(request, f'Orden {orden.folio} terminada y mercancía ingresada.{referencia_extra}', extra_tags='produccion')
+                return JsonResponse({'success': True})
+            else:
+                return JsonResponse({'success': False, 'error': res.get('error')})
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
 @login_required
 @transaction.atomic
@@ -486,20 +566,25 @@ def avanzar_estado_produccion(request, orden_id):
                 raise Exception("La orden no tiene componentes asignados.")
 
             # Bloqueamos y validamos stock
+            faltantes = []
             with transaction.atomic():
                 for d in detalles:
-                    # Usamos filter().first() en lugar de .get() para evitar el error si no existe el registro
                     inv = Inventario.objects.select_for_update().filter(producto=d.producto, almacen=orden.almacen).first()
-                    
-                    # Si no existe el registro, el stock disponible es 0
                     disponible = (inv.cantidad - inv.reservado) if inv else 0
                     
                     if disponible < d.cantidad:
-                        raise Exception(f"Stock insuficiente de {d.producto.nombre} en {orden.almacen.nombre}. (Disponible: {disponible}, Requerido: {d.cantidad})")
+                        faltante_cant = d.cantidad - disponible
+                        faltantes.append(f"{d.producto.nombre} ({int(faltante_cant)} pz)")
                     
-                    # Si todo bien, actualizamos la reserva (asegurando que exista el registro)
+                if faltantes:
+                    msg = f"Faltan piezas para la producción {orden.folio}: " + ", ".join(faltantes)
+                    messages.error(request, msg)
+                    return redirect('dashboard_produccion')
+
+                # Si no hay faltantes, procedemos a reservar
+                for d in detalles:
+                    inv = Inventario.objects.filter(producto=d.producto, almacen=orden.almacen).first()
                     if not inv:
-                        # Este caso técnicamente no debería pasar por el check de arriba, pero por seguridad:
                         inv = Inventario.objects.create(producto=d.producto, almacen=orden.almacen, cantidad=0, empresa=empresa_actual)
                     
                     inv.reservado = F('reservado') + d.cantidad

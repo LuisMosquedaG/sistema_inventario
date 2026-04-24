@@ -133,14 +133,33 @@
                             <div class="row g-2 align-items-end">
                                 <div class="col-md-5">
                                     <label class="form-label small text-muted">Producto</label>
-                                    <select id="selectProductoAgregar" class="form-select form-select-sm">
-                                        <option value="" selected>Seleccionar...</option>
-                                        {% for p in productos %}
-                                        <option value="{{ p.id }}" data-precio="{{ p.precio_venta }}">
-                                            {{ p.nombre }}
-                                        </option>
-                                        {% endfor %}
-                                    </select>
+                                    <div class="d-flex align-items-center">
+                                        <div class="custom-select-wrapper flex-grow-1" id="wrapperProductoAgregar">
+                                            <div class="custom-select">
+                                                <div class="custom-select__trigger" style="border-top-right-radius: 0; border-bottom-right-radius: 0;">
+                                                    <div id="producto_display_fake" class="fake-input-layer" title="">
+                                                        <span class="text-muted" style="font-weight:400;">Seleccionar...</span>
+                                                    </div>
+                                                    <input type="text" id="producto_busqueda" autocomplete="off" class="real-input-layer" placeholder="">
+                                                    <input type="hidden" id="selectProductoAgregar" value="">
+                                                </div>
+                                                <div class="custom-options">
+                                                    {% for p in productos %}
+                                                    <span class="custom-option" data-value="{{ p.id }}" data-precio="{{ p.precio_venta }}" data-search="{{ p.nombre }}" title="{{ p.nombre }}">
+                                                        {{ p.nombre }}
+                                                    </span>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- BOTÓN NUEVO PRODUCTO (GREEN) -->
+                                        <button type="button" class="btn btn-brand btn-sm shadow-none" 
+                                                style="height: 31px; width: 31px; border-radius: 0 0.25rem 0.25rem 0; display: flex; align-items: center; justify-content: center; padding: 0; margin-left: -1px; border-left: none;" 
+                                                onclick="mostrarModal('modalCrearProductoRapido')"
+                                                title="Nuevo Producto">
+                                            <i class="bi bi-plus-lg" style="font-size: 1rem;"></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="col-md-2">
                                     <label class="form-label small text-muted">Cant.</label>
