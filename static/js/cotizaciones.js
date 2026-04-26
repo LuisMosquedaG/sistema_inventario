@@ -312,8 +312,83 @@ window.cargarParaEdicion = function(id) {
 };
 
 document.addEventListener('DOMContentLoaded', function() {
-    
-    // --- LÓGICA DE BÚSQUEDA DE CLIENTES ---
+
+    // ==========================================
+    // LÓGICA FILTRO CLIENTE (DASHBOARD)
+    // ==========================================
+    const wrapperFiltro = document.getElementById('wrapperFiltroCliente');
+    if (wrapperFiltro) {
+        const selectFiltro = wrapperFiltro.querySelector('.custom-select');
+        const inputFiltro = document.getElementById('filtro_cliente_busqueda');
+        const fakeFiltro = document.getElementById('filtro_cliente_fake');
+        const hiddenFiltroId = document.getElementById('filtro_cliente_id');
+        const optionsFiltro = wrapperFiltro.querySelectorAll('.custom-option');
+
+        const updateFakeVisibility = () => {
+            if (document.activeElement === inputFiltro || inputFiltro.value.length > 0) {
+                fakeFiltro.style.opacity = "0";
+            } else {
+                fakeFiltro.style.opacity = "1";
+            }
+        };
+
+        inputFiltro.addEventListener('focus', () => {
+            selectFiltro.classList.add('open');
+            updateFakeVisibility();
+        });
+
+        inputFiltro.addEventListener('blur', updateFakeVisibility);
+
+        inputFiltro.addEventListener('input', function() {
+            fakeFiltro.innerHTML = `<span>${this.value}</span>`;
+            updateFakeVisibility();
+            const term = this.value.toLowerCase();
+            optionsFiltro.forEach(opt => {
+                const search = opt.getAttribute('data-search').toLowerCase();
+                opt.style.display = search.includes(term) ? 'flex' : 'none';
+            });
+            selectFiltro.classList.add('open');
+        });
+
+        optionsFiltro.forEach(option => {
+            option.addEventListener('click', function() {
+                const valText = this.getAttribute('data-value');
+                const valId = this.getAttribute('data-id') || 'all';
+                
+                if (valId === 'all') {
+                    inputFiltro.value = '';
+                    hiddenFiltroId.value = '';
+                    fakeFiltro.innerHTML = '<span class="text-muted" style="font-weight:400;">Todos los clientes...</span>';
+                } else {
+                    inputFiltro.value = valText;
+                    hiddenFiltroId.value = valId;
+                    fakeFiltro.innerHTML = `<span>${valText}</span>`;
+                }
+                
+                selectFiltro.classList.remove('open');
+                updateFakeVisibility();
+                // Enviar formulario al seleccionar
+                document.getElementById('formFiltrosCotizaciones').submit();
+            });
+        });
+
+        window.addEventListener('click', (e) => {
+            if (wrapperFiltro && !wrapperFiltro.contains(e.target)) selectFiltro.classList.remove('open');
+        });
+
+        // Asegurar que Enter en inputs de texto envíe el formulario
+        const inputsTexto = document.querySelectorAll('#formFiltrosCotizaciones input[type="text"]');
+        inputsTexto.forEach(input => {
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById('formFiltrosCotizaciones').submit();
+                }
+            });
+        });
+    }
+
+    // --- VARIABLES GLOBALES CLIENTE ---
     const wrapperCliente = document.getElementById('wrapperCliente');
     if (!wrapperCliente) return;
 

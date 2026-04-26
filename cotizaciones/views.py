@@ -21,6 +21,8 @@ def get_empresa_actual(request):
             return None
     return None
 
+from django.db.models import Q
+
 @login_required(login_url='/login/')
 def dashboard_cotizaciones(request):
     empresa_actual = get_empresa_actual(request)
@@ -28,12 +30,58 @@ def dashboard_cotizaciones(request):
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)
     
-    # Filtramos Cotizaciones y Clientes por empresa
+    # --- LÓGICA DE FILTRADO ---
+    q = request.GET.get('q', '')
+    folio = request.GET.get('folio', '')
+    cliente_id = request.GET.get('cliente_id', '')
+    fecha = request.GET.get('fecha', '')
+    estado = request.GET.get('estado', '')
+
     lista_cotizaciones = Cotizacion.objects.filter(empresa=empresa_actual).order_by('-creado_en')
+
+    if q:
+        # Intentar convertir q a número para buscar por ID exacto o parcial
+        lista_cotizaciones = lista_cotizaciones.filter(
+            Q(id__icontains=q) |
+            Q(cliente__razon_social__icontains=q) |
+            Q(cliente__nombre__icontains=q) |
+            Q(cliente__apellidos__icontains=q) |
+            Q(origen__icontains=q) |
+            Q(estado__icontains=q)
+        )
+    if folio:
+        lista_cotizaciones = lista_cotizaciones.filter(id__icontains=folio)
+    if cliente_id and cliente_id != 'all':
+        lista_cotizaciones = lista_cotizaciones.filter(cliente_id=cliente_id)
+    if fecha:
+        try:
+            lista_cotizaciones = lista_cotizaciones.filter(fecha_inicio=fecha)
+        except:
+            pass
+    if estado:
+        lista_cotizaciones = lista_cotizaciones.filter(estado=estado)
+
+    # Para mantener el nombre del cliente en el buscador visual
+    cliente_nombre_display = ""
+    if cliente_id and cliente_id != 'all':
+        try:
+            c_obj = Cliente.objects.get(id=cliente_id, empresa=empresa_actual)
+            cliente_nombre_display = f"{c_obj.nombre} {c_obj.apellidos}"
+            if c_obj.razon_social: cliente_nombre_display += f" - {c_obj.razon_social}"
+        except:
+            pass
+
+    filtros = {
+        'q': q,
+        'folio': folio,
+        'cliente_id': cliente_id,
+        'cliente_nombre': cliente_nombre_display,
+        'fecha': fecha,
+        'estado': estado
+    }
+    # --- FIN LÓGICA DE FILTRADO ---
+
     todos_los_clientes = Cliente.objects.filter(empresa=empresa_actual)
-    
-    # --- CORRECCIÓN: Filtramos Productos por empresa ---
-    # (Revisamos core/models.py y SÍ tiene el campo empresa)
     todos_los_productos = Producto.objects.filter(empresa=empresa_actual)
 
     from categorias.models import Categoria as CategoriaCatalogo
@@ -43,7 +91,8 @@ def dashboard_cotizaciones(request):
         'cotizaciones': lista_cotizaciones,
         'clientes': todos_los_clientes,
         'productos': todos_los_productos,
-        'categorias_catalogo': todas_categorias
+        'categorias_catalogo': todas_categorias,
+        'filtros': filtros
     }
     return render(request, 'dashboard_cotizaciones.html', contexto)
 

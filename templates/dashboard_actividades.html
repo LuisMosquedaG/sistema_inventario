@@ -14,21 +14,17 @@
         .icon-action.state-completed:hover { color: #198754 !important; }
         .icon-action.state-cancelled:hover { color: #dc3545 !important; }
         
-        /* --- DROPDOWN PERSONALIZADO --- */
+        /* --- DROPDOWN PERSONALIZADO CROSSOVER --- */
         .custom-select-wrapper { position: relative; user-select: none; width: 100%; }
         .custom-select { position: relative; display: flex; flex-direction: column; }
         .custom-select__trigger {
             position: relative; display: flex; align-items: center;
             background-color: #fff; border: 1px solid #ced4da; border-radius: 0.25rem;
-            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-box; height: 31px;
+            transition: all 0.15s ease-in-out; height: 31px; cursor: text;
         }
         .custom-select.open .custom-select__trigger { border-color: #00b8b9; box-shadow: 0 0 0 3px rgba(0, 184, 185, 0.1); }
-        .custom-select__trigger input {
-            width: 100%; border: none; outline: none; background: transparent;
-            padding: 0.375rem 0.75rem; font-size: 0.875rem; color: #212529;
-            font-family: inherit; z-index: 2;
-        }
-        .custom-select__trigger i { position: absolute; right: 10px; color: #6c757d; pointer-events: none; z-index: 1; }
+        .custom-select__trigger i { position: absolute; right: 10px; color: #6c757d; pointer-events: none; z-index: 3; font-size: 0.8rem; }
+        
         .custom-options {
             position: absolute; display: block; top: 100%; left: 0; right: 0;
             border: 1px solid #ced4da; border-top: 0; background: #fff;
@@ -37,29 +33,37 @@
             border-radius: 0 0 0.25rem 0.25rem; box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
         }
         .custom-select.open .custom-options { opacity: 1; visibility: visible; pointer-events: all; margin-top: 2px; }
+        
         .custom-option {
-            position: relative; display: flex; align-items: center; padding: 8px 12px;
-            font-size: 0.85rem; cursor: pointer; transition: all 0.2s;
-            border-bottom: 1px solid #f1f3f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            padding: 8px 12px; cursor: pointer; transition: all 0.2s;
+            border-bottom: 1px solid #f1f3f5; display: flex; align-items: center;
+            font-size: 0.85rem; color: #212529;
         }
-        .custom-option:hover { background-color: #f8f9fa; }
+        .custom-option:hover { 
+            color: #00b8b9 !important; 
+            background-color: #f8f9fa !important; 
+        }
+        .custom-option:hover .opt-razon, .custom-option:hover .opt-contacto { color: inherit !important; }
         .custom-option.selected { background-color: #e6fcf5; color: #0ca678; }
-        .opt-razon { font-weight: 700 !important; color: #212529 !important; margin-right: 8px; flex-shrink: 0; }
-        .opt-contacto { font-weight: 400 !important; color: #6c757d !important; opacity: 1; }
+
+        .opt-razon { font-weight: 700 !important; margin-right: 8px; }
+        .opt-contacto { font-weight: 400 !important; color: #6c757d !important; font-size: 0.75rem; }
         .opt-separator { color: #dee2e6; margin-right: 8px; font-size: 0.8rem; }
+
         .real-input-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; background: transparent;
-            color: transparent !important; -webkit-text-fill-color: transparent !important; text-shadow: none !important;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none !important; background: transparent !important;
+            color: transparent !important; -webkit-text-fill-color: transparent !important;
             opacity: 1; padding: 0.375rem 0.75rem; margin: 0; font-size: 0.875rem;
-            font-family: inherit; line-height: 1.5; box-sizing: border-box; z-index: 2; outline: none; caret-color: #000;
+            font-family: inherit; line-height: 1.5; box-sizing: border-box; z-index: 2; outline: none !important; caret-color: #000;
         }
         .fake-input-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 0.375rem 0.75rem; margin: 0;
             display: flex; align-items: center; z-index: 1; pointer-events: none;
             overflow: hidden; white-space: nowrap; box-sizing: border-box; line-height: 1.5;
+            transition: opacity 0.1s ease; color: #212529;
         }
-        .typing-text { color: #212529; }
-        .input-cliente-seleccionado { background-color: #f0fff4 !important; border-color: #00b8b9 !important; }
+        .typing-text { color: #212529; font-weight: 400; }
+        .input-cliente-seleccionado { border-color: #00b8b9 !important; }
 
         /* ==========================================
         PILLS FINAS (ESTADOS Y PRIORIDADES)
@@ -162,10 +166,6 @@
                                             <span onclick="cambiarEstado({{ a.id }}, 'completada')" class="icon-action" title="Completar"><i class="bi bi-check2-circle"></i></span>
                                             <span onclick="prepararReprogramar({{ a.id }})" class="icon-action" title="Reprogramar"><i class="bi bi-calendar-event"></i></span>
                                             <span onclick="abrirModalCancelar({{ a.id }})" class="icon-action" title="Cancelar"><i class="bi bi-x-circle"></i></span>
-                                        {% elif a.estado == 'completada' %}
-                                            <span class="icon-action state-completed" style="cursor: default;" title="Finalizada"><i class="bi bi-check-circle"></i></span>
-                                        {% elif a.estado == 'cancelada' %}
-                                            <span class="icon-action state-cancelled" style="cursor: default;" title="Cancelada"><i class="bi bi-x-circle"></i></span>
                                         {% endif %}
                                     </div>
                                 </td>
@@ -298,7 +298,15 @@
                                                 <div class="custom-options">
                                                     {% for c in clientes %}
                                                     <span class="custom-option" data-value="{{ c.id }}" data-search="{{ c.razon_social }} {{ c.nombre }} {{ c.apellidos }}" data-email="{{ c.email }}" data-calle="{{ c.calle|default:'' }}" data-num-ext="{{ c.numero_ext|default:'' }}" data-num-int="{{ c.numero_int|default:'' }}" data-colonia="{{ c.colonia|default:'' }}" data-estado="{{ c.estado_dir|default:'' }}" data-cp="{{ c.cp|default:'' }}">
-                                                        {% if c.razon_social %}<span class="opt-razon">{{ c.razon_social }}</span><span class="opt-separator">|</span><span class="opt-contacto">{{ c.nombre }} {{ c.apellidos }}</span>{% else %}<span class="opt-razon">{{ c.nombre }} {{ c.apellidos }}</span><span class="opt-separator">|</span><span class="opt-contacto">Persona Física</span>{% endif %}
+                                                        {% if c.razon_social %}
+                                                            <span class="opt-razon">{{ c.razon_social }}</span>
+                                                            <span class="opt-separator">|</span>
+                                                            <span class="opt-contacto">{{ c.nombre }} {{ c.apellidos }}</span>
+                                                        {% else %}
+                                                            <span class="opt-razon">{{ c.nombre }} {{ c.apellidos }}</span>
+                                                            <span class="opt-separator">|</span>
+                                                            <span class="opt-contacto">Persona Física</span>
+                                                        {% endif %}
                                                     </span>
                                                     {% endfor %}
                                                 </div>
@@ -461,37 +469,74 @@
 
         // --- LÓGICA DE LIMPIEZA ---
         function limpiarFormularioActividad() {
-            document.getElementById('formActividad').reset();
-            document.getElementById('formActividad').action = "{% url 'crear_actividad' %}";
+            const form = document.getElementById('formActividad');
+            form.reset();
+            form.action = "{% url 'crear_actividad' %}";
             document.getElementById('actividad_id_input').value = '';
             document.getElementById('tituloModalActividad').innerHTML = '<i class="bi bi-calendar-plus me-2" style="color: #00b8b9;"></i> Nueva Actividad';
-            
-            hiddenCliente.value = ''; inputCliente.value = ''; 
-            fakeCliente.innerHTML = '<span class="text-muted">Buscar cliente...</span>';
-            opcionesCliente.forEach(opt => opt.classList.remove('selected'));
-            hiddenContacto.value = ''; inputContacto.value = ''; inputContacto.disabled = true;
-            fakeContacto.textContent = 'Selecciona cliente...';
-            optionsContacto.innerHTML = '<span class="custom-option disabled text-muted small">Selecciona un cliente</span>';
-            hiddenCotizacion.value = ''; inputCotizacion.value = ''; inputCotizacion.disabled = true;
-            fakeCotizacion.textContent = 'Selecciona cliente...';
-            optionsCotizacion.innerHTML = '<span class="custom-option disabled text-muted small">Selecciona un cliente</span>';
+
+            // Resetear Cliente
+            hiddenCliente.value = ''; 
+            inputCliente.value = '';
+            inputCliente.classList.remove('input-cliente-seleccionado');
+            fakeCliente.innerHTML = '<span class="text-muted" style="font-weight:400;">Buscar cliente...</span>';
+            fakeCliente.style.opacity = "1";
+            opcionesCliente.forEach(opt => {
+                opt.classList.remove('selected');
+                opt.style.display = 'flex';
+            });
+
+            // Resetear Contacto
+            hiddenContacto.value = ''; 
+            inputContacto.value = ''; 
+            inputContacto.disabled = true;
+            fakeContacto.innerHTML = '<span class="text-muted" style="font-weight:400;">Selecciona cliente...</span>';
+            fakeContacto.style.opacity = "1";
+            const optionsContactoContainer = wrapperContacto.querySelector('.custom-options');
+            optionsContactoContainer.innerHTML = '<span class="custom-option disabled text-muted small">Selecciona un cliente</span>';
+
+            // Resetear Cotización
+            hiddenCotizacion.value = ''; 
+            inputCotizacion.value = ''; 
+            inputCotizacion.disabled = true;
+            fakeCotizacion.innerHTML = '<span class="text-muted" style="font-weight:400;">Selecciona cliente...</span>';
+            fakeCotizacion.style.opacity = "1";
+            const optionsCotizacionContainer = wrapperCotizacion.querySelector('.custom-options');
+            optionsCotizacionContainer.innerHTML = '<span class="custom-option disabled text-muted small">Selecciona un cliente</span>';
+
+            // Resetear Correo y Dirección
             document.getElementById('inputCorreo').value = '';
             document.getElementById('inputDireccion').value = '';
         }
 
         const modalActividad = document.getElementById('modalNuevaActividad');
         if (modalActividad) {
-            modalActividad.addEventListener('show.bs.modal', function () {
-                if(!document.getElementById('actividad_id_input').value) {
-                    limpiarFormularioActividad();
-                }
+            // Limpiar SIEMPRE al cerrar para que no quede basura
+            modalActividad.addEventListener('hidden.bs.modal', function () {
+                limpiarFormularioActividad();
             });
         }
-
         // --- LÓGICA CLIENTE, CONTACTO, COTIZACIÓN ---
+        const updateFakeVisibility = (input, fake) => {
+            if (document.activeElement === input || input.value.length > 0) {
+                fake.style.opacity = "0";
+            } else {
+                fake.style.opacity = "1";
+            }
+        };
+
+        // 1. CLIENTE
+        inputCliente.addEventListener('focus', () => {
+            selectCliente.classList.add('open');
+            updateFakeVisibility(inputCliente, fakeCliente);
+        });
+        
+        inputCliente.addEventListener('blur', () => updateFakeVisibility(inputCliente, fakeCliente));
+
         inputCliente.addEventListener('input', function() {
-            const term = this.value.toLowerCase();
             fakeCliente.innerHTML = `<span class="typing-text">${this.value}</span>`;
+            updateFakeVisibility(inputCliente, fakeCliente);
+            const term = this.value.toLowerCase();
             opcionesCliente.forEach(opt => {
                 const search = opt.getAttribute('data-search').toLowerCase();
                 opt.style.display = search.includes(term) ? 'flex' : 'none';
@@ -499,102 +544,141 @@
             selectCliente.classList.add('open');
         });
 
-        inputCliente.addEventListener('focus', () => selectCliente.classList.add('open'));
-        
         opcionesCliente.forEach(opt => {
             opt.addEventListener('click', function(e) {
                 e.stopPropagation(); 
                 opcionesCliente.forEach(o => o.classList.remove('selected'));
                 this.classList.add('selected'); 
+                
                 fakeCliente.innerHTML = this.innerHTML;
-                inputCliente.value = this.textContent.replace(/\s+/g, ' ').trim();
+                inputCliente.value = ''; // Limpiar input real
+                inputCliente.classList.add('input-cliente-seleccionado');
                 hiddenCliente.value = this.getAttribute('data-value');
+                
+                // RESETEAR CONTACTO Y COTIZACIÓN AL CAMBIAR CLIENTE
+                hiddenContacto.value = '';
+                inputContacto.value = '';
+                fakeContacto.innerHTML = '<span class="text-muted" style="font-weight:400;">Seleccionar contacto...</span>';
+                hiddenCotizacion.value = '';
+                inputCotizacion.value = '';
+                fakeCotizacion.innerHTML = '<span class="text-muted" style="font-weight:400;">Seleccionar cotización...</span>';
+
                 selectCliente.classList.remove('open');
+                updateFakeVisibility(inputCliente, fakeCliente);
                 
                 cargarDependencias(hiddenCliente.value);
 
-                // Lógica Correo
+                // Lógica Correo y Dirección
                 const emailCliente = this.getAttribute('data-email');
                 document.getElementById('inputCorreo').value = emailCliente || '';
 
-                // --- NUEVA LÓGICA CON ETIQUETAS EXPLÍCITAS ---
                 const partes = [];
+                const campos = ['data-calle', 'data-num-ext', 'data-num-int', 'data-colonia', 'data-estado', 'data-cp'];
+                const etiquetas = ['Calle', 'Num ext', 'Num int', 'Col', 'Est', 'Cp'];
                 
-                const calle = this.getAttribute('data-calle') || '';
-                const numExt = this.getAttribute('data-num-ext') || '';
-                const numInt = this.getAttribute('data-num-int') || '';
-                const colonia = this.getAttribute('data-colonia') || '';
-                const estado = this.getAttribute('data-estado') || ''; 
-                const cp = this.getAttribute('data-cp') || '';
-
-                // Agregamos etiqueta a cada campo si tiene valor
-                if (calle) partes.push('Calle: ' + calle);
-                if (numExt) partes.push('Num ext: ' + numExt);
-                if (numInt) partes.push('Num int: ' + numInt);
-                if (colonia) partes.push('Col: ' + colonia);
-                if (estado) partes.push('Est: ' + estado);
-                if (cp) partes.push('Cp: ' + cp);
-
+                campos.forEach((c, i) => {
+                    const val = this.getAttribute(c);
+                    if(val) partes.push(`${etiquetas[i]}: ${val}`);
+                });
                 document.getElementById('inputDireccion').value = partes.join(', ');
-                // ------------------------------------------------
             });
+        });
+
+        // 2. LÓGICA ESPEJO CONTACTO
+        inputContacto.addEventListener('focus', () => { if(!inputContacto.disabled) selectContacto.classList.add('open'); updateFakeVisibility(inputContacto, fakeContacto); });
+        inputContacto.addEventListener('blur', () => updateFakeVisibility(inputContacto, fakeContacto));
+        inputContacto.addEventListener('input', function() {
+            fakeContacto.innerHTML = `<span class="typing-text">${this.value}</span>`;
+            updateFakeVisibility(inputContacto, fakeContacto);
+            const term = this.value.toLowerCase();
+            const opts = optionsContacto.querySelectorAll('.custom-option:not(.disabled)');
+            opts.forEach(opt => {
+                opt.style.display = opt.textContent.toLowerCase().includes(term) ? 'flex' : 'none';
+            });
+            selectContacto.classList.add('open');
+        });
+
+        // 3. LÓGICA ESPEJO COTIZACIÓN
+        inputCotizacion.addEventListener('focus', () => { if(!inputCotizacion.disabled) selectCotizacion.classList.add('open'); updateFakeVisibility(inputCotizacion, fakeCotizacion); });
+        inputCotizacion.addEventListener('blur', () => updateFakeVisibility(inputCotizacion, fakeCotizacion));
+        inputCotizacion.addEventListener('input', function() {
+            fakeCotizacion.innerHTML = `<span class="typing-text">${this.value}</span>`;
+            updateFakeVisibility(inputCotizacion, fakeCotizacion);
+            const term = this.value.toLowerCase();
+            const opts = optionsCotizacion.querySelectorAll('.custom-option:not(.disabled)');
+            opts.forEach(opt => {
+                opt.style.display = opt.textContent.toLowerCase().includes(term) ? 'flex' : 'none';
+            });
+            selectCotizacion.classList.add('open');
         });
 
         function cargarDependencias(clienteId) {
             if(!clienteId) return;
             fetch(`/actividades/api/cliente/${clienteId}/datos/`).then(response => response.json()).then(data => {
-                optionsContacto.innerHTML = '';
+                const optionsContactoContainer = wrapperContacto.querySelector('.custom-options');
+                const optionsCotizacionContainer = wrapperCotizacion.querySelector('.custom-options');
+                
+                optionsContactoContainer.innerHTML = '';
                 if(data.contactos.length > 0) {
                     data.contactos.forEach(c => {
-                        optionsContacto.insertAdjacentHTML('beforeend', `<span class="custom-option" data-value="${c.id}" data-correo="${c.correo_1}"><span class="opt-razon">${c.nombre_completo}</span></span>`);
+                        optionsContactoContainer.insertAdjacentHTML('beforeend', `<span class="custom-option" data-value="${c.id}" data-correo="${c.correo_1}"><span>${c.nombre_completo}</span></span>`);
                     });
-                    inputContacto.disabled = false; fakeContacto.textContent = 'Seleccionar contacto...';
+                    inputContacto.disabled = false; fakeContacto.innerHTML = '<span class="text-muted" style="font-weight:400;">Seleccionar contacto...</span>';
                     activarLogicaContacto();
                 } else {
-                    optionsContacto.innerHTML = '<span class="custom-option disabled text-muted small">Sin contactos</span>';
-                    inputContacto.disabled = true; fakeContacto.textContent = 'Sin contactos';
+                    optionsContactoContainer.innerHTML = '<span class="custom-option disabled text-muted small">Sin contactos</span>';
+                    inputContacto.disabled = true; fakeContacto.innerHTML = '<span class="text-muted" style="font-weight:400;">Sin contactos</span>';
                 }
-                optionsCotizacion.innerHTML = '';
+                
+                optionsCotizacionContainer.innerHTML = '';
                 if(data.cotizaciones.length > 0) {
                     data.cotizaciones.forEach(c => {
-                        optionsCotizacion.insertAdjacentHTML('beforeend', `<span class="custom-option" data-value="${c.id}"><span class="opt-razon">${c.folio_completo}</span></span>`);
+                        optionsCotizacionContainer.insertAdjacentHTML('beforeend', `<span class="custom-option" data-value="${c.id}"><span>${c.folio_completo}</span></span>`);
                     });
-                    inputCotizacion.disabled = false; fakeCotizacion.textContent = 'Seleccionar cotización...';
+                    inputCotizacion.disabled = false; fakeCotizacion.innerHTML = '<span class="text-muted" style="font-weight:400;">Seleccionar cotización...</span>';
                     activarLogicaCotizacion();
                 } else {
-                    optionsCotizacion.innerHTML = '<span class="custom-option disabled text-muted small">Sin cotizaciones</span>';
-                    inputCotizacion.disabled = true; fakeCotizacion.textContent = 'Sin cotizaciones';
+                    optionsCotizacionContainer.innerHTML = '<span class="custom-option disabled text-muted small">Sin cotizaciones</span>';
+                    inputCotizacion.disabled = true; fakeCotizacion.innerHTML = '<span class="text-muted" style="font-weight:400;">Sin cotizaciones</span>';
                 }
             });
         }
         function activarLogicaContacto() {
-            const opts = optionsContacto.querySelectorAll('.custom-option:not(.disabled)');
+            const optionsContactoContainer = wrapperContacto.querySelector('.custom-options');
+            const opts = optionsContactoContainer.querySelectorAll('.custom-option:not(.disabled)');
             opts.forEach(opt => {
                 if(opt.hasAttribute('data-listener')) return; opt.setAttribute('data-listener', 'true');
                 opt.addEventListener('click', function(e){
                     e.stopPropagation(); opts.forEach(o => o.classList.remove('selected')); this.classList.add('selected');
-                    const nombre = this.querySelector('.opt-razon').textContent; const correoContacto = this.getAttribute('data-correo');
-                    fakeContacto.textContent = nombre; inputContacto.value = nombre;
-                    hiddenContacto.value = this.getAttribute('data-value'); selectContacto.classList.remove('open');
+                    fakeContacto.innerHTML = this.innerHTML;
+                    inputContacto.value = ''; // Limpiar input real
+                    hiddenContacto.value = this.getAttribute('data-value');
+                    
+                    const correoContacto = this.getAttribute('data-correo');
                     if(correoContacto) document.getElementById('inputCorreo').value = correoContacto;
+                    
+                    selectContacto.classList.remove('open');
+                    updateFakeVisibility(inputContacto, fakeContacto);
                 });
             });
         }
         function activarLogicaCotizacion() {
-            const opts = optionsCotizacion.querySelectorAll('.custom-option:not(.disabled)');
+            const optionsCotizacionContainer = wrapperCotizacion.querySelector('.custom-options');
+            const opts = optionsCotizacionContainer.querySelectorAll('.custom-option:not(.disabled)');
             opts.forEach(opt => {
                 if(opt.hasAttribute('data-listener')) return; opt.setAttribute('data-listener', 'true');
                 opt.addEventListener('click', function(e){
                     e.stopPropagation(); opts.forEach(o => o.classList.remove('selected')); this.classList.add('selected');
-                    fakeCotizacion.textContent = this.querySelector('.opt-razon').textContent;
-                    inputCotizacion.value = fakeCotizacion.textContent;
+                    fakeCotizacion.innerHTML = this.innerHTML;
+                    inputCotizacion.value = ''; // Limpiar input real
                     hiddenCotizacion.value = this.getAttribute('data-value');
+                    
                     selectCotizacion.classList.remove('open');
+                    updateFakeVisibility(inputCotizacion, fakeCotizacion);
                 });
             });
         }
-        inputContacto.addEventListener('focus', () => { if(!inputContacto.disabled) selectContacto.classList.add('open'); });
-        inputCotizacion.addEventListener('focus', () => { if(!inputCotizacion.disabled) selectCotizacion.classList.add('open'); });
+
         window.addEventListener('click', (e) => {
             if(!selectCliente.contains(e.target)) {
                 selectCliente.classList.remove('open');
