@@ -99,14 +99,82 @@ def crear_pedido_manual(request):
 
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
+from django.db.models import Q
+
 @login_required(login_url='/login/')
 def dashboard_pedidos(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)
 
+    # --- LÓGICA DE FILTRADO ---
+    q = request.GET.get('q', '')
+    folio_pedido = request.GET.get('folio_pedido', '')
+    folio_cotizacion = request.GET.get('folio_cotizacion', '')
+    cliente_id = request.GET.get('cliente_id', '')
+    contacto_id = request.GET.get('contacto_id', '')
+    fecha = request.GET.get('fecha', '')
+    estado = request.GET.get('estado', '')
+
     lista_pedidos = Pedido.objects.filter(empresa=empresa_actual).order_by('-fecha_creacion')
-    
+
+    if q:
+        lista_pedidos = lista_pedidos.filter(
+            Q(id__icontains=q) |
+            Q(cotizacion_origen_id__icontains=q) |
+            Q(cliente__razon_social__icontains=q) |
+            Q(cliente__nombre__icontains=q) |
+            Q(cliente__apellidos__icontains=q) |
+            Q(estado__icontains=q)
+        )
+    if folio_pedido:
+        lista_pedidos = lista_pedidos.filter(id__icontains=folio_pedido)
+    if folio_cotizacion:
+        lista_pedidos = lista_pedidos.filter(cotizacion_origen_id__icontains=folio_cotizacion)
+    if cliente_id and cliente_id != 'all':
+        lista_pedidos = lista_pedidos.filter(cliente_id=cliente_id)
+    if contacto_id and contacto_id != 'all':
+        lista_pedidos = lista_pedidos.filter(contacto_id=contacto_id)
+    if fecha:
+        try:
+            lista_pedidos = lista_pedidos.filter(fecha_creacion__date=fecha)
+        except:
+            pass
+    if estado:
+        lista_pedidos = lista_pedidos.filter(estado=estado)
+
+    # Para el buscador visual y cascada
+    cliente_nombre_display = ""
+    contactos_del_cliente = []
+    contacto_nombre_display = ""
+
+    if cliente_id and cliente_id != 'all':
+        try:
+            c_obj = Cliente.objects.get(id=cliente_id, empresa=empresa_actual)
+            cliente_nombre_display = c_obj.razon_social if c_obj.razon_social else f"{c_obj.nombre} {c_obj.apellidos}"
+            
+            # Cargar contactos para la cascada
+            contactos_del_cliente = ContactoCliente.objects.filter(cliente=c_obj)
+            
+            if contacto_id and contacto_id != 'all':
+                cont_obj = contactos_del_cliente.get(id=contacto_id)
+                contacto_nombre_display = cont_obj.nombre_completo
+        except:
+            pass
+
+    filtros = {
+        'q': q,
+        'folio_pedido': folio_pedido,
+        'folio_cotizacion': folio_cotizacion,
+        'cliente_id': cliente_id,
+        'cliente_nombre': cliente_nombre_display,
+        'contacto_id': contacto_id,
+        'contacto_nombre': contacto_nombre_display,
+        'fecha': fecha,
+        'estado': estado
+    }
+    # --- FIN LÓGICA DE FILTRADO ---
+
     # --- DATOS PARA EL MODAL DE NUEVO PEDIDO ---
     clientes = Cliente.objects.filter(empresa=empresa_actual)
     productos = Producto.objects.filter(empresa=empresa_actual)
@@ -114,7 +182,9 @@ def dashboard_pedidos(request):
     contexto = {
         'pedidos': lista_pedidos,
         'clientes': clientes,
-        'productos': productos
+        'productos': productos,
+        'contactos_filtro': contactos_del_cliente,
+        'filtros': filtros
     }
     return render(request, 'dashboard_pedidos.html', contexto)
 
