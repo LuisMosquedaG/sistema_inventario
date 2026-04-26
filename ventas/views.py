@@ -23,14 +23,72 @@ def get_empresa_actual(request):
             return None
     return None
 
+from django.db.models import Q
+
 @login_required
 def dashboard_ventas(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)
 
+    # --- LÓGICA DE FILTRADO ---
+    q = request.GET.get('q', '')
+    folio_salida = request.GET.get('folio_salida', '')
+    folio_cotizacion = request.GET.get('folio_cotizacion', '')
+    folio_pedido = request.GET.get('folio_pedido', '')
+    fecha_salida = request.GET.get('fecha_salida', '')
+    cliente_id = request.GET.get('cliente_id', '')
+    estado = request.GET.get('estado', '')
+
     ordenes = OrdenVenta.objects.filter(empresa=empresa_actual).select_related('pedido_origen', 'cliente').order_by('-fecha_creacion')
-    
+
+    if q:
+        ordenes = ordenes.filter(
+            Q(id__icontains=q) |
+            Q(pedido_origen__id__icontains=q) |
+            Q(pedido_origen__cotizacion_origen_id__icontains=q) |
+            Q(cliente__razon_social__icontains=q) |
+            Q(cliente__nombre__icontains=q) |
+            Q(cliente__apellidos__icontains=q) |
+            Q(estado__icontains=q)
+        )
+    if folio_salida:
+        ordenes = ordenes.filter(id__icontains=folio_salida)
+    if folio_cotizacion:
+        ordenes = ordenes.filter(pedido_origen__cotizacion_origen_id__icontains=folio_cotizacion)
+    if folio_pedido:
+        ordenes = ordenes.filter(pedido_origen__id__icontains=folio_pedido)
+    if cliente_id and cliente_id != 'all':
+        ordenes = ordenes.filter(cliente_id=cliente_id)
+    if fecha_salida:
+        try:
+            ordenes = ordenes.filter(fecha_creacion__date=fecha_salida)
+        except:
+            pass
+    if estado:
+        ordenes = ordenes.filter(estado=estado)
+
+    # Para el buscador visual
+    cliente_nombre_display = ""
+    if cliente_id and cliente_id != 'all':
+        try:
+            c_obj = Cliente.objects.get(id=cliente_id, empresa=empresa_actual)
+            cliente_nombre_display = c_obj.razon_social if c_obj.razon_social else f"{c_obj.nombre} {c_obj.apellidos}"
+        except:
+            pass
+
+    filtros = {
+        'q': q,
+        'folio_salida': folio_salida,
+        'folio_cotizacion': folio_cotizacion,
+        'folio_pedido': folio_pedido,
+        'fecha_salida': fecha_salida,
+        'cliente_id': cliente_id,
+        'cliente_nombre': cliente_nombre_display,
+        'estado': estado
+    }
+    # --- FIN LÓGICA DE FILTRADO ---
+
     cotizaciones_ids = set()
     for orden in ordenes:
         if orden.pedido_origen and orden.pedido_origen.cotizacion_origen_id:
@@ -51,7 +109,13 @@ def dashboard_ventas(request):
     # LISTA DE ALMACENES PARA EL MODAL
     almacenes = list(empresa_actual.almacen_set.all().values('id', 'nombre'))
 
-    contexto = {'ordenes': ordenes, 'almacenes_json': almacenes, 'clientes': Cliente.objects.filter(empresa=empresa_actual), 'productos': Producto.objects.filter(empresa=empresa_actual)}
+    contexto = {
+        'ordenes': ordenes, 
+        'almacenes_json': almacenes, 
+        'clientes': Cliente.objects.filter(empresa=empresa_actual), 
+        'productos': Producto.objects.filter(empresa=empresa_actual),
+        'filtros': filtros
+    }
     return render(request, 'dashboard_ventas.html', contexto)
 
 @login_required
