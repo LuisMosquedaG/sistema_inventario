@@ -22,6 +22,8 @@ def get_empresa_actual(request):
 
 from core.models import Producto
 
+from django.db.models import Q
+
 @login_required(login_url='/login/')
 def dashboard_clientes(request):
     empresa_actual = get_empresa_actual(request)
@@ -30,14 +32,65 @@ def dashboard_clientes(request):
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)
     
+    # --- LÓGICA DE FILTRADO ---
+    q = request.GET.get('q', '')
+    cliente_id = request.GET.get('cliente_id', '')
+    email = request.GET.get('email', '')
+    tipo = request.GET.get('tipo', '')
+    relacion = request.GET.get('relacion', '')
+    estado = request.GET.get('estado', '')
+
     lista_clientes = Cliente.objects.filter(empresa=empresa_actual).order_by('-creado_en')
+
+    if q:
+        lista_clientes = lista_clientes.filter(
+            Q(nombre__icontains=q) |
+            Q(apellidos__icontains=q) |
+            Q(razon_social__icontains=q) |
+            Q(email__icontains=q) |
+            Q(rfc__icontains=q) |
+            Q(telefono__icontains=q)
+        )
+    if cliente_id and cliente_id != 'all':
+        lista_clientes = lista_clientes.filter(id=cliente_id)
+    if email:
+        lista_clientes = lista_clientes.filter(email__icontains=email)
+    if tipo:
+        lista_clientes = lista_clientes.filter(tipo=tipo)
+    if relacion:
+        lista_clientes = lista_clientes.filter(relacion=relacion)
+    if estado:
+        lista_clientes = lista_clientes.filter(estado=estado)
+
+    # Para el buscador visual de cliente (se busca a sí mismo)
+    cliente_nombre_display = ""
+    if cliente_id and cliente_id != 'all':
+        try:
+            c_obj = Cliente.objects.get(id=cliente_id, empresa=empresa_actual)
+            cliente_nombre_display = c_obj.razon_social if c_obj.razon_social else f"{c_obj.nombre} {c_obj.apellidos}"
+        except:
+            pass
+
+    filtros = {
+        'q': q,
+        'cliente_id': cliente_id,
+        'cliente_nombre': cliente_nombre_display,
+        'email': email,
+        'tipo': tipo,
+        'relacion': relacion,
+        'estado': estado
+    }
+    # --- FIN LÓGICA DE FILTRADO ---
+    
     todos_los_productos = Producto.objects.filter(empresa=empresa_actual)
     form = ClienteForm()
     
     contexto = {
         'clientes': lista_clientes,
+        'todos_los_clientes': Cliente.objects.filter(empresa=empresa_actual), # Para el selector de filtro
         'productos': todos_los_productos,
-        'form': form
+        'form': form,
+        'filtros': filtros
     }
     return render(request, 'dashboard_clientes.html', contexto)
 

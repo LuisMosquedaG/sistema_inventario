@@ -19,6 +19,8 @@ def get_empresa_actual(request):
             return None
     return None
 
+from django.db.models import Q
+
 # 1. VISTA PRINCIPAL (LISTA)
 @login_required(login_url='/login/')
 def lista_actividades(request):
@@ -27,13 +29,70 @@ def lista_actividades(request):
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)
     
-    # Filtrar actividades y clientes por empresa
-    actividades = Actividad.objects.filter(empresa=empresa_actual).select_related('cliente', 'contacto', 'cotizacion')
-    clientes = Cliente.objects.filter(empresa=empresa_actual) # <--- CORRECCIÓN: Filtrar clientes
+    # --- LÓGICA DE FILTRADO ---
+    q = request.GET.get('q', '')
+    cliente_id = request.GET.get('cliente_id', '')
+    actividad_nombre = request.GET.get('actividad', '')
+    fecha = request.GET.get('fecha', '')
+    tipo = request.GET.get('tipo', '')
+    prioridad = request.GET.get('prioridad', '')
+    estado = request.GET.get('estado', '')
+
+    actividades = Actividad.objects.filter(empresa=empresa_actual).select_related('cliente', 'contacto', 'cotizacion').order_by('-fecha', '-hora_inicio')
+
+    if q:
+        actividades = actividades.filter(
+            Q(nombre__icontains=q) |
+            Q(cliente__razon_social__icontains=q) |
+            Q(cliente__nombre__icontains=q) |
+            Q(cliente__apellidos__icontains=q) |
+            Q(tipo__icontains=q) |
+            Q(prioridad__icontains=q) |
+            Q(estado__icontains=q)
+        )
+    if cliente_id and cliente_id != 'all':
+        actividades = actividades.filter(cliente_id=cliente_id)
+    if actividad_nombre:
+        actividades = actividades.filter(nombre__icontains=actividad_nombre)
+    if fecha:
+        try:
+            actividades = actividades.filter(fecha=fecha)
+        except:
+            pass
+    if tipo:
+        actividades = actividades.filter(tipo=tipo)
+    if prioridad:
+        actividades = actividades.filter(prioridad=prioridad)
+    if estado:
+        actividades = actividades.filter(estado=estado)
+
+    # Para el buscador visual
+    cliente_nombre_display = ""
+    if cliente_id and cliente_id != 'all':
+        try:
+            c_obj = Cliente.objects.get(id=cliente_id, empresa=empresa_actual)
+            cliente_nombre_display = c_obj.razon_social if c_obj.razon_social else f"{c_obj.nombre} {c_obj.apellidos}"
+        except:
+            pass
+
+    filtros = {
+        'q': q,
+        'cliente_id': cliente_id,
+        'cliente_nombre': cliente_nombre_display,
+        'actividad': actividad_nombre,
+        'fecha': fecha,
+        'tipo': tipo,
+        'prioridad': prioridad,
+        'estado': estado
+    }
+    # --- FIN LÓGICA DE FILTRADO ---
+    
+    clientes = Cliente.objects.filter(empresa=empresa_actual)
     
     return render(request, 'dashboard_actividades.html', {
         'actividades': actividades,
-        'clientes': clientes
+        'clientes': clientes,
+        'filtros': filtros
     })
 
 @login_required(login_url='/login/')

@@ -137,6 +137,100 @@
             </div>
         </div>
 
+        <!-- FILTROS DE ACTIVIDADES -->
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body p-3">
+                <form method="get" id="formFiltrosActividades" class="row g-2 align-items-end">
+                    <!-- 1. Búsqueda General -->
+                    <div class="col-12 col-md-4 col-lg-2">
+                        <label class="form-label small fw-bold text-secondary">Búsqueda General</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                            <input type="text" name="q" class="form-control border-start-0" placeholder="Buscar..." value="{{ filtros.q|default:'' }}">
+                        </div>
+                    </div>
+                    <!-- 2. Cliente (Buscador) -->
+                    <div class="col-12 col-md-4 col-lg-2">
+                        <label class="form-label small fw-bold text-secondary">Cliente</label>
+                        <div class="custom-select-wrapper" id="wrapperFiltroCliente">
+                            <div class="custom-select">
+                                <div class="custom-select__trigger">
+                                    <div id="filtro_cliente_fake" class="fake-input-layer">
+                                        {% if filtros.cliente_nombre %}
+                                            <span class="text-dark">{{ filtros.cliente_nombre }}</span>
+                                        {% else %}
+                                            <span class="text-muted" style="font-weight:400;">Todos los clientes...</span>
+                                        {% endif %}
+                                    </div>
+                                    <input type="text" id="filtro_cliente_busqueda" class="real-input-layer" autocomplete="off" value="{{ filtros.cliente_nombre|default:'' }}" style="color: transparent !important; -webkit-text-fill-color: transparent !important;">
+                                    <input type="hidden" name="cliente_id" id="filtro_cliente_id" value="{{ filtros.cliente_id|default:'' }}">
+                                    <i class="bi bi-chevron-down ms-auto" style="z-index:3; pointer-events:none; font-size: 0.7rem; color: #adb5bd;"></i>
+                                </div>
+                                <div class="custom-options">
+                                    <span class="custom-option fw-bold" data-id="all" data-value="all" data-search="" style="color: #00b8b9 !important;">
+                                        <i class="bi bi-people me-2"></i> Todos los clientes
+                                    </span>
+                                    {% for c in clientes %}
+                                    <span class="custom-option" data-id="{{ c.id }}" data-value="{% if c.razon_social %}{{ c.razon_social }}{% else %}{{ c.nombre }} {{ c.apellidos }}{% endif %}" data-search="{{ c.nombre }} {{ c.apellidos }} {{ c.razon_social }}">
+                                        {% if c.razon_social %}
+                                            <span>{{ c.razon_social }}</span>
+                                        {% else %}
+                                            <span>{{ c.nombre }} {{ c.apellidos }}</span>
+                                        {% endif %}
+                                    </span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 3. Actividad -->
+                    <div class="col-12 col-md-4 col-lg-2">
+                        <label class="form-label small fw-bold text-secondary">Actividad</label>
+                        <input type="text" name="actividad" class="form-control form-control-sm" placeholder="Ej: Seguimiento" value="{{ filtros.actividad|default:'' }}">
+                    </div>
+                    <!-- 4. Fecha -->
+                    <div class="col-12 col-md-4 col-lg-1">
+                        <label class="form-label small fw-bold text-secondary">Fecha</label>
+                        <input type="date" name="fecha" class="form-control form-control-sm" value="{{ filtros.fecha|default:'' }}" onchange="this.form.submit()">
+                    </div>
+                    <!-- 5. Tipo -->
+                    <div class="col-12 col-md-4 col-lg-1">
+                        <label class="form-label small fw-bold text-secondary">Tipo</label>
+                        <select name="tipo" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="">Todos...</option>
+                            <option value="llamada" {% if filtros.tipo == 'llamada' %}selected{% endif %}>Llamada</option>
+                            <option value="visita" {% if filtros.tipo == 'visita' %}selected{% endif %}>Visita</option>
+                            <option value="reunion" {% if filtros.tipo == 'reunion' %}selected{% endif %}>Reunión</option>
+                            <option value="envio" {% if filtros.tipo == 'envio' %}selected{% endif %}>Envío</option>
+                            <option value="seguimiento" {% if filtros.tipo == 'seguimiento' %}selected{% endif %}>Seguimiento</option>
+                        </select>
+                    </div>
+                    <!-- 6. Prioridad -->
+                    <div class="col-12 col-md-4 col-lg-2">
+                        <label class="form-label small fw-bold text-secondary">Prioridad</label>
+                        <select name="prioridad" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="">Todas...</option>
+                            <option value="baja" {% if filtros.prioridad == 'baja' %}selected{% endif %}>Baja</option>
+                            <option value="media" {% if filtros.prioridad == 'media' %}selected{% endif %}>Media</option>
+                            <option value="alta" {% if filtros.prioridad == 'alta' %}selected{% endif %}>Alta</option>
+                            <option value="urgente" {% if filtros.prioridad == 'urgente' %}selected{% endif %}>Urgente</option>
+                        </select>
+                    </div>
+                    <!-- 7. Estado -->
+                    <div class="col-12 col-md-4 col-lg-2">
+                        <label class="form-label small fw-bold text-secondary">Estado</label>
+                        <select name="estado" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="">Todos...</option>
+                            <option value="borrador" {% if filtros.estado == 'borrador' %}selected{% endif %}>Borrador</option>
+                            <option value="pendiente" {% if filtros.estado == 'pendiente' %}selected{% endif %}>Pendiente</option>
+                            <option value="completada" {% if filtros.estado == 'completada' %}selected{% endif %}>Completada</option>
+                            <option value="cancelada" {% if filtros.estado == 'cancelada' %}selected{% endif %}>Cancelada</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <!-- TARJETA TABLA -->
         <div class="card border-0 shadow-sm">
             <div class="card-body p-0">
@@ -443,6 +537,82 @@
 
 {% block extra_js %}
 <script>
+    // ==========================================
+    // LÓGICA FILTRO CLIENTE (DASHBOARD)
+    // ==========================================
+    document.addEventListener('DOMContentLoaded', function() {
+        const wrapperFiltro = document.getElementById('wrapperFiltroCliente');
+        if (wrapperFiltro) {
+            const selectFiltro = wrapperFiltro.querySelector('.custom-select');
+            const inputFiltro = document.getElementById('filtro_cliente_busqueda');
+            const fakeFiltro = document.getElementById('filtro_cliente_fake');
+            const hiddenFiltroId = document.getElementById('filtro_cliente_id');
+            const optionsFiltro = wrapperFiltro.querySelectorAll('.custom-option');
+
+            const updateFakeVisibility = () => {
+                if (document.activeElement === inputFiltro || inputFiltro.value.length > 0) {
+                    fakeFiltro.style.opacity = "0";
+                } else {
+                    fakeFiltro.style.opacity = "1";
+                }
+            };
+
+            inputFiltro.addEventListener('focus', () => {
+                selectFiltro.classList.add('open');
+                updateFakeVisibility();
+            });
+
+            inputFiltro.addEventListener('blur', updateFakeVisibility);
+
+            inputFiltro.addEventListener('input', function() {
+                fakeFiltro.innerHTML = `<span>${this.value}</span>`;
+                updateFakeVisibility();
+                const term = this.value.toLowerCase();
+                optionsFiltro.forEach(opt => {
+                    const search = (opt.getAttribute('data-search') || '').toLowerCase();
+                    opt.style.display = search.includes(term) ? 'flex' : 'none';
+                });
+                selectFiltro.classList.add('open');
+            });
+
+            optionsFiltro.forEach(option => {
+                option.addEventListener('click', function() {
+                    const valText = this.getAttribute('data-value');
+                    const valId = this.getAttribute('data-id') || 'all';
+                    
+                    if (valId === 'all') {
+                        inputFiltro.value = '';
+                        hiddenFiltroId.value = '';
+                        fakeFiltro.innerHTML = '<span class="text-muted" style="font-weight:400;">Todos los clientes...</span>';
+                    } else {
+                        inputFiltro.value = valText;
+                        hiddenFiltroId.value = valId;
+                        fakeFiltro.innerHTML = `<span>${valText}</span>`;
+                    }
+                    
+                    selectFiltro.classList.remove('open');
+                    updateFakeVisibility();
+                    document.getElementById('formFiltrosActividades').submit();
+                });
+            });
+
+            window.addEventListener('click', (e) => {
+                if (wrapperFiltro && !wrapperFiltro.contains(e.target)) selectFiltro.classList.remove('open');
+            });
+
+            // Asegurar que Enter en inputs de texto envíe el formulario
+            const inputsTexto = document.querySelectorAll('#formFiltrosActividades input[type="text"]');
+            inputsTexto.forEach(input => {
+                input.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        document.getElementById('formFiltrosActividades').submit();
+                    }
+                });
+            });
+        }
+    });
+
     document.addEventListener('DOMContentLoaded', function() {
         // --- VARIABLES GLOBALES CLIENTE ---
         const wrapperCliente = document.getElementById('wrapperCliente');
