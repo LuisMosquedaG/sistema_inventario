@@ -21,14 +21,74 @@ def get_empresa_actual(request):
             return None
     return None
 
+from django.db.models import Q
+from proveedores.models import Proveedor
+
 @login_required
 def dashboard_recepciones(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)
 
-    recepciones_list = Recepcion.objects.filter(empresa=empresa_actual).select_related('orden_compra', 'almacen').order_by('-fecha', '-id')
+    # --- LÓGICA DE FILTRADO ---
+    q = request.GET.get('q', '')
+    folio_recepcion = request.GET.get('folio_recepcion', '')
+    folio_oc = request.GET.get('folio_oc', '')
+    proveedor_id = request.GET.get('proveedor_id', '')
+    almacen_id = request.GET.get('almacen_id', '')
+    fecha = request.GET.get('fecha', '')
+    estado = request.GET.get('estado', '')
+
+    recepciones_list = Recepcion.objects.filter(empresa=empresa_actual).select_related('orden_compra', 'almacen', 'orden_compra__proveedor').order_by('-fecha', '-id')
     
+    if q:
+        recepciones_list = recepciones_list.filter(
+            Q(id__icontains=q) |
+            Q(orden_compra__id__icontains=q) |
+            Q(orden_compra__proveedor__razon_social__icontains=q) |
+            Q(factura__icontains=q) |
+            Q(pedimento__icontains=q) |
+            Q(aduana__icontains=q)
+        )
+    if folio_recepcion:
+        clean_rec = folio_recepcion.upper().replace('REC-', '').replace('REC', '').strip()
+        recepciones_list = recepciones_list.filter(id__icontains=clean_rec)
+    if folio_oc:
+        clean_oc = folio_oc.upper().replace('OC-', '').replace('OC', '').strip()
+        recepciones_list = recepciones_list.filter(orden_compra__id__icontains=clean_oc)
+    if proveedor_id and proveedor_id != 'all':
+        recepciones_list = recepciones_list.filter(orden_compra__proveedor_id=proveedor_id)
+    if almacen_id:
+        recepciones_list = recepciones_list.filter(almacen_id=almacen_id)
+    if fecha:
+        try:
+            recepciones_list = recepciones_list.filter(fecha=fecha)
+        except:
+            pass
+    if estado:
+        recepciones_list = recepciones_list.filter(estado=estado)
+
+    # Para el buscador visual de proveedor
+    proveedor_nombre_display = ""
+    if proveedor_id and proveedor_id != 'all':
+        try:
+            p_obj = Proveedor.objects.get(id=proveedor_id, empresa=empresa_actual)
+            proveedor_nombre_display = p_obj.razon_social
+        except:
+            pass
+
+    filtros = {
+        'q': q,
+        'folio_recepcion': folio_recepcion,
+        'folio_oc': folio_oc,
+        'proveedor_id': proveedor_id,
+        'proveedor_nombre': proveedor_nombre_display,
+        'almacen_id': almacen_id,
+        'fecha': fecha,
+        'estado': estado
+    }
+    # --- FIN LÓGICA DE FILTRADO ---
+
     paginator = Paginator(recepciones_list, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -39,14 +99,17 @@ def dashboard_recepciones(request):
     )
     
     almacenes = Almacen.objects.filter(empresa=empresa_actual)
+    todos_los_proveedores = Proveedor.objects.filter(empresa=empresa_actual)
     oc_preseleccionada = request.GET.get('oc_id')
 
     context = {
         'page_obj': page_obj,
         'ordenes_compra_aprobadas': ordenes_aprobadas,
         'almacenes': almacenes,
+        'todos_los_proveedores': todos_los_proveedores,
         'oc_preseleccionada': oc_preseleccionada,
         'section': 'recepciones',
+        'filtros': filtros
     }
     return render(request, 'dashboard_recepciones.html', context)
 

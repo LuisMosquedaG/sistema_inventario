@@ -43,6 +43,34 @@
         .status-terminado { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
         .status-cancelado { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
 
+        /* ESTILOS PARA CUSTOM SELECT (Buscador de Producto) */
+        .custom-select-wrapper { position: relative; user-select: none; width: 100%; }
+        .custom-select { position: relative; display: flex; flex-direction: column; }
+        .custom-select__trigger {
+            position: relative; display: flex; align-items: center; justify-content: flex-start;
+            padding: 0 0.75rem; font-size: 0.875rem; font-weight: 400; color: #212529;
+            height: 31px; background: #ffffff; border: 1px solid #dee2e6; border-radius: 0.375rem;
+            cursor: pointer; transition: all 0.2s ease;
+        }
+        .custom-select__trigger:hover { border-color: #00b8b9; }
+        .custom-select.open .custom-select__trigger { border-color: #00b8b9; box-shadow: 0 0 0 0.25rem rgba(0, 184, 185, 0.15); }
+        .fake-input-layer { position: absolute; left: 0.75rem; right: 2rem; pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; z-index: 1; transition: opacity 0.1s; }
+        .real-input-layer { position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 1; background: transparent; border: none; padding: 0 0.75rem; outline: none; z-index: 2; font-size: 0.875rem; }
+        .custom-options {
+            position: absolute; display: block; top: 100%; left: 0; right: 0; border: 1px solid #dee2e6;
+            background: #fff; transition: all 0.2s; opacity: 0; visibility: hidden; pointer-events: none;
+            z-index: 1000; border-radius: 0.375rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            max-height: 250px; overflow-y: auto; margin-top: 4px;
+        }
+        .custom-select.open .custom-options { opacity: 1; visibility: visible; pointer-events: all; }
+        .custom-option {
+            position: relative; display: flex; align-items: center; padding: 0.5rem 0.75rem;
+            font-size: 0.875rem; color: #495057; cursor: pointer; transition: all 0.2s; border-bottom: 1px solid #f8f9fa;
+        }
+        .custom-option:last-child { border-bottom: none; }
+        .custom-option:hover { background: #f8f9fa; color: #00b8b9; }
+        .custom-option.selected { background: #e7f5ff; color: #00b8b9; }
+
         /* BARRAS DE AVANCE SÚPER DELGADAS */
         .progress-slim { 
             display: flex;
@@ -99,23 +127,87 @@
         </div>
         {% endif %}
 
+        <!-- FILTROS DE PRODUCCIÓN -->
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body p-3">
+                <form method="get" id="formFiltrosProduccion" class="row g-2 align-items-end">
+                    <!-- 1. Búsqueda General -->
+                    <div class="col-12 col-md-4 col-lg-3">
+                        <label class="form-label small fw-bold text-secondary">Búsqueda General</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                            <input type="text" name="q" class="form-control border-start-0" placeholder="Buscar..." value="{{ filtros.q|default:'' }}">
+                        </div>
+                    </div>
+                    <!-- 2. Folio OP -->
+                    <div class="col-12 col-md-4 col-lg-2">
+                        <label class="form-label small fw-bold text-secondary">Folio OP</label>
+                        <input type="text" name="folio_op" class="form-control form-control-sm" placeholder="Ej: 001" value="{{ filtros.folio_op|default:'' }}">
+                    </div>
+                    <!-- 3. Producto (Buscador) -->
+                    <div class="col-12 col-md-4 col-lg-4">
+                        <label class="form-label small fw-bold text-secondary">Producto</label>
+                        <div class="custom-select-wrapper" id="wrapperFiltroProducto">
+                            <div class="custom-select">
+                                <div class="custom-select__trigger">
+                                    <div id="filtro_producto_fake" class="fake-input-layer">
+                                        {% if filtros.producto_nombre %}
+                                            <span class="text-dark">{{ filtros.producto_nombre }}</span>
+                                        {% else %}
+                                            <span class="text-muted" style="font-weight:400;">Todos los productos...</span>
+                                        {% endif %}
+                                    </div>
+                                    <input type="text" id="filtro_producto_busqueda" class="real-input-layer" autocomplete="off" value="{{ filtros.producto_nombre|default:'' }}" style="color: transparent !important; -webkit-text-fill-color: transparent !important;">
+                                    <input type="hidden" name="producto_id" id="filtro_producto_id" value="{{ filtros.producto_id|default:'' }}">
+                                    <i class="bi bi-chevron-down ms-auto" style="z-index:3; pointer-events:none; font-size: 0.7rem; color: #adb5bd;"></i>
+                                </div>
+                                <div class="custom-options">
+                                    <span class="custom-option fw-bold" data-id="all" data-value="all" data-search="" style="color: #00b8b9 !important;">
+                                        <i class="bi bi-box-seam me-2"></i> Todos los productos
+                                    </span>
+                                {% for p in productos_finales %}
+                                <span class="custom-option" data-id="{{ p.id }}" data-value="{{ p.nombre }}" data-search="{{ p.nombre }}">
+                                    <span>{{ p.nombre }}</span>
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                    <!-- 4. Estado -->
+                    <div class="col-12 col-md-4 col-lg-3">
+                        <label class="form-label small fw-bold text-secondary">Estado</label>
+                        <select name="estado" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="">Todos...</option>
+                            <option value="borrador" {% if filtros.estado == 'borrador' %}selected{% endif %}>Borrador</option>
+                            <option value="en_proceso" {% if filtros.estado == 'en_proceso' %}selected{% endif %}>En Proceso</option>
+                            <option value="testeo" {% if filtros.estado == 'testeo' %}selected{% endif %}>Testeo / Calidad</option>
+                            <option value="terminado" {% if filtros.estado == 'terminado' %}selected{% endif %}>Terminado</option>
+                            <option value="cancelada" {% if filtros.estado == 'cancelada' %}selected{% endif %}>Cancelada</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <div class="card border-0 shadow-sm">
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-pro mb-0 align-middle">
                         <thead>
                             <tr>
-                                <th class="text-center" style="width: 120px;">Acciones</th>
-                                <th class="text-center">Folio</th>
-                                <th class="text-center">Producto / Cliente</th>
+                                <th class="text-center" >Acciones</th>
+                                <th class="text-center" style="width: 120px;">Folio OP</th>
+                                <th class="text-center" style="width: 120px;">Folio Pedido</th>
+                                <th class="text-center">Producto</th>
+                                <th class="text-center">Iniciado</th>
                                 <th class="text-center">Cantidad</th>
                                 <th class="text-center" style="width: 180px;">Avance</th>
                                 <th class="text-center">Estado</th>
-                                <th class="text-center">Iniciado</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for o in ordenes %}
+                            {% for o in page_obj %}
                             <tr data-id-orden="{{ o.id }}">
                                 <td class="text-center">
                                     <div class="d-flex justify-content-center gap-1">
@@ -139,7 +231,21 @@
                                         {% endif %}
                                     </div>
                                 </td>
+                                <!-- 2. FOLIO OP -->
                                 <td class="text-center font-monospace small"><span class="fw-bold">{{ o.folio }}</span></td>
+                                
+                                <!-- 3. FOLIO PEDIDO -->
+                                <td class="text-center">
+                                    <div class="font-monospace small">
+                                        {% if o.pedido_origen %}
+                                            <span class="text-brand fw-bold">PED-{{ o.pedido_origen.id|stringformat:"04d" }}</span>
+                                        {% else %}
+                                            <span class="text-muted">Manual</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+
+                                <!-- 4. PRODUCTO -->
                                 <td class="text-center">
                                     <div class="fw-bold text-dark" style="line-height: 1.2;">{{ o.producto.nombre }}</div>
                                     {% if o.faltantes_info %}
@@ -151,15 +257,22 @@
                                             </span>
                                         </div>
                                     {% endif %}
-                                    <div class="small mt-1">
-                                        <span class="text-brand">Ped: #{{ o.pedido_origen.id|default:"Manual" }}</span>
-                                        <span class="text-muted mx-1">|</span>
-                                        <span class="text-muted" style="font-size: 0.7rem;">Por: {{ o.solicitante.username|default:"Sistema"|truncatechars:12 }}</span>
-                                    </div>
                                 </td>
+
+                                <!-- 5. INICIADO -->
+                                <td class="text-center">
+                                    {% if o.fecha_inicio %}
+                                        <div class="fw-bold text-dark" style="line-height: 1.2;">{{ o.fecha_inicio|date:"d M Y" }}</div>
+                                        <div class="text-muted small mt-1">{{ o.fecha_inicio|date:"H:i" }} hrs</div>
+                                    {% else %}
+                                        <span class="text-muted small">--</span>
+                                    {% endif %}
+                                </td>
+
+                                <!-- 6. CANTIDAD -->
                                 <td class="text-center"><span class="badge bg-light text-dark border">{{ o.cantidad }} pz</span></td>
                                 
-                                <!-- COLUMNA DE AVANCE -->
+                                <!-- 7. AVANCE -->
                                 <td class="text-center px-3">
                                     <div class="mb-2">
                                         <div class="d-flex justify-content-between align-items-center">
@@ -181,21 +294,37 @@
                                     </div>
                                 </td>
 
+                                <!-- 8. ESTADO -->
                                 <td class="text-center"><span class="status-pill status-{{ o.estado }}">{{ o.get_estado_display }}</span></td>
-                                <td class="text-center">
-                                    {% if o.fecha_inicio %}
-                                        <div class="fw-bold text-dark" style="line-height: 1.2;">{{ o.fecha_inicio|date:"d M Y" }}</div>
-                                        <div class="text-muted small mt-1">{{ o.fecha_inicio|date:"H:i" }} hrs</div>
-                                    {% else %}
-                                        <span class="text-muted small">--</span>
-                                    {% endif %}
-                                </td>
                             </tr>
                             {% empty %}
-                            <tr><td colspan="7" class="text-center py-5 text-muted">No hay trabajos en el taller.</td></tr>
+                            <tr><td colspan="7" class="text-center py-5 text-muted">No hay trabajos en el taller que coincidan con los filtros.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- FOOTER CON PAGINACIÓN -->
+            <div class="card-footer bg-white border-0 py-2 px-4 d-flex justify-content-between align-items-center">
+                <span class="text-muted small" style="font-size: 0.75rem;">
+                    Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }}
+                </span>
+                
+                <div class="d-flex gap-1">
+                    {% if page_obj.has_previous %}
+                        <a href="?page={{ page_obj.previous_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.folio_op %}&folio_op={{ filtros.folio_op }}{% endif %}{% if filtros.producto_id %}&producto_id={{ filtros.producto_id }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted">&laquo;</a>
+                    {% else %}
+                        <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;</button>
+                    {% endif %}
+                    
+                    <button class="btn btn-sm btn-light border-0 text-dark fw-bold">{{ page_obj.number }}</button>
+                    
+                    {% if page_obj.has_next %}
+                        <a href="?page={{ page_obj.next_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.folio_op %}&folio_op={{ filtros.folio_op }}{% endif %}{% if filtros.producto_id %}&producto_id={{ filtros.producto_id }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted">&raquo;</a>
+                    {% else %}
+                        <button class="btn btn-sm btn-light border-0 text-muted" disabled>&raquo;</button>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -882,6 +1011,80 @@
             }
             return cookieValue;
         }
+
+        // --- LÓGICA FILTRO PRODUCTO (DASHBOARD) ---
+        document.addEventListener('DOMContentLoaded', function() {
+            const wrapperFiltro = document.getElementById('wrapperFiltroProducto');
+            if (wrapperFiltro) {
+                const selectFiltro = wrapperFiltro.querySelector('.custom-select');
+                const inputFiltro = document.getElementById('filtro_producto_busqueda');
+                const fakeFiltro = document.getElementById('filtro_producto_fake');
+                const hiddenFiltroId = document.getElementById('filtro_producto_id');
+                const optionsFiltro = wrapperFiltro.querySelectorAll('.custom-option');
+
+                const updateFakeVisibility = () => {
+                    if (document.activeElement === inputFiltro || inputFiltro.value.length > 0) {
+                        fakeFiltro.style.opacity = "0";
+                    } else {
+                        fakeFiltro.style.opacity = "1";
+                    }
+                };
+
+                inputFiltro.addEventListener('focus', () => {
+                    selectFiltro.classList.add('open');
+                    updateFakeVisibility();
+                });
+
+                inputFiltro.addEventListener('blur', updateFakeVisibility);
+
+                inputFiltro.addEventListener('input', function() {
+                    fakeFiltro.innerHTML = `<span>${this.value}</span>`;
+                    updateFakeVisibility();
+                    const term = this.value.toLowerCase();
+                    optionsFiltro.forEach(opt => {
+                        const search = (opt.getAttribute('data-search') || '').toLowerCase();
+                        opt.style.display = search.includes(term) ? 'flex' : 'none';
+                    });
+                    selectFiltro.classList.add('open');
+                });
+
+                optionsFiltro.forEach(option => {
+                    option.addEventListener('click', function() {
+                        const valText = this.getAttribute('data-value');
+                        const valId = this.getAttribute('data-id') || 'all';
+                        
+                        if (valId === 'all') {
+                            inputFiltro.value = '';
+                            hiddenFiltroId.value = '';
+                            fakeFiltro.innerHTML = '<span class="text-muted" style="font-weight:400;">Todos los productos...</span>';
+                        } else {
+                            inputFiltro.value = valText;
+                            hiddenFiltroId.value = valId;
+                            fakeFiltro.innerHTML = `<span>${valText}</span>`;
+                        }
+                        
+                        selectFiltro.classList.remove('open');
+                        updateFakeVisibility();
+                        document.getElementById('formFiltrosProduccion').submit();
+                    });
+                });
+
+                window.addEventListener('click', (e) => {
+                    if (wrapperFiltro && !wrapperFiltro.contains(e.target)) selectFiltro.classList.remove('open');
+                });
+
+                // Asegurar que Enter en inputs de texto envíe el formulario
+                const inputsTexto = document.querySelectorAll('#formFiltrosProduccion input[type="text"]');
+                inputsTexto.forEach(input => {
+                    input.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            document.getElementById('formFiltrosProduccion').submit();
+                        }
+                    });
+                });
+            }
+        });
     </script>
     {% include 'produccion/modals/modal_ver_produccion.html' %}
     {% include 'produccion/modals/modal_finalizar_produccion.html' %}

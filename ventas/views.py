@@ -50,14 +50,20 @@ def dashboard_ventas(request):
             Q(cliente__razon_social__icontains=q) |
             Q(cliente__nombre__icontains=q) |
             Q(cliente__apellidos__icontains=q) |
-            Q(estado__icontains=q)
-        )
+            Q(estado__icontains=q) |
+            Q(detalles__producto__nombre__icontains=q)
+        ).distinct()
+    
     if folio_salida:
-        ordenes = ordenes.filter(id__icontains=folio_salida)
+        clean_os = folio_salida.upper().replace('OS-', '').replace('OS', '').strip()
+        ordenes = ordenes.filter(id__icontains=clean_os)
     if folio_cotizacion:
-        ordenes = ordenes.filter(pedido_origen__cotizacion_origen_id__icontains=folio_cotizacion)
+        clean_cot = folio_cotizacion.upper().replace('COT-', '').replace('COT', '').strip()
+        ordenes = ordenes.filter(pedido_origen__cotizacion_origen_id__icontains=clean_cot)
     if folio_pedido:
-        ordenes = ordenes.filter(pedido_origen__id__icontains=folio_pedido)
+        clean_ped = folio_pedido.upper().replace('PED-', '').replace('PED', '').strip()
+        ordenes = ordenes.filter(pedido_origen__id__icontains=clean_ped)
+        
     if cliente_id and cliente_id != 'all':
         ordenes = ordenes.filter(cliente_id=cliente_id)
     if fecha_salida:

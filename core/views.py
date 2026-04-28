@@ -167,6 +167,7 @@ def dashboard_inventario(request):
         costo_inventario_anotado=Subquery(costo_inventario_subquery),
         stock_fisico=Subquery(get_stock_sub('cantidad')),
         stock_res=Subquery(get_stock_sub('reservado'))
+    # ... (annotated products query from before) ...
     ).annotate(
         stock_disponible_anotado=ExpressionWrapper(
             Coalesce(F('stock_fisico'), 0) - Coalesce(F('stock_res'), 0),
@@ -174,13 +175,18 @@ def dashboard_inventario(request):
         )
     ).order_by('nombre')
     
+    # --- PAGINACIÓN ---
+    paginator = Paginator(productos, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     almacenes = Almacen.objects.filter(empresa=empresa_actual).order_by('nombre')
     todas_categorias = Categoria.objects.filter(empresa=empresa_actual).order_by('nombre')
     from produccion.models import Test
     tests_calidad = Test.objects.filter(empresa=empresa_actual).order_by('nombre')
 
     contexto = {
-        'productos': productos,
+        'page_obj': page_obj,
         'almacenes': almacenes,
         'categorias': todas_categorias,
         'tests_calidad': tests_calidad,

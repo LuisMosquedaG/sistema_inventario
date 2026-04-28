@@ -336,8 +336,7 @@
                             <tr>
                                 <td colspan="7" class="text-center py-5"> 
                                     <i class="bi bi-inbox display-6 text-muted mb-2 d-block"></i>
-                                    <span class="text-muted fst-italic small">No hay órdenes de venta registradas</span>
-                                    <div class="small text-muted mt-2">Las órdenes se crean automáticamente desde el módulo de Pedidos.</div>
+                                    <span class="text-muted fst-italic small">No hay órdenes de venta que coincidan con los filtros</span>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -347,12 +346,28 @@
             </div>
             <!-- Footer Minimalista -->
             <div class="card-footer bg-white border-0 py-2 px-4 d-flex justify-content-between align-items-center">
-                <span class="text-muted small" style="font-size: 0.75rem;">{{ ordenes|length }} resultados</span>
-                <div class="d-flex gap-1">
-                    <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;</button>
-                    <button class="btn btn-sm btn-light border-0 text-dark fw-bold">1</button>
-                    <button class="btn btn-sm btn-light border-0 text-muted">&raquo;</button>
-                </div>
+                {% if ordenes.has_other_pages %}
+                    <span class="text-muted small" style="font-size: 0.75rem;">
+                        Mostrando {{ ordenes.start_index }} - {{ ordenes.end_index }} de {{ ordenes.paginator.count }}
+                    </span>
+                    <div class="d-flex gap-1">
+                        {% if ordenes.has_previous %}
+                            <a href="?page={{ ordenes.previous_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.folio_salida %}&folio_salida={{ filtros.folio_salida }}{% endif %}{% if filtros.folio_cotizacion %}&folio_cotizacion={{ filtros.folio_cotizacion }}{% endif %}{% if filtros.folio_pedido %}&folio_pedido={{ filtros.folio_pedido }}{% endif %}{% if filtros.cliente_id %}&cliente_id={{ filtros.cliente_id }}{% endif %}{% if filtros.fecha_salida %}&fecha_salida={{ filtros.fecha_salida }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted">&laquo;</a>
+                        {% else %}
+                            <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;</button>
+                        {% endif %}
+                        
+                        <button class="btn btn-sm btn-light border-0 text-dark fw-bold">{{ ordenes.number }}</button>
+                        
+                        {% if ordenes.has_next %}
+                            <a href="?page={{ ordenes.next_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.folio_salida %}&folio_salida={{ filtros.folio_salida }}{% endif %}{% if filtros.folio_cotizacion %}&folio_cotizacion={{ filtros.folio_cotizacion }}{% endif %}{% if filtros.folio_pedido %}&folio_pedido={{ filtros.folio_pedido }}{% endif %}{% if filtros.cliente_id %}&cliente_id={{ filtros.cliente_id }}{% endif %}{% if filtros.fecha_salida %}&fecha_salida={{ filtros.fecha_salida }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted">&raquo;</a>
+                        {% else %}
+                            <button class="btn btn-sm btn-light border-0 text-muted" disabled>&raquo;</button>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <span class="text-muted small" style="font-size: 0.75rem;">{{ ordenes|length }} resultados</span>
+                {% endif %}
             </div>
         </div>
 
@@ -598,6 +613,80 @@
 {% block extra_js %}
     <script>
         window.ALMACENES_DISPONIBLES = {{ almacenes_json|safe }};
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // --- CLIENTE SEARCHABLE DROPDOWN (FILTROS) ---
+            const wrapperFiltro = document.getElementById('wrapperFiltroCliente');
+            if (wrapperFiltro) {
+                const selectFiltro = wrapperFiltro.querySelector('.custom-select');
+                const inputFiltro = document.getElementById('filtro_cliente_busqueda');
+                const fakeFiltro = document.getElementById('filtro_cliente_fake');
+                const hiddenFiltroId = document.getElementById('filtro_cliente_id');
+                const optionsFiltro = wrapperFiltro.querySelectorAll('.custom-option');
+
+                const updateFakeVisibility = () => {
+                    if (document.activeElement === inputFiltro || inputFiltro.value.length > 0) {
+                        fakeFiltro.style.opacity = "0";
+                    } else {
+                        fakeFiltro.style.opacity = "1";
+                    }
+                };
+
+                inputFiltro.addEventListener('focus', () => {
+                    selectFiltro.classList.add('open');
+                    updateFakeVisibility();
+                });
+
+                inputFiltro.addEventListener('blur', updateFakeVisibility);
+
+                inputFiltro.addEventListener('input', function() {
+                    fakeFiltro.innerHTML = `<span>${this.value}</span>`;
+                    updateFakeVisibility();
+                    const term = this.value.toLowerCase();
+                    optionsFiltro.forEach(opt => {
+                        const search = (opt.getAttribute('data-search') || '').toLowerCase();
+                        opt.style.display = search.includes(term) ? 'flex' : 'none';
+                    });
+                    selectFiltro.classList.add('open');
+                });
+
+                optionsFiltro.forEach(option => {
+                    option.addEventListener('click', function() {
+                        const valText = this.getAttribute('data-value');
+                        const valId = this.getAttribute('data-id') || 'all';
+
+                        if (valId === 'all') {
+                            inputFiltro.value = '';
+                            hiddenFiltroId.value = '';
+                            fakeFiltro.innerHTML = '<span class="text-muted" style="font-weight:400;">Todos los clientes...</span>';
+                        } else {
+                            inputFiltro.value = valText;
+                            hiddenFiltroId.value = valId;
+                            fakeFiltro.innerHTML = `<span>${valText}</span>`;
+                        }
+
+                        selectFiltro.classList.remove('open');
+                        updateFakeVisibility();
+                        document.getElementById('formFiltrosSalidas').submit();
+                    });
+                });
+
+                window.addEventListener('click', (e) => {
+                    if (wrapperFiltro && !wrapperFiltro.contains(e.target)) selectFiltro.classList.remove('open');
+                });
+            }
+
+            // Asegurar que Enter en inputs de texto envíe el formulario
+            const inputsTexto = document.querySelectorAll('#formFiltrosSalidas input[type="text"]');
+            inputsTexto.forEach(input => {
+                input.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        document.getElementById('formFiltrosSalidas').submit();
+                    }
+                });
+            });
+        });
     </script>
     <script src="{% static 'js/ventas.js' %}?v={% now 'U' %}"></script>
 {% endblock %}

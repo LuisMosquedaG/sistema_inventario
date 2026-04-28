@@ -25,26 +25,93 @@ def get_empresa_actual(request):
             return None
     return None
 
+from django.db.models import Q
+from proveedores.models import Proveedor
+
 @login_required(login_url='/login/')
 def dashboard_solicitudcompras(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)
+
+    # --- LÓGICA DE FILTRADO ---
+    q = request.GET.get('q', '')
+    folio_solicitud = request.GET.get('folio_solicitud', '')
+    folio_cotizacion = request.GET.get('folio_cotizacion', '')
+    folio_pedido = request.GET.get('folio_pedido', '')
+    proveedor_id = request.GET.get('proveedor_id', '')
+    fecha_solicitud = request.GET.get('fecha_solicitud', '')
+    estado = request.GET.get('estado', '')
+
+    solicitudes = SolicitudCompra.objects.filter(empresa=empresa_actual).select_related('pedido_origen', 'solicitante').order_by('-fecha_creacion')
+
+    if q:
+        solicitudes = solicitudes.filter(
+            Q(id__icontains=q) |
+            Q(pedido_origen__id__icontains=q) |
+            Q(pedido_origen__cotizacion_origen_id__icontains=q) |
+            Q(solicitante__username__icontains=q) |
+            Q(estado__icontains=q) |
+            Q(notas__icontains=q) |
+            Q(detalles__producto__nombre__icontains=q)
+        ).distinct()
     
-    solicitudes = SolicitudCompra.objects.filter(empresa=empresa_actual).select_related('pedido_origen').order_by('-fecha_creacion')
+    if folio_solicitud:
+        clean_sol = folio_solicitud.upper().replace('SOL-', '').replace('SOL', '').strip()
+        solicitudes = solicitudes.filter(id__icontains=clean_sol)
+    if folio_cotizacion:
+        clean_cot = folio_cotizacion.upper().replace('COT-', '').replace('COT', '').strip()
+        solicitudes = solicitudes.filter(pedido_origen__cotizacion_origen_id__icontains=clean_cot)
+    if folio_pedido:
+        clean_ped = folio_pedido.upper().replace('PED-', '').replace('PED', '').strip()
+        solicitudes = solicitudes.filter(pedido_origen__id__icontains=clean_ped)
+    if proveedor_id and proveedor_id != 'all':
+        solicitudes = solicitudes.filter(detalles__proveedor_id=proveedor_id).distinct()
+    if fecha_solicitud:
+        try:
+            solicitudes = solicitudes.filter(fecha_creacion__date=fecha_solicitud)
+        except:
+            pass
+    if estado:
+        solicitudes = solicitudes.filter(estado=estado)
+
+    # Para el buscador visual de proveedor
+    proveedor_nombre_display = ""
+    if proveedor_id and proveedor_id != 'all':
+        try:
+            p_obj = Proveedor.objects.get(id=proveedor_id, empresa=empresa_actual)
+            proveedor_nombre_display = p_obj.razon_social
+        except:
+            pass
+
+    filtros = {
+        'q': q,
+        'folio_solicitud': folio_solicitud,
+        'folio_cotizacion': folio_cotizacion,
+        'folio_pedido': folio_pedido,
+        'proveedor_id': proveedor_id,
+        'proveedor_nombre': proveedor_nombre_display,
+        'fecha_solicitud': fecha_solicitud,
+        'estado': estado
+    }
+    # --- FIN LÓGICA DE FILTRADO ---
     
     # --- NUEVO: Obtener catálogos para los selects del modal ---
-    lista_proveedores = Proveedor.objects.filter(empresa=empresa_actual).values('id', 'razon_social')
+    proveedores_activos = Proveedor.objects.filter(empresa=empresa_actual, estado='activo')
+    todos_los_proveedores = Proveedor.objects.filter(empresa=empresa_actual)
     lista_almacenes = Almacen.objects.filter(empresa=empresa_actual).values('id', 'nombre')
     lista_monedas = Moneda.objects.filter(empresa=empresa_actual).values('id', 'siglas', 'simbolo')
     lista_productos = Producto.objects.filter(empresa=empresa_actual).values('id', 'nombre', 'precio_costo')
     
     contexto = {
         'solicitudes': solicitudes,
-        'proveedores': list(lista_proveedores),
+        'proveedores': proveedores_activos,
+        'todos_los_proveedores': todos_los_proveedores,
         'almacenes': list(lista_almacenes),
         'monedas': list(lista_monedas),
-        'productos': list(lista_productos)
+        'productos': list(lista_productos),
+        'filtros': filtros,
+        'section': 'solicitudcompras'
     }
     return render(request, 'dashboard_solicitudcompras.html', contexto)
 

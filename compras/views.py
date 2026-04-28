@@ -24,13 +24,70 @@ def get_empresa_actual(request):
             return None
     return None
 
+from django.db.models import Q
+
 @login_required(login_url='/login/')
 def dashboard_compras(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)
 
+    # --- LÓGICA DE FILTRADO ---
+    q = request.GET.get('q', '')
+    folio_compra = request.GET.get('folio_compra', '')
+    folio_solicitud = request.GET.get('folio_solicitud', '')
+    proveedor_id = request.GET.get('proveedor_id', '')
+    fecha = request.GET.get('fecha', '')
+    estado = request.GET.get('estado', '')
+
     compras_list = OrdenCompra.objects.filter(empresa=empresa_actual).order_by('-fecha', '-id')
+
+    if q:
+        compras_list = compras_list.filter(
+            Q(id__icontains=q) |
+            Q(solicitud_origen__id__icontains=q) |
+            Q(proveedor__razon_social__icontains=q) |
+            Q(usuario__username__icontains=q) |
+            Q(notas__icontains=q) |
+            Q(estado__icontains=q)
+        )
+    if folio_compra:
+        # Limpiar el folio por si el usuario escribe "OC-0001" o "OC0001"
+        clean_folio = folio_compra.upper().replace('OC-', '').replace('OC', '').strip()
+        compras_list = compras_list.filter(id__icontains=clean_folio)
+    if folio_solicitud:
+        # Limpiar el folio por si el usuario escribe "SOL-0001" o "SOL0001"
+        clean_solicitud = folio_solicitud.upper().replace('SOL-', '').replace('SOL', '').strip()
+        compras_list = compras_list.filter(solicitud_origen__id__icontains=clean_solicitud)
+    if proveedor_id and proveedor_id != 'all':
+        compras_list = compras_list.filter(proveedor_id=proveedor_id)
+    if fecha:
+        try:
+            compras_list = compras_list.filter(fecha__date=fecha)
+        except:
+            pass
+    if estado:
+        compras_list = compras_list.filter(estado=estado)
+
+    # Para el buscador visual de proveedor
+    proveedor_nombre_display = ""
+    if proveedor_id and proveedor_id != 'all':
+        try:
+            p_obj = Proveedor.objects.get(id=proveedor_id, empresa=empresa_actual)
+            proveedor_nombre_display = p_obj.razon_social
+        except:
+            pass
+
+    filtros = {
+        'q': q,
+        'folio_compra': folio_compra,
+        'folio_solicitud': folio_solicitud,
+        'proveedor_id': proveedor_id,
+        'proveedor_nombre': proveedor_nombre_display,
+        'fecha': fecha,
+        'estado': estado
+    }
+    # --- FIN LÓGICA DE FILTRADO ---
     
     paginator = Paginator(compras_list, 10)
     page_number = request.GET.get('page')
@@ -38,16 +95,19 @@ def dashboard_compras(request):
 
     productos = Producto.objects.filter(empresa=empresa_actual)
     almacenes = Almacen.objects.filter(empresa=empresa_actual)
-    proveedores = Proveedor.objects.filter(empresa=empresa_actual, estado='activo')
+    proveedores_activos = Proveedor.objects.filter(empresa=empresa_actual, estado='activo')
+    todos_los_proveedores = Proveedor.objects.filter(empresa=empresa_actual)
     monedas = Moneda.objects.filter(empresa=empresa_actual)
 
     context = {
         'page_obj': page_obj,
         'productos': productos,
         'almacenes': almacenes,
-        'proveedores': proveedores,
+        'proveedores': proveedores_activos,
+        'todos_los_proveedores': todos_los_proveedores,
         'monedas': monedas,
         'section': 'compras',
+        'filtros': filtros
     }
     return render(request, 'dashboard_compras.html', context)
 

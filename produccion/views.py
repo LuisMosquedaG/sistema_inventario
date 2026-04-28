@@ -4,7 +4,8 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.db import transaction
 from django.utils import timezone
-from django.db.models import F
+from django.core.paginator import Paginator
+from django.db.models import F, Q
 from decimal import Decimal
 from .models import OrdenProduccion, DetalleOrdenProduccion
 from core.models import Producto, DetalleReceta
@@ -29,12 +30,59 @@ def dashboard_produccion(request):
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)
 
+    # --- LÓGICA DE FILTRADO ---
+    q = request.GET.get('q', '')
+    folio_op = request.GET.get('folio_op', '')
+    producto_id = request.GET.get('producto_id', '')
+    estado = request.GET.get('estado', '')
+
     ordenes_qs = OrdenProduccion.objects.filter(empresa=empresa_actual).select_related(
         'producto', 'pedido_origen', 'almacen', 'responsable', 'solicitante', 'producto__test_calidad'
     ).prefetch_related('detalles', 'resultados_test').order_by('-fecha_creacion')
+
+    if q:
+        ordenes_qs = ordenes_qs.filter(
+            Q(id__icontains=q) |
+            Q(producto__nombre__icontains=q) |
+            Q(cliente__nombre__icontains=q) |
+            Q(cliente__razon_social__icontains=q) |
+            Q(notas__icontains=q)
+        ).distinct()
+
+    if folio_op:
+        clean_op = folio_op.upper().replace('OP-', '').replace('OP', '').strip()
+        ordenes_qs = ordenes_qs.filter(id__icontains=clean_op)
+
+    if producto_id and producto_id != 'all':
+        ordenes_qs = ordenes_qs.filter(producto_id=producto_id)
+
+    if estado:
+        ordenes_qs = ordenes_qs.filter(estado=estado)
+
+    # Para el buscador visual de producto
+    producto_nombre_display = ""
+    if producto_id and producto_id != 'all':
+        try:
+            prod_obj = Producto.objects.get(id=producto_id, empresa=empresa_actual)
+            producto_nombre_display = prod_obj.nombre
+        except:
+            pass
+
+    filtros = {
+        'q': q,
+        'folio_op': folio_op,
+        'producto_id': producto_id,
+        'producto_nombre': producto_nombre_display,
+        'estado': estado
+    }
+    # --- FIN LÓGICA DE FILTRADO ---
+
+    # PAGINACIÓN
+    paginator = Paginator(ordenes_qs, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
     
-    # AGREGAMOS LOS CÁLCULOS DE AVANCE A CADA ORDEN
-    ordenes = []
+    # AGREGAMOS LOS CÁLCULOS DE AVANCE A CADA ORDEN (EN EL PAGE_OBJ)
     mapa_estados = {
         'borrador': 0,
         'en_proceso': 33,
@@ -43,7 +91,7 @@ def dashboard_produccion(request):
         'cancelada': 0
     }
 
-    for o in ordenes_qs:
+    for o in page_obj:
         # 1. Avance por Estado
         o.porcentaje_estado = mapa_estados.get(o.estado, 0)
         
@@ -55,10 +103,8 @@ def dashboard_produccion(request):
                 completadas = o.resultados_test.filter(completado=True).count()
                 o.porcentaje_calidad = int((completadas / total_tareas) * 100)
         else:
-            # Si no tiene test, lo marcamos como N/A o 100 si ya terminó
             o.porcentaje_calidad = 100 if o.estado == 'terminado' else 0
             
-        # 3. Detectar materiales faltantes (Solo para órdenes que no han iniciado)
         o.faltantes_info = []
         if o.estado == 'borrador':
             for det in o.detalles.all():
@@ -70,8 +116,6 @@ def dashboard_produccion(request):
                         'cantidad': det.cantidad - disponible
                     })
 
-        ordenes.append(o)
-    
     # PRODUCTOS QUE SE PUEDEN PRODUCIR
     productos_finales = Producto.objects.filter(empresa=empresa_actual, tipo_abastecimiento='produccion')
     almacenes = Almacen.objects.filter(empresa=empresa_actual)
@@ -82,13 +126,14 @@ def dashboard_produccion(request):
     clientes = Cliente.objects.filter(empresa=empresa_actual)
     
     contexto = {
-        'ordenes': ordenes,
+        'page_obj': page_obj,
         'productos_finales': productos_finales,
         'almacenes': almacenes,
         'clientes': clientes,
         'productos_json': todos_productos_json,
         'todos_productos_qs': todos_productos_qs,
-        'section': 'produccion'
+        'section': 'produccion',
+        'filtros': filtros
     }
     return render(request, 'produccion/dashboard_produccion.html', contexto)
 
