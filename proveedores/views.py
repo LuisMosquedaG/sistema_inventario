@@ -23,21 +23,76 @@ def get_empresa_actual(request):
             return None
     return None
 
+from django.db.models import Q
+from django.core.paginator import Paginator
+
 # --- 2. DASHBOARD PRINCIPAL (LISTADO) ---
 @login_required(login_url='/login/')
 def dashboard_proveedores(request):
-    # Usamos la función helper en lugar de request.empresa
     empresa_actual = get_empresa_actual(request)
-
-    # Seguridad: Si no se detecta empresa, bloqueamos
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)
     
-    # Filtrar por la empresa detectada explícitamente
-    proveedores = Proveedor.objects.filter(empresa=empresa_actual)
+    # --- LÓGICA DE FILTRADO ---
+    q = request.GET.get('q', '')
+    proveedor_id = request.GET.get('proveedor_id', '')
+    sucursal = request.GET.get('sucursal', '')
+    email = request.GET.get('email', '')
+    estado = request.GET.get('estado', '')
+
+    proveedores_qs = Proveedor.objects.filter(empresa=empresa_actual).prefetch_related('sucursales').order_by('-creado_en')
+
+    if q:
+        proveedores_qs = proveedores_qs.filter(
+            Q(razon_social__icontains=q) |
+            Q(rfc__icontains=q) |
+            Q(contacto_nombre__icontains=q) |
+            Q(contacto_email__icontains=q) |
+            Q(domicilio__icontains=q)
+        ).distinct()
+
+    if proveedor_id and proveedor_id != 'all':
+        proveedores_qs = proveedores_qs.filter(id=proveedor_id)
+    
+    if sucursal:
+        proveedores_qs = proveedores_qs.filter(sucursales__nombre__icontains=sucursal).distinct()
+
+    if email:
+        proveedores_qs = proveedores_qs.filter(contacto_email__icontains=email)
+
+    if estado:
+        proveedores_qs = proveedores_qs.filter(estado=estado)
+
+    # Para el buscador visual de proveedor
+    proveedor_nombre_display = ""
+    if proveedor_id and proveedor_id != 'all':
+        try:
+            p_obj = Proveedor.objects.get(id=proveedor_id, empresa=empresa_actual)
+            proveedor_nombre_display = p_obj.razon_social
+        except:
+            pass
+
+    filtros = {
+        'q': q,
+        'proveedor_id': proveedor_id,
+        'proveedor_nombre': proveedor_nombre_display,
+        'sucursal': sucursal,
+        'email': email,
+        'estado': estado
+    }
+    # --- FIN LÓGICA DE FILTRADO ---
+
+    paginator = Paginator(proveedores_qs, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    todos_los_proveedores = Proveedor.objects.filter(empresa=empresa_actual)
 
     contexto = {
-        'proveedores': proveedores,
+        'page_obj': page_obj,
+        'todos_los_proveedores': todos_los_proveedores,
+        'filtros': filtros,
+        'section': 'proveedores',
         'titulo': 'Gestión de Proveedores'
     }
     return render(request, 'dashboard_proveedores.html', contexto)
