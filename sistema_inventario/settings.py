@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'pedidos',
     'solicitudcompras',
     'produccion',
+    'inicio',
 ]
 
 MIDDLEWARE = [
@@ -144,8 +145,8 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Si el login es exitoso, a dónde va? (A tu dashboard de inventario)
-LOGIN_REDIRECT_URL = 'dash_inventario' 
+# Si el login es exitoso, a dónde va?
+LOGIN_REDIRECT_URL = 'login_redirect' 
 
 # Si se desloguea o intenta entrar sin permiso, a dónde va?
 LOGOUT_REDIRECT_URL = 'login'

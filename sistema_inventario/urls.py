@@ -41,13 +41,20 @@ def vista_salir(request):
 
 from django.views.generic import TemplateView
 
+def redirect_after_login(request):
+    if request.user.username == 'madmin@crossoversuite':
+        return redirect('dashboard_panel')
+    return redirect('dashboard_inicio')
+
 def index_view(request):
     if request.user.is_authenticated:
-        return redirect('dash_inventario')
+        return redirect_after_login(request)
     return render(request, 'landing.html')
 
 urlpatterns = [
     path('', index_view, name='landing'),
+    path('inicio/', include('inicio.urls')),
+    path('login-redirect/', redirect_after_login, name='login_redirect'),
     path('panel/', include('panel.urls')),
     
     path('preferencias/crear-usuario/', crear_usuario_ajax, name='crear_usuario_ajax'),

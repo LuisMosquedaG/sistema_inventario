@@ -26,7 +26,6 @@ def dashboard_panel(request):
 def crear_empresa(request):
     if request.method == 'POST':
         nombre = request.POST.get('nombre')
-        # Limpiamos espacios y convertimos a minúsculas para evitar errores
         subdominio = request.POST.get('subdominio').strip().lower() 
         correo = request.POST.get('correo_contacto')
         estado_str = request.POST.get('activa', 'True')
@@ -35,6 +34,13 @@ def crear_empresa(request):
         nombre_contacto = request.POST.get('nombre_contacto')
         telefono_contacto = request.POST.get('telefono_contacto')
         logo = request.FILES.get('logo')
+
+        # Campos de dirección
+        calle = request.POST.get('calle')
+        numero = request.POST.get('numero')
+        colonia = request.POST.get('colonia')
+        estado = request.POST.get('estado')
+        cp = request.POST.get('cp')
 
         try:
             # 1. Crear la Empresa (Tenant)
@@ -45,6 +51,11 @@ def crear_empresa(request):
                 nombre_contacto=nombre_contacto,
                 telefono_contacto=telefono_contacto,
                 logo=logo,
+                calle=calle,
+                numero=numero,
+                colonia=colonia,
+                estado=estado,
+                cp=cp,
                 activa=(estado_str == 'True')
             )
 
@@ -143,6 +154,11 @@ def obtener_empresa_json(request, empresa_id):
         'nombre_contacto': empresa.nombre_contacto or '',
         'telefono_contacto': empresa.telefono_contacto or '',
         'logo_url': empresa.logo.url if empresa.logo else '',
+        'calle': empresa.calle or '',
+        'numero': empresa.numero or '',
+        'colonia': empresa.colonia or '',
+        'estado': empresa.estado or '',
+        'cp': empresa.cp or '',
         'activa': 'True' if empresa.activa else 'False',
     }
     return JsonResponse(data)
@@ -163,16 +179,18 @@ def actualizar_empresa(request, empresa_id):
             # Nuevos campos
             empresa.nombre_contacto = request.POST.get('nombre_contacto')
             empresa.telefono_contacto = request.POST.get('telefono_contacto')
+            
+            # Campos de dirección
+            empresa.calle = request.POST.get('calle')
+            empresa.numero = request.POST.get('numero')
+            empresa.colonia = request.POST.get('colonia')
+            empresa.estado = request.POST.get('estado')
+            empresa.cp = request.POST.get('cp')
 
             if request.FILES.get('logo'):
                 empresa.logo = request.FILES.get('logo')
 
             empresa.activa = (request.POST.get('activa') == 'True')
-
-            # NOTA: Si cambias el subdominio aquí, los usuarios creados anteriormente
-            # (ej: sadmin@viejo) no se renombran automáticamente a sadmin@nuevo.
-            # Para este ejemplo, actualizamos solo la empresa.
-
             empresa.save()
             return JsonResponse({'success': True, 'message': 'Empresa actualizada correctamente.'})
 
