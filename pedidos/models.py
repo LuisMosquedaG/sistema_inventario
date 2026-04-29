@@ -56,6 +56,31 @@ class Pedido(models.Model):
         return total
     
     @property
+    def total_pagado(self):
+        """Suma de todos los pagos registrados para este pedido"""
+        from django.db.models import Sum
+        total = self.pagos.filter(estado='aplicado').aggregate(Sum('monto'))['monto__sum']
+        return total or 0
+
+    @property
+    def saldo_pendiente(self):
+        """Diferencia entre el total del pedido y lo pagado"""
+        return self.total_pedido - self.total_pagado
+
+    @property
+    def pago_estado(self):
+        """Calcula el estado de pago basado en los abonos registrados"""
+        total = self.total_pedido
+        pagado = self.total_pagado
+        
+        if pagado <= 0:
+            return 'pendiente'
+        elif pagado < total:
+            return 'parcial'
+        else:
+            return 'pagado'
+
+    @property
     def tiene_orden_venta(self):
         """Verifica si este pedido ya tiene al menos una orden de venta (salida) generada"""
         return self.ordenes_venta.exists()

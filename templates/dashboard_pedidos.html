@@ -43,6 +43,16 @@
         .status-completo { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
         .status-cancelado { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
 
+        /* ESTILOS DE PAGO (Pills) */
+        .pay-pill {
+            display: inline-flex; align-items: center; font-size: 0.65rem; line-height: 1; padding: 0.2em 0.5em;
+            font-weight: 600; text-align: center; white-space: nowrap; vertical-align: middle; border-radius: 50px; 
+            text-transform: uppercase; letter-spacing: 0.3px; border-width: 1px; border-style: solid;
+        }
+        .pay-pendiente { background-color: #fff5f5; color: #e03131; border-color: #ffc9c9; }
+        .pay-parcial { background-color: #fff9db; color: #f08c00; border-color: #ffec99; }
+        .pay-pagado { background-color: #ebfbee; color: #2f9e44; border-color: #b2f2bb; }
+
         /* ESTILOS ESPECÍFICOS */
         .fila-hija { background-color: #fafafa; border-left: 4px solid #ff9800; }
         .texto-hijo { font-style: italic; color: #6c757d; padding-left: 15px; font-size: 0.9em; }
@@ -232,6 +242,7 @@
                                 <th class="text-center align-middle" style="width: 130px;">Fecha</th>
                                 <th class="text-center align-middle" style="width: 160px;">Avance</th>
                                 <th class="text-center align-middle" style="width: 120px;">Total</th>
+                                <th class="text-center align-middle" style="width: 140px;">Estado de pago</th>
                                 <th class="text-center align-middle" style="width: 120px;">Estado</th>
                             </tr>
                         </thead>
@@ -240,11 +251,18 @@
                             <tr>
                                 <!-- 1. ACCIONES -->
                                 <td class="text-center align-middle">
-                                    <div class="d-flex justify-content-center">
+                                    <div class="d-flex justify-content-center align-items-center gap-1">
                                         
                                         <span onclick="verPedido({{ p.id }})" class="icon-action" title="Ver">
                                             <i class="bi bi-eye"></i>
                                         </span>
+
+                                        <!-- BOTÓN PAGAR: Solo para revisión y completo -->
+                                        {% if p.estado == 'revision' or p.estado == 'completo' %}
+                                            <span onclick="abrirModalPago({{ p.id }})" class="icon-action" title="Registrar Pago">
+                                                <i class="bi bi-cash-stack"></i>
+                                            </span>
+                                        {% endif %}
 
                                         <!-- ESTADO: BORRADOR -->
                                         {% if p.estado == 'borrador' %}
@@ -345,10 +363,21 @@
 
                                 <!-- 6. TOTAL -->
                                 <td class="text-center align-middle">
-                                    <span class="fw-bold text-success">${{ p.total_pedido }}</span>
+                                    <span class="text-dark" style="font-weight: 400;">${{ p.total_pedido }}</span>
                                 </td>
 
-                                <!-- 6. ESTADO -->
+                                <!-- 7. ESTADO DE PAGO -->
+                                <td class="text-center align-middle">
+                                    {% if p.pago_estado == 'pendiente' %}
+                                        <span class="pay-pill pay-pendiente">Pendiente de pago</span>
+                                    {% elif p.pago_estado == 'parcial' %}
+                                        <span class="pay-pill pay-parcial">Pago parcial</span>
+                                    {% elif p.pago_estado == 'pagado' %}
+                                        <span class="pay-pill pay-pagado">Pagado</span>
+                                    {% endif %}
+                                </td>
+
+                                <!-- 8. ESTADO -->
                                 <td class="text-center align-middle">
                                     {% if p.estado == 'borrador' %}
                                         <span class="status-pill status-borrador">Borrador</span>
@@ -366,7 +395,7 @@
                                 </td>
                             </tr>
                             {% empty %}
-                            <tr><td colspan="8" class="text-center py-5">No hay pedidos.</td></tr>
+                            <tr><td colspan="9" class="text-center py-5">No hay pedidos.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -614,10 +643,256 @@
         </div>
     </div>
 
+    <!-- MODAL: REGISTRAR PAGO -->
+    <div class="modal fade" id="modalRegistrarPago" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+            <div class="modal-content">
+                <div class="modal-header border-bottom bg-light">
+                    <h5 class="modal-title fw-bold text-dark">
+                        <i class="bi bi-cash-coin me-2" style="color: #00b8b9;"></i>
+                        Registrar Pago de Pedido
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <form id="formRegistrarPago" method="post" action="{% url 'api_registrar_pago_pedido' %}" novalidate>
+                    {% csrf_token %}
+                    <input type="hidden" name="pedido_id" id="pago_pedido_id">
+                    <div class="modal-body p-3 bg-light">
+                        
+                        <!-- SECCIÓN 1: DATOS DEL CLIENTE Y PEDIDO -->
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-body p-3">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Información del Pedido</h6>
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label-crossover">Nombre / Razón Social</label>
+                                        <div id="pago_cliente_nombre" class="fw-bold text-dark">-</div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label-crossover">RFC</label>
+                                        <div id="pago_cliente_rfc" class="text-dark">-</div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label-crossover">Fecha Pedido</label>
+                                        <div id="pago_fecha_pedido" class="text-dark">-</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECCIÓN 2: DETALLES DEL PAGO -->
+                        <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
+                            <div class="card-body p-3">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Detalles del Pago</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold text-secondary">Fecha de Pago</label>
+                                        <input type="date" name="fecha_pago" id="pago_fecha" class="form-control form-control-sm" required value="{{ hoy|date:'Y-m-d' }}">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold text-secondary">Forma de Pago</label>
+                                        <select name="forma_pago" class="form-select form-select-sm" required>
+                                            <option value="efectivo">Efectivo</option>
+                                            <option value="tarjeta_debito">Tarjeta de Débito</option>
+                                            <option value="tarjeta_credito">Tarjeta de Crédito</option>
+                                            <option value="transferencia">Transferencia</option>
+                                            <option value="compensacion">Compensación</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold text-secondary">Tipo (Caja/Banco)</label>
+                                        <select id="pago_tipo_destino" class="form-select form-select-sm" onchange="filtrarDestinosPago(this.value)">
+                                            <option value="">Seleccionar...</option>
+                                            <option value="caja">Caja</option>
+                                            <option value="banco">Banco</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Cuenta de Destino</label>
+                                        <select name="caja_banco_id" id="pago_caja_banco" class="form-select form-select-sm" required disabled>
+                                            <option value="">Selecciona tipo primero...</option>
+                                            {% for c in cajas %}
+                                            <option value="{{ c.id }}" data-tipo="{{ c.tipo }}" data-moneda="{{ c.moneda.id }}" data-siglas="{{ c.moneda.siglas }}" style="display:none;">{{ c.nombre }} ({{ c.moneda.siglas }})</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Referencia</label>
+                                        <input type="text" name="referencia" class="form-control form-control-sm" placeholder="Ej: Ticket, Folio, etc.">
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold text-secondary">Moneda</label>
+                                        <select name="moneda_id" id="pago_moneda" class="form-select form-select-sm" required onchange="actualizarConversion()">
+                                            {% for m in monedas %}
+                                            <option value="{{ m.id }}" data-siglas="{{ m.siglas }}" {% if m.siglas == 'MXN' %}selected{% endif %}>{{ m.nombre }} ({{ m.siglas }})</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold text-secondary">Tipo de Cambio</label>
+                                        <input type="number" name="tipo_cambio" id="pago_tipo_cambio" class="form-control form-control-sm" value="1.0000" step="0.0001" oninput="actualizarConversion()">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold text-secondary">Abono</label>
+                                        <input type="number" name="monto" id="pago_monto" class="form-control form-control-sm" style="color: #212529; font-weight: 400;" required step="0.01" oninput="actualizarConversion()">
+                                    </div>
+                                </div>
+
+                                <div class="mt-3 p-3 bg-white rounded border shadow-sm">
+                                    <div class="row g-2">
+                                        <div class="col-4 text-center border-end">
+                                            <span class="d-block small text-muted text-uppercase fw-bold" style="font-size: 0.6rem;">Total Pedido</span>
+                                            <span class="text-dark" id="pago_total_display" style="font-weight: 400;">$0.00</span>
+                                        </div>
+                                        <div class="col-4 text-center border-end">
+                                            <span class="d-block small text-muted text-uppercase fw-bold" style="font-size: 0.6rem;">Saldo Pendiente</span>
+                                            <span class="text-dark" id="pago_saldo_display" style="font-weight: 400;">$0.00</span>
+                                        </div>
+                                        <div class="col-4 text-center">
+                                            <span class="d-block small text-muted text-uppercase fw-bold" style="font-size: 0.6rem;">Nuevo Saldo</span>
+                                            <span class="text-dark" id="pago_restante_display" style="font-weight: 400;">$0.00</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="pago_conversion_wrapper" class="mt-3 pt-2 border-top" style="display:none;">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="small text-muted fw-bold" style="font-size: 0.65rem;">CONVERSIÓN A PESOS (MXN):</span>
+                                            <span class="text-dark" id="pago_conversion_display" style="font-weight: 400;">$0.00 MXN</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer border-top bg-white py-2">
+                        <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-brand btn-sm px-4 shadow-sm text-white">Confirmar Pago</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
+    // Variables globales para el modal de pago
+    let saldoActualPedido = 0;
+
+    // --- LÓGICA PARA REGISTRAR PAGO ---
+    function abrirModalPago(pedidoId) {
+        fetch(`/pedidos/api/info-pago/${pedidoId}/`)
+            .then(r => r.json())
+            .then(data => {
+                saldoActualPedido = data.saldo_pendiente;
+                
+                document.getElementById('pago_pedido_id').value = data.id;
+                document.getElementById('pago_cliente_nombre').innerText = data.cliente_nombre;
+                document.getElementById('pago_cliente_rfc').innerText = data.rfc;
+                document.getElementById('pago_fecha_pedido').innerText = data.fecha_pedido;
+                
+                // Formateo de montos
+                const fmt = (v) => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2});
+                
+                document.getElementById('pago_total_display').innerText = fmt(data.total_pedido);
+                document.getElementById('pago_saldo_display').innerText = fmt(data.saldo_pendiente);
+                document.getElementById('pago_restante_display').innerText = fmt(0);
+                
+                document.getElementById('pago_monto').value = data.saldo_pendiente.toFixed(2);
+                
+                // Reset form
+                document.getElementById('pago_tipo_destino').value = "";
+                filtrarDestinosPago("");
+                
+                const modal = new bootstrap.Modal(document.getElementById('modalRegistrarPago'));
+                modal.show();
+                actualizarConversion();
+            });
+    }
+
+    function filtrarDestinosPago(tipo) {
+        const select = document.getElementById('pago_caja_banco');
+        const options = select.querySelectorAll('option[data-tipo]');
+        let count = 0;
+        
+        // Limpiar opciones previas
+        select.querySelectorAll('.tmp-opt').forEach(o => o.remove());
+
+        options.forEach(opt => {
+            if (tipo === "" || opt.dataset.tipo === tipo) {
+                opt.style.display = "block";
+                count++;
+            } else {
+                opt.style.display = "none";
+            }
+        });
+        
+        select.value = "";
+        select.disabled = (tipo === "");
+        if (tipo !== "" && count === 0) {
+            select.insertAdjacentHTML('beforeend', '<option value="" class="tmp-opt">No hay registros</option>');
+        }
+    }
+
+    function actualizarConversion() {
+        const monedaSelect = document.getElementById('pago_moneda');
+        const selectedOption = monedaSelect.options[monedaSelect.selectedIndex];
+        if (!selectedOption) return;
+        
+        const monedaSiglas = selectedOption.dataset.siglas;
+        const tipoCambio = parseFloat(document.getElementById('pago_tipo_cambio').value) || 1;
+        const montoAbono = parseFloat(document.getElementById('pago_monto').value) || 0;
+        
+        // Calcular Nuevo Saldo (Saldo Pendiente - Abono)
+        const nuevoSaldo = saldoActualPedido - montoAbono;
+        document.getElementById('pago_restante_display').innerText = '$' + nuevoSaldo.toLocaleString('en-US', {minimumFractionDigits: 2});
+        
+        const wrapper = document.getElementById('pago_conversion_wrapper');
+        const display = document.getElementById('pago_conversion_display');
+        
+        if (monedaSiglas !== 'MXN') {
+            wrapper.style.display = "block";
+            display.innerText = '$' + (montoAbono * tipoCambio).toLocaleString('en-US', {minimumFractionDigits: 2}) + ' MXN';
+        } else {
+            wrapper.style.display = "none";
+            document.getElementById('pago_tipo_cambio').value = "1.0000";
+        }
+    }
+
+    document.getElementById('formRegistrarPago').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btn = this.querySelector('button[type="submit"]');
+        const originalText = btn.innerText;
+        btn.disabled = true; btn.innerText = "Registrando...";
+
+        fetch(this.action, {
+            method: 'POST',
+            body: new FormData(this),
+            headers: {'X-CSRFToken': getCookie('csrftoken')}
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+                btn.disabled = false;
+                btn.innerText = originalText;
+            }
+        })
+        .catch(error => {
+            alert('Error de conexión');
+            btn.disabled = false;
+            btn.innerText = originalText;
+        });
+    });
+
     // --- LÓGICA PARA NUEVO PEDIDO MANUAL ---
 
     // Inicializar buscador de productos
@@ -1014,6 +1289,7 @@
     // ==========================================
     document.addEventListener('DOMContentLoaded', function() {
         const updateVisibility = (input, fake) => {
+            if (!input || !fake) return;
             fake.style.opacity = (document.activeElement === input || input.value.length > 0) ? "0" : "1";
         };
 
@@ -1057,21 +1333,24 @@
         };
 
         const form = document.getElementById('formFiltrosPedidos');
-        const submitForm = () => form.submit();
+        if (form) {
+            const submitForm = () => form.submit();
 
-        // 1. Filtro Cliente
-        setupCustomSelect('wrapperFiltroCliente', 'filtro_cliente_busqueda', 'filtro_cliente_fake', 'filtro_cliente_id', () => {
-            document.getElementById('filtro_contacto_id').value = ''; // Limpiar contacto al cambiar cliente
-            submitForm();
-        });
+            // 1. Filtro Cliente
+            setupCustomSelect('wrapperFiltroCliente', 'filtro_cliente_busqueda', 'filtro_cliente_fake', 'filtro_cliente_id', () => {
+                const cId = document.getElementById('filtro_contacto_id');
+                if (cId) cId.value = ''; // Limpiar contacto al cambiar cliente
+                submitForm();
+            });
 
-        // 2. Filtro Contacto
-        setupCustomSelect('wrapperFiltroContacto', 'filtro_contacto_busqueda', 'filtro_contacto_fake', 'filtro_contacto_id', submitForm);
+            // 2. Filtro Contacto
+            setupCustomSelect('wrapperFiltroContacto', 'filtro_contacto_busqueda', 'filtro_contacto_fake', 'filtro_contacto_id', submitForm);
 
-        // Enter en folios y general
-        document.querySelectorAll('#formFiltrosPedidos input[type="text"]').forEach(input => {
-            input.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); submitForm(); } });
-        });
+            // Enter en folios y general
+            document.querySelectorAll('#formFiltrosPedidos input[type="text"]').forEach(input => {
+                input.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); submitForm(); } });
+            });
+        }
     });
 
 </script>

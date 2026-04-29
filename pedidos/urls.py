@@ -11,4 +11,5 @@ urlpatterns = [
     path('ejecutar-reserva/<int:detalle_id>/', views.ejecutar_reserva, name='ejecutar_reserva'),
     path('generar-solicitud-global/<int:pedido_id>/', views.generar_solicitud_global, name='generar_solicitud_global'),
     path('api/ver/<int:pedido_id>/', views.obtener_pedido_json, name='obtener_pedido_json'),
+    path('api/info-pago/<int:pedido_id>/', views.api_info_pago_pedido, name='api_info_pago_pedido'),
 ]

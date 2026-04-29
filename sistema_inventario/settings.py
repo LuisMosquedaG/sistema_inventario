@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'solicitudcompras',
     'produccion',
     'inicio',
+    'tesoreria',
 ]
 
 MIDDLEWARE = [

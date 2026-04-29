@@ -99,6 +99,10 @@ def dashboard_compras(request):
     todos_los_proveedores = Proveedor.objects.filter(empresa=empresa_actual)
     monedas = Moneda.objects.filter(empresa=empresa_actual)
 
+    # --- DATOS PARA EL MODAL DE PAGO ---
+    from tesoreria.models import CajaBanco
+    cajas_y_bancos = CajaBanco.objects.filter(empresa=empresa_actual, activo=True)
+
     context = {
         'page_obj': page_obj,
         'productos': productos,
@@ -106,6 +110,7 @@ def dashboard_compras(request):
         'proveedores': proveedores_activos,
         'todos_los_proveedores': todos_los_proveedores,
         'monedas': monedas,
+        'cajas_y_bancos': cajas_y_bancos,
         'section': 'compras',
         'filtros': filtros
     }
@@ -181,6 +186,23 @@ def obtener_compra_json(request, compra_id):
         return JsonResponse(data)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
+
+@login_required
+def api_info_pago_compra(request, compra_id):
+    """Devuelve los datos necesarios para el modal de pago de una compra"""
+    empresa_actual = get_empresa_actual(request)
+    compra = get_object_or_404(OrdenCompra, id=compra_id, empresa=empresa_actual)
+    
+    data = {
+        'id': compra.id,
+        'proveedor_nombre': compra.proveedor.razon_social,
+        'rfc': compra.proveedor.rfc or '--',
+        'fecha_compra': compra.fecha.strftime('%d/%m/%Y'),
+        'total_compra': float(compra.total),
+        'total_pagado': float(compra.total_pagado),
+        'saldo_pendiente': float(compra.saldo_pendiente),
+    }
+    return JsonResponse(data)
     
 @login_required
 @transaction.atomic

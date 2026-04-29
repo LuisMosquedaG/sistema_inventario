@@ -16,16 +16,6 @@ from collections import defaultdict
 from solicitudcompras.models import SolicitudCompra, DetalleSolicitudCompra
 from produccion.models import OrdenProduccion
 
-def get_empresa_actual(request):
-    username = request.user.username
-    if '@' in username:
-        subdominio = username.split('@')[1]
-        try:
-            return Empresa.objects.get(subdominio=subdominio)
-        except Empresa.DoesNotExist:
-            return None
-    return None
-
 # --- HELPER MULTI-TENANCY ---
 def get_empresa_actual(request):
     username = request.user.username
@@ -179,12 +169,21 @@ def dashboard_pedidos(request):
     clientes = Cliente.objects.filter(empresa=empresa_actual)
     productos = Producto.objects.filter(empresa=empresa_actual)
 
+    # --- DATOS PARA EL MODAL DE PAGO ---
+    from tesoreria.models import CajaBanco
+    from preferencias.models import Moneda
+    cajas = CajaBanco.objects.filter(empresa=empresa_actual, activo=True)
+    monedas = Moneda.objects.filter(empresa=empresa_actual)
+
     contexto = {
         'pedidos': lista_pedidos,
         'clientes': clientes,
         'productos': productos,
+        'cajas': cajas,
+        'monedas': monedas,
         'contactos_filtro': contactos_del_cliente,
-        'filtros': filtros
+        'filtros': filtros,
+        'hoy': timezone.now().date()
     }
     return render(request, 'dashboard_pedidos.html', contexto)
 
@@ -676,3 +675,20 @@ def obtener_pedido_json(request, pedido_id):
         return JsonResponse(data)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+@login_required(login_url='/login/')
+def api_info_pago_pedido(request, pedido_id):
+    """Devuelve los datos necesarios para el modal de pago de un pedido"""
+    empresa_actual = get_empresa_actual(request)
+    pedido = get_object_or_404(Pedido, id=pedido_id, empresa=empresa_actual)
+    
+    data = {
+        'id': pedido.id,
+        'cliente_nombre': pedido.cliente.nombre_completo,
+        'rfc': pedido.cliente.rfc or '--',
+        'fecha_pedido': pedido.fecha_creacion.strftime('%d/%m/%Y'),
+        'total_pedido': float(pedido.total_pedido),
+        'total_pagado': float(pedido.total_pagado),
+        'saldo_pendiente': float(pedido.saldo_pendiente),
+    }
+    return JsonResponse(data)

@@ -43,6 +43,31 @@ class OrdenCompra(models.Model):
         return sum(detalle.subtotal for detalle in self.detalles.all())
     
     @property
+    def total_pagado(self):
+        """Suma de todos los pagos registrados para esta compra"""
+        from django.db.models import Sum
+        total = self.pagos.filter(estado='aplicado').aggregate(Sum('monto'))['monto__sum']
+        return total or 0
+
+    @property
+    def saldo_pendiente(self):
+        """Diferencia entre el total de la compra y lo pagado"""
+        return self.total - self.total_pagado
+
+    @property
+    def pago_estado(self):
+        """Calcula el estado de pago basado en los abonos registrados"""
+        total = self.total
+        pagado = self.total_pagado
+        
+        if pagado <= 0:
+            return 'pendiente'
+        elif pagado < total:
+            return 'parcial'
+        else:
+            return 'pagado'
+
+    @property
     def cantidad_items(self):
         return self.detalles.count()
     

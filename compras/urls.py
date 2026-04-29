@@ -9,4 +9,5 @@ urlpatterns = [
     path('cambiar-estado/<int:compra_id>/', views.cambiar_estado_compra, name='cambiar_estado_compra'),
     path('actualizar/<int:compra_id>/', views.actualizar_compra, name='actualizar_compra'),
     path('consolidar/', views.consolidar_compras_ajax, name='consolidar_compras_ajax'),
-    ]
+    path('api/info-pago/<int:compra_id>/', views.api_info_pago_compra, name='api_info_pago_compra'),
+]

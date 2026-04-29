@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <style>
+        .table-pro tbody tr { transition: background-color 0.2s; }
+        .table-pro tbody tr:hover td { background-color: #f8f9fa; }
+        .table-pro td { border-bottom: 1px solid #e9ecef; vertical-align: middle; }
+        .table-pro thead th { font-weight: normal !important; border-bottom: 2px solid #dee2e6; background-color: #f8f9fa; }
+        
+        .siglas-moneda { font-size: 0.75rem; color: #868e96; margin-left: 4px; }
+        
+        .icon-action { 
+            color: #adb5bd; font-size: 1.1rem; cursor: pointer; transition: all 0.2s ease; 
+            display: inline-flex; align-items: center; justify-content: center; 
+            width: 32px; height: 32px; border-radius: 6px; 
+            text-decoration: none !important; background: transparent; border: none; 
+        }
+        .icon-action:hover { color: #e03131; transform: scale(1.15); }
+
+        .status-pill {
+            display: inline-flex; align-items: center; font-size: 0.7rem; line-height: 1; padding: 0.25em 0.6em;
+            font-weight: 600; text-align: center; white-space: nowrap; vertical-align: middle; border-radius: 50px; 
+            text-transform: capitalize; letter-spacing: 0.3px; border-width: 1px; border-style: solid;
+        }
+        .status-aplicado { background-color: #ebfbee; color: #2f9e44; border-color: #b2f2bb; }
+        .status-cancelado { background-color: #fff5f5; color: #e03131; border-color: #ffc9c9; }
+    </style>
+
+    <div class="container-fluid py-2 px-4">
+        <!-- HEADER -->
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+            <div>
+                <h4 class="section-title mb-0">Ingresos</h4>
+                <span class="section-subtitle">Registro histórico de entradas de dinero</span>
+            </div>
+        </div>
+
+        <!-- TABLA DE INGRESOS -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-pro mb-0">
+                        <thead>
+                            <tr>
+                                <th class="text-center" style="width: 80px;">Acciones</th>
+                                <th class="text-center">Folio Ing.</th>
+                                <th class="text-center">Folio Ped.</th>
+                                <th>Cliente</th>
+                                <th class="text-center">Forma de Pago</th>
+                                <th class="text-center">Caja / Banco</th>
+                                <th class="text-center">Referencia</th>
+                                <th class="text-end">Monto</th>
+                                <th class="text-end">Monto MXN</th>
+                                <th class="text-center">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ing in ingresos %}
+                            <tr id="fila-ingreso-{{ ing.id }}">
+                                <td class="text-center">
+                                    {% if ing.estado == 'aplicado' %}
+                                    <button onclick="cancelarIngreso({{ ing.id }})" class="icon-action" title="Cancelar Ingreso">
+                                        <i class="bi bi-x-circle"></i>
+                                    </button>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center font-monospace small">ING-{{ ing.id|stringformat:"05d" }}</td>
+                                <td class="text-center font-monospace small">
+                                    {% if ing.pago_pedido %}
+                                        PED-{{ ing.pago_pedido.pedido.id|stringformat:"04d" }}
+                                    {% else %}
+                                        --
+                                    {% endif %}
+                                </td>
+                                <td class="small">
+                                    {% if ing.pago_pedido %}
+                                        {{ ing.pago_pedido.pedido.cliente.nombre_completo }}
+                                    {% else %}
+                                        {{ ing.concepto }}
+                                    {% endif %}
+                                </td>
+                                <td class="text-center small text-capitalize">{{ ing.get_forma_pago_display }}</td>
+                                <td class="text-center">
+                                    <span class="badge bg-light text-dark border fw-normal">{{ ing.caja_banco.nombre }}</span>
+                                </td>
+                                <td class="text-center small text-muted">{{ ing.referencia|default:"--" }}</td>
+                                <td class="text-end small">
+                                    <span>${{ ing.monto }}</span>
+                                    <span class="siglas-moneda">{{ ing.moneda.siglas }}</span>
+                                </td>
+                                <td class="text-end small">
+                                    <span>${{ ing.monto_mxn }}</span>
+                                    <span class="siglas-moneda">MXN</span>
+                                </td>
+                                <td class="text-center">
+                                    {% if ing.estado == 'aplicado' %}
+                                        <span class="status-pill status-aplicado">Aplicado</span>
+                                    {% else %}
+                                        <span class="status-pill status-cancelado">Cancelado</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="10" class="text-center py-5 text-muted">No se han registrado ingresos aún.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function cancelarIngreso(id) {
+        if (!confirm("¿Estás seguro de cancelar este ingreso? El saldo regresará al pedido correspondiente.")) return;
+        
+        fetch(`/tesoreria/api/ingreso/cancelar/${id}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => alert('Error de conexión'));
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+{% endblock %}

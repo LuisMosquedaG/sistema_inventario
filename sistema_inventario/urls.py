@@ -115,6 +115,7 @@ urlpatterns = [
     
     path('recepciones/', include('recepciones.urls')),
     path('solicitudes-compras/', include('solicitudcompras.urls')),
+    path('tesoreria/', include('tesoreria.urls')),
     path('produccion/', include('produccion.urls')),
     
     path('inventario/', include('almacenes.urls')), 
