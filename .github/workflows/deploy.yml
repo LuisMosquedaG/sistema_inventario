@@ -18,6 +18,21 @@ jobs:
             cd /var/www/django/sistema_inventario
             git fetch origin
             git reset --hard origin/main
-            docker compose exec -T web python manage.py migrate
-            docker compose exec -T web python manage.py collectstatic --noinput
+
+            # Reconstruir y reiniciar contenedores
+            docker compose build web
+            docker compose up -d --no-deps web
+
+            # Ejecutar migraciones y recolectar estáticos DENTRO del contenedor
+            docker compose exec -T web python manage.py migrate --noinput
+            docker compose exec -T web python manage.py collectstatic --clear --noinput
+
+            # 🔥 NUEVO: Asegurar permisos de la carpeta media para que Nginx (host) pueda leer
+            chown -R www-data:www-data /var/www/django/sistema_inventario/media
+            chmod -R 755 /var/www/django/sistema_inventario/media
+
+            # 🔥 NUEVO: Recargar Nginx del host (fuera de Docker)
+            systemctl reload nginx
+
+            # Reiniciar el contenedor web por si cambió algo
             docker compose restart web
