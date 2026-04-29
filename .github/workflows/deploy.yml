@@ -22,6 +22,6 @@ jobs:
             pip install -r requirements.txt
             python manage.py migrate --noinput
             python manage.py collectstatic --clear --noinput
-            pkill -f gunicorn
-            gunicorn --workers 3 --bind 127.0.0.1:8000 sistema_inventario.wsgi:application --daemon
+            pkill -f gunicorn || true
+            nohup gunicorn --workers 3 --bind 127.0.0.1:8000 sistema_inventario.wsgi:application > /dev/null 2>&1 &
             sudo systemctl reload nginx

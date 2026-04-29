@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container-fluid py-4 px-4">
-    <!-- SECCIÓN DE BIENVENIDA -->
+    <!-- 1. SECCIÓN DE BIENVENIDA -->
     <div class="card border-0 shadow-sm mb-4" style="border-radius: 15px; background: linear-gradient(135deg, #00b8b9 0%, #008a8b 100%);">
         <div class="card-body p-4 text-white">
             <div class="row align-items-center">
@@ -19,8 +19,9 @@
         </div>
     </div>
 
-    <!-- SECCIÓN DE EMPRESA -->
-    <div class="row g-4">
+    <!-- 2. SECCIÓN DE EMPRESA Y RESUMEN OPERATIVO -->
+    <div class="row g-4 mb-4">
+        <!-- TU ORGANIZACIÓN -->
         <div class="col-md-6 col-lg-4">
             <div class="card border-0 shadow-sm h-100" style="border-radius: 12px; overflow: hidden;">
                 <div class="card-header bg-white border-bottom-0 pt-4 px-4 pb-0">
@@ -36,7 +37,6 @@
                     {% endif %}
                     
                     <h3 class="fw-bold text-dark mb-1">{{ empresa.nombre|default:"Sin Empresa" }}</h3>
-                    
                     <hr class="w-100 my-3 opacity-25">
                     
                     <div class="text-start w-100">
@@ -64,18 +64,203 @@
             </div>
         </div>
 
-        <!-- ESPACIO PARA RESUMEN / ESTADÍSTICAS (PRÓXIMAMENTE) -->
+        <!-- RESUMEN OPERATIVO: VENTAS VS COMPRAS -->
         <div class="col-md-6 col-lg-8">
             <div class="card border-0 shadow-sm h-100" style="border-radius: 12px; border-left: 4px solid #00b8b9 !important;">
-                <div class="card-body p-4 d-flex align-items-center justify-content-center">
-                    <div class="text-center text-muted">
-                        <i class="bi bi-graph-up display-1 opacity-25 mb-3 d-block"></i>
-                        <h4 class="fw-bold opacity-50">Resumen Operativo</h4>
-                        <p class="small opacity-50">Próximamente verás aquí tus indicadores clave.</p>
+                <div class="card-header bg-white border-bottom-0 pt-4 px-4">
+                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-bar-chart-line me-2 text-brand"></i>Resumen Operativo: {{ resumen_mes.mes }}</h5>
+                </div>
+                <div class="card-body p-4 d-flex align-items-center">
+                    <div style="width: 100%; height: 220px;">
+                        <canvas id="chartComparativo"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. SECCIÓN DE INDICADORES POR MÓDULO -->
+    <div class="row g-4">
+        <!-- MODULO VENTAS -->
+        <div class="col-12">
+            <div class="card border-0 shadow-sm" style="border-radius: 12px;">
+                <div class="card-header bg-white border-bottom-0 pt-4 px-4">
+                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-cash-stack me-2 text-brand"></i>Módulo de Ventas</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-4">
+                        <div class="col-md-4">
+                            <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Cotizaciones</h6>
+                            <canvas id="chartCotizaciones" style="max-height: 200px;"></canvas>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Pedidos</h6>
+                            <canvas id="chartPedidos" style="max-height: 200px;"></canvas>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Salidas</h6>
+                            <canvas id="chartSalidas" style="max-height: 200px;"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODULO COMPRAS -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
+                <div class="card-header bg-white border-bottom-0 pt-4 px-4">
+                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-truck me-2 text-brand"></i>Módulo de Compras</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Órdenes</h6>
+                            <canvas id="chartCompras" style="max-height: 180px;"></canvas>
+                        </div>
+                        <div class="col-6">
+                            <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Recepciones</h6>
+                            <canvas id="chartRecepciones" style="max-height: 180px;"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODULO PRODUCCIÓN -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
+                <div class="card-header bg-white border-bottom-0 pt-4 px-4">
+                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-gear-fill me-2 text-brand"></i>Producción (Taller)</h5>
+                </div>
+                <div class="card-body p-4 d-flex flex-column align-items-center justify-content-center">
+                    <h6 class="text-muted small text-uppercase fw-bold mb-3 w-100 text-center">Tablero de Control (OPs)</h6>
+                    <div style="width: 100%; max-width: 250px;">
+                        <canvas id="chartProduccion" style="max-height: 180px;"></canvas>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const colorMap = {
+        'borrador': '#f1f3f5',
+        'enviada': '#e7f5ff',
+        'aprobada': '#d0ebff',
+        'aprobado': '#d0ebff',
+        'ganada': '#ebfbee',
+        'rechazada': '#fff5f5',
+        'cancelada': '#fff5f5',
+        'cancelado': '#fff5f5',
+        'revision': '#fff3bf',
+        'pendiente': '#fff4e6',
+        'confirmado': '#e7f5ff',
+        'completo': '#ebfbee',
+        'completada': '#ebfbee',
+        'parcial': '#fff4e6',
+        'recibida': '#ebfbee',
+        'surtido': '#0ca678',
+        'en_proceso': '#e7f5ff',
+        'testeo': '#fff3bf',
+        'terminado': '#2f9e44'
+    };
+
+    const getColors = (labels) => labels.map(label => colorMap[label.toLowerCase()] || '#ced4da');
+
+    function createDoughnutChart(canvasId, statsData) {
+        const labels = statsData.map(item => item.estado);
+        const data = statsData.map(item => item.total);
+        
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+
+        if (data.length === 0) {
+            ctx.font = "12px Inter";
+            ctx.fillStyle = "#adb5bd";
+            ctx.textAlign = "center";
+            ctx.fillText("Sin datos", ctx.canvas.width/2, ctx.canvas.height/2);
+            return;
+        }
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: getColors(labels),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { boxWidth: 10, font: { size: 9 } }
+                    }
+                }
+            }
+        });
+    }
+
+    // Inicializar gráficas
+    document.addEventListener('DOMContentLoaded', function() {
+        const stats = {{ stats|safe }};
+        const resumen = {{ resumen_mes|safe }};
+        
+        // 1. Gráfica Comparativa (Bar)
+        const ctxComp = document.getElementById('chartComparativo').getContext('2d');
+        new Chart(ctxComp, {
+            type: 'bar',
+            data: {
+                labels: ['Compras', 'Ventas'],
+                datasets: [{
+                    label: 'Monto en MXN',
+                    data: [resumen.compras, resumen.ventas],
+                    backgroundColor: ['#ff8787', '#00b8b9'],
+                    borderRadius: 8,
+                    barThickness: 50
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { 
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) { return '$' + value.toLocaleString(); }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'Total: $' + context.parsed.y.toLocaleString('en-US', {minimumFractionDigits: 2});
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 2. Gráficas de Dona
+        createDoughnutChart('chartCotizaciones', stats.cotizaciones);
+        createDoughnutChart('chartPedidos', stats.pedidos);
+        createDoughnutChart('chartSalidas', stats.salidas);
+        createDoughnutChart('chartCompras', stats.compras);
+        createDoughnutChart('chartRecepciones', stats.recepciones);
+        createDoughnutChart('chartProduccion', stats.produccion);
+    });
+</script>
 {% endblock %}
