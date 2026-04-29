@@ -7,8 +7,8 @@ services:
       - "8001:8000"
     volumes:
       - .:/app
-      - static_volume:/app/staticfiles
-      - media_volume:/app/media
+      - ./staticfiles:/app/staticfiles   # bind mount (carpeta real)
+      - ./media:/app/media               # bind mount (carpeta real)
     environment:
       - PYTHONUNBUFFERED=1
       - DEBUG=False
@@ -16,6 +16,7 @@ services:
     command: gunicorn sistema_inventario.wsgi:application --bind 0.0.0.0:8000
     restart: unless-stopped
 
-volumes:
-  static_volume:
-  media_volume:
+# Eliminamos o comentamos la sección volumes (ya no la necesitamos)
+# volumes:
+#   static_volume:
+#   media_volume:
