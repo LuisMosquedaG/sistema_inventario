@@ -9,6 +9,7 @@ from ventas.models import OrdenVenta
 from compras.models import OrdenCompra
 from recepciones.models import Recepcion
 from produccion.models import OrdenProduccion
+from tesoreria.models import PagoPedido, PagoCompra
 from decimal import Decimal
 import json
 
@@ -36,9 +37,47 @@ def dashboard_inicio(request):
     stats_pedidos = list(Pedido.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id')))
     stats_salidas = list(OrdenVenta.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id')))
 
+    # MONTO DE COBROS (VENTAS)
+    pedidos_activos = Pedido.objects.filter(empresa=empresa_actual).exclude(estado='cancelado')
+    # Total vendido (MXN)
+    total_vendido = pedidos_activos.aggregate(
+        total=Sum(F('detalles__cantidad_solicitada') * F('detalles__precio_unitario'))
+    )['total'] or Decimal('0.00')
+    # Total cobrado (MXN) - solo pagos aplicados
+    total_cobrado = PagoPedido.objects.filter(
+        empresa=empresa_actual, 
+        estado='aplicado',
+        pedido__in=pedidos_activos
+    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    
+    monto_pendiente_cobro = total_vendido - total_cobrado
+    stats_monetario_ventas = {
+        'pagado': float(total_cobrado),
+        'pendiente': float(monto_pendiente_cobro) if monto_pendiente_cobro > 0 else 0
+    }
+
     # --- DATOS PARA GRÁFICAS: COMPRAS ---
     stats_compras = list(OrdenCompra.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id')))
     stats_recepciones = list(Recepcion.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id')))
+
+    # MONTO DE PAGOS (COMPRAS)
+    compras_activas = OrdenCompra.objects.filter(empresa=empresa_actual).exclude(estado='cancelada')
+    # Total comprado (MXN)
+    total_comprado = compras_activas.aggregate(
+        total=Sum(F('detalles__cantidad') * F('detalles__precio_costo') * F('tipo_cambio'))
+    )['total'] or Decimal('0.00')
+    # Total pagado (MXN) - solo pagos aplicados
+    total_pagado_compras = PagoCompra.objects.filter(
+        empresa=empresa_actual,
+        estado='aplicado',
+        orden_compra__in=compras_activas
+    ).aggregate(total=Sum('monto_mxn'))['total'] or Decimal('0.00')
+    
+    monto_pendiente_pago = total_comprado - total_pagado_compras
+    stats_monetario_compras = {
+        'pagado': float(total_pagado_compras),
+        'pendiente': float(monto_pendiente_pago) if monto_pendiente_pago > 0 else 0
+    }
 
     # --- DATOS PARA GRÁFICAS: PRODUCCIÓN ---
     stats_produccion = list(OrdenProduccion.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id')))
@@ -50,7 +89,6 @@ def dashboard_inicio(request):
     meses_es = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
     
     resumen_periodo = []
-    # Obtenemos los últimos 4 meses (3 anteriores + actual)
     for i in range(3, -1, -1):
         target_month = mes_actual - i
         target_year = anio_actual
@@ -58,7 +96,6 @@ def dashboard_inicio(request):
             target_month += 12
             target_year -= 1
         
-        # Ventas: Suma de subtotales de partidas de OrdenVenta
         v = OrdenVenta.objects.filter(
             empresa=empresa_actual,
             fecha_creacion__year=target_year,
@@ -67,7 +104,6 @@ def dashboard_inicio(request):
             total=Sum(F('detalles__cantidad') * F('detalles__precio_unitario'))
         )['total'] or Decimal('0.00')
 
-        # Compras: Suma de (cantidad * costo * TC) de partidas de OrdenCompra
         c = OrdenCompra.objects.filter(
             empresa=empresa_actual,
             fecha__year=target_year,
@@ -94,6 +130,8 @@ def dashboard_inicio(request):
             'compras': stats_compras,
             'recepciones': stats_recepciones,
             'produccion': stats_produccion,
+            'monetario_ventas': stats_monetario_ventas,
+            'monetario_compras': stats_monetario_compras,
         }),
         'resumen_json': json.dumps(resumen_periodo)
     }

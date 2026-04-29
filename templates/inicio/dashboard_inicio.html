@@ -89,23 +89,21 @@
                 </div>
                 <div class="card-body p-4">
                     <div class="row g-4">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Cotizaciones</h6>
-                            <div style="height: 180px; position: relative;">
-                                <canvas id="chartCotizaciones"></canvas>
-                            </div>
+                            <div style="height: 180px; position: relative;"><canvas id="chartCotizaciones"></canvas></div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Pedidos</h6>
-                            <div style="height: 180px; position: relative;">
-                                <canvas id="chartPedidos"></canvas>
-                            </div>
+                            <div style="height: 180px; position: relative;"><canvas id="chartPedidos"></canvas></div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Salidas</h6>
-                            <div style="height: 180px; position: relative;">
-                                <canvas id="chartSalidas"></canvas>
-                            </div>
+                            <div style="height: 180px; position: relative;"><canvas id="chartSalidas"></canvas></div>
+                        </div>
+                        <div class="col-md-3">
+                            <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Cobrado vs Pendiente</h6>
+                            <div style="height: 180px; position: relative;"><canvas id="chartPagosVentas"></canvas></div>
                         </div>
                     </div>
                 </div>
@@ -113,24 +111,24 @@
         </div>
 
         <!-- MODULO COMPRAS -->
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
+        <div class="col-md-12">
+            <div class="card border-0 shadow-sm" style="border-radius: 12px;">
                 <div class="card-header bg-white border-bottom-0 pt-4 px-4">
                     <h5 class="fw-bold text-dark mb-0"><i class="bi bi-truck me-2 text-brand"></i>Módulo de Compras</h5>
                 </div>
                 <div class="card-body p-4">
-                    <div class="row g-3">
-                        <div class="col-6">
+                    <div class="row g-4">
+                        <div class="col-md-4">
                             <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Órdenes</h6>
-                            <div style="height: 150px; position: relative;">
-                                <canvas id="chartCompras"></canvas>
-                            </div>
+                            <div style="height: 180px; position: relative;"><canvas id="chartCompras"></canvas></div>
                         </div>
-                        <div class="col-6">
+                        <div class="col-md-4">
                             <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Recepciones</h6>
-                            <div style="height: 150px; position: relative;">
-                                <canvas id="chartRecepciones"></canvas>
-                            </div>
+                            <div style="height: 180px; position: relative;"><canvas id="chartRecepciones"></canvas></div>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Pagado vs Pendiente</h6>
+                            <div style="height: 180px; position: relative;"><canvas id="chartPagosCompras"></canvas></div>
                         </div>
                     </div>
                 </div>
@@ -138,14 +136,14 @@
         </div>
 
         <!-- MODULO PRODUCCIÓN -->
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
+        <div class="col-md-12">
+            <div class="card border-0 shadow-sm" style="border-radius: 12px;">
                 <div class="card-header bg-white border-bottom-0 pt-4 px-4">
                     <h5 class="fw-bold text-dark mb-0"><i class="bi bi-gear-fill me-2 text-brand"></i>Producción (Taller)</h5>
                 </div>
                 <div class="card-body p-4 d-flex flex-column align-items-center justify-content-center">
                     <h6 class="text-muted small text-uppercase fw-bold mb-3 w-100 text-center">Tablero de Control (OPs)</h6>
-                    <div style="width: 100%; max-width: 250px; height: 180px; position: relative;">
+                    <div style="width: 100%; max-width: 400px; height: 180px; position: relative;">
                         <canvas id="chartProduccion"></canvas>
                     </div>
                 </div>
@@ -158,12 +156,11 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // Colores estándar
     const colorMap = {
         'borrador': '#f1f3f5', 'enviada': '#e7f5ff', 'aprobada': '#d0ebff', 'aprobado': '#d0ebff',
         'ganada': '#ebfbee', 'rechazada': '#fff5f5', 'cancelada': '#fff5f5', 'cancelado': '#fff5f5',
-        'revision': '#fff3bf', 'pendiente': '#fff4e6', 'confirmado': '#e7f5ff', 'completo': '#ebfbee',
-        'completada': '#ebfbee', 'parcial': '#fff4e6', 'recibida': '#ebfbee', 'surtido': '#0ca678',
+        'revision': '#fff3bf', 'pendiente': '#ff8787', 'confirmado': '#e7f5ff', 'completo': '#ebfbee',
+        'completada': '#ebfbee', 'parcial': '#ffd43b', 'recibida': '#ebfbee', 'surtido': '#0ca678',
         'en_proceso': '#e7f5ff', 'testeo': '#fff3bf', 'terminado': '#2f9e44'
     };
 
@@ -173,60 +170,61 @@
         const canvas = document.getElementById(canvasId);
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
-        
         if (!statsData || statsData.length === 0) {
             ctx.font = "14px Inter"; ctx.fillStyle = "#adb5bd"; ctx.textAlign = "center";
-            ctx.fillText("Sin registros", canvas.width/2, canvas.height/2);
-            return;
+            ctx.fillText("Sin registros", canvas.width/2, canvas.height/2); return;
         }
-
         const labels = statsData.map(item => item.estado);
         const data = statsData.map(item => item.total);
-
         new Chart(ctx, {
             type: 'doughnut',
+            data: { labels: labels, datasets: [{ data: data, backgroundColor: getColors(labels), borderWidth: 1 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+        });
+    }
+
+    function createPaymentBarChart(canvasId, data) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (data.pagado === 0 && data.pendiente === 0) {
+            ctx.font = "14px Inter"; ctx.fillStyle = "#adb5bd"; ctx.textAlign = "center";
+            ctx.fillText("Sin datos monetarios", canvas.width/2, canvas.height/2); return;
+        }
+        new Chart(ctx, {
+            type: 'bar',
             data: {
-                labels: labels,
-                datasets: [{ data: data, backgroundColor: getColors(labels), borderWidth: 1 }]
+                labels: ['Pagado', 'Pendiente'],
+                datasets: [{
+                    data: [data.pagado, data.pendiente],
+                    backgroundColor: ['#0ca678', '#ff8787'],
+                    borderRadius: 5,
+                    barThickness: 30
+                }]
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+                scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v.toLocaleString() } } },
+                plugins: { legend: { display: false } }
             }
         });
     }
 
     document.addEventListener('DOMContentLoaded', function() {
         try {
-            // Parsear JSON de Django
             const stats = JSON.parse('{{ stats_json|escapejs }}');
             const resumen = JSON.parse('{{ resumen_json|escapejs }}');
             
-            // 1. Gráfica Comparativa (Bar)
+            // 1. Gráfica Comparativa Histórica
             const ctxComp = document.getElementById('chartComparativo').getContext('2d');
-            const totalData = resumen.some(r => r.ventas > 0 || r.compras > 0);
-
-            if (!totalData) {
-                ctxComp.font = "14px Inter"; ctxComp.fillStyle = "#adb5bd"; ctxComp.textAlign = "center";
-                ctxComp.fillText("Sin datos financieros este periodo", ctxComp.canvas.width/2, ctxComp.canvas.height/2);
-            } else {
+            if (resumen.some(r => r.ventas > 0 || r.compras > 0)) {
                 new Chart(ctxComp, {
                     type: 'bar',
                     data: {
                         labels: resumen.map(r => r.mes),
                         datasets: [
-                            {
-                                label: 'Compras',
-                                data: resumen.map(r => r.compras),
-                                backgroundColor: resumen.map(r => r.es_actual ? '#ff8787' : 'rgba(255, 135, 135, 0.25)'),
-                                borderRadius: 5,
-                            },
-                            {
-                                label: 'Ventas',
-                                data: resumen.map(r => r.ventas),
-                                backgroundColor: resumen.map(r => r.es_actual ? '#00b8b9' : 'rgba(0, 184, 185, 0.25)'),
-                                borderRadius: 5,
-                            }
+                            { label: 'Compras', data: resumen.map(r => r.compras), backgroundColor: resumen.map(r => r.es_actual ? '#ff8787' : 'rgba(255, 135, 135, 0.25)'), borderRadius: 5 },
+                            { label: 'Ventas', data: resumen.map(r => r.ventas), backgroundColor: resumen.map(r => r.es_actual ? '#00b8b9' : 'rgba(0, 184, 185, 0.25)'), borderRadius: 5 }
                         ]
                     },
                     options: {
@@ -235,9 +233,12 @@
                         plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 10 } } } }
                     }
                 });
+            } else {
+                ctxComp.font = "14px Inter"; ctxComp.fillStyle = "#adb5bd"; ctxComp.textAlign = "center";
+                ctxComp.fillText("Sin datos financieros este periodo", ctxComp.canvas.width/2, ctxComp.canvas.height/2);
             }
 
-            // 2. Gráficas de Dona
+            // 2. Gráficas de Dona (Conteo)
             createDoughnutChart('chartCotizaciones', stats.cotizaciones);
             createDoughnutChart('chartPedidos', stats.pedidos);
             createDoughnutChart('chartSalidas', stats.salidas);
@@ -245,9 +246,11 @@
             createDoughnutChart('chartRecepciones', stats.recepciones);
             createDoughnutChart('chartProduccion', stats.produccion);
 
-        } catch (e) {
-            console.error("Error al inicializar gráficas:", e);
-        }
+            // 3. Gráficas de Barras (Monetario)
+            createPaymentBarChart('chartPagosVentas', stats.monetario_ventas);
+            createPaymentBarChart('chartPagosCompras', stats.monetario_compras);
+
+        } catch (e) { console.error("Error al inicializar gráficas:", e); }
     });
 </script>
 {% endblock %}
