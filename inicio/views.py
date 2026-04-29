@@ -42,32 +42,45 @@ def dashboard_inicio(request):
     # --- DATOS PARA GRÁFICAS: PRODUCCIÓN ---
     stats_produccion = OrdenProduccion.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id'))
 
-    # --- RESUMEN OPERATIVO (VENTAS VS COMPRAS DEL MES) ---
+    # --- RESUMEN OPERATIVO (HISTÓRICO 4 MESES) ---
     ahora = timezone.now()
     mes_actual = ahora.month
     anio_actual = ahora.year
-    
-    # 1. Ventas del mes (OrdenVenta / Salidas) en MXN
-    ventas_mes = OrdenVenta.objects.filter(
-        empresa=empresa_actual,
-        fecha_creacion__year=anio_actual,
-        fecha_creacion__month=mes_actual
-    ).exclude(estado='cancelado').aggregate(
-        total_mxn=Sum(F('detalles__cantidad') * F('detalles__precio_unitario'))
-    )['total_mxn'] or Decimal('0.00')
-
-    # 2. Compras del mes (OrdenCompra) en MXN (Monto * TC)
-    compras_mes = OrdenCompra.objects.filter(
-        empresa=empresa_actual,
-        fecha__year=anio_actual,
-        fecha__month=mes_actual
-    ).exclude(estado='cancelada').aggregate(
-        total_mxn=Sum(F('detalles__cantidad') * F('detalles__precio_costo') * F('tipo_cambio'))
-    )['total_mxn'] or Decimal('0.00')
-
-    # Obtener nombre del mes
     meses_es = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
-    nombre_mes = meses_es[mes_actual - 1]
+    
+    resumen_periodo = []
+    # Obtenemos los últimos 4 meses (3 anteriores + actual)
+    for i in range(3, -1, -1):
+        target_month = mes_actual - i
+        target_year = anio_actual
+        while target_month <= 0:
+            target_month += 12
+            target_year -= 1
+        
+        # Ventas
+        v = OrdenVenta.objects.filter(
+            empresa=empresa_actual,
+            fecha_creacion__year=target_year,
+            fecha_creacion__month=target_month
+        ).exclude(estado='cancelado').aggregate(
+            total=Sum(F('detalles__cantidad') * F('detalles__precio_unitario'))
+        )['total'] or Decimal('0.00')
+
+        # Compras
+        c = OrdenCompra.objects.filter(
+            empresa=empresa_actual,
+            fecha__year=target_year,
+            fecha__month=target_month
+        ).exclude(estado='cancelada').aggregate(
+            total=Sum(F('detalles__cantidad') * F('detalles__precio_costo') * F('tipo_cambio'))
+        )['total'] or Decimal('0.00')
+
+        resumen_periodo.append({
+            'mes': meses_es[target_month - 1],
+            'ventas': float(v),
+            'compras': float(c),
+            'es_actual': (i == 0)
+        })
 
     contexto = {
         'empresa': empresa_actual,
@@ -81,10 +94,6 @@ def dashboard_inicio(request):
             'recepciones': list(stats_recepciones),
             'produccion': list(stats_produccion),
         },
-        'resumen_mes': {
-            'mes': nombre_mes,
-            'ventas': float(ventas_mes),
-            'compras': float(compras_mes)
-        }
+        'resumen_periodo': resumen_periodo
     }
     return render(request, 'inicio/dashboard_inicio.html', contexto)

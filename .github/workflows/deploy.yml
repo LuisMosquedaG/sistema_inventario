@@ -18,10 +18,8 @@ jobs:
             cd /var/www/django/sistema_inventario
             git fetch origin
             git reset --hard origin/main
-            source venv/bin/activate
-            pip install -r requirements.txt
-            python manage.py migrate --noinput
-            python manage.py collectstatic --clear --noinput
-            pkill -f gunicorn || true
-            nohup gunicorn --workers 3 --bind 127.0.0.1:8000 sistema_inventario.wsgi:application > /dev/null 2>&1 &
+            /var/www/django/sistema_inventario/venv/bin/pip install -r requirements.txt
+            /var/www/django/sistema_inventario/venv/bin/python manage.py migrate --noinput
+            /var/www/django/sistema_inventario/venv/bin/python manage.py collectstatic --clear --noinput
+            sudo systemctl restart gunicorn-sistema
             sudo systemctl reload nginx
