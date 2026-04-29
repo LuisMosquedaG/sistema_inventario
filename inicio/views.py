@@ -10,6 +10,7 @@ from compras.models import OrdenCompra
 from recepciones.models import Recepcion
 from produccion.models import OrdenProduccion
 from decimal import Decimal
+import json
 
 def get_empresa_actual(request):
     username = request.user.username
@@ -31,16 +32,16 @@ def dashboard_inicio(request):
     username_display = request.user.username.split('@')[0] if '@' in request.user.username else request.user.username
 
     # --- DATOS PARA GRÁFICAS: VENTAS ---
-    stats_cotizaciones = Cotizacion.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id'))
-    stats_pedidos = Pedido.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id'))
-    stats_salidas = OrdenVenta.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id'))
+    stats_cotizaciones = list(Cotizacion.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id')))
+    stats_pedidos = list(Pedido.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id')))
+    stats_salidas = list(OrdenVenta.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id')))
 
     # --- DATOS PARA GRÁFICAS: COMPRAS ---
-    stats_compras = OrdenCompra.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id'))
-    stats_recepciones = Recepcion.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id'))
+    stats_compras = list(OrdenCompra.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id')))
+    stats_recepciones = list(Recepcion.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id')))
 
     # --- DATOS PARA GRÁFICAS: PRODUCCIÓN ---
-    stats_produccion = OrdenProduccion.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id'))
+    stats_produccion = list(OrdenProduccion.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id')))
 
     # --- RESUMEN OPERATIVO (HISTÓRICO 4 MESES) ---
     ahora = timezone.now()
@@ -57,7 +58,7 @@ def dashboard_inicio(request):
             target_month += 12
             target_year -= 1
         
-        # Ventas
+        # Ventas: Suma de subtotales de partidas de OrdenVenta
         v = OrdenVenta.objects.filter(
             empresa=empresa_actual,
             fecha_creacion__year=target_year,
@@ -66,7 +67,7 @@ def dashboard_inicio(request):
             total=Sum(F('detalles__cantidad') * F('detalles__precio_unitario'))
         )['total'] or Decimal('0.00')
 
-        # Compras
+        # Compras: Suma de (cantidad * costo * TC) de partidas de OrdenCompra
         c = OrdenCompra.objects.filter(
             empresa=empresa_actual,
             fecha__year=target_year,
@@ -86,14 +87,14 @@ def dashboard_inicio(request):
         'empresa': empresa_actual,
         'username_display': username_display,
         'section': 'inicio',
-        'stats': {
-            'cotizaciones': list(stats_cotizaciones),
-            'pedidos': list(stats_pedidos),
-            'salidas': list(stats_salidas),
-            'compras': list(stats_compras),
-            'recepciones': list(stats_recepciones),
-            'produccion': list(stats_produccion),
-        },
-        'resumen_periodo': resumen_periodo
+        'stats_json': json.dumps({
+            'cotizaciones': stats_cotizaciones,
+            'pedidos': stats_pedidos,
+            'salidas': stats_salidas,
+            'compras': stats_compras,
+            'recepciones': stats_recepciones,
+            'produccion': stats_produccion,
+        }),
+        'resumen_json': json.dumps(resumen_periodo)
     }
     return render(request, 'inicio/dashboard_inicio.html', contexto)
