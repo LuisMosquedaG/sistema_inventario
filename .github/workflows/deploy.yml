@@ -18,6 +18,10 @@ jobs:
             cd /var/www/django/sistema_inventario
             git fetch origin
             git reset --hard origin/main
-            docker compose exec -T web python manage.py migrate
-            docker compose exec -T web python manage.py collectstatic --noinput
-            docker compose restart web
+            source venv/bin/activate
+            pip install -r requirements.txt
+            python manage.py migrate --noinput
+            python manage.py collectstatic --clear --noinput
+            pkill -f gunicorn
+            gunicorn --workers 3 --bind 127.0.0.1:8000 sistema_inventario.wsgi:application --daemon
+            sudo systemctl reload nginx
