@@ -11,6 +11,7 @@ from .models import OrdenProduccion, DetalleOrdenProduccion
 from core.models import Producto, DetalleReceta
 from almacenes.models import Inventario, Almacen
 from panel.models import Empresa
+from notificaciones.utils import crear_notificacion
 import json
 
 # --- HELPER MULTI-TENANCY ---
@@ -640,6 +641,14 @@ def avanzar_estado_produccion(request, orden_id):
             orden.fecha_inicio = timezone.now()
             orden.responsable = request.user
             orden.save()
+            
+            crear_notificacion(
+                empresa=empresa_actual,
+                actor=request.user,
+                mensaje=f'inició la producción de {orden.folio} ({orden.producto.nombre})',
+                propietario=orden.solicitante
+            )
+            
             messages.success(request, f'Orden {orden.folio} iniciada. Los materiales han sido reservados en bodega.')
         except Exception as e:
             messages.error(request, str(e))
@@ -648,6 +657,14 @@ def avanzar_estado_produccion(request, orden_id):
     elif nuevo_estado == 'testeo' and orden.estado == 'en_proceso':
         orden.estado = 'testeo'
         orden.save()
+        
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'envió {orden.folio} a Testeo / Calidad',
+            propietario=orden.solicitante
+        )
+        
         messages.info(request, f'Orden {orden.folio} enviada a Testeo / Calidad.')
         
     # 3. TESTEO -> TERMINADO
@@ -658,6 +675,12 @@ def avanzar_estado_produccion(request, orden_id):
         else:
             res = finalizar_produccion_logica(request, orden)
             if res.get('success'):
+                crear_notificacion(
+                    empresa=empresa_actual,
+                    actor=request.user,
+                    mensaje=f'finalizó el trabajo {orden.folio}',
+                    propietario=orden.solicitante
+                )
                 messages.success(request, res['message'])
             else:
                 messages.error(request, res.get('error'))

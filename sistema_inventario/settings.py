@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'produccion',
     'inicio',
     'tesoreria',
+    'notificaciones',
 ]
 
 MIDDLEWARE = [

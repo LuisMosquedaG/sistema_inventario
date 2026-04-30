@@ -15,6 +15,7 @@ from django.db import transaction
 from collections import defaultdict
 from solicitudcompras.models import SolicitudCompra, DetalleSolicitudCompra
 from produccion.models import OrdenProduccion
+from notificaciones.utils import crear_notificacion
 
 # --- HELPER MULTI-TENANCY ---
 def get_empresa_actual(request):
@@ -82,6 +83,12 @@ def crear_pedido_manual(request):
                 raise Exception("Debes agregar al menos un producto al pedido.")
 
             messages.success(request, f'Pedido #{nuevo_pedido.id} creado correctamente.')
+            crear_notificacion(
+                empresa=empresa_actual,
+                actor=request.user,
+                mensaje=f'creó el pedido manual #{nuevo_pedido.id:04d}',
+                propietario=request.user
+            )
             return JsonResponse({'success': True})
 
         except Exception as e:
@@ -229,6 +236,12 @@ def crear_pedido_desde_cotizacion(request, cotizacion_id):
         cotizacion.save()
 
         messages.success(request, f'Pedido #{nuevo_pedido.id} creado exitosamente. Por favor confírmalo para validar stock.')
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'generó el pedido #{nuevo_pedido.id:04d} desde {cotizacion.folio_completo}',
+            propietario=request.user
+        )
         return redirect('dashboard_pedidos')
 
     except Exception as e:
@@ -499,6 +512,13 @@ def ejecutar_reserva(request, detalle_id):
     # 3. Actualizar estado de la línea
     detalle.estado_linea = 'reservado'
     detalle.save()
+
+    crear_notificacion(
+        empresa=empresa_actual,
+        actor=request.user,
+        mensaje=f'reservó {detalle.cantidad_solicitada} pz de {detalle.producto.nombre} para Pedido #{pedido.id:04d}',
+        propietario=pedido.vendedor
+    )
 
     # --- NUEVA LÓGICA: Verificar si el pedido está COMPLETO ---
     # Buscamos si quedan líneas que NO estén 'reservadas' o 'completas'

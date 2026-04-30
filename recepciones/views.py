@@ -9,6 +9,7 @@ from compras.models import OrdenCompra, DetalleCompra
 from almacenes.models import Almacen, Inventario
 from .services import procesar_recepcion_servicio
 from panel.models import Empresa 
+from notificaciones.utils import crear_notificacion
 
 # --- 1. FUNCIÓN AYUDANTE ESTÁNDAR ---
 def get_empresa_actual(request):
@@ -171,6 +172,14 @@ def crear_recepcion(request):
                 empresa_actual=empresa_actual,
                 usuario=request.user
             )
+
+            crear_notificacion(
+                empresa=empresa_actual,
+                actor=request.user,
+                mensaje=f'procesó recepción REC-{recepcion.id:04d} para OC-{recepcion.orden_compra.id:04d}',
+                propietario=recepcion.orden_compra.usuario
+            )
+
             return JsonResponse({'success': True, 'message': 'Recepción procesada exitosamente.'})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})

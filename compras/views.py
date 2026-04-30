@@ -11,6 +11,7 @@ from preferencias.models import Moneda
 from django.utils import timezone
 from .services import crear_orden_compra_servicio
 from panel.models import Empresa 
+from notificaciones.utils import crear_notificacion
 
 # --- 1. FUNCIÓN AYUDANTE (Estándar en todo el proyecto) ---
 def get_empresa_actual(request):
@@ -130,6 +131,13 @@ def crear_compra(request):
                 empresa_actual=empresa_actual
             )
 
+            crear_notificacion(
+                empresa=empresa_actual,
+                actor=request.user,
+                mensaje=f'creó la orden de compra OC-{orden.id:04d}',
+                propietario=request.user
+            )
+
             return JsonResponse({'success': True, 'message': 'Orden creada correctamente.'})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
@@ -145,6 +153,12 @@ def cambiar_estado_compra(request, compra_id):
         if nuevo_estado in ['borrador', 'aprobada', 'recibida', 'cancelada', 'parcial']:
             compra.estado = nuevo_estado
             compra.save()
+            crear_notificacion(
+                empresa=empresa_actual,
+                actor=request.user,
+                mensaje=f'cambió estado de OC-{compra.id:04d} a {nuevo_estado}',
+                propietario=compra.usuario
+            )
             return JsonResponse({'success': True, 'message': f'Estado cambiado a {nuevo_estado}'})
         else:
             return JsonResponse({'success': False, 'error': 'Estado inválido'})

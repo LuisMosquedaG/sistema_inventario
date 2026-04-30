@@ -117,6 +117,7 @@ urlpatterns = [
     path('solicitudes-compras/', include('solicitudcompras.urls')),
     path('tesoreria/', include('tesoreria.urls')),
     path('produccion/', include('produccion.urls')),
+    path('notificaciones/', include('notificaciones.urls')),
     
     path('inventario/', include('almacenes.urls')), 
     path('inventario/', include('categorias.urls')),

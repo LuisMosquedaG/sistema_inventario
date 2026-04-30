@@ -12,6 +12,7 @@ from almacenes.models import Inventario
 from clientes.models import Cliente
 from core.models import Producto
 from django.db.models import F
+from notificaciones.utils import crear_notificacion
 
 def get_empresa_actual(request):
     username = request.user.username
@@ -167,6 +168,13 @@ def crear_salida_directa(request):
                 cantidad=int(cantidades[i]),
                 precio_unitario=Decimal(precios[i])
             )
+
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'creó salida directa {ov.folio_display}',
+            propietario=request.user
+        )
 
         messages.success(request, f'Orden de Salida OS-{ov.id:04d} creada correctamente.')
     except Exception as e:
@@ -442,6 +450,13 @@ def ejecutar_surtido(request, ov_id):
         ov.estado = 'surtido'
         ov.estado_entrega = 'listo'
         ov.save()
+
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'surtió la orden {ov.folio_display}',
+            propietario=ov.vendedor
+        )
 
         # Solo actualizar pedido si NO hay más órdenes pendientes para este pedido
         if ov.pedido_origen:

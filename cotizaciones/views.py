@@ -9,6 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from panel.models import Empresa
+from notificaciones.utils import crear_notificacion
 
 # --- 1. FUNCIÓN AYUDANTE ESTÁNDAR ---
 def get_empresa_actual(request):
@@ -161,6 +162,12 @@ def crear_cotizacion(request):
             
             if count > 0:
                 messages.success(request, f'Cotización #{nueva_cotizacion.id} guardada con {count} productos.')
+                crear_notificacion(
+                    empresa=empresa_actual,
+                    actor=request.user,
+                    mensaje=f'creó la cotización {nueva_cotizacion.folio_completo}',
+                    propietario=request.user
+                )
             else:
                 messages.warning(request, 'Cotización creada pero sin productos.')
 
@@ -289,6 +296,12 @@ def aprobar_cotizacion(request, cotizacion_id):
             if cotizacion.estado == 'borrador':
                 cotizacion.estado = 'aprobada'
                 cotizacion.save()
+                crear_notificacion(
+                    empresa=empresa_actual,
+                    actor=request.user,
+                    mensaje=f'aprobó la cotización {cotizacion.folio_completo}',
+                    propietario=cotizacion.vendedor
+                )
                 return JsonResponse({'success': True})
             else:
                 return JsonResponse({'success': False, 'error': 'La cotización ya no está en borrador.'})
@@ -336,6 +349,12 @@ def recotizar(request, cotizacion_id):
                 )
 
             messages.success(request, f'Cotización recotizada exitosamente. Nuevo folio: {nueva.folio_completo}')
+            crear_notificacion(
+                empresa=empresa_actual,
+                actor=request.user,
+                mensaje=f'recotizó {original.folio_completo} -> {nueva.folio_completo}',
+                propietario=original.vendedor
+            )
             return redirect('dashboard_cotizaciones')
 
         except Exception as e:
@@ -361,6 +380,12 @@ def cancelar_cotizacion(request, cotizacion_id):
                 cotizacion.resultado = 'perdida'
                 cotizacion.save()
                 messages.success(request, f'Cotización #{cotizacion.id} cancelada correctamente.')
+                crear_notificacion(
+                    empresa=empresa_actual,
+                    actor=request.user,
+                    mensaje=f'canceló la cotización {cotizacion.folio_completo}',
+                    propietario=cotizacion.vendedor
+                )
             else:
                 messages.error(request, 'Solo se pueden cancelar cotizaciones en estado borrador o aprobada.')
                 

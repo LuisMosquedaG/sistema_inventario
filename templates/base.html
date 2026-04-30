@@ -197,6 +197,9 @@
 </head>
 <body class="{% if '/inventario/' in request.path or '/ventas/' in request.path or '/compras/' in request.path %}sidebar-open{% endif %}">
 
+    <!-- Contenedor para Toasts de Notificaciones -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer" style="z-index: 2000;"></div>
+
     <!-- TOP BAR MÓVIL -->
     <div class="mobile-top-bar">
         <div class="d-flex align-items-center">
@@ -348,11 +351,12 @@
 
         <!-- FOOTER (RESTAURADO) -->
         <div class="sidebar-footer d-flex justify-content-between align-items-center">
-            <div class="d-flex align-items-center">
-                <i class="bi bi-person-circle me-2" style="font-size: 1.2rem; color: #00b8b9;"></i>
-                <span style="font-size: 0.85rem; font-weight: 500;">{{ user.username }}</span>
+            <div class="d-flex align-items-center overflow-hidden">
+                <i class="bi bi-person-circle me-2" style="font-size: 1.2rem; color: #00b8b9; flex-shrink: 0;"></i>
+                <span id="userNameDisplay" style="font-size: 0.85rem; font-weight: 500;" class="text-truncate">{{ user.username }}</span>
             </div>
             <div class="d-flex align-items-center">
+                <a href="/notificaciones/historial/" class="me-3" title="Notificaciones"><i class="bi bi-bell" style="font-size: 1.1rem; color: #adb5bd;"></i></a>
                 <a href="/preferencias/" class="me-3" title="Preferencias"><i class="bi bi-gear" style="font-size: 1.1rem; color: #adb5bd;"></i></a>
                 <a href="/logout/" title="Cerrar Sesión"><i class="bi bi-door-open" style="font-size: 1.1rem;"></i></a>
             </div>
@@ -369,6 +373,58 @@
     <script src="{% static 'js/utils.js' %}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Limpiar nombre de usuario (quitar @dominio)
+            const nameEl = document.getElementById('userNameDisplay');
+            if (nameEl) {
+                const fullText = nameEl.innerText;
+                if (fullText.includes('@')) {
+                    nameEl.innerText = fullText.split('@')[0];
+                }
+            }
+
+            // Lógica de Notificaciones
+            function fetchNotificaciones() {
+                fetch('/notificaciones/api/recientes/')
+                    .then(r => r.json())
+                    .then(data => {
+                        if(data.success && data.notificaciones.length > 0) {
+                            data.notificaciones.forEach(n => {
+                                showToast(n);
+                            });
+                        }
+                    })
+                    .catch(e => console.log("Error fetching notif"));
+            }
+
+            function showToast(n) {
+                const container = document.getElementById('toastContainer');
+                const toastId = 'toast-' + n.id;
+                const html = `
+                    <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="true" data-bs-delay="8000">
+                        <div class="toast-header border-bottom-0" style="background: rgba(0, 184, 185, 0.05);">
+                            <i class="bi bi-bell-fill me-2" style="color: #00b8b9;"></i>
+                            <strong class="me-auto text-dark">Notificación</strong>
+                            <small class="text-muted">${n.fecha}</small>
+                            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>
+                        <div class="toast-body">
+                            <div class="mb-2"><strong>${n.actor}</strong> ${n.mensaje}</div>
+                            ${n.link != '#' ? `<a href="${n.link}" class="btn btn-sm px-3 text-white" style="background-color: #00b8b9; font-size: 0.7rem;">Ver registro</a>` : ''}
+                        </div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', html);
+                const el = document.getElementById(toastId);
+                const toast = new bootstrap.Toast(el);
+                toast.show();
+                el.addEventListener('hidden.bs.toast', () => { el.remove(); });
+            }
+
+            {% if user.is_authenticated %}
+                setInterval(fetchNotificaciones, 8000); // Polling cada 8 segundos
+                fetchNotificaciones(); // Carga inicial
+            {% endif %}
+
             const sidebar = document.getElementById('sidebarMenu');
             const toggle = document.getElementById('sidebarToggle');
             const close = document.getElementById('sidebarClose');
