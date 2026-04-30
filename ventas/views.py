@@ -219,6 +219,15 @@ def crear_orden_venta(request, pedido_id):
             precio_unitario=linea.precio_unitario
         )
 
+    # NOTIFICACIÓN
+    crear_notificacion(
+        empresa=empresa_actual,
+        mensaje=f"Se ha generado una Orden de Salida #{ov.id} desde el Pedido #{pedido.id}",
+        tipo='venta',
+        actor=request.user,
+        propietario_recurso=pedido.vendedor if pedido.vendedor else None
+    )
+
     messages.success(request, f'Orden de Salida #{ov.id} creada en estado Borrador.')
     return redirect('dashboard_ventas')
 
@@ -229,6 +238,16 @@ def cambiar_estado_ov(request, ov_id, nuevo_estado):
     if nuevo_estado == 'aprobado' and ov.estado == 'borrador':
         ov.estado = 'aprobado'
         ov.save()
+
+        # NOTIFICACIÓN
+        crear_notificacion(
+            empresa=empresa_actual,
+            mensaje=f"La Orden de Salida #{ov.id} ha sido Aprobada.",
+            tipo='venta',
+            actor=request.user,
+            propietario_recurso=ov.vendedor if ov.vendedor else None
+        )
+
         messages.success(request, 'Orden de Salida Aprobada. Lista para surtir.')
     return redirect('dashboard_ventas')
 
