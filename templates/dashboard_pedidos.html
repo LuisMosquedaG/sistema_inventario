@@ -1353,5 +1353,46 @@
         }
     });
 
+    // ==========================================
+    // ALERTA AL CERRAR MODAL NUEVO PEDIDO
+    // ==========================================
+    let isSubmittingPedido = false;
+    document.addEventListener('DOMContentLoaded', function() {
+        const formPed = document.getElementById('formNuevoPedido');
+        if (formPed) {
+            formPed.addEventListener('submit', function() {
+                isSubmittingPedido = true;
+            });
+        }
+
+        const modalNP = document.getElementById('modalNuevoPedido');
+        if (modalNP) {
+            modalNP.addEventListener('hide.bs.modal', function (e) {
+                // Si el cierre es por submit exitoso, dejar pasar
+                if (isSubmittingPedido) return;
+
+                // Verificar si hay cambios reales
+                const tableRows = document.querySelectorAll('#tablaCuerpoNuevo tr').length;
+                const clienteId = document.getElementById('selectClienteNuevo').value;
+                const notas = document.querySelector('textarea[name="notas"]').value;
+
+                // Si hay datos, pedimos confirmación
+                if (tableRows > 0 || (clienteId && clienteId !== "") || (notas && notas.trim() !== "")) {
+                    const mensaje = "¿Estás seguro de cerrar la ventana? Perderás los cambios que no hayas guardado.";
+                    if (!confirm(mensaje)) {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                        return false;
+                    }
+                }
+            });
+            
+            // Resetear bandera cuando el modal se termina de cerrar
+            modalNP.addEventListener('hidden.bs.modal', function() {
+                isSubmittingPedido = false;
+            });
+        }
+    });
+
 </script>
 {% endblock %}

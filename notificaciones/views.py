@@ -32,8 +32,13 @@ def api_notificaciones_recientes(request):
         # Admins ven todo de su empresa (excepto lo propio)
         qs = Notificacion.objects.filter(empresa=empresa, visto_en_toast=False).exclude(actor=request.user)
     else:
-        # Usuarios ven solo notificaciones de sus registros (excepto lo propio)
-        qs = Notificacion.objects.filter(empresa=empresa, propietario_recurso=request.user, visto_en_toast=False).exclude(actor=request.user)
+        # Usuarios ven solo notificaciones de sus registros (excepto lo propio) o globales (propietario=None)
+        from django.db.models import Q
+        qs = Notificacion.objects.filter(
+            Q(propietario_recurso=request.user) | Q(propietario_recurso__isnull=True),
+            empresa=empresa, 
+            visto_en_toast=False
+        ).exclude(actor=request.user)
 
     data = []
     for n in qs:
@@ -65,7 +70,12 @@ def lista_notificaciones(request):
     if es_admin:
         qs = Notificacion.objects.filter(empresa=empresa, fecha__gte=hace_una_semana)
     else:
-        qs = Notificacion.objects.filter(empresa=empresa, propietario_recurso=request.user, fecha__gte=hace_una_semana)
+        from django.db.models import Q
+        qs = Notificacion.objects.filter(
+            Q(propietario_recurso=request.user) | Q(propietario_recurso__isnull=True),
+            empresa=empresa, 
+            fecha__gte=hace_una_semana
+        )
 
     # Limpiar nombres de usuario para la plantilla
     for n in qs:

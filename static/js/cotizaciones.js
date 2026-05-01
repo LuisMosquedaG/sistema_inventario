@@ -311,7 +311,48 @@ window.cargarParaEdicion = function(id) {
         .catch(error => console.error('Error:', error));
 };
 
+// ==========================================
+// ALERTA AL CERRAR MODAL (NUEVA/EDITAR)
+// ==========================================
+let isSubmittingCotizacion = false;
 document.addEventListener('DOMContentLoaded', function() {
+    const formCot = document.getElementById('formCotizacion');
+    if (formCot) {
+        formCot.addEventListener('submit', function() {
+            isSubmittingCotizacion = true;
+        });
+    }
+
+    const modalNC = document.getElementById('modalNuevaCotizacion');
+    if (modalNC) {
+        modalNC.addEventListener('hide.bs.modal', function (e) {
+            // Si el cierre es por submit exitoso, dejar pasar
+            if (isSubmittingCotizacion) {
+                return;
+            }
+
+            // Verificar si hay cambios reales
+            const tableRows = document.querySelectorAll('#tablaCuerpo tr').length;
+            const clienteId = document.getElementById('cliente_id_input').value;
+            const origen = document.querySelector('input[name="origen"]').value;
+            const direccion = document.querySelector('input[name="direccion_entrega"]').value;
+
+            // Si hay datos, pedimos confirmación
+            if (tableRows > 0 || clienteId !== "" || (origen && origen !== "") || (direccion && direccion !== "")) {
+                const mensaje = "¿Estás seguro de cerrar la ventana? Perderás los cambios que no hayas guardado.";
+                if (!confirm(mensaje)) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    return false;
+                }
+            }
+        });
+        
+        // Resetear bandera cuando el modal se termina de cerrar (por si falló el submit o fue cancelado)
+        modalNC.addEventListener('hidden.bs.modal', function() {
+            isSubmittingCotizacion = false;
+        });
+    }
 
     // ==========================================
     // LÓGICA FILTRO CLIENTE (DASHBOARD)

@@ -1226,5 +1226,59 @@
             else { alert('Error: ' + data.error); btn.disabled = false; btn.innerText = "Crear Solicitud"; }
         });
     });
+
+    // ==========================================
+    // ALERTA AL CERRAR MODALES DE SOLICITUD
+    // ==========================================
+    let isSubmittingSolicitud = false;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Formulario de Edición
+        const formEdit = document.getElementById('formEditarSolicitud');
+        if (formEdit) {
+            formEdit.addEventListener('submit', function() { isSubmittingSolicitud = true; });
+        }
+
+        // Formulario Manual (Nueva)
+        const formManual = document.getElementById('formNuevaSolicitudManual');
+        if (formManual) {
+            formManual.addEventListener('submit', function() { isSubmittingSolicitud = true; });
+        }
+
+        // Modal Editar
+        const modalEdit = document.getElementById('modalEditarSolicitud');
+        if (modalEdit) {
+            modalEdit.addEventListener('hide.bs.modal', function (e) {
+                if (isSubmittingSolicitud) return;
+                // Al ser edición, siempre hay datos. Preguntamos si está seguro de salir.
+                if (!confirm("¿Estás seguro de cerrar la edición? Se perderán los cambios que no hayas guardado.")) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    return false;
+                }
+            });
+            modalEdit.addEventListener('hidden.bs.modal', function() { isSubmittingSolicitud = false; });
+        }
+
+        // Modal Nueva (Manual)
+        const modalManual = document.getElementById('modalNuevaSolicitudManual');
+        if (modalManual) {
+            modalManual.addEventListener('hide.bs.modal', function (e) {
+                if (isSubmittingSolicitud) return;
+
+                const tableRows = document.querySelectorAll('#tablaCuerpoManual tr').length;
+                const notas = document.querySelector('#formNuevaSolicitudManual textarea[name="notas"]').value;
+
+                if (tableRows > 0 || (notas && notas.trim() !== "")) {
+                    if (!confirm("¿Estás seguro de cerrar la ventana? Perderás los cambios que no hayas guardado.")) {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                        return false;
+                    }
+                }
+            });
+            modalManual.addEventListener('hidden.bs.modal', function() { isSubmittingSolicitud = false; });
+        }
+    });
 </script>
 {% endblock %}

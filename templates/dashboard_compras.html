@@ -874,8 +874,46 @@
 
         document.getElementById('formCompra').addEventListener('submit', function(e) {
             e.preventDefault();
+            isSubmittingCompra = true;
             fetch(this.action, { method: 'POST', body: new FormData(this), headers: { 'X-CSRFToken': '{{ csrf_token }}' } })
-            .then(r => r.json()).then(data => { if(data.success) location.reload(); else alert('Error: ' + data.error); });
+            .then(r => r.json()).then(data => { 
+                if(data.success) location.reload(); 
+                else {
+                    alert('Error: ' + data.error);
+                    isSubmittingCompra = false;
+                }
+            });
+        });
+
+        // ==========================================
+        // ALERTA AL CERRAR MODAL DE COMPRA
+        // ==========================================
+        let isSubmittingCompra = false;
+        document.addEventListener('DOMContentLoaded', function() {
+            const modalNC = document.getElementById('modalNuevaCompra');
+            if (modalNC) {
+                modalNC.addEventListener('hide.bs.modal', function (e) {
+                    if (isSubmittingCompra) return;
+
+                    // Verificar si hay cambios reales
+                    const tableRows = document.querySelectorAll('#tablaCuerpo tr').length;
+                    const provId = document.querySelector('#formCompra [name="proveedor"]').value;
+                    const notas = document.getElementById('inputNotasOC').value;
+
+                    // Si hay datos, pedimos confirmación
+                    if (tableRows > 0 || (provId && provId !== "") || (notas && notas.trim() !== "")) {
+                        if (!confirm("¿Estás seguro de cerrar la ventana? Perderás los cambios que no hayas guardado.")) {
+                            e.preventDefault();
+                            e.stopImmediatePropagation();
+                            return false;
+                        }
+                    }
+                });
+                
+                modalNC.addEventListener('hidden.bs.modal', function() {
+                    isSubmittingCompra = false;
+                });
+            }
         });
 
         function getCookie(name) {

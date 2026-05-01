@@ -838,6 +838,7 @@
         }
 
         function guardarCambiosOrden() {
+            isSubmittingProduccion = true;
             const data = { 
                 notas: document.getElementById('inputNotas').value, 
                 componentes: materialesEdicion,
@@ -855,6 +856,7 @@
                     location.reload(); 
                 } else { 
                     alert('Error: ' + res.error); 
+                    isSubmittingProduccion = false;
                 } 
             });
         }
@@ -996,6 +998,52 @@
                     prepararModalFinalizacion(ordenData);
                 });
         }
+
+        // ==========================================
+        // ALERTA AL CERRAR MODALES DE PRODUCCIÓN
+        // ==========================================
+        let isSubmittingProduccion = false;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Formulario Nueva Orden
+            const formNueva = document.getElementById('formNuevaOrden');
+            if (formNueva) {
+                formNueva.addEventListener('submit', function() { isSubmittingProduccion = true; });
+            }
+
+            // Modal Nueva Orden
+            const modalNueva = document.getElementById('modalNuevaOrdenManual');
+            if (modalNueva) {
+                modalNueva.addEventListener('hide.bs.modal', function (e) {
+                    if (isSubmittingProduccion) return;
+                    
+                    // Verificar si hay artículos agregados en la lista global itemsProduccion
+                    if (itemsProduccion.length > 0) {
+                        if (!confirm("¿Estás seguro de cerrar la ventana? Perderás los cambios que no hayas guardado.")) {
+                            e.preventDefault();
+                            e.stopImmediatePropagation();
+                            return false;
+                        }
+                    }
+                });
+                modalNueva.addEventListener('hidden.bs.modal', function() { isSubmittingProduccion = false; });
+            }
+
+            // Modal Editar Orden
+            const modalEdit = document.getElementById('modalEditarOrden');
+            if (modalEdit) {
+                modalEdit.addEventListener('hide.bs.modal', function (e) {
+                    if (isSubmittingProduccion) return;
+                    // Al ser edición, siempre hay datos. Preguntamos si está seguro de salir.
+                    if (!confirm("¿Estás seguro de cerrar la edición? Se perderán los cambios que no hayas guardado.")) {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                        return false;
+                    }
+                });
+                modalEdit.addEventListener('hidden.bs.modal', function() { isSubmittingProduccion = false; });
+            }
+        });
 
         function getCookie(name) {
             let cookieValue = null;

@@ -251,6 +251,44 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ==========================================
+    // ALERTA AL CERRAR MODAL NUEVA SALIDA
+    // ==========================================
+    let isSubmittingSalida = false;
+    const formSalida = document.getElementById('formSalidaDirecta');
+    if (formSalida) {
+        formSalida.addEventListener('submit', function() {
+            isSubmittingSalida = true;
+        });
+    }
+
+    const modalNS = document.getElementById('modalNuevaSalidaDirecta');
+    if (modalNS) {
+        modalNS.addEventListener('hide.bs.modal', function (e) {
+            // Si el cierre es por submit exitoso, dejar pasar
+            if (isSubmittingSalida) return;
+
+            // Verificar si hay cambios reales
+            const tableRows = document.querySelectorAll('#tablaCuerpoSalida tr').length;
+            const clienteId = document.querySelector('#modalNuevaSalidaDirecta select[name="cliente"]').value;
+
+            // Si hay datos, pedimos confirmación
+            if (tableRows > 0 || (clienteId && clienteId !== "")) {
+                const mensaje = "¿Estás seguro de cerrar la ventana? Perderás los cambios que no hayas guardado.";
+                if (!confirm(mensaje)) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    return false;
+                }
+            }
+        });
+        
+        // Resetear bandera cuando el modal se termina de cerrar
+        modalNS.addEventListener('hidden.bs.modal', function() {
+            isSubmittingSalida = false;
+        });
+    }
+
+    // ==========================================
     // LÓGICA FILTRO CLIENTE (DASHBOARD)
     // ==========================================
     const wrapperFiltro = document.getElementById('wrapperFiltroCliente');
