@@ -205,7 +205,7 @@ def crear_orden_venta(request, pedido_id):
     ov = OrdenVenta.objects.create(
         pedido_origen=pedido,
         cliente=pedido.cliente,
-        vendedor=request.user,
+        vendedor=pedido.vendedor, # Se hereda el vendedor del pedido original
         empresa=empresa_actual,
         estado='borrador'
     )
@@ -224,7 +224,7 @@ def crear_orden_venta(request, pedido_id):
         empresa=empresa_actual,
         mensaje=f"Se ha generado una Orden de Salida #{ov.id} desde el Pedido #{pedido.id}",
         actor=request.user,
-        propietario=pedido.vendedor if pedido.vendedor else None
+        propietario=pedido.vendedor # El dueño es el vendedor original
     )
 
     messages.success(request, f'Orden de Salida #{ov.id} creada en estado Borrador.')
@@ -243,7 +243,7 @@ def cambiar_estado_ov(request, ov_id, nuevo_estado):
             empresa=empresa_actual,
             mensaje=f"La Orden de Salida #{ov.id} ha sido Aprobada.",
             actor=request.user,
-            propietario=ov.vendedor if ov.vendedor else None
+            propietario=ov.vendedor
         )
 
         messages.success(request, 'Orden de Salida Aprobada. Lista para surtir.')
@@ -503,6 +503,14 @@ def actualizar_estado_entrega(request, ov_id):
     if nuevo_estado in ['transito', 'entregado']:
         ov.estado_entrega = nuevo_estado
         ov.save()
+        
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'marcó como {ov.get_estado_entrega_display()} la orden {ov.folio_display}',
+            propietario=ov.vendedor
+        )
+        
         messages.success(request, f"Estado de entrega actualizado a {ov.get_estado_entrega_display()}.")
     
     return redirect('dashboard_ventas')

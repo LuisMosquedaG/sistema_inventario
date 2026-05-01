@@ -315,7 +315,8 @@ def crear_usuario_ajax(request):
                 user.is_staff = True
                 user.is_superuser = True
             else:
-                user.is_staff = True
+                # Los usuarios con rol 'usuario' no son is_staff para restringir su visibilidad en notificaciones
+                user.is_staff = False
                 user.is_superuser = False 
 
             user.save()
@@ -339,7 +340,7 @@ def api_detalle_usuario(request, user_id):
         'id': user.id,
         'username_corto': user.username.split('@')[0],
         'email': user.email,
-        'rol': 'admin' if user.is_superuser else 'staff'
+        'rol': 'admin' if user.is_superuser else 'usuario'
     })
 
 @login_required
@@ -358,7 +359,7 @@ def actualizar_usuario_ajax(request, user_id):
             if rol == 'admin':
                 user.is_staff = True; user.is_superuser = True
             else:
-                user.is_staff = True; user.is_superuser = False
+                user.is_staff = False; user.is_superuser = False
             
             passw = request.POST.get('password1')
             if passw: user.set_password(passw)
