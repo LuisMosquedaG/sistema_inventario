@@ -473,9 +473,8 @@ def autorizar_solicitud(request, solicitud_id):
         crear_notificacion(
             empresa=empresa_actual,
             mensaje=f"La Solicitud #{solicitud.id} ha sido autorizada y se generaron {ordenes_creadas_count} órdenes de compra.",
-            tipo='compra',
             actor=request.user,
-            propietario_recurso=solicitud.solicitante
+            propietario=solicitud.solicitante
         )
 
         msg = f'Solicitud autorizada. Se generaron {ordenes_creadas_count} órdenes de compra.'

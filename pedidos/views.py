@@ -666,9 +666,8 @@ def generar_solicitud_global(request, pedido_id):
     crear_notificacion(
         empresa=empresa_actual,
         mensaje=f"Se ha generado una Solicitud de Compra desde el Pedido #{pedido.id}",
-        tipo='solicitud_compra',
         actor=request.user,
-        propietario_recurso=pedido.vendedor if pedido.vendedor else None
+        propietario=pedido.vendedor if pedido.vendedor else None
     )
 
     messages.success(request, f'Solicitud Global generada exitosamente con {len(mapa_solicitud)} ítems únicos.')
