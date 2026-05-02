@@ -121,52 +121,42 @@
                                 <tr>
                                     <!-- 1. ACCIONES -->
                                     <td class="text-center">
-                                        <div class="d-flex justify-content-center">
+                                        <div class="d-flex justify-content-center" style="gap: 2px;">
                                             
                                             <span onclick="verCotizacion({{ c.id }})" class="icon-action" title="Ver">
                                                 <i class="bi bi-eye"></i>
                                             </span>
 
-                                            <a href="{% url 'imprimir_cotizacion' c.id %}" target="_blank" class="icon-action" title="Imprimir">
-                                                <i class="bi bi-printer"></i>
-                                            </a>
-
-                                            <!-- 1. ESTADO BORRADOR -->
                                             {% if c.estado == 'borrador' %}
-                                            
-                                            <span onclick="confirmarAprobacion({{ c.id }})" class="icon-action" title="Aprobar">
-                                                <i class="bi bi-check2-circle"></i>
-                                            </span>
-                                            
                                             <span onclick="cargarParaEdicion({{ c.id }})" class="icon-action" title="Editar">
                                                 <i class="bi bi-pencil-square"></i>
                                             </span>
-
-                                            {% if not c.tiene_pedido %}
-                                            <form method="post" action="{% url 'cancelar_cotizacion' c.id %}" style="display:inline;">
-                                                {% csrf_token %}
-                                                <button type="submit" class="icon-action state-cancelled border-0 bg-transparent p-0 m-0" title="Cancelar" onclick="return confirm('¿Deseas cancelar esta cotización?')">
-                                                    <i class="bi bi-x-circle"></i>
-                                                </button>
-                                            </form>
                                             {% endif %}
 
-                                            <!-- 2. ESTADO APROBADA -->
-                                            {% elif c.estado == 'aprobada' %}
-                                            {% if not c.tiene_pedido %}
+                                            <span onclick="descargarPDFDirecto({{ c.id }})" class="icon-action" title="Descargar PDF">
+                                                <i class="bi bi-printer"></i>
+                                            </span>
+
+                                            {% if c.estado == 'aprobada' and not c.tiene_pedido %}
                                             <a href="{% url 'crear_pedido_desde_cotizacion' c.id %}" class="icon-action" title="Crear Pedido">
                                                 <i class="bi bi-box-seam"></i>
                                             </a>
                                             {% endif %}
-                                            
+
+                                            {% if c.estado == 'borrador' %}
+                                            <span onclick="confirmarAprobacion({{ c.id }})" class="icon-action" title="Aprobar">
+                                                <i class="bi bi-check2-circle"></i>
+                                            </span>
+                                            {% elif c.estado == 'aprobada' %}
                                             <form method="post" action="/cotizaciones/recotizar/{{ c.id }}/" style="display:inline;">
                                                 {% csrf_token %}
                                                 <button type="submit" class="icon-action border-0 bg-transparent p-0 m-0" title="Recotizar" onclick="return confirm('¿Deseas cancelar esta cotización y generar una nueva versión?')">
                                                     <i class="bi bi-arrow-repeat"></i>
                                                 </button>
                                             </form>
+                                            {% endif %}
 
-                                            {% if not c.tiene_pedido %}
+                                            {% if not c.tiene_pedido and c.estado != 'cancelada' %}
                                             <form method="post" action="{% url 'cancelar_cotizacion' c.id %}" style="display:inline;">
                                                 {% csrf_token %}
                                                 <button type="submit" class="icon-action state-cancelled border-0 bg-transparent p-0 m-0" title="Cancelar" onclick="return confirm('¿Deseas cancelar esta cotización?')">
@@ -174,14 +164,12 @@
                                                 </button>
                                             </form>
                                             {% endif %}
-
-                                            {% endif %}
                                         </div>
                                     </td>
 
                                     <!-- 2. FOLIO -->
                                     <td class="text-center font-monospace small">
-                                        <span class="fw-bold text-dark">{{ c.folio_completo }}</span>
+                                        <span class="text-dark">{{ c.folio_completo }}</span>
                                         {% if c.parent_quote %}
                                         <sup class="text-muted" style="font-size:0.6rem;">(Rev.)</sup>
                                         {% endif %}
@@ -207,17 +195,17 @@
 
                                     <!-- 4. FECHA -->
                                     <td class="text-center">
-                                        <div class="text-dark fw-medium">{{ c.creado_en|date:"d M Y" }}</div>
+                                        <div class="text-dark">{{ c.creado_en|date:"d M Y" }}</div>
                                     </td>
 
                                     <!-- 5. VENCE -->
                                     <td class="text-center">
-                                        <div class="text-dark small fw-bold">{{ c.fecha_fin|date:"d M Y" }}</div>
+                                        <div class="text-dark small">{{ c.fecha_fin|date:"d M Y" }}</div>
                                     </td>
 
                                     <!-- 6. TOTAL -->
                                     <td class="text-center">
-                                        <span class="fw-bold text-success">${{ c.calcular_total }}</span>
+                                        <span class="text-dark">${{ c.calcular_total }}</span>
                                     </td>
 
                                     <!-- 7. ESTADO -->
@@ -268,8 +256,75 @@
     {% include "cotizaciones/modals/modal_crear_cliente_rapido.html" %}
     {% include "cotizaciones/modals/modal_crear_producto_rapido.html" %}
 
+    <!-- Div oculto para procesamiento de PDF -->
+    <div id="pdf-buffer" style="display:none;"></div>
+
 {% endblock %}
 
 {% block extra_js %}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="{% static 'js/cotizaciones.js' %}?v={% now 'U' %}"></script>
+    <script>
+        async function descargarPDFDirecto(id) {
+            const btn = event.currentTarget;
+            const icon = btn.querySelector('i');
+            const originalClass = icon.className;
+            
+            // Feedback visual
+            icon.className = 'bi bi-arrow-repeat spin';
+            
+            try {
+                // 1. Obtener el HTML de la cotización
+                const response = await fetch(`/cotizaciones/imprimir/${id}/`);
+                const htmlText = await response.text();
+                
+                // 2. Parsear el HTML y extraer el contenido imprimible y estilos
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlText, 'text/html');
+                const printableContent = doc.getElementById('printable-content');
+                const styles = doc.querySelectorAll('style');
+                
+                // 3. Preparar el buffer local
+                const buffer = document.getElementById('pdf-buffer');
+                buffer.innerHTML = '';
+                styles.forEach(s => buffer.appendChild(s.cloneNode(true)));
+                buffer.appendChild(printableContent.cloneNode(true));
+                
+                // Ajustar estilo del buffer para que sea capturable pero no visible
+                const contentToPrint = buffer.querySelector('#printable-content');
+                contentToPrint.style.position = 'relative';
+                contentToPrint.style.left = '0';
+                buffer.style.display = 'block';
+                buffer.style.position = 'absolute';
+                buffer.style.top = '-10000px'; 
+
+                // 4. Configurar html2pdf
+                const folio = doc.querySelector('.doc-folio')?.innerText || id;
+                const opt = {
+                    margin:       [10, 10, 10, 10],
+                    filename:     `Cotización_${folio}.pdf`,
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                };
+
+                // 5. Generar y descargar
+                await html2pdf().set(opt).from(contentToPrint).save();
+                
+                // Limpieza
+                buffer.style.display = 'none';
+                buffer.innerHTML = '';
+                
+            } catch (error) {
+                console.error('Error al generar PDF:', error);
+                alert('No se pudo generar el PDF. Intente abriendo la previsualización.');
+            } finally {
+                icon.className = originalClass;
+            }
+        }
+    </script>
+    <style>
+        .spin { animation: spin-icon 1s linear infinite; display: inline-block; }
+        @keyframes spin-icon { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
 {% endblock %}
