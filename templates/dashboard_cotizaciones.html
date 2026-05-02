@@ -127,6 +127,10 @@
                                                 <i class="bi bi-eye"></i>
                                             </span>
 
+                                            <a href="{% url 'imprimir_cotizacion' c.id %}" target="_blank" class="icon-action" title="Imprimir">
+                                                <i class="bi bi-printer"></i>
+                                            </a>
+
                                             <!-- 1. ESTADO BORRADOR -->
                                             {% if c.estado == 'borrador' %}
                                             

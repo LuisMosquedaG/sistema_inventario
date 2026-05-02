@@ -206,6 +206,9 @@ window.verCotizacion = function(id) {
             // Actualizar el folio en el título
             document.getElementById('ver_folio').innerText = data.folio_completo;
             
+            // Actualizar link de impresión
+            document.getElementById('ver_imprimir_btn').href = `/cotizaciones/imprimir/${id}/`;
+            
             document.getElementById('ver_cliente').innerText = data.cliente_nombre;
             document.getElementById('ver_contacto').innerText = data.contacto_nombre || 'Sin contacto';
             document.getElementById('ver_fecha_inicio').innerText = data.fecha_inicio;

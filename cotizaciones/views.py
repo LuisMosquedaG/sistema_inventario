@@ -97,6 +97,22 @@ def dashboard_cotizaciones(request):
     }
     return render(request, 'dashboard_cotizaciones.html', contexto)
 
+@login_required(login_url='/login/')
+def imprimir_cotizacion(request, pk):
+    empresa_actual = get_empresa_actual(request)
+    cotizacion = get_object_or_404(Cotizacion, id=pk, empresa=empresa_actual)
+
+    # Limpiar nombre del vendedor (quitar @empresa si es necesario)
+    vendedor_nombre = cotizacion.vendedor.get_full_name()
+    if not vendedor_nombre:
+        vendedor_nombre = cotizacion.vendedor.username.split('@')[0]
+
+    context = {
+        'cotizacion': cotizacion,
+        'empresa': empresa_actual,
+        'vendedor_nombre': vendedor_nombre,
+    }
+    return render(request, 'cotizaciones/imprimir_cotizacion.html', context)
 
 @login_required(login_url='/login/')
 def crear_cotizacion(request):
@@ -355,7 +371,7 @@ def recotizar(request, cotizacion_id):
                 mensaje=f'recotizó {original.folio_completo} -> {nueva.folio_completo}',
                 propietario=original.vendedor
             )
-            return redirect('dashboard_cotizaciones')
+            return redirect('dashboard_pedidos')
 
         except Exception as e:
             messages.error(request, f'Error al recotizar: {str(e)}')
