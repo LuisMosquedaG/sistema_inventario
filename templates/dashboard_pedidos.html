@@ -251,10 +251,14 @@
                             <tr>
                                 <!-- 1. ACCIONES -->
                                 <td class="text-center align-middle">
-                                    <div class="d-flex justify-content-center align-items-center gap-1">
+                                    <div class="d-flex justify-content-center align-items-center" style="gap: 2px;">
                                         
                                         <span onclick="verPedido({{ p.id }})" class="icon-action" title="Ver">
                                             <i class="bi bi-eye"></i>
+                                        </span>
+
+                                        <span onclick="descargarPedidoPDF({{ p.id }})" class="icon-action" title="Descargar PDF">
+                                            <i class="bi bi-printer"></i>
                                         </span>
 
                                         <!-- BOTÓN PAGAR: Solo para revisión y completo -->
@@ -776,6 +780,9 @@
             </div>
         </div>
     </div>
+
+    <!-- Div oculto para procesamiento de PDF -->
+    <div id="pdf-buffer" style="display:none;"></div>
 
 {% endblock %}
 
@@ -1395,4 +1402,55 @@
     });
 
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+    async function descargarPedidoPDF(id) {
+        const btn = event.currentTarget;
+        const icon = btn.querySelector('i');
+        const originalClass = icon.className;
+        
+        // Feedback visual
+        icon.className = 'bi bi-arrow-repeat spin';
+        
+        try {
+            const response = await fetch(`/pedidos/imprimir/${id}/`);
+            const htmlText = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlText, 'text/html');
+            const printableContent = doc.getElementById('printable-content');
+            const styles = doc.querySelectorAll('style');
+            const buffer = document.getElementById('pdf-buffer');
+            
+            buffer.innerHTML = '';
+            styles.forEach(s => buffer.appendChild(s.cloneNode(true)));
+            buffer.appendChild(printableContent.cloneNode(true));
+            
+            const contentToPrint = buffer.querySelector('#printable-content');
+            buffer.style.display = 'block';
+            buffer.style.position = 'absolute';
+            buffer.style.top = '-10000px'; 
+
+            const opt = {
+                margin:       [10, 10, 10, 10],
+                filename:     `Pedido_#${String(id).padStart(4, '0')}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            await html2pdf().set(opt).from(contentToPrint).save();
+            buffer.style.display = 'none';
+            buffer.innerHTML = '';
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al generar PDF.');
+        } finally {
+            icon.className = originalClass;
+        }
+    }
+</script>
+<style>
+    .spin { animation: spin-icon 1s linear infinite; display: inline-block; }
+    @keyframes spin-icon { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+</style>
 {% endblock %}

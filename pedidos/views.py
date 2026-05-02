@@ -705,6 +705,24 @@ def obtener_pedido_json(request, pedido_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 @login_required(login_url='/login/')
+def imprimir_pedido(request, pk):
+    """Genera la vista para impresión de pedido (PDF)"""
+    empresa_actual = get_empresa_actual(request)
+    pedido = get_object_or_404(Pedido, id=pk, empresa=empresa_actual)
+
+    # Limpiar nombre del vendedor (quitar @empresa si es necesario)
+    vendedor_nombre = pedido.vendedor.get_full_name()
+    if not vendedor_nombre:
+        vendedor_nombre = pedido.vendedor.username.split('@')[0]
+
+    context = {
+        'pedido': pedido,
+        'empresa': empresa_actual,
+        'vendedor_nombre': vendedor_nombre,
+    }
+    return render(request, 'pedidos/imprimir_pedido.html', context)
+
+@login_required(login_url='/login/')
 def api_info_pago_pedido(request, pedido_id):
     """Devuelve los datos necesarios para el modal de pago de un pedido"""
     empresa_actual = get_empresa_actual(request)
