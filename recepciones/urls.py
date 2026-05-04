@@ -8,4 +8,5 @@ urlpatterns = [
     path('cambiar-estado/<int:recepcion_id>/', views.cambiar_estado_recepcion, name='cambiar_estado_recepcion'),
     path('api/detalle-recepcion/<int:recepcion_id>/', views.api_detalle_recepcion, name='api_detalle_recepcion'),
     path('cancelar/<int:recepcion_id>/', views.cancelar_recepcion, name='cancelar_recepcion'),
+    path('imprimir/<int:pk>/', views.imprimir_recepcion, name='imprimir_recepcion'),
 ]

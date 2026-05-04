@@ -10,7 +10,7 @@ from almacenes.models import Almacen
 from preferencias.models import Moneda
 from django.utils import timezone
 from .services import crear_orden_compra_servicio
-from panel.models import Empresa 
+from panel.models import Empresa
 from notificaciones.utils import crear_notificacion
 
 # --- 1. FUNCIÓN AYUDANTE (Estándar en todo el proyecto) ---
@@ -89,7 +89,7 @@ def dashboard_compras(request):
         'estado': estado
     }
     # --- FIN LÓGICA DE FILTRADO ---
-    
+
     paginator = Paginator(compras_list, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -149,7 +149,7 @@ def cambiar_estado_compra(request, compra_id):
         nuevo_estado = request.POST.get('estado')
         empresa_actual = get_empresa_actual(request)
         compra = get_object_or_404(OrdenCompra, id=compra_id, empresa=empresa_actual)
-        
+
         if nuevo_estado in ['borrador', 'aprobada', 'recibida', 'cancelada', 'parcial']:
             compra.estado = nuevo_estado
             compra.save()
@@ -170,7 +170,7 @@ def obtener_compra_json(request, compra_id):
         empresa_actual = get_empresa_actual(request)
         orden = get_object_or_404(OrdenCompra, id=compra_id, empresa=empresa_actual)
         detalles = DetalleCompra.objects.filter(orden_compra=orden)
-        
+
         data = {
             'id': orden.id,
             'folio': f"OC-{orden.id:04d}",
@@ -206,7 +206,7 @@ def api_info_pago_compra(request, compra_id):
     """Devuelve los datos necesarios para el modal de pago de una compra"""
     empresa_actual = get_empresa_actual(request)
     compra = get_object_or_404(OrdenCompra, id=compra_id, empresa=empresa_actual)
-    
+
     data = {
         'id': compra.id,
         'proveedor_nombre': compra.proveedor.razon_social,
@@ -217,7 +217,7 @@ def api_info_pago_compra(request, compra_id):
         'saldo_pendiente': float(compra.saldo_pendiente),
     }
     return JsonResponse(data)
-    
+
 @login_required
 @transaction.atomic
 def actualizar_compra(request, compra_id):
@@ -232,7 +232,7 @@ def actualizar_compra(request, compra_id):
             orden.almacen_destino_id = request.POST.get('almacen')
             orden.moneda_id = request.POST.get('moneda')
             orden.tipo_cambio = request.POST.get('tipo_cambio', '1.0000')
-            
+
             nueva_fecha_str = request.POST.get('fecha')
             if nueva_fecha_str:
                 from datetime import datetime
@@ -240,12 +240,12 @@ def actualizar_compra(request, compra_id):
                     nueva_fecha = datetime.strptime(nueva_fecha_str, '%Y-%m-%d').date()
                     orden.fecha = nueva_fecha
                 except ValueError: pass
-            
+
             orden.notas = request.POST.get('notas')
             orden.save()
 
             # 2. Manejo de Ítems
-            orden.detalles.all().delete() 
+            orden.detalles.all().delete()
             productos_ids = request.POST.getlist('producto_id[]')
             cantidades = request.POST.getlist('cantidad[]')
             precios = request.POST.getlist('precio_unitario[]')
@@ -278,7 +278,7 @@ def consolidar_compras_ajax(request):
 
             # 1. Obtener órdenes en borrador
             ordenes_borrador = OrdenCompra.objects.filter(
-                empresa=empresa_actual, 
+                empresa=empresa_actual,
                 estado='borrador'
             ).select_related('proveedor', 'sucursal', 'moneda', 'almacen_destino')
 
@@ -289,9 +289,9 @@ def consolidar_compras_ajax(request):
             grupos = {}
             for oc in ordenes_borrador:
                 llave = (
-                    oc.proveedor_id, 
-                    oc.sucursal_id, 
-                    oc.moneda_id, 
+                    oc.proveedor_id,
+                    oc.sucursal_id,
+                    oc.moneda_id,
                     oc.almacen_destino_id
                 )
                 if llave not in grupos:
@@ -299,15 +299,15 @@ def consolidar_compras_ajax(request):
                 grupos[llave].append(oc)
 
             ordenes_creadas_count = 0
-            
+
             # 3. Procesar cada grupo
             for llave, lista_ocs in grupos.items():
                 if len(lista_ocs) < 2:
-                    continue 
+                    continue
 
                 # Datos base de la nueva OC
                 oc_base = lista_ocs[0]
-                
+
                 # Folios a consolidar
                 folios = [f"OC-{oc.id:04d}" for oc in lista_ocs]
                 leyenda_notas = f"Orden de compra creada de los folios {', '.join(folios)}"
@@ -336,7 +336,7 @@ def consolidar_compras_ajax(request):
                             precio_costo=det.precio_costo,
                             detalle_pedido_origen=det.detalle_pedido_origen
                         )
-                    
+
                     # Cancelar la original
                     oc_original.estado = 'cancelada'
                     oc_original.notas = f"{oc_original.notas or ''} [CONSOLIDADA EN OC-{nueva_oc.id:04d}]".strip()
@@ -351,5 +351,23 @@ def consolidar_compras_ajax(request):
 
         except Exception as e:
             return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})
-    
+
     return JsonResponse({'success': False, 'message': 'Método no permitido.'})
+
+@login_required
+def imprimir_compra(request, pk):
+    """Genera la vista para impresión de orden de compra (PDF)"""
+    empresa_actual = get_empresa_actual(request)
+    orden = get_object_or_404(OrdenCompra, id=pk, empresa=empresa_actual)
+
+    # Limpiar nombre del usuario
+    usuario_nombre = orden.usuario.get_full_name()
+    if not usuario_nombre:
+        usuario_nombre = orden.usuario.username.split('@')[0]
+
+    context = {
+        'orden': orden,
+        'empresa': empresa_actual,
+        'usuario_nombre': usuario_nombre,
+    }
+    return render(request, 'compras/imprimir_compra.html', context)

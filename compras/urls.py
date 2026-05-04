@@ -10,4 +10,5 @@ urlpatterns = [
     path('actualizar/<int:compra_id>/', views.actualizar_compra, name='actualizar_compra'),
     path('consolidar/', views.consolidar_compras_ajax, name='consolidar_compras_ajax'),
     path('api/info-pago/<int:compra_id>/', views.api_info_pago_compra, name='api_info_pago_compra'),
+    path('imprimir/<int:pk>/', views.imprimir_compra, name='imprimir_compra'),
 ]

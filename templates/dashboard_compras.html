@@ -177,6 +177,7 @@
                                 <td class="text-center">
                                     <div class="d-flex justify-content-center gap-1">
                                         <span onclick="verCompra({{ c.id }})" class="icon-action" title="Ver"><i class="bi bi-eye"></i></span>
+                                        <span onclick="descargarCompraPDF({{ c.id }})" class="icon-action" title="Imprimir PDF"><i class="bi bi-printer"></i></span>
 
                                         <!-- BOTÓN PAGAR -->
                                         {% if c.estado == 'aprobada' or c.estado == 'parcial' or c.estado == 'recibida' %}
@@ -491,6 +492,9 @@
             </div>
         </div>
     </div>
+
+    <!-- Div oculto para procesamiento de PDF -->
+    <div id="pdf-buffer" style="display:none;"></div>
 
 {% endblock %}
 
@@ -931,4 +935,68 @@
             return cookieValue;
         }
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script>
+        async function descargarCompraPDF(id) {
+            const btn = event.currentTarget;
+            const icon = btn.querySelector('i');
+            const originalClass = icon.className;
+            
+            // Feedback visual
+            icon.className = 'bi bi-arrow-repeat spin';
+            
+            try {
+                // 1. Obtener el HTML de la compra
+                const response = await fetch(`/compras/imprimir/${id}/`);
+                const htmlText = await response.text();
+                
+                // 2. Parsear el HTML y extraer el contenido imprimible y estilos
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlText, 'text/html');
+                const printableContent = doc.getElementById('printable-content');
+                const styles = doc.querySelectorAll('style');
+                
+                // 3. Preparar el buffer local
+                const buffer = document.getElementById('pdf-buffer');
+                buffer.innerHTML = '';
+                styles.forEach(s => buffer.appendChild(s.cloneNode(true)));
+                buffer.appendChild(printableContent.cloneNode(true));
+                
+                // Ajustar estilo del buffer para que sea capturable pero no visible
+                const contentToPrint = buffer.querySelector('#printable-content');
+                contentToPrint.style.position = 'relative';
+                contentToPrint.style.left = '0';
+                buffer.style.display = 'block';
+                buffer.style.position = 'absolute';
+                buffer.style.top = '-10000px'; 
+
+                // 4. Configurar html2pdf
+                const folio = id.toString().padStart(4, '0');
+                const opt = {
+                    margin:       [10, 10, 10, 10],
+                    filename:     `OrdenCompra_OC-${folio}.pdf`,
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                };
+
+                // 5. Generar y descargar
+                await html2pdf().set(opt).from(contentToPrint).save();
+                
+                // Limpieza
+                buffer.style.display = 'none';
+                buffer.innerHTML = '';
+                
+            } catch (error) {
+                console.error('Error al generar PDF:', error);
+                alert('No se pudo generar el PDF. Intente de nuevo.');
+            } finally {
+                icon.className = originalClass;
+            }
+        }
+    </script>
+    <style>
+        .spin { animation: spin-icon 1s linear infinite; display: inline-block; }
+        @keyframes spin-icon { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
 {% endblock %}

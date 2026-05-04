@@ -485,3 +485,21 @@ def autorizar_solicitud(request, solicitud_id):
         return redirect('dashboard_solicitudcompras')
 
     return redirect('dashboard_solicitudcompras')
+
+@login_required
+def imprimir_solicitud(request, pk):
+    """Genera la vista para impresión de solicitud de compra (PDF)"""
+    empresa_actual = get_empresa_actual(request)
+    solicitud = get_object_or_404(SolicitudCompra, id=pk, empresa=empresa_actual)
+
+    # Limpiar nombre del solicitante
+    solicitante_nombre = solicitud.solicitante.get_full_name()
+    if not solicitante_nombre:
+        solicitante_nombre = solicitud.solicitante.username.split('@')[0]
+
+    context = {
+        'solicitud': solicitud,
+        'empresa': empresa_actual,
+        'solicitante_nombre': solicitante_nombre,
+    }
+    return render(request, 'solicitudcompras/imprimir_solicitud.html', context)

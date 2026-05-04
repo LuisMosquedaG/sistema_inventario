@@ -72,6 +72,13 @@ class OrdenCompra(models.Model):
         return self.detalles.count()
     
     @property
+    def final_proveedor_direccion(self):
+        """Devuelve la dirección de la sucursal o el domicilio fiscal del proveedor"""
+        if self.sucursal and self.sucursal.direccion:
+            return self.sucursal.direccion
+        return self.proveedor.domicilio or "No especificado"
+
+    @property
     def usuario_corto(self):
         if self.usuario:
             return str(self.usuario).split('@')[0]

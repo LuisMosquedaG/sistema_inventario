@@ -8,7 +8,7 @@ from .models import Recepcion, DetalleRecepcion, DetalleRecepcionExtra
 from compras.models import OrdenCompra, DetalleCompra
 from almacenes.models import Almacen, Inventario
 from .services import procesar_recepcion_servicio
-from panel.models import Empresa 
+from panel.models import Empresa
 from notificaciones.utils import crear_notificacion
 
 # --- 1. FUNCIÓN AYUDANTE ESTÁNDAR ---
@@ -41,7 +41,7 @@ def dashboard_recepciones(request):
     estado = request.GET.get('estado', '')
 
     recepciones_list = Recepcion.objects.filter(empresa=empresa_actual).select_related('orden_compra', 'almacen', 'orden_compra__proveedor').order_by('-fecha', '-id')
-    
+
     if q:
         recepciones_list = recepciones_list.filter(
             Q(id__icontains=q) |
@@ -95,10 +95,10 @@ def dashboard_recepciones(request):
     page_obj = paginator.get_page(page_number)
 
     ordenes_aprobadas = OrdenCompra.objects.filter(
-        empresa=empresa_actual, 
+        empresa=empresa_actual,
         estado__in=['aprobada', 'parcial', 'borrador']
     )
-    
+
     almacenes = Almacen.objects.filter(empresa=empresa_actual)
     todos_los_proveedores = Proveedor.objects.filter(empresa=empresa_actual)
     oc_preseleccionada = request.GET.get('oc_id')
@@ -118,16 +118,16 @@ def dashboard_recepciones(request):
 @login_required
 def obtener_items_orden_compra(request, oc_id):
     empresa_actual = get_empresa_actual(request)
-    
+
     try:
         # Buscamos la orden de forma segura
         orden = OrdenCompra.objects.filter(id=oc_id, empresa=empresa_actual).first()
-        
+
         if not orden:
             return JsonResponse({'error': 'La Orden de Compra no existe o no pertenece a tu empresa.'}, status=404)
 
         detalles = DetalleCompra.objects.filter(orden_compra=orden).order_by('id')
-        
+
         # Preparamos el paquete de datos con moneda y tipo de cambio
         data = {
             'id': orden.id,
@@ -135,7 +135,7 @@ def obtener_items_orden_compra(request, oc_id):
             'tipo_cambio': str(orden.tipo_cambio) if orden.tipo_cambio else '1.0000',
             'items': []
         }
-        
+
         for det in detalles:
             # Sumamos lo recibido anteriormente para saber cuánto falta
             total_recibido = DetalleRecepcion.objects.filter(
@@ -143,7 +143,7 @@ def obtener_items_orden_compra(request, oc_id):
             ).exclude(recepcion__estado='cancelada').aggregate(total=Sum('cantidad_recibida'))['total'] or 0
 
             data['items'].append({
-                'id': det.id, 
+                'id': det.id,
                 'nombre': det.producto.nombre,
                 'cant_ordenada': det.cantidad,
                 'cant_recibida_anterior': total_recibido,
@@ -151,9 +151,9 @@ def obtener_items_orden_compra(request, oc_id):
                 'maneja_lote': det.producto.maneja_lote,
                 'maneja_serie': det.producto.maneja_serie,
             })
-            
+
         return JsonResponse(data)
-        
+
     except Exception as e:
         print(f"Error en obtener_items_orden_compra: {str(e)}")
         return JsonResponse({'error': 'Error interno al cargar artículos.'}, status=500)
@@ -191,7 +191,7 @@ def cambiar_estado_recepcion(request, recepcion_id):
         nuevo_estado = request.POST.get('estado')
         empresa_actual = get_empresa_actual(request)
         recepcion = get_object_or_404(Recepcion, id=recepcion_id, empresa=empresa_actual)
-        
+
         if nuevo_estado in ['completada', 'cancelada']:
             recepcion.estado = nuevo_estado
             recepcion.save()
@@ -204,7 +204,7 @@ def api_detalle_recepcion(request, recepcion_id):
         empresa_actual = get_empresa_actual(request)
         rec = get_object_or_404(Recepcion, id=recepcion_id, empresa=empresa_actual)
         oc = rec.orden_compra
-        
+
         data = {
             'titulo': 'Detalle Recepción',
             'folio': f"REC-{rec.id:04d}",
@@ -233,7 +233,7 @@ def api_detalle_recepcion(request, recepcion_id):
         return JsonResponse(data)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=404)
-    
+
 @login_required
 @transaction.atomic
 def cancelar_recepcion(request, recepcion_id):
@@ -257,7 +257,7 @@ def cancelar_recepcion(request, recepcion_id):
                 except Inventario.DoesNotExist: pass
 
         # Calcular nuevo estado de OC
-        nuevo_estado_oc = 'aprobada' 
+        nuevo_estado_oc = 'aprobada'
         total_pedido = orden_compra.detalles.aggregate(total=Sum('cantidad'))['total'] or 0
         if total_pedido > 0:
             recibido_valido = DetalleRecepcion.objects.filter(recepcion__orden_compra=orden_compra).exclude(recepcion__estado='cancelada').exclude(recepcion__id=recepcion.id).aggregate(total=Sum('cantidad_recibida'))['total'] or 0
@@ -273,3 +273,15 @@ def cancelar_recepcion(request, recepcion_id):
         return JsonResponse({'success': True, 'message': f'Recepción cancelada. La OC regresó a estado: {nuevo_estado_oc.upper()}'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def imprimir_recepcion(request, pk):
+    """Genera la vista para impresión de recepción de mercancía (PDF)"""
+    empresa_actual = get_empresa_actual(request)
+    recepcion = get_object_or_404(Recepcion, id=pk, empresa=empresa_actual)
+    
+    context = {
+        'recepcion': recepcion,
+        'empresa': empresa_actual,
+    }
+    return render(request, 'recepciones/imprimir_recepcion.html', context)
