@@ -22,4 +22,7 @@ urlpatterns = [
     
     # 6. Actualización de estado de entrega
     path('actualizar-entrega/<int:ov_id>/', views.actualizar_estado_entrega, name='actualizar_estado_entrega'),
+
+    # 7. Impresión de Orden de Salida
+    path('imprimir/<int:pk>/', views.imprimir_salida, name='imprimir_salida'),
 ]

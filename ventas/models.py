@@ -76,6 +76,42 @@ class OrdenVenta(models.Model):
             total += detalle.subtotal
         return total
 
+    @property
+    def final_direccion_envio(self):
+        """Devuelve la dirección de envío de la orden o el fallback del cliente"""
+        if self.direccion_envio:
+            return self.direccion_envio
+        
+        c = self.cliente
+        parts = []
+        if c.envio_calle: parts.append(c.envio_calle)
+        if c.envio_numero_ext: parts.append(f"#{c.envio_numero_ext}")
+        if c.envio_numero_int: parts.append(f"Int {c.envio_numero_int}")
+        if c.envio_colonia: parts.append(c.envio_colonia)
+        if c.envio_cp: parts.append(f"CP {c.envio_cp}")
+        if c.envio_estado: parts.append(c.envio_estado)
+        
+        if not parts:
+            # Fallback a dirección fiscal si no hay dirección de envío
+            if c.calle: parts.append(c.calle)
+            if c.numero_ext: parts.append(f"#{c.numero_ext}")
+            if c.numero_int: parts.append(f"Int {c.numero_int}")
+            if c.colonia: parts.append(c.colonia)
+            if c.cp: parts.append(f"CP {c.cp}")
+            if c.estado_dir: parts.append(c.estado_dir)
+            
+        return ", ".join(parts) if parts else "N/A"
+
+    @property
+    def final_quien_recibe(self):
+        """Devuelve quién recibe o el nombre del cliente"""
+        return self.quien_recibe or self.cliente.envio_quien_recibe or self.cliente.nombre_completo
+
+    @property
+    def final_telefono_recibe(self):
+        """Devuelve el teléfono de quien recibe o el del cliente"""
+        return self.telefono_recibe or self.cliente.envio_telefono or self.cliente.telefono or "N/A"
+
 # ==========================================
 # MODELO: DETALLE ORDEN DE VENTA
 # ==========================================

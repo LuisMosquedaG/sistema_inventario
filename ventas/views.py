@@ -332,6 +332,24 @@ def api_preparar_surtido(request, ov_id):
     })
 
 @login_required
+def imprimir_salida(request, pk):
+    """Genera la vista para impresión de orden de salida (PDF)"""
+    empresa_actual = get_empresa_actual(request)
+    orden = get_object_or_404(OrdenVenta, id=pk, empresa=empresa_actual)
+
+    # Limpiar nombre del vendedor
+    vendedor_nombre = orden.vendedor.get_full_name()
+    if not vendedor_nombre:
+        vendedor_nombre = orden.vendedor.username.split('@')[0]
+
+    context = {
+        'orden': orden,
+        'empresa': empresa_actual,
+        'vendedor_nombre': vendedor_nombre,
+    }
+    return render(request, 'ventas/imprimir_salida.html', context)
+
+@login_required
 @transaction.atomic
 def ejecutar_surtido(request, ov_id):
     if request.method != 'POST': return JsonResponse({'success': False, 'error': 'Método no permitido'})
