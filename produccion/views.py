@@ -746,3 +746,27 @@ def cancelar_produccion(request, orden_id):
         orden.save()
         messages.success(request, f'Orden {orden.folio} cancelada.')
     return redirect('dashboard_produccion')
+
+@login_required
+def imprimir_orden_produccion(request, pk):
+    """Genera la vista para impresión de orden de producción (PDF)"""
+    empresa_actual = get_empresa_actual(request)
+    orden = get_object_or_404(OrdenProduccion, id=pk, empresa=empresa_actual)
+    
+    # Limpiar nombre del solicitante
+    solicitante_nombre = orden.solicitante.get_full_name() if orden.solicitante else 'Sistema'
+    if not solicitante_nombre and orden.solicitante:
+        solicitante_nombre = orden.solicitante.username.split('@')[0]
+        
+    # Limpiar nombre del responsable
+    responsable_nombre = orden.responsable.get_full_name() if orden.responsable else '--'
+    if not responsable_nombre and orden.responsable:
+        responsable_nombre = orden.responsable.username.split('@')[0]
+
+    context = {
+        'orden': orden,
+        'empresa': empresa_actual,
+        'solicitante_nombre': solicitante_nombre,
+        'responsable_nombre': responsable_nombre,
+    }
+    return render(request, 'produccion/imprimir_op.html', context)
