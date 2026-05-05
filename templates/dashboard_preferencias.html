@@ -431,14 +431,39 @@
                                         </div>
                                         <div class="permiso-grid">
                                             {% for accion in acciones %}
-                                            <div class="form-check">
-                                                <input class="form-check-input permiso-accion permiso-submodulo-{{ submodulo }}" type="checkbox"
-                                                       name="perm_ventas__{{ submodulo }}__{{ accion }}"
-                                                       id="perm_ventas__{{ submodulo }}__{{ accion }}">
-                                                <label class="form-check-label text-capitalize" for="perm_ventas__{{ submodulo }}__{{ accion }}">{{ accion|cut:"_"|title }}</label>
-                                            </div>
+                                                {% if submodulo == 'pedidos' and accion in 'reservar,solicitar,generar_solicitud_global' %}
+                                                    <!-- Se omiten aquí para ponerlos dentro de un sub-bloque si se desea, 
+                                                         o simplemente se indentan. El usuario pidió 'dentro de revisión'. -->
+                                                {% else %}
+                                                <div class="form-check">
+                                                    <input class="form-check-input permiso-accion permiso-submodulo-{{ submodulo }}" type="checkbox"
+                                                           name="perm_ventas__{{ submodulo }}__{{ accion }}"
+                                                           id="perm_ventas__{{ submodulo }}__{{ accion }}">
+                                                    <label class="form-check-label text-capitalize" for="perm_ventas__{{ submodulo }}__{{ accion }}">
+                                                        {% if accion == 'eliminar' %}Cancelar{% else %}{{ accion|cut:"_"|title }}{% endif %}
+                                                    </label>
+                                                </div>
+                                                {% endif %}
                                             {% endfor %}
                                         </div>
+
+                                        {% if submodulo == 'pedidos' %}
+                                        <div class="mt-3 ps-4 border-start border-4 border-info bg-light-subtle p-2 rounded">
+                                            <h7 class="small fw-bold text-info text-uppercase d-block mb-2">Acciones de Revisión (Diagnóstico)</h7>
+                                            <div class="permiso-grid">
+                                                {% for p_accion in acciones %}
+                                                    {% if p_accion == 'reservar' or p_accion == 'solicitar' or p_accion == 'generar_solicitud_global' %}
+                                                    <div class="form-check">
+                                                        <input class="form-check-input permiso-accion permiso-submodulo-{{ submodulo }}" type="checkbox"
+                                                               name="perm_ventas__{{ submodulo }}__{{ p_accion }}"
+                                                               id="perm_ventas__{{ submodulo }}__{{ p_accion }}">
+                                                        <label class="form-check-label text-capitalize" for="perm_ventas__{{ submodulo }}__{{ p_accion }}">{{ p_accion|cut:"_"|title }}</label>
+                                                    </div>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>

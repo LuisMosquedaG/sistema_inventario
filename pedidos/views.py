@@ -328,7 +328,7 @@ def validar_pedido(request, pedido_id):
     return redirect('dashboard_pedidos')
 
 @login_required(login_url='/login/')
-@require_sales_permission('pedidos', 'ver', json_response=True)
+@require_sales_permission('pedidos', 'revision', json_response=True)
 def api_detalle_pedido(request, pedido_id):
     empresa_actual = get_empresa_actual(request)
     pedido = get_object_or_404(Pedido, id=pedido_id, empresa=empresa_actual)
@@ -399,7 +399,7 @@ def api_detalle_pedido(request, pedido_id):
     return JsonResponse({'detalles': detalles_data})
 
 @login_required(login_url='/login/')
-@require_sales_permission('pedidos', 'editar')
+@require_sales_permission('pedidos', 'revision')
 def completar_linea_pedido(request, detalle_id):
     """
     Acción manual para marcar que un producto de "Compra" o "Producción" ya llegó/terminó.
@@ -450,7 +450,7 @@ def verificar_completitud_pedido(pedido):
 
 @login_required(login_url='/login/')
 @transaction.atomic # Asegura que si falla, no guarde nada a medias
-@require_sales_permission('pedidos', 'editar', json_response=True)
+@require_sales_permission('pedidos', 'reservar', json_response=True)
 def ejecutar_reserva(request, detalle_id):
     """
     Reserva físicamente el stock en Inventario y marca la línea como 'reservado'
@@ -543,7 +543,7 @@ def ejecutar_reserva(request, detalle_id):
     return JsonResponse({'success': True, 'message': 'Stock reservado correctamente.'})
 
 @login_required(login_url='/login/')
-@require_sales_permission('pedidos', 'aprobar')
+@require_sales_permission('pedidos', 'generar_solicitud_global')
 def generar_solicitud_global(request, pedido_id):
     """
     Genera UNA sola solicitud de compra para TODAS las partidas 'compra' del pedido.

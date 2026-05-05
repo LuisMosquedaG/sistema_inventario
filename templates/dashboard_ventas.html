@@ -97,7 +97,7 @@
                     <i class="bi bi-download me-1"></i> Exportar
                 </button>
                 
-                {% if perm_ventas.crear %}
+                {% if granular_sales_perms.salidas.crear %}
                     <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaSalidaDirecta">
                         <i class="bi bi-plus-lg me-1"></i> Nueva Salida
                     </button>
@@ -209,33 +209,33 @@
                                 <td class="text-center">
                                     <div class="d-flex justify-content-center" style="gap: 2px;">
                                         
-                                        {% if perm_ventas.ver %}
+                                        {% if granular_sales_perms.salidas.ver %}
                                             <button class="icon-action border-0 bg-transparent" title="Ver Detalle" onclick="abrirModalDetalle({{ ov.id }})">
                                                 <i class="bi bi-eye"></i>
                                             </button>
                                         {% endif %}
 
-                                        {% if perm_ventas.imprimir %}
+                                        {% if granular_sales_perms.salidas.imprimir %}
                                             <button class="icon-action border-0 bg-transparent" title="Imprimir Salida" onclick="descargarSalidaPDF({{ ov.id }})">
                                                 <i class="bi bi-printer"></i>
                                             </button>
                                         {% endif %}
 
-                                        {% if ov.estado == 'borrador' and perm_ventas.aprobar %}
+                                        {% if ov.estado == 'borrador' and granular_sales_perms.salidas.aprobar %}
                                             <a href="{% url 'cambiar_estado_ov' ov.id 'aprobado' %}" 
                                                class="icon-action" title="Aprobar Orden" 
                                                onclick="return confirm('¿Aprobar esta orden para preparación?');">
                                                 <i class="bi bi-check-circle"></i>
                                             </a>
 
-                                        {% elif ov.estado == 'aprobado' and perm_ventas.editar %}
+                                        {% elif ov.estado == 'aprobado' and granular_sales_perms.salidas.surtir_orden %}
                                             <button type="button" class="icon-action border-0 bg-transparent" 
                                                     title="Surtir Orden" 
                                                     onclick="abrirModalSurtido({{ ov.id }})">
                                                 <i class="bi bi-box-seam"></i>
                                             </button>
 
-                                        {% elif ov.estado == 'surtido' and perm_ventas.editar %}
+                                        {% elif ov.estado == 'surtido' and granular_sales_perms.salidas.actualizar_entrega %}
                                             <!-- BOTONES DINÁMICOS DE ENTREGA -->
                                             {% if ov.estado_entrega == 'listo' %}
                                                 <form method="post" action="{% url 'actualizar_estado_entrega' ov.id %}" style="display:inline;">
@@ -253,12 +253,6 @@
                                                         <i class="bi bi-check-all"></i>
                                                     </button>
                                                 </form>
-                                            {% endif %}
-                                            
-                                            {% if perm_ventas.imprimir %}
-                                                <button class="icon-action border-0 bg-transparent" title="Imprimir Guía" onclick="abrirModalDetalle({{ ov.id }})">
-                                                    <i class="bi bi-printer"></i>
-                                                </button>
                                             {% endif %}
                                         {% endif %}
 

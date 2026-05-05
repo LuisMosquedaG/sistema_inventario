@@ -44,6 +44,7 @@ class Rol(models.Model):
 class PermisoRolModulo(models.Model):
     MODULO_CHOICES = [
         ('ventas', 'Ventas'),
+        ('produccion', 'Producción'),
     ]
 
     rol = models.ForeignKey(Rol, on_delete=models.CASCADE, related_name='permisos_modulo')

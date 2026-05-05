@@ -20,11 +20,13 @@
                     <i class="bi bi-download me-1"></i> Exportar
                 </button>
                 
+                {% if granular_sales_perms.cotizaciones.crear %}
                 <button class="btn btn-brand text-white btn-pro shadow-sm" 
                         data-bs-toggle="modal" 
                         data-bs-target="#modalNuevaCotizacion">
                     <i class="bi bi-plus-lg me-1"></i> Nueva Cotización
                 </button>
+                {% endif %}
             </div>
             </div>
 
@@ -128,41 +130,53 @@
                                             </span>
 
                                             {% if c.estado == 'borrador' %}
-                                            <span onclick="cargarParaEdicion({{ c.id }})" class="icon-action" title="Editar">
-                                                <i class="bi bi-pencil-square"></i>
-                                            </span>
+                                                {% if granular_sales_perms.cotizaciones.editar %}
+                                                <span onclick="cargarParaEdicion({{ c.id }})" class="icon-action" title="Editar">
+                                                    <i class="bi bi-pencil-square"></i>
+                                                </span>
+                                                {% endif %}
                                             {% endif %}
 
+                                            {% if granular_sales_perms.cotizaciones.imprimir %}
                                             <span onclick="descargarPDFDirecto({{ c.id }})" class="icon-action" title="Descargar PDF">
                                                 <i class="bi bi-printer"></i>
                                             </span>
+                                            {% endif %}
 
                                             {% if c.estado == 'aprobada' and not c.tiene_pedido %}
-                                            <a href="{% url 'crear_pedido_desde_cotizacion' c.id %}" class="icon-action" title="Crear Pedido">
-                                                <i class="bi bi-box-seam"></i>
-                                            </a>
+                                                {% if granular_sales_perms.pedidos.crear %}
+                                                <a href="{% url 'crear_pedido_desde_cotizacion' c.id %}" class="icon-action" title="Crear Pedido">
+                                                    <i class="bi bi-box-seam"></i>
+                                                </a>
+                                                {% endif %}
                                             {% endif %}
 
                                             {% if c.estado == 'borrador' %}
-                                            <span onclick="confirmarAprobacion({{ c.id }})" class="icon-action" title="Aprobar">
-                                                <i class="bi bi-check2-circle"></i>
-                                            </span>
+                                                {% if granular_sales_perms.cotizaciones.aprobar %}
+                                                <span onclick="confirmarAprobacion({{ c.id }})" class="icon-action" title="Aprobar">
+                                                    <i class="bi bi-check2-circle"></i>
+                                                </span>
+                                                {% endif %}
                                             {% elif c.estado == 'aprobada' %}
-                                            <form method="post" action="/cotizaciones/recotizar/{{ c.id }}/" style="display:inline;">
-                                                {% csrf_token %}
-                                                <button type="submit" class="icon-action border-0 bg-transparent p-0 m-0" title="Recotizar" onclick="return confirm('¿Deseas cancelar esta cotización y generar una nueva versión?')">
-                                                    <i class="bi bi-arrow-repeat"></i>
-                                                </button>
-                                            </form>
+                                                {% if granular_sales_perms.cotizaciones.crear %}
+                                                <form method="post" action="/cotizaciones/recotizar/{{ c.id }}/" style="display:inline;">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="icon-action border-0 bg-transparent p-0 m-0" title="Recotizar" onclick="return confirm('¿Deseas cancelar esta cotización y generar una nueva versión?')">
+                                                        <i class="bi bi-arrow-repeat"></i>
+                                                    </button>
+                                                </form>
+                                                {% endif %}
                                             {% endif %}
 
                                             {% if not c.tiene_pedido and c.estado != 'cancelada' %}
-                                            <form method="post" action="{% url 'cancelar_cotizacion' c.id %}" style="display:inline;">
-                                                {% csrf_token %}
-                                                <button type="submit" class="icon-action state-cancelled border-0 bg-transparent p-0 m-0" title="Cancelar" onclick="return confirm('¿Deseas cancelar esta cotización?')">
-                                                    <i class="bi bi-x-circle"></i>
-                                                </button>
-                                            </form>
+                                                {% if granular_sales_perms.cotizaciones.eliminar %}
+                                                <form method="post" action="{% url 'cancelar_cotizacion' c.id %}" style="display:inline;">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="icon-action state-cancelled border-0 bg-transparent p-0 m-0" title="Cancelar" onclick="return confirm('¿Deseas cancelar esta cotización?')">
+                                                        <i class="bi bi-x-circle"></i>
+                                                    </button>
+                                                </form>
+                                                {% endif %}
                                             {% endif %}
                                         </div>
                                     </td>

@@ -110,9 +110,11 @@
                 <span class="section-subtitle">Gestión de órdenes de venta</span>
             </div>
             <div class="d-flex flex-wrap align-items-center gap-2">
+                {% if granular_sales_perms.pedidos.crear %}
                 <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoPedido">
                     <i class="bi bi-plus-lg me-1"></i> Nuevo Pedido
                 </button>
+                {% endif %}
             </div>
         </div>
 
@@ -253,29 +255,38 @@
                                 <td class="text-center align-middle">
                                     <div class="d-flex justify-content-center align-items-center" style="gap: 2px;">
                                         
+                                        {% if granular_sales_perms.pedidos.ver %}
                                         <span onclick="verPedido({{ p.id }})" class="icon-action" title="Ver">
                                             <i class="bi bi-eye"></i>
                                         </span>
+                                        {% endif %}
 
+                                        {% if granular_sales_perms.pedidos.imprimir %}
                                         <span onclick="descargarPedidoPDF({{ p.id }})" class="icon-action" title="Descargar PDF">
                                             <i class="bi bi-printer"></i>
                                         </span>
+                                        {% endif %}
 
                                         <!-- BOTÓN PAGAR: Solo para revisión y completo -->
                                         {% if p.estado == 'revision' or p.estado == 'completo' %}
+                                            {% if granular_sales_perms.pedidos.registrar_pago %}
                                             <span onclick="abrirModalPago({{ p.id }})" class="icon-action" title="Registrar Pago">
                                                 <i class="bi bi-cash-stack"></i>
                                             </span>
+                                            {% endif %}
                                         {% endif %}
 
                                         <!-- ESTADO: BORRADOR -->
                                         {% if p.estado == 'borrador' %}
+                                            {% if granular_sales_perms.pedidos.validar_stock %}
                                             <a href="{% url 'validar_pedido' p.id %}" class="icon-action" title="Validar Stock" onclick="return confirm('¿Validar disponibilidad de stock?')">
                                                 <i class="bi bi-clipboard-check"></i>
                                             </a>
+                                            {% endif %}
                                         
                                         <!-- ESTADO: REVISIÓN -->
                                         {% elif p.estado == 'revision' %}
+                                            {% if granular_sales_perms.pedidos.revision %}
                                             <a href="#" 
                                                class="icon-action" 
                                                title="Revisión" 
@@ -293,6 +304,7 @@
                                                onclick="cargarDetallePedido(this)">
                                                <i class="bi bi-list-check"></i>
                                             </a>
+                                            {% endif %}
                                         
                                         <!-- ESTADO: CONFIRMADO -->
                                         {% elif p.estado == 'confirmado' %}
@@ -301,12 +313,14 @@
                                         <!-- ESTADO: COMPLETO -->
                                         {% elif p.estado == 'completo' %}
                                             {% if not p.tiene_orden_venta %}
+                                                {% if granular_sales_perms.salidas.crear %}
                                                 <a href="{% url 'crear_orden_venta' p.id %}" 
                                                    class="icon-action" 
                                                    title="Generar Orden de Salida ($)"
                                                    onclick="return confirm('¿Generar Orden de Salida para este pedido?');">
                                                     <i class="bi bi-currency-dollar"></i>
                                                 </a>
+                                                {% endif %}
                                             {% endif %}
                                         {% endif %}
                                     </div>
@@ -788,6 +802,13 @@
 
 {% block extra_js %}
 <script>
+    // Permisos granulares de pedidos para JS
+    const permsPedidos = {
+        reservar: {% if granular_sales_perms.pedidos.reservar %}true{% else %}false{% endif %},
+        solicitar: {% if granular_sales_perms.pedidos.solicitar %}true{% else %}false{% endif %},
+        generar_solicitud_global: {% if granular_sales_perms.pedidos.generar_solicitud_global %}true{% else %}false{% endif %}
+    };
+
     // Variables globales para el modal de pago
     let saldoActualPedido = 0;
 
@@ -1142,7 +1163,11 @@
 
                     if (det.estado_linea === 'pendiente') {
                         pillClass = 'status-pendiente'; pillText = 'Pendiente';
-                        accionIcon = `<span class="icon-action" title="Reservar" onclick="confirmarReserva(${det.id})"><i class="bi bi-check-circle"></i></span>`;
+                        if (permsPedidos.reservar) {
+                            accionIcon = `<span class="icon-action" title="Reservar" onclick="confirmarReserva(${det.id})"><i class="bi bi-check-circle"></i></span>`;
+                        } else {
+                            accionIcon = `<span class="icon-action" style="cursor: default; opacity: 0.5;" title="Sin permiso"><i class="bi bi-slash-circle"></i></span>`;
+                        }
                     } else if (det.estado_linea === 'en_proceso') {
                         pillClass = 'status-revision'; pillText = 'Aprobación';
                         accionIcon = `<span class="icon-action" style="cursor: not-allowed; opacity: 0.5;" title="En Trámite"><i class="bi bi-hourglass-split"></i></span>`;
@@ -1155,7 +1180,11 @@
                         accionIcon = `<span class="icon-action" style="cursor: default;" title="Listo"><i class="bi bi-check-all"></i></span>`;
                     } else if (det.estado_linea === 'compra') {
                         pillClass = 'status-cancelado'; pillText = 'Falta Stock';
-                        accionIcon = `<a href="/solicitudes-compras/crear-desde-pedido/${det.id}/" class="icon-action" title="Solicitar"><i class="bi bi-cart-plus"></i></a>`;
+                        if (permsPedidos.solicitar) {
+                            accionIcon = `<a href="/solicitudes-compras/crear-desde-pedido/${det.id}/" class="icon-action" title="Solicitar"><i class="bi bi-cart-plus"></i></a>`;
+                        } else {
+                            accionIcon = `<span class="icon-action" style="cursor: default; opacity: 0.5;" title="Sin permiso"><i class="bi bi-slash-circle"></i></span>`;
+                        }
                     }
 
                     const row = `
@@ -1175,7 +1204,7 @@
                 const btnGlobal = document.getElementById('btnSolicitudGlobal');
                 if(btnGlobal) {
                     btnGlobal.dataset.pedidoId = pedidoId; 
-                    if(hayCompras) {
+                    if(hayCompras && permsPedidos.generar_solicitud_global) {
                         btnGlobal.classList.remove('d-none'); btnGlobal.classList.add('d-block');
                     } else {
                         btnGlobal.classList.add('d-none'); btnGlobal.classList.remove('d-block');

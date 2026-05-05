@@ -9,11 +9,11 @@ from .models import AsignacionRolUsuario, PermisoRolModulo, PermisoRolAccion
 
 
 SALES_PERMISSION_MATRIX = {
-    'clientes': ['ver', 'crear', 'editar', 'eliminar', 'aprobar', 'imprimir', 'agenda_contactos'],
-    'actividades': ['ver', 'crear', 'editar', 'eliminar', 'aprobar', 'imprimir'],
+    'clientes': ['ver', 'crear', 'editar', 'agenda_contactos', 'crear_cotizacion'],
+    'actividades': ['ver', 'crear', 'editar', 'eliminar', 'aprobar', 'imprimir', 'completar', 'reprogramar', 'cancelar'],
     'cotizaciones': ['ver', 'crear', 'editar', 'eliminar', 'aprobar', 'imprimir'],
-    'pedidos': ['ver', 'crear', 'editar', 'eliminar', 'aprobar', 'imprimir', 'validar_stock', 'registrar_pago'],
-    'salidas': ['ver', 'crear', 'editar', 'eliminar', 'aprobar', 'imprimir'],
+    'pedidos': ['ver', 'crear', 'imprimir', 'validar_stock', 'revision', 'reservar', 'solicitar', 'generar_solicitud_global', 'registrar_pago'],
+    'salidas': ['ver', 'crear', 'imprimir', 'aprobar', 'surtir_orden', 'actualizar_entrega'],
 }
 
 
@@ -145,3 +145,10 @@ def get_sales_ui_permissions(request):
         'pedidos': user_has_sales_permission(request, 'pedidos', 'ver'),
         'salidas': user_has_sales_permission(request, 'salidas', 'ver'),
     }
+
+
+def get_granular_sales_permissions(request):
+    perms = {}
+    for submodulo, acciones in SALES_PERMISSION_MATRIX.items():
+        perms[submodulo] = {accion: user_has_sales_permission(request, submodulo, accion) for accion in acciones}
+    return perms

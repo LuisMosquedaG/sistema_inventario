@@ -105,9 +105,11 @@
                 <span class="section-subtitle">Gestión de órdenes de fabricación y procesos</span>
             </div>
             <div class="d-flex flex-wrap align-items-center gap-2">
+                {% if perms_produccion.crear %}
                 <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaOrdenManual">
                     <i class="bi bi-plus-lg me-1"></i> Nueva Orden
                 </button>
+                {% endif %}
             </div>
         </div>
 
@@ -212,23 +214,33 @@
                                 <td class="text-center">
                                     <div class="d-flex justify-content-center gap-1">
                                         <span onclick="verOrdenProduccion({{ o.id }})" class="icon-action" title="Ver Detalle"><i class="bi bi-eye"></i></span>
+                                        {% if perms_produccion.imprimir %}
                                         <span onclick="descargarOPPDF({{ o.id }})" class="icon-action" title="Imprimir PDF"><i class="bi bi-printer"></i></span>
+                                        {% endif %}
                                         
                                         {% if o.estado == 'borrador' %}
+                                            {% if perms_produccion.editar %}
                                             <span onclick="abrirModalEdicion({{ o.id }})" class="icon-action" title="Editar Materiales"><i class="bi bi-pencil-square"></i></span>
                                             <a href="{% url 'avanzar_estado_produccion' o.id %}?estado=en_proceso" class="icon-action" title="Iniciar Trabajo" onclick="return confirm('¿Comenzar fabricación?')"><i class="bi bi-play-fill"></i></a>
+                                            {% endif %}
                                         {% elif o.estado == 'en_proceso' %}
+                                            {% if perms_produccion.editar %}
                                             <a href="{% url 'avanzar_estado_produccion' o.id %}?estado=testeo" class="icon-action" title="Enviar a Testeo"><i class="bi bi-shield-check"></i></a>
+                                            {% endif %}
                                         {% elif o.estado == 'testeo' %}
+                                            {% if perms_produccion.aprobar %}
                                             <span onclick="prepararFinalizacion({{ o.id }})" class="icon-action" title="Validar Calidad y Finalizar" style="cursor: pointer;">
                                                 <i class="bi bi-check-all" style="font-size: 1.4rem;"></i>
                                             </span>
+                                            {% endif %}
                                         {% elif o.estado == 'terminado' %}
                                             <span class="icon-action" title="Completado" style="cursor: default;"><i class="bi bi-patch-check-fill"></i></span>
                                         {% endif %}
                                         
                                         {% if o.estado != 'terminado' and o.estado != 'cancelado' %}
+                                            {% if perms_produccion.eliminar %}
                                             <a href="{% url 'cancelar_produccion' o.id %}" class="icon-action" title="Cancelar Orden" onclick="return confirm('¿Cancelar?')"><i class="bi bi-x-circle"></i></a>
+                                            {% endif %}
                                         {% endif %}
                                     </div>
                                 </td>

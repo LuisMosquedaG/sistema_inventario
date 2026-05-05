@@ -116,7 +116,10 @@ def dashboard_solicitudcompras(request):
     }
     return render(request, 'dashboard_solicitudcompras.html', contexto)
 
+from preferencias.permissions import require_sales_permission
+
 @login_required(login_url='/login/')
+@require_sales_permission('pedidos', 'solicitar')
 def crear_solicitud_desde_pedido(request, detalle_id):
     empresa_actual = get_empresa_actual(request)
     detalle = get_object_or_404(DetallePedido, id=detalle_id)

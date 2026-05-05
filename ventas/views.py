@@ -244,7 +244,7 @@ def crear_orden_venta(request, pedido_id):
 
 @login_required
 @require_sales_permission('salidas', 'aprobar')
-def cambiar_estado_ov(request, ov_id, nuevo_estado):
+def cambiar_estado_ov(request, orden_id, nuevo_estado):
     empresa_actual = get_empresa_actual(request)
     ov = get_object_or_404(OrdenVenta, id=ov_id, empresa=empresa_actual)
     if nuevo_estado == 'aprobado' and ov.estado == 'borrador':
@@ -366,7 +366,7 @@ def imprimir_salida(request, pk):
 
 @login_required
 @transaction.atomic
-@require_sales_permission('salidas', 'editar', json_response=True)
+@require_sales_permission('salidas', 'surtir_orden', json_response=True)
 def ejecutar_surtido(request, ov_id):
     if request.method != 'POST': return JsonResponse({'success': False, 'error': 'Método no permitido'})
     try:
@@ -526,7 +526,7 @@ def ejecutar_surtido(request, ov_id):
         return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required
-@require_sales_permission('salidas', 'editar')
+@require_sales_permission('salidas', 'actualizar_entrega')
 def actualizar_estado_entrega(request, ov_id):
     if request.method != 'POST':
         return redirect('dashboard_ventas')
