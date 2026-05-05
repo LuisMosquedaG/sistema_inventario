@@ -8,6 +8,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 import json
 from panel.models import Empresa
+from preferencias.permissions import require_sales_permission
 
 # --- 1. FUNCIÓN AYUDANTE ESTÁNDAR ---
 def get_empresa_actual(request):
@@ -25,6 +26,7 @@ from core.models import Producto
 from django.db.models import Q
 
 @login_required(login_url='/login/')
+@require_sales_permission('clientes', 'ver')
 def dashboard_clientes(request):
     empresa_actual = get_empresa_actual(request)
     
@@ -95,6 +97,7 @@ def dashboard_clientes(request):
     return render(request, 'dashboard_clientes.html', contexto)
 
 @login_required(login_url='/login/')
+@require_sales_permission('clientes', 'crear', json_response=True)
 def crear_cliente(request):
     empresa_actual = get_empresa_actual(request)
     
@@ -127,6 +130,8 @@ def crear_cliente(request):
     form = ClienteForm()
     return render(request, 'dashboard_clientes.html', {'clientes': lista_clientes, 'form': form})
 
+@login_required(login_url='/login/')
+@require_sales_permission('clientes', 'ver', json_response=True)
 def obtener_cliente_json(request, cliente_id):
     """Devuelve los datos de un cliente para el modal de edición"""
     try:
@@ -141,6 +146,8 @@ def obtener_cliente_json(request, cliente_id):
     except Exception as e:
         return JsonResponse({'error': 'Cliente no encontrado'}, status=404)
 
+@login_required(login_url='/login/')
+@require_sales_permission('clientes', 'editar')
 def actualizar_cliente(request, cliente_id):
     """Guarda los cambios de un cliente existente"""
     empresa_actual = get_empresa_actual(request)
@@ -160,6 +167,8 @@ def actualizar_cliente(request, cliente_id):
             
     return redirect('dashboard_clientes')
 
+@login_required(login_url='/login/')
+@require_sales_permission('clientes', 'agenda_contactos', json_response=True)
 def obtener_contactos_cliente(request, cliente_id):
     """Lista los contactos de un cliente"""
     empresa_actual = get_empresa_actual(request)
@@ -184,6 +193,8 @@ def obtener_contactos_cliente(request, cliente_id):
     except Exception as e:
         return JsonResponse([], safe=False)
 
+@login_required(login_url='/login/')
+@require_sales_permission('clientes', 'agenda_contactos', json_response=True)
 def guardar_contactos_cliente(request, cliente_id):
     """Guarda la lista de contactos"""
     empresa_actual = get_empresa_actual(request)

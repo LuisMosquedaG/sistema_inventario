@@ -7,6 +7,7 @@ from clientes.models import Cliente, ContactoCliente
 from cotizaciones.models import Cotizacion
 from django.contrib.auth.decorators import login_required
 from panel.models import Empresa
+from preferencias.permissions import require_sales_permission
 
 # --- 1. FUNCIÓN AYUDANTE ESTÁNDAR ---
 def get_empresa_actual(request):
@@ -23,6 +24,7 @@ from django.db.models import Q
 
 # 1. VISTA PRINCIPAL (LISTA)
 @login_required(login_url='/login/')
+@require_sales_permission('actividades', 'ver')
 def lista_actividades(request):
     empresa_actual = get_empresa_actual(request)
     
@@ -96,6 +98,7 @@ def lista_actividades(request):
     })
 
 @login_required(login_url='/login/')
+@require_sales_permission('actividades', 'crear', json_response=True)
 def crear_actividad(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
@@ -164,6 +167,7 @@ def crear_actividad(request):
 
 # 3. VISTA: EDITAR ACTIVIDAD
 @login_required(login_url='/login/')
+@require_sales_permission('actividades', 'editar', json_response=True)
 def editar_actividad(request, actividad_id):
     empresa_actual = get_empresa_actual(request)
     
@@ -217,6 +221,7 @@ def editar_actividad(request, actividad_id):
 # 4. VISTA: CAMBIAR ESTADO
 @login_required(login_url='/login/')
 @csrf_exempt
+@require_sales_permission('actividades', 'aprobar', json_response=True)
 def cambiar_estado_actividad(request, actividad_id):
     empresa_actual = get_empresa_actual(request)
     
@@ -246,6 +251,7 @@ def cambiar_estado_actividad(request, actividad_id):
 
 # 5. VISTA: REPROGRAMAR
 @login_required(login_url='/login/')
+@require_sales_permission('actividades', 'editar', json_response=True)
 def reprogramar_actividad(request, actividad_id):
     empresa_actual = get_empresa_actual(request)
     
@@ -271,6 +277,7 @@ def reprogramar_actividad(request, actividad_id):
 
 # 6. VISTA: CANCELAR
 @login_required(login_url='/login/')
+@require_sales_permission('actividades', 'eliminar', json_response=True)
 def cancelar_actividad(request, actividad_id):
     empresa_actual = get_empresa_actual(request)
     
@@ -296,6 +303,7 @@ def cancelar_actividad(request, actividad_id):
 
 # 7. VISTA: API DATOS ACTIVIDAD
 @login_required(login_url='/login/')
+@require_sales_permission('actividades', 'ver', json_response=True)
 def api_datos_actividad(request, actividad_id):
     empresa_actual = get_empresa_actual(request)
     try:
@@ -315,6 +323,7 @@ def api_datos_actividad(request, actividad_id):
 # 3. API: Obtener Datos del Cliente
 @login_required(login_url='/login/')
 @csrf_exempt
+@require_sales_permission('actividades', 'ver', json_response=True)
 def api_cliente_datos(request, cliente_id):
     empresa_actual = get_empresa_actual(request)
     

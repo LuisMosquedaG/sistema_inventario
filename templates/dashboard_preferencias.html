@@ -38,6 +38,20 @@
 
     .card-settings { border: none; box-shadow: 0 2px 15px rgba(0,0,0,0.05); border-radius: 10px; }
 
+.modal-roles .modal-dialog { max-width: 1200px; }
+.modal-roles .modal-body { max-height: 72vh; overflow-y: auto; }
+.permiso-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px 16px;
+}
+@media (max-width: 992px) {
+    .permiso-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 576px) {
+    .permiso-grid { grid-template-columns: 1fr; }
+}
+
     /* ICONOS DE ACCIÓN UNIFICADOS */
     .icon-action { 
         color: #adb5bd !important;
@@ -72,6 +86,10 @@
                         <!-- Usuarios -->
                         <a class="nav-link {% if seccion == 'usuarios' %}active{% endif %}" href="?section=usuarios">
                             <i class="bi bi-people"></i> Usuarios
+                        </a>
+
+                        <a class="nav-link {% if seccion == 'roles' %}active{% endif %}" href="?section=roles">
+                            <i class="bi bi-shield-lock"></i> Roles y Permisos
                         </a>
                         
                         <!-- General (Acordeón) -->
@@ -191,6 +209,53 @@
                         </table>
                     </div>
                 </div>
+                {% elif seccion == 'roles' %}
+                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-shield-lock-fill me-2 text-secondary"></i>Roles y Permisos</h5>
+                    <button class="btn btn-sm btn-brand text-white" data-bs-toggle="modal" data-bs-target="#modalRol" onclick="prepararNuevoRol()">
+                        <i class="bi bi-plus-lg me-1"></i> Nuevo Rol
+                    </button>
+                </div>
+                <div class="card-body p-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Rol</th>
+                                    <th>Descripción</th>
+                                    <th class="text-center">Usuarios</th>
+                                    <th class="text-center">Permisos Ventas</th>
+                                    <th class="text-center">Estado</th>
+                                    <th class="text-end">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in roles_info %}
+                                <tr>
+                                    <td class="fw-bold">{{ item.rol.nombre }}</td>
+                                    <td class="text-muted small">{{ item.rol.descripcion|default:"--" }}</td>
+                                    <td class="text-center">{{ item.total_usuarios }}</td>
+                                    <td class="text-center small text-muted">{{ item.total_permisos_accion }} activos</td>
+                                    <td class="text-center">
+                                        {% if item.rol.activo %}
+                                            <span class="badge bg-success bg-opacity-10 text-success">Activo</span>
+                                        {% else %}
+                                            <span class="badge bg-danger bg-opacity-10 text-danger">Inactivo</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-light icon-action" onclick="abrirEditarRol({{ item.rol.id }})">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="6" class="text-center py-5 text-muted">No hay roles registrados.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
                 {% elif seccion == 'datos' %}
                 <!-- SECCIÓN GESTIÓN DE DATOS -->
                 <div class="card-header bg-white border-0 py-3">
@@ -290,11 +355,101 @@
                             <option value="admin">Administrador</option>
                         </select>
                     </div>
+                    <div class="mt-3">
+                        <label class="form-label small fw-bold">Rol de Acceso al Sistema</label>
+                        <select name="rol_acceso_id" id="inputRolAcceso" class="form-select form-select-sm">
+                            <option value="">Sin rol (compatibilidad actual)</option>
+                            {% for r in roles %}
+                            <option value="{{ r.id }}">{{ r.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted" style="font-size: 0.7rem;">Define permisos por módulo para este usuario.</small>
+                    </div>
                 </form>
             </div>
             <div class="modal-footer border-0">
                 <button type="button" class="btn btn-light btn-sm text-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-brand btn-sm px-4" onclick="guardarUsuario()">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade modal-roles" id="modalRol" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content shadow-lg border-0" style="border-radius: 12px;">
+            <div class="modal-header border-bottom bg-light">
+                <h5 class="modal-title fw-bold" id="modalRolTitulo">Nuevo Rol</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="formRol">
+                    {% csrf_token %}
+                    <input type="hidden" id="rol_id_hidden">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Nombre</label>
+                            <input type="text" name="nombre" id="inputRolNombre" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Descripción</label>
+                            <input type="text" name="descripcion" id="inputRolDesc" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <div class="form-check mb-2">
+                                <input type="checkbox" class="form-check-input" name="activo" id="inputRolActivo" checked>
+                                <label class="form-check-label small fw-bold" for="inputRolActivo">Activo</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border rounded p-3 bg-light-subtle">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="text-uppercase small fw-bold mb-0">Sección Ventas</h6>
+                            <div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="marcarTodosPermisosVentas(true)">Marcar todo</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="marcarTodosPermisosVentas(false)">Limpiar todo</button>
+                            </div>
+                        </div>
+
+                        <div class="accordion" id="accordionPermisosVentas">
+                            {% for submodulo, acciones in sales_permission_matrix.items %}
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="heading-{{ submodulo }}">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ submodulo }}">
+                                        <div class="d-flex justify-content-between align-items-center w-100 me-3">
+                                            <span class="text-capitalize fw-semibold">{{ submodulo }}</span>
+                                            <span class="small text-muted">Permisos específicos</span>
+                                        </div>
+                                    </button>
+                                </h2>
+                                <div id="collapse-{{ submodulo }}" class="accordion-collapse collapse" data-bs-parent="#accordionPermisosVentas">
+                                    <div class="accordion-body">
+                                        <div class="d-flex justify-content-end mb-2">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleSubmoduloPermisos('{{ submodulo }}', true)">Marcar submódulo</button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary ms-2" onclick="toggleSubmoduloPermisos('{{ submodulo }}', false)">Limpiar</button>
+                                        </div>
+                                        <div class="permiso-grid">
+                                            {% for accion in acciones %}
+                                            <div class="form-check">
+                                                <input class="form-check-input permiso-accion permiso-submodulo-{{ submodulo }}" type="checkbox"
+                                                       name="perm_ventas__{{ submodulo }}__{{ accion }}"
+                                                       id="perm_ventas__{{ submodulo }}__{{ accion }}">
+                                                <label class="form-check-label text-capitalize" for="perm_ventas__{{ submodulo }}__{{ accion }}">{{ accion|cut:"_"|title }}</label>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-brand btn-sm px-4" onclick="guardarRol()">Guardar Rol</button>
             </div>
         </div>
     </div>
@@ -368,6 +523,7 @@
                     document.getElementById('inputUsername').value = data.username_corto;
                     document.getElementById('inputEmail').value = data.email;
                     document.getElementById('inputRol').value = data.rol;
+                    document.getElementById('inputRolAcceso').value = data.rol_acceso_id || '';
                     new bootstrap.Modal(document.getElementById('modalNuevoUsuario')).show();
                 } else {
                     alert('Error: ' + data.error);
@@ -481,6 +637,69 @@
             }
         })
         .catch(err => alert("Error de comunicación: " + err));
+    }
+
+    function prepararNuevoRol() {
+        document.getElementById('modalRolTitulo').innerText = "Nuevo Rol";
+        document.getElementById('rol_id_hidden').value = "";
+        document.getElementById('formRol').reset();
+        document.getElementById('inputRolActivo').checked = true;
+        document.querySelectorAll('.permiso-accion').forEach(el => { el.checked = false; });
+    }
+
+    function abrirEditarRol(id) {
+        prepararNuevoRol();
+        document.getElementById('modalRolTitulo').innerText = "Editar Rol";
+        document.getElementById('rol_id_hidden').value = id;
+
+        fetch(`/preferencias/api/rol/${id}/`)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) { alert(data.error || 'Error al cargar rol'); return; }
+                document.getElementById('inputRolNombre').value = data.nombre;
+                document.getElementById('inputRolDesc').value = data.descripcion || '';
+                document.getElementById('inputRolActivo').checked = !!data.activo;
+                document.querySelectorAll('.permiso-accion').forEach(el => { el.checked = false; });
+                const perms = data.permisos_accion || {};
+                Object.keys(perms).forEach(submodulo => {
+                    Object.keys(perms[submodulo]).forEach(accion => {
+                        const id = `perm_ventas__${submodulo}__${accion}`;
+                        const el = document.getElementById(id);
+                        if (el) el.checked = !!perms[submodulo][accion];
+                    });
+                });
+                new bootstrap.Modal(document.getElementById('modalRol')).show();
+            });
+    }
+
+    function guardarRol() {
+        const id = document.getElementById('rol_id_hidden').value;
+        const form = document.getElementById('formRol');
+        const formData = new FormData(form);
+        const url = id ? `/preferencias/actualizar-rol/${id}/` : '/preferencias/crear-rol/';
+
+        fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': '{{ csrf_token }}', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.href = '?section=roles';
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    }
+
+    function marcarTodosPermisosVentas(valor) {
+        document.querySelectorAll('.permiso-accion').forEach(el => { el.checked = valor; });
+    }
+
+    function toggleSubmoduloPermisos(submodulo, valor) {
+        document.querySelectorAll(`.permiso-submodulo-${submodulo}`).forEach(el => { el.checked = valor; });
     }
 </script>
 

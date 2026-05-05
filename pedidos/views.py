@@ -16,6 +16,7 @@ from collections import defaultdict
 from solicitudcompras.models import SolicitudCompra, DetalleSolicitudCompra
 from produccion.models import OrdenProduccion
 from notificaciones.utils import crear_notificacion
+from preferencias.permissions import require_sales_permission
 
 # --- HELPER MULTI-TENANCY ---
 def get_empresa_actual(request):
@@ -30,6 +31,7 @@ def get_empresa_actual(request):
 
 @login_required(login_url='/login/')
 @transaction.atomic
+@require_sales_permission('pedidos', 'crear', json_response=True)
 def crear_pedido_manual(request):
     """Crea un pedido directamente desde el dashboard de pedidos"""
     empresa_actual = get_empresa_actual(request)
@@ -99,6 +101,7 @@ def crear_pedido_manual(request):
 from django.db.models import Q
 
 @login_required(login_url='/login/')
+@require_sales_permission('pedidos', 'ver')
 def dashboard_pedidos(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
@@ -195,6 +198,7 @@ def dashboard_pedidos(request):
     return render(request, 'dashboard_pedidos.html', contexto)
 
 @login_required(login_url='/login/')
+@require_sales_permission('pedidos', 'crear')
 def crear_pedido_desde_cotizacion(request, cotizacion_id):
     """Convierte una Cotización Aprobada en un Pedido en estado Borrador"""
     empresa_actual = get_empresa_actual(request)
@@ -249,6 +253,7 @@ def crear_pedido_desde_cotizacion(request, cotizacion_id):
         return redirect('dashboard_cotizaciones')
 
 @login_required(login_url='/login/')
+@require_sales_permission('pedidos', 'validar_stock')
 def validar_pedido(request, pedido_id):
     """
     Diagnóstico básico. Deja la lógica de decisión de compra/producción
@@ -323,6 +328,7 @@ def validar_pedido(request, pedido_id):
     return redirect('dashboard_pedidos')
 
 @login_required(login_url='/login/')
+@require_sales_permission('pedidos', 'ver', json_response=True)
 def api_detalle_pedido(request, pedido_id):
     empresa_actual = get_empresa_actual(request)
     pedido = get_object_or_404(Pedido, id=pedido_id, empresa=empresa_actual)
@@ -393,6 +399,7 @@ def api_detalle_pedido(request, pedido_id):
     return JsonResponse({'detalles': detalles_data})
 
 @login_required(login_url='/login/')
+@require_sales_permission('pedidos', 'editar')
 def completar_linea_pedido(request, detalle_id):
     """
     Acción manual para marcar que un producto de "Compra" o "Producción" ya llegó/terminó.
@@ -443,6 +450,7 @@ def verificar_completitud_pedido(pedido):
 
 @login_required(login_url='/login/')
 @transaction.atomic # Asegura que si falla, no guarde nada a medias
+@require_sales_permission('pedidos', 'editar', json_response=True)
 def ejecutar_reserva(request, detalle_id):
     """
     Reserva físicamente el stock en Inventario y marca la línea como 'reservado'
@@ -535,6 +543,7 @@ def ejecutar_reserva(request, detalle_id):
     return JsonResponse({'success': True, 'message': 'Stock reservado correctamente.'})
 
 @login_required(login_url='/login/')
+@require_sales_permission('pedidos', 'aprobar')
 def generar_solicitud_global(request, pedido_id):
     """
     Genera UNA sola solicitud de compra para TODAS las partidas 'compra' del pedido.
@@ -674,6 +683,7 @@ def generar_solicitud_global(request, pedido_id):
     return redirect('dashboard_solicitudcompras')
 
 @login_required(login_url='/login/')
+@require_sales_permission('pedidos', 'ver', json_response=True)
 def obtener_pedido_json(request, pedido_id):
     """Devuelve los datos de un pedido específico para visualizar"""
     try:
@@ -705,6 +715,7 @@ def obtener_pedido_json(request, pedido_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 @login_required(login_url='/login/')
+@require_sales_permission('pedidos', 'imprimir')
 def imprimir_pedido(request, pk):
     """Genera la vista para impresión de pedido (PDF)"""
     empresa_actual = get_empresa_actual(request)
@@ -723,6 +734,7 @@ def imprimir_pedido(request, pk):
     return render(request, 'pedidos/imprimir_pedido.html', context)
 
 @login_required(login_url='/login/')
+@require_sales_permission('pedidos', 'registrar_pago', json_response=True)
 def api_info_pago_pedido(request, pedido_id):
     """Devuelve los datos necesarios para el modal de pago de un pedido"""
     empresa_actual = get_empresa_actual(request)

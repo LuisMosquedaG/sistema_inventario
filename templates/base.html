@@ -243,6 +243,7 @@
             </div>
 
             <!-- MÓDULO: VENTAS -->
+            {% if sales_ui_permissions.clientes or sales_ui_permissions.actividades or sales_ui_permissions.cotizaciones or sales_ui_permissions.pedidos or sales_ui_permissions.salidas %}
             <div>
                 <a href="#submenu-ventas" data-bs-toggle="collapse" class="sidebar-link {% if '/ventas/' in request.path or '/cotizaciones/' in request.path or '/clientes/' in request.path or '/actividades/' in request.path or '/pedidos/' in request.path %}sidebar-active{% endif %}">
                     <i class="bi bi-cash-stack sidebar-icon"></i> Ventas
@@ -250,14 +251,25 @@
                 </a>
                 <div class="collapse {% if '/ventas/' in request.path or '/cotizaciones/' in request.path or '/clientes/' in request.path or '/actividades/' in request.path or '/pedidos/' in request.path %}show{% endif %}" id="submenu-ventas">
                     <ul class="list-unstyled mb-0">
+                        {% if sales_ui_permissions.clientes %}
                         <li><a href="/clientes/" class="sidebar-link sidebar-level-2 {% if request.path == '/clientes/' %}sidebar-sub-active{% endif %}"><i class="bi bi-people me-2 small"></i> Clientes</a></li>
+                        {% endif %}
+                        {% if sales_ui_permissions.actividades %}
                         <li><a href="/actividades/" class="sidebar-link sidebar-level-2 {% if request.path == '/actividades/' %}sidebar-sub-active{% endif %}"><i class="bi bi-calendar-event me-2 small"></i> Actividades</a></li>
+                        {% endif %}
+                        {% if sales_ui_permissions.cotizaciones %}
                         <li><a href="/cotizaciones/" class="sidebar-link sidebar-level-2 {% if request.path == '/cotizaciones/' %}sidebar-sub-active{% endif %}"><i class="bi bi-file-earmark-text me-2 small"></i> Cotizaciones</a></li>
+                        {% endif %}
+                        {% if sales_ui_permissions.pedidos %}
                         <li><a href="/pedidos/" class="sidebar-link sidebar-level-2 {% if request.path == '/pedidos/' %}sidebar-sub-active{% endif %}"><i class="bi bi-box-seam me-2 small"></i> Pedidos</a></li>
+                        {% endif %}
+                        {% if sales_ui_permissions.salidas %}
                         <li><a href="/ventas/" class="sidebar-link sidebar-level-2 {% if request.path == '/ventas/' %}sidebar-sub-active{% endif %}"><i class="bi bi-receipt-cutoff me-2 small"></i> Salidas</a></li>
+                        {% endif %}
                     </ul>
                 </div>
             </div>
+            {% endif %}
 
             <!-- MÓDULO: COMPRAS -->
             <div>

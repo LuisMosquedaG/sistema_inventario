@@ -4,7 +4,8 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.db import transaction # <--- ESTE FALTABA
 from django.utils import timezone
-from .models import Moneda
+from .models import Moneda, Rol, PermisoRolModulo, AsignacionRolUsuario, PermisoRolAccion
+from .permissions import SALES_PERMISSION_MATRIX
 from panel.models import Empresa
 import csv
 import io
@@ -54,6 +55,7 @@ def dashboard_preferencias(request):
     contexto = {
         'seccion': seccion_activa,
         'empresa': empresa_actual,
+        'sales_permission_matrix': SALES_PERMISSION_MATRIX,
     }
 
     if seccion_activa == 'usuarios':
@@ -68,7 +70,24 @@ def dashboard_preferencias(request):
             qs = qs.filter(username__contains=f"@{empresa_actual.subdominio}")
             
         contexto['usuarios'] = qs.order_by('-id')
+        contexto['roles'] = Rol.objects.filter(empresa=empresa_actual, activo=True).order_by('nombre')
     
+    elif seccion_activa == 'roles':
+        if not request.user.is_staff and not is_master:
+            return render(request, 'error_sin_empresa.html', status=403)
+
+        roles = Rol.objects.filter(empresa=empresa_actual).order_by('nombre')
+        roles_info = []
+        for rol in roles:
+            permiso_ventas = PermisoRolModulo.objects.filter(rol=rol, modulo='ventas').first()
+            roles_info.append({
+                'rol': rol,
+                'permiso_ventas': permiso_ventas,
+                'total_usuarios': AsignacionRolUsuario.objects.filter(rol=rol).count(),
+                'total_permisos_accion': PermisoRolAccion.objects.filter(rol=rol, area='ventas', permitido=True).count()
+            })
+        contexto['roles_info'] = roles_info
+
     elif seccion_activa == 'monedas':
         contexto['monedas'] = Moneda.objects.filter(empresa=empresa_actual)
     
@@ -297,6 +316,7 @@ def crear_usuario_ajax(request):
         email = request.POST.get('email')
         password = request.POST.get('password1')
         rol = request.POST.get('rol')
+        rol_acceso_id = request.POST.get('rol_acceso_id')
 
         if not username_corto or not password:
             return JsonResponse({'success': False, 'error': 'El usuario y la contraseña son obligatorios.'})
@@ -320,6 +340,15 @@ def crear_usuario_ajax(request):
                 user.is_superuser = False 
 
             user.save()
+
+            if rol_acceso_id:
+                rol_acceso = Rol.objects.filter(id=rol_acceso_id, empresa=empresa_actual, activo=True).first()
+                if rol_acceso:
+                    AsignacionRolUsuario.objects.update_or_create(
+                        usuario=user,
+                        empresa=empresa_actual,
+                        defaults={'rol': rol_acceso}
+                    )
             return JsonResponse({'success': True, 'message': f'Usuario {username_completo} creado correctamente.'})
             
         except Exception as e:
@@ -335,12 +364,15 @@ def api_detalle_usuario(request, user_id):
     if f"@{empresa_actual.subdominio}" not in user.username:
         return JsonResponse({'error': 'Acceso denegado'}, status=403)
 
+    asignacion_rol = AsignacionRolUsuario.objects.filter(usuario=user, empresa=empresa_actual).first()
+
     return JsonResponse({
         'success': True,
         'id': user.id,
         'username_corto': user.username.split('@')[0],
         'email': user.email,
-        'rol': 'admin' if user.is_superuser else 'usuario'
+        'rol': 'admin' if user.is_superuser else 'usuario',
+        'rol_acceso_id': asignacion_rol.rol_id if asignacion_rol else ''
     })
 
 @login_required
@@ -356,6 +388,7 @@ def actualizar_usuario_ajax(request, user_id):
 
             user.email = request.POST.get('email')
             rol = request.POST.get('rol')
+            rol_acceso_id = request.POST.get('rol_acceso_id')
             if rol == 'admin':
                 user.is_staff = True; user.is_superuser = True
             else:
@@ -365,7 +398,133 @@ def actualizar_usuario_ajax(request, user_id):
             if passw: user.set_password(passw)
             
             user.save()
+
+            if rol_acceso_id:
+                rol_acceso = Rol.objects.filter(id=rol_acceso_id, empresa=empresa_actual, activo=True).first()
+                if rol_acceso:
+                    AsignacionRolUsuario.objects.update_or_create(
+                        usuario=user,
+                        empresa=empresa_actual,
+                        defaults={'rol': rol_acceso}
+                    )
+            else:
+                AsignacionRolUsuario.objects.filter(usuario=user, empresa=empresa_actual).delete()
             return JsonResponse({'success': True, 'message': 'Usuario actualizado correctamente.'})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+
+@login_required
+def crear_rol_ajax(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual or not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Acceso denegado'}, status=403)
+
+    nombre = (request.POST.get('nombre') or '').strip()
+    descripcion = (request.POST.get('descripcion') or '').strip()
+    if not nombre:
+        return JsonResponse({'success': False, 'error': 'El nombre del rol es obligatorio.'})
+
+    try:
+        rol = Rol.objects.create(nombre=nombre, descripcion=descripcion, empresa=empresa_actual, activo=True)
+        PermisoRolModulo.objects.create(
+            rol=rol,
+            modulo='ventas',
+            puede_ver=(request.POST.get('ventas_ver') == 'on'),
+            puede_crear=(request.POST.get('ventas_crear') == 'on'),
+            puede_editar=(request.POST.get('ventas_editar') == 'on'),
+            puede_eliminar=(request.POST.get('ventas_eliminar') == 'on'),
+            puede_aprobar=(request.POST.get('ventas_aprobar') == 'on'),
+            puede_imprimir=(request.POST.get('ventas_imprimir') == 'on')
+        )
+
+        for submodulo, acciones in SALES_PERMISSION_MATRIX.items():
+            for accion in acciones:
+                key = f"perm_ventas__{submodulo}__{accion}"
+                PermisoRolAccion.objects.create(
+                    rol=rol,
+                    area='ventas',
+                    submodulo=submodulo,
+                    accion=accion,
+                    permitido=(request.POST.get(key) == 'on')
+                )
+        return JsonResponse({'success': True, 'message': 'Rol creado correctamente.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def api_detalle_rol(request, rol_id):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Empresa no detectada'}, status=403)
+
+    rol = get_object_or_404(Rol, id=rol_id, empresa=empresa_actual)
+    permiso_ventas = PermisoRolModulo.objects.filter(rol=rol, modulo='ventas').first()
+    permisos_accion = {}
+    permisos_qs = PermisoRolAccion.objects.filter(rol=rol, area='ventas')
+    for p in permisos_qs:
+        permisos_accion.setdefault(p.submodulo, {})[p.accion] = p.permitido
+
+    return JsonResponse({
+        'success': True,
+        'id': rol.id,
+        'nombre': rol.nombre,
+        'descripcion': rol.descripcion or '',
+        'activo': rol.activo,
+        'ventas': {
+            'ver': permiso_ventas.puede_ver if permiso_ventas else False,
+            'crear': permiso_ventas.puede_crear if permiso_ventas else False,
+            'editar': permiso_ventas.puede_editar if permiso_ventas else False,
+            'eliminar': permiso_ventas.puede_eliminar if permiso_ventas else False,
+            'aprobar': permiso_ventas.puede_aprobar if permiso_ventas else False,
+            'imprimir': permiso_ventas.puede_imprimir if permiso_ventas else False,
+        },
+        'permisos_accion': permisos_accion
+    })
+
+
+@login_required
+def actualizar_rol_ajax(request, rol_id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual or not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Acceso denegado'}, status=403)
+
+    rol = get_object_or_404(Rol, id=rol_id, empresa=empresa_actual)
+    try:
+        rol.nombre = (request.POST.get('nombre') or '').strip()
+        rol.descripcion = (request.POST.get('descripcion') or '').strip()
+        rol.activo = (request.POST.get('activo') == 'on')
+        rol.save()
+
+        permiso_ventas, _ = PermisoRolModulo.objects.get_or_create(rol=rol, modulo='ventas')
+        permiso_ventas.puede_ver = (request.POST.get('ventas_ver') == 'on')
+        permiso_ventas.puede_crear = (request.POST.get('ventas_crear') == 'on')
+        permiso_ventas.puede_editar = (request.POST.get('ventas_editar') == 'on')
+        permiso_ventas.puede_eliminar = (request.POST.get('ventas_eliminar') == 'on')
+        permiso_ventas.puede_aprobar = (request.POST.get('ventas_aprobar') == 'on')
+        permiso_ventas.puede_imprimir = (request.POST.get('ventas_imprimir') == 'on')
+        permiso_ventas.save()
+
+        for submodulo, acciones in SALES_PERMISSION_MATRIX.items():
+            for accion in acciones:
+                key = f"perm_ventas__{submodulo}__{accion}"
+                permiso_accion, _ = PermisoRolAccion.objects.get_or_create(
+                    rol=rol,
+                    area='ventas',
+                    submodulo=submodulo,
+                    accion=accion
+                )
+                permiso_accion.permitido = (request.POST.get(key) == 'on')
+                permiso_accion.save()
+
+        return JsonResponse({'success': True, 'message': 'Rol actualizado correctamente.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

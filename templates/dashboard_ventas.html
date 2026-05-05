@@ -97,9 +97,11 @@
                     <i class="bi bi-download me-1"></i> Exportar
                 </button>
                 
-                <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaSalidaDirecta">
-                    <i class="bi bi-plus-lg me-1"></i> Nueva Salida
-                </button>
+                {% if perm_ventas.crear %}
+                    <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaSalidaDirecta">
+                        <i class="bi bi-plus-lg me-1"></i> Nueva Salida
+                    </button>
+                {% endif %}
             </div>
         </div>
 
@@ -207,31 +209,33 @@
                                 <td class="text-center">
                                     <div class="d-flex justify-content-center" style="gap: 2px;">
                                         
-                                        <!-- VER DETALLE (Siempre Visible) -->
-                                        <button class="icon-action border-0 bg-transparent" title="Ver Detalle" onclick="abrirModalDetalle({{ ov.id }})">
-                                            <i class="bi bi-eye"></i>
-                                        </button>
+                                        {% if perm_ventas.ver %}
+                                            <button class="icon-action border-0 bg-transparent" title="Ver Detalle" onclick="abrirModalDetalle({{ ov.id }})">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                        {% endif %}
 
-                                        <!-- IMPRIMIR (AJAX Silencioso) -->
-                                        <button class="icon-action border-0 bg-transparent" title="Imprimir Salida" onclick="descargarSalidaPDF({{ ov.id }})">
-                                            <i class="bi bi-printer"></i>
-                                        </button>
+                                        {% if perm_ventas.imprimir %}
+                                            <button class="icon-action border-0 bg-transparent" title="Imprimir Salida" onclick="descargarSalidaPDF({{ ov.id }})">
+                                                <i class="bi bi-printer"></i>
+                                            </button>
+                                        {% endif %}
 
-                                        {% if ov.estado == 'borrador' %}
+                                        {% if ov.estado == 'borrador' and perm_ventas.aprobar %}
                                             <a href="{% url 'cambiar_estado_ov' ov.id 'aprobado' %}" 
                                                class="icon-action" title="Aprobar Orden" 
                                                onclick="return confirm('¿Aprobar esta orden para preparación?');">
                                                 <i class="bi bi-check-circle"></i>
                                             </a>
 
-                                        {% elif ov.estado == 'aprobado' %}
+                                        {% elif ov.estado == 'aprobado' and perm_ventas.editar %}
                                             <button type="button" class="icon-action border-0 bg-transparent" 
                                                     title="Surtir Orden" 
                                                     onclick="abrirModalSurtido({{ ov.id }})">
                                                 <i class="bi bi-box-seam"></i>
                                             </button>
 
-                                        {% elif ov.estado == 'surtido' %}
+                                        {% elif ov.estado == 'surtido' and perm_ventas.editar %}
                                             <!-- BOTONES DINÁMICOS DE ENTREGA -->
                                             {% if ov.estado_entrega == 'listo' %}
                                                 <form method="post" action="{% url 'actualizar_estado_entrega' ov.id %}" style="display:inline;">
@@ -251,10 +255,11 @@
                                                 </form>
                                             {% endif %}
                                             
-                                            <!-- IMPRIMIR GUÍA -->
-                                            <button class="icon-action border-0 bg-transparent" title="Imprimir Guía" onclick="abrirModalDetalle({{ ov.id }})">
-                                                <i class="bi bi-printer"></i>
-                                            </button>
+                                            {% if perm_ventas.imprimir %}
+                                                <button class="icon-action border-0 bg-transparent" title="Imprimir Guía" onclick="abrirModalDetalle({{ ov.id }})">
+                                                    <i class="bi bi-printer"></i>
+                                                </button>
+                                            {% endif %}
                                         {% endif %}
 
                                     </div>

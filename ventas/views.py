@@ -13,6 +13,7 @@ from clientes.models import Cliente
 from core.models import Producto
 from django.db.models import F
 from notificaciones.utils import crear_notificacion
+from preferencias.permissions import require_sales_permission, user_has_sales_permission
 
 def get_empresa_actual(request):
     username = request.user.username
@@ -27,6 +28,7 @@ def get_empresa_actual(request):
 from django.db.models import Q
 
 @login_required
+@require_sales_permission('salidas', 'ver')
 def dashboard_ventas(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
@@ -121,12 +123,21 @@ def dashboard_ventas(request):
         'almacenes_json': almacenes, 
         'clientes': Cliente.objects.filter(empresa=empresa_actual), 
         'productos': Producto.objects.filter(empresa=empresa_actual),
-        'filtros': filtros
+        'filtros': filtros,
+        'perm_ventas': {
+            'ver': user_has_sales_permission(request, 'salidas', 'ver'),
+            'crear': user_has_sales_permission(request, 'salidas', 'crear'),
+            'editar': user_has_sales_permission(request, 'salidas', 'editar'),
+            'eliminar': user_has_sales_permission(request, 'salidas', 'eliminar'),
+            'aprobar': user_has_sales_permission(request, 'salidas', 'aprobar'),
+            'imprimir': user_has_sales_permission(request, 'salidas', 'imprimir'),
+        }
     }
     return render(request, 'dashboard_ventas.html', contexto)
 
 @login_required
 @transaction.atomic
+@require_sales_permission('salidas', 'crear')
 def crear_salida_directa(request):
     """Crea una Orden de Salida (Venta) directa sin pedido previo"""
     if request.method != 'POST':
@@ -184,6 +195,7 @@ def crear_salida_directa(request):
 
 @login_required
 @transaction.atomic
+@require_sales_permission('salidas', 'crear')
 def crear_orden_venta(request, pedido_id):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
@@ -231,6 +243,7 @@ def crear_orden_venta(request, pedido_id):
     return redirect('dashboard_ventas')
 
 @login_required
+@require_sales_permission('salidas', 'aprobar')
 def cambiar_estado_ov(request, ov_id, nuevo_estado):
     empresa_actual = get_empresa_actual(request)
     ov = get_object_or_404(OrdenVenta, id=ov_id, empresa=empresa_actual)
@@ -250,6 +263,7 @@ def cambiar_estado_ov(request, ov_id, nuevo_estado):
     return redirect('dashboard_ventas')
 
 @login_required
+@require_sales_permission('salidas', 'ver', json_response=True)
 def api_preparar_surtido(request, ov_id):
     empresa_actual = get_empresa_actual(request)
     ov = get_object_or_404(OrdenVenta, id=ov_id, empresa=empresa_actual)
@@ -332,6 +346,7 @@ def api_preparar_surtido(request, ov_id):
     })
 
 @login_required
+@require_sales_permission('salidas', 'imprimir')
 def imprimir_salida(request, pk):
     """Genera la vista para impresión de orden de salida (PDF)"""
     empresa_actual = get_empresa_actual(request)
@@ -351,6 +366,7 @@ def imprimir_salida(request, pk):
 
 @login_required
 @transaction.atomic
+@require_sales_permission('salidas', 'editar', json_response=True)
 def ejecutar_surtido(request, ov_id):
     if request.method != 'POST': return JsonResponse({'success': False, 'error': 'Método no permitido'})
     try:
@@ -510,6 +526,7 @@ def ejecutar_surtido(request, ov_id):
         return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required
+@require_sales_permission('salidas', 'editar')
 def actualizar_estado_entrega(request, ov_id):
     if request.method != 'POST':
         return redirect('dashboard_ventas')

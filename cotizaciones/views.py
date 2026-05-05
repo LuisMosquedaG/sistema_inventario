@@ -10,6 +10,7 @@ from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from panel.models import Empresa
 from notificaciones.utils import crear_notificacion
+from preferencias.permissions import require_sales_permission
 
 # --- 1. FUNCIÓN AYUDANTE ESTÁNDAR ---
 def get_empresa_actual(request):
@@ -25,6 +26,7 @@ def get_empresa_actual(request):
 from django.db.models import Q
 
 @login_required(login_url='/login/')
+@require_sales_permission('cotizaciones', 'ver')
 def dashboard_cotizaciones(request):
     empresa_actual = get_empresa_actual(request)
     
@@ -98,6 +100,7 @@ def dashboard_cotizaciones(request):
     return render(request, 'dashboard_cotizaciones.html', contexto)
 
 @login_required(login_url='/login/')
+@require_sales_permission('cotizaciones', 'imprimir')
 def imprimir_cotizacion(request, pk):
     empresa_actual = get_empresa_actual(request)
     cotizacion = get_object_or_404(Cotizacion, id=pk, empresa=empresa_actual)
@@ -115,6 +118,7 @@ def imprimir_cotizacion(request, pk):
     return render(request, 'cotizaciones/imprimir_cotizacion.html', context)
 
 @login_required(login_url='/login/')
+@require_sales_permission('cotizaciones', 'crear')
 def crear_cotizacion(request):
     empresa_actual = get_empresa_actual(request)
     
@@ -196,6 +200,7 @@ def crear_cotizacion(request):
     return redirect('dashboard_cotizaciones')
 
 @login_required(login_url='/login/')
+@require_sales_permission('cotizaciones', 'ver', json_response=True)
 def obtener_cotizacion_json(request, cotizacion_id):
     """Devuelve los datos de una cotización específica"""
     try:
@@ -233,6 +238,7 @@ def obtener_cotizacion_json(request, cotizacion_id):
         return JsonResponse({'error': 'Cotización no encontrada'}, status=404)
 
 @login_required(login_url='/login/')
+@require_sales_permission('cotizaciones', 'editar')
 def actualizar_cotizacion(request, cotizacion_id):
     if request.method == 'POST':
         try:
@@ -294,6 +300,7 @@ def actualizar_cotizacion(request, cotizacion_id):
     return redirect('dashboard_cotizaciones')
 
 @login_required(login_url='/login/')
+@require_sales_permission('cotizaciones', 'aprobar', json_response=True)
 def aprobar_cotizacion(request, cotizacion_id):
     if request.method == 'POST':
         try:
@@ -328,6 +335,7 @@ def aprobar_cotizacion(request, cotizacion_id):
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
     
 @login_required(login_url='/login/')
+@require_sales_permission('cotizaciones', 'crear')
 def recotizar(request, cotizacion_id):
     if request.method == 'POST':
         try:
@@ -380,6 +388,7 @@ def recotizar(request, cotizacion_id):
     return redirect('dashboard_cotizaciones')
 
 @login_required(login_url='/login/')
+@require_sales_permission('cotizaciones', 'eliminar')
 def cancelar_cotizacion(request, cotizacion_id):
     if request.method == 'POST':
         try:

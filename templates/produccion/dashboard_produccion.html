@@ -903,82 +903,63 @@
             document.getElementById('btnConfirmarCalidad').disabled = (total !== marcados);
         }
 
-        function guardarAvanceTest() {
-            const checks = [];
-            // Recolectamos los checks marcados
-            document.querySelectorAll('.chk-tarea:checked').forEach(chk => checks.push(chk.value));
-            
-            const btn = document.getElementById('btnGuardarAvance');
-            const originalText = '<i class="bi bi-save me-1"></i> Guardar Avance';
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
-
-            fetch(`/produccion/guardar-avance-test/${currentOrdenId}/`, {
+        async function apiGuardarAvance(ordenId, checks) {
+            const response = await fetch(`/produccion/guardar-avance-test/${ordenId}/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
                 body: JSON.stringify({ checks: checks })
-            })
-            .then(r => r.json())
-            .then(res => { 
+            });
+            return await response.json();
+        }
+
+        function actualizarBarraCalidadUI(ordenId, checks, totalChecks) {
+            const nuevoPorcentaje = Math.round((checks.length / totalChecks) * 100);
+            const filaTabla = document.querySelector(`tr[data-id-orden="${ordenId}"]`);
+            
+            if (filaTabla) {
+                const spansPorcentaje = filaTabla.querySelectorAll('.progress-label.text-dark');
+                if (spansPorcentaje.length >= 2) {
+                    spansPorcentaje[1].innerText = nuevoPorcentaje + '%';
+                }
+
+                const barras = filaTabla.querySelectorAll('.progress-bar');
+                if (barras.length >= 2) {
+                    const barraCalidad = barras[1];
+                    barraCalidad.classList.remove('bg-info-avance');
+                    barraCalidad.style.width = nuevoPorcentaje + '%';        
+                    barraCalidad.style.height = '10px';                     
+                    barraCalidad.style.backgroundColor = '#006d6d';
+                    barraCalidad.style.opacity = '1'; 
+                }
+            }
+        }
+
+        async function guardarAvanceTest() {
+            const checks = [];
+            document.querySelectorAll('.chk-tarea:checked').forEach(chk => checks.push(chk.value));
+            const totalChecks = document.querySelectorAll('.chk-tarea').length;
+            
+            const btn = document.getElementById('btnGuardarAvance');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
+
+            try {
+                const res = await apiGuardarAvance(currentOrdenId, checks);
                 if(res.success) { 
-                    
-                    // --- CÓDIGO NUEVO: ACTUALIZAR BARRA EN VIVO ---
-                    
-                    // 1. Calcular el porcentaje localmente
-                    const totalChecks = document.querySelectorAll('.chk-tarea').length;
-                    const nuevoPorcentaje = Math.round((checks.length / totalChecks) * 100);
-                    
-                    // 2. Buscar la fila correcta en la tabla principal usando el ID
-                    const filaTabla = document.querySelector(`tr[data-id-orden="${currentOrdenId}"]`);
-                    
-                    if (filaTabla) {
-                        
-                        // 1. ACTUALIZAR EL TEXTO DEL PORCENTAJE
-                        // Buscamos todos los spans con porcentaje y tomamos el segundo (Calidad)
-                        const spansPorcentaje = filaTabla.querySelectorAll('.progress-label.text-dark');
-                        if (spansPorcentaje.length >= 2) {
-                            spansPorcentaje[1].innerText = nuevoPorcentaje + '%';
-                        }
-
-                        // 2. ACTUALIZAR LA BARRA VISUAL
-                        const barras = filaTabla.querySelectorAll('.progress-bar');
-                        
-                        if (barras.length >= 2) {
-                            const barraCalidad = barras[1]; // La segunda barra (Calidad)
-                            
-                            // --- PASO CLAVE: ELIMINAMOS LA CLASE QUE TIENE EL CONFLICTO ---
-                            // Al hacer esto, el CSS ya no "ataca" a este elemento
-                            barraCalidad.classList.remove('bg-info-avance');
-                            // ----------------------------------------------------------------
-
-                            // Ahora pintamos sin resistencia
-                            barraCalidad.style.width = nuevoPorcentaje + '%';        
-                            barraCalidad.style.height = '10px';                     
-                            barraCalidad.style.backgroundColor = '#006d6d'; // Tu Azul Oscuro
-                            barraCalidad.style.opacity = '1'; 
-                        } else {
-                            console.error("No se encontraron las 2 barras de progreso esperadas en la fila.");
-                        }
-                    }
-                    // ------------------------------------------
-
-                    alert('Avance guardado mi chingon.');
-                    
-                    btn.disabled = false;
-                    btn.innerHTML = originalText;
+                    actualizarBarraCalidadUI(currentOrdenId, checks, totalChecks);
+                    alert('Avance guardado.');
                     bootstrap.Modal.getInstance(document.getElementById('modalChecklistCalidad')).hide();
                 } else { 
                     alert('Error: ' + res.error); 
-                    btn.disabled = false;
-                    btn.innerHTML = originalText;
                 }
-            })
-            .catch(e => {
+            } catch (e) {
                 console.error(e);
                 alert('Error de conexión.');
+            } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalText;
-            });
+            }
         }
 
         document.getElementById('modalChecklistCalidad').addEventListener('hidden.bs.modal', function () {
@@ -990,14 +971,39 @@
             currentOrdenId = null;
         });
 
-        function ejecutarFinalizarConTest() {
-            // Este botón ahora solo valida el test y abre el modal de recepción
-            fetch(`/produccion/api/detalle/${currentOrdenId}/`)
-                .then(r => r.json())
-                .then(ordenData => {
+        async function ejecutarFinalizarConTest() {
+            // 1. Guardar el avance automáticamente antes de pasar al siguiente modal
+            const checks = [];
+            document.querySelectorAll('.chk-tarea:checked').forEach(chk => checks.push(chk.value));
+            const totalChecks = document.querySelectorAll('.chk-tarea').length;
+            
+            const btn = document.getElementById('btnConfirmarCalidad');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando...';
+
+            try {
+                const res = await apiGuardarAvance(currentOrdenId, checks);
+                if (res.success) {
+                    actualizarBarraCalidadUI(currentOrdenId, checks, totalChecks);
+                    
+                    // 2. Proceder con la lógica de finalización (Lotes/Series)
+                    const resDetalle = await fetch(`/produccion/api/detalle/${currentOrdenId}/`);
+                    const ordenData = await resDetalle.json();
+                    
                     bootstrap.Modal.getInstance(document.getElementById('modalChecklistCalidad')).hide();
                     prepararModalFinalizacion(ordenData);
-                });
+                } else {
+                    alert('Error al guardar avance de calidad: ' + res.error);
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Error de conexión al guardar avance.');
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
         }
 
         // ==========================================

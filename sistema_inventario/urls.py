@@ -21,7 +21,8 @@ from preferencias.views import (
     dashboard_preferencias, crear_usuario_ajax, crear_moneda_ajax,
     api_detalle_usuario, actualizar_usuario_ajax,
     api_detalle_moneda, actualizar_moneda_ajax,
-    exportar_datos_zip, reiniciar_transacciones_ajax, reiniciar_catalogos_ajax
+    exportar_datos_zip, reiniciar_transacciones_ajax, reiniciar_catalogos_ajax,
+    crear_rol_ajax, api_detalle_rol, actualizar_rol_ajax
 )
 from django.contrib.auth import views as auth_views 
 from django.contrib.auth import logout
@@ -64,6 +65,9 @@ urlpatterns = [
     path('preferencias/crear-moneda/', crear_moneda_ajax, name='crear_moneda_ajax'),
     path('preferencias/api/moneda/<int:moneda_id>/', api_detalle_moneda, name='api_detalle_moneda'),
     path('preferencias/actualizar-moneda/<int:moneda_id>/', actualizar_moneda_ajax, name='actualizar_moneda_ajax'),
+    path('preferencias/crear-rol/', crear_rol_ajax, name='crear_rol_ajax'),
+    path('preferencias/api/rol/<int:rol_id>/', api_detalle_rol, name='api_detalle_rol'),
+    path('preferencias/actualizar-rol/<int:rol_id>/', actualizar_rol_ajax, name='actualizar_rol_ajax'),
     
     # --- RUTAS DE GESTIÓN DE DATOS ---
     path('preferencias/exportar-datos/', exportar_datos_zip, name='exportar_datos_zip'),
