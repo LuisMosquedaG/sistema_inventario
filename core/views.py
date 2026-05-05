@@ -184,12 +184,21 @@ def dashboard_inventario(request):
     todas_categorias = Categoria.objects.filter(empresa=empresa_actual).order_by('nombre')
     from produccion.models import Test
     tests_calidad = Test.objects.filter(empresa=empresa_actual).order_by('nombre')
+    productos_padre_receta = Producto.objects.filter(
+        empresa=empresa_actual,
+        tipo_abastecimiento='produccion'
+    ).order_by('nombre')
+    productos_componentes_receta = Producto.objects.filter(
+        empresa=empresa_actual
+    ).order_by('nombre')
 
     contexto = {
         'page_obj': page_obj,
         'almacenes': almacenes,
         'categorias': todas_categorias,
         'tests_calidad': tests_calidad,
+        'productos_padre_receta': productos_padre_receta,
+        'productos_componentes_receta': productos_componentes_receta,
         'filtros': {
             'almacen': int(almacen_id) if almacen_id else '', 
             'q': q or '',
