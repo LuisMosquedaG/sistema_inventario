@@ -46,11 +46,13 @@
         </div>
 
         <div class="d-flex flex-wrap align-items-center gap-2">
+            {% if granular_purchase_perms.recepciones.crear %}
             <button class="btn btn-brand text-white btn-pro shadow-sm" 
                     data-bs-toggle="modal" 
                     data-bs-target="#modalNuevaRecepcion">
                 <i class="bi bi-box-seam me-1"></i> Nueva Recepción
             </button>
+            {% endif %}
         </div>
     </div>
 
@@ -162,19 +164,25 @@
                                     </span>
 
                                     {% if r.estado == 'pendiente' or r.estado == 'parcial' %}
+                                        {% if granular_purchase_perms.recepciones.crear %}
                                         <span onclick="cambiarEstadoRecepcion({{ r.id }}, 'completada')" class="icon-action state-complete" title="Finalizar Entrada">
                                             <i class="bi bi-check-all"></i>
                                         </span>
+                                        {% endif %}
                                     {% elif r.estado == 'completada' %}
+                                        {% if granular_purchase_perms.recepciones.imprimir %}
                                         <span onclick="descargarRecepcionPDF({{ r.id }})" class="icon-action" title="Imprimir PDF">
                                             <i class="bi bi-printer"></i>
                                         </span>
+                                        {% endif %}
                                     {% endif %}
 
                                     {% if r.estado != 'cancelada' %}
+                                        {% if granular_purchase_perms.recepciones.cancelar %}
                                         <span onclick="cancelarRecepcionDesdeTabla({{ r.id }})" class="icon-action state-cancel" title="Cancelar Recepción">
                                             <i class="bi bi-x-circle"></i>
                                         </span>
+                                        {% endif %}
                                     {% endif %}
                                 </div>
                             </td>

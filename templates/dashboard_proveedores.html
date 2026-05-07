@@ -226,6 +226,7 @@
                 </button>
                 
                 <!-- Botón Nuevo Proveedor -->
+                {% if granular_purchase_perms.proveedores.crear %}
                 <button class="btn text-white btn-sm px-3 d-flex align-items-center shadow-sm" 
                         style="background-color: #00b8b9; border-radius: 6px; box-shadow: 0 2px 6px rgba(0, 184, 185, 0.3); transition: all 0.2; border: none;"
                         onclick="prepararNuevoProveedor()"
@@ -233,6 +234,7 @@
                         data-bs-target="#modalNuevoProveedor">
                     <i class="bi bi-plus-lg me-1"></i> Nuevo Proveedor
                 </button>
+                {% endif %}
 
             </div>
         </div>
@@ -323,12 +325,16 @@
                             <tr>
                                 <td class="text-center">
                                     <div class="d-flex justify-content-center gap-1">
+                                        {% if granular_purchase_perms.proveedores.editar %}
                                         <span class="icon-action" title="Editar Proveedor" onclick="abrirModalEdicion({{ p.id }})">
                                             <i class="bi bi-pencil-square"></i>
                                         </span>
+                                        {% endif %}
+                                        {% if granular_purchase_perms.proveedores.eliminar %}
                                         <span class="icon-action state-cancelled" title="Eliminar/Desactivar" onclick="confirmarDesactivacion({{ p.id }})">
                                             <i class="bi bi-x-circle"></i>
                                         </span>
+                                        {% endif %}
                                     </div>
                                 </td>
                                 <!-- Columna Proveedor -->

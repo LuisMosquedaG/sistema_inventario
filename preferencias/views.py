@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction # <--- ESTE FALTABA
 from django.utils import timezone
 from .models import Moneda, Rol, PermisoRolModulo, AsignacionRolUsuario, PermisoRolAccion
-from .permissions import SALES_PERMISSION_MATRIX
+from .permissions import SALES_PERMISSION_MATRIX, PURCHASES_PERMISSION_MATRIX
 from panel.models import Empresa
 import csv
 import io
@@ -56,6 +56,7 @@ def dashboard_preferencias(request):
         'seccion': seccion_activa,
         'empresa': empresa_actual,
         'sales_permission_matrix': SALES_PERMISSION_MATRIX,
+        'purchases_permission_matrix': PURCHASES_PERMISSION_MATRIX,
     }
 
     if seccion_activa == 'usuarios':
@@ -452,6 +453,18 @@ def crear_rol_ajax(request):
                     accion=accion,
                     permitido=(request.POST.get(key) == 'on')
                 )
+
+        from .permissions import PURCHASES_PERMISSION_MATRIX
+        for submodulo, acciones in PURCHASES_PERMISSION_MATRIX.items():
+            for accion in acciones:
+                key = f"perm_compras__{submodulo}__{accion}"
+                PermisoRolAccion.objects.create(
+                    rol=rol,
+                    area='compras',
+                    submodulo=submodulo,
+                    accion=accion,
+                    permitido=(request.POST.get(key) == 'on')
+                )
         return JsonResponse({'success': True, 'message': 'Rol creado correctamente.'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
@@ -466,9 +479,9 @@ def api_detalle_rol(request, rol_id):
     rol = get_object_or_404(Rol, id=rol_id, empresa=empresa_actual)
     permiso_ventas = PermisoRolModulo.objects.filter(rol=rol, modulo='ventas').first()
     permisos_accion = {}
-    permisos_qs = PermisoRolAccion.objects.filter(rol=rol, area='ventas')
+    permisos_qs = PermisoRolAccion.objects.filter(rol=rol)
     for p in permisos_qs:
-        permisos_accion.setdefault(p.submodulo, {})[p.accion] = p.permitido
+        permisos_accion.setdefault(p.area, {}).setdefault(p.submodulo, {})[p.accion] = p.permitido
 
     return JsonResponse({
         'success': True,
@@ -517,10 +530,17 @@ def actualizar_rol_ajax(request, rol_id):
             for accion in acciones:
                 key = f"perm_ventas__{submodulo}__{accion}"
                 permiso_accion, _ = PermisoRolAccion.objects.get_or_create(
-                    rol=rol,
-                    area='ventas',
-                    submodulo=submodulo,
-                    accion=accion
+                    rol=rol, area='ventas', submodulo=submodulo, accion=accion
+                )
+                permiso_accion.permitido = (request.POST.get(key) == 'on')
+                permiso_accion.save()
+
+        from .permissions import PURCHASES_PERMISSION_MATRIX
+        for submodulo, acciones in PURCHASES_PERMISSION_MATRIX.items():
+            for accion in acciones:
+                key = f"perm_compras__{submodulo}__{accion}"
+                permiso_accion, _ = PermisoRolAccion.objects.get_or_create(
+                    rol=rol, area='compras', submodulo=submodulo, accion=accion
                 )
                 permiso_accion.permitido = (request.POST.get(key) == 'on')
                 permiso_accion.save()

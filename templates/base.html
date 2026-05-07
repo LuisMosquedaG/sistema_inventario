@@ -272,6 +272,7 @@
             {% endif %}
 
             <!-- MÓDULO: COMPRAS -->
+            {% if purchase_ui_permissions.proveedores or purchase_ui_permissions.solicitudes or purchase_ui_permissions.ordenes_compra or purchase_ui_permissions.recepciones %}
             <div>
                 <a href="#submenu-compras" data-bs-toggle="collapse" class="sidebar-link {% if '/compras/' in request.path or '/proveedores/' in request.path or '/recepciones/' in request.path or '/solicitudes-compras/' in request.path %}sidebar-active{% endif %}">
                     <i class="bi bi-truck sidebar-icon"></i> Compras
@@ -279,13 +280,22 @@
                 </a>
                 <div class="collapse {% if '/compras/' in request.path or '/proveedores/' in request.path or '/recepciones/' in request.path or '/solicitudes-compras/' in request.path %}show{% endif %}" id="submenu-compras">
                     <ul class="list-unstyled mb-0">
+                        {% if purchase_ui_permissions.proveedores %}
                         <li><a href="/proveedores/" class="sidebar-link sidebar-level-2 {% if request.path == '/proveedores/' %}sidebar-sub-active{% endif %}"><i class="bi bi-building me-2 small"></i> Proveedores</a></li>
+                        {% endif %}
+                        {% if purchase_ui_permissions.solicitudes %}
                         <li><a href="/solicitudes-compras/" class="sidebar-link sidebar-level-2 {% if '/solicitudes-compras/' in request.path %}sidebar-sub-active{% endif %}"><i class="bi bi-file-earmark-plus me-2 small"></i> Solicitudes</a></li>
+                        {% endif %}
+                        {% if purchase_ui_permissions.ordenes_compra %}
                         <li><a href="/compras/" class="sidebar-link sidebar-level-2 {% if request.path == '/compras/' %}sidebar-sub-active{% endif %}"><i class="bi bi-cart-check me-2 small"></i> Órdenes de Compra</a></li>
+                        {% endif %}
+                        {% if purchase_ui_permissions.recepciones %}
                         <li><a href="/recepciones/" class="sidebar-link sidebar-level-2 {% if request.path == '/recepciones/' %}sidebar-sub-active{% endif %}"><i class="bi bi-box-seam me-2 small"></i> Recepciones</a></li>
+                        {% endif %}
                     </ul>
                 </div>
             </div>
+            {% endif %}
 
             <!-- MÓDULO: TESORERÍA -->
             <div>

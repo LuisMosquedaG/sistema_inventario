@@ -38,8 +38,18 @@
 
     .card-settings { border: none; box-shadow: 0 2px 15px rgba(0,0,0,0.05); border-radius: 10px; }
 
-.modal-roles .modal-dialog { max-width: 1200px; }
-.modal-roles .modal-body { max-height: 72vh; overflow-y: auto; }
+    /* Estilos del Modal Sheet */
+    .modal-sheet .modal-content {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        overflow: hidden;
+    }
+    .modal-sheet .modal-body {
+        max-height: 75vh;
+        overflow-y: auto;
+    }
+
 .permiso-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -375,107 +385,191 @@
     </div>
 </div>
 
-<div class="modal fade modal-roles" id="modalRol" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content shadow-lg border-0" style="border-radius: 12px;">
+<!-- MODAL ROL (ESTILO COTIZACIÓN) -->
+<div class="modal fade" id="modalRol" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+        <div class="modal-content">
+            
             <div class="modal-header border-bottom bg-light">
-                <h5 class="modal-title fw-bold" id="modalRolTitulo">Nuevo Rol</h5>
+                <h5 class="modal-title fw-bold text-dark">
+                    <i class="bi bi-shield-lock me-2" style="color: #00b8b9;"></i>
+                    <span id="modalRolTitulo">Nuevo Rol</span>
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-4">
-                <form id="formRol">
-                    {% csrf_token %}
-                    <input type="hidden" id="rol_id_hidden">
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-4">
-                            <label class="form-label small fw-bold">Nombre</label>
-                            <input type="text" name="nombre" id="inputRolNombre" class="form-control form-control-sm" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold">Descripción</label>
-                            <input type="text" name="descripcion" id="inputRolDesc" class="form-control form-control-sm">
-                        </div>
-                        <div class="col-md-2 d-flex align-items-end">
-                            <div class="form-check mb-2">
-                                <input type="checkbox" class="form-check-input" name="activo" id="inputRolActivo" checked>
-                                <label class="form-check-label small fw-bold" for="inputRolActivo">Activo</label>
-                            </div>
-                        </div>
-                    </div>
 
-                    <div class="border rounded p-3 bg-light-subtle">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="text-uppercase small fw-bold mb-0">Sección Ventas</h6>
-                            <div>
-                                <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="marcarTodosPermisosVentas(true)">Marcar todo</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="marcarTodosPermisosVentas(false)">Limpiar todo</button>
-                            </div>
-                        </div>
+            <form id="formRol" novalidate>
+                {% csrf_token %}
+                <input type="hidden" id="rol_id_hidden">
 
-                        <div class="accordion" id="accordionPermisosVentas">
-                            {% for submodulo, acciones in sales_permission_matrix.items %}
-                            <div class="accordion-item">
-                                <h2 class="accordion-header" id="heading-{{ submodulo }}">
-                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ submodulo }}">
-                                        <div class="d-flex justify-content-between align-items-center w-100 me-3">
-                                            <span class="text-capitalize fw-semibold">{{ submodulo }}</span>
-                                            <span class="small text-muted">Permisos específicos</span>
-                                        </div>
-                                    </button>
-                                </h2>
-                                <div id="collapse-{{ submodulo }}" class="accordion-collapse collapse" data-bs-parent="#accordionPermisosVentas">
-                                    <div class="accordion-body">
-                                        <div class="d-flex justify-content-end mb-2">
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleSubmoduloPermisos('{{ submodulo }}', true)">Marcar submódulo</button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary ms-2" onclick="toggleSubmoduloPermisos('{{ submodulo }}', false)">Limpiar</button>
-                                        </div>
-                                        <div class="permiso-grid">
-                                            {% for accion in acciones %}
-                                                {% if submodulo == 'pedidos' and accion in 'reservar,solicitar,generar_solicitud_global' %}
-                                                    <!-- Se omiten aquí para ponerlos dentro de un sub-bloque si se desea, 
-                                                         o simplemente se indentan. El usuario pidió 'dentro de revisión'. -->
-                                                {% else %}
-                                                <div class="form-check">
-                                                    <input class="form-check-input permiso-accion permiso-submodulo-{{ submodulo }}" type="checkbox"
-                                                           name="perm_ventas__{{ submodulo }}__{{ accion }}"
-                                                           id="perm_ventas__{{ submodulo }}__{{ accion }}">
-                                                    <label class="form-check-label text-capitalize" for="perm_ventas__{{ submodulo }}__{{ accion }}">
-                                                        {% if accion == 'eliminar' %}Cancelar{% else %}{{ accion|cut:"_"|title }}{% endif %}
-                                                    </label>
-                                                </div>
-                                                {% endif %}
-                                            {% endfor %}
-                                        </div>
-
-                                        {% if submodulo == 'pedidos' %}
-                                        <div class="mt-3 ps-4 border-start border-4 border-info bg-light-subtle p-2 rounded">
-                                            <h7 class="small fw-bold text-info text-uppercase d-block mb-2">Acciones de Revisión (Diagnóstico)</h7>
-                                            <div class="permiso-grid">
-                                                {% for p_accion in acciones %}
-                                                    {% if p_accion == 'reservar' or p_accion == 'solicitar' or p_accion == 'generar_solicitud_global' %}
-                                                    <div class="form-check">
-                                                        <input class="form-check-input permiso-accion permiso-submodulo-{{ submodulo }}" type="checkbox"
-                                                               name="perm_ventas__{{ submodulo }}__{{ p_accion }}"
-                                                               id="perm_ventas__{{ submodulo }}__{{ p_accion }}">
-                                                        <label class="form-check-label text-capitalize" for="perm_ventas__{{ submodulo }}__{{ p_accion }}">{{ p_accion|cut:"_"|title }}</label>
-                                                    </div>
-                                                    {% endif %}
-                                                {% endfor %}
-                                            </div>
-                                        </div>
-                                        {% endif %}
+                <div class="modal-body p-3 bg-light">
+                    
+                    <!-- SECCIÓN: DATOS BÁSICOS -->
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body p-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Información del Rol</h6>
+                            <div class="row g-2">
+                                <div class="col-md-5">
+                                    <label class="form-label small fw-bold text-secondary">Nombre del Rol</label>
+                                    <input type="text" name="nombre" id="inputRolNombre" class="form-control form-control-sm" required>
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label small fw-bold text-secondary">Descripción</label>
+                                    <input type="text" name="descripcion" id="inputRolDesc" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-2 d-flex align-items-end justify-content-center">
+                                    <div class="form-check mb-2">
+                                        <input type="checkbox" class="form-check-input" name="activo" id="inputRolActivo" checked>
+                                        <label class="form-check-label small fw-bold" for="inputRolActivo">Activo</label>
                                     </div>
                                 </div>
                             </div>
-                            {% endfor %}
                         </div>
                     </div>
-                </form>
-            </div>
-            <div class="modal-footer border-0">
-                <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-brand btn-sm px-4" onclick="guardarRol()">Guardar Rol</button>
-            </div>
+
+                    <!-- SECCIÓN: PERMISOS (ESTILO COTIZACIÓN) -->
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body p-0">
+                            <button class="btn btn-sm btn-light border-0 w-100 d-flex justify-content-between align-items-center px-3 py-3" 
+                                    type="button" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#collapseModuloVentas" 
+                                    aria-expanded="true">
+                                <span class="fw-bold text-dark"><i class="bi bi-cart-check me-2" style="color: #00b8b9;"></i> MÓDULO VENTAS</span>
+                                <i class="bi bi-chevron-down small text-muted"></i>
+                            </button>
+                            
+                            <div id="collapseModuloVentas" class="collapse show border-top">
+                                <div class="p-3">
+                                    <div class="d-flex gap-2 mb-3">
+                                        <button type="button" class="btn btn-xs btn-outline-secondary" style="font-size: 0.65rem;" onclick="marcarTodosPermisosVentas(true)">Marcar Todo</button>
+                                        <button type="button" class="btn btn-xs btn-outline-secondary" style="font-size: 0.65rem;" onclick="marcarTodosPermisosVentas(false)">Limpiar Todo</button>
+                                    </div>
+
+                                    <div class="row g-3">
+                                        {% for submodulo, acciones in sales_permission_matrix.items %}
+                                        <div class="col-12">
+                                            <div class="p-3 border rounded shadow-sm" style="background-color: #f8f9fa;">
+                                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                                    <h6 class="fw-bold text-uppercase text-dark mb-0 small" style="letter-spacing: 0.5px;">{{ submodulo }}</h6>
+                                                    <div class="btn-group">
+                                                        <button type="button" class="btn btn-link text-decoration-none p-0 text-muted fw-bold" style="font-size: 0.6rem;" onclick="toggleSubmoduloPermisos('{{ submodulo }}', true)">TODO</button>
+                                                        <span class="mx-2 text-muted" style="font-size: 0.6rem;">|</span>
+                                                        <button type="button" class="btn btn-link text-decoration-none p-0 text-muted fw-bold" style="font-size: 0.6rem;" onclick="toggleSubmoduloPermisos('{{ submodulo }}', false)">LIMPIAR</button>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="row row-cols-2 row-cols-md-4 g-2">
+                                                    {% for p_accion in acciones %}
+                                                        {% if submodulo == 'pedidos' and p_accion in 'reservar,solicitar,generar_solicitud_global' %}
+                                                            <!-- Especial Diagnóstico abajo -->
+                                                        {% else %}
+                                                        <div class="col">
+                                                            <div class="form-check">
+                                                                <input class="form-check-input permiso-accion permiso-submodulo-{{ submodulo }}" type="checkbox"
+                                                                       name="perm_ventas__{{ submodulo }}__{{ p_accion }}"
+                                                                       id="perm_ventas__{{ submodulo }}__{{ p_accion }}">
+                                                                <label class="form-check-label small text-dark" style="font-size: 0.75rem;" for="perm_ventas__{{ submodulo }}__{{ p_accion }}">
+                                                                    {% if p_accion == 'eliminar' %}Cancelar{% else %}{{ p_accion|cut:"_"|title }}{% endif %}
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </div>
+
+                                                {% if submodulo == 'pedidos' %}
+                                                <div class="mt-3 pt-2 border-top">
+                                                    <h6 class="text-info fw-bold mb-2 small text-uppercase" style="font-size: 0.65rem;">Acciones de Diagnóstico</h6>
+                                                    <div class="row row-cols-2 row-cols-md-4 g-2">
+                                                        {% for p_accion in acciones %}
+                                                            {% if p_accion == 'reservar' or p_accion == 'solicitar' or p_accion == 'generar_solicitud_global' %}
+                                                            <div class="col">
+                                                                <div class="form-check">
+                                                                    <input class="form-check-input permiso-accion permiso-submodulo-{{ submodulo }}" type="checkbox"
+                                                                           name="perm_ventas__{{ submodulo }}__{{ p_accion }}"
+                                                                           id="perm_ventas__{{ submodulo }}__{{ p_accion }}">
+                                                                    <label class="form-check-label small text-dark" style="font-size: 0.75rem;" for="perm_ventas__{{ submodulo }}__{{ p_accion }}">{{ p_accion|cut:"_"|title }}</label>
+                                                                </div>
+                                                            </div>
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                    </div>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    <!-- 3. MÓDULO COMPRAS (DESPLEGABLE MAESTRO) -->
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body p-0">
+                            <button class="btn btn-sm btn-light border-0 w-100 d-flex justify-content-between align-items-center px-3 py-3" 
+                                    type="button" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#collapseModuloCompras" 
+                                    aria-expanded="false">
+                                <span class="fw-bold text-dark"><i class="bi bi-cart-plus me-2" style="color: #00b8b9;"></i> MÓDULO COMPRAS</span>
+                                <i class="bi bi-chevron-down small text-muted"></i>
+                            </button>
+                            
+                            <div id="collapseModuloCompras" class="collapse border-top">
+                                <div class="p-3">
+                                    <div class="d-flex gap-2 mb-3">
+                                        <button type="button" class="btn btn-xs btn-outline-secondary" style="font-size: 0.65rem;" onclick="marcarTodosPermisosCompras(true)">Marcar Todo</button>
+                                        <button type="button" class="btn btn-xs btn-outline-secondary" style="font-size: 0.65rem;" onclick="marcarTodosPermisosCompras(false)">Limpiar Todo</button>
+                                    </div>
+
+                                    <div class="row g-3">
+                                        {% for submodulo, acciones in purchases_permission_matrix.items %}
+                                        <div class="col-12">
+                                            <div class="p-3 border rounded shadow-sm" style="background-color: #f8f9fa;">
+                                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                                    <h6 class="fw-bold text-uppercase text-dark mb-0 small" style="letter-spacing: 0.5px;">{{ submodulo|cut:"_"|title }}</h6>
+                                                    <div class="btn-group">
+                                                        <button type="button" class="btn btn-link text-decoration-none p-0 text-muted fw-bold" style="font-size: 0.6rem;" onclick="toggleSubmoduloPermisos('{{ submodulo }}', true)">TODO</button>
+                                                        <span class="mx-2 text-muted" style="font-size: 0.6rem;">|</span>
+                                                        <button type="button" class="btn btn-link text-decoration-none p-0 text-muted fw-bold" style="font-size: 0.6rem;" onclick="toggleSubmoduloPermisos('{{ submodulo }}', false)">LIMPIAR</button>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="row row-cols-2 row-cols-md-4 g-2">
+                                                    {% for p_accion in acciones %}
+                                                    <div class="col">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input permiso-accion permiso-submodulo-{{ submodulo }}" type="checkbox"
+                                                                   name="perm_compras__{{ submodulo }}__{{ p_accion }}"
+                                                                   id="perm_compras__{{ submodulo }}__{{ p_accion }}">
+                                                            <label class="form-check-label small text-dark" style="font-size: 0.75rem;" for="perm_compras__{{ submodulo }}__{{ p_accion }}">
+                                                                {% if p_accion == 'crear' and submodulo == 'proveedores' %}Nuevo Proveedor
+                                                                {% elif p_accion == 'crear' and submodulo == 'recepciones' %}Nueva Recepción
+                                                                {% elif p_accion == 'crear' and submodulo == 'solicitudes' %}Nueva Solicitud
+                                                                {% elif p_accion == 'crear' and submodulo == 'ordenes_compra' %}Nueva Orden Compra
+                                                                {% else %}{{ p_accion|cut:"_"|title }}{% endif %}
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div> <!-- Cierre del módulo compras -->
+
+                </div> <!-- Cierre del modal-body -->
+
+                <div class="modal-footer border-top bg-white">
+                    <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-brand btn-sm px-4" onclick="guardarRol()">Guardar Rol</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -685,12 +779,14 @@
                 document.getElementById('inputRolDesc').value = data.descripcion || '';
                 document.getElementById('inputRolActivo').checked = !!data.activo;
                 document.querySelectorAll('.permiso-accion').forEach(el => { el.checked = false; });
-                const perms = data.permisos_accion || {};
-                Object.keys(perms).forEach(submodulo => {
-                    Object.keys(perms[submodulo]).forEach(accion => {
-                        const id = `perm_ventas__${submodulo}__${accion}`;
-                        const el = document.getElementById(id);
-                        if (el) el.checked = !!perms[submodulo][accion];
+                const permsArea = data.permisos_accion || {};
+                Object.keys(permsArea).forEach(area => {
+                    Object.keys(permsArea[area]).forEach(submodulo => {
+                        Object.keys(permsArea[area][submodulo]).forEach(accion => {
+                            const id = `perm_${area}__${submodulo}__${accion}`;
+                            const el = document.getElementById(id);
+                            if (el) el.checked = !!permsArea[area][submodulo][accion];
+                        });
                     });
                 });
                 new bootstrap.Modal(document.getElementById('modalRol')).show();
@@ -720,7 +816,11 @@
     }
 
     function marcarTodosPermisosVentas(valor) {
-        document.querySelectorAll('.permiso-accion').forEach(el => { el.checked = valor; });
+        document.querySelectorAll('.permiso-submodulo-clientes, .permiso-submodulo-actividades, .permiso-submodulo-cotizaciones, .permiso-submodulo-pedidos, .permiso-submodulo-salidas').forEach(el => { el.checked = valor; });
+    }
+
+    function marcarTodosPermisosCompras(valor) {
+        document.querySelectorAll('.permiso-submodulo-proveedores, .permiso-submodulo-solicitudes, .permiso-submodulo-ordenes_compra, .permiso-submodulo-recepciones').forEach(el => { el.checked = valor; });
     }
 
     function toggleSubmoduloPermisos(submodulo, valor) {

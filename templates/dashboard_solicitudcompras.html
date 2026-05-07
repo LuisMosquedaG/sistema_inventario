@@ -98,9 +98,11 @@
                 <span class="section-subtitle">Gestión de Requisiciones</span>
             </div>
             <div class="d-flex flex-wrap align-items-center gap-2">
+                {% if granular_purchase_perms.solicitudes.crear %}
                 <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaSolicitudManual" onclick="prepararNuevaSolicitud()">
                     <i class="bi bi-plus-lg me-1"></i> Nueva Solicitud
                 </button>
+                {% endif %}
             </div>
         </div>
 
@@ -206,16 +208,22 @@
                                         <span onclick="verSolicitud({{ s.id }})" class="icon-action" title="Ver Solicitud">
                                             <i class="bi bi-eye"></i>
                                         </span>
+                                        {% if granular_purchase_perms.solicitudes.imprimir %}
                                         <span onclick="descargarSolicitudPDF({{ s.id }})" class="icon-action" title="Imprimir PDF">
                                             <i class="bi bi-printer"></i>
                                         </span>
+                                        {% endif %}
                                         {% if s.estado == 'borrador' %}
-                                        <span onclick="previsualizarAutorizacion({{ s.id }})" class="icon-action" title="Autorizar Solicitud">
-                                            <i class="bi bi-check-circle"></i>
-                                        </span>
-                                        <span onclick="cargarParaEdicion({{ s.id }})" class="icon-action" title="Editar">
-                                            <i class="bi bi-pencil-square"></i>
-                                        </span>
+                                            {% if granular_purchase_perms.solicitudes.autorizar %}
+                                            <span onclick="previsualizarAutorizacion({{ s.id }})" class="icon-action" title="Autorizar Solicitud">
+                                                <i class="bi bi-check-circle"></i>
+                                            </span>
+                                            {% endif %}
+                                            {% if granular_purchase_perms.solicitudes.editar %}
+                                            <span onclick="cargarParaEdicion({{ s.id }})" class="icon-action" title="Editar">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </span>
+                                            {% endif %}
                                         {% endif %}
                                     </div>
                                 </td>

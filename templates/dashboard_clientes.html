@@ -390,16 +390,16 @@
 <!-- ============================================== -->
 <!-- MODAL: CREAR / EDITAR CLIENTE                 -->
 <!-- ============================================== -->
-<div class="modal fade" id="modalCrearCliente" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
-        <div class="modal-content">
+<div class="modal fade modal-roles" id="modalCrearCliente" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-sheet modal-dialog-scrollable">
+        <div class="modal-content border-0">
             
             <div class="modal-header border-bottom bg-light">
                 <h5 class="modal-title fw-bold" id="tituloModalCliente">Nuevo Cliente</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
-            <div class="modal-body p-3 bg-light">
+            <div class="modal-body p-3" style="background-color: #f4f6f9;">
                 <!-- Mostramos errores globales si existen -->
                 {% if form.non_field_errors %}
                     <div class="alert alert-danger py-2 small">
@@ -418,7 +418,7 @@
                             <div class="row g-2">
                                 <div class="col-md-4">
                                     <label class="form-label small fw-bold text-secondary">Estado</label>
-                                    <select name="estado" id="inputEstado" class="form-select form-select-sm">
+                                    <select name="estado" id="inputEstado" class="form-select form-select-sm border-0 bg-light shadow-sm" style="border-radius: 8px;">
                                         <option value="activo">Activo</option>
                                         <option value="suspendido">Suspendido</option>
                                         <option value="inactivo">Inactivo</option>
@@ -426,7 +426,7 @@
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label small fw-bold text-secondary">Tipo</label>
-                                    <select name="tipo" id="inputTipo" class="form-select form-select-sm">
+                                    <select name="tipo" id="inputTipo" class="form-select form-select-sm border-0 bg-light shadow-sm" style="border-radius: 8px;">
                                         <option value="prospecto">Prospecto</option>
                                         <option value="cliente_nuevo">Cliente Nuevo</option>
                                         <option value="cliente_activo">Cliente Activo</option>
@@ -436,7 +436,7 @@
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label small fw-bold text-secondary">Relación</label>
-                                    <select name="relacion" id="inputRelacion" class="form-select form-select-sm">
+                                    <select name="relacion" id="inputRelacion" class="form-select form-select-sm border-0 bg-light shadow-sm" style="border-radius: 8px;">
                                         <option value="directo">Directo</option>
                                         <option value="referido">Referido</option>
                                         <option value="revendedor">Revendedor</option>
@@ -454,150 +454,130 @@
                                 <!-- Fila 1: Datos de Persona -->
                                 <div class="col-md-6">
                                     <label class="form-label small fw-bold text-secondary">Nombre</label>
-                                    {{ form.nombre }}
-                                    {% if form.nombre.errors %}
-                                        <div class="text-danger small mt-1">{{ form.nombre.errors.0 }}</div>
-                                    {% endif %}
+                                    <input type="text" name="nombre" id="id_nombre" class="form-control form-control-sm border-0 bg-light shadow-sm" style="border-radius: 8px;" required>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label small fw-bold text-secondary">Apellidos</label>
-                                    {{ form.apellidos }}
-                                    {% if form.apellidos.errors %}
-                                        <div class="text-danger small mt-1">{{ form.apellidos.errors.0 }}</div>
-                                    {% endif %}
+                                    <input type="text" name="apellidos" id="id_apellidos" class="form-control form-control-sm border-0 bg-light shadow-sm" style="border-radius: 8px;" required>
                                 </div>
 
                                 <!-- Fila 2: Datos Fiscales -->
                                 <div class="col-md-6">
-                                    <label class="form-label small fw-bold text-secondary">Razón Social <span class="text-muted fw-normal">(Opcional - Empresas)</span></label>
-                                    {{ form.razon_social }}
+                                    <label class="form-label small fw-bold text-secondary">Razón Social <span class="text-muted fw-normal">(Opcional)</span></label>
+                                    <input type="text" name="razon_social" id="id_razon_social" class="form-control form-control-sm border-0 bg-light shadow-sm" style="border-radius: 8px;">
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label small fw-bold text-secondary">RFC</label>
-                                    {{ form.rfc }}
-                                    {% if form.rfc.errors %}
-                                        <div class="text-danger small mt-1">{{ form.rfc.errors.0 }}</div>
-                                    {% endif %}
+                                    <input type="text" name="rfc" id="id_rfc" class="form-control form-control-sm border-0 bg-light shadow-sm" style="border-radius: 8px;">
                                 </div>
 
                                 <!-- Fila 3: Contacto -->
-                                <div class="col-12">
+                                <div class="col-md-6">
                                     <label class="form-label small fw-bold text-secondary">Correo Electrónico</label>
-                                    {{ form.email }}
-                                    {% if form.email.errors %}
-                                        <div class="text-danger small mt-1">{{ form.email.errors.0 }}</div>
-                                    {% endif %}
+                                    <input type="email" name="email" id="id_email" class="form-control form-control-sm border-0 bg-light shadow-sm" style="border-radius: 8px;">
                                 </div>
-                                <div class="col-12">
+                                <div class="col-md-6">
                                     <label class="form-label small fw-bold text-secondary">Teléfono</label>
-                                    {{ form.telefono }}
-                                    {% if form.telefono.errors %}
-                                        <div class="text-danger small mt-1">{{ form.telefono.errors.0 }}</div>
-                                    {% endif %}
+                                    <input type="text" name="telefono" id="id_telefono" class="form-control form-control-sm border-0 bg-light shadow-sm" style="border-radius: 8px;">
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- SECCIÓN 3: DIRECCIÓN (COLAPSABLE) -->
-                    <div class="card border-0 shadow-sm">
-                        <div class="card-body p-0">
-                            <button class="btn btn-sm btn-light border text-secondary w-100 d-flex justify-content-between align-items-center px-3 py-2" 
-                                    type="button" 
-                                    data-bs-toggle="collapse" 
-                                    data-bs-target="#collapseDireccion" 
-                                    aria-expanded="false" 
-                                    aria-controls="collapseDireccion">
-                                <span><i class="bi bi-geo-alt-fill text-primary me-2"></i>Información de Dirección</span>
-                                <i class="bi bi-chevron-down small transition-icon"></i>
-                            </button>
-                        </div>
-                        <div class="collapse" id="collapseDireccion">
-                            <div class="bg-light p-3 border-top">
-                                <div class="row g-2">
-                                    <div class="col-md-8">
-                                        <label class="form-label small text-muted mb-0">Calle</label>
-                                        <input type="text" name="calle" id="inputCalle" class="form-control form-control-sm" placeholder="Calle y número">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label small text-muted mb-0">Num. Ext</label>
-                                        <input type="text" name="numero_ext" id="inputNumExt" class="form-control form-control-sm" placeholder="#">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label small text-muted mb-0">Num. Int</label>
-                                        <input type="text" name="numero_int" id="inputNumInt" class="form-control form-control-sm" placeholder="Int (Opc)">
-                                    </div>
-                                    <div class="col-md-8">
-                                        <label class="form-label small text-muted mb-0">Colonia</label>
-                                        <input type="text" name="colonia" id="inputColonia" class="form-control form-control-sm" placeholder="Colonia">
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label small text-muted mb-0">Estado</label>
-                                        <input type="text" name="estado_dir" id="inputEstadoDir" class="form-control form-control-sm" placeholder="Estado">
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label small text-muted mb-0">C.P.</label>
-                                        <input type="text" name="cp" id="inputCP" class="form-control form-control-sm" placeholder="Código Postal">
+                    <!-- SECCIÓN 3: DIRECCIÓN (ACORDEÓN ESTILO ROL) -->
+                    <div class="accordion border-0 shadow-sm mb-3" id="accordionDireccion">
+                        <div class="accordion-item border-0" style="border-radius: 8px;">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed bg-white py-2 text-dark fw-bold" style="font-size: 0.85rem;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDireccion">
+                                    <i class="bi bi-geo-alt-fill text-primary me-2"></i> INFORMACIÓN DE DIRECCIÓN
+                                </button>
+                            </h2>
+                            <div id="collapseDireccion" class="accordion-collapse collapse" data-bs-parent="#accordionDireccion">
+                                <div class="accordion-body p-3" style="background-color: #f8f9fa;">
+                                    <div class="row g-2">
+                                        <div class="col-md-8">
+                                            <label class="form-label small text-muted mb-0">Calle</label>
+                                            <input type="text" name="calle" id="inputCalle" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small text-muted mb-0">Num. Ext</label>
+                                            <input type="text" name="numero_ext" id="inputNumExt" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small text-muted mb-0">Num. Int</label>
+                                            <input type="text" name="numero_int" id="inputNumInt" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;">
+                                        </div>
+                                        <div class="col-md-8">
+                                            <label class="form-label small text-muted mb-0">Colonia</label>
+                                            <input type="text" name="colonia" id="inputColonia" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small text-muted mb-0">Estado</label>
+                                            <input type="text" name="estado_dir" id="inputEstadoDir" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small text-muted mb-0">C.P.</label>
+                                            <input type="text" name="cp" id="inputCP" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;">
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- SECCIÓN 4: DIRECCIÓN DE ENVÍO (COLAPSABLE) -->
-                    <div class="card border-0 shadow-sm">
-                        <div class="card-body p-0">
-                            <button class="btn btn-sm btn-light border text-secondary w-100 d-flex justify-content-between align-items-center px-3 py-2" 
-                                    type="button" 
-                                    data-bs-toggle="collapse" 
-                                    data-bs-target="#collapseDireccionEnvio" 
-                                    aria-expanded="false" 
-                                    aria-controls="collapseDireccionEnvio">
-                                <span><i class="bi bi-truck text-success me-2"></i>Información de Envío</span>
-                                <i class="bi bi-chevron-down small transition-icon"></i>
-                            </button>
+                    <!-- SECCIÓN 4: DIRECCIÓN DE ENVÍO -->
+                    <div class="accordion border-0 shadow-sm mb-3" id="accordionEnvio">
+                        <div class="accordion-item border-0" style="border-radius: 8px;">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed bg-white py-2 text-dark fw-bold" style="font-size: 0.85rem;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDireccionEnvio">
+                                    <i class="bi bi-truck text-success me-2"></i> INFORMACIÓN DE ENVÍO
+                                </button>
+                            </h2>
+                            <div id="collapseDireccionEnvio" class="accordion-collapse collapse" data-bs-parent="#accordionEnvio">
+                                <div class="accordion-body p-3" style="background-color: #f8f9fa;">
+                                    <div class="row g-2">
+                                        <div class="col-md-8">
+                                            <label class="form-label small text-muted mb-0">Calle Envío</label>
+                                            <input type="text" name="envio_calle" id="inputEnvioCalle" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small text-muted mb-0">Num. Ext</label>
+                                            <input type="text" name="envio_numero_ext" id="inputEnvioNumExt" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;">
+                                        </div>
+                                        <div class="col-md-8">
+                                            <label class="form-label small text-muted mb-0">Colonia Envío</label>
+                                            <input type="text" name="envio_colonia" id="inputEnvioColonia" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small text-muted mb-0">C.P. Envío</label>
+                                            <input type="text" name="envio_cp" id="inputEnvioCP" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;">
+                                        </div>
+
+                                        <div class="col-12 mt-2 pt-2 border-top">
+                                            <label class="form-label small fw-bold text-secondary mb-1">Datos de Recepción</label>
+                                            <div class="row g-2">
+                                                <div class="col-md-6">
+                                                    <input type="text" name="envio_quien_recibe" id="inputEnvioRecibe" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;" placeholder="Quién recibe">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <input type="text" name="envio_telefono" id="inputEnvioTel" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;" placeholder="Teléfono">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="collapse" id="collapseDireccionEnvio">
-                            <div class="bg-light p-3 border-top">
-                                <div class="row g-2">
-                                    <!-- Dirección Física Envío -->
-                                    <div class="col-md-8">
-                                        <label class="form-label small text-muted mb-0">Calle Envío</label>
-                                        <input type="text" name="envio_calle" id="inputEnvioCalle" class="form-control form-control-sm" placeholder="Calle y número">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label small text-muted mb-0">Num. Ext</label>
-                                        <input type="text" name="envio_numero_ext" id="inputEnvioNumExt" class="form-control form-control-sm" placeholder="#">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label small text-muted mb-0">Num. Int</label>
-                                        <input type="text" name="envio_numero_int" id="inputEnvioNumInt" class="form-control form-control-sm" placeholder="Int (Opc)">
-                                    </div>
-                                    <div class="col-md-8">
-                                        <label class="form-label small text-muted mb-0">Colonia Envío</label>
-                                        <input type="text" name="envio_colonia" id="inputEnvioColonia" class="form-control form-control-sm" placeholder="Colonia">
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label small text-muted mb-0">Estado Envío</label>
-                                        <input type="text" name="envio_estado" id="inputEnvioEstado" class="form-control form-control-sm" placeholder="Estado">
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label small text-muted mb-0">C.P. Envío</label>
-                                        <input type="text" name="envio_cp" id="inputEnvioCP" class="form-control form-control-sm" placeholder="Código Postal">
-                                    </div>
-
-                                    <hr class="my-2 text-muted">
-
-                                    <!-- Datos de Recepción -->
-                                    <div class="col-12">
-                                        <label class="form-label small fw-bold text-secondary mb-1">Datos de Recepción</label>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <input type="text" name="envio_quien_recibe" id="inputEnvioRecibe" class="form-control form-control-sm" placeholder="Quién recibe">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <input type="text" name="envio_telefono" id="inputEnvioTel" class="form-control form-control-sm" placeholder="Teléfono">
-                                    </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-top bg-white">
+                <button type="button" class="btn btn-light btn-sm text-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-brand btn-sm px-4" onclick="document.getElementById('formCliente').submit();">Guardar Cliente</button>
+            </div>
+        </div>
+    </div>
+</div>
                                     <div class="col-md-4">
                                         <input type="email" name="envio_correo" id="inputEnvioCorreo" class="form-control form-control-sm" placeholder="Correo">
                                     </div>

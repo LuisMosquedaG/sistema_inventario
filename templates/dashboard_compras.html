@@ -73,12 +73,16 @@
                 <span class="section-subtitle">Entrada de mercancía a almacén</span>
             </div>
             <div class="d-flex flex-wrap align-items-center gap-2">
+                {% if granular_purchase_perms.ordenes_compra.consolidar %}
                 <button class="btn btn-light border text-secondary btn-sm px-3 shadow-sm" onclick="consolidarOrdenes()">
                     <i class="bi bi-layers me-1"></i> Consolidar
                 </button>
+                {% endif %}
+                {% if granular_purchase_perms.ordenes_compra.crear %}
                 <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaCompra" onclick="prepararNuevaCompra()">
                     <i class="bi bi-plus-lg me-1"></i> Nueva Compra
                 </button>
+                {% endif %}
             </div>
         </div>
 
@@ -177,24 +181,40 @@
                                 <td class="text-center">
                                     <div class="d-flex justify-content-center gap-1">
                                         <span onclick="verCompra({{ c.id }})" class="icon-action" title="Ver"><i class="bi bi-eye"></i></span>
+                                        {% if granular_purchase_perms.ordenes_compra.imprimir %}
                                         <span onclick="descargarCompraPDF({{ c.id }})" class="icon-action" title="Imprimir PDF"><i class="bi bi-printer"></i></span>
+                                        {% endif %}
 
                                         <!-- BOTÓN PAGAR -->
                                         {% if c.estado == 'aprobada' or c.estado == 'parcial' or c.estado == 'recibida' %}
+                                            {% if granular_purchase_perms.ordenes_compra.registrar_pago %}
                                             <span onclick="abrirModalPagoCompra({{ c.id }})" class="icon-action" title="Registrar Pago">
                                                 <i class="bi bi-cash-stack"></i>
                                             </span>
+                                            {% endif %}
                                         {% endif %}
 
                                         {% if c.estado == 'borrador' %}
+                                            {% if granular_purchase_perms.ordenes_compra.aprobar %}
                                             <span onclick="cambiarEstadoCompra({{ c.id }}, 'aprobada')" class="icon-action" title="Aprobar Orden"><i class="bi bi-check2-circle"></i></span>
+                                            {% endif %}
+                                            {% if granular_purchase_perms.ordenes_compra.editar %}
                                             <span onclick="cargarParaEdicionCompra({{ c.id }})" class="icon-action" title="Editar"><i class="bi bi-pencil-square"></i></span>
+                                            {% endif %}
                                         {% elif c.estado == 'aprobada' %}
+                                            {% if purchase_ui_permissions.recepciones %}
                                             <a href="/recepciones/?oc_id={{ c.id }}" class="icon-action state-received" title="Recibir Mercancía"><i class="bi bi-box-seam"></i></a>
+                                            {% endif %}
+                                            {% if granular_purchase_perms.ordenes_compra.cancelar %}
                                             <span onclick="cambiarEstadoCompra({{ c.id }}, 'cancelada')" class="icon-action state-cancelled" title="Cancelar Orden"><i class="bi bi-x-circle"></i></span>
+                                            {% endif %}
                                         {% elif c.estado == 'parcial' %}
+                                            {% if purchase_ui_permissions.recepciones %}
                                             <a href="/recepciones/?oc_id={{ c.id }}" class="icon-action state-received" title="Recibir Resto"><i class="bi bi-box-seam"></i></a>
+                                            {% endif %}
+                                            {% if granular_purchase_perms.ordenes_compra.cancelar %}
                                             <span onclick="cambiarEstadoCompra({{ c.id }}, 'cancelada')" class="icon-action state-cancelled" title="Cancelar"><i class="bi bi-x-circle"></i></span>
+                                            {% endif %}
                                         {% endif %}
                                     </div>
                                 </td>
