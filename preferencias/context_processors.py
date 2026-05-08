@@ -7,39 +7,36 @@ from .permissions import (
     get_granular_production_permissions,
     user_has_production_permission,
     get_granular_inventory_permissions,
-    user_has_inventory_permission
+    user_has_inventory_permission,
+    user_has_treasury_permission,
+    get_granular_treasury_permissions,
+    SALES_PERMISSION_MATRIX,
+    PURCHASES_PERMISSION_MATRIX,
+    PRODUCTION_PERMISSION_MATRIX,
+    INVENTORY_PERMISSION_MATRIX,
+    TREASURY_PERMISSION_MATRIX
 )
 
 
 def app_permissions(request):
     if not request.user.is_authenticated:
         return {
-            'sales_ui_permissions': {
-                'clientes': False,
-                'actividades': False,
-                'cotizaciones': False,
-                'pedidos': False,
-                'salidas': False,
-            },
-            'purchase_ui_permissions': {
-                'proveedores': False,
-                'solicitudes': False,
-                'ordenes_compra': False,
-                'recepciones': False,
-            },
-            'inventory_ui_permissions': {
-                'inventario': False,
-                'kardex': False,
-                'almacenes': False,
-                'categorias': False,
-            },
-            'perms_produccion': {
-                'ver': False, 'crear': False, 'editar': False, 'eliminar': False, 'aprobar': False, 'imprimir': False
-            },
+            'sales_ui_permissions': {},
+            'purchase_ui_permissions': {},
+            'inventory_ui_permissions': {},
+            'production_ui_permissions': {},
+            'treasury_ui_permissions': {},
+            'perms_produccion': {},
             'granular_sales_perms': {},
             'granular_purchase_perms': {},
             'granular_production_perms': {},
-            'granular_inventory_perms': {}
+            'granular_inventory_perms': {},
+            'granular_treasury_perms': {},
+            'sales_permission_matrix': SALES_PERMISSION_MATRIX,
+            'purchases_permission_matrix': PURCHASES_PERMISSION_MATRIX,
+            'production_permission_matrix': PRODUCTION_PERMISSION_MATRIX,
+            'inventory_permission_matrix': INVENTORY_PERMISSION_MATRIX,
+            'treasury_permission_matrix': TREASURY_PERMISSION_MATRIX,
         }
     
     # Permisos de Producción (Compatibilidad o legacy perms_produccion si se usa aún)
@@ -71,14 +68,27 @@ def app_permissions(request):
         'categorias': user_has_inventory_permission(request, 'categorias', 'ver'),
     }
 
+    p_treasury_ui = {
+        'ingresos': user_has_treasury_permission(request, 'ingresos', 'ver'),
+        'egresos': user_has_treasury_permission(request, 'egresos', 'ver'),
+        'cajas_bancos': user_has_treasury_permission(request, 'cajas_bancos', 'ver'),
+    }
+
     return {
         'sales_ui_permissions': get_sales_ui_permissions(request),
         'purchase_ui_permissions': p_purchase_ui,
         'production_ui_permissions': p_production_ui,
         'inventory_ui_permissions': p_inventory_ui,
+        'treasury_ui_permissions': p_treasury_ui,
         'perms_produccion': p_produccion_legacy,
         'granular_sales_perms': get_granular_sales_permissions(request),
         'granular_purchase_perms': get_granular_purchase_permissions(request),
         'granular_production_perms': get_granular_production_permissions(request),
-        'granular_inventory_perms': get_granular_inventory_permissions(request)
+        'granular_inventory_perms': get_granular_inventory_permissions(request),
+        'granular_treasury_perms': get_granular_treasury_permissions(request),
+        'sales_permission_matrix': SALES_PERMISSION_MATRIX,
+        'purchases_permission_matrix': PURCHASES_PERMISSION_MATRIX,
+        'production_permission_matrix': PRODUCTION_PERMISSION_MATRIX,
+        'inventory_permission_matrix': INVENTORY_PERMISSION_MATRIX,
+        'treasury_permission_matrix': TREASURY_PERMISSION_MATRIX,
     }

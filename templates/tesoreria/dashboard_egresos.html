@@ -58,7 +58,7 @@
                             {% for egr in egresos %}
                             <tr id="fila-egreso-{{ egr.id }}">
                                 <td class="text-center">
-                                    {% if egr.estado == 'aplicado' %}
+                                    {% if egr.estado == 'aplicado' and granular_treasury_perms.egresos.cancelar %}
                                     <button onclick="cancelarEgreso({{ egr.id }})" class="icon-action" title="Cancelar Egreso">
                                         <i class="bi bi-x-circle"></i>
                                     </button>

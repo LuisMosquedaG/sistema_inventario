@@ -23,9 +23,11 @@
         </div>
         
         <div class="d-flex flex-wrap align-items-center gap-2">
+            {% if granular_treasury_perms.cajas_bancos.crear %}
             <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalCrearCajaBanco" onclick="prepararNuevo()">
                 <i class="bi bi-plus-lg me-1"></i> Nuevo Registro
             </button>
+            {% endif %}
         </div>
     </div>
 
@@ -48,9 +50,13 @@
                         {% for c in cajas %}
                         <tr>
                             <td class="text-center">
+                                {% if granular_treasury_perms.cajas_bancos.editar %}
                                 <span class="icon-action" title="Editar" onclick="abrirEdicion({{ c.id }})">
                                     <i class="bi bi-pencil-square"></i>
                                 </span>
+                                {% else %}
+                                --
+                                {% endif %}
                             </td>
                             <td class="text-center">
                                 {% if c.tipo == 'caja' %}

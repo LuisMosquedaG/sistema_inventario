@@ -7,8 +7,21 @@ from preferencias.models import Moneda
 from pedidos.models import Pedido
 from compras.models import OrdenCompra
 from django.db import transaction
+from preferencias.permissions import require_treasury_permission
+
+# --- FUNCIÓN AYUDANTE ---
+def get_empresa_actual(request):
+    username = request.user.username
+    if '@' in username:
+        subdominio = username.split('@')[1]
+        try:
+            return Empresa.objects.get(subdominio=subdominio)
+        except Empresa.DoesNotExist:
+            return None
+    return None
 
 @login_required(login_url='/login/')
+@require_treasury_permission('egresos', 'ver')
 def lista_egresos(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
@@ -79,6 +92,7 @@ def api_registrar_pago_compra(request):
 
 @login_required
 @transaction.atomic
+@require_treasury_permission('egresos', 'cancelar', json_response=True)
 def api_cancelar_egreso(request, id):
     if request.method == 'POST':
         try:
@@ -103,6 +117,7 @@ def api_cancelar_egreso(request, id):
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
 @login_required(login_url='/login/')
+@require_treasury_permission('ingresos', 'ver')
 def lista_ingresos(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
@@ -118,6 +133,7 @@ def lista_ingresos(request):
 
 @login_required
 @transaction.atomic
+@require_treasury_permission('ingresos', 'cancelar', json_response=True)
 def api_cancelar_ingreso(request, id):
     if request.method == 'POST':
         try:
@@ -197,18 +213,8 @@ def api_registrar_pago_pedido(request):
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
-# --- FUNCIÓN AYUDANTE ---
-def get_empresa_actual(request):
-    username = request.user.username
-    if '@' in username:
-        subdominio = username.split('@')[1]
-        try:
-            return Empresa.objects.get(subdominio=subdominio)
-        except Empresa.DoesNotExist:
-            return None
-    return None
-
 @login_required(login_url='/login/')
+@require_treasury_permission('cajas_bancos', 'ver')
 def lista_cajas_bancos(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
@@ -225,6 +231,7 @@ def lista_cajas_bancos(request):
     return render(request, 'tesoreria/dashboard_cajas_bancos.html', contexto)
 
 @login_required
+@require_treasury_permission('cajas_bancos', 'crear', json_response=True)
 def api_crear_caja_banco(request):
     if request.method == 'POST':
         try:
@@ -268,6 +275,7 @@ def api_detalle_caja_banco(request, id):
     })
 
 @login_required
+@require_treasury_permission('cajas_bancos', 'editar', json_response=True)
 def api_actualizar_caja_banco(request, id):
     if request.method == 'POST':
         try:

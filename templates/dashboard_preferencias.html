@@ -528,6 +528,54 @@
                             </div>
                         </div>
 
+                        <!-- MÓDULO TESORERÍA (DESPLEGABLE MAESTRO) -->
+                        <div class="card border-0 shadow-sm mb-3 rounded-3 overflow-hidden">
+                            <button class="btn btn-sm btn-light border-0 w-100 d-flex justify-content-between align-items-center px-3 py-3 collapsed" 
+                                    type="button" data-bs-toggle="collapse" data-bs-target="#collapseModuloTesoreria">
+                                <span class="fw-bold text-dark"><i class="bi bi-bank me-2" style="color: #00b8b9;"></i> MÓDULO TESORERÍA</span>
+                                <i class="bi bi-chevron-down small text-muted"></i>
+                            </button>
+                            <div id="collapseModuloTesoreria" class="collapse border-top bg-white">
+                                <div class="p-3">
+                                    <div class="d-flex gap-2 mb-2">
+                                        <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2" style="font-size: 0.6rem;" onclick="marcarTodosPermisosTesoreria(true)">Marcar Todo</button>
+                                        <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2" style="font-size: 0.6rem;" onclick="marcarTodosPermisosTesoreria(false)">Limpiar Todo</button>
+                                    </div>
+                                    <div class="row g-2">
+                                        {% for submodulo, acciones in treasury_permission_matrix.items %}
+                                        <div class="col-12">
+                                            <div class="p-2 border rounded shadow-sm bg-light">
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <h6 class="fw-bold text-uppercase text-muted mb-0" style="font-size: 0.65rem; letter-spacing: 0.5px;">{{ submodulo|cut:"_"|title }}</h6>
+                                                    <div class="btn-group">
+                                                        <button type="button" class="btn btn-link text-decoration-none p-0 text-secondary fw-bold" style="font-size: 0.55rem;" onclick="toggleSubmoduloPermisos('{{ submodulo }}', true)">TODO</button>
+                                                        <span class="mx-1 text-muted" style="font-size: 0.55rem;">|</span>
+                                                        <button type="button" class="btn btn-link text-decoration-none p-0 text-secondary fw-bold" style="font-size: 0.55rem;" onclick="toggleSubmoduloPermisos('{{ submodulo }}', false)">LIMPIAR</button>
+                                                    </div>
+                                                </div>
+                                                <div class="row row-cols-2 row-cols-md-6 g-1">
+                                                    {% for p_accion in acciones %}
+                                                    <div class="col">
+                                                        <div class="form-check mb-0">
+                                                            <input class="form-check-input permiso-accion permiso-submodulo-{{ submodulo }}" type="checkbox"
+                                                                   style="width: 0.8rem; height: 0.8rem;"
+                                                                   name="perm_tesoreria__{{ submodulo }}__{{ p_accion }}" id="perm_tesoreria__{{ submodulo }}__{{ p_accion }}">
+                                                            <label class="form-check-label text-dark text-truncate w-100" style="font-size: 0.7rem;" for="perm_tesoreria__{{ submodulo }}__{{ p_accion }}">
+                                                                {% if p_accion == 'crear' and submodulo == 'cajas_bancos' %}Nuevo
+                                                                {% else %}{{ p_accion|cut:"_"|title }}{% endif %}
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- MÓDULO PRODUCCIÓN -->
                         <div class="card border-0 shadow-sm mb-3 rounded-3 overflow-hidden">
                             <button class="btn btn-sm btn-light border-0 w-100 d-flex justify-content-between align-items-center px-3 py-3 collapsed" 
@@ -893,6 +941,10 @@
 
     function marcarTodosPermisosInventario(valor) {
         document.querySelectorAll('.permiso-submodulo-inventario, .permiso-submodulo-kardex, .permiso-submodulo-almacenes, .permiso-submodulo-categorias').forEach(el => { el.checked = valor; });
+    }
+
+    function marcarTodosPermisosTesoreria(valor) {
+        document.querySelectorAll('.permiso-submodulo-ingresos, .permiso-submodulo-egresos, .permiso-submodulo-cajas_bancos').forEach(el => { el.checked = valor; });
     }
 
     function toggleSubmoduloPermisos(submodulo, valor) {

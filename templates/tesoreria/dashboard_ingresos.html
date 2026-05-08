@@ -58,7 +58,7 @@
                             {% for ing in ingresos %}
                             <tr id="fila-ingreso-{{ ing.id }}">
                                 <td class="text-center">
-                                    {% if ing.estado == 'aplicado' %}
+                                    {% if ing.estado == 'aplicado' and granular_treasury_perms.ingresos.cancelar %}
                                     <button onclick="cancelarIngreso({{ ing.id }})" class="icon-action" title="Cancelar Ingreso">
                                         <i class="bi bi-x-circle"></i>
                                     </button>

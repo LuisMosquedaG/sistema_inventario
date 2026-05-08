@@ -28,6 +28,12 @@ PRODUCTION_PERMISSION_MATRIX = {
     'catalogos_test': ['ver', 'crear', 'editar', 'eliminar'],
 }
 
+TREASURY_PERMISSION_MATRIX = {
+    'ingresos': ['ver', 'cancelar'],
+    'egresos': ['ver', 'cancelar'],
+    'cajas_bancos': ['ver', 'crear', 'editar'],
+}
+
 INVENTORY_PERMISSION_MATRIX = {
     'inventario': ['ver', 'crear', 'receta', 'traslado', 'editar', 'precios', 'existencias', 'recetas'],
     'kardex': ['ver'],
@@ -339,4 +345,51 @@ def get_granular_sales_permissions(request):
     perms = {}
     for submodulo, acciones in SALES_PERMISSION_MATRIX.items():
         perms[submodulo] = {accion: user_has_sales_permission(request, submodulo, accion) for accion in acciones}
+    return perms
+
+
+def user_has_treasury_permission(request, submodulo, accion):
+    user = request.user
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    empresa = get_empresa_actual(request)
+    if not empresa:
+        return False
+    asignacion = AsignacionRolUsuario.objects.select_related('rol').filter(
+        usuario=user,
+        empresa=empresa
+    ).first()
+    if not asignacion:
+        return False
+    permiso_accion = PermisoRolAccion.objects.filter(
+        rol=asignacion.rol,
+        area='tesoreria',
+        submodulo=submodulo,
+        accion=accion
+    ).first()
+    if permiso_accion is not None:
+        return bool(permiso_accion.permitido)
+    return False
+
+
+def require_treasury_permission(submodulo, accion, json_response=False):
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapped(request, *args, **kwargs):
+            if user_has_treasury_permission(request, submodulo, accion):
+                return view_func(request, *args, **kwargs)
+            if json_response:
+                return JsonResponse({'success': False, 'error': 'No cuentas con permiso para esta acción.'}, status=403)
+            messages.error(request, 'No cuentas con permiso para esta acción.')
+            return redirect('dashboard_inicio')
+        return wrapped
+    return decorator
+
+
+def get_granular_treasury_permissions(request):
+    perms = {}
+    for submodulo, acciones in TREASURY_PERMISSION_MATRIX.items():
+        perms[submodulo] = {accion: user_has_treasury_permission(request, submodulo, accion) for accion in acciones}
     return perms
