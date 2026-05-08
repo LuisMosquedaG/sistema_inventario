@@ -23,6 +23,18 @@ PURCHASES_PERMISSION_MATRIX = {
     'recepciones': ['ver', 'crear', 'imprimir', 'cancelar'],
 }
 
+PRODUCTION_PERMISSION_MATRIX = {
+    'tablero_control': ['ver', 'crear', 'imprimir', 'editar', 'iniciar_trabajo', 'cancelar_orden', 'enviar_testeo', 'validar_calidad', 'guardar_avance', 'finalizar_trabajo'],
+    'catalogos_test': ['ver', 'crear', 'editar', 'eliminar'],
+}
+
+INVENTORY_PERMISSION_MATRIX = {
+    'inventario': ['ver', 'crear', 'receta', 'traslado', 'editar', 'precios', 'existencias', 'recetas'],
+    'kardex': ['ver'],
+    'almacenes': ['ver', 'crear', 'editar'],
+    'categorias': ['ver', 'crear', 'editar'],
+}
+
 
 def get_empresa_actual(request):
     username = request.user.username
@@ -52,9 +64,8 @@ def user_has_module_permission(request, modulo, accion):
         empresa=empresa
     ).first()
 
-    # Compatibilidad hacia atras: si no hay rol asignado, conserva acceso.
     if not asignacion:
-        return True
+        return False
 
     permiso = PermisoRolModulo.objects.filter(
         rol=asignacion.rol,
@@ -83,9 +94,8 @@ def user_has_sales_permission(request, submodulo, accion):
         empresa=empresa
     ).first()
 
-    # Compatibilidad hacia atras
     if not asignacion:
-        return True
+        return False
 
     permiso_accion = PermisoRolAccion.objects.filter(
         rol=asignacion.rol,
@@ -162,7 +172,7 @@ def user_has_purchase_permission(request, submodulo, accion):
     ).first()
 
     if not asignacion:
-        return True
+        return False
 
     permiso_accion = PermisoRolAccion.objects.filter(
         rol=asignacion.rol,
@@ -198,6 +208,120 @@ def get_granular_purchase_permissions(request):
     perms = {}
     for submodulo, acciones in PURCHASES_PERMISSION_MATRIX.items():
         perms[submodulo] = {accion: user_has_purchase_permission(request, submodulo, accion) for accion in acciones}
+    return perms
+
+
+def user_has_production_permission(request, submodulo, accion):
+    user = request.user
+    if not user.is_authenticated:
+        return False
+
+    if user.is_superuser:
+        return True
+
+    empresa = get_empresa_actual(request)
+    if not empresa:
+        return False
+
+    asignacion = AsignacionRolUsuario.objects.select_related('rol').filter(
+        usuario=user,
+        empresa=empresa
+    ).first()
+
+    if not asignacion:
+        return False
+
+    permiso_accion = PermisoRolAccion.objects.filter(
+        rol=asignacion.rol,
+        area='produccion',
+        submodulo=submodulo,
+        accion=accion
+    ).first()
+    if permiso_accion is not None:
+        return bool(permiso_accion.permitido)
+
+    return False
+
+
+def require_production_permission(submodulo, accion, json_response=False):
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapped(request, *args, **kwargs):
+            if user_has_production_permission(request, submodulo, accion):
+                return view_func(request, *args, **kwargs)
+
+            if json_response:
+                return JsonResponse({'success': False, 'error': 'No cuentas con permiso para esta acción.'}, status=403)
+
+            messages.error(request, 'No cuentas con permiso para esta acción.')
+            return redirect('dashboard_inicio')
+
+        return wrapped
+
+    return decorator
+
+
+def get_granular_production_permissions(request):
+    perms = {}
+    for submodulo, acciones in PRODUCTION_PERMISSION_MATRIX.items():
+        perms[submodulo] = {accion: user_has_production_permission(request, submodulo, accion) for accion in acciones}
+    return perms
+
+
+def user_has_inventory_permission(request, submodulo, accion):
+    user = request.user
+    if not user.is_authenticated:
+        return False
+
+    if user.is_superuser:
+        return True
+
+    empresa = get_empresa_actual(request)
+    if not empresa:
+        return False
+
+    asignacion = AsignacionRolUsuario.objects.select_related('rol').filter(
+        usuario=user,
+        empresa=empresa
+    ).first()
+
+    if not asignacion:
+        return False
+
+    permiso_accion = PermisoRolAccion.objects.filter(
+        rol=asignacion.rol,
+        area='inventario',
+        submodulo=submodulo,
+        accion=accion
+    ).first()
+    if permiso_accion is not None:
+        return bool(permiso_accion.permitido)
+
+    return False
+
+
+def require_inventory_permission(submodulo, accion, json_response=False):
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapped(request, *args, **kwargs):
+            if user_has_inventory_permission(request, submodulo, accion):
+                return view_func(request, *args, **kwargs)
+
+            if json_response:
+                return JsonResponse({'success': False, 'error': 'No cuentas con permiso para esta acción.'}, status=403)
+
+            messages.error(request, 'No cuentas con permiso para esta acción.')
+            return redirect('dashboard_inicio')
+
+        return wrapped
+
+    return decorator
+
+
+def get_granular_inventory_permissions(request):
+    perms = {}
+    for submodulo, acciones in INVENTORY_PERMISSION_MATRIX.items():
+        perms[submodulo] = {accion: user_has_inventory_permission(request, submodulo, accion) for accion in acciones}
     return perms
 
 

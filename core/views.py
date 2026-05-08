@@ -19,6 +19,7 @@ from django.db import transaction
 from ventas.models import DetalleOrdenVenta
 
 from django.views.decorators.http import require_POST
+from preferencias.permissions import require_inventory_permission
 
 # --- 1. FUNCIÓN AYUDANTE ESTÁNDAR ---
 def get_empresa_actual(request):
@@ -33,6 +34,7 @@ def get_empresa_actual(request):
 
 @require_POST
 @login_required(login_url='/login/')
+@require_inventory_permission('inventario', 'crear', json_response=True)
 def crear_producto_rapido(request):
     empresa = get_empresa_actual(request)
     if not empresa:
@@ -95,6 +97,7 @@ def punto_de_venta(request):
     return render(request, 'core/vender.html', {'productos': productos})
 
 @login_required(login_url='/login/')
+@require_inventory_permission('inventario', 'crear', json_response=True)
 def crear_producto_ajax(request):
     if request.method == 'POST':
         try:
@@ -119,6 +122,7 @@ def crear_producto_ajax(request):
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
 @login_required(login_url='/login/')
+@require_inventory_permission('inventario', 'ver')
 def dashboard_inventario(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
@@ -209,6 +213,7 @@ def dashboard_inventario(request):
     return render(request, 'dashboard_inventario.html', contexto)
 
 @login_required
+@require_inventory_permission('inventario', 'existencias', json_response=True)
 def api_detalle_producto_inventario(request, producto_id):
     try:
         empresa_actual = get_empresa_actual(request)
@@ -282,6 +287,7 @@ def api_detalle_producto_inventario(request, producto_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 @login_required
+@require_inventory_permission('inventario', 'ver', json_response=True)
 def obtener_producto_json(request, producto_id):
     try:
         empresa_actual = get_empresa_actual(request)
@@ -302,6 +308,7 @@ def obtener_producto_json(request, producto_id):
         return JsonResponse({'error': str(e)}, status=404)
 
 @login_required(login_url='/login/')
+@require_inventory_permission('inventario', 'editar', json_response=True)
 def actualizar_producto_ajax(request, producto_id):
     if request.method == 'POST':
         try:
@@ -332,6 +339,7 @@ def actualizar_producto_ajax(request, producto_id):
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
 @login_required
+@require_inventory_permission('inventario', 'ver', json_response=True)
 def api_detalle_documento(request):
     doc_tipo, doc_id = request.GET.get('tipo'), request.GET.get('id')
     empresa_actual = get_empresa_actual(request)
@@ -348,6 +356,7 @@ def api_detalle_documento(request):
 
 @login_required
 @transaction.atomic
+@require_inventory_permission('inventario', 'receta', json_response=True)
 def guardar_receta(request):
     if request.method == 'POST':
         try:
@@ -366,6 +375,7 @@ def guardar_receta(request):
 
 @login_required
 @transaction.atomic
+@require_inventory_permission('inventario', 'recetas', json_response=True)
 def ejecutar_produccion(request):
     if request.method == 'POST':
         try:
@@ -388,6 +398,7 @@ def ejecutar_produccion(request):
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
 @login_required
+@require_inventory_permission('inventario', 'recetas', json_response=True)
 def obtener_receta(request, producto_id):
     try:
         empresa_actual = get_empresa_actual(request)
@@ -396,6 +407,7 @@ def obtener_receta(request, producto_id):
     except Exception as e: return JsonResponse({'error': str(e)}, status=400)
 
 @login_required
+@require_inventory_permission('inventario', 'precios', json_response=True)
 def actualizar_precio_producto(request, producto_id):
     if request.method == 'POST':
         try:

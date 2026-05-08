@@ -105,7 +105,7 @@
                 <span class="section-subtitle">Gestión de órdenes de fabricación y procesos</span>
             </div>
             <div class="d-flex flex-wrap align-items-center gap-2">
-                {% if perms_produccion.crear %}
+                {% if granular_production_perms.tablero_control.crear %}
                 <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaOrdenManual">
                     <i class="bi bi-plus-lg me-1"></i> Nueva Orden
                 </button>
@@ -213,22 +213,27 @@
                             <tr data-id-orden="{{ o.id }}">
                                 <td class="text-center">
                                     <div class="d-flex justify-content-center gap-1">
+                                        {% if granular_production_perms.tablero_control.ver %}
                                         <span onclick="verOrdenProduccion({{ o.id }})" class="icon-action" title="Ver Detalle"><i class="bi bi-eye"></i></span>
-                                        {% if perms_produccion.imprimir %}
+                                        {% endif %}
+                                        
+                                        {% if granular_production_perms.tablero_control.imprimir %}
                                         <span onclick="descargarOPPDF({{ o.id }})" class="icon-action" title="Imprimir PDF"><i class="bi bi-printer"></i></span>
                                         {% endif %}
                                         
                                         {% if o.estado == 'borrador' %}
-                                            {% if perms_produccion.editar %}
+                                            {% if granular_production_perms.tablero_control.editar %}
                                             <span onclick="abrirModalEdicion({{ o.id }})" class="icon-action" title="Editar Materiales"><i class="bi bi-pencil-square"></i></span>
+                                            {% endif %}
+                                            {% if granular_production_perms.tablero_control.iniciar_trabajo %}
                                             <a href="{% url 'avanzar_estado_produccion' o.id %}?estado=en_proceso" class="icon-action" title="Iniciar Trabajo" onclick="return confirm('¿Comenzar fabricación?')"><i class="bi bi-play-fill"></i></a>
                                             {% endif %}
                                         {% elif o.estado == 'en_proceso' %}
-                                            {% if perms_produccion.editar %}
+                                            {% if granular_production_perms.tablero_control.enviar_testeo %}
                                             <a href="{% url 'avanzar_estado_produccion' o.id %}?estado=testeo" class="icon-action" title="Enviar a Testeo"><i class="bi bi-shield-check"></i></a>
                                             {% endif %}
                                         {% elif o.estado == 'testeo' %}
-                                            {% if perms_produccion.aprobar %}
+                                            {% if granular_production_perms.tablero_control.validar_calidad %}
                                             <span onclick="prepararFinalizacion({{ o.id }})" class="icon-action" title="Validar Calidad y Finalizar" style="cursor: pointer;">
                                                 <i class="bi bi-check-all" style="font-size: 1.4rem;"></i>
                                             </span>
@@ -238,7 +243,7 @@
                                         {% endif %}
                                         
                                         {% if o.estado != 'terminado' and o.estado != 'cancelado' %}
-                                            {% if perms_produccion.eliminar %}
+                                            {% if granular_production_perms.tablero_control.cancelar_orden %}
                                             <a href="{% url 'cancelar_produccion' o.id %}" class="icon-action" title="Cancelar Orden" onclick="return confirm('¿Cancelar?')"><i class="bi bi-x-circle"></i></a>
                                             {% endif %}
                                         {% endif %}
@@ -568,12 +573,16 @@
                 </div>
                 <div class="modal-footer border-top bg-white py-2">
                     <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                    {% if granular_production_perms.tablero_control.guardar_avance %}
                     <button type="button" id="btnGuardarAvance" class="btn btn-outline-brand btn-sm px-3 shadow-sm" onclick="guardarAvanceTest()">
                         <i class="bi bi-save me-1"></i> Guardar Avance
                     </button>
+                    {% endif %}
+                    {% if granular_production_perms.tablero_control.finalizar_trabajo %}
                     <button type="button" id="btnConfirmarCalidad" class="btn btn-brand btn-sm px-4 shadow-sm" disabled onclick="ejecutarFinalizarConTest()">
                         <i class="bi bi-patch-check me-1"></i> Finalizar Trabajo
                     </button>
+                    {% endif %}
                 </div>
             </div>
         </div>

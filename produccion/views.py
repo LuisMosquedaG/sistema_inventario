@@ -25,7 +25,10 @@ def get_empresa_actual(request):
             return None
     return None
 
+from preferencias.permissions import require_production_permission, user_has_production_permission
+
 @login_required(login_url='/login/')
+@require_production_permission('tablero_control', 'ver')
 def dashboard_produccion(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
@@ -145,6 +148,7 @@ def dashboard_produccion(request):
 from .models import Test, ItemTest
 
 @login_required(login_url='/login/')
+@require_production_permission('catalogos_test', 'ver')
 def lista_tests(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
@@ -197,6 +201,7 @@ def api_obtener_test_orden(request, orden_id):
 
 @login_required
 @transaction.atomic
+@require_production_permission('tablero_control', 'guardar_avance', json_response=True)
 def guardar_avance_test_ajax(request, orden_id):
     """Guarda los checks sin finalizar la orden"""
     if request.method == 'POST':
@@ -264,6 +269,7 @@ def finalizar_con_test_ajax(request, orden_id):
 
 @login_required
 @transaction.atomic
+@require_production_permission('catalogos_test', 'crear', json_response=True)
 def crear_test_ajax(request):
     if request.method == 'POST':
         try:
@@ -319,6 +325,7 @@ def api_detalle_test(request, test_id):
 
 @login_required
 @transaction.atomic
+@require_production_permission('catalogos_test', 'editar', json_response=True)
 def actualizar_test_ajax(request, test_id):
     if request.method == 'POST':
         try:
@@ -343,6 +350,7 @@ def actualizar_test_ajax(request, test_id):
 
 @login_required
 @transaction.atomic
+@require_production_permission('catalogos_test', 'eliminar', json_response=True)
 def eliminar_test_ajax(request, test_id):
     if request.method == 'POST':
         try:
@@ -379,6 +387,7 @@ def api_obtener_receta(request, producto_id):
 
 @login_required
 @transaction.atomic
+@require_production_permission('tablero_control', 'crear')
 def crear_orden_produccion(request):
     """Crea órdenes de producción desde el nuevo modal multicartas"""
     if request.method == 'POST':
@@ -434,6 +443,7 @@ def crear_orden_produccion(request):
     return redirect('dashboard_produccion')
 
 @login_required
+@require_production_permission('tablero_control', 'ver', json_response=True)
 def api_detalle_orden(request, orden_id):
     """Retorna datos de la orden y sus componentes para el modal de visualización"""
     empresa_actual = get_empresa_actual(request)
@@ -495,6 +505,7 @@ def api_detalle_orden(request, orden_id):
 
 @login_required
 @transaction.atomic
+@require_production_permission('tablero_control', 'finalizar_trabajo', json_response=True)
 def finalizar_produccion_completo(request):
     """Procesa el ingreso a inventario con series/lotes y finaliza la OP"""
     if request.method == 'POST':
@@ -560,6 +571,7 @@ def finalizar_produccion_completo(request):
 
 @login_required
 @transaction.atomic
+@require_production_permission('tablero_control', 'editar', json_response=True)
 def actualizar_orden_produccion(request, orden_id):
     """Guarda los cambios realizados en el modal de edición"""
     if request.method == 'POST':
@@ -606,6 +618,9 @@ def avanzar_estado_produccion(request, orden_id):
     
     # 1. BORRADOR -> EN PROCESO (CON RESERVA DE STOCK)
     if nuevo_estado == 'en_proceso' and orden.estado == 'borrador':
+        if not user_has_production_permission(request, 'tablero_control', 'iniciar_trabajo'):
+             messages.error(request, "No cuentas con permiso para iniciar trabajos.")
+             return redirect('dashboard_produccion')
         try:
             detalles = orden.detalles.all()
             if not detalles.exists():
@@ -655,6 +670,9 @@ def avanzar_estado_produccion(request, orden_id):
     
     # 2. EN PROCESO -> TESTEO
     elif nuevo_estado == 'testeo' and orden.estado == 'en_proceso':
+        if not user_has_production_permission(request, 'tablero_control', 'enviar_testeo'):
+             messages.error(request, "No cuentas con permiso para enviar a testeo.")
+             return redirect('dashboard_produccion')
         orden.estado = 'testeo'
         orden.save()
         
@@ -738,6 +756,7 @@ def finalizar_produccion_logica(request, orden):
         return {'success': False, 'error': str(e)}
 
 @login_required
+@require_production_permission('tablero_control', 'cancelar_orden')
 def cancelar_produccion(request, orden_id):
     empresa_actual = get_empresa_actual(request)
     orden = get_object_or_404(OrdenProduccion, id=orden_id, empresa=empresa_actual)
@@ -748,6 +767,7 @@ def cancelar_produccion(request, orden_id):
     return redirect('dashboard_produccion')
 
 @login_required
+@require_production_permission('tablero_control', 'imprimir')
 def imprimir_orden_produccion(request, pk):
     """Genera la vista para impresión de orden de producción (PDF)"""
     empresa_actual = get_empresa_actual(request)

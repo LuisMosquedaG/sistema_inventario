@@ -24,7 +24,10 @@ def get_empresa_actual(request):
 
 # --- VISTAS DASHBOARD ---
 
+from preferencias.permissions import require_inventory_permission
+
 @login_required(login_url='/login/')
+@require_inventory_permission('almacenes', 'ver')
 def lista_almacenes(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
@@ -33,6 +36,7 @@ def lista_almacenes(request):
     return render(request, 'dashboard_almacenes.html', {'almacenes': almacenes})
 
 @login_required(login_url='/login/')
+@require_inventory_permission('kardex', 'ver')
 def dashboard_kardex(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
@@ -96,6 +100,7 @@ def dashboard_kardex(request):
 # --- APIS ALMACÉN ---
 
 @login_required
+@require_inventory_permission('almacenes', 'crear', json_response=True)
 def api_crear_almacen(request):
     if request.method == 'POST':
         try:
@@ -118,6 +123,7 @@ def api_crear_almacen(request):
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
 @login_required
+@require_inventory_permission('almacenes', 'ver', json_response=True)
 def api_detalle_almacen(request, id):
     empresa_actual = get_empresa_actual(request)
     almacen = get_object_or_404(Almacen, id=id, empresa=empresa_actual)
@@ -135,6 +141,7 @@ def api_detalle_almacen(request, id):
     })
 
 @login_required
+@require_inventory_permission('almacenes', 'editar', json_response=True)
 def api_actualizar_almacen(request, id):
     if request.method == 'POST':
         try:
@@ -158,6 +165,7 @@ def api_actualizar_almacen(request, id):
 # --- APIs PARA TRASLADOS ---
 
 @login_required
+@require_inventory_permission('inventario', 'traslado', json_response=True)
 def api_productos_con_stock(request, almacen_id):
     """Retorna productos que tienen existencia física en el almacén de origen"""
     empresa_actual = get_empresa_actual(request)
@@ -179,6 +187,7 @@ def api_productos_con_stock(request, almacen_id):
     return JsonResponse(data, safe=False)
 
 @login_required
+@require_inventory_permission('inventario', 'traslado', json_response=True)
 def api_extras_producto(request, almacen_id, producto_id):
     """Retorna lotes o series disponibles para un producto en un almacén"""
     empresa_actual = get_empresa_actual(request)
@@ -201,6 +210,7 @@ def api_extras_producto(request, almacen_id, producto_id):
 
 @login_required
 @transaction.atomic
+@require_inventory_permission('inventario', 'traslado', json_response=True)
 def api_ejecutar_traslado(request):
     """Procesa el movimiento de mercancía entre almacenes para múltiples items"""
     if request.method != 'POST': return JsonResponse({'success': False, 'error': 'Método no permitido'})

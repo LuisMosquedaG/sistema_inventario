@@ -322,6 +322,7 @@
             </div>
 
             <!-- MÓDULO: PRODUCCIÓN -->
+            {% if production_ui_permissions.tablero_control or production_ui_permissions.catalogos_test %}
             <div>
                 <a href="#submenu-produccion" data-bs-toggle="collapse" class="sidebar-link {% if '/produccion/' in request.path %}sidebar-active{% endif %}">
                     <i class="bi bi-gear-fill sidebar-icon"></i> Producción
@@ -329,7 +330,11 @@
                 </a>
                 <div class="collapse {% if '/produccion/' in request.path %}show{% endif %}" id="submenu-produccion">
                     <ul class="list-unstyled mb-0">
+                        {% if production_ui_permissions.tablero_control %}
                         <li><a href="/produccion/" class="sidebar-link sidebar-level-2 {% if request.path == '/produccion/' %}sidebar-sub-active{% endif %}"><i class="bi bi-tools me-2 small"></i> Tablero de Control</a></li>
+                        {% endif %}
+                        
+                        {% if production_ui_permissions.catalogos_test %}
                         <li>
                             <a href="#submenu-catalogos-prod" data-bs-toggle="collapse" class="sidebar-link sidebar-level-2">
                                 <i class="bi bi-book me-2 small"></i> Catálogos <i class="bi bi-chevron-down small ms-auto" style="font-size: 0.7rem;"></i>
@@ -340,11 +345,14 @@
                                 </ul>
                             </div>
                         </li>
+                        {% endif %}
                     </ul>
                 </div>
             </div>
+            {% endif %}
 
             <!-- MÓDULO: INVENTARIOS -->
+            {% if inventory_ui_permissions.inventario or inventory_ui_permissions.kardex or inventory_ui_permissions.almacenes or inventory_ui_permissions.categorias %}
             <div>
                 <a href="#submenu-inventario" data-bs-toggle="collapse" class="sidebar-link {% if '/inventario/' in request.path %}sidebar-active{% endif %}">
                     <i class="bi bi-box-seam sidebar-icon"></i> Inventarios
@@ -352,22 +360,35 @@
                 </a>
                 <div class="collapse {% if '/inventario/' in request.path %}show{% endif %}" id="submenu-inventario">
                     <ul class="list-unstyled mb-0">
+                        {% if inventory_ui_permissions.inventario %}
                         <li><a href="/inventario/" class="sidebar-link sidebar-level-2 {% if request.path == '/inventario/' %}sidebar-sub-active{% endif %}"><i class="bi bi-box-seam me-2 small"></i> Inventarios</a></li>
+                        {% endif %}
+
+                        {% if inventory_ui_permissions.kardex %}
                         <li><a href="/inventario/kardex/" class="sidebar-link sidebar-level-2 {% if '/kardex/' in request.path %}sidebar-sub-active{% endif %}"><i class="bi bi-clock-history me-2 small"></i> Kardex</a></li>
+                        {% endif %}
+
+                        {% if inventory_ui_permissions.almacenes or inventory_ui_permissions.categorias %}
                         <li>
-                            <a href="#submenu-catalogos" data-bs-toggle="collapse" class="sidebar-link sidebar-level-2">
+                            <a href="#submenu-catalogos-inv" data-bs-toggle="collapse" class="sidebar-link sidebar-level-2">
                                 <i class="bi bi-book me-2 small"></i> Catálogos <i class="bi bi-chevron-down small ms-auto" style="font-size: 0.7rem;"></i>
                             </a>
-                            <div class="collapse {% if '/almacenes/' in request.path or '/categorias/' in request.path %}show{% endif %}" id="submenu-catalogos">
+                            <div class="collapse {% if '/almacenes/' in request.path or '/categorias/' in request.path %}show{% endif %}" id="submenu-catalogos-inv">
                                 <ul class="list-unstyled mb-0">
+                                    {% if inventory_ui_permissions.almacenes %}
                                     <li><a href="/inventario/almacenes/" class="sidebar-link sidebar-level-3 {% if '/almacenes/' in request.path %}sidebar-sub-active{% endif %}"><i class="bi bi-house me-2 small"></i> Almacenes</a></li>
+                                    {% endif %}
+                                    {% if inventory_ui_permissions.categorias %}
                                     <li><a href="/inventario/categorias/" class="sidebar-link sidebar-level-3 {% if '/categorias/' in request.path %}sidebar-sub-active{% endif %}"><i class="bi bi-tags me-2 small"></i> Categorías</a></li>
+                                    {% endif %}
                                 </ul>
                             </div>
                         </li>
+                        {% endif %}
                     </ul>
                 </div>
             </div>
+            {% endif %}
             {% endif %}
         </div>
 

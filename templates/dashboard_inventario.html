@@ -79,16 +79,24 @@
         </div>
         
         <div class="d-flex flex-wrap align-items-center gap-2">
-            <!-- BOTÓN TRASLADO REEMPLAZANDO A Kardex -->
+            <!-- BOTÓN TRASLADO -->
+            {% if granular_inventory_perms.inventario.traslado %}
             <button class="btn btn-light border text-secondary btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalTraslado">
                 <i class="bi bi-arrow-left-right me-1"></i> Traslado
             </button>
+            {% endif %}
+
+            {% if granular_inventory_perms.inventario.receta %}
             <button class="btn btn-light border text-secondary btn-pro shadow-sm" onclick="abrirConfigurarReceta()">
                 <i class="bi bi-gear-fill me-1"></i> Receta
             </button>
+            {% endif %}
+
+            {% if granular_inventory_perms.inventario.crear %}
             <button class="btn btn-brand text-white btn-pro shadow-sm" onclick="abrirNuevoArticulo()">
                 <i class="bi bi-plus-lg me-1"></i> Nuevo Artículo
             </button>
+            {% endif %}
         </div>
     </div>
 
@@ -149,11 +157,22 @@
                         <tr>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center gap-1">
+                                    {% if granular_inventory_perms.inventario.editar %}
                                     <span onclick="cargarProductoEdicion({{ p.id }})" class="icon-action" title="Editar"><i class="bi bi-pencil-square"></i></span>
+                                    {% endif %}
+                                    
+                                    {% if granular_inventory_perms.inventario.precios %}
                                     <span onclick="abrirModalPrecios({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action" title="Precios"><i class="bi bi-tags"></i></span>
+                                    {% endif %}
+
+                                    {% if granular_inventory_perms.inventario.existencias %}
                                     <span onclick="abrirModalExistencias({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action" title="Existencias"><i class="bi bi-layers"></i></span>
+                                    {% endif %}
+
                                     {% if p.tipo_abastecimiento == 'produccion' %}
+                                        {% if granular_inventory_perms.inventario.recetas %}
                                         <span onclick="abrirModalReceta({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action" title="Receta"><i class="bi bi-diagram-3"></i></span>
+                                        {% endif %}
                                     {% endif %}
                                 </div>
                             </td>

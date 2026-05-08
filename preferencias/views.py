@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction # <--- ESTE FALTABA
 from django.utils import timezone
 from .models import Moneda, Rol, PermisoRolModulo, AsignacionRolUsuario, PermisoRolAccion
-from .permissions import SALES_PERMISSION_MATRIX, PURCHASES_PERMISSION_MATRIX
+from .permissions import SALES_PERMISSION_MATRIX, PURCHASES_PERMISSION_MATRIX, PRODUCTION_PERMISSION_MATRIX, INVENTORY_PERMISSION_MATRIX
 from panel.models import Empresa
 import csv
 import io
@@ -57,6 +57,8 @@ def dashboard_preferencias(request):
         'empresa': empresa_actual,
         'sales_permission_matrix': SALES_PERMISSION_MATRIX,
         'purchases_permission_matrix': PURCHASES_PERMISSION_MATRIX,
+        'production_permission_matrix': PRODUCTION_PERMISSION_MATRIX,
+        'inventory_permission_matrix': INVENTORY_PERMISSION_MATRIX,
     }
 
     if seccion_activa == 'usuarios':
@@ -454,13 +456,36 @@ def crear_rol_ajax(request):
                     permitido=(request.POST.get(key) == 'on')
                 )
 
-        from .permissions import PURCHASES_PERMISSION_MATRIX
+        from .permissions import PURCHASES_PERMISSION_MATRIX, PRODUCTION_PERMISSION_MATRIX
         for submodulo, acciones in PURCHASES_PERMISSION_MATRIX.items():
             for accion in acciones:
                 key = f"perm_compras__{submodulo}__{accion}"
                 PermisoRolAccion.objects.create(
                     rol=rol,
                     area='compras',
+                    submodulo=submodulo,
+                    accion=accion,
+                    permitido=(request.POST.get(key) == 'on')
+                )
+
+        for submodulo, acciones in PRODUCTION_PERMISSION_MATRIX.items():
+            for accion in acciones:
+                key = f"perm_produccion__{submodulo}__{accion}"
+                PermisoRolAccion.objects.create(
+                    rol=rol,
+                    area='produccion',
+                    submodulo=submodulo,
+                    accion=accion,
+                    permitido=(request.POST.get(key) == 'on')
+                )
+
+        from .permissions import INVENTORY_PERMISSION_MATRIX
+        for submodulo, acciones in INVENTORY_PERMISSION_MATRIX.items():
+            for accion in acciones:
+                key = f"perm_inventario__{submodulo}__{accion}"
+                PermisoRolAccion.objects.create(
+                    rol=rol,
+                    area='inventario',
                     submodulo=submodulo,
                     accion=accion,
                     permitido=(request.POST.get(key) == 'on')
@@ -535,12 +560,31 @@ def actualizar_rol_ajax(request, rol_id):
                 permiso_accion.permitido = (request.POST.get(key) == 'on')
                 permiso_accion.save()
 
-        from .permissions import PURCHASES_PERMISSION_MATRIX
+        from .permissions import PURCHASES_PERMISSION_MATRIX, PRODUCTION_PERMISSION_MATRIX
         for submodulo, acciones in PURCHASES_PERMISSION_MATRIX.items():
             for accion in acciones:
                 key = f"perm_compras__{submodulo}__{accion}"
                 permiso_accion, _ = PermisoRolAccion.objects.get_or_create(
                     rol=rol, area='compras', submodulo=submodulo, accion=accion
+                )
+                permiso_accion.permitido = (request.POST.get(key) == 'on')
+                permiso_accion.save()
+
+        for submodulo, acciones in PRODUCTION_PERMISSION_MATRIX.items():
+            for accion in acciones:
+                key = f"perm_produccion__{submodulo}__{accion}"
+                permiso_accion, _ = PermisoRolAccion.objects.get_or_create(
+                    rol=rol, area='produccion', submodulo=submodulo, accion=accion
+                )
+                permiso_accion.permitido = (request.POST.get(key) == 'on')
+                permiso_accion.save()
+
+        from .permissions import INVENTORY_PERMISSION_MATRIX
+        for submodulo, acciones in INVENTORY_PERMISSION_MATRIX.items():
+            for accion in acciones:
+                key = f"perm_inventario__{submodulo}__{accion}"
+                permiso_accion, _ = PermisoRolAccion.objects.get_or_create(
+                    rol=rol, area='inventario', submodulo=submodulo, accion=accion
                 )
                 permiso_accion.permitido = (request.POST.get(key) == 'on')
                 permiso_accion.save()

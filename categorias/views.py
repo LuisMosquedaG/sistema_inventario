@@ -15,8 +15,11 @@ def get_empresa_actual(request):
             return None
     return None
 
+from preferencias.permissions import require_inventory_permission
+
 # --- VISTA PRINCIPAL (LISTADO) ---
 @login_required(login_url='/login/')
+@require_inventory_permission('categorias', 'ver')
 def lista_categorias(request):
     empresa_actual = get_empresa_actual(request)
     
@@ -32,6 +35,7 @@ def lista_categorias(request):
 
 # --- API: CREAR CATEGORÍA ---
 @login_required
+@require_inventory_permission('categorias', 'crear', json_response=True)
 def api_crear_categoria(request):
     if request.method == 'POST':
         try:
@@ -66,6 +70,7 @@ def api_crear_categoria(request):
 
 # --- API: DETALLE CATEGORÍA ---
 @login_required
+@require_inventory_permission('categorias', 'ver', json_response=True)
 def api_detalle_categoria(request, id):
     try:
         empresa_actual = get_empresa_actual(request)
@@ -86,6 +91,7 @@ def api_detalle_categoria(request, id):
 
 # --- API: ACTUALIZAR CATEGORÍA ---
 @login_required
+@require_inventory_permission('categorias', 'editar', json_response=True)
 def api_actualizar_categoria(request, id):
     if request.method == 'POST':
         try:
@@ -118,6 +124,7 @@ def api_actualizar_categoria(request, id):
 
 # --- API: OBTENER SUBCATEGORÍAS POR NOMBRE DE CATEGORÍA ---
 @login_required
+@require_inventory_permission('categorias', 'ver', json_response=True)
 def api_subcategorias_por_categoria(request):
     empresa_actual = get_empresa_actual(request)
     nombre_categoria = request.GET.get('categoria_nombre')

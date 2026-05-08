@@ -83,6 +83,9 @@ class AsignacionRolUsuario(models.Model):
 class PermisoRolAccion(models.Model):
     AREA_CHOICES = [
         ('ventas', 'Ventas'),
+        ('compras', 'Compras'),
+        ('produccion', 'Producción'),
+        ('inventario', 'Inventario'),
     ]
     area = models.CharField(max_length=40, choices=AREA_CHOICES, default='ventas')
     submodulo = models.CharField(max_length=60)

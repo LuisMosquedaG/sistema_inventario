@@ -323,12 +323,12 @@
 <div class="modal fade" id="modalNuevoUsuario" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content shadow-lg border-0" style="border-radius: 12px;">
-            <div class="modal-header border-bottom bg-light">
+            <div class="modal-header border-bottom bg-white">
                 <h5 class="modal-title fw-bold" id="modalUsuarioTitulo">Registrar Nuevo Usuario</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-4">
-                <form id="formUsuario">
+            <div class="modal-body p-0 bg-light">
+                <form id="formUsuario" class="p-4">
                     {% csrf_token %}
                     <input type="hidden" id="usuario_id_hidden">
                     
@@ -377,7 +377,7 @@
                     </div>
                 </form>
             </div>
-            <div class="modal-footer border-0">
+            <div class="modal-footer border-top bg-white p-3">
                 <button type="button" class="btn btn-light btn-sm text-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-brand btn-sm px-4" onclick="guardarUsuario()">Guardar Cambios</button>
             </div>
@@ -387,10 +387,10 @@
 
 <!-- MODAL ROL (ESTILO COTIZACIÓN) -->
 <div class="modal fade" id="modalRol" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
-        <div class="modal-content">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0" style="border-radius: 12px;">
             
-            <div class="modal-header border-bottom bg-light">
+            <div class="modal-header border-bottom bg-white">
                 <h5 class="modal-title fw-bold text-dark">
                     <i class="bi bi-shield-lock me-2" style="color: #00b8b9;"></i>
                     <span id="modalRolTitulo">Nuevo Rol</span>
@@ -398,13 +398,12 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
-            <form id="formRol" novalidate>
-                {% csrf_token %}
-                <input type="hidden" id="rol_id_hidden">
+            <div class="modal-body p-0 bg-light">
+                <form id="formRol" class="p-3" novalidate>
+                    {% csrf_token %}
+                    <input type="hidden" id="rol_id_hidden">
 
-                <div class="modal-body p-3 bg-light">
-                    
-                    <!-- SECCIÓN: DATOS BÁSICOS -->
+                    <!-- 1. INFORMACIÓN BÁSICA (FIJA AL INICIO DEL CUERPO) -->
                     <div class="card border-0 shadow-sm mb-3">
                         <div class="card-body p-3">
                             <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Información del Rol</h6>
@@ -427,19 +426,21 @@
                         </div>
                     </div>
 
-                    <!-- SECCIÓN: PERMISOS (ESTILO COTIZACIÓN) -->
-                    <div class="card border-0 shadow-sm mb-3">
+                    <!-- 2. CONTENEDOR CON SCROLL PARA PERMISOS -->
+                    <div style="max-height: 50vh; overflow-y: auto; overflow-x: hidden; padding-right: 5px;">
+                        <!-- SECCIÓN: PERMISOS (ESTILO COTIZACIÓN) -->
+                        <div class="card border-0 shadow-sm mb-0 rounded-0 border-bottom">
                         <div class="card-body p-0">
-                            <button class="btn btn-sm btn-light border-0 w-100 d-flex justify-content-between align-items-center px-3 py-3" 
+                            <button class="btn btn-sm btn-light border-0 w-100 d-flex justify-content-between align-items-center px-3 py-3 collapsed" 
                                     type="button" 
                                     data-bs-toggle="collapse" 
                                     data-bs-target="#collapseModuloVentas" 
-                                    aria-expanded="true">
+                                    aria-expanded="false">
                                 <span class="fw-bold text-dark"><i class="bi bi-cart-check me-2" style="color: #00b8b9;"></i> MÓDULO VENTAS</span>
                                 <i class="bi bi-chevron-down small text-muted"></i>
                             </button>
                             
-                            <div id="collapseModuloVentas" class="collapse show border-top">
+                            <div id="collapseModuloVentas" class="collapse border-top">
                                 <div class="p-3">
                                     <div class="d-flex gap-2 mb-3">
                                         <button type="button" class="btn btn-xs btn-outline-secondary" style="font-size: 0.65rem;" onclick="marcarTodosPermisosVentas(true)">Marcar Todo</button>
@@ -504,10 +505,11 @@
                                 </div>
                             </div>
                         </div>
-                    <!-- 3. MÓDULO COMPRAS (DESPLEGABLE MAESTRO) -->
-                    <div class="card border-0 shadow-sm mb-3">
+
+                        <!-- 3. MÓDULO COMPRAS (DESPLEGABLE MAESTRO) -->
+                        <div class="card border-0 shadow-sm mb-0 rounded-0 border-bottom">
                         <div class="card-body p-0">
-                            <button class="btn btn-sm btn-light border-0 w-100 d-flex justify-content-between align-items-center px-3 py-3" 
+                            <button class="btn btn-sm btn-light border-0 w-100 d-flex justify-content-between align-items-center px-3 py-3 collapsed" 
                                     type="button" 
                                     data-bs-toggle="collapse" 
                                     data-bs-target="#collapseModuloCompras" 
@@ -515,7 +517,7 @@
                                 <span class="fw-bold text-dark"><i class="bi bi-cart-plus me-2" style="color: #00b8b9;"></i> MÓDULO COMPRAS</span>
                                 <i class="bi bi-chevron-down small text-muted"></i>
                             </button>
-                            
+
                             <div id="collapseModuloCompras" class="collapse border-top">
                                 <div class="p-3">
                                     <div class="d-flex gap-2 mb-3">
@@ -535,7 +537,7 @@
                                                         <button type="button" class="btn btn-link text-decoration-none p-0 text-muted fw-bold" style="font-size: 0.6rem;" onclick="toggleSubmoduloPermisos('{{ submodulo }}', false)">LIMPIAR</button>
                                                     </div>
                                                 </div>
-                                                
+
                                                 <div class="row row-cols-2 row-cols-md-4 g-2">
                                                     {% for p_accion in acciones %}
                                                     <div class="col">
@@ -561,15 +563,157 @@
                                 </div>
                             </div>
                         </div>
-                    </div> <!-- Cierre del módulo compras -->
+                        </div>
 
-                </div> <!-- Cierre del modal-body -->
+                        <!-- 4. MÓDULO PRODUCCIÓN (DESPLEGABLE MAESTRO) -->
+                        <div class="card border-0 shadow-sm mb-0 rounded-0">
+                        <div class="card-body p-0">
+                            <button class="btn btn-sm btn-light border-0 w-100 d-flex justify-content-between align-items-center px-3 py-3 collapsed" 
+                                    type="button" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#collapseModuloProduccion" 
+                                    aria-expanded="false">
+                                <span class="fw-bold text-dark"><i class="bi bi-gear-fill me-2" style="color: #00b8b9;"></i> MÓDULO PRODUCCIÓN</span>
+                                <i class="bi bi-chevron-down small text-muted"></i>
+                            </button>
 
-                <div class="modal-footer border-top bg-white">
-                    <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-brand btn-sm px-4" onclick="guardarRol()">Guardar Rol</button>
-                </div>
-            </form>
+                            <div id="collapseModuloProduccion" class="collapse border-top">
+                            <div class="p-3">
+                                <div class="d-flex gap-2 mb-3">
+                                    <button type="button" class="btn btn-xs btn-outline-secondary" style="font-size: 0.65rem;" onclick="marcarTodosPermisosProduccion(true)">Marcar Todo</button>
+                                    <button type="button" class="btn btn-xs btn-outline-secondary" style="font-size: 0.65rem;" onclick="marcarTodosPermisosProduccion(false)">Limpiar Todo</button>
+                                </div>
+
+                                <div class="row g-3">
+                                    {% for submodulo, acciones in production_permission_matrix.items %}
+                                    <div class="col-12">
+                                        <div class="p-3 border rounded shadow-sm" style="background-color: #f8f9fa;">
+                                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                                <h6 class="fw-bold text-uppercase text-dark mb-0 small" style="letter-spacing: 0.5px;">{{ submodulo|cut:"_"|title }}</h6>
+                                                <div class="btn-group">
+                                                    <button type="button" class="btn btn-link text-decoration-none p-0 text-muted fw-bold" style="font-size: 0.6rem;" onclick="toggleSubmoduloPermisos('{{ submodulo }}', true)">TODO</button>
+                                                    <span class="mx-2 text-muted" style="font-size: 0.6rem;">|</span>
+                                                    <button type="button" class="btn btn-link text-decoration-none p-0 text-muted fw-bold" style="font-size: 0.6rem;" onclick="toggleSubmoduloPermisos('{{ submodulo }}', false)">LIMPIAR</button>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="row row-cols-2 row-cols-md-4 g-2">
+                                                {% for p_accion in acciones %}
+                                                    {% if submodulo == 'tablero_control' and p_accion in 'guardar_avance,finalizar_trabajo' %}
+                                                        <!-- Especial Calidad abajo -->
+                                                    {% else %}
+                                                    <div class="col">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input permiso-accion permiso-submodulo-{{ submodulo }}" type="checkbox"
+                                                                   name="perm_produccion__{{ submodulo }}__{{ p_accion }}"
+                                                                   id="perm_produccion__{{ submodulo }}__{{ p_accion }}">
+                                                            <label class="form-check-label small text-dark" style="font-size: 0.75rem;" for="perm_produccion__{{ submodulo }}__{{ p_accion }}">
+                                                                {% if p_accion == 'crear' and submodulo == 'tablero_control' %}Nueva Orden
+                                                                {% elif p_accion == 'crear' and submodulo == 'catalogos_test' %}Nuevo Test
+                                                                {% elif p_accion == 'validar_calidad' %}Validar Calidad
+                                                                {% elif p_accion == 'iniciar_trabajo' %}Iniciar Trabajo
+                                                                {% elif p_accion == 'cancelar_orden' %}Cancelar Orden
+                                                                {% elif p_accion == 'enviar_testeo' %}Enviar a Testeo
+                                                                {% else %}{{ p_accion|cut:"_"|title }}{% endif %}
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </div>
+
+                                            {% if submodulo == 'tablero_control' %}
+                                            <div class="mt-3 pt-2 border-top">
+                                                <h6 class="text-info fw-bold mb-2 small text-uppercase" style="font-size: 0.65rem;">Acciones de Calidad (Checklist)</h6>
+                                                <div class="row row-cols-2 row-cols-md-4 g-2">
+                                                    {% for p_accion in acciones %}
+                                                        {% if p_accion == 'guardar_avance' or p_accion == 'finalizar_trabajo' %}
+                                                        <div class="col">
+                                                            <div class="form-check">
+                                                                <input class="form-check-input permiso-accion permiso-submodulo-{{ submodulo }}" type="checkbox"
+                                                                       name="perm_produccion__{{ submodulo }}__{{ p_accion }}"
+                                                                       id="perm_produccion__{{ submodulo }}__{{ p_accion }}">
+                                                                <label class="form-check-label small text-dark" style="font-size: 0.75rem;" for="perm_produccion__{{ submodulo }}__{{ p_accion }}">{{ p_accion|cut:"_"|title }}</label>
+                                                            </div>
+                                                        </div>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            </div>
+
+                        <!-- 5. MÓDULO INVENTARIOS (DESPLEGABLE MAESTRO) -->
+                        <div class="card border-0 shadow-sm mb-0 rounded-0">
+                            <div class="card-body p-0">
+                                <button class="btn btn-sm btn-light border-0 w-100 d-flex justify-content-between align-items-center px-3 py-3 collapsed" 
+                                        type="button" 
+                                        data-bs-toggle="collapse" 
+                                        data-bs-target="#collapseModuloInventario" 
+                                        aria-expanded="false">
+                                    <span class="fw-bold text-dark"><i class="bi bi-box-seam me-2" style="color: #00b8b9;"></i> MÓDULO INVENTARIOS</span>
+                                    <i class="bi bi-chevron-down small text-muted"></i>
+                                </button>
+                                
+                                <div id="collapseModuloInventario" class="collapse border-top">
+                                    <div class="p-3">
+                                        <div class="d-flex gap-2 mb-3">
+                                            <button type="button" class="btn btn-xs btn-outline-secondary" style="font-size: 0.65rem;" onclick="marcarTodosPermisosInventario(true)">Marcar Todo</button>
+                                            <button type="button" class="btn btn-xs btn-outline-secondary" style="font-size: 0.65rem;" onclick="marcarTodosPermisosInventario(false)">Limpiar Todo</button>
+                                        </div>
+
+                                        <div class="row g-3">
+                                            {% for submodulo, acciones in inventory_permission_matrix.items %}
+                                            <div class="col-12">
+                                                <div class="p-3 border rounded shadow-sm" style="background-color: #f8f9fa;">
+                                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                                        <h6 class="fw-bold text-uppercase text-dark mb-0 small" style="letter-spacing: 0.5px;">{{ submodulo|cut:"_"|title }}</h6>
+                                                        <div class="btn-group">
+                                                            <button type="button" class="btn btn-link text-decoration-none p-0 text-muted fw-bold" style="font-size: 0.6rem;" onclick="toggleSubmoduloPermisos('{{ submodulo }}', true)">TODO</button>
+                                                            <span class="mx-2 text-muted" style="font-size: 0.6rem;">|</span>
+                                                            <button type="button" class="btn btn-link text-decoration-none p-0 text-muted fw-bold" style="font-size: 0.6rem;" onclick="toggleSubmoduloPermisos('{{ submodulo }}', false)">LIMPIAR</button>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="row row-cols-2 row-cols-md-4 g-2">
+                                                        {% for p_accion in acciones %}
+                                                        <div class="col">
+                                                            <div class="form-check">
+                                                                <input class="form-check-input permiso-accion permiso-submodulo-{{ submodulo }}" type="checkbox"
+                                                                       name="perm_inventario__{{ submodulo }}__{{ p_accion }}"
+                                                                       id="perm_inventario__{{ submodulo }}__{{ p_accion }}">
+                                                                <label class="form-check-label small text-dark" style="font-size: 0.75rem;" for="perm_inventario__{{ submodulo }}__{{ p_accion }}">
+                                                                    {% if p_accion == 'crear' and submodulo == 'inventario' %}Nuevo Artículo
+                                                                    {% elif p_accion == 'crear' and submodulo == 'almacenes' %}Nuevo Almacén
+                                                                    {% elif p_accion == 'crear' and submodulo == 'categorias' %}Nueva Categoría
+                                                                    {% else %}{{ p_accion|cut:"_"|title }}{% endif %}
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div> <!-- Cierre del contenedor con scroll para permisos -->
+                </form>
+            </div>
+
+            <div class="modal-footer border-top bg-white p-3">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-brand btn-sm px-4" onclick="guardarRol()">Guardar Rol</button>
+            </div>
         </div>
     </div>
 </div>
@@ -578,41 +722,45 @@
 <div class="modal fade" id="modalNuevaMoneda" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content shadow-lg border-0" style="border-radius: 12px;">
-            <div class="modal-header border-bottom bg-light">
+            <div class="modal-header border-bottom bg-white">
                 <h5 class="modal-title fw-bold" id="modalMonedaTitulo">Registrar Tipo de Moneda</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-4">
-                <form id="formNuevaMoneda">
+            <div class="modal-body p-0 bg-light">
+                <form id="formNuevaMoneda" class="p-4">
                     {% csrf_token %}
                     <input type="hidden" id="moneda_id_hidden">
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold">Nombre de la Moneda</label>
-                        <input type="text" name="nombre" id="inputNombreMoneda" class="form-control form-control-sm" placeholder="Ej. Peso Mexicano" required>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label small fw-bold">Siglas</label>
-                            <input type="text" name="siglas" id="inputSiglasMoneda" class="form-control form-control-sm" placeholder="Ej. MXN" maxlength="5" required>
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Nombre de la Moneda</label>
+                                <input type="text" name="nombre" id="inputNombreMoneda" class="form-control form-control-sm" placeholder="Ej. Peso Mexicano" required>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label small fw-bold">Siglas</label>
+                                    <input type="text" name="siglas" id="inputSiglasMoneda" class="form-control form-control-sm" placeholder="Ej. MXN" maxlength="5" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label small fw-bold">Símbolo</label>
+                                    <input type="text" name="simbolo" id="inputSimboloMoneda" class="form-control form-control-sm" placeholder="Ej. $" maxlength="5" required>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Factor de Conversión</label>
+                                <input type="number" step="0.0001" name="factor" id="inputFactorMoneda" class="form-control form-control-sm text-end" value="1.0000" required>
+                                <small class="text-muted" style="font-size: 0.7rem;">Respecto a la moneda base del sistema.</small>
+                            </div>
+                            <div class="mb-0">
+                                <label class="form-label small fw-bold">Responsable</label>
+                                <input type="text" class="form-control form-control-sm bg-light" value="{{ user.username }}" readonly>
+                            </div>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label small fw-bold">Símbolo</label>
-                            <input type="text" name="simbolo" id="inputSimboloMoneda" class="form-control form-control-sm" placeholder="Ej. $" maxlength="5" required>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold">Factor de Conversión</label>
-                        <input type="number" step="0.0001" name="factor" id="inputFactorMoneda" class="form-control form-control-sm text-end" value="1.0000" required>
-                        <small class="text-muted" style="font-size: 0.7rem;">Respecto a la moneda base del sistema.</small>
-                    </div>
-                    <div class="mb-0">
-                        <label class="form-label small fw-bold">Responsable</label>
-                        <input type="text" class="form-control form-control-sm bg-light" value="{{ user.username }}" readonly>
                     </div>
                 </form>
             </div>
-            <div class="modal-footer border-0">
-                <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
+            <div class="modal-footer border-top bg-white p-3">
+                <button type="button" class="btn btn-light btn-sm text-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-brand btn-sm px-4" onclick="guardarMoneda()">Guardar Moneda</button>
             </div>
         </div>
@@ -821,6 +969,14 @@
 
     function marcarTodosPermisosCompras(valor) {
         document.querySelectorAll('.permiso-submodulo-proveedores, .permiso-submodulo-solicitudes, .permiso-submodulo-ordenes_compra, .permiso-submodulo-recepciones').forEach(el => { el.checked = valor; });
+    }
+
+    function marcarTodosPermisosProduccion(valor) {
+        document.querySelectorAll('.permiso-submodulo-tablero_control, .permiso-submodulo-catalogos_test').forEach(el => { el.checked = valor; });
+    }
+
+    function marcarTodosPermisosInventario(valor) {
+        document.querySelectorAll('.permiso-submodulo-inventario, .permiso-submodulo-kardex, .permiso-submodulo-almacenes, .permiso-submodulo-categorias').forEach(el => { el.checked = valor; });
     }
 
     function toggleSubmoduloPermisos(submodulo, valor) {
