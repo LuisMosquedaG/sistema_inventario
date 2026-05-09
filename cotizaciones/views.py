@@ -87,14 +87,16 @@ def dashboard_cotizaciones(request):
     todos_los_clientes = Cliente.objects.filter(empresa=empresa_actual)
     todos_los_productos = Producto.objects.filter(empresa=empresa_actual)
 
-    from categorias.models import Categoria as CategoriaCatalogo
+    from categorias.models import Categoria as CategoriaCatalogo, ListaPrecioCosto
     todas_categorias = CategoriaCatalogo.objects.filter(empresa=empresa_actual)
+    todas_listas = ListaPrecioCosto.objects.filter(empresa=empresa_actual)
     
     contexto = {
         'cotizaciones': lista_cotizaciones,
         'clientes': todos_los_clientes,
         'productos': todos_los_productos,
         'categorias_catalogo': todas_categorias,
+        'listas_precios': todas_listas,
         'filtros': filtros
     }
     return render(request, 'dashboard_cotizaciones.html', contexto)

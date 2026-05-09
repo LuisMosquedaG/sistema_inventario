@@ -131,7 +131,7 @@
                             <input type="hidden" id="edit_index" value="-1">
 
                             <div class="row g-2 align-items-end">
-                                <div class="col-md-5">
+                                <div class="col-md-4">
                                     <label class="form-label small text-muted">Producto</label>
                                     <div class="d-flex align-items-center">
                                         <div class="custom-select-wrapper flex-grow-1" id="wrapperProductoAgregar">
@@ -152,7 +152,6 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <!-- BOTÓN NUEVO PRODUCTO (GREEN) -->
                                         <button type="button" class="btn btn-brand btn-sm shadow-none" 
                                                 style="height: 31px; width: 31px; border-radius: 0 0.25rem 0.25rem 0; display: flex; align-items: center; justify-content: center; padding: 0; margin-left: -1px; border-left: none;" 
                                                 onclick="mostrarModal('modalCrearProductoRapido')"
@@ -161,9 +160,20 @@
                                         </button>
                                     </div>
                                 </div>
-                                <div class="col-md-2">
+                                <div class="col-md-3">
+                                    <label class="form-label small text-muted">Lista</label>
+                                    <select id="selectListaPrecio" class="form-select form-select-sm" onchange="aplicarListaPrecio()">
+                                        <option value="">Precio Base</option>
+                                        {% for l in listas_precios %}
+                                            {% if l.tipo == 'precio' %}
+                                            <option value="{{ l.id }}" data-porc="{{ l.porcentaje_extra }}" data-monto="{{ l.monto_extra }}">{{ l.nombre }}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-1">
                                     <label class="form-label small text-muted">Cant.</label>
-                                    <input type="number" id="inputCantidadAgregar" class="form-control form-control-sm text-center" value="1" min="1">
+                                    <input type="number" id="inputCantidadAgregar" class="form-control form-control-sm text-center px-1" value="1" min="1">
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small text-muted">Precio Unit.</label>
@@ -172,9 +182,9 @@
                                         <input type="number" id="inputPrecioAgregar" class="form-control form-control-sm" value="0.00" step="0.01">
                                     </div>
                                 </div>
-                                <div class="col-md-2">
-                                    <button type="button" class="btn btn-brand btn-sm w-100" onclick="agregarALista()">
-                                        <i class="bi bi-plus-lg"></i> Agregar
+                                <div class="col-md-1">
+                                    <button type="button" class="btn btn-brand btn-sm w-100 fw-bold" onclick="agregarALista()" title="Agregar Artículo">
+                                        <i class="bi bi-plus-lg"></i>
                                     </button>
                                 </div>
                             </div>

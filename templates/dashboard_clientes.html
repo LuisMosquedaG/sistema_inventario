@@ -536,19 +536,27 @@
                             <div id="collapseDireccionEnvio" class="accordion-collapse collapse" data-bs-parent="#accordionEnvio">
                                 <div class="accordion-body p-3" style="background-color: #f8f9fa;">
                                     <div class="row g-2">
-                                        <div class="col-md-8">
+                                        <div class="col-md-4">
                                             <label class="form-label small text-muted mb-0">Calle Envío</label>
                                             <input type="text" name="envio_calle" id="inputEnvioCalle" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;">
                                         </div>
-                                        <div class="col-md-4">
+                                        <div class="col-md-2">
                                             <label class="form-label small text-muted mb-0">Num. Ext</label>
                                             <input type="text" name="envio_numero_ext" id="inputEnvioNumExt" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;">
                                         </div>
-                                        <div class="col-md-8">
+                                        <div class="col-md-2">
+                                            <label class="form-label small text-muted mb-0">Num. Int</label>
+                                            <input type="text" name="envio_numero_int" id="inputEnvioNumInt" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;">
+                                        </div>
+                                        <div class="col-md-4">
                                             <label class="form-label small text-muted mb-0">Colonia Envío</label>
                                             <input type="text" name="envio_colonia" id="inputEnvioColonia" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;">
                                         </div>
-                                        <div class="col-md-4">
+                                        <div class="col-md-3">
+                                            <label class="form-label small text-muted mb-0">Estado Envío</label>
+                                            <input type="text" name="envio_estado" id="inputEnvioEstado" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;">
+                                        </div>
+                                        <div class="col-md-3">
                                             <label class="form-label small text-muted mb-0">C.P. Envío</label>
                                             <input type="text" name="envio_cp" id="inputEnvioCP" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;">
                                         </div>
@@ -556,11 +564,17 @@
                                         <div class="col-12 mt-2 pt-2 border-top">
                                             <label class="form-label small fw-bold text-secondary mb-1">Datos de Recepción</label>
                                             <div class="row g-2">
-                                                <div class="col-md-6">
+                                                <div class="col-md-4">
                                                     <input type="text" name="envio_quien_recibe" id="inputEnvioRecibe" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;" placeholder="Quién recibe">
                                                 </div>
-                                                <div class="col-md-6">
+                                                <div class="col-md-4">
                                                     <input type="text" name="envio_telefono" id="inputEnvioTel" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;" placeholder="Teléfono">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <input type="email" name="envio_correo" id="inputEnvioCorreo" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;" placeholder="Correo">
+                                                </div>
+                                                <div class="col-12 mt-2">
+                                                    <input type="text" name="envio_notas" id="inputEnvioNotas" class="form-control form-control-sm border-0 bg-white shadow-sm" style="border-radius: 8px;" placeholder="Notas de envío (Ej: Entregar con portón azul)">
                                                 </div>
                                             </div>
                                         </div>
@@ -571,33 +585,11 @@
                     </div>
                 </form>
             </div>
-            <div class="modal-footer border-top bg-white">
-                <button type="button" class="btn btn-light btn-sm text-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-brand btn-sm px-4" onclick="document.getElementById('formCliente').submit();">Guardar Cliente</button>
-            </div>
-        </div>
-    </div>
-</div>
-                                    <div class="col-md-4">
-                                        <input type="email" name="envio_correo" id="inputEnvioCorreo" class="form-control form-control-sm" placeholder="Correo">
-                                    </div>
-                                    <div class="col-12 mt-2">
-                                        <input type="text" name="envio_notas" id="inputEnvioNotas" class="form-control form-control-sm" placeholder="Notas de envío (Ej: Entregar con portón azul)">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- NOTA: Ya no hay botones aquí, el formulario se cierra abajo -->
-                </form> 
-            </div>
 
             <!-- FOOTER (BOTONES FIJOS) -->
             <div class="modal-footer border-top bg-white">
                 <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                <!-- El atributo 'form' vincula este botón con el formulario de arriba -->
-                <button type="submit" form="formCliente" class="btn btn-brand px-4">Guardar</button>
+                <button type="submit" form="formCliente" class="btn btn-brand px-4">Guardar Cliente</button>
             </div>
 
         </div>
@@ -1158,6 +1150,7 @@
                 document.getElementById('inputEnvioEstado').value = data.envio_estado || '';
                 document.getElementById('inputEnvioCP').value = data.envio_cp || '';
                 document.getElementById('inputEnvioRecibe').value = data.envio_quien_recibe || '';
+
                 document.getElementById('inputEnvioTel').value = data.envio_telefono || '';
                 document.getElementById('inputEnvioCorreo').value = data.envio_correo || '';
                 document.getElementById('inputEnvioNotas').value = data.envio_notas || '';

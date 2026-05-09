@@ -182,13 +182,17 @@ def dashboard_pedidos(request):
     # --- DATOS PARA EL MODAL DE PAGO ---
     from tesoreria.models import CajaBanco
     from preferencias.models import Moneda
+    from categorias.models import ListaPrecioCosto
+    
     cajas = CajaBanco.objects.filter(empresa=empresa_actual, activo=True)
     monedas = Moneda.objects.filter(empresa=empresa_actual)
+    listas_precios = ListaPrecioCosto.objects.filter(empresa=empresa_actual, tipo='precio').order_by('nombre')
 
     contexto = {
         'pedidos': lista_pedidos,
         'clientes': clientes,
         'productos': productos,
+        'listas_precios': listas_precios,
         'cajas': cajas,
         'monedas': monedas,
         'contactos_filtro': contactos_del_cliente,

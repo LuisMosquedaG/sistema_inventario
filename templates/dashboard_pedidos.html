@@ -553,12 +553,26 @@
                                     <!-- CLIENTE -->
                                     <div class="col-md-6">
                                         <label class="form-label small fw-bold text-secondary">Cliente</label>
-                                        <select name="cliente" id="selectClienteNuevo" class="form-select form-select-sm" required onchange="cargarContactosNuevoPedido(this.value)">
-                                            <option value="">Seleccionar cliente...</option>
-                                            {% for c in clientes %}
-                                            <option value="{{ c.id }}">{{ c.nombre_completo }}</option>
-                                            {% endfor %}
-                                        </select>
+                                        <div class="custom-select-wrapper" id="wrapperClienteNuevo">
+                                            <div class="custom-select">
+                                                <div class="custom-select__trigger">
+                                                    <div id="cliente_display_fake_nuevo" class="fake-input-layer">
+                                                        <span class="text-muted" style="font-weight:400;">Buscar cliente...</span>
+                                                    </div>
+                                                    <input type="text" id="cliente_busqueda_nuevo" autocomplete="off" class="real-input-layer">
+                                                    <input type="hidden" id="selectClienteNuevo" name="cliente" value="">
+                                                </div>
+                                                <div class="custom-options">
+                                                    {% for c in clientes %}
+                                                    <span class="custom-option" data-value="{{ c.id }}" data-search="{{ c.nombre_completo }} {{ c.razon_social|default:'' }}">
+                                                        <span class="opt-razon fw-bold text-dark">{{ c.razon_social|default:c.nombre_completo }}</span>
+                                                        <span class="opt-separator mx-1">|</span>
+                                                        <span class="opt-contacto small text-muted">{{ c.nombre_completo }}</span>
+                                                    </span>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <!-- CONTACTO -->
@@ -583,7 +597,7 @@
                             <div class="card-body p-3">
                                 <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Agregar Artículo</h6>
                                 <div class="row g-2 align-items-end">
-                                    <div class="col-md-5">
+                                    <div class="col-md-4">
                                         <label class="form-label small text-muted">Producto</label>
                                         <div class="custom-select-wrapper" id="wrapperProductoNuevo">
                                             <div class="custom-select">
@@ -605,9 +619,18 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="col-md-2">
+                                    <div class="col-md-3">
+                                        <label class="form-label small text-muted">Lista</label>
+                                        <select id="selectListaPrecioPedido" class="form-select form-select-sm" onchange="aplicarListaPrecioPedido()">
+                                            <option value="">Precio Base</option>
+                                            {% for l in listas_precios %}
+                                                <option value="{{ l.id }}" data-porc="{{ l.porcentaje_extra }}" data-monto="{{ l.monto_extra }}">{{ l.nombre }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-1">
                                         <label class="form-label small text-muted">Cant.</label>
-                                        <input type="number" id="inputCantNuevo" class="form-control form-control-sm text-center" value="1" min="1">
+                                        <input type="number" id="inputCantNuevo" class="form-control form-control-sm text-center px-1" value="1" min="1">
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label small text-muted">Precio Unit.</label>
@@ -616,9 +639,9 @@
                                             <input type="number" id="inputPrecioNuevo" class="form-control form-control-sm" value="0.00" step="0.01">
                                         </div>
                                     </div>
-                                    <div class="col-md-2">
-                                        <button type="button" class="btn btn-brand btn-sm w-100" onclick="agregarArticuloNuevoPedido()">
-                                            <i class="bi bi-plus-lg"></i> Agregar
+                                    <div class="col-md-1">
+                                        <button type="button" class="btn btn-brand btn-sm w-100 fw-bold" onclick="agregarArticuloNuevoPedido()" title="Agregar Artículo">
+                                            <i class="bi bi-plus-lg"></i>
                                         </button>
                                     </div>
                                 </div>
@@ -923,83 +946,190 @@
 
     // --- LÓGICA PARA NUEVO PEDIDO MANUAL ---
 
-    // Inicializar buscador de productos
+    // Inicializar buscadores del modal Nuevo Pedido
     document.addEventListener('DOMContentLoaded', function() {
-        const wrapper = document.getElementById('wrapperProductoNuevo');
-        if (wrapper) {
-            const select = wrapper.querySelector('.custom-select');
-            const input = document.getElementById('producto_busqueda');
-            const fake = document.getElementById('producto_display_fake');
-            const hidden = document.getElementById('selectProductoNuevo');
-            const options = wrapper.querySelectorAll('.custom-option');
+        // --- 1. BUSCADOR DE PRODUCTOS ---
+        const wrapperP = document.getElementById('wrapperProductoNuevo');
+        if (wrapperP) {
+            const selP = wrapperP.querySelector('.custom-select');
+            const inpP = document.getElementById('producto_busqueda');
+            const fakeP = document.getElementById('producto_display_fake');
+            const hidP = document.getElementById('selectProductoNuevo');
+            const optsP = wrapperP.querySelectorAll('.custom-option');
 
-            const updateFakeVisibility = () => {
-                if (document.activeElement === input || input.value.length > 0) {
-                    fake.style.opacity = "0";
-                } else {
-                    fake.style.opacity = "1";
-                }
-            };
+            const updateP = () => { fakeP.style.opacity = (document.activeElement === inpP || inpP.value.length > 0) ? "0" : "1"; };
+            const resetP = () => { optsP.forEach(o => o.style.display = 'flex'); };
 
-            input.addEventListener('focus', () => { 
-                select.classList.add('open'); 
-                updateFakeVisibility(); 
-            });
-            
-            input.addEventListener('blur', () => {
-                setTimeout(() => {
-                    select.classList.remove('open');
-                    updateFakeVisibility();
-                }, 200);
+            inpP.addEventListener('focus', () => { resetP(); selP.classList.add('open'); updateP(); });
+            inpP.addEventListener('blur', () => { setTimeout(() => { selP.classList.remove('open'); updateP(); }, 150); });
+            inpP.addEventListener('input', function() {
+                const t = this.value.toLowerCase();
+                fakeP.innerHTML = t.length > 0 ? `<span class="typing-text">${this.value}</span>` : '<span class="text-muted" style="font-weight:400;">Buscar producto...</span>';
+                updateP();
+                optsP.forEach(o => { o.style.display = o.getAttribute('data-search').toLowerCase().includes(t) ? 'flex' : 'none'; });
+                selP.classList.add('open');
             });
 
-            input.addEventListener('input', function() {
-                const term = this.value.toLowerCase();
-                if (term.length > 0) {
-                    fake.innerHTML = `<span class="typing-text">${this.value}</span>`;
-                } else {
-                    fake.innerHTML = '<span class="text-muted" style="font-weight:400;">Buscar producto...</span>';
-                }
-                options.forEach(opt => {
-                    const search = opt.getAttribute('data-search').toLowerCase();
-                    opt.style.display = search.includes(term) ? 'flex' : 'none';
-                });
-                select.classList.add('open');
-                updateFakeVisibility();
-            });
-
-            options.forEach(opt => {
+            optsP.forEach(opt => {
                 opt.addEventListener('click', function() {
-                    options.forEach(o => o.classList.remove('selected'));
+                    optsP.forEach(o => o.classList.remove('selected'));
                     this.classList.add('selected');
-                    fake.innerHTML = this.innerHTML;
-                    fake.setAttribute('title', this.textContent.trim());
-                    input.value = this.textContent.trim();
-                    input.classList.add('input-seleccionado');
-                    hidden.value = this.getAttribute('data-value');
-                    const precio = this.getAttribute('data-precio');
-                    if (precio) {
-                        document.getElementById('inputPrecioNuevo').value = precio;
-                    }
-                    select.classList.remove('open');
-                    updateFakeVisibility();
+                    fakeP.innerHTML = this.innerHTML;
+                    fakeP.setAttribute('title', this.textContent.trim());
+                    inpP.value = "";
+                    const base = this.getAttribute('data-precio') || "0.00";
+                    hidP.value = this.getAttribute('data-value');
+                    hidP.setAttribute('data-base-precio', base);
+                    const sl = document.getElementById('selectListaPrecioPedido');
+                    if (sl) sl.value = "";
+                    document.getElementById('inputPrecioNuevo').value = base;
+                    updateP();
                 });
             });
+        }
 
-            window.addEventListener('click', (e) => {
-                if (!wrapper.contains(e.target)) {
-                    select.classList.remove('open');
-                }
+        // --- 2. BUSCADOR DE CLIENTES ---
+        const wrapperC = document.getElementById('wrapperClienteNuevo');
+        if (wrapperC) {
+            const selC = wrapperC.querySelector('.custom-select');
+            const inpC = document.getElementById('cliente_busqueda_nuevo');
+            const fakeC = document.getElementById('cliente_display_fake_nuevo');
+            const hidC = document.getElementById('selectClienteNuevo');
+            const optsC = wrapperC.querySelectorAll('.custom-option');
+            
+            let isSelecting = false;
+
+            const updateC = () => { fakeC.style.opacity = (document.activeElement === inpC || inpC.value.length > 0) ? "0" : "1"; };
+            const resetC = () => { optsC.forEach(o => o.style.display = 'flex'); };
+
+            inpC.addEventListener('focus', () => { 
+                if (!isSelecting) { resetC(); selC.classList.add('open'); updateC(); }
             });
+            inpC.addEventListener('blur', () => { 
+                setTimeout(() => { if (!isSelecting) { selC.classList.remove('open'); updateC(); } }, 150); 
+            });
+
+            inpC.addEventListener('input', function() {
+                const t = this.value.toLowerCase();
+                fakeC.innerHTML = `<span class="typing-text">${this.value}</span>`;
+                updateC();
+                optsC.forEach(o => { o.style.display = o.getAttribute('data-search').toLowerCase().includes(t) ? 'flex' : 'none'; });
+                selC.classList.add('open');
+            });
+
+            // LÓGICA DE SELECCIÓN (INTERCEPCIÓN EN MOUSE-DOWN)
+            wrapperC.addEventListener('mousedown', function(e) {
+                const option = e.target.closest('.custom-option');
+                if (!option) return;
+
+                e.preventDefault();
+                e.stopPropagation();
+
+                // 1. Cierre inmediato y pérdida de foco
+                selC.classList.remove('open');
+                inpC.blur();
+                isSelecting = true;
+
+                // 2. Procesar selección
+                optsC.forEach(opt => opt.classList.remove('selected'));
+                option.classList.add('selected');
+                
+                inpC.value = ""; 
+                fakeC.innerHTML = option.innerHTML;
+                fakeC.setAttribute('title', option.textContent.trim());
+                hidC.value = option.getAttribute('data-value');
+                
+                cargarContactosNuevoPedido(hidC.value);
+                updateC();
+
+                // 3. Liberar bloqueo
+                setTimeout(() => { isSelecting = false; }, 100);
+            });
+        }
+
+        window.addEventListener('click', (e) => {
+            if (wrapperP && !wrapperP.contains(e.target)) wrapperP.querySelector('.custom-select').classList.remove('open');
+            if (wrapperC && !wrapperC.contains(e.target)) wrapperC.querySelector('.custom-select').classList.remove('open');
+        });
+    });
+
+    /**
+     * Calcula y aplica el precio según la lista seleccionada en Pedidos
+     */
+    window.aplicarListaPrecioPedido = function() {
+        const hiddenProd = document.getElementById('selectProductoNuevo');
+        const selectLista = document.getElementById('selectListaPrecioPedido');
+        const inputPrecio = document.getElementById('inputPrecioNuevo');
+
+        if (!hiddenProd.value) return;
+
+        const basePrecio = parseFloat(hiddenProd.getAttribute('data-base-precio')) || 0;
+        const optLista = selectLista.options[selectLista.selectedIndex];
+        
+        if (!selectLista.value) {
+            inputPrecio.value = basePrecio.toFixed(2);
+            return;
+        }
+
+        const porc = parseFloat(optLista.getAttribute('data-porc')) || 0;
+        const montoFijo = parseFloat(optLista.getAttribute('data-monto')) || 0;
+
+        let nuevoPrecio = basePrecio;
+        if (porc !== 0) {
+            nuevoPrecio = basePrecio + (basePrecio * (porc / 100));
+        } else if (montoFijo !== 0) {
+            nuevoPrecio = basePrecio + montoFijo;
+        }
+
+        inputPrecio.value = nuevoPrecio.toFixed(2);
+    };
+
+    // --- FUNCIÓN DE LIMPIEZA TOTAL PEDIDO ---
+    window.limpiarModalPedido = function() {
+        const form = document.getElementById('formNuevoPedido');
+        if (!form) return;
+        form.reset();
+        
+        // 1. Limpiar Cliente y Contacto
+        document.getElementById('selectClienteNuevo').value = "";
+        document.getElementById('cliente_busqueda_nuevo').value = "";
+        document.getElementById('cliente_display_fake_nuevo').innerHTML = '<span class="text-muted" style="font-weight:400;">Buscar cliente...</span>';
+        
+        const selectCont = document.getElementById('selectContactoNuevo');
+        selectCont.innerHTML = '<option value="">Selecciona cliente primero...</option>';
+        selectCont.disabled = true;
+        
+        // 2. Limpiar Tabla de Artículos
+        document.getElementById('tablaCuerpoNuevo').innerHTML = '';
+        document.getElementById('mensajeVacioNuevo').style.display = 'block';
+        document.getElementById('granTotalNuevo').innerText = '$0.00';
+        
+        // 3. Limpiar Sección "Agregar Artículo"
+        document.getElementById('selectProductoNuevo').value = "";
+        document.getElementById('producto_busqueda').value = "";
+        document.getElementById('producto_display_fake').innerHTML = '<span class="text-muted" style="font-weight:400;">Buscar producto...</span>';
+        document.getElementById('inputCantNuevo').value = 1;
+        document.getElementById('inputPrecioNuevo').value = "0.00";
+        
+        const selectLista = document.getElementById('selectListaPrecioPedido');
+        if (selectLista) selectLista.value = "";
+    };
+
+    // Escuchar clic en botón "Nuevo Pedido" para limpiar
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('[data-bs-target="#modalNuevoPedido"]')) {
+            limpiarModalPedido();
         }
     });
 
     function cargarContactosNuevoPedido(clienteId) {
         const select = document.getElementById('selectContactoNuevo');
+        if (!select) return;
+        
         select.innerHTML = '<option value="">Cargando...</option>';
         select.disabled = true;
 
-        if (!clienteId) {
+        if (!clienteId || clienteId === "") {
             select.innerHTML = '<option value="">Selecciona cliente primero...</option>';
             return;
         }
@@ -1007,15 +1137,20 @@
         fetch(`/api/clientes/${clienteId}/contactos/`)
             .then(r => r.json())
             .then(data => {
-                select.innerHTML = '<option value="">Seleccionar contacto...</option>';
                 if (data.length > 0) {
+                    select.innerHTML = '<option value="">Seleccionar contacto...</option>';
                     data.forEach(c => {
                         select.insertAdjacentHTML('beforeend', `<option value="${c.id}">${c.nombre}</option>`);
                     });
                     select.disabled = false;
                 } else {
-                    select.innerHTML = '<option value="">Sin contactos</option>';
+                    select.innerHTML = '<option value="">Sin contactos registrados</option>';
+                    select.disabled = true;
                 }
+            })
+            .catch(err => {
+                console.error(err);
+                select.innerHTML = '<option value="">Error al cargar</option>';
             });
     }
 
@@ -1032,11 +1167,11 @@
         const total = (parseFloat(cant) * parseFloat(prec)).toFixed(2);
         const fila = `
             <tr>
-                <td class="text-center align-middle"><div class="fw-semibold small text-dark">${pName}</div><input type="hidden" name="producto_id[]" value="${pId}"></td>
-                <td class="text-center align-middle"><span class="small text-dark">${cant}</span><input type="hidden" name="cantidad[]" value="${cant}"></td>
-                <td class="text-center align-middle"><span class="small text-muted">$${parseFloat(prec).toFixed(2)}</span><input type="hidden" name="precio_unitario[]" value="${prec}"></td>
-                <td class="text-center align-middle"><span class="fw-bold small text-dark">$${total}</span></td>
-                <td class="text-center align-middle"><button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); calcularTotalNuevo();"><i class="bi bi-x-circle-fill"></i></button></td>
+                <td class="ps-3 fw-semibold small text-dark">${pName}<input type="hidden" name="producto_id[]" value="${pId}"></td>
+                <td class="text-center small">${cant}<input type="hidden" name="cantidad[]" value="${cant}"></td>
+                <td class="text-center small text-muted">$${parseFloat(prec).toFixed(2)}<input type="hidden" name="precio_unitario[]" value="${prec}"></td>
+                <td class="text-center fw-bold small text-dark">$${total}</td>
+                <td class="text-center"><button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); calcularTotalNuevo();"><i class="bi bi-x-circle-fill"></i></button></td>
             </tr>`;
         
         document.getElementById('tablaCuerpoNuevo').insertAdjacentHTML('beforeend', fila);
@@ -1046,10 +1181,12 @@
         hidden.value = "";
         const inputBusqueda = document.getElementById('producto_busqueda');
         inputBusqueda.value = "";
-        inputBusqueda.classList.remove('input-seleccionado');
         fake.innerHTML = '<span class="text-muted" style="font-weight:400;">Buscar producto...</span>';
         document.getElementById('inputCantNuevo').value = 1;
         document.getElementById('inputPrecioNuevo').value = "0.00";
+        
+        const selectLista = document.getElementById('selectListaPrecioPedido');
+        if (selectLista) selectLista.value = "";
 
         calcularTotalNuevo();
     }
