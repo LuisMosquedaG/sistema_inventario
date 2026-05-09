@@ -1,0 +1,291 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    /* Iconos de Acción */
+    .icon-action {
+        color: #adb5bd;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        text-decoration: none !important;
+    }
+    .icon-action:hover {
+        color: #00b8b9;
+        transform: scale(1.15);
+    }
+    
+    /* Modal Compacto */
+    .modal-sheet .modal-content {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        overflow: hidden;
+    }
+</style>
+
+<!-- CONTENEDOR -->
+<div class="container-fluid py-2 px-4">
+    <!-- HEADER -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+        <div>
+            <h4 class="section-title mb-0">Listas de Precios/Costos</h4>
+            <span class="section-subtitle">Plantillas para cálculos de márgenes y montos extra</span>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            {% if granular_inventory_perms.listas.crear %}
+            <button class="btn btn-brand text-white btn-pro shadow-sm" onclick="prepararNuevaLista()">
+                <i class="bi bi-plus-lg me-1"></i> Nueva Lista
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-pro mb-0">
+                    <thead>
+                        <tr>
+                            <th class="text-center" style="width: 100px;">Acciones</th>
+                            <th>Nombre</th>
+                            <th class="text-center">Tipo</th>
+                            <th class="text-center">Porcentaje Extra</th>
+                            <th class="text-center">Monto Extra</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for l in listas %}
+                        <tr>
+                            <td class="text-center">
+                                {% if granular_inventory_perms.listas.editar %}
+                                <span onclick="abrirEditarLista({{ l.id }})" class="icon-action" title="Editar">
+                                    <i class="bi bi-pencil-square"></i>
+                                </span>
+                                {% endif %}
+                                
+                                {% if granular_inventory_perms.listas.eliminar %}
+                                <span onclick="eliminarLista({{ l.id }})" class="icon-action" title="Eliminar" style="color: #adb5bd;" onmouseover="this.style.color='#dc3545'" onmouseout="this.style.color='#adb5bd'">
+                                    <i class="bi bi-x-circle"></i>
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="text-dark">{{ l.nombre }}</div>
+                            </td>
+                            <td class="text-center">
+                                <span class="text-dark">
+                                    {{ l.get_tipo_display }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                {{ l.porcentaje_extra }}%
+                            </td>
+                            <td class="text-center">
+                                ${{ l.monto_extra }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5">
+                                <i class="bi bi-list-check display-6 text-muted mb-2 d-block opacity-50"></i>
+                                <span class="text-muted fst-italic small">No hay listas registradas</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal fade" id="modalListaMaestra" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sheet">
+        <div class="modal-content">
+            <div class="modal-header border-bottom bg-light py-2">
+                <h5 class="modal-title fw-bold" id="modalTitulo">Nueva Lista</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="formListaMaestra">
+                    {% csrf_token %}
+                    <input type="hidden" name="lista_id" id="listaId" value="">
+                    
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-8">
+                            <label class="form-label small fw-bold text-secondary">Nombre de la Lista <span class="text-danger">*</span></label>
+                            <input type="text" name="nombre" id="inputNombreLista" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-secondary">Tipo</label>
+                            <select name="tipo" id="selectTipoLista" class="form-select form-select-sm">
+                                <option value="precio">Precio</option>
+                                <option value="costo">Costo</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">
+                                <i class="bi bi-percent me-1"></i> Porcentaje Extra (%)
+                            </label>
+                            <div class="input-group input-group-sm">
+                                <input type="number" step="0.01" name="porcentaje_extra" id="inputPorcentajeExtra" class="form-control text-end" value="0.00" oninput="validarBloqueoCampos()">
+                                <span class="input-group-text bg-light"><i class="bi bi-lock-fill text-muted" id="lockPorc" style="display:none;"></i></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">
+                                <i class="bi bi-cash me-1"></i> Monto Extra ($)
+                            </label>
+                            <div class="input-group input-group-sm">
+                                <input type="number" step="0.01" name="monto_extra" id="inputMontoExtra" class="form-control text-end" value="0.00" oninput="validarBloqueoCampos()">
+                                <span class="input-group-text bg-light"><i class="bi bi-lock-fill text-muted" id="lockMonto" style="display:none;"></i></span>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-top bg-white py-2">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-brand btn-sm px-4" onclick="guardarLista()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    const modalLista = new bootstrap.Modal(document.getElementById('modalListaMaestra'));
+
+    function prepararNuevaLista() {
+        document.getElementById('formListaMaestra').reset();
+        document.getElementById('listaId').value = "";
+        document.getElementById('modalTitulo').innerText = "Nueva Lista";
+        validarBloqueoCampos(); // Resetear bloqueos
+        modalLista.show();
+    }
+
+    function abrirEditarLista(id) {
+        document.getElementById('modalTitulo').innerText = "Editar Lista";
+        document.getElementById('listaId').value = id;
+        
+        fetch(`/inventario/api/lista/${id}/`)
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('inputNombreLista').value = data.nombre;
+                document.getElementById('selectTipoLista').value = data.tipo;
+                document.getElementById('inputPorcentajeExtra').value = data.porcentaje_extra;
+                document.getElementById('inputMontoExtra').value = data.monto_extra;
+                validarBloqueoCampos(); // Aplicar bloqueos según datos cargados
+                modalLista.show();
+            });
+    }
+
+    /**
+     * Lógica de candado: exclusión mutua entre Porcentaje y Monto
+     */
+    function validarBloqueoCampos() {
+        const inputPorc = document.getElementById('inputPorcentajeExtra');
+        const inputMonto = document.getElementById('inputMontoExtra');
+        const lockPorc = document.getElementById('lockPorc');
+        const lockMonto = document.getElementById('lockMonto');
+
+        const rawPorc = inputPorc.value.trim();
+        const rawMonto = inputMonto.value.trim();
+
+        // Consideramos campo activo si tiene un número distinto de 0 o si están empezando a escribir un negativo "-"
+        const hasValuePorc = (rawPorc !== "" && parseFloat(rawPorc) !== 0) || rawPorc === "-";
+        const hasValueMonto = (rawMonto !== "" && parseFloat(rawMonto) !== 0) || rawMonto === "-";
+
+        if (hasValuePorc) {
+            inputMonto.disabled = true;
+            inputMonto.value = "0.00";
+            lockMonto.style.display = "inline-block";
+            
+            inputPorc.disabled = false;
+            lockPorc.style.display = "none";
+        } else if (hasValueMonto) {
+            inputPorc.disabled = true;
+            inputPorc.value = "0.00";
+            lockPorc.style.display = "inline-block";
+            
+            inputMonto.disabled = false;
+            lockMonto.style.display = "none";
+        } else {
+            // Ambos vacíos o en 0: habilitar todo
+            inputPorc.disabled = false;
+            inputMonto.disabled = false;
+            lockPorc.style.display = "none";
+            lockMonto.style.display = "none";
+        }
+    }
+
+    function guardarLista() {
+        const form = document.getElementById('formListaMaestra');
+        const formData = new FormData(form);
+        const id = document.getElementById('listaId').value;
+        
+        let url = '/inventario/api/crear-lista/';
+        if (id) url = `/inventario/api/actualizar-lista/${id}/`;
+
+        fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': getCookie('csrftoken'), 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert("Error: " + data.error);
+            }
+        });
+    }
+
+    function eliminarLista(id) {
+        if (!confirm('¿Seguro que deseas eliminar esta lista?')) return;
+        
+        fetch(`/inventario/api/eliminar-lista/${id}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken'), 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert("Error: " + data.error);
+            }
+        });
+    }
+</script>
+{% endblock %}

@@ -66,6 +66,7 @@ def app_permissions(request):
         'kardex': user_has_inventory_permission(request, 'kardex', 'ver'),
         'almacenes': user_has_inventory_permission(request, 'almacenes', 'ver'),
         'categorias': user_has_inventory_permission(request, 'categorias', 'ver'),
+        'listas': user_has_inventory_permission(request, 'listas', 'ver'),
     }
 
     p_treasury_ui = {

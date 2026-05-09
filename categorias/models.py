@@ -42,3 +42,24 @@ class Subcategoria(models.Model):
         verbose_name = "Subcategoría"
         verbose_name_plural = "Subcategorías"
         ordering = ['nombre']
+
+class ListaPrecioCosto(models.Model):
+    TIPO_CHOICES = [
+        ('precio', 'Precio'),
+        ('costo', 'Costo'),
+    ]
+    nombre = models.CharField(max_length=150, verbose_name="Nombre de la Lista")
+    porcentaje_extra = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="Porcentaje Extra (%)")
+    monto_extra = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="Monto Extra ($)")
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES, default='precio', verbose_name="Tipo")
+    
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Empresa")
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.nombre} ({self.get_tipo_display()})"
+
+    class Meta:
+        verbose_name = "Lista de Precio/Costo"
+        verbose_name_plural = "Listas de Precios/Costos"
+        ordering = ['nombre']

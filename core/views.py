@@ -287,11 +287,19 @@ def api_detalle_producto_inventario(request, producto_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 @login_required
+@login_required
 @require_inventory_permission('inventario', 'ver', json_response=True)
 def obtener_producto_json(request, producto_id):
     try:
         empresa_actual = get_empresa_actual(request)
         producto = get_object_or_404(Producto, id=producto_id, empresa=empresa_actual)
+        
+        # Obtener plantillas globales de listas
+        from categorias.models import ListaPrecioCosto
+        listas_maestras = ListaPrecioCosto.objects.filter(empresa=empresa_actual).values(
+            'id', 'nombre', 'porcentaje_extra', 'monto_extra', 'tipo'
+        )
+        
         return JsonResponse({
             'id': producto.id, 'nombre': producto.nombre, 'descripcion': producto.descripcion,
             'tipo': producto.tipo, 'tipo_abastecimiento': producto.tipo_abastecimiento, 'estado': producto.estado,
@@ -300,6 +308,7 @@ def obtener_producto_json(request, producto_id):
             'unidad_medida': producto.unidad_medida, 'iva': str(producto.iva), 'ieps': str(producto.ieps),
             'precio_costo': str(producto.precio_costo), 'precio_venta': str(producto.precio_venta),
             'precios_lista': producto.precios_lista, 'costos_lista': producto.costos_lista,
+            'listas_maestras': list(listas_maestras),
             'stock_minimo': producto.stock_minimo, 'stock_maximo': producto.stock_maximo,
             'maneja_lote': producto.maneja_lote, 'maneja_serie': producto.maneja_serie,
             'test_calidad_id': producto.test_calidad.id if producto.test_calidad else "",

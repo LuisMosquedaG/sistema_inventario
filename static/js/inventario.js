@@ -157,7 +157,7 @@ window.guardarProducto = function() {
 
 // --- LÓGICA DE CATEGORÍAS ---
 
-function cargarSubcategorias(categoriaNombre, subSeleccionada = "") {
+window.cargarSubcategorias = function(categoriaNombre, subSeleccionada = "") {
     const selSub = document.getElementById('selectSubcategoria');
     if (!selSub) return;
 
@@ -447,41 +447,78 @@ window.abrirModalReceta = function(id, nombre) {
 
 // --- 4. PRECIOS Y COSTOS ---
 
+window.syncInputs = function(sourceId, targetId) {
+    const source = document.getElementById(sourceId);
+    const target = document.getElementById(targetId);
+    if (source && target) {
+        target.value = source.value;
+    }
+}
+
 window.abrirModalPrecios = function(id, nombre) {
     const t = document.getElementById('lpNombre');
     if (t) t.innerText = nombre;
     const tp = document.getElementById('lpTablaPrecios'); if (tp) tp.innerHTML = '';
     const tc = document.getElementById('lpTablaCostos'); if (tc) tc.innerHTML = '';
     
-    // Regresar a la primera pestaña
     const firstTab = document.querySelector('#lpTab button[id="precios-tab"]');
     if (firstTab) {
         const tabTrigger = new bootstrap.Tab(firstTab);
         tabTrigger.show();
     }
 
-    document.getElementById('modalListaPrecios').dataset.productoId = id;
+    const modal = document.getElementById('modalListaPrecios');
+    modal.dataset.productoId = id;
     mostrarModal('modalListaPrecios');
     
     fetch(APP_URLS.api_producto.replace('0', id))
         .then(r => r.json())
         .then(data => {
-            document.getElementById('lpBaseCosto').value = data.precio_costo;
-            document.getElementById('lpBaseVenta').value = data.precio_venta;
+            const inputCosto = document.getElementById('lpBaseCosto');
+            const inputVenta1 = document.getElementById('lpBaseVenta');
+            const inputVenta2 = document.getElementById('lpBaseVentaCosts');
+
+            if (inputCosto) inputCosto.value = data.precio_costo;
+            if (inputVenta1) inputVenta1.value = data.precio_venta;
+            if (inputVenta2) inputVenta2.value = data.precio_venta;
             
-            // Sincronizar informativos
+            modal.dataset.ivaPorcentaje = data.iva || 0;
             syncPreciosCostos();
+
+            const baseVenta = parseFloat(data.precio_venta) || 0;
+            const baseCosto = parseFloat(data.precio_costo) || 0;
+
+            // --- APLICACIÓN AUTOMÁTICA DE LISTAS MAESTRAS ---
+            if (data.listas_maestras && data.listas_maestras.length > 0) {
+                data.listas_maestras.forEach(m => {
+                    const porc = parseFloat(m.porcentaje_extra) || 0;
+                    const montoFijo = parseFloat(m.monto_extra) || 0;
+                    
+                    if (m.tipo === 'precio') {
+                        // Cálculo: Base + % o Base + Monto
+                        const final = baseVenta + (baseVenta * (porc / 100)) + montoFijo;
+                        agregarFilaPrecio(m.nombre, final.toFixed(2));
+                    } else {
+                        const final = baseCosto + (baseCosto * (porc / 100)) + montoFijo;
+                        agregarFilaCosto(m.nombre, final.toFixed(2));
+                    }
+                });
+            }
             
-            if (data.precios_lista && tp) {
+            // Poblar adicionales específicos (si los hubiera y no chocan por nombre)
+            if (data.precios_lista) {
                 data.precios_lista.forEach(i => {
-                    agregarFilaPrecio(i.nombre, i.monto);
+                    const existe = Array.from(tp.querySelectorAll('.lp-name')).some(inp => inp.value === i.nombre);
+                    if (!existe) agregarFilaPrecio(i.nombre, i.monto);
                 });
             }
-            if (data.costos_lista && tc) {
+            if (data.costos_lista) {
                 data.costos_lista.forEach(i => {
-                    agregarFilaCosto(i.nombre, i.monto);
+                    const existe = Array.from(tc.querySelectorAll('.lc-name')).some(inp => inp.value === i.nombre);
+                    if (!existe) agregarFilaCosto(i.nombre, i.monto);
                 });
             }
+
             recalcularMargenes();
         });
 }
@@ -490,10 +527,14 @@ window.syncPreciosCostos = function() {
     const costo = document.getElementById('lpBaseCosto').value || 0;
     const venta = document.getElementById('lpBaseVenta').value || 0;
     
-    const infoCosto = document.getElementById('infoCostoBase');
-    const infoPrecio = document.getElementById('infoPrecioBase');
+    // Actualizar todos los informativos de costo
+    document.getElementById('infoCostoBase').innerText = parseFloat(costo).toFixed(2);
+    const infoCostoCosts = document.getElementById('infoCostoBaseCosts');
+    if (infoCostoCosts) infoCostoCosts.innerText = parseFloat(costo).toFixed(2);
     
-    if (infoCosto) infoCosto.innerText = parseFloat(costo).toFixed(2);
+    // El precio informativo de la pestaña 2 ya no es necesario si es editable,
+    // pero por si acaso hay algún span con ese ID:
+    const infoPrecio = document.getElementById('infoPrecioBase');
     if (infoPrecio) infoPrecio.innerText = parseFloat(venta).toFixed(2);
 }
 
@@ -503,8 +544,14 @@ window.agregarFilaPrecio = function(nombre = '', monto = 0) {
         <tr>
             <td class="ps-3"><input type="text" class="form-control form-control-sm lp-name" value="${nombre}" placeholder="Ej: Mayoreo"></td>
             <td class="text-center"><input type="number" step="0.01" class="form-control form-control-sm text-end lp-monto" value="${monto}" oninput="recalcularMargenes()"></td>
+            <td class="text-center"><span class="small text-muted lp-iva">$0.00</span></td>
+            <td class="text-center"><span class="small fw-bold text-dark lp-total">$0.00</span></td>
             <td class="text-center"><span class="badge bg-light text-dark border lp-margen">0%</span></td>
-            <td class="text-center"><button class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); recalcularMargenes();"><i class="bi bi-x-lg"></i></button></td>
+            <td class="text-center">
+                <button class="btn btn-sm text-secondary p-0" onclick="this.closest('tr').remove(); recalcularMargenes();" title="Eliminar">
+                    <i class="bi bi-x-circle"></i>
+                </button>
+            </td>
         </tr>`);
     recalcularMargenes();
 }
@@ -515,8 +562,14 @@ window.agregarFilaCosto = function(nombre = '', monto = 0) {
         <tr>
             <td class="ps-3"><input type="text" class="form-control form-control-sm lc-name" value="${nombre}" placeholder="Ej: Embalaje"></td>
             <td class="text-center"><input type="number" step="0.01" class="form-control form-control-sm text-end lc-monto" value="${monto}" oninput="recalcularMargenes()"></td>
+            <td class="text-center"><span class="small text-muted lc-iva">$0.00</span></td>
+            <td class="text-center"><span class="small fw-bold text-dark lc-total">$0.00</span></td>
             <td class="text-center"><span class="badge bg-light text-dark border lc-margen">0%</span></td>
-            <td class="text-center"><button class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); recalcularMargenes();"><i class="bi bi-x-lg"></i></button></td>
+            <td class="text-center">
+                <button class="btn btn-sm text-secondary p-0" onclick="this.closest('tr').remove(); recalcularMargenes();" title="Eliminar">
+                    <i class="bi bi-x-circle"></i>
+                </button>
+            </td>
         </tr>`);
     recalcularMargenes();
 }
@@ -524,34 +577,51 @@ window.agregarFilaCosto = function(nombre = '', monto = 0) {
 window.recalcularMargenes = function() {
     const costoBase = parseFloat(document.getElementById('lpBaseCosto').value) || 0;
     const ventaBase = parseFloat(document.getElementById('lpBaseVenta').value) || 0;
+    const ivaPorc = parseFloat(document.getElementById('modalListaPrecios').dataset.ivaPorcentaje) || 0;
     
     // Márgenes para Precios
     document.querySelectorAll('#lpTablaPrecios tr').forEach(tr => {
         const monto = parseFloat(tr.querySelector('.lp-monto').value) || 0;
-        const span = tr.querySelector('.lp-margen');
+        const spanIVA = tr.querySelector('.lp-iva');
+        const spanTotal = tr.querySelector('.lp-total');
+        const spanMargen = tr.querySelector('.lp-margen');
+        
+        const iva = monto * (ivaPorc / 100);
+        const total = monto + iva;
+        
+        if (spanIVA) spanIVA.innerText = '$' + iva.toFixed(2);
+        if (spanTotal) spanTotal.innerText = '$' + total.toFixed(2);
         
         if (costoBase > 0 && monto > 0) {
             const margen = ((monto - costoBase) / monto) * 100;
-            span.innerText = margen.toFixed(1) + '%';
-            span.className = margen > 0 ? 'badge bg-success-subtle text-success border border-success-subtle lp-margen' : 'badge bg-danger-subtle text-danger border border-danger-subtle lp-margen';
+            spanMargen.innerText = margen.toFixed(1) + '%';
+            spanMargen.className = margen > 0 ? 'badge bg-success-subtle text-success border border-success-subtle lp-margen' : 'badge bg-danger-subtle text-danger border border-danger-subtle lp-margen';
         } else {
-            span.innerText = '0%';
-            span.className = 'badge bg-light text-dark border lp-margen';
+            spanMargen.innerText = '0%';
+            spanMargen.className = 'badge bg-light text-dark border lp-margen';
         }
     });
 
     // Márgenes para Costos (relativos al Precio Base)
     document.querySelectorAll('#lpTablaCostos tr').forEach(tr => {
         const montoCosto = parseFloat(tr.querySelector('.lc-monto').value) || 0;
-        const span = tr.querySelector('.lc-margen');
+        const spanIVA = tr.querySelector('.lc-iva');
+        const spanTotal = tr.querySelector('.lc-total');
+        const spanMargen = tr.querySelector('.lc-margen');
+        
+        const iva = montoCosto * (ivaPorc / 100);
+        const total = montoCosto + iva;
+        
+        if (spanIVA) spanIVA.innerText = '$' + iva.toFixed(2);
+        if (spanTotal) spanTotal.innerText = '$' + total.toFixed(2);
         
         if (ventaBase > 0 && montoCosto > 0) {
             const margen = ((ventaBase - montoCosto) / ventaBase) * 100;
-            span.innerText = margen.toFixed(1) + '%';
-            span.className = margen > 0 ? 'badge bg-success-subtle text-success border border-success-subtle lc-margen' : 'badge bg-danger-subtle text-danger border border-danger-subtle lc-margen';
+            spanMargen.innerText = margen.toFixed(1) + '%';
+            spanMargen.className = margen > 0 ? 'badge bg-success-subtle text-success border border-success-subtle lc-margen' : 'badge bg-danger-subtle text-danger border border-danger-subtle lc-margen';
         } else {
-            span.innerText = '0%';
-            span.className = 'badge bg-light text-dark border lc-margen';
+            spanMargen.innerText = '0%';
+            spanMargen.className = 'badge bg-light text-dark border lc-margen';
         }
     });
 }

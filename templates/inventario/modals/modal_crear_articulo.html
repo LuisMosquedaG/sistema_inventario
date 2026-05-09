@@ -86,19 +86,35 @@
                             <div class="row g-2">
                                 <div class="col-md-6">
                                     <label class="form-label small text-muted mb-1">Categoría</label>
-                                    <select name="categoria" id="selectCategoria" class="form-select form-select-sm">
-                                        <option value="">Seleccionar...</option>
-                                        {% for cat in categorias %}
-                                            <option value="{{ cat.nombre }}">{{ cat.nombre }}</option>
-                                        {% endfor %}
-                                    </select>
+                                    <div class="d-flex align-items-center">
+                                        <select name="categoria" id="selectCategoria" class="form-select form-select-sm" style="border-top-right-radius: 0; border-bottom-right-radius: 0;">
+                                            <option value="">Seleccionar...</option>
+                                            {% for cat in categorias %}
+                                                <option value="{{ cat.nombre }}">{{ cat.nombre }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <button type="button" class="btn btn-brand btn-sm shadow-none" 
+                                                style="height: 31px; width: 31px; border-radius: 0 0.25rem 0.25rem 0; display: flex; align-items: center; justify-content: center; padding: 0; margin-left: -1px; border-left: none;" 
+                                                onclick="prepararNuevaCategoriaRapida(); new bootstrap.Modal(document.getElementById('modalCrearCategoriaRapida')).show();"
+                                                title="Nueva Categoría">
+                                            <i class="bi bi-plus-lg" style="font-size: 1rem;"></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 
                                 <div class="col-md-6">
                                     <label class="form-label small text-muted mb-1">Subcategoría</label>
-                                    <select name="subcategoria" id="selectSubcategoria" class="form-select form-select-sm" disabled>
-                                        <option value="">Selecciona categoría primero...</option>
-                                    </select>
+                                    <div class="d-flex align-items-center">
+                                        <select name="subcategoria" id="selectSubcategoria" class="form-select form-select-sm" disabled style="border-top-right-radius: 0; border-bottom-right-radius: 0;">
+                                            <option value="">Selecciona categoría primero...</option>
+                                        </select>
+                                        <button type="button" class="btn btn-brand btn-sm shadow-none" 
+                                                style="height: 31px; width: 31px; border-radius: 0 0.25rem 0.25rem 0; display: flex; align-items: center; justify-content: center; padding: 0; margin-left: -1px; border-left: none;" 
+                                                onclick="prepararNuevaCategoriaRapida(); new bootstrap.Modal(document.getElementById('modalCrearCategoriaRapida')).show();"
+                                                title="Nueva Subcategoría">
+                                            <i class="bi bi-plus-lg" style="font-size: 1rem;"></i>
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div class="col-md-4">

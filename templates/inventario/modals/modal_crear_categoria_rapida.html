@@ -1,0 +1,141 @@
+<!-- MODAL: ALTA RÁPIDA DE CATEGORÍA / SUBCATEGORÍA -->
+<div class="modal fade" id="modalCrearCategoriaRapida" tabindex="-1" aria-hidden="true" style="z-index: 1070;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-light border-bottom py-2">
+                <h6 class="modal-title fw-bold text-dark">
+                    <i class="bi bi-tags-fill me-2 text-brand"></i>Alta Rápida de Categoría
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="formCategoriaRapida">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-secondary">Nombre de la Categoría <span class="text-danger">*</span></label>
+                        <input type="text" name="nombre" id="inputNombreCatRapida" class="form-control form-control-sm" placeholder="Ej: Electrónicos" required>
+                    </div>
+
+                    <div class="card border-0 bg-light mb-3">
+                        <div class="card-body p-2">
+                            <label class="form-label small fw-bold text-muted mb-1">Subcategorías (Opcional)</label>
+                            <div id="contenedorSubcategoriasRapidas">
+                                <!-- Filas dinámicas aquí -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info py-2 px-3 mb-0" style="font-size: 0.75rem;">
+                        <i class="bi bi-info-circle-fill me-2"></i>Al guardar, la categoría estará disponible inmediatamente para asignarla al artículo.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer bg-light border-top p-2">
+                <button type="button" class="btn btn-sm btn-light text-secondary px-3" data-bs-dismiss="modal">Cancelar</button> 
+                <button type="button" class="btn btn-sm btn-brand px-4 fw-bold" onclick="guardarCategoriaRapida()">Guardar Categoría</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function prepararNuevaCategoriaRapida() {
+        document.getElementById('formCategoriaRapida').reset();
+        document.getElementById('contenedorSubcategoriasRapidas').innerHTML = "";
+        
+        // Intentar pre-rellenar con la categoría seleccionada en el modal de producto
+        const selectCatOriginal = document.getElementById('selectCategoria');
+        if (selectCatOriginal && selectCatOriginal.value) {
+            document.getElementById('inputNombreCatRapida').value = selectCatOriginal.value;
+        }
+
+        agregarFilaSubcategoriaRapida();
+    }
+
+    function agregarFilaSubcategoriaRapida(valor = "", esPrimera = true) {
+        const container = document.getElementById('contenedorSubcategoriasRapidas');
+        const fila = document.createElement('div');
+        fila.className = 'd-flex align-items-center mb-2';
+        
+        let html = `
+            <input type="text" name="subcategorias[]" class="form-control form-control-sm" placeholder="Nombre de subcategoría" value="${valor}" 
+                   style="${esPrimera ? 'border-top-right-radius: 0; border-bottom-right-radius: 0;' : ''}">
+        `;
+
+        if (esPrimera) {
+            html += `
+                <button class="btn btn-brand btn-sm shadow-none" type="button" 
+                        style="height: 31px; width: 34px; display: flex; align-items: center; justify-content: center; border-radius: 0 4px 4px 0; margin-left: -1px; border-left: none;"
+                        onclick="agregarFilaSubcategoriaRapida('', false)" title="Agregar otra">
+                    <i class="bi bi-plus-lg"></i>
+                </button>
+            `;
+        } else {
+            html += `
+                <button class="btn btn-sm text-danger ms-2 border-0 bg-transparent" type="button" onclick="this.parentElement.remove()" title="Eliminar">
+                    <i class="bi bi-x-circle-fill"></i>
+                </button>
+            `;
+        }
+
+        fila.innerHTML = html;
+        container.appendChild(fila);
+    }
+
+    function guardarCategoriaRapida() {
+        const form = document.getElementById('formCategoriaRapida');
+        const formData = new FormData(form);
+        const nombreCat = document.getElementById('inputNombreCatRapida').value;
+
+        if (!nombreCat) {
+            alert("El nombre de la categoría es obligatorio.");
+            return;
+        }
+
+        fetch('/inventario/api/crear-categoria/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const selectCat = document.getElementById('selectCategoria');
+                const subcatInputs = document.getElementsByName('subcategorias[]');
+                const primeraSub = subcatInputs.length > 0 ? subcatInputs[0].value : null;
+
+                if (selectCat) {
+                    const exists = Array.from(selectCat.options).some(opt => opt.value === nombreCat);
+                    if (!exists) {
+                        const newOpt = new Option(nombreCat, nombreCat);
+                        selectCat.add(newOpt);
+                    }
+                    selectCat.value = nombreCat;
+                    
+                    // Disparar evento change con burbujeo para que inventario.js lo detecte
+                    selectCat.dispatchEvent(new Event('change', { bubbles: true }));
+
+                    // Refuerzo: Llamar directamente a cargarSubcategorias si existe (está en inventario.js)
+                    if (typeof window.cargarSubcategorias === 'function') {
+                        window.cargarSubcategorias(nombreCat, primeraSub);
+                    }
+                }
+                
+                const modalEl = document.getElementById('modalCrearCategoriaRapida');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+                
+            } else {
+                alert("Error: " + data.error);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Ocurrió un error al guardar.");
+        });
+    }
+</script>

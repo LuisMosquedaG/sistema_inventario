@@ -38,7 +38,8 @@ INVENTORY_PERMISSION_MATRIX = {
     'inventario': ['ver', 'crear', 'receta', 'traslado', 'editar', 'precios', 'existencias', 'recetas'],
     'kardex': ['ver'],
     'almacenes': ['ver', 'crear', 'editar'],
-    'categorias': ['ver', 'crear', 'editar'],
+    'categorias': ['ver', 'crear', 'editar', 'eliminar'],
+    'listas': ['ver', 'crear', 'editar', 'eliminar'],
 }
 
 

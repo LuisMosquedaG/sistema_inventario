@@ -57,10 +57,12 @@
                 <i class="bi bi-download me-1"></i> Exportar
             </button>
             
+            {% if granular_inventory_perms.almacenes.crear %}
             <!-- Botón Nuevo Almacén -->
             <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalCrearAlmacen">
                 <i class="bi bi-plus-lg me-1"></i> Nuevo Almacén
             </button>
+            {% endif %}
         </div>
     </div>
 
@@ -84,9 +86,11 @@
                         <tr>
                             <!-- ACCIONES -->
                             <td class="text-center">
+                                {% if granular_inventory_perms.almacenes.editar %}
                                 <span data-id="{{ a.id }}" onclick="cargarAlmacenEdicion(this)" class="icon-action" title="Editar Almacén">
                                     <i class="bi bi-pencil-square"></i>
                                 </span>
+                                {% endif %}
                             </td>
 
                             <!-- NOMBRE -->

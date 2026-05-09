@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
-from .models import Categoria, Subcategoria
+from .models import Categoria, Subcategoria, ListaPrecioCosto
 from panel.models import Empresa  # <--- IMPORTANTE
 
 # --- 1. FUNCIÓN AYUDANTE ESTÁNDAR ---
@@ -32,6 +32,83 @@ def lista_categorias(request):
         'categorias': categorias
     }
     return render(request, 'dashboard_categorias.html', contexto)
+
+# --- VISTA LISTAS MAESTRAS ---
+@login_required(login_url='/login/')
+@require_inventory_permission('listas', 'ver')
+def lista_maestra_dashboard(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return render(request, 'error_sin_empresa.html', status=403)
+    
+    listas = ListaPrecioCosto.objects.filter(empresa=empresa_actual).order_by('nombre')
+    return render(request, 'dashboard_listas.html', {'listas': listas})
+
+# --- API: CREAR LISTA ---
+@login_required
+@require_inventory_permission('listas', 'crear', json_response=True)
+def api_crear_lista(request):
+    if request.method == 'POST':
+        try:
+            empresa_actual = get_empresa_actual(request)
+            nombre = request.POST.get('nombre')
+            tipo = request.POST.get('tipo')
+            porc = request.POST.get('porcentaje_extra', 0)
+            monto = request.POST.get('monto_extra', 0)
+
+            ListaPrecioCosto.objects.create(
+                nombre=nombre, tipo=tipo,
+                porcentaje_extra=porc, monto_extra=monto,
+                empresa=empresa_actual
+            )
+            return JsonResponse({'success': True, 'message': 'Lista creada correctamente.'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+# --- API: DETALLE LISTA ---
+@login_required
+@require_inventory_permission('listas', 'ver', json_response=True)
+def api_detalle_lista(request, id):
+    empresa_actual = get_empresa_actual(request)
+    lista = get_object_or_404(ListaPrecioCosto, id=id, empresa=empresa_actual)
+    return JsonResponse({
+        'id': lista.id, 'nombre': lista.nombre, 'tipo': lista.tipo,
+        'porcentaje_extra': str(lista.porcentaje_extra),
+        'monto_extra': str(lista.monto_extra)
+    })
+
+# --- API: ACTUALIZAR LISTA ---
+@login_required
+@require_inventory_permission('listas', 'editar', json_response=True)
+def api_actualizar_lista(request, id):
+    if request.method == 'POST':
+        try:
+            empresa_actual = get_empresa_actual(request)
+            lista = get_object_or_404(ListaPrecioCosto, id=id, empresa=empresa_actual)
+            lista.nombre = request.POST.get('nombre')
+            lista.tipo = request.POST.get('tipo')
+            lista.porcentaje_extra = request.POST.get('porcentaje_extra', 0)
+            lista.monto_extra = request.POST.get('monto_extra', 0)
+            lista.save()
+            return JsonResponse({'success': True, 'message': 'Lista actualizada correctamente.'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+# --- API: ELIMINAR LISTA ---
+@login_required
+@require_inventory_permission('listas', 'eliminar', json_response=True)
+def api_eliminar_lista(request, id):
+    if request.method == 'POST':
+        try:
+            empresa_actual = get_empresa_actual(request)
+            lista = get_object_or_404(ListaPrecioCosto, id=id, empresa=empresa_actual)
+            lista.delete()
+            return JsonResponse({'success': True, 'message': 'Lista eliminada.'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
 # --- API: CREAR CATEGORÍA ---
 @login_required
@@ -118,6 +195,26 @@ def api_actualizar_categoria(request, id):
                     )
 
             return JsonResponse({'success': True, 'message': 'Categoría actualizada correctamente.'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Método no permitido.'})
+
+# --- API: ELIMINAR CATEGORÍA ---
+@login_required
+@require_inventory_permission('categorias', 'eliminar', json_response=True)
+def api_eliminar_categoria(request, id):
+    if request.method == 'POST':
+        try:
+            empresa_actual = get_empresa_actual(request)
+            categoria = get_object_or_404(Categoria, id=id, empresa=empresa_actual)
+            
+            # Validar si tiene productos asociados antes de eliminar
+            from core.models import Producto
+            if Producto.objects.filter(categoria=categoria.nombre, empresa=empresa_actual).exists():
+                return JsonResponse({'success': False, 'error': 'No se puede eliminar la categoría porque tiene productos asociados.'})
+            
+            categoria.delete()
+            return JsonResponse({'success': True, 'message': 'Categoría eliminada correctamente.'})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Método no permitido.'})

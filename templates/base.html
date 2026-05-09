@@ -381,13 +381,16 @@
                             <a href="#submenu-catalogos-inv" data-bs-toggle="collapse" class="sidebar-link sidebar-level-2">
                                 <i class="bi bi-book me-2 small"></i> Catálogos <i class="bi bi-chevron-down small ms-auto" style="font-size: 0.7rem;"></i>
                             </a>
-                            <div class="collapse {% if '/almacenes/' in request.path or '/categorias/' in request.path %}show{% endif %}" id="submenu-catalogos-inv">
+                            <div class="collapse {% if '/almacenes/' in request.path or '/categorias/' in request.path or '/listas/' in request.path %}show{% endif %}" id="submenu-catalogos-inv">
                                 <ul class="list-unstyled mb-0">
                                     {% if inventory_ui_permissions.almacenes %}
                                     <li><a href="/inventario/almacenes/" class="sidebar-link sidebar-level-3 {% if '/almacenes/' in request.path %}sidebar-sub-active{% endif %}"><i class="bi bi-house me-2 small"></i> Almacenes</a></li>
                                     {% endif %}
                                     {% if inventory_ui_permissions.categorias %}
                                     <li><a href="/inventario/categorias/" class="sidebar-link sidebar-level-3 {% if '/categorias/' in request.path %}sidebar-sub-active{% endif %}"><i class="bi bi-tags me-2 small"></i> Categorías</a></li>
+                                    {% endif %}
+                                    {% if inventory_ui_permissions.listas %}
+                                    <li><a href="/inventario/listas/" class="sidebar-link sidebar-level-3 {% if '/listas/' in request.path %}sidebar-sub-active{% endif %}"><i class="bi bi-list-stars me-2 small"></i> Listas</a></li>
                                     {% endif %}
                                 </ul>
                             </div>

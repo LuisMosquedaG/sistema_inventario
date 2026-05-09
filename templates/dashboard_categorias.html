@@ -76,9 +76,11 @@
             <span class="section-subtitle">Gestión de familias de productos</span>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
+            {% if granular_inventory_perms.categorias.crear %}
             <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalCrearCategoria">
                 <i class="bi bi-plus-lg me-1"></i> Nueva Categoría
             </button>
+            {% endif %}
         </div>
     </div>
     <div class="card border-0 shadow-sm">
@@ -96,9 +98,17 @@
                         {% for c in categorias %}
                         <tr>
                             <td class="text-center">
+                                {% if granular_inventory_perms.categorias.editar %}
                                 <span data-id="{{ c.id }}" onclick="cargarCategoriaEdicion(this)" class="icon-action" title="Editar">
                                     <i class="bi bi-pencil-square"></i>
                                 </span>
+                                {% endif %}
+                                
+                                {% if granular_inventory_perms.categorias.eliminar %}
+                                <span data-id="{{ c.id }}" onclick="eliminarCategoria(this)" class="icon-action" title="Eliminar" style="color: #adb5bd;" onmouseover="this.style.color='#dc3545'" onmouseout="this.style.color='#adb5bd'">
+                                    <i class="bi bi-x-circle"></i>
+                                </span>
+                                {% endif %}
                             </td>
                             <td class="text-center">
                                 <div class="fw-bold text-dark">{{ c.nombre }}</div>
@@ -312,6 +322,34 @@
         .catch(error => {
             console.error('Error:', error);
             alert('Hubo un error.');
+        });
+    }
+
+    function eliminarCategoria(elemento) {
+        const id = elemento.getAttribute('data-id');
+        if (!confirm('¿Seguro que deseas eliminar esta categoría y todas sus subcategorías? Esta acción no se puede deshacer.')) {
+            return;
+        }
+
+        fetch(`/inventario/api/eliminar-categoria/${id}/`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error de comunicación con el servidor.');
         });
     }
 </script>
