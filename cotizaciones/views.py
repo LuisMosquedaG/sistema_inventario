@@ -348,9 +348,8 @@ def recotizar(request, cotizacion_id):
                 messages.error(request, 'Solo se pueden recotizar cotizaciones aprobadas.')
                 return redirect('dashboard_cotizaciones')
 
-            # Al recotizar, la original permanece como 'aprobada' (como se pidió),
-            # pero el resultado se mantiene 'pendiente' o se marca internamente si se desea.
-            # No cambiamos el estado a 'cancelada' aquí.
+            # Al recotizar, la original se cancela y se genera una nueva versión en borrador.
+            original.estado = 'cancelada'
             original.save()
 
             # Clonar
@@ -381,7 +380,7 @@ def recotizar(request, cotizacion_id):
                 mensaje=f'recotizó {original.folio_completo} -> {nueva.folio_completo}',
                 propietario=original.vendedor
             )
-            return redirect('dashboard_pedidos')
+            return redirect('dashboard_cotizaciones')
 
         except Exception as e:
             messages.error(request, f'Error al recotizar: {str(e)}')

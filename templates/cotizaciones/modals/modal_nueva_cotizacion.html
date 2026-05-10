@@ -1,7 +1,8 @@
 <!-- MODAL: NUEVA COTIZACIÓN -->
 <div class="modal fade" id="modalNuevaCotizacion" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
-        <div class="modal-content">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet modal-dialog-scrollable">
+        <form id="formCotizacion" method="post" action="{% url 'crear_cotizacion' %}" novalidate class="modal-content">
+            {% csrf_token %}
             
             <!-- HEADER -->
             <div class="modal-header border-bottom bg-light">
@@ -12,223 +13,218 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
-            <form id="formCotizacion" method="post" action="{% url 'crear_cotizacion' %}" novalidate>
-                {% csrf_token %}
+            <div class="modal-body p-3 bg-light">
                 
-                <div class="modal-body p-3 bg-light">
-                    
-                    <!-- SECCIÓN 1: CABECERA -->
-                    <div class="card border-0 shadow-sm mb-3">
-                        <div class="card-body p-3">
-                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Datos de la Cotización</h6>
-                            <div class="row g-2">
-                                
-                                <!-- RENGLÓN 1: CLIENTES -->
-                                <div class="col-md-6">
-                                    <label class="form-label small fw-bold text-secondary">Cliente</label>
-                                    <input type="hidden" name="cliente" id="cliente_id_input" required>
+                <!-- SECCIÓN 1: CABECERA -->
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body p-3">
+                        <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Datos de la Cotización</h6>
+                        <div class="row g-2">
+                            
+                            <!-- RENGLÓN 1: CLIENTES -->
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-secondary">Cliente</label>
+                                <input type="hidden" name="cliente" id="cliente_id_input" required>
 
-                                    <div class="d-flex align-items-center">
-                                        <div class="custom-select-wrapper flex-grow-1" id="wrapperCliente">
-                                            <div class="custom-select">
-                                                <div class="custom-select__trigger" style="border-top-right-radius: 0; border-bottom-right-radius: 0;">
-                                                    <div id="cliente_display_fake" class="fake-input-layer">
-                                                        <span class="text-muted" style="font-weight:400;">Buscar cliente...</span>
-                                                    </div>
-                                                    <input type="text" id="cliente_busqueda" autocomplete="off" class="real-input-layer">
-                                                    <i class="bi bi-search" style="z-index:3; pointer-events:none;"></i>
-                                                </div>
-                                                <div class="custom-options">
-                                                    {% for c in clientes %}
-                                                    <span class="custom-option" 
-                                                        data-value="{{ c.id }}" 
-                                                        data-search="{{ c.razon_social }} {{ c.nombre }} {{ c.apellidos }}"
-                                                        data-calle="{{ c.calle|default:'' }}"
-                                                        data-num-ext="{{ c.numero_ext|default:'' }}"
-                                                        data-num-int="{{ c.numero_int|default:'' }}"
-                                                        data-colonia="{{ c.colonia|default:'' }}"
-                                                        data-estado="{{ c.estado_dir|default:'' }}"
-                                                        data-cp="{{ c.cp|default:'' }}">
-
-                                                        {% if c.razon_social %}
-                                                            <span class="opt-razon">{{ c.razon_social }}</span>
-                                                            <span class="opt-separator">|</span>
-                                                            <span class="opt-contacto">{{ c.nombre }} {{ c.apellidos }}</span>
-                                                        {% else %}
-                                                            <span class="opt-razon">{{ c.nombre }} {{ c.apellidos }}</span>
-                                                            <span class="opt-separator">|</span>
-                                                            <span class="opt-contacto">Persona Física</span>
-                                                        {% endif %}
-                                                    </span>
-                                                    {% endfor %}
-
-                                                    <span class="custom-option disabled" id="sin-resultados" style="display:none; cursor:default; color: #999;">No se encontraron clientes</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <!-- BOTÓN NUEVO CLIENTE (EXTENSION) -->
-                                        <button type="button" class="btn btn-brand btn-sm shadow-none" 
-                                                style="height: 31px; width: 31px; border-radius: 0 0.25rem 0.25rem 0; display: flex; align-items: center; justify-content: center; padding: 0; margin-left: -1px; border-left: none;" 
-                                                onclick="mostrarModal('modalCrearClienteRapido')"
-                                                title="Nuevo Cliente">
-                                            <i class="bi bi-plus-lg" style="font-size: 1rem;"></i>
-                                        </button>
-                                    </div>
-                                    <div id="cliente-error" class="text-danger small mt-1" style="display:none;">Debes seleccionar un cliente.</div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label small fw-bold text-secondary">Contacto Asignado</label>
-                                    <input type="hidden" name="contacto" id="contacto_id_input">
-                                    
-                                    <div class="custom-select-wrapper" id="wrapperContacto">
+                                <div class="d-flex align-items-center">
+                                    <div class="custom-select-wrapper flex-grow-1" id="wrapperCliente">
                                         <div class="custom-select">
-                                            <div class="custom-select__trigger">
-                                                <div id="contacto_display_fake" class="fake-input-layer">
-                                                    <span class="text-muted" style="font-weight:400;">Selecciona cliente primero...</span>
+                                            <div class="custom-select__trigger" style="border-top-right-radius: 0; border-bottom-right-radius: 0;">
+                                                <div id="cliente_display_fake" class="fake-input-layer">
+                                                    <span class="text-muted" style="font-weight:400;">Buscar cliente...</span>
                                                 </div>
-                                                <input type="text" id="contacto_busqueda" autocomplete="off" class="real-input-layer" placeholder="" disabled>
-                                                <i class="bi bi-person" style="z-index:3; pointer-events:none;"></i>
+                                                <input type="text" id="cliente_busqueda" autocomplete="off" class="real-input-layer">
+                                                <i class="bi bi-search" style="z-index:3; pointer-events:none;"></i>
                                             </div>
                                             <div class="custom-options">
-                                                <span class="custom-option disabled text-muted small" style="cursor:default;">Selecciona un cliente para ver contactos</span>
+                                                {% for c in clientes %}
+                                                <span class="custom-option" 
+                                                    data-value="{{ c.id }}" 
+                                                    data-search="{{ c.razon_social }} {{ c.nombre }} {{ c.apellidos }}"
+                                                    data-calle="{{ c.calle|default:'' }}"
+                                                    data-num-ext="{{ c.numero_ext|default:'' }}"
+                                                    data-num-int="{{ c.numero_int|default:'' }}"
+                                                    data-colonia="{{ c.colonia|default:'' }}"
+                                                    data-estado="{{ c.estado_dir|default:'' }}"
+                                                    data-cp="{{ c.cp|default:'' }}">
+
+                                                    {% if c.razon_social %}
+                                                        <span class="opt-razon">{{ c.razon_social }}</span>
+                                                        <span class="opt-separator">|</span>
+                                                        <span class="opt-contacto">{{ c.nombre }} {{ c.apellidos }}</span>
+                                                    {% else %}
+                                                        <span class="opt-razon">{{ c.nombre }} {{ c.apellidos }}</span>
+                                                        <span class="opt-separator">|</span>
+                                                        <span class="opt-contacto">Persona Física</span>
+                                                    {% endif %}
+                                                </span>
+                                                {% endfor %}
+
+                                                <span class="custom-option disabled" id="sin-resultados" style="display:none; cursor:default; color: #999;">No se encontraron clientes</span>
                                             </div>
                                         </div>
                                     </div>
+                                    <!-- BOTÓN NUEVO CLIENTE (EXTENSION) -->
+                                    <button type="button" class="btn btn-brand btn-sm shadow-none" 
+                                            style="height: 31px; width: 31px; border-radius: 0 0.25rem 0.25rem 0; display: flex; align-items: center; justify-content: center; padding: 0; margin-left: -1px; border-left: none;" 
+                                            onclick="mostrarModal('modalCrearClienteRapido')"
+                                            title="Nuevo Cliente">
+                                        <i class="bi bi-plus-lg" style="font-size: 1rem;"></i>
+                                    </button>
                                 </div>
-
-                                <!-- RENGLÓN 2: FECHAS Y ORIGEN -->
-                                <div class="col-md-3">
-                                    <label class="form-label small fw-bold text-secondary">Fecha de Cotización</label>
-                                    <input type="date" name="fecha_inicio" id="fecha_inicio" class="form-control form-control-sm" value="{% now 'Y-m-d' %}" required>
-                                </div>
-                                
-                                <div class="col-md-3">
-                                    <label class="form-label small fw-bold text-secondary">Vence</label>
-                                    <input type="date" name="fecha_fin" id="fecha_fin" class="form-control form-control-sm" value="{% now 'Y-m-d' %}" required>
-                                </div>
-
-                                <div class="col-md-6">
-                                    <label class="form-label small fw-bold text-secondary">Origen</label>
-                                    <input type="text" name="origen" class="form-control form-control-sm" placeholder="Ej. WhatsApp, Página Web..." required>
-                                </div>
-
-                                <!-- RENGLÓN 3: DIRECCIÓN -->
-                                <div class="col-md-12">
-                                    <label class="form-label small fw-bold text-secondary">Dirección de Entrega</label>
-                                    <input type="text" name="direccion_entrega" class="form-control form-control-sm" placeholder="Calle, Número, Colonia, Ciudad, CP..." required>
-                                </div>
-
+                                <div id="cliente-error" class="text-danger small mt-1" style="display:none;">Debes seleccionar un cliente.</div>
                             </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-secondary">Contacto Asignado</label>
+                                <input type="hidden" name="contacto" id="contacto_id_input">
+                                
+                                <div class="custom-select-wrapper" id="wrapperContacto">
+                                    <div class="custom-select">
+                                        <div class="custom-select__trigger">
+                                            <div id="contacto_display_fake" class="fake-input-layer">
+                                                <span class="text-muted" style="font-weight:400;">Selecciona cliente primero...</span>
+                                            </div>
+                                            <input type="text" id="contacto_busqueda" autocomplete="off" class="real-input-layer" placeholder="" disabled>
+                                            <i class="bi bi-person" style="z-index:3; pointer-events:none;"></i>
+                                        </div>
+                                        <div class="custom-options">
+                                            <span class="custom-option disabled text-muted small" style="cursor:default;">Selecciona un cliente para ver contactos</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- RENGLÓN 2: FECHAS Y ORIGEN -->
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-secondary">Fecha de Cotización</label>
+                                <input type="date" name="fecha_inicio" id="fecha_inicio" class="form-control form-control-sm" value="{% now 'Y-m-d' %}" required>
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-secondary">Vence</label>
+                                <input type="date" name="fecha_fin" id="fecha_fin" class="form-control form-control-sm" value="{% now 'Y-m-d' %}" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-secondary">Origen</label>
+                                <input type="text" name="origen" class="form-control form-control-sm" placeholder="Ej. WhatsApp, Página Web..." required>
+                            </div>
+
+                            <!-- RENGLÓN 3: DIRECCIÓN -->
+                            <div class="col-md-12">
+                                <label class="form-label small fw-bold text-secondary">Dirección de Entrega</label>
+                                <input type="text" name="direccion_entrega" class="form-control form-control-sm" placeholder="Calle, Número, Colonia, Ciudad, CP..." required>
+                            </div>
+
                         </div>
                     </div>
+                </div>
 
-                    <!-- SECCIÓN 2: CUERPO (Agregar Artículo) -->
-                    <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
-                        <div class="card-body p-3">
-                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Agregar Artículo</h6>
-                            
-                            <!-- Campo oculto para saber si estamos editando una fila -->
-                            <input type="hidden" id="edit_index" value="-1">
+                <!-- SECCIÓN 2: CUERPO (Agregar Artículo) -->
+                <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
+                    <div class="card-body p-3">
+                        <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Agregar Artículo</h6>
+                        
+                        <!-- Campo oculto para saber si estamos editando una fila -->
+                        <input type="hidden" id="edit_index" value="-1">
 
-                            <div class="row g-2 align-items-end">
-                                <div class="col-md-4">
-                                    <label class="form-label small text-muted">Producto</label>
-                                    <div class="d-flex align-items-center">
-                                        <div class="custom-select-wrapper flex-grow-1" id="wrapperProductoAgregar">
-                                            <div class="custom-select">
-                                                <div class="custom-select__trigger" style="border-top-right-radius: 0; border-bottom-right-radius: 0;">
-                                                    <div id="producto_display_fake" class="fake-input-layer" title="">
-                                                        <span class="text-muted" style="font-weight:400;">Seleccionar...</span>
-                                                    </div>
-                                                    <input type="text" id="producto_busqueda" autocomplete="off" class="real-input-layer" placeholder="">
-                                                    <input type="hidden" id="selectProductoAgregar" value="">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-4">
+                                <label class="form-label small text-muted">Producto</label>
+                                <div class="d-flex align-items-center">
+                                    <div class="custom-select-wrapper flex-grow-1" id="wrapperProductoAgregar">
+                                        <div class="custom-select">
+                                            <div class="custom-select__trigger" style="border-top-right-radius: 0; border-bottom-right-radius: 0;">
+                                                <div id="producto_display_fake" class="fake-input-layer" title="">
+                                                    <span class="text-muted" style="font-weight:400;">Seleccionar...</span>
                                                 </div>
-                                                <div class="custom-options">
-                                                    {% for p in productos %}
-                                                    <span class="custom-option" data-value="{{ p.id }}" data-precio="{{ p.precio_venta }}" data-search="{{ p.nombre }}" title="{{ p.nombre }}">
-                                                        {{ p.nombre }}
-                                                    </span>
-                                                    {% endfor %}
-                                                </div>
+                                                <input type="text" id="producto_busqueda" autocomplete="off" class="real-input-layer" placeholder="">
+                                                <input type="hidden" id="selectProductoAgregar" value="">
+                                            </div>
+                                            <div class="custom-options">
+                                                {% for p in productos %}
+                                                <span class="custom-option" data-value="{{ p.id }}" data-precio="{{ p.precio_venta }}" data-search="{{ p.nombre }}" title="{{ p.nombre }}">
+                                                    {{ p.nombre }}
+                                                </span>
+                                                {% endfor %}
                                             </div>
                                         </div>
-                                        <button type="button" class="btn btn-brand btn-sm shadow-none" 
-                                                style="height: 31px; width: 31px; border-radius: 0 0.25rem 0.25rem 0; display: flex; align-items: center; justify-content: center; padding: 0; margin-left: -1px; border-left: none;" 
-                                                onclick="mostrarModal('modalCrearProductoRapido')"
-                                                title="Nuevo Producto">
-                                            <i class="bi bi-plus-lg" style="font-size: 1rem;"></i>
-                                        </button>
                                     </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label small text-muted">Lista</label>
-                                    <select id="selectListaPrecio" class="form-select form-select-sm" onchange="aplicarListaPrecio()">
-                                        <option value="">Precio Base</option>
-                                        {% for l in listas_precios %}
-                                            {% if l.tipo == 'precio' %}
-                                            <option value="{{ l.id }}" data-porc="{{ l.porcentaje_extra }}" data-monto="{{ l.monto_extra }}">{{ l.nombre }}</option>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                <div class="col-md-1">
-                                    <label class="form-label small text-muted">Cant.</label>
-                                    <input type="number" id="inputCantidadAgregar" class="form-control form-control-sm text-center px-1" value="1" min="1">
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label small text-muted">Precio Unit.</label>
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text">$</span>
-                                        <input type="number" id="inputPrecioAgregar" class="form-control form-control-sm" value="0.00" step="0.01">
-                                    </div>
-                                </div>
-                                <div class="col-md-1">
-                                    <button type="button" class="btn btn-brand btn-sm w-100 fw-bold" onclick="agregarALista()" title="Agregar Artículo">
-                                        <i class="bi bi-plus-lg"></i>
+                                    <button type="button" class="btn btn-brand btn-sm shadow-none" 
+                                            style="height: 31px; width: 31px; border-radius: 0 0.25rem 0.25rem 0; display: flex; align-items: center; justify-content: center; padding: 0; margin-left: -1px; border-left: none;" 
+                                            onclick="mostrarModal('modalCrearProductoRapido')"
+                                            title="Nuevo Producto">
+                                        <i class="bi bi-plus-lg" style="font-size: 1rem;"></i>
                                     </button>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- SECCIÓN 3: LISTA APILADA -->
-                    <div class="card border-0 shadow-sm">
-                        <div class="card-body p-0">
-                            <table class="table table-sm table-hover mb-0 align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th class="ps-3">Artículo</th>
-                                        <th class="text-center" style="width: 80px;">Cant.</th>
-                                        <th class="text-end" style="width: 100px;">Precio</th>
-                                        <th class="text-end" style="width: 100px;">Total</th>
-                                        <th style="width: 50px;"></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tablaCuerpo">
-                                    <!-- JS insertará filas aquí -->
-                                </tbody>
-                            </table>
-                            <div id="mensajeVacio" class="text-center py-3 text-muted small fst-italic">
-                                No hay artículos agregados aún.
+                            <div class="col-md-3">
+                                <label class="form-label small text-muted">Lista</label>
+                                <select id="selectListaPrecio" class="form-select form-select-sm" onchange="aplicarListaPrecio()">
+                                    <option value="">Precio Base</option>
+                                    {% for l in listas_precios %}
+                                        {% if l.tipo == 'precio' %}
+                                        <option value="{{ l.id }}" data-porc="{{ l.porcentaje_extra }}" data-monto="{{ l.monto_extra }}">{{ l.nombre }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-1">
+                                <label class="form-label small text-muted">Cant.</label>
+                                <input type="number" id="inputCantidadAgregar" class="form-control form-control-sm text-center px-1" value="1" min="1">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small text-muted">Precio Unit.</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" id="inputPrecioAgregar" class="form-control form-control-sm" value="0.00" step="0.01">
+                                </div>
+                            </div>
+                            <div class="col-md-1">
+                                <button type="button" class="btn btn-brand btn-sm w-100 fw-bold" onclick="agregarALista()" title="Agregar Artículo">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
                             </div>
                         </div>
-                        <div class="card-footer bg-white border-0 py-2 d-flex justify-content-end">
-                            <div class="me-3">
-                                <span class="text-muted small">Total Cotización:</span>
-                            </div>
-                            <div class="fw-bold fs-5 text-success" id="granTotalModal">$0.00</div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 3: LISTA APILADA -->
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-0">
+                        <table class="table table-sm table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3">Artículo</th>
+                                    <th class="text-center" style="width: 80px;">Cant.</th>
+                                    <th class="text-end" style="width: 100px;">Precio</th>
+                                    <th class="text-end" style="width: 100px;">Total</th>
+                                    <th style="width: 50px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaCuerpo">
+                                <!-- JS insertará filas aquí -->
+                            </tbody>
+                        </table>
+                        <div id="mensajeVacio" class="text-center py-3 text-muted small fst-italic">
+                            No hay artículos agregados aún.
                         </div>
                     </div>
-
+                    <div class="card-footer bg-white border-0 py-2 d-flex justify-content-end">
+                        <div class="me-3">
+                            <span class="text-muted small">Total Cotización:</span>
+                        </div>
+                        <div class="fw-bold fs-5 text-success" id="granTotalModal">$0.00</div>
+                    </div>
                 </div>
 
-                <!-- FOOTER -->
-                <div class="modal-footer border-top bg-white">
-                    <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-brand btn-sm px-4">Guardar Cotización</button>
-                </div>
+            </div>
 
-            </form>
-        </div>
+            <!-- FOOTER -->
+            <div class="modal-footer border-top bg-white">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-brand btn-sm px-4">Guardar Cotización</button>
+            </div>
+        </form>
     </div>
 </div>

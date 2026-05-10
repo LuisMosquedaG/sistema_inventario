@@ -261,6 +261,12 @@
                                         </span>
                                         {% endif %}
 
+                                        {% if granular_sales_perms.pedidos.editar %}
+                                        <span onclick="cargarPedidoEdicion({{ p.id }})" class="icon-action" title="Editar">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </span>
+                                        {% endif %}
+
                                         {% if granular_sales_perms.pedidos.imprimir %}
                                         <span onclick="descargarPedidoPDF({{ p.id }})" class="icon-action" title="Descargar PDF">
                                             <i class="bi bi-printer"></i>
@@ -534,7 +540,7 @@
         <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
             <div class="modal-content">
                 <div class="modal-header border-bottom bg-light">
-                    <h5 class="modal-title fw-bold text-dark">
+                    <h5 class="modal-title fw-bold text-dark" id="modalPedidoTitulo">
                         <i class="bi bi-plus-circle me-2" style="color: #00b8b9;"></i>
                         Nuevo Pedido Manual
                     </h5>
@@ -543,6 +549,7 @@
 
                 <form id="formNuevoPedido" method="post" action="{% url 'crear_pedido_manual' %}" novalidate>
                     {% csrf_token %}
+                    <input type="hidden" name="pedido_id" id="edit_pedido_id" value="">
                     <div class="modal-body p-3 bg-light">
                         
                         <!-- SECCIÓN 1: CABECERA -->
@@ -1090,6 +1097,11 @@
         if (!form) return;
         form.reset();
         
+        // 0. Resetear ID y Título
+        document.getElementById('edit_pedido_id').value = "";
+        document.getElementById('modalPedidoTitulo').innerHTML = '<i class="bi bi-plus-circle me-2" style="color: #00b8b9;"></i> Nuevo Pedido Manual';
+        form.action = "{% url 'crear_pedido_manual' %}";
+
         // 1. Limpiar Cliente y Contacto
         document.getElementById('selectClienteNuevo').value = "";
         document.getElementById('cliente_busqueda_nuevo').value = "";
@@ -1113,6 +1125,67 @@
         
         const selectLista = document.getElementById('selectListaPrecioPedido');
         if (selectLista) selectLista.value = "";
+    };
+
+    /**
+     * Carga un pedido existente para su edición
+     */
+    window.cargarPedidoEdicion = function(id) {
+        limpiarModalPedido();
+        
+        document.getElementById('modalPedidoTitulo').innerHTML = `<i class="bi bi-pencil-square me-2" style="color: #00b8b9;"></i> Editar Pedido PED-${String(id).padStart(4, '0')}`;
+        document.getElementById('edit_pedido_id').value = id;
+        document.getElementById('formNuevoPedido').action = `/pedidos/actualizar/${id}/`;
+
+        fetch(`/pedidos/api/detalle-edicion/${id}/`)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) { alert(data.error); return; }
+
+                // 1. Cargar Cliente
+                const hidC = document.getElementById('selectClienteNuevo');
+                const fakeC = document.getElementById('cliente_display_fake_nuevo');
+                hidC.value = data.cliente_id;
+                fakeC.innerHTML = `<span class="fw-bold text-dark">${data.cliente_nombre}</span>`;
+                
+                // 2. Cargar Contactos y seleccionar el correcto
+                const selectCont = document.getElementById('selectContactoNuevo');
+                selectCont.innerHTML = '<option value="">Cargando...</option>';
+                
+                fetch(`/api/clientes/${data.cliente_id}/contactos/`)
+                    .then(r => r.json())
+                    .then(contactos => {
+                        selectCont.innerHTML = '<option value="">Seleccionar contacto...</option>';
+                        contactos.forEach(c => {
+                            const sel = (c.id == data.contacto_id) ? 'selected' : '';
+                            selectCont.insertAdjacentHTML('beforeend', `<option value="${c.id}" ${sel}>${c.nombre}</option>`);
+                        });
+                        selectCont.disabled = false;
+                    });
+
+                // 3. Cargar Notas
+                document.querySelector('textarea[name="notas"]').value = data.notas;
+
+                // 4. Cargar Artículos
+                const tbody = document.getElementById('tablaCuerpoNuevo');
+                data.detalles.forEach(det => {
+                    const fila = `
+                        <tr>
+                            <td class="ps-3 fw-semibold small text-dark">${det.producto_nombre}<input type="hidden" name="producto_id[]" value="${det.producto_id}"></td>
+                            <td class="text-center small">${det.cantidad}<input type="hidden" name="cantidad[]" value="${det.cantidad}"></td>
+                            <td class="text-center small text-muted">$${det.precio_unitario.toFixed(2)}<input type="hidden" name="precio_unitario[]" value="${det.precio_unitario}"></td>
+                            <td class="text-center fw-bold small text-dark">$${det.total.toFixed(2)}</td>
+                            <td class="text-center"><button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); calcularTotalNuevo();"><i class="bi bi-x-circle-fill"></i></button></td>
+                        </tr>`;
+                    tbody.insertAdjacentHTML('beforeend', fila);
+                });
+
+                document.getElementById('mensajeVacioNuevo').style.display = 'none';
+                calcularTotalNuevo();
+
+                new bootstrap.Modal(document.getElementById('modalNuevoPedido')).show();
+            })
+            .catch(err => alert("Error al cargar datos del pedido."));
     };
 
     // Escuchar clic en botón "Nuevo Pedido" para limpiar

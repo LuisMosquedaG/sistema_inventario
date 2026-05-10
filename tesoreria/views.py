@@ -96,6 +96,13 @@ def api_registrar_pago_compra(request):
 def api_cancelar_egreso(request, id):
     if request.method == 'POST':
         try:
+            import json
+            data_json = json.loads(request.body)
+            motivo = data_json.get('motivo', '')
+            
+            if not motivo:
+                return JsonResponse({'success': False, 'error': 'El motivo de cancelación es obligatorio.'})
+
             empresa_actual = get_empresa_actual(request)
             egreso = get_object_or_404(Egreso, id=id, empresa=empresa_actual)
             
@@ -103,18 +110,43 @@ def api_cancelar_egreso(request, id):
                 return JsonResponse({'success': False, 'error': 'Este egreso ya está cancelado.'})
             
             egreso.estado = 'cancelado'
+            egreso.motivo_cancelacion = motivo
             egreso.save()
             
             # 2. Si tiene un pago vinculado, marcarlo como cancelado para regresar el saldo
             if egreso.pago_compra:
                 pago = egreso.pago_compra
                 pago.estado = 'cancelado'
+                pago.motivo_cancelacion = motivo
                 pago.save()
             
             return JsonResponse({'success': True, 'message': 'Egreso cancelado correctamente.'})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+@login_required
+def api_detalle_egreso(request, id):
+    empresa_actual = get_empresa_actual(request)
+    egreso = get_object_or_404(Egreso, id=id, empresa=empresa_actual)
+    
+    data = {
+        'id': egreso.id,
+        'folio': f"EGR-{egreso.id:05d}",
+        'folio_oc': f"OC-{egreso.pago_compra.orden_compra.id:04d}" if egreso.pago_compra else '--',
+        'fecha_oc': egreso.pago_compra.orden_compra.fecha.strftime('%d/%m/%Y') if egreso.pago_compra else '--',
+        'proveedor': egreso.pago_compra.orden_compra.proveedor.razon_social if egreso.pago_compra else egreso.concepto,
+        'forma_pago': egreso.get_forma_pago_display(),
+        'caja_banco': egreso.caja_banco.nombre,
+        'referencia': egreso.referencia or '--',
+        'monto': float(egreso.monto),
+        'moneda': egreso.moneda.siglas,
+        'monto_mxn': float(egreso.monto_mxn),
+        'estado': egreso.estado,
+        'motivo_cancelacion': egreso.motivo_cancelacion or 'No especificado',
+        'fecha': egreso.fecha.strftime('%d/%m/%Y'),
+    }
+    return JsonResponse(data)
 
 @login_required(login_url='/login/')
 @require_treasury_permission('ingresos', 'ver')
@@ -132,11 +164,41 @@ def lista_ingresos(request):
     return render(request, 'tesoreria/dashboard_ingresos.html', contexto)
 
 @login_required
+def api_detalle_ingreso(request, id):
+    empresa_actual = get_empresa_actual(request)
+    ingreso = get_object_or_404(Ingreso, id=id, empresa=empresa_actual)
+    
+    data = {
+        'id': ingreso.id,
+        'folio': f"ING-{ingreso.id:05d}",
+        'folio_pedido': f"PED-{ingreso.pago_pedido.pedido.id:04d}" if ingreso.pago_pedido else '--',
+        'fecha_pedido': ingreso.pago_pedido.pedido.fecha_creacion.strftime('%d/%m/%Y') if ingreso.pago_pedido else '--',
+        'cliente': ingreso.pago_pedido.pedido.cliente.nombre_completo if ingreso.pago_pedido else ingreso.concepto,
+        'forma_pago': ingreso.get_forma_pago_display(),
+        'caja_banco': ingreso.caja_banco.nombre,
+        'referencia': ingreso.referencia or '--',
+        'monto': float(ingreso.monto),
+        'moneda': ingreso.moneda.siglas,
+        'monto_mxn': float(ingreso.monto_mxn),
+        'estado': ingreso.estado,
+        'motivo_cancelacion': ingreso.motivo_cancelacion or 'No especificado',
+        'fecha': ingreso.fecha.strftime('%d/%m/%Y'),
+    }
+    return JsonResponse(data)
+
+@login_required
 @transaction.atomic
 @require_treasury_permission('ingresos', 'cancelar', json_response=True)
 def api_cancelar_ingreso(request, id):
     if request.method == 'POST':
         try:
+            import json
+            data_json = json.loads(request.body)
+            motivo = data_json.get('motivo', '')
+            
+            if not motivo:
+                return JsonResponse({'success': False, 'error': 'El motivo de cancelación es obligatorio.'})
+
             empresa_actual = get_empresa_actual(request)
             ingreso = get_object_or_404(Ingreso, id=id, empresa=empresa_actual)
             
@@ -145,12 +207,14 @@ def api_cancelar_ingreso(request, id):
             
             # 1. Marcar ingreso como cancelado
             ingreso.estado = 'cancelado'
+            ingreso.motivo_cancelacion = motivo
             ingreso.save()
             
             # 2. Si tiene un pago vinculado, marcarlo como cancelado para regresar el saldo
             if ingreso.pago_pedido:
                 pago = ingreso.pago_pedido
                 pago.estado = 'cancelado'
+                pago.motivo_cancelacion = motivo
                 pago.save()
             
             return JsonResponse({'success': True, 'message': 'Ingreso cancelado correctamente.'})

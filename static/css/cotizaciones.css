@@ -41,6 +41,25 @@
     opacity: 1 !important;
 }
 
+/* Estilos del Modal Sheet (Consistencia con otros módulos) */
+.modal-sheet .modal-content {
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    overflow: hidden;
+}
+
+/* Barra de scroll fina y bonita para el cuerpo del modal */
+.modal-dialog-scrollable .modal-body {
+    max-height: 75vh;
+    overflow-y: auto;
+}
+
+.modal-dialog-scrollable .modal-body::-webkit-scrollbar { width: 6px; }
+.modal-dialog-scrollable .modal-body::-webkit-scrollbar-thumb { background-color: #dee2e6; border-radius: 4px; }
+.modal-dialog-scrollable .modal-body::-webkit-scrollbar-thumb:hover { background-color: #adb5bd; }
+.modal-dialog-scrollable .modal-body::-webkit-scrollbar-track { background-color: #f1f3f5; }
+
 .table-pro tbody tr:hover td { background-color: #f8f9fa; }
 .table-pro tbody tr:last-child td { border-bottom: none; }
 

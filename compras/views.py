@@ -104,6 +104,9 @@ def dashboard_compras(request):
     from tesoreria.models import CajaBanco
     cajas_y_bancos = CajaBanco.objects.filter(empresa=empresa_actual, activo=True)
 
+    from categorias.models import ListaPrecioCosto
+    listas_costos = ListaPrecioCosto.objects.filter(empresa=empresa_actual, tipo='costo')
+
     context = {
         'page_obj': page_obj,
         'productos': productos,
@@ -111,6 +114,7 @@ def dashboard_compras(request):
         'proveedores': proveedores_activos,
         'todos_los_proveedores': todos_los_proveedores,
         'monedas': monedas,
+        'listas_costos': listas_costos,
         'cajas_y_bancos': cajas_y_bancos,
         'section': 'compras',
         'filtros': filtros

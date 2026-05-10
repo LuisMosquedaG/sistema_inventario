@@ -51,6 +51,7 @@ class PagoPedido(models.Model):
     
     fecha_registro = models.DateTimeField(auto_now_add=True)
     estado = models.CharField(max_length=20, choices=[('aplicado', 'Aplicado'), ('cancelado', 'Cancelado')], default='aplicado', verbose_name="Estado")
+    motivo_cancelacion = models.TextField(blank=True, null=True, verbose_name="Motivo de Cancelación")
 
     class Meta:
         verbose_name = "Pago de Pedido"
@@ -77,6 +78,7 @@ class Ingreso(models.Model):
     
     fecha_registro = models.DateTimeField(auto_now_add=True)
     estado = models.CharField(max_length=20, choices=[('aplicado', 'Aplicado'), ('cancelado', 'Cancelado')], default='aplicado', verbose_name="Estado")
+    motivo_cancelacion = models.TextField(blank=True, null=True, verbose_name="Motivo de Cancelación")
 
     class Meta:
         verbose_name = "Ingreso"
@@ -102,6 +104,7 @@ class PagoCompra(models.Model):
     
     fecha_registro = models.DateTimeField(auto_now_add=True)
     estado = models.CharField(max_length=20, choices=[('aplicado', 'Aplicado'), ('cancelado', 'Cancelado')], default='aplicado', verbose_name="Estado")
+    motivo_cancelacion = models.TextField(blank=True, null=True, verbose_name="Motivo de Cancelación")
 
     class Meta:
         verbose_name = "Pago de Compra"
@@ -128,6 +131,7 @@ class Egreso(models.Model):
     
     fecha_registro = models.DateTimeField(auto_now_add=True)
     estado = models.CharField(max_length=20, choices=[('aplicado', 'Aplicado'), ('cancelado', 'Cancelado')], default='aplicado', verbose_name="Estado")
+    motivo_cancelacion = models.TextField(blank=True, null=True, verbose_name="Motivo de Cancelación")
 
     class Meta:
         verbose_name = "Egreso"

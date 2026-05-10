@@ -10,6 +10,7 @@ from panel.models import Empresa
 from pedidos.models import Pedido, DetallePedido
 from .models import SolicitudCompra, DetalleSolicitudCompra
 from core.models import Producto, DetalleReceta
+from categorias.models import ListaPrecioCosto
 from produccion.models import OrdenProduccion
 from proveedores.models import Proveedor
 from almacenes.models import Almacen
@@ -103,6 +104,7 @@ def dashboard_solicitudcompras(request):
     lista_almacenes = Almacen.objects.filter(empresa=empresa_actual).values('id', 'nombre')
     lista_monedas = Moneda.objects.filter(empresa=empresa_actual).values('id', 'siglas', 'simbolo')
     lista_productos = Producto.objects.filter(empresa=empresa_actual).values('id', 'nombre', 'precio_costo')
+    listas_costos = ListaPrecioCosto.objects.filter(empresa=empresa_actual, tipo='costo')
     
     contexto = {
         'solicitudes': solicitudes,
@@ -111,6 +113,7 @@ def dashboard_solicitudcompras(request):
         'almacenes': list(lista_almacenes),
         'monedas': list(lista_monedas),
         'productos': list(lista_productos),
+        'listas_costos': listas_costos,
         'filtros': filtros,
         'section': 'solicitudcompras'
     }
@@ -278,7 +281,8 @@ def obtener_solicitud_json(request, solicitud_id):
                 'almacen_nombre': det.almacen.nombre if det.almacen else 'No asignado',
                 'moneda_id': det.moneda.id if det.moneda else None,
                 'moneda_siglas': det.moneda.siglas if det.moneda else 'MXN',
-                'detalle_pedido_origen_id': det.detalle_pedido_origen.id if det.detalle_pedido_origen else None 
+                'lista_id': det.lista.id if det.lista else None,
+                'detalle_pedido_origen_id': det.detalle_pedido_origen.id if det.detalle_pedido_origen else None
             })
         data['detalles'] = detalles_list
         data['solicitante_nombre'] = solicitud.solicitante.username.split('@')[0] if solicitud.solicitante else 'Sistema'
@@ -313,21 +317,23 @@ def actualizar_solicitud(request, solicitud_id):
             sucursales_ids = request.POST.getlist('sucursal_id[]') # <--- NUEVO
             costos = request.POST.getlist('costo_unitario[]')
             almacenes_ids = request.POST.getlist('almacen_id[]')
-            monedas_ids = request.POST.getlist('moneda_id[]') # <--- NUEVO
+            monedas_ids = request.POST.getlist('moneda_id[]') 
+            listas_ids = request.POST.getlist('lista_id[]')
             pedidos_det_ids = request.POST.getlist('pedido_det_id[]') 
 
             # Zip de todas las listas
-            for p_id, cant, prov_id, suc_id, cost, alm_id, mon_id, p_det_id in zip(productos_ids, cantidades, proveedores_ids, sucursales_ids, costos, almacenes_ids, monedas_ids, pedidos_det_ids):
+            for p_id, cant, prov_id, suc_id, cost, alm_id, mon_id, p_det_id, l_id in zip(productos_ids, cantidades, proveedores_ids, sucursales_ids, costos, almacenes_ids, monedas_ids, pedidos_det_ids, listas_ids):
                 if p_id and p_id != '':
                     DetalleSolicitudCompra.objects.create(
                         solicitud=solicitud,
                         producto_id=p_id,
                         cantidad_solicitada=cant,
                         proveedor_id=prov_id if prov_id else None,
-                        sucursal_id=suc_id if (suc_id and suc_id != '') else None, # <--- GUARDADO
+                        sucursal_id=suc_id if (suc_id and suc_id != '') else None,
                         costo_unitario=cost,
                         almacen_id=alm_id if alm_id else None,
-                        moneda_id=mon_id if mon_id else None, # <--- GUARDADO
+                        moneda_id=mon_id if mon_id else None,
+                        lista_id=l_id if l_id else None,
                         detalle_pedido_origen_id=p_det_id if p_det_id else None 
                     )
             
@@ -362,9 +368,10 @@ def crear_solicitud_manual(request):
             costos = request.POST.getlist('costo_unitario[]')
             almacenes_ids = request.POST.getlist('almacen_id[]')
             monedas_ids = request.POST.getlist('moneda_id[]')
+            listas_ids = request.POST.getlist('lista_id[]')
 
             count = 0
-            for p_id, cant, prov_id, suc_id, cost, alm_id, mon_id in zip(productos_ids, cantidades, proveedores_ids, sucursales_ids, costos, almacenes_ids, monedas_ids):
+            for p_id, cant, prov_id, suc_id, cost, alm_id, mon_id, l_id in zip(productos_ids, cantidades, proveedores_ids, sucursales_ids, costos, almacenes_ids, monedas_ids, listas_ids):
                 if p_id and p_id != '':
                     DetalleSolicitudCompra.objects.create(
                         solicitud=solicitud,
@@ -374,7 +381,8 @@ def crear_solicitud_manual(request):
                         sucursal_id=suc_id if (suc_id and suc_id != '') else None,
                         costo_unitario=cost,
                         almacen_id=alm_id if alm_id else None,
-                        moneda_id=mon_id if mon_id else None
+                        moneda_id=mon_id if mon_id else None,
+                        lista_id=l_id if l_id else None
                     )
                     count += 1
             

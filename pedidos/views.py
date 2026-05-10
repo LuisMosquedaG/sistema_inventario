@@ -754,3 +754,99 @@ def api_info_pago_pedido(request, pedido_id):
         'saldo_pendiente': float(pedido.saldo_pendiente),
     }
     return JsonResponse(data)
+
+@login_required(login_url='/login/')
+@require_sales_permission('pedidos', 'editar', json_response=True)
+def api_detalle_pedido_edicion(request, pedido_id):
+    """Devuelve JSON con la info del pedido para cargar el modal de edición"""
+    empresa_actual = get_empresa_actual(request)
+    pedido = get_object_or_404(Pedido, id=pedido_id, empresa=empresa_actual)
+    
+    detalles = []
+    for det in pedido.detalles.all():
+        detalles.append({
+            'producto_id': det.producto.id,
+            'producto_nombre': det.producto.nombre,
+            'cantidad': det.cantidad_solicitada,
+            'precio_unitario': float(det.precio_unitario),
+            'total': float(det.subtotal)
+        })
+
+    data = {
+        'success': True,
+        'id': pedido.id,
+        'cliente_id': pedido.cliente.id,
+        'cliente_nombre': pedido.cliente.razon_social or pedido.cliente.nombre_completo,
+        'contacto_id': pedido.contacto.id if pedido.contacto else '',
+        'notas': pedido.notas or '',
+        'detalles': detalles,
+        'total': float(pedido.total_pedido)
+    }
+    return JsonResponse(data)
+
+@login_required(login_url='/login/')
+@transaction.atomic
+@require_sales_permission('pedidos', 'editar', json_response=True)
+def editar_pedido_ajax(request, pedido_id):
+    """Actualiza un pedido existente"""
+    empresa_actual = get_empresa_actual(request)
+    pedido = get_object_or_404(Pedido, id=pedido_id, empresa=empresa_actual)
+
+    if request.method == 'POST':
+        try:
+            cliente_id = request.POST.get('cliente')
+            contacto_id = request.POST.get('contacto')
+            notas = request.POST.get('notas', '')
+
+            if not cliente_id:
+                return JsonResponse({'success': False, 'error': 'El cliente es obligatorio.'})
+
+            cliente = get_object_or_404(Cliente, id=cliente_id, empresa=empresa_actual)
+            contacto = None
+            if contacto_id:
+                contacto = get_object_or_404(ContactoCliente, id=contacto_id, cliente=cliente)
+
+            # 1. Actualizar Cabecera
+            pedido.cliente = cliente
+            pedido.contacto = contacto
+            pedido.notas = notas
+            pedido.save()
+
+            # 2. Actualizar Detalles (Sustituir por los nuevos)
+            # Nota: Si ya se reservó stock o algo más avanzado, esto debería ser más complejo.
+            # Por simplicidad en este módulo, borramos y recreamos.
+            pedido.detalles.all().delete()
+
+            productos_ids = request.POST.getlist('producto_id[]')
+            cantidades = request.POST.getlist('cantidad[]')
+            precios = request.POST.getlist('precio_unitario[]')
+
+            count = 0
+            for prod_id, cant, prec in zip(productos_ids, cantidades, precios):
+                if prod_id and prod_id != '':
+                    producto_obj = get_object_or_404(Producto, id=prod_id, empresa=empresa_actual)
+                    DetallePedido.objects.create(
+                        pedido=pedido,
+                        producto=producto_obj,
+                        cantidad_solicitada=cant,
+                        precio_unitario=prec,
+                        estado_linea='pendiente'
+                    )
+                    count += 1
+            
+            if count == 0:
+                raise Exception("Debes agregar al menos un producto al pedido.")
+
+            messages.success(request, f'Pedido #{pedido.id} actualizado correctamente.')
+            crear_notificacion(
+                empresa=empresa_actual,
+                actor=request.user,
+                mensaje=f'editó el pedido #{pedido.id:04d}',
+                propietario=request.user
+            )
+            return JsonResponse({'success': True})
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})

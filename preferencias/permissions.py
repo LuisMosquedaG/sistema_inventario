@@ -12,7 +12,7 @@ SALES_PERMISSION_MATRIX = {
     'clientes': ['ver', 'crear', 'editar', 'agenda_contactos', 'crear_cotizacion'],
     'actividades': ['ver', 'crear', 'editar', 'eliminar', 'aprobar', 'imprimir', 'completar', 'reprogramar', 'cancelar'],
     'cotizaciones': ['ver', 'crear', 'editar', 'eliminar', 'aprobar', 'imprimir'],
-    'pedidos': ['ver', 'crear', 'imprimir', 'validar_stock', 'revision', 'reservar', 'solicitar', 'generar_solicitud_global', 'registrar_pago'],
+    'pedidos': ['ver', 'crear', 'editar', 'imprimir', 'validar_stock', 'revision', 'reservar', 'solicitar', 'generar_solicitud_global', 'registrar_pago'],
     'salidas': ['ver', 'crear', 'imprimir', 'aprobar', 'surtir_orden', 'actualizar_entrega'],
 }
 

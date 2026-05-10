@@ -516,6 +516,48 @@ document.addEventListener('DOMContentLoaded', function() {
             if (w && !w.contains(e.target)) w.querySelector('.custom-select').classList.remove('open');
         });
     });
+
+    // --- LÓGICA DE APROBACIÓN ---
+    let cotizacionIdAprobar = null;
+
+    window.confirmarAprobacion = function(id) {
+        cotizacionIdAprobar = id;
+        mostrarModal('modalConfirmarAprobacion');
+    };
+
+    const btnAprobar = document.getElementById('btnConfirmarAprobar');
+    if (btnAprobar) {
+        btnAprobar.addEventListener('click', function() {
+            if (!cotizacionIdAprobar) return;
+            
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando...';
+
+            fetch(`/cotizaciones/aprobar/${cotizacionIdAprobar}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.error || 'Error al aprobar la cotización');
+                    this.disabled = false;
+                    this.innerText = 'Sí, Aprobar';
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Error de conexión');
+                this.disabled = false;
+                this.innerText = 'Sí, Aprobar';
+            });
+        });
+    }
 });
 
 window.aplicarListaPrecio = function() {

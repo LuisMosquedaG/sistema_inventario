@@ -52,6 +52,9 @@ class DetalleSolicitudCompra(models.Model):
     
     # NUEVO CAMPO: MONEDA POR PARTIDA
     moneda = models.ForeignKey('preferencias.Moneda', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Moneda")
+    
+    # NUEVO CAMPO: LISTA DE COSTO
+    lista = models.ForeignKey('categorias.ListaPrecioCosto', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Lista de Costo")
 
     detalle_pedido_origen = models.ForeignKey(DetallePedido, on_delete=models.SET_NULL, null=True, blank=True)
 

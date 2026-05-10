@@ -11,5 +11,7 @@ urlpatterns = [
     path('api/registrar-pago-pedido/', views.api_registrar_pago_pedido, name='api_registrar_pago_pedido'),
     path('api/registrar-pago-compra/', views.api_registrar_pago_compra, name='api_registrar_pago_compra'),
     path('api/ingreso/cancelar/<int:id>/', views.api_cancelar_ingreso, name='api_cancelar_ingreso'),
+    path('api/ingreso/<int:id>/', views.api_detalle_ingreso, name='api_detalle_ingreso'),
     path('api/egreso/cancelar/<int:id>/', views.api_cancelar_egreso, name='api_cancelar_egreso'),
+    path('api/egreso/<int:id>/', views.api_detalle_egreso, name='api_detalle_egreso'),
 ]
