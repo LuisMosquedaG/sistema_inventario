@@ -24,6 +24,18 @@ class Empresa(models.Model):
     fecha_alta = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de alta")
     activa = models.BooleanField(default=True, verbose_name="Empresa Activa")
 
+    # Módulos habilitados
+    modulo_ventas = models.BooleanField(default=True, verbose_name="Módulo Ventas")
+    modulo_compras = models.BooleanField(default=True, verbose_name="Módulo Compras")
+    modulo_tesoreria = models.BooleanField(default=True, verbose_name="Módulo Tesorería")
+    modulo_produccion = models.BooleanField(default=True, verbose_name="Módulo Producción")
+    modulo_inventarios = models.BooleanField(default=True, verbose_name="Módulo Inventarios")
+    modulo_recursos_humanos = models.BooleanField(default=True, verbose_name="Módulo Recursos Humanos")
+
+    # Licenciamiento
+    fecha_inicio_licencia = models.DateField(null=True, blank=True, verbose_name="Inicio de Licencia")
+    fecha_vencimiento_licencia = models.DateField(null=True, blank=True, verbose_name="Vencimiento de Licencia")
+
     def __str__(self):
         return self.nombre
 

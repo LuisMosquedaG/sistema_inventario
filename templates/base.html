@@ -242,6 +242,21 @@
                 </a>
             </div>
 
+            <!-- MÓDULO: RECURSOS HUMANOS -->
+            {% if empresa.modulo_recursos_humanos %}
+            <div>
+                <a href="#submenu-rrhh" data-bs-toggle="collapse" class="sidebar-link {% if '/recursos-humanos/' in request.path %}sidebar-active{% endif %}">
+                    <i class="bi bi-people-fill sidebar-icon"></i> Recurso Humanos
+                    <i class="bi bi-chevron-down small ms-auto" style="font-size: 0.7rem;"></i>
+                </a>
+                <div class="collapse {% if '/recursos-humanos/' in request.path %}show{% endif %}" id="submenu-rrhh">
+                    <ul class="list-unstyled mb-0">
+                        <li><a href="/recursos-humanos/empleados/" class="sidebar-link sidebar-level-2 {% if request.path == '/recursos-humanos/empleados/' %}sidebar-sub-active{% endif %}"><i class="bi bi-person-badge me-2 small"></i> Empleados</a></li>
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- MÓDULO: VENTAS -->
             {% if sales_ui_permissions.clientes or sales_ui_permissions.actividades or sales_ui_permissions.cotizaciones or sales_ui_permissions.pedidos or sales_ui_permissions.salidas %}
             <div>

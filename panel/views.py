@@ -14,8 +14,33 @@ def check_master_admin(user):
 @login_required(login_url='/login/')
 @user_passes_test(check_master_admin, login_url='/inventario/')
 def dashboard_panel(request):
-    empresas = Empresa.objects.all().order_by('-fecha_alta')
+    from datetime import date
+    import calendar
     
+    empresas = Empresa.objects.all().order_by('-fecha_alta')
+    today = date.today()
+    
+    # Auto-renovar licencias vencidas al entrar al dashboard
+    for emp in empresas:
+        if emp.fecha_vencimiento_licencia and today > emp.fecha_vencimiento_licencia:
+            while today > emp.fecha_vencimiento_licencia:
+                old_vence = emp.fecha_vencimiento_licencia
+                emp.fecha_inicio_licencia = old_vence
+                
+                year = old_vence.year
+                month = old_vence.month + 1
+                if month > 12:
+                    month = 1
+                    year += 1
+                
+                day = old_vence.day
+                last_day = calendar.monthrange(year, month)[1]
+                if day > last_day:
+                    day = last_day
+                    
+                emp.fecha_vencimiento_licencia = date(year, month, day)
+                emp.save()
+
     contexto = {
         'empresas': empresas
     }
@@ -56,7 +81,15 @@ def crear_empresa(request):
                 colonia=colonia,
                 estado=estado,
                 cp=cp,
-                activa=(estado_str == 'True')
+                activa=(estado_str == 'True'),
+                modulo_ventas=(request.POST.get('modulo_ventas') == 'on'),
+                modulo_compras=(request.POST.get('modulo_compras') == 'on'),
+                modulo_tesoreria=(request.POST.get('modulo_tesoreria') == 'on'),
+                modulo_produccion=(request.POST.get('modulo_produccion') == 'on'),
+                modulo_inventarios=(request.POST.get('modulo_inventarios') == 'on'),
+                modulo_recursos_humanos=(request.POST.get('modulo_recursos_humanos') == 'on'),
+                fecha_inicio_licencia=request.POST.get('fecha_inicio_licencia') or None,
+                fecha_vencimiento_licencia=request.POST.get('fecha_vencimiento_licencia') or None,
             )
 
             # 2. Lógica para crear usuarios automáticamente
@@ -160,6 +193,14 @@ def obtener_empresa_json(request, empresa_id):
         'estado': empresa.estado or '',
         'cp': empresa.cp or '',
         'activa': 'True' if empresa.activa else 'False',
+        'modulo_ventas': empresa.modulo_ventas,
+        'modulo_compras': empresa.modulo_compras,
+        'modulo_tesoreria': empresa.modulo_tesoreria,
+        'modulo_produccion': empresa.modulo_produccion,
+        'modulo_inventarios': empresa.modulo_inventarios,
+        'modulo_recursos_humanos': empresa.modulo_recursos_humanos,
+        'fecha_inicio_licencia': empresa.fecha_inicio_licencia.isoformat() if empresa.fecha_inicio_licencia else '',
+        'fecha_vencimiento_licencia': empresa.fecha_vencimiento_licencia.isoformat() if empresa.fecha_vencimiento_licencia else '',
     }
     return JsonResponse(data)
 
@@ -191,6 +232,19 @@ def actualizar_empresa(request, empresa_id):
                 empresa.logo = request.FILES.get('logo')
 
             empresa.activa = (request.POST.get('activa') == 'True')
+
+            # Actualizar módulos
+            empresa.modulo_ventas = (request.POST.get('modulo_ventas') == 'on')
+            empresa.modulo_compras = (request.POST.get('modulo_compras') == 'on')
+            empresa.modulo_tesoreria = (request.POST.get('modulo_tesoreria') == 'on')
+            empresa.modulo_produccion = (request.POST.get('modulo_produccion') == 'on')
+            empresa.modulo_inventarios = (request.POST.get('modulo_inventarios') == 'on')
+            empresa.modulo_recursos_humanos = (request.POST.get('modulo_recursos_humanos') == 'on')
+
+            # Actualizar licenciamiento
+            empresa.fecha_inicio_licencia = request.POST.get('fecha_inicio_licencia') or None
+            empresa.fecha_vencimiento_licencia = request.POST.get('fecha_vencimiento_licencia') or None
+
             empresa.save()
             return JsonResponse({'success': True, 'message': 'Empresa actualizada correctamente.'})
 

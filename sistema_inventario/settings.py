@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     'inicio',
     'tesoreria',
     'notificaciones',
+    'recursos_humanos',
 ]
 
 MIDDLEWARE = [
@@ -72,6 +73,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'panel.middleware.LicenseAutoRenewalMiddleware',
 ]
 
 ROOT_URLCONF = 'sistema_inventario.urls'

@@ -59,12 +59,25 @@ def user_has_module_permission(request, modulo, accion):
     if not user.is_authenticated:
         return False
 
-    if user.is_superuser:
-        return True
-
     empresa = get_empresa_actual(request)
     if not empresa:
+        return user.is_superuser
+
+    # Verificar si el módulo está habilitado para la empresa
+    mapa_modulos = {
+        'ventas': 'modulo_ventas',
+        'compras': 'modulo_compras',
+        'produccion': 'modulo_produccion',
+        'inventario': 'modulo_inventarios',
+        'tesoreria': 'modulo_tesoreria',
+    }
+    
+    campo_modulo = mapa_modulos.get(modulo)
+    if campo_modulo and not getattr(empresa, campo_modulo, True):
         return False
+
+    if user.is_superuser:
+        return True
 
     asignacion = AsignacionRolUsuario.objects.select_related('rol').filter(
         usuario=user,
@@ -89,12 +102,16 @@ def user_has_sales_permission(request, submodulo, accion):
     if not user.is_authenticated:
         return False
 
-    if user.is_superuser:
-        return True
-
     empresa = get_empresa_actual(request)
     if not empresa:
+        return user.is_superuser
+
+    # Verificar si el módulo está habilitado para la empresa
+    if not empresa.modulo_ventas:
         return False
+
+    if user.is_superuser:
+        return True
 
     asignacion = AsignacionRolUsuario.objects.select_related('rol').filter(
         usuario=user,
@@ -166,12 +183,16 @@ def user_has_purchase_permission(request, submodulo, accion):
     if not user.is_authenticated:
         return False
 
-    if user.is_superuser:
-        return True
-
     empresa = get_empresa_actual(request)
     if not empresa:
+        return user.is_superuser
+
+    # Verificar si el módulo está habilitado para la empresa
+    if not empresa.modulo_compras:
         return False
+
+    if user.is_superuser:
+        return True
 
     asignacion = AsignacionRolUsuario.objects.select_related('rol').filter(
         usuario=user,
@@ -223,12 +244,16 @@ def user_has_production_permission(request, submodulo, accion):
     if not user.is_authenticated:
         return False
 
-    if user.is_superuser:
-        return True
-
     empresa = get_empresa_actual(request)
     if not empresa:
+        return user.is_superuser
+
+    # Verificar si el módulo está habilitado para la empresa
+    if not empresa.modulo_produccion:
         return False
+
+    if user.is_superuser:
+        return True
 
     asignacion = AsignacionRolUsuario.objects.select_related('rol').filter(
         usuario=user,
@@ -280,12 +305,16 @@ def user_has_inventory_permission(request, submodulo, accion):
     if not user.is_authenticated:
         return False
 
-    if user.is_superuser:
-        return True
-
     empresa = get_empresa_actual(request)
     if not empresa:
+        return user.is_superuser
+
+    # Verificar si el módulo está habilitado para la empresa
+    if not empresa.modulo_inventarios:
         return False
+
+    if user.is_superuser:
+        return True
 
     asignacion = AsignacionRolUsuario.objects.select_related('rol').filter(
         usuario=user,
@@ -353,11 +382,18 @@ def user_has_treasury_permission(request, submodulo, accion):
     user = request.user
     if not user.is_authenticated:
         return False
-    if user.is_superuser:
-        return True
+
     empresa = get_empresa_actual(request)
     if not empresa:
+        return user.is_superuser
+
+    # Verificar si el módulo está habilitado para la empresa
+    if not empresa.modulo_tesoreria:
         return False
+
+    if user.is_superuser:
+        return True
+
     asignacion = AsignacionRolUsuario.objects.select_related('rol').filter(
         usuario=user,
         empresa=empresa
