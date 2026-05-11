@@ -101,3 +101,24 @@ class PermisoRolAccion(models.Model):
 
     def __str__(self):
         return f"{self.rol.nombre} - {self.area}.{self.submodulo}.{self.accion}: {self.permitido}"
+
+
+class Sucursal(models.Model):
+    nombre = models.CharField(max_length=150, verbose_name="Nombre de la Sucursal")
+    calle = models.CharField(max_length=200, verbose_name="Calle")
+    numero_exterior = models.CharField(max_length=50, verbose_name="Número Exterior")
+    numero_interior = models.CharField(max_length=50, blank=True, null=True, verbose_name="Número Interior")
+    colonia = models.CharField(max_length=150, verbose_name="Colonia")
+    ciudad = models.CharField(max_length=150, verbose_name="Ciudad/Municipio")
+    estado = models.CharField(max_length=100, verbose_name="Estado")
+    pais = models.CharField(max_length=100, default="México", verbose_name="País")
+    cp = models.CharField(max_length=10, verbose_name="Código Postal")
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='sucursales')
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.nombre} ({self.empresa.nombre})"
+
+    class Meta:
+        verbose_name = "Sucursal"
+        verbose_name_plural = "Sucursales"

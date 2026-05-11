@@ -148,6 +148,44 @@
         .sidebar-level-2 { padding-left: 2.8rem; font-size: 0.85rem; }
         .sidebar-level-3 { padding-left: 3.8rem; font-size: 0.8rem; color: #9aa0a6; }
 
+        /* SELECTOR DE SUCURSAL */
+        .branch-dropdown-btn {
+            background: rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            padding: 8px 12px !important;
+            border-radius: 8px !important;
+            transition: all 0.2s ease !important;
+            color: #adb5bd !important;
+        }
+        .branch-dropdown-btn:hover {
+            background: rgba(255, 255, 255, 0.1) !important;
+            border-color: var(--brand-color) !important;
+        }
+        .branch-label {
+            color: #adb5bd !important;
+        }
+        .branch-current-name {
+            color: var(--brand-color) !important;
+        }
+        .dropdown-menu-dark {
+            background-color: #1a252f !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+        }
+        .dropdown-menu-dark .dropdown-item {
+            color: #adb5bd !important;
+            font-size: 0.8rem;
+            transition: all 0.2s ease;
+        }
+        .dropdown-menu-dark .dropdown-item:hover {
+            background-color: rgba(255, 255, 255, 0.05) !important;
+            color: white !important;
+        }
+        .dropdown-menu-dark .dropdown-item.active {
+            background-color: var(--brand-color) !important;
+            color: white !important;
+        }
+
         .sidebar-footer {
             padding: 15px 25px;
             background-color: rgba(0,0,0,0.2);
@@ -418,6 +456,36 @@
             {% endif %}
         </div>
 
+        <!-- SELECTOR DE SUCURSAL (REFINADO) -->
+        {% if sucursales_list %}
+        <div class="sidebar-branch-selector px-3 mb-2">
+            <div class="dropdown">
+                <button class="btn btn-sm w-100 d-flex justify-content-between align-items-center branch-dropdown-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <span class="text-uppercase fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px; color: #adb5bd;">Sucursal</span>
+                    <div class="d-flex align-items-center overflow-hidden ms-2">
+                        <span class="text-truncate fw-bold" style="font-size: 0.8rem; color: var(--brand-color);">
+                            {% for suc in sucursales_list %}
+                                {% if suc.id|stringformat:"s" == sucursal_actual_id|stringformat:"s" %}
+                                    {{ suc.nombre }}
+                                {% endif %}
+                            {% endfor %}
+                        </span>
+                        <i class="bi bi-chevron-up ms-2 small text-muted"></i>
+                    </div>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-dark w-100 shadow-lg border-0">
+                    {% for suc in sucursales_list %}
+                    <li>
+                        <a class="dropdown-item py-2 {% if suc.id|stringformat:"s" == sucursal_actual_id|stringformat:"s" %}active{% endif %}" href="#" onclick="cambiarSucursal('{{ suc.id }}')">
+                            <i class="bi bi-geo-alt me-2"></i> {{ suc.nombre }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- FOOTER (RESTAURADO) -->
         <div class="sidebar-footer d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center overflow-hidden">
@@ -527,6 +595,29 @@
                 });
             });
         });
+
+        function cambiarSucursal(id) {
+            const formData = new FormData();
+            formData.append('sucursal_id', id);
+            
+            fetch("{% url 'cambiar_sucursal_ajax' %}", {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert("Error al cambiar de sucursal: " + data.error);
+                }
+            })
+            .catch(err => console.error("Error:", err));
+        }
     </script>
     {% block extra_js %}{% endblock %}
 </body>

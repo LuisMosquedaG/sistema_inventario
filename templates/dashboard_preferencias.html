@@ -101,6 +101,10 @@
                         <a class="nav-link {% if seccion == 'roles' %}active{% endif %}" href="?section=roles">
                             <i class="bi bi-shield-lock"></i> Roles y Permisos
                         </a>
+
+                        <a class="nav-link {% if seccion == 'sucursales' %}active{% endif %}" href="?section=sucursales">
+                            <i class="bi bi-geo-alt"></i> Sucursales
+                        </a>
                         
                         <!-- General (Acordeón) -->
                         <div>
@@ -190,27 +194,27 @@
                         <table class="table table-hover align-middle">
                             <thead class="table-light">
                                 <tr>
+                                    <th class="text-center" style="width: 80px;">Acciones</th>
                                     <th>Moneda</th>
                                     <th class="text-center">Siglas</th>
                                     <th class="text-center">Símbolo</th>
                                     <th class="text-center">Factor (TC)</th>
                                     <th>Responsable</th>
-                                    <th class="text-end">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for m in monedas %}
                                 <tr>
+                                    <td class="text-center">
+                                        <span class="icon-action" title="Editar Moneda" onclick="abrirEditarMoneda({{ m.id }})">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </span>
+                                    </td>
                                     <td class="fw-bold text-dark">{{ m.nombre }}</td>
                                     <td class="text-center"><span class="badge bg-light text-dark border">{{ m.siglas }}</span></td>
                                     <td class="text-center fw-bold">{{ m.simbolo }}</td>
                                     <td class="text-center font-monospace">{{ m.factor }}</td>
                                     <td class="small text-muted">{{ m.responsable.username|default:"--" }}</td>
-                                    <td class="text-end">
-                                        <button class="btn btn-sm btn-light icon-action" onclick="abrirEditarMoneda({{ m.id }})">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
-                                    </td>
                                 </tr>
                                 {% empty %}
                                 <tr><td colspan="6" class="text-center py-5 text-muted">No has registrado tipos de moneda.</td></tr>
@@ -219,6 +223,52 @@
                         </table>
                     </div>
                 </div>
+                {% elif seccion == 'sucursales' %}
+                <!-- SECCIÓN SUCURSALES -->
+                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-geo-alt-fill me-2 text-secondary"></i>Gestión de Sucursales</h5>
+                    <button class="btn btn-sm btn-brand text-white" data-bs-toggle="modal" data-bs-target="#modalSucursal" onclick="prepararNuevaSucursal()">
+                        <i class="bi bi-plus-lg me-1"></i> Nueva Sucursal
+                    </button>
+                </div>
+                <div class="card-body p-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="text-center" style="width: 100px;">Acciones</th>
+                                    <th>Sucursal</th>
+                                    <th>Dirección</th>
+                                    <th>Ciudad/Estado</th>
+                                    <th class="text-center">CP</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for s in sucursales %}
+                                <tr>
+                                    <td class="text-center">
+                                        <div class="d-flex justify-content-center gap-1">
+                                            <span class="icon-action" title="Editar Sucursal" onclick="abrirEditarSucursal({{ s.id }})">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </span>
+                                            <span class="icon-action" title="Eliminar Sucursal" onclick="eliminarSucursal({{ s.id }})">
+                                                <i class="bi bi-x-circle"></i>
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td class="fw-bold text-dark">{{ s.nombre }}</td>
+                                    <td class="small">{{ s.calle }} #{{ s.numero_exterior }}{% if s.numero_interior %}, Int. {{ s.numero_interior }}{% endif %}, Col. {{ s.colonia }}</td>
+                                    <td class="small">{{ s.ciudad }}, {{ s.estado }} ({{ s.pais }})</td>
+                                    <td class="text-center small">{{ s.cp }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="5" class="text-center py-5 text-muted">No has registrado sucursales.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 {% elif seccion == 'roles' %}
                 <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
                     <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-shield-lock-fill me-2 text-secondary"></i>Roles y Permisos</h5>
@@ -231,17 +281,22 @@
                         <table class="table table-hover align-middle">
                             <thead class="table-light">
                                 <tr>
+                                    <th class="text-center" style="width: 80px;">Acciones</th>
                                     <th>Rol</th>
                                     <th>Descripción</th>
                                     <th class="text-center">Usuarios</th>
                                     <th class="text-center">Permisos Ventas</th>
                                     <th class="text-center">Estado</th>
-                                    <th class="text-end">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for item in roles_info %}
                                 <tr>
+                                    <td class="text-center">
+                                        <span class="icon-action" title="Editar Rol" onclick="abrirEditarRol({{ item.rol.id }})">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </span>
+                                    </td>
                                     <td class="fw-bold">{{ item.rol.nombre }}</td>
                                     <td class="text-muted small">{{ item.rol.descripcion|default:"--" }}</td>
                                     <td class="text-center">{{ item.total_usuarios }}</td>
@@ -252,11 +307,6 @@
                                         {% else %}
                                             <span class="badge bg-danger bg-opacity-10 text-danger">Inactivo</span>
                                         {% endif %}
-                                    </td>
-                                    <td class="text-end">
-                                        <button class="btn btn-sm btn-light icon-action" onclick="abrirEditarRol({{ item.rol.id }})">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
                                     </td>
                                 </tr>
                                 {% empty %}
@@ -682,6 +732,77 @@
     </div>
 </div>
 
+<!-- MODAL SUCURSAL -->
+<div class="modal fade" id="modalSucursal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content shadow-lg border-0" style="border-radius: 12px;">
+            <div class="modal-header border-bottom bg-white">
+                <h5 class="modal-title fw-bold" id="modalSucursalTitulo">Registrar Nueva Sucursal</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0 bg-light">
+                <form id="formSucursal" class="p-4">
+                    {% csrf_token %}
+                    <input type="hidden" id="sucursal_id_hidden">
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body p-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">Información General</h6>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Nombre de la Sucursal</label>
+                                <input type="text" name="nombre" id="inputNombreSucursal" class="form-control form-control-sm" placeholder="Ej. Sucursal Centro" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">Ubicación / Dirección</h6>
+                            <div class="row g-2">
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label small fw-bold">Calle</label>
+                                    <input type="text" name="calle" id="inputCalleSucursal" class="form-control form-control-sm" required>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <label class="form-label small fw-bold">Num. Ext</label>
+                                    <input type="text" name="numero_exterior" id="inputExtSucursal" class="form-control form-control-sm" required>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <label class="form-label small fw-bold">Num. Int</label>
+                                    <input type="text" name="numero_interior" id="inputIntSucursal" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label small fw-bold">Colonia</label>
+                                    <input type="text" name="colonia" id="inputColoniaSucursal" class="form-control form-control-sm" required>
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label small fw-bold">Ciudad / Municipio</label>
+                                    <input type="text" name="ciudad" id="inputCiudadSucursal" class="form-control form-control-sm" required>
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label class="form-label small fw-bold">Estado</label>
+                                    <input type="text" name="estado" id="inputEstadoSucursal" class="form-control form-control-sm" required>
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label class="form-label small fw-bold">País</label>
+                                    <input type="text" name="pais" id="inputPaisSucursal" class="form-control form-control-sm" value="México" required>
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label class="form-label small fw-bold">Código Postal</label>
+                                    <input type="text" name="cp" id="inputCPSucursal" class="form-control form-control-sm" required>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-top bg-white p-3">
+                <button type="button" class="btn btn-light btn-sm text-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-brand btn-sm px-4 shadow-sm" onclick="guardarSucursal()">Guardar Sucursal</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- MODAL NUEVA MONEDA -->
 <div class="modal fade" id="modalNuevaMoneda" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -826,6 +947,68 @@
             if(data.success) { alert(data.message); location.reload(); } 
             else { alert('Error: ' + data.error); } 
         });
+    }
+
+    function prepararNuevaSucursal() {
+        document.getElementById('modalSucursalTitulo').innerText = "Registrar Nueva Sucursal";
+        document.getElementById('sucursal_id_hidden').value = "";
+        document.getElementById('formSucursal').reset();
+    }
+
+    function abrirEditarSucursal(id) {
+        prepararNuevaSucursal();
+        document.getElementById('modalSucursalTitulo').innerText = "Editar Sucursal";
+        document.getElementById('sucursal_id_hidden').value = id;
+
+        fetch(`/preferencias/api/sucursal/${id}/`)
+            .then(r => r.json())
+            .then(data => {
+                if(data.success) {
+                    document.getElementById('inputNombreSucursal').value = data.nombre;
+                    document.getElementById('inputCalleSucursal').value = data.calle;
+                    document.getElementById('inputExtSucursal').value = data.numero_exterior;
+                    document.getElementById('inputIntSucursal').value = data.numero_interior;
+                    document.getElementById('inputColoniaSucursal').value = data.colonia;
+                    document.getElementById('inputCiudadSucursal').value = data.ciudad;
+                    document.getElementById('inputEstadoSucursal').value = data.estado;
+                    document.getElementById('inputPaisSucursal').value = data.pais;
+                    document.getElementById('inputCPSucursal').value = data.cp;
+                    new bootstrap.Modal(document.getElementById('modalSucursal')).show();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            });
+    }
+
+    function guardarSucursal() {
+        const id = document.getElementById('sucursal_id_hidden').value;
+        const form = document.getElementById('formSucursal');
+        const formData = new FormData(form);
+        const url = id ? `/preferencias/actualizar-sucursal/${id}/` : "/preferencias/crear-sucursal/";
+
+        fetch(url, { 
+            method: 'POST', 
+            body: formData, 
+            headers: { 'X-CSRFToken': '{{ csrf_token }}', 'X-Requested-With': 'XMLHttpRequest' } 
+        })
+        .then(r => r.json()).then(data => { 
+            if(data.success) { alert(data.message); location.href="?section=sucursales"; } 
+            else { alert('Error: ' + data.error); } 
+        });
+    }
+
+    function eliminarSucursal(id) {
+        if (confirm("¿Estás seguro de eliminar esta sucursal?")) {
+            fetch(`/preferencias/eliminar-sucursal/${id}/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}', 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if(data.success) { alert(data.message); location.reload(); }
+                else { alert('Error: ' + data.error); }
+            });
+        }
     }
 
     // --- LÓGICA DE REINICIO DE DATOS ---

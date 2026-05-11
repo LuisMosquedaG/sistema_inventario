@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.db import transaction # <--- ESTE FALTABA
 from django.utils import timezone
-from .models import Moneda, Rol, PermisoRolModulo, AsignacionRolUsuario, PermisoRolAccion
+from .models import Moneda, Rol, PermisoRolModulo, AsignacionRolUsuario, PermisoRolAccion, Sucursal
 from .permissions import SALES_PERMISSION_MATRIX, PURCHASES_PERMISSION_MATRIX, PRODUCTION_PERMISSION_MATRIX, INVENTORY_PERMISSION_MATRIX, TREASURY_PERMISSION_MATRIX
 from panel.models import Empresa
 import csv
@@ -12,6 +12,7 @@ import io
 import zipfile
 from django.apps import apps
 from django.db.models import Q
+from django.views.decorators.http import require_POST
 
 # Importaciones de modelos para exportación/limpieza
 from ventas.models import OrdenVenta, DetalleOrdenVenta
@@ -27,6 +28,7 @@ from clientes.models import Cliente, ContactoCliente
 from proveedores.models import Proveedor
 from recepciones.models import Recepcion, DetalleRecepcion, DetalleRecepcionExtra
 from cotizaciones.models import Cotizacion, DetalleCotizacion
+from decimal import Decimal
 
 # --- HELPER MULTI-TENANCY ---
 def get_empresa_actual(request):
@@ -95,6 +97,9 @@ def dashboard_preferencias(request):
     elif seccion_activa == 'monedas':
         contexto['monedas'] = Moneda.objects.filter(empresa=empresa_actual)
     
+    elif seccion_activa == 'sucursales':
+        contexto['sucursales'] = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
+    
     elif seccion_activa == 'datos':
         # Solo admin/sadmin pueden entrar aquí
         if not request.user.is_staff:
@@ -116,6 +121,7 @@ def exportar_datos_zip(request):
         (ContactoCliente, "ContactosClientes"),
         (Proveedor, "Proveedores"),
         (Almacen, "Almacenes"),
+        (Sucursal, "Sucursales"),
         (Categoria, "Categorias"),
         (Subcategoria, "Subcategorias"),
         (Moneda, "Monedas"),
@@ -615,3 +621,87 @@ def actualizar_rol_ajax(request, rol_id):
         return JsonResponse({'success': True, 'message': 'Rol actualizado correctamente.'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+
+# --- API: SUCURSALES ---
+@login_required
+def crear_sucursal_ajax(request):
+    if request.method == 'POST':
+        try:
+            empresa_actual = get_empresa_actual(request)
+            Sucursal.objects.create(
+                nombre=request.POST.get('nombre'),
+                calle=request.POST.get('calle'),
+                numero_exterior=request.POST.get('numero_exterior'),
+                numero_interior=request.POST.get('numero_interior'),
+                colonia=request.POST.get('colonia'),
+                ciudad=request.POST.get('ciudad'),
+                estado=request.POST.get('estado'),
+                pais=request.POST.get('pais', 'México'),
+                cp=request.POST.get('cp'),
+                empresa=empresa_actual
+            )
+            return JsonResponse({'success': True, 'message': 'Sucursal registrada correctamente.'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+@login_required
+def api_detalle_sucursal(request, sucursal_id):
+    empresa_actual = get_empresa_actual(request)
+    suc = get_object_or_404(Sucursal, id=sucursal_id, empresa=empresa_actual)
+    return JsonResponse({
+        'success': True,
+        'id': suc.id,
+        'nombre': suc.nombre,
+        'calle': suc.calle,
+        'numero_exterior': suc.numero_exterior,
+        'numero_interior': suc.numero_interior or '',
+        'colonia': suc.colonia,
+        'ciudad': suc.ciudad,
+        'estado': suc.estado,
+        'pais': suc.pais,
+        'cp': suc.cp
+    })
+
+@login_required
+def actualizar_sucursal_ajax(request, sucursal_id):
+    if request.method == 'POST':
+        try:
+            empresa_actual = get_empresa_actual(request)
+            suc = get_object_or_404(Sucursal, id=sucursal_id, empresa=empresa_actual)
+            suc.nombre = request.POST.get('nombre')
+            suc.calle = request.POST.get('calle')
+            suc.numero_exterior = request.POST.get('numero_exterior')
+            suc.numero_interior = request.POST.get('numero_interior')
+            suc.colonia = request.POST.get('colonia')
+            suc.ciudad = request.POST.get('ciudad')
+            suc.estado = request.POST.get('estado')
+            suc.pais = request.POST.get('pais')
+            suc.cp = request.POST.get('cp')
+            suc.save()
+            return JsonResponse({'success': True, 'message': 'Sucursal actualizada correctamente.'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+@login_required
+@require_POST
+def cambiar_sucursal_ajax(request):
+    sucursal_id = request.POST.get('sucursal_id')
+    if sucursal_id:
+        request.session['sucursal_id'] = int(sucursal_id)
+        return JsonResponse({'success': True})
+    return JsonResponse({'success': False, 'error': 'ID de sucursal no proporcionado'})
+
+@login_required
+def eliminar_sucursal_ajax(request, sucursal_id):
+    if request.method == 'POST':
+        try:
+            empresa_actual = get_empresa_actual(request)
+            suc = get_object_or_404(Sucursal, id=sucursal_id, empresa=empresa_actual)
+            suc.delete()
+            return JsonResponse({'success': True, 'message': 'Sucursal eliminada correctamente.'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})

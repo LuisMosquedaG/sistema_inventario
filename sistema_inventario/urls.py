@@ -22,7 +22,9 @@ from preferencias.views import (
     api_detalle_usuario, actualizar_usuario_ajax,
     api_detalle_moneda, actualizar_moneda_ajax,
     exportar_datos_zip, reiniciar_transacciones_ajax, reiniciar_catalogos_ajax,
-    crear_rol_ajax, api_detalle_rol, actualizar_rol_ajax
+    crear_rol_ajax, api_detalle_rol, actualizar_rol_ajax,
+    crear_sucursal_ajax, api_detalle_sucursal, actualizar_sucursal_ajax, eliminar_sucursal_ajax,
+    cambiar_sucursal_ajax
 )
 from django.contrib.auth import views as auth_views 
 from django.contrib.auth import logout
@@ -68,6 +70,12 @@ urlpatterns = [
     path('preferencias/crear-rol/', crear_rol_ajax, name='crear_rol_ajax'),
     path('preferencias/api/rol/<int:rol_id>/', api_detalle_rol, name='api_detalle_rol'),
     path('preferencias/actualizar-rol/<int:rol_id>/', actualizar_rol_ajax, name='actualizar_rol_ajax'),
+    
+    path('preferencias/crear-sucursal/', crear_sucursal_ajax, name='crear_sucursal_ajax'),
+    path('preferencias/api/sucursal/<int:sucursal_id>/', api_detalle_sucursal, name='api_detalle_sucursal'),
+    path('preferencias/actualizar-sucursal/<int:sucursal_id>/', actualizar_sucursal_ajax, name='actualizar_sucursal_ajax'),
+    path('preferencias/eliminar-sucursal/<int:sucursal_id>/', eliminar_sucursal_ajax, name='eliminar_sucursal_ajax'),
+    path('preferencias/cambiar-sucursal/', cambiar_sucursal_ajax, name='cambiar_sucursal_ajax'),
     
     # --- RUTAS DE GESTIÓN DE DATOS ---
     path('preferencias/exportar-datos/', exportar_datos_zip, name='exportar_datos_zip'),
