@@ -59,10 +59,27 @@
             
             {% if granular_inventory_perms.almacenes.crear %}
             <!-- Botón Nuevo Almacén -->
-            <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalCrearAlmacen">
+            <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalCrearAlmacen" onclick="prepararNuevoAlmacen('{{ filtros.sucursal }}')">
                 <i class="bi bi-plus-lg me-1"></i> Nuevo Almacén
             </button>
             {% endif %}
+        </div>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+            <form method="get" id="formFiltrosAlmacenes" class="row g-2 align-items-end">
+                <div class="col-12 col-md-4">
+                    <label class="form-label small fw-bold text-secondary">Filtrar por Sucursal</label>
+                    <select name="sucursal" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todas las sucursales...</option>
+                        {% for s in sucursales %}
+                        <option value="{{ s.id }}" {% if filtros.sucursal == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -74,11 +91,12 @@
                     <thead>
                         <tr>
                             <th class="text-center" style="width: 60px;">Acciones</th>
-                            <th class="text-center" style="width: 60px;">Nombre</th>
-                            <th class="text-center" style="width: 200px;">Dirección Completa</th>
-                            <th class="text-center" style="width: 60px;">Ubicación</th>
-                            <th class="text-center" style="width: 60px;">Contacto</th>
-                            <th class="text-center" style="width: 60px;">Responsable</th>
+                            <th class="text-center">Nombre</th>
+                            <th class="text-center">Sucursal</th>
+                            <th class="text-center">Dirección Completa</th>
+                            <th class="text-center">Ubicación</th>
+                            <th class="text-center">Contacto</th>
+                            <th class="text-center">Responsable</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -96,6 +114,11 @@
                             <!-- NOMBRE -->
                             <td class="text-center">
                                 <div class="fw-bold text-dark">{{ a.nombre }}</div>
+                            </td>
+
+                            <!-- SUCURSAL -->
+                            <td class="text-center">
+                                <div class="small text-brand fw-bold">{{ a.sucursal.nombre|default:"Sin Sucursal" }}</div>
                             </td>
                             
                             <!-- DIRECCIÓN -->
@@ -168,9 +191,18 @@
                         <div class="card-body p-2">
                             <h6 class="text-uppercase text-muted fw-bold mb-2" style="font-size: 0.7rem; letter-spacing: 1px;">1. Identificación</h6>
                             <div class="row g-2">
-                                <div class="col-md-12">
+                                <div class="col-md-6">
                                     <label class="form-label small fw-bold text-secondary mb-1">Nombre del Almacén <span class="text-danger">*</span></label>
                                     <input type="text" name="nombre" class="form-control form-control-sm" placeholder="Ej. Almacén Central Norte" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Sucursal <span class="text-danger">*</span></label>
+                                    <select name="sucursal" id="selectSucursalModal" class="form-select form-select-sm" required>
+                                        <option value="">Seleccionar Sucursal...</option>
+                                        {% for s in sucursales %}
+                                        <option value="{{ s.id }}">{{ s.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
                                 </div>
                                 <div class="col-md-12">
                                     <label class="form-label small fw-bold text-secondary mb-1">Responsable</label>
@@ -249,10 +281,13 @@
     }
 
     // --- ABRIR MODAL LIMPIO ---
-    document.querySelector('button[data-bs-target="#modalCrearAlmacen"]').addEventListener('click', function() {
+    window.prepararNuevoAlmacen = function(sucursalId = '') {
         resetFormularioAlmacen();
         document.querySelector('#modalCrearAlmacen .modal-title').innerText = "Nuevo Almacén";
-    });
+        if (sucursalId) {
+            document.getElementById('selectSucursalModal').value = sucursalId;
+        }
+    };
 
     function resetFormularioAlmacen() {
         const form = document.getElementById('formAlmacen');
@@ -286,6 +321,7 @@
                 document.querySelector('[name="estado"]').value = data.estado;
                 document.querySelector('[name="cp"]').value = data.cp;
                 document.querySelector('[name="telefono"]').value = data.telefono;
+                document.getElementById('selectSucursalModal').value = data.sucursal;
 
                 const myModal = new bootstrap.Modal(document.getElementById('modalCrearAlmacen'));
                 myModal.show();

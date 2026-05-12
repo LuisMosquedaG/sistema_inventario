@@ -31,12 +31,15 @@ function mostrarModal(id) {
 
 // --- 1. GESTIÓN DE ARTÍCULOS (NUEVO / EDITAR) ---
 
-window.abrirNuevoArticulo = function() {
+window.abrirNuevoArticulo = function(sucursalId = '') {
     const form = document.getElementById('formCrearArticulo');
     if (form) form.reset();
     
     const idField = document.getElementById('productoId');
     if (idField) idField.value = '';
+
+    const selSuc = document.getElementById('selectSucursalArticulo');
+    if (selSuc) selSuc.value = sucursalId;
     
     const selSub = document.getElementById('selectSubcategoria');
     if (selSub) { 
@@ -85,6 +88,9 @@ window.cargarProductoEdicion = function(id) {
             form.querySelector('[name="stock_maximo"]').value = data.stock_maximo || 1000;
             form.querySelector('[name="maneja_lote"]').checked = data.maneja_lote || false;
             form.querySelector('[name="maneja_serie"]').checked = data.maneja_serie || false;
+            if (form.querySelector('[name="sucursal"]')) {
+                form.querySelector('[name="sucursal"]').value = data.sucursal || '';
+            }
 
             if (data.categoria) {
                 cargarSubcategorias(data.categoria, data.subcategoria);

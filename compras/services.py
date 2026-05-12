@@ -4,7 +4,7 @@ from .models import OrdenCompra, DetalleCompra
 from core.models import Producto
 
 @transaction.atomic
-def crear_orden_compra_servicio(usuario, data_post, empresa_actual):
+def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucursal_id=None):
     """
     Servicio que maneja la lógica de creación de Orden de Compra.
     Separa la lógica de negocio de la vista.
@@ -12,7 +12,7 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual):
     
     # 1. Validaciones y Extracción de Datos de Cabecera
     proveedor = data_post.get('proveedor')
-    sucursal_id = data_post.get('sucursal') # <--- NUEVO
+    sucursal_id = data_post.get('sucursal') # Esta es la sucursal del PROVEEDOR
     almacen_id = data_post.get('almacen')
     moneda_id = data_post.get('moneda')
     tipo_cambio = data_post.get('tipo_cambio', '1.0000')
@@ -22,10 +22,19 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual):
     if not proveedor:
         raise ValueError("El proveedor es obligatorio.")
 
+    # Asignar sucursal desde la sesión
+    sucursal_empresa_obj = None
+    if session_sucursal_id:
+        from preferencias.models import Sucursal
+        try:
+            sucursal_empresa_obj = Sucursal.objects.get(id=session_sucursal_id, empresa=empresa_actual)
+        except Sucursal.DoesNotExist:
+            pass
+
     # 2. Crear la Cabecera (OrdenCompra)
     orden = OrdenCompra.objects.create(
         proveedor_id=proveedor,
-        sucursal_id=sucursal_id if sucursal_id else None, # <--- ASIGNAR
+        sucursal_id=sucursal_id if sucursal_id else None, 
         almacen_destino_id=almacen_id if almacen_id else None,
         moneda_id=moneda_id if moneda_id else None,
         tipo_cambio=tipo_cambio,
@@ -33,7 +42,8 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual):
         notas=notas,
         estado='borrador',
         usuario=usuario,
-        empresa=empresa_actual
+        empresa=empresa_actual,
+        sucursal_empresa=sucursal_empresa_obj
     )
 
     # 3. Procesar la lista de ítems

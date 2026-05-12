@@ -29,6 +29,7 @@ class OrdenProduccion(models.Model):
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='borrador')
     
     responsable = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='trabajos_asignados', verbose_name="Responsable del Taller")
+    sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
     
     fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Solicitud")
     fecha_inicio = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de Inicio")

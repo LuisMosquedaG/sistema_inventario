@@ -87,9 +87,78 @@
 
             <div class="modal-footer border-top bg-white py-2">
                 <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" form="formClienteRapido" class="btn btn-brand btn-sm px-4">Registrar y Volver</button>
+                <button type="button" onclick="guardarClienteRapido()" class="btn btn-brand btn-sm px-4">Registrar y Volver</button>
             </div>
 
         </div>
     </div>
 </div>
+
+<script>
+    function guardarClienteRapido() {
+        const form = document.getElementById('formClienteRapido');
+        const formData = new FormData(form);
+        const btn = event.currentTarget;
+        const originalText = btn.innerText;
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Registrando...';
+
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                // 1. Agregar a la lista de clientes del modal de cotización
+                const wrapperC = document.getElementById('wrapperCliente');
+                if (wrapperC) {
+                    const containerOptions = wrapperC.querySelector('.custom-options');
+                    const newOption = document.createElement('span');
+                    newOption.className = 'custom-option';
+                    newOption.setAttribute('data-value', data.id);
+                    
+                    const nombreComp = `${formData.get('nombre')} ${formData.get('apellidos')}`;
+                    const razonS = formData.get('razon_social');
+                    
+                    newOption.setAttribute('data-search', `${razonS} ${nombreComp}`);
+                    
+                    let innerH = "";
+                    if (razonS) {
+                        innerH = `<span class="opt-razon">${razonS}</span><span class="opt-separator">|</span><span class="opt-contacto">${nombreComp}</span>`;
+                    } else {
+                        innerH = `<span class="opt-razon">${nombreComp}</span><span class="opt-separator">|</span><span class="opt-contacto">Persona Física</span>`;
+                    }
+                    newOption.innerHTML = innerH;
+
+                    containerOptions.insertBefore(newOption, containerOptions.firstChild);
+                    
+                    // 2. Simular selección (usando mousedown como en cotizaciones.js)
+                    const mdown = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+                    newOption.dispatchEvent(mdown);
+                }
+
+                // 3. Cerrar modal y limpiar
+                const modalEl = document.getElementById('modalCrearClienteRapido');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                modal.hide();
+                form.reset();
+            } else {
+                alert('Error: ' + (data.error || 'No se pudo registrar el cliente'));
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error de conexión');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerText = originalText;
+        });
+    }
+</script>

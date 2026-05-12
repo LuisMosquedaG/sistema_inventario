@@ -18,16 +18,19 @@ from django.views.decorators.http import require_POST
 from decimal import Decimal
 
 from django.db.models import Q
+from preferencias.permissions import require_hr_permission
 
 @login_required(login_url='/login/')
+@require_hr_permission('empleados', 'ver')
 def lista_empleados(request):
     empresa_actual = get_empresa_actual(request)
-    empleados = Empleado.objects.filter(empresa=empresa_actual).order_by('apellido_paterno')
+    empleados = Empleado.objects.filter(empresa=empresa_actual).select_related('sucursal').order_by('apellido_paterno')
     
     # --- LÓGICA DE FILTRADO ---
     q = request.GET.get('q', '')
     depto = request.GET.get('departamento', '')
     estado = request.GET.get('estado', '')
+    sucursal_id = request.GET.get('sucursal', '')
 
     if q:
         empleados = empleados.filter(
@@ -47,16 +50,30 @@ def lista_empleados(request):
         else:
             empleados = empleados.filter(estado=estado)
             
+    if sucursal_id:
+        empleados = empleados.filter(sucursal_id=sucursal_id)
+            
     # Obtener lista de departamentos únicos para el filtro
     departamentos = Empleado.objects.filter(empresa=empresa_actual).values_list('departamento', flat=True).distinct()
+
+    from preferencias.models import Sucursal
+    sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
 
     return render(request, 'recursos_humanos/lista_empleados.html', {
         'empleados': empleados,
         'departamentos': departamentos,
-        'empresa': empresa_actual
+        'sucursales': sucursales,
+        'empresa': empresa_actual,
+        'filtros': {
+            'q': q,
+            'departamento': depto,
+            'estado': estado,
+            'sucursal': sucursal_id
+        }
     })
 
 @login_required(login_url='/login/')
+@require_hr_permission('empleados', 'ver', json_response=True)
 def obtener_empleado_json(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
@@ -111,6 +128,7 @@ def obtener_empleado_json(request, id):
             'clabe': emp.clabe,
             'num_cuenta': emp.num_cuenta,
             'tipo_cuenta': emp.tipo_cuenta,
+            'sucursal': emp.sucursal_id or '',
         }
         return JsonResponse({'success': True, 'data': data})
     except Empleado.DoesNotExist:
@@ -118,6 +136,7 @@ def obtener_empleado_json(request, id):
 
 @login_required(login_url='/login/')
 @require_POST
+@require_hr_permission('empleados', 'editar', json_response=True)
 def editar_empleado_ajax(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
@@ -177,6 +196,7 @@ def editar_empleado_ajax(request, id):
         emp.clabe = data.get('clabe')
         emp.num_cuenta = data.get('num_cuenta')
         emp.tipo_cuenta = data.get('tipo_cuenta')
+        emp.sucursal_id = data.get('sucursal') or None
         
         emp.save()
         return JsonResponse({'success': True, 'message': 'Empleado actualizado correctamente.'})
@@ -187,6 +207,7 @@ def editar_empleado_ajax(request, id):
 
 @login_required(login_url='/login/')
 @require_POST
+@require_hr_permission('empleados', 'crear', json_response=True)
 def crear_empleado_ajax(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
@@ -203,6 +224,7 @@ def crear_empleado_ajax(request):
 
         nuevo_empleado = Empleado(
             empresa=empresa_actual,
+            sucursal_id=data.get('sucursal') or request.session.get('sucursal_id'),
             # 1. Identificación
             curp=data.get('curp', '').upper(),
             rfc=data.get('rfc', '').upper(),

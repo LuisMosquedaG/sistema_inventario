@@ -32,8 +32,24 @@ def lista_almacenes(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)
-    almacenes = Almacen.objects.filter(empresa=empresa_actual).order_by('nombre')
-    return render(request, 'dashboard_almacenes.html', {'almacenes': almacenes})
+    
+    sucursal_id = request.GET.get('sucursal')
+    almacenes = Almacen.objects.filter(empresa=empresa_actual).select_related('sucursal').order_by('nombre')
+    
+    if sucursal_id:
+        almacenes = almacenes.filter(sucursal_id=sucursal_id)
+        
+    from preferencias.models import Sucursal
+    sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
+    
+    contexto = {
+        'almacenes': almacenes,
+        'sucursales': sucursales,
+        'filtros': {
+            'sucursal': sucursal_id or ''
+        }
+    }
+    return render(request, 'dashboard_almacenes.html', contexto)
 
 @login_required(login_url='/login/')
 @require_inventory_permission('kardex', 'ver')
@@ -48,8 +64,9 @@ def dashboard_kardex(request):
     almacen_id = request.GET.get('almacen')
     tipo_movimiento = request.GET.get('tipo_movimiento')
     usuario_id = request.GET.get('usuario')
+    sucursal_id = request.GET.get('sucursal')
 
-    movimientos = Kardex.objects.filter(empresa=empresa_actual).select_related('producto', 'almacen', 'usuario').order_by('-fecha')
+    movimientos = Kardex.objects.filter(empresa=empresa_actual).select_related('producto', 'almacen', 'usuario', 'sucursal').order_by('-fecha')
 
     if q:
         movimientos = movimientos.filter(
@@ -57,6 +74,8 @@ def dashboard_kardex(request):
         )
     if producto_id:
         movimientos = movimientos.filter(producto_id=producto_id)
+    if sucursal_id:
+        movimientos = movimientos.filter(sucursal_id=sucursal_id)
     if almacen_id:
         movimientos = movimientos.filter(almacen_id=almacen_id)
     if tipo_movimiento:
@@ -74,6 +93,11 @@ def dashboard_kardex(request):
 
     productos = Producto.objects.filter(empresa=empresa_actual).order_by('nombre')
     almacenes = Almacen.objects.filter(empresa=empresa_actual).order_by('nombre')
+    if sucursal_id:
+        almacenes = almacenes.filter(sucursal_id=sucursal_id)
+        
+    from preferencias.models import Sucursal
+    sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
     
     # Obtener usuarios: Todos los que han hecho movimientos en esta empresa + los actuales
     ids_usuarios_kardex = Kardex.objects.filter(empresa=empresa_actual).values_list('usuario_id', flat=True).distinct()
@@ -86,13 +110,15 @@ def dashboard_kardex(request):
         'movimientos': movimientos[:100],
         'productos': productos,
         'almacenes': almacenes,
+        'sucursales': sucursales,
         'usuarios': usuarios_list,
         'filtros': {
             'q': q or '',
             'producto': int(producto_id) if producto_id else '',
             'almacen': int(almacen_id) if almacen_id else '',
             'tipo_movimiento': tipo_movimiento or '',
-            'usuario': int(usuario_id) if usuario_id else ''
+            'usuario': int(usuario_id) if usuario_id else '',
+            'sucursal': sucursal_id
         }
     }
     return render(request, 'dashboard_kardex.html', contexto)
@@ -115,7 +141,8 @@ def api_crear_almacen(request):
                 estado=request.POST.get('estado'),
                 cp=request.POST.get('cp'),
                 telefono=request.POST.get('telefono'),
-                empresa=empresa_actual
+                empresa=empresa_actual,
+                sucursal_id=request.POST.get('sucursal')
             )
             return JsonResponse({'success': True, 'message': 'Almacén creado correctamente.'})
         except Exception as e:
@@ -137,7 +164,8 @@ def api_detalle_almacen(request, id):
         'colonia': almacen.colonia,
         'estado': almacen.estado,
         'cp': almacen.cp,
-        'telefono': almacen.telefono
+        'telefono': almacen.telefono,
+        'sucursal': almacen.sucursal.id if almacen.sucursal else ''
     })
 
 @login_required
@@ -156,6 +184,7 @@ def api_actualizar_almacen(request, id):
             almacen.estado = request.POST.get('estado')
             almacen.cp = request.POST.get('cp')
             almacen.telefono = request.POST.get('telefono')
+            almacen.sucursal_id = request.POST.get('sucursal')
             almacen.save()
             return JsonResponse({'success': True, 'message': 'Almacén actualizado correctamente.'})
         except Exception as e:

@@ -1,0 +1,173 @@
+<!-- Modal para Nueva Solicitud Manual y Edición -->
+<div class="modal fade" id="modalNuevaSolicitudManual" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-sheet">
+        <div class="modal-content">
+            <!-- HEADER -->
+            <div class="modal-header border-bottom bg-light">
+                <h5 class="modal-title fw-bold text-dark">
+                    <i class="bi bi-file-earmark-plus-fill me-2" style="color: #00b8b9;"></i>
+                    <span id="tituloModalSolicitud">Nueva Solicitud de Compra</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form id="formNuevaSolicitud" method="post" onsubmit="guardarSolicitud(event)">
+                {% csrf_token %}
+                <input type="hidden" id="solicitud_id_edit" name="solicitud_id">
+                
+                <div class="modal-body p-3 bg-light">
+                    <!-- SECCIÓN 0: DATOS DEL PEDIDO (Solo visible al editar si existe pedido_origen) -->
+                    <div id="seccion_datos_pedido" class="card border-0 mb-3" style="display: none;">
+                        <div class="card-body p-3 pt-0">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label small text-secondary fw-bold mb-0">Folio Cotización</label>
+                                    <div id="edit_folio_cotizacion" class="fw-bold text-dark">--</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small text-secondary fw-bold mb-0">Folio Pedido</label>
+                                    <div id="edit_folio_pedido" class="fw-bold text-dark">--</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small text-secondary fw-bold mb-0">Cliente</label>
+                                    <div id="edit_cliente_pedido" class="fw-bold text-dark">--</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 1: CONFIGURACIÓN GENERAL -->
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body p-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem;">1. Configuración General</h6>
+                            <div class="row g-2">
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-secondary">Proveedor General</label>
+                                    <select id="gen_proveedor" class="form-select form-select-sm" onchange="cargarSucursalesProveedor(this.value, 'gen_sucursal')">
+                                        <option value="">Seleccionar Proveedor...</option>
+                                        {% for p in proveedores %}
+                                        <option value="{{ p.id }}">{{ p.razon_social }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-secondary">Sucursal de Proveedor</label>
+                                    <select id="gen_sucursal" class="form-select form-select-sm" disabled>
+                                        <option value="">Seleccione proveedor primero...</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-secondary">Almacén Recepción</label>
+                                    <select id="gen_almacen" class="form-select form-select-sm">
+                                        <option value="">Seleccionar...</option>
+                                        {% for a in almacenes %}
+                                        <option value="{{ a.id }}">{{ a.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-secondary">Moneda</label>
+                                    <select id="gen_moneda" class="form-select form-select-sm">
+                                        {% for m in monedas %}
+                                        <option value="{{ m.id }}" {% if m.siglas == 'MXN' %}selected{% endif %}>{{ m.siglas }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-12 mt-2">
+                                    <label class="form-label small fw-bold text-secondary">Notas / Justificación</label>
+                                    <textarea name="notas" id="notas_solicitud" class="form-control form-control-sm" rows="2" placeholder="Escriba aquí el motivo de la solicitud o detalles urgentes..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 2: AGREGAR ARTÍCULO -->
+                    <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
+                        <div class="card-body p-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem;">2. Agregar Artículo</h6>
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-secondary">Producto</label>
+                                    <select id="add_producto" class="form-select form-select-sm" onchange="actualizarCostoDefault(this)">
+                                        <option value="">Buscar producto...</option>
+                                        {% for p in productos %}
+                                        <option value="{{ p.id }}" data-precio="{{ p.precio_costo }}">{{ p.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-secondary">Lista de Costo</label>
+                                    <select id="add_lista" class="form-select form-select-sm" onchange="aplicarListaCosto()">
+                                        <option value="">Manual</option>
+                                        {% for l in listas_costos %}
+                                        <option value="{{ l.id }}" data-porc="{{ l.porcentaje_extra }}" data-monto="{{ l.monto_extra }}">{{ l.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-1">
+                                    <label class="form-label small fw-bold text-secondary">Cant.</label>
+                                    <input type="number" id="add_cantidad" class="form-control form-control-sm text-center" value="1" min="1">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold text-secondary">Costo Unit.</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" id="add_costo" class="form-control form-control-sm text-end" value="0.00" step="0.01">
+                                    </div>
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="button" class="btn btn-brand btn-sm w-100 fw-bold" onclick="agregarArticuloManual()" title="Agregar Item">
+                                        <i class="bi bi-plus-lg"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 3: LISTADO DE ARTÍCULOS -->
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0" id="tablaDetalleSolicitud">
+                                    <thead class="table-light">
+                                        <tr style="font-size: 0.7rem;" class="text-uppercase text-muted">
+                                            <th class="ps-3" style="min-width: 180px;">Artículo</th>
+                                            <th style="min-width: 100px;">Lista</th>
+                                            <th style="min-width: 80px;">Moneda</th>
+                                            <th style="min-width: 150px;">Proveedor</th>
+                                            <th style="min-width: 130px;">Sucursal Prov.</th>
+                                            <th style="min-width: 120px;">Almacén</th>
+                                            <th class="text-center" style="width: 80px;">Cant.</th>
+                                            <th class="text-end" style="width: 100px;">Costo</th>
+                                            <th style="width: 40px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cuerpoTablaSolicitud">
+                                        <!-- Las filas se agregan dinámicamente -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div id="mensajeVacioSolicitud" class="text-center py-4 text-muted small fst-italic bg-white border border-dashed rounded mt-2">
+                                No hay productos agregados.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FOOTER -->
+                <div class="modal-footer border-top bg-white">
+                    <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-brand btn-sm px-4 text-white" id="btnGuardarSolicitud">Guardar Solicitud</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .btn-outline-brand { color: #00b8b9; border-color: #00b8b9; }
+    .btn-outline-brand:hover { background-color: #00b8b9; color: white; }
+    .btn-brand { background-color: #00b8b9; border-color: #00b8b9; color: white; }
+    .btn-brand:hover { background-color: #008f90; border-color: #008f90; color: white; }
+</style>

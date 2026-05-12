@@ -37,6 +37,7 @@ class OrdenVenta(models.Model):
 
     vendedor = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Vendedor")
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
+    sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
     
     # Jerarquía para entregas parciales
     parent_orden = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='hijas')

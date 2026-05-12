@@ -44,6 +44,7 @@ def procesar_recepcion_servicio(data_post, empresa_actual, usuario=None):
         orden_compra=orden_compra,
         almacen=almacen,
         empresa=empresa_actual, 
+        sucursal=orden_compra.sucursal_empresa, # Hereda la sucursal de la OC
         fecha=fecha,
         factura=factura,
         pedimento=pedimento if pedimento else None,

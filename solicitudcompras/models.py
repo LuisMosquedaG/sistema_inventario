@@ -17,6 +17,7 @@ class SolicitudCompra(models.Model):
     pedido_origen = models.ForeignKey('pedidos.Pedido', on_delete=models.CASCADE, null=True, blank=True, verbose_name="Pedido Origen")
     solicitante = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Solicitante")
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Empresa")
+    sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
     
     fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha Solicitud")
     fecha_envio = models.DateTimeField(null=True, blank=True, verbose_name="Enviada el")

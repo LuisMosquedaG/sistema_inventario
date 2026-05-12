@@ -42,6 +42,10 @@ INVENTORY_PERMISSION_MATRIX = {
     'listas': ['ver', 'crear', 'editar', 'eliminar'],
 }
 
+HR_PERMISSION_MATRIX = {
+    'empleados': ['ver', 'crear', 'editar', 'eliminar'],
+}
+
 
 def get_empresa_actual(request):
     username = request.user.username
@@ -70,6 +74,7 @@ def user_has_module_permission(request, modulo, accion):
         'produccion': 'modulo_produccion',
         'inventario': 'modulo_inventarios',
         'tesoreria': 'modulo_tesoreria',
+        'recursos_humanos': 'modulo_recursos_humanos',
     }
     
     campo_modulo = mapa_modulos.get(modulo)
@@ -429,4 +434,65 @@ def get_granular_treasury_permissions(request):
     perms = {}
     for submodulo, acciones in TREASURY_PERMISSION_MATRIX.items():
         perms[submodulo] = {accion: user_has_treasury_permission(request, submodulo, accion) for accion in acciones}
+    return perms
+
+
+def user_has_hr_permission(request, submodulo, accion):
+    user = request.user
+    if not user.is_authenticated:
+        return False
+
+    empresa = get_empresa_actual(request)
+    if not empresa:
+        return user.is_superuser
+
+    # Verificar si el módulo está habilitado para la empresa
+    if not empresa.modulo_recursos_humanos:
+        return False
+
+    if user.is_superuser:
+        return True
+
+    asignacion = AsignacionRolUsuario.objects.select_related('rol').filter(
+        usuario=user,
+        empresa=empresa
+    ).first()
+
+    if not asignacion:
+        return False
+
+    permiso_accion = PermisoRolAccion.objects.filter(
+        rol=asignacion.rol,
+        area='recursos_humanos',
+        submodulo=submodulo,
+        accion=accion
+    ).first()
+    if permiso_accion is not None:
+        return bool(permiso_accion.permitido)
+
+    return False
+
+
+def require_hr_permission(submodulo, accion, json_response=False):
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapped(request, *args, **kwargs):
+            if user_has_hr_permission(request, submodulo, accion):
+                return view_func(request, *args, **kwargs)
+
+            if json_response:
+                return JsonResponse({'success': False, 'error': 'No cuentas con permiso para esta acción.'}, status=403)
+
+            messages.error(request, 'No cuentas con permiso para esta acción.')
+            return redirect('dashboard_inicio')
+
+        return wrapped
+
+    return decorator
+
+
+def get_granular_hr_permissions(request):
+    perms = {}
+    for submodulo, acciones in HR_PERMISSION_MATRIX.items():
+        perms[submodulo] = {accion: user_has_hr_permission(request, submodulo, accion) for accion in acciones}
     return perms

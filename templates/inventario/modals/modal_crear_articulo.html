@@ -44,6 +44,15 @@
                                     </select>
                                 </div>
                                 <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Sucursal</label>
+                                    <select name="sucursal" id="selectSucursalArticulo" class="form-select form-select-sm">
+                                        <option value="">-- Global --</option>
+                                        {% for s in sucursales %}
+                                            <option value="{{ s.id }}">{{ s.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
                                     <label class="form-label small fw-bold text-secondary mb-1">Tipo de Abastecimiento</label>
                                     <select name="tipo_abastecimiento" id="selectAbastecimiento" class="form-select form-select-sm" onchange="toggleTestCalidad()">
                                         <option value="compra" selected>Compra</option>

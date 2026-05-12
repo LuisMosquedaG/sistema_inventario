@@ -40,8 +40,9 @@ def dashboard_compras(request):
     proveedor_id = request.GET.get('proveedor_id', '')
     fecha = request.GET.get('fecha', '')
     estado = request.GET.get('estado', '')
+    sucursal_id_filtro = request.GET.get('sucursal', '')
 
-    compras_list = OrdenCompra.objects.filter(empresa=empresa_actual).order_by('-fecha', '-id')
+    compras_list = OrdenCompra.objects.filter(empresa=empresa_actual).select_related('proveedor', 'usuario', 'sucursal_empresa').order_by('-fecha', '-id')
 
     if q:
         compras_list = compras_list.filter(
@@ -69,6 +70,8 @@ def dashboard_compras(request):
             pass
     if estado:
         compras_list = compras_list.filter(estado=estado)
+    if sucursal_id_filtro:
+        compras_list = compras_list.filter(sucursal_empresa_id=sucursal_id_filtro)
 
     # Para el buscador visual de proveedor
     proveedor_nombre_display = ""
@@ -86,9 +89,12 @@ def dashboard_compras(request):
         'proveedor_id': proveedor_id,
         'proveedor_nombre': proveedor_nombre_display,
         'fecha': fecha,
-        'estado': estado
+        'estado': estado,
+        'sucursal': sucursal_id_filtro
     }
     # --- FIN LÓGICA DE FILTRADO ---
+    from preferencias.models import Sucursal
+    sucursales_lista = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
 
     paginator = Paginator(compras_list, 10)
     page_number = request.GET.get('page')
@@ -116,6 +122,7 @@ def dashboard_compras(request):
         'monedas': monedas,
         'listas_costos': listas_costos,
         'cajas_y_bancos': cajas_y_bancos,
+        'sucursales': sucursales_lista,
         'section': 'compras',
         'filtros': filtros
     }
@@ -132,7 +139,8 @@ def crear_compra(request):
             orden = crear_orden_compra_servicio(
                 usuario=request.user,
                 data_post=request.POST,
-                empresa_actual=empresa_actual
+                empresa_actual=empresa_actual,
+                session_sucursal_id=request.session.get('sucursal_id')
             )
 
             crear_notificacion(

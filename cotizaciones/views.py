@@ -39,8 +39,9 @@ def dashboard_cotizaciones(request):
     cliente_id = request.GET.get('cliente_id', '')
     fecha = request.GET.get('fecha', '')
     estado = request.GET.get('estado', '')
+    sucursal_id_filtro = request.GET.get('sucursal', '')
 
-    lista_cotizaciones = Cotizacion.objects.filter(empresa=empresa_actual).order_by('-creado_en')
+    lista_cotizaciones = Cotizacion.objects.filter(empresa=empresa_actual).select_related('cliente', 'vendedor', 'sucursal').order_by('-creado_en')
 
     if q:
         # Intentar convertir q a número para buscar por ID exacto o parcial
@@ -63,6 +64,8 @@ def dashboard_cotizaciones(request):
             pass
     if estado:
         lista_cotizaciones = lista_cotizaciones.filter(estado=estado)
+    if sucursal_id_filtro:
+        lista_cotizaciones = lista_cotizaciones.filter(sucursal_id=sucursal_id_filtro)
 
     # Para mantener el nombre del cliente en el buscador visual
     cliente_nombre_display = ""
@@ -80,9 +83,12 @@ def dashboard_cotizaciones(request):
         'cliente_id': cliente_id,
         'cliente_nombre': cliente_nombre_display,
         'fecha': fecha,
-        'estado': estado
+        'estado': estado,
+        'sucursal': sucursal_id_filtro
     }
     # --- FIN LÓGICA DE FILTRADO ---
+    from preferencias.models import Sucursal
+    sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
 
     todos_los_clientes = Cliente.objects.filter(empresa=empresa_actual)
     todos_los_productos = Producto.objects.filter(empresa=empresa_actual)
@@ -97,6 +103,7 @@ def dashboard_cotizaciones(request):
         'productos': todos_los_productos,
         'categorias_catalogo': todas_categorias,
         'listas_precios': todas_listas,
+        'sucursales': sucursales,
         'filtros': filtros
     }
     return render(request, 'dashboard_cotizaciones.html', contexto)
@@ -150,6 +157,16 @@ def crear_cotizacion(request):
                 # El contacto debe pertenecer al cliente seleccionado
                 contacto_obj = get_object_or_404(ContactoCliente, id=contacto_id, cliente=cliente_obj)
 
+            # Asignar sucursal desde la sesión
+            sucursal_obj = None
+            sucursal_id = request.session.get('sucursal_id')
+            if sucursal_id:
+                from preferencias.models import Sucursal
+                try:
+                    sucursal_obj = Sucursal.objects.get(id=sucursal_id, empresa=empresa_actual)
+                except Sucursal.DoesNotExist:
+                    pass
+
             # --- 2. CREAR CABECERA ---
             nueva_cotizacion = Cotizacion.objects.create(
                 cliente=cliente_obj,
@@ -160,7 +177,8 @@ def crear_cotizacion(request):
                 origen=origen,
                 direccion_entrega=direccion,
                 estado='borrador',
-                empresa=empresa_actual
+                empresa=empresa_actual,
+                sucursal=sucursal_obj
             )
 
             # --- 3. GUARDAR DETALLES ---
@@ -352,6 +370,14 @@ def recotizar(request, cotizacion_id):
             original.estado = 'cancelada'
             original.save()
 
+            # Obtener sucursal (prioridad al filtro/POST, luego al original)
+            sucursal_id = request.POST.get('sucursal')
+            if not sucursal_id:
+                sucursal_obj = original.sucursal
+            else:
+                from preferencias.models import Sucursal
+                sucursal_obj = Sucursal.objects.filter(id=sucursal_id, empresa=empresa_actual).first()
+
             # Clonar
             nueva = Cotizacion.objects.create(
                 cliente=original.cliente,
@@ -362,7 +388,8 @@ def recotizar(request, cotizacion_id):
                 direccion_entrega=original.direccion_entrega,
                 estado='borrador',
                 parent_quote=original,
-                empresa=original.empresa # Hereda la empresa correctamente
+                empresa=original.empresa, # Hereda la empresa correctamente
+                sucursal=sucursal_obj # Usa la sucursal determinada
             )
 
             for detalle in original.detalles.all():

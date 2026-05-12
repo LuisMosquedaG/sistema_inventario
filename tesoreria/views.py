@@ -27,10 +27,47 @@ def lista_egresos(request):
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)
     
-    egresos = Egreso.objects.filter(empresa=empresa_actual).select_related('moneda', 'caja_banco', 'pago_compra__orden_compra__proveedor').order_by('-fecha', '-id')
+    # --- LÓGICA DE FILTRADO ---
+    q = request.GET.get('q', '')
+    folio = request.GET.get('folio', '')
+    sucursal_id = request.GET.get('sucursal', '')
+    fecha = request.GET.get('fecha', '')
+    
+    egresos = Egreso.objects.filter(empresa=empresa_actual).select_related('moneda', 'caja_banco', 'pago_compra__orden_compra__proveedor', 'sucursal').order_by('-fecha', '-id')
+    
+    if q:
+        from django.db.models import Q
+        egresos = egresos.filter(
+            Q(concepto__icontains=q) |
+            Q(referencia__icontains=q) |
+            Q(pago_compra__orden_compra__proveedor__razon_social__icontains=q)
+        )
+    
+    if folio:
+        clean_folio = folio.upper().replace('EGR-', '').replace('EGR', '').strip()
+        egresos = egresos.filter(id__icontains=clean_folio)
+        
+    if sucursal_id:
+        egresos = egresos.filter(sucursal_id=sucursal_id)
+        
+    if fecha:
+        egresos = egresos.filter(fecha=fecha)
+    # --- FIN LÓGICA DE FILTRADO ---
+
+    from preferencias.models import Sucursal
+    sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
+    
+    filtros = {
+        'q': q,
+        'folio': folio,
+        'sucursal': sucursal_id,
+        'fecha': fecha
+    }
     
     contexto = {
         'egresos': egresos,
+        'sucursales': sucursales,
+        'filtros': filtros,
         'section': 'tesoreria_egresos'
     }
     return render(request, 'tesoreria/dashboard_egresos.html', contexto)
@@ -57,6 +94,16 @@ def api_registrar_pago_compra(request):
             forma_pago = request.POST.get('forma_pago')
             referencia = request.POST.get('referencia', '')
             
+            # --- OBTENER SUCURSAL DE SESIÓN ---
+            from preferencias.models import Sucursal
+            sucursal_id = request.session.get('sucursal_id')
+            sucursal_obj = None
+            if sucursal_id:
+                try:
+                    sucursal_obj = Sucursal.objects.get(id=sucursal_id, empresa=empresa_actual)
+                except Sucursal.DoesNotExist:
+                    pass
+
             pago = PagoCompra.objects.create(
                 empresa=empresa_actual,
                 orden_compra=compra,
@@ -67,7 +114,8 @@ def api_registrar_pago_compra(request):
                 moneda=moneda,
                 tipo_cambio=tipo_cambio,
                 monto=monto,
-                monto_mxn=monto_mxn
+                monto_mxn=monto_mxn,
+                sucursal=sucursal_obj
             )
             
             # --- REGISTRO EN EGRESOS ---
@@ -82,7 +130,8 @@ def api_registrar_pago_compra(request):
                 forma_pago=forma_pago,
                 caja_banco=caja_banco,
                 referencia=referencia,
-                pago_compra=pago
+                pago_compra=pago,
+                sucursal=sucursal_obj
             )
             
             return JsonResponse({'success': True, 'message': 'Pago registrado correctamente.'})
@@ -155,10 +204,49 @@ def lista_ingresos(request):
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)
     
-    ingresos = Ingreso.objects.filter(empresa=empresa_actual).select_related('moneda', 'caja_banco', 'pago_pedido__pedido__cliente').order_by('-fecha', '-id')
+    # --- LÓGICA DE FILTRADO ---
+    q = request.GET.get('q', '')
+    folio = request.GET.get('folio', '')
+    sucursal_id = request.GET.get('sucursal', '')
+    fecha = request.GET.get('fecha', '')
+    
+    ingresos = Ingreso.objects.filter(empresa=empresa_actual).select_related('moneda', 'caja_banco', 'pago_pedido__pedido__cliente', 'sucursal').order_by('-fecha', '-id')
+    
+    if q:
+        from django.db.models import Q
+        ingresos = ingresos.filter(
+            Q(concepto__icontains=q) |
+            Q(referencia__icontains=q) |
+            Q(pago_pedido__pedido__cliente__nombre__icontains=q) |
+            Q(pago_pedido__pedido__cliente__apellidos__icontains=q) |
+            Q(pago_pedido__pedido__cliente__razon_social__icontains=q)
+        )
+    
+    if folio:
+        clean_folio = folio.upper().replace('ING-', '').replace('ING', '').strip()
+        ingresos = ingresos.filter(id__icontains=clean_folio)
+        
+    if sucursal_id:
+        ingresos = ingresos.filter(sucursal_id=sucursal_id)
+        
+    if fecha:
+        ingresos = ingresos.filter(fecha=fecha)
+    # --- FIN LÓGICA DE FILTRADO ---
+
+    from preferencias.models import Sucursal
+    sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
+    
+    filtros = {
+        'q': q,
+        'folio': folio,
+        'sucursal': sucursal_id,
+        'fecha': fecha
+    }
     
     contexto = {
         'ingresos': ingresos,
+        'sucursales': sucursales,
+        'filtros': filtros,
         'section': 'tesoreria_ingresos'
     }
     return render(request, 'tesoreria/dashboard_ingresos.html', contexto)
@@ -244,6 +332,16 @@ def api_registrar_pago_pedido(request):
             forma_pago = request.POST.get('forma_pago')
             referencia = request.POST.get('referencia', '')
             
+            # --- OBTENER SUCURSAL DE SESIÓN ---
+            from preferencias.models import Sucursal
+            sucursal_id = request.session.get('sucursal_id')
+            sucursal_obj = None
+            if sucursal_id:
+                try:
+                    sucursal_obj = Sucursal.objects.get(id=sucursal_id, empresa=empresa_actual)
+                except Sucursal.DoesNotExist:
+                    pass
+
             pago = PagoPedido.objects.create(
                 empresa=empresa_actual,
                 pedido=pedido,
@@ -254,7 +352,8 @@ def api_registrar_pago_pedido(request):
                 moneda=moneda,
                 tipo_cambio=tipo_cambio,
                 monto=monto,
-                monto_mxn=monto_mxn
+                monto_mxn=monto_mxn,
+                sucursal=sucursal_obj
             )
             
             # --- REGISTRO EN INGRESOS ---
@@ -269,7 +368,8 @@ def api_registrar_pago_pedido(request):
                 forma_pago=forma_pago,
                 caja_banco=caja_banco,
                 referencia=referencia,
-                pago_pedido=pago
+                pago_pedido=pago,
+                sucursal=sucursal_obj
             )
             
             return JsonResponse({'success': True, 'message': 'Pago registrado correctamente.'})

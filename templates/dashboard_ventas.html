@@ -133,7 +133,7 @@
                         <input type="text" name="folio_pedido" class="form-control form-control-sm" placeholder="Ej: 105" value="{{ filtros.folio_pedido|default:'' }}">
                     </div>
                     <!-- 5. Cliente -->
-                    <div class="col-12 col-md-4 col-lg-3">
+                    <div class="col-12 col-md-4 col-lg-2">
                         <label class="form-label small fw-bold text-secondary">Cliente</label>
                         <div class="custom-select-wrapper" id="wrapperFiltroCliente">
                             <div class="custom-select">
@@ -167,7 +167,7 @@
                         </div>
                     </div>
                     <!-- 6. Fecha -->
-                    <div class="col-12 col-md-4 col-lg-2">
+                    <div class="col-12 col-md-4 col-lg-1">
                         <label class="form-label small fw-bold text-secondary">Fecha</label>
                         <input type="date" name="fecha_salida" class="form-control form-control-sm" value="{{ filtros.fecha_salida|default:'' }}" onchange="this.form.submit()">
                     </div>
@@ -179,7 +179,17 @@
                             <option value="borrador" {% if filtros.estado == 'borrador' %}selected{% endif %}>Borrador</option>
                             <option value="aprobado" {% if filtros.estado == 'aprobado' %}selected{% endif %}>Aprobado</option>
                             <option value="surtido" {% if filtros.estado == 'surtido' %}selected{% endif %}>Surtido</option>
-                            <option value="cancelado" {% if filtros.estado == 'cancelado' %}selected{% endif %}>Cancelado</option>
+                            <option value="cancelado" {% if filtros.estado == 'cancelado' %}selected{% endif %}>Cancelada</option>
+                        </select>
+                    </div>
+                    <!-- 8. Sucursal -->
+                    <div class="col-12 col-md-4 col-lg-2">
+                        <label class="form-label small fw-bold text-secondary">Sucursal</label>
+                        <select name="sucursal" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="">Todas...</option>
+                            {% for suc in sucursales %}
+                                <option value="{{ suc.id }}" {% if filtros.sucursal|stringformat:"s" == suc.id|stringformat:"s" %}selected{% endif %}>{{ suc.nombre }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                 </form>
@@ -194,6 +204,7 @@
                         <thead>
                             <tr>
                                 <th class="text-center" style="width: 80px;">Acciones</th>
+                                <th class="text-center" style="width: 100px;">Sucursal</th>
                                 <th class="text-center" style="width: 180px;">Folio Salida / Fecha</th>
                                 <th class="text-center" style="width: 180px;">Folio Cotiz. / Fecha</th>
                                 <th class="text-center" style="width: 180px;">Folio Pedido / Fecha</th>
@@ -255,15 +266,20 @@
                                                 </form>
                                             {% endif %}
                                         {% endif %}
-
                                     </div>
                                 </td>
 
-                                <!-- 2. FOLIO VENTA / FECHA (Replica Cliente) -->
-                                <td class="text-center">
+                                    <!-- 1.5 SUCURSAL -->
+                                    <td class="text-center">
+                                    <span class="badge bg-light text-secondary border small">{{ ov.sucursal.nombre|default:"Principal" }}</span>
+                                    </td>
+
+                                    <!-- 2. FOLIO VENTA / FECHA (Replica Cliente) -->
+                                    <td class="text-center">
                                     <div class="fw-bold text-dark font-monospace" style="font-size: 0.9rem; line-height: 1.2;">{{ ov.folio_display }}</div>
                                     <div class="text-secondary mt-1" style="font-size: 0.75rem; line-height: 1.4;">{{ ov.fecha_creacion|date:"d M Y" }}</div>
-                                </td>
+                                    </td>
+
 
                                 <!-- 3. FOLIO COTIZACIÓN / FECHA (Replica Cliente) -->
                                 <td class="text-center">

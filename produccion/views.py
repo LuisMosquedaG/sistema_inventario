@@ -39,9 +39,10 @@ def dashboard_produccion(request):
     folio_op = request.GET.get('folio_op', '')
     producto_id = request.GET.get('producto_id', '')
     estado = request.GET.get('estado', '')
+    sucursal_id = request.GET.get('sucursal', '')
 
     ordenes_qs = OrdenProduccion.objects.filter(empresa=empresa_actual).select_related(
-        'producto', 'pedido_origen', 'almacen', 'responsable', 'solicitante', 'producto__test_calidad'
+        'producto', 'pedido_origen', 'almacen', 'responsable', 'solicitante', 'producto__test_calidad', 'sucursal'
     ).prefetch_related('detalles', 'resultados_test').order_by('-fecha_creacion')
 
     if q:
@@ -62,6 +63,9 @@ def dashboard_produccion(request):
 
     if estado:
         ordenes_qs = ordenes_qs.filter(estado=estado)
+        
+    if sucursal_id:
+        ordenes_qs = ordenes_qs.filter(sucursal_id=sucursal_id)
 
     # Para el buscador visual de producto
     producto_nombre_display = ""
@@ -71,13 +75,17 @@ def dashboard_produccion(request):
             producto_nombre_display = prod_obj.nombre
         except:
             pass
+            
+    from preferencias.models import Sucursal
+    sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
 
     filtros = {
         'q': q,
         'folio_op': folio_op,
         'producto_id': producto_id,
         'producto_nombre': producto_nombre_display,
-        'estado': estado
+        'estado': estado,
+        'sucursal': sucursal_id
     }
     # --- FIN LÓGICA DE FILTRADO ---
 
@@ -133,6 +141,7 @@ def dashboard_produccion(request):
         'page_obj': page_obj,
         'productos_finales': productos_finales,
         'almacenes': almacenes,
+        'sucursales': sucursales,
         'clientes': clientes,
         'productos_json': todos_productos_json,
         'todos_productos_qs': todos_productos_qs,
@@ -413,6 +422,16 @@ def crear_orden_produccion(request):
                 
                 producto = get_object_or_404(Producto, id=p_id, empresa=empresa_actual)
                 
+                # --- OBTENER SUCURSAL DE SESIÓN ---
+                from preferencias.models import Sucursal
+                sucursal_id = request.session.get('sucursal_id')
+                sucursal_obj = None
+                if sucursal_id:
+                    try:
+                        sucursal_obj = Sucursal.objects.get(id=sucursal_id, empresa=empresa_actual)
+                    except Sucursal.DoesNotExist:
+                        pass
+
                 # 1. Crear OP
                 op = OrdenProduccion.objects.create(
                     empresa=empresa_actual,
@@ -422,7 +441,8 @@ def crear_orden_produccion(request):
                     almacen_id=almacen_pt_id,
                     almacen_materia_prima_id=almacen_mp_id,
                     solicitante=request.user,
-                    estado='borrador'
+                    estado='borrador',
+                    sucursal=sucursal_obj
                 )
                 
                 # 2. Copiar Componentes (Receta)

@@ -39,8 +39,9 @@ def dashboard_recepciones(request):
     almacen_id = request.GET.get('almacen_id', '')
     fecha = request.GET.get('fecha', '')
     estado = request.GET.get('estado', '')
+    sucursal_id_filtro = request.GET.get('sucursal', '')
 
-    recepciones_list = Recepcion.objects.filter(empresa=empresa_actual).select_related('orden_compra', 'almacen', 'orden_compra__proveedor').order_by('-fecha', '-id')
+    recepciones_list = Recepcion.objects.filter(empresa=empresa_actual).select_related('orden_compra', 'almacen', 'orden_compra__proveedor', 'sucursal').order_by('-fecha', '-id')
 
     if q:
         recepciones_list = recepciones_list.filter(
@@ -53,7 +54,7 @@ def dashboard_recepciones(request):
         )
     if folio_recepcion:
         clean_rec = folio_recepcion.upper().replace('REC-', '').replace('REC', '').strip()
-        recepciones_list = recepciones_list.filter(id__icontains=clean_rec)
+        recepciones_list = recepciones_list.filter(id__icontains=clean_folio)
     if folio_oc:
         clean_oc = folio_oc.upper().replace('OC-', '').replace('OC', '').strip()
         recepciones_list = recepciones_list.filter(orden_compra__id__icontains=clean_oc)
@@ -68,6 +69,8 @@ def dashboard_recepciones(request):
             pass
     if estado:
         recepciones_list = recepciones_list.filter(estado=estado)
+    if sucursal_id_filtro:
+        recepciones_list = recepciones_list.filter(sucursal_id=sucursal_id_filtro)
 
     # Para el buscador visual de proveedor
     proveedor_nombre_display = ""
@@ -86,9 +89,12 @@ def dashboard_recepciones(request):
         'proveedor_nombre': proveedor_nombre_display,
         'almacen_id': almacen_id,
         'fecha': fecha,
-        'estado': estado
+        'estado': estado,
+        'sucursal': sucursal_id_filtro
     }
     # --- FIN LÓGICA DE FILTRADO ---
+    from preferencias.models import Sucursal
+    sucursales_lista = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
 
     paginator = Paginator(recepciones_list, 10)
     page_number = request.GET.get('page')
@@ -109,6 +115,7 @@ def dashboard_recepciones(request):
         'almacenes': almacenes,
         'todos_los_proveedores': todos_los_proveedores,
         'oc_preseleccionada': oc_preseleccionada,
+        'sucursales': sucursales_lista,
         'section': 'recepciones',
         'filtros': filtros
     }

@@ -2,50 +2,18 @@
 {% load static %}
 
 {% block content %}
-    <!-- 1. ESTILOS -->
     <style>
-        /* ESTILOS GENERALES E ICONOS */
-        .icon-action { 
-            color: #adb5bd; 
-            font-size: 1.1rem; 
-            cursor: pointer; 
-            transition: all 0.2s ease; 
-            display: inline-flex; 
-            align-items: center; 
-            justify-content: center; 
-            width: 32px; 
-            height: 32px; 
-            border-radius: 6px; 
-            text-decoration: none !important; 
-            background: transparent; 
-            border: none;
+        /* --- ESTILOS GENERALES (Módulo Solicitudes) --- */
+        .icon-action { color: #adb5bd; font-size: 1.1rem; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; text-decoration: none !important; border: none; background: transparent; }
+        .icon-action:hover { color: #00b8b9; transform: scale(1.15); }
+        
+        .status-pill {
+            display: inline-flex; align-items: center; font-size: 0.7rem; line-height: 1; padding: 0.25em 0.6em;
+            font-weight: 600; text-align: center; white-space: nowrap; border-radius: 50px; text-transform: capitalize;
         }
-        
-        .icon-action:hover { 
-            color: #00b8b9; 
-            transform: scale(1.15); 
-            background-color: transparent;
-        }
-
-        /* ANIMACIÓN MODAL */
-        .modal.fade .modal-dialog { transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease-out !important; transform: scale(0.9) translateY(-50px) !important; opacity: 0; }
-        .modal.show .modal-dialog { transform: scale(1) translateY(0) !important; opacity: 1; }
-        
-        /* ESTILOS DE LA HOJA DEL MODAL */
-        .modal-sheet .modal-content { 
-            border-radius: 12px; 
-            border: none; 
-            box-shadow: 0 10px 40px rgba(0,0,0,0.15); 
-            overflow: hidden; 
-        }
-        
-        .modal-sheet .modal-body { max-height: 70vh; overflow-y: auto; }
-        
-        /* ESTILOS DE ESTADOS (Pills) */
-        .status-pill { display: inline-flex; align-items: center; font-size: 0.7rem; line-height: 1; padding: 0.25em 0.6em; font-weight: 600; text-align: center; white-space: nowrap; border-radius: 50px; text-transform: capitalize; }
-        .status-borrador { background-color: #f1f3f5; color: #495057; border: 1px solid #e9ecef; }
+        .status-borrador { background-color: #f1f3f5; color: #495057; border: 1px solid #dee2e6; }
         .status-aprobada { background-color: #e7f5ff; color: #1971c2; border: 1px solid #d0ebff; }
-        .status-enviada { background-color: #fff3bf; color: #f08c00; border: 1px solid #ffec99; }
+        .status-enviada { background-color: #fff4e6; color: #d9480f; border: 1px solid #ffe8cc; }
         .status-atendida { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
         .status-cancelada { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
 
@@ -86,7 +54,6 @@
             {% endfor %}
         ];
         
-        // Convertimos a JSON seguro para evitar problemas de tipos de datos en JS
         var listaAlmacenes = [
             {% for a in almacenes %}
                 { id: {{ a.id }}, nombre: "{{ a.nombre|escapejs }}" },
@@ -117,7 +84,6 @@
         ];
     </script>
 
-    <!-- 2. CONTENEDOR PRINCIPAL -->
     <div class="container-fluid py-2 px-4">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
             <div>
@@ -161,8 +127,8 @@
                         <input type="text" name="folio_pedido" class="form-control form-control-sm" placeholder="Ej: 105" value="{{ filtros.folio_pedido|default:'' }}">
                     </div>
                     <!-- 5. Proveedor (Buscador) -->
-                    <div class="col-12 col-md-4 col-lg-3">
-                        <label class="form-label small fw-bold text-secondary">Proveedor Sugerido</label>
+                    <div class="col-12 col-md-4 col-lg-2">
+                        <label class="form-label small fw-bold text-secondary">Proveedor</label>
                         <div class="custom-select-wrapper" id="wrapperFiltroProveedor">
                             <div class="custom-select">
                                 <div class="custom-select__trigger">
@@ -181,17 +147,17 @@
                                     <span class="custom-option fw-bold" data-id="all" data-value="all" data-search="" style="color: #00b8b9 !important;">
                                         <i class="bi bi-truck me-2"></i> Todos los proveedores
                                     </span>
-                                {% for p in todos_los_proveedores %}
-                                <span class="custom-option" data-id="{{ p.id }}" data-value="{{ p.razon_social }}" data-search="{{ p.razon_social }} {{ p.rfc }}">
-                                    <span>{{ p.razon_social }}</span>
-                                </span>
-                                {% endfor %}
+                                    {% for p in todos_los_proveedores %}
+                                    <span class="custom-option" data-id="{{ p.id }}" data-value="{{ p.razon_social }}" data-search="{{ p.razon_social }} {{ p.rfc }}">
+                                        <span>{{ p.razon_social }}</span>
+                                    </span>
+                                    {% endfor %}
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-                    <!-- 6. Fecha de Solicitud -->
-                    <div class="col-12 col-md-4 col-lg-2">
+                    <!-- 6. Fecha -->
+                    <div class="col-12 col-md-4 col-lg-1">
                         <label class="form-label small fw-bold text-secondary">Fecha</label>
                         <input type="date" name="fecha_solicitud" class="form-control form-control-sm" value="{{ filtros.fecha_solicitud|default:'' }}" onchange="this.form.submit()">
                     </div>
@@ -207,6 +173,16 @@
                             <option value="cancelada" {% if filtros.estado == 'cancelada' %}selected{% endif %}>Cancelada</option>
                         </select>
                     </div>
+                    <!-- 8. Sucursal -->
+                    <div class="col-12 col-md-4 col-lg-2">
+                        <label class="form-label small fw-bold text-secondary">Sucursal</label>
+                        <select name="sucursal" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="">Todas...</option>
+                            {% for suc in sucursales %}
+                                <option value="{{ suc.id }}" {% if filtros.sucursal|stringformat:"s" == suc.id|stringformat:"s" %}selected{% endif %}>{{ suc.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </form>
             </div>
         </div>
@@ -218,6 +194,7 @@
                         <thead>
                             <tr>
                                 <th class="text-center" style="width: 100px;">Acciones</th>
+                                <th class="text-center" style="width: 100px;">Sucursal</th>
                                 <th class="text-center" style="width: 100px;">Solicitud</th>
                                 <th class="text-center" style="width: 100px;">Cotización</th>
                                 <th class="text-center" style="width: 100px;">Pedido Origen</th>
@@ -254,1329 +231,134 @@
                                         {% endif %}
                                     </div>
                                 </td>
+                                
+                                <!-- 1.5 SUCURSAL -->
+                                <td class="text-center small">
+                                    <span class="badge bg-light text-secondary border">{{ s.sucursal.nombre|default:"Principal" }}</span>
+                                </td>
+
                                 <td class="text-center font-monospace small"><span class="text-dark">SOL-{{ s.id|stringformat:"04d" }}</span></td>
                                 <td class="text-center">
                                     {% if s.pedido_origen and s.pedido_origen.cotizacion_origen_id %}
-                                        <a href="/cotizaciones/editar/{{ s.pedido_origen.cotizacion_origen_id }}/" class="text-decoration-none text-secondary font-monospace" title="Ver Cotización">
-                                            COT-{{ s.pedido_origen.cotizacion_origen_id|stringformat:"04d" }}
-                                        </a>
+                                        <div class="font-monospace small text-secondary">COT-{{ s.pedido_origen.cotizacion_origen_id|stringformat:"04d" }}</div>
                                     {% else %}
-                                        <span class="text-muted small">-</span>
+                                        <span class="text-muted small">--</span>
                                     {% endif %}
                                 </td>
                                 <td class="text-center">
                                     {% if s.pedido_origen %}
-                                        <a href="/pedidos/" class="text-decoration-none text-dark font-monospace">PED-{{ s.pedido_origen.id|stringformat:"04d" }}</a>
+                                        <div class="font-monospace small text-secondary">PED-{{ s.pedido_origen.id|stringformat:"04d" }}</div>
                                     {% else %}
-                                        <span class="text-muted">Manual</span>
+                                        <span class="text-muted small">--</span>
                                     {% endif %}
                                 </td>
-                                <td class="text-center"><div style="font-size: 0.9rem;">{{ s.solicitante_nombre_corto }}</div></td>
-                                <td class="text-center"><div class="text-dark">{{ s.fecha_creacion|date:"d M Y" }}</div></td>
-                                <td class="text-center">{{ s.total_items }} Artículos</td>
+                                <td class="text-center small">
+                                    <div class="text-dark"><i class="bi bi-person-fill me-1 text-muted"></i>{{ s.solicitante_nombre_corto }}</div>
+                                </td>
+                                <td class="text-center small">
+                                    <div class="text-dark">{{ s.fecha_creacion|date:"d M Y" }}</div>
+                                </td>
+                                <td class="text-center fw-bold">{{ s.total_items }}</td>
                                 <td class="text-center">
-                                    {% if s.estado == 'borrador' %}
-                                        <span class="status-pill status-borrador">Borrador</span>
-                                    {% elif s.estado == 'aprobada' %}
-                                        <span class="status-pill status-aprobada">Aprobada</span>
-                                    {% elif s.estado == 'enviada' %}
-                                        <span class="status-pill status-enviada">Enviada</span>
-                                    {% elif s.estado == 'atendida' %}
-                                        <span class="status-pill status-atendida">Atendida</span>
-                                    {% elif s.estado == 'cancelada' %}
-                                        <span class="status-pill status-cancelada">Cancelada</span>
-                                    {% endif %}
+                                    <span class="status-pill status-{{ s.estado }}">{{ s.get_estado_display }}</span>
                                 </td>
                             </tr>
                             {% empty %}
-                            <tr><td colspan="8" class="text-center py-5">No hay solicitudes que coincidan con los filtros.</td></tr>
+                            <tr><td colspan="9" class="text-center py-5">No hay solicitudes registradas.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
             </div>
-            
-            <!-- FOOTER CON PAGINACIÓN -->
-            {% if solicitudes.has_other_pages %}
-            <div class="card-footer bg-white border-0 py-2 px-4 d-flex justify-content-between align-items-center">
-                <span class="text-muted small" style="font-size: 0.75rem;">
-                    Mostrando {{ solicitudes.start_index }} - {{ solicitudes.end_index }} de {{ solicitudes.paginator.count }}
-                </span>
-                
-                <div class="d-flex gap-1">
-                    {% if solicitudes.has_previous %}
-                        <a href="?page={{ solicitudes.previous_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.folio_solicitud %}&folio_solicitud={{ filtros.folio_solicitud }}{% endif %}{% if filtros.folio_cotizacion %}&folio_cotizacion={{ filtros.folio_cotizacion }}{% endif %}{% if filtros.folio_pedido %}&folio_pedido={{ filtros.folio_pedido }}{% endif %}{% if filtros.proveedor_id %}&proveedor_id={{ filtros.proveedor_id }}{% endif %}{% if filtros.fecha_solicitud %}&fecha_solicitud={{ filtros.fecha_solicitud }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted">&laquo;</a>
-                    {% else %}
-                        <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;</button>
-                    {% endif %}
-                    
-                    <button class="btn btn-sm btn-light border-0 text-dark fw-bold">{{ solicitudes.number }}</button>
-                    
-                    {% if solicitudes.has_next %}
-                        <a href="?page={{ solicitudes.next_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.folio_solicitud %}&folio_solicitud={{ filtros.folio_solicitud }}{% endif %}{% if filtros.folio_cotizacion %}&folio_cotizacion={{ filtros.folio_cotizacion }}{% endif %}{% if filtros.folio_pedido %}&folio_pedido={{ filtros.folio_pedido }}{% endif %}{% if filtros.proveedor_id %}&proveedor_id={{ filtros.proveedor_id }}{% endif %}{% if filtros.fecha_solicitud %}&fecha_solicitud={{ filtros.fecha_solicitud }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted">&raquo;</a>
-                    {% else %}
-                        <button class="btn btn-sm btn-light border-0 text-muted" disabled>&raquo;</button>
-                    {% endif %}
-                </div>
-            </div>
-            {% endif %}
         </div>
     </div>
 
-    <!-- 3. MODAL EDITAR -->
-    <div class="modal fade" id="modalEditarSolicitud" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-xl modal-sheet">
-            <div class="modal-content">
-                <!-- HEADER -->
-                <div class="modal-header border-bottom bg-light">
-                    <h5 class="modal-title fw-bold text-dark">
-                        <i class="bi bi-pencil-square me-2" style="color: #00b8b9;"></i> Editar Solicitud
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                
-                <!-- BODY -->
-                <form id="formEditarSolicitud" method="post" action="#">
-                    {% csrf_token %}
-                    <div class="modal-body p-3 bg-light">
-                        
-                        <!-- SECCIÓN 1: DATOS DEL PEDIDO -->
-                        <div class="card border-0 bg-white shadow-sm mb-3">
-                            <div class="card-body p-3">
-                                <h6 class="text-dark border-bottom pb-2 mb-3"><i class="bi bi-receipt me-2 text-secondary"></i>Datos del Pedido</h6>
-                                
-                                <div class="row g-2 mb-2">
-                                    <div class="col-md-4">
-                                        <span class="d-block" style="color: #495057; font-weight: 500; font-size:0.75rem;">Folio Cotización</span>
-                                        <span id="dispFolioCot" class="text-dark" style="font-size:0.9rem;">-</span>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <span class="d-block" style="color: #495057; font-weight: 500; font-size:0.75rem;">Folio Pedido</span>
-                                        <span id="dispFolioPed" class="text-dark" style="font-size:0.9rem;">-</span>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <span class="d-block" style="color: #495057; font-weight: 500; font-size:0.75rem;">Cliente / Razón Social</span>
-                                        <span id="dispCliente" class="text-dark fw-semibold" style="font-size:0.9rem;">-</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+    <!-- MODALES -->
+    {% include "solicitudcompras/modals/modal_nueva_solicitud.html" %}
+    {% include "solicitudcompras/modals/modal_ver_solicitud.html" %}
 
-                        <!-- SECCIÓN 2: GENERALES -->
-                        <div class="card border-0 bg-white border-start border-4 border-info mb-3 shadow-sm" style="border-left-color: #00b8b9 !important;">
-                            <div class="card-body p-3">
-                                <h6 class="text-dark mb-3"><i class="bi bi-sliders me-2" style="color: #00b8b9;"></i>Configuración General</h6>
-                                
-                                <div class="row g-2 mb-3">
-                                    <div style="width: 30%;">
-                                        <label class="small fw-bold text-secondary mb-1">Proveedor General</label>
-                                        <select id="selGeneralProveedor" class="form-select form-select-sm" onchange="actualizarSucursalesGenerales(this.value)">
-                                            <option value="">-- Aplicar a todos --</option>
-                                        </select>
-                                    </div>
-                                    <div style="width: 30%;">
-                                        <label class="small fw-bold text-secondary mb-1">Sucursal de Proveedor</label>
-                                        <select id="selGeneralSucursal" class="form-select form-select-sm">
-                                            <option value="">-- Aplicar a todos --</option>
-                                        </select>
-                                    </div>
-                                    <div style="width: 25%;">
-                                        <label class="small fw-bold text-secondary mb-1">Almacén de Recepción</label>
-                                        <select id="selGeneralAlmacen" class="form-select form-select-sm">
-                                            <option value="">-- Aplicar a todos --</option>
-                                        </select>
-                                    </div>
-                                    <div style="width: 15%;">
-                                        <label class="small fw-bold text-secondary mb-1">Moneda General</label>
-                                        <select id="selGeneralMoneda" class="form-select form-select-sm">
-                                            <option value="">-- Aplicar a todos --</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div class="row">
-                                    <div class="col-md-12">
-                                        <label class="small fw-bold text-secondary mb-1">Notas / Urgencia</label>
-                                        <textarea name="notas" id="inputNotas" class="form-control form-control-sm" rows="2" placeholder="Agregar notas adicionales..."></textarea>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- SECCIÓN 2: AGREGAR ARTÍCULO -->
-                        <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
-                            <div class="card-body p-3">
-                                <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Agregar / Editar Artículo</h6>
-                                <div class="row g-2 align-items-end">
-                                    <div class="col-md-4">
-                                        <label class="form-label small text-muted">Producto</label>
-                                        <select id="selectProductoEdit" class="form-select form-select-sm">
-                                            <option value="">Seleccionar...</option>
-                                            {% for p in productos %}
-                                            <option value="{{ p.id }}" data-precio="{{ p.precio_costo }}">{{ p.nombre }}</option>
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label small text-muted">Lista</label>
-                                        <select id="selectListaPrecioEdit" class="form-select form-select-sm">
-                                            <option value="">-- Seleccionar --</option>
-                                            {% for l in listas_costos %}
-                                            <option value="{{ l.id }}" data-porc="{{ l.porcentaje_extra }}" data-monto="{{ l.monto_extra }}">{{ l.nombre }}</option>
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-                                    <div class="col-md-1">
-                                        <label class="form-label small text-muted">Cant.</label>
-                                        <input type="number" id="inputCantEdit" class="form-control form-control-sm text-center" value="1" min="1">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label small text-muted">Costo Unit.</label>
-                                        <div class="input-group input-group-sm">
-                                            <span class="input-group-text">$</span>
-                                            <input type="number" id="inputCostoEdit" class="form-control form-control-sm" value="0.00" step="0.01">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-1">
-                                        <button type="button" class="btn btn-brand btn-sm w-100" onclick="agregarArticuloAEditar()" title="Agregar">
-                                            <i class="bi bi-plus-lg"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- SECCIÓN 3: TABLA DE ARTÍCULOS -->
-                        <div class="card border-0 shadow-sm mb-3">
-                            <div class="card-body p-0">
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-hover mb-0 align-middle">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th class="ps-3" style="width: 20%;">Artículo</th>
-                                                <th class="text-center" style="width: 15%;">Lista</th>
-                                                <th class="text-center" style="width: 5%;">Moneda</th>
-                                                <th class="text-center" style="width: 15%;">Proveedor</th>
-                                                <th class="text-center" style="width: 12%;">Sucursal</th>
-                                                <th class="text-center" style="width: 12%;">Almacén</th>
-                                                <th class="text-center" style="width: 4%;">Cant.</th>
-                                                <th class="text-center" style="width: 12%;">Costo</th>
-                                                <th style="width: 60px;"></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="tablaCuerpo">
-                                            <!-- JS rows here -->
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-                    
-                    <!-- FOOTER -->
-                    <div class="modal-footer border-top bg-white">
-                        <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-brand btn-sm px-4">Guardar Solicitud</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- 4. MODAL NUEVA SOLICITUD MANUAL -->
-    <div class="modal fade" id="modalNuevaSolicitudManual" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-xl modal-sheet">
-            <div class="modal-content">
-                <div class="modal-header border-bottom bg-light py-2">
-                    <h5 class="modal-title fw-bold text-dark">
-                        <i class="bi bi-plus-circle me-2" style="color: #00b8b9;"></i> Nueva solicitud de compra
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                
-                <form id="formNuevaSolicitudManual" method="post" action="{% url 'crear_solicitud_manual' %}">
-                    {% csrf_token %}
-                    <div class="modal-body p-3 bg-light">
-                        
-                        <!-- SECCIÓN 1: CONFIGURACIÓN GENERAL Y NOTAS -->
-                        <div class="card border-0 bg-white mb-3 shadow-sm">
-                            <div class="card-body p-3">
-                                <h6 class="text-dark mb-3"><i class="bi bi-sliders me-2" style="color: #00b8b9;"></i>Configuración General</h6>
-                                
-                                <div class="row g-2 mb-3">
-                                    <div style="width: 30%;">
-                                        <label class="small fw-bold text-secondary mb-1">Proveedor General</label>
-                                        <select id="selGeneralProveedorManual" class="form-select form-select-sm" onchange="actualizarSucursalesGeneralesManual(this.value)">
-                                            <option value="">-- Aplicar a todos --</option>
-                                        </select>
-                                    </div>
-                                    <div style="width: 30%;">
-                                        <label class="small fw-bold text-secondary mb-1">Sucursal de Proveedor</label>
-                                        <select id="selGeneralSucursalManual" class="form-select form-select-sm">
-                                            <option value="">-- Aplicar a todos --</option>
-                                        </select>
-                                    </div>
-                                    <div style="width: 25%;">
-                                        <label class="small fw-bold text-secondary mb-1">Almacén de Recepción</label>
-                                        <select id="selGeneralAlmacenManual" class="form-select form-select-sm">
-                                            <option value="">-- Aplicar a todos --</option>
-                                        </select>
-                                    </div>
-                                    <div style="width: 15%;">
-                                        <label class="small fw-bold text-secondary mb-1">Moneda General</label>
-                                        <select id="selGeneralMonedaManual" class="form-select form-select-sm">
-                                            <option value="">-- Aplicar a todos --</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div class="row">
-                                    <div class="col-md-12">
-                                        <label class="small fw-bold text-secondary mb-1">Notas / Urgencia</label>
-                                        <textarea name="notas" class="form-control form-control-sm" rows="1" placeholder="Notas de la solicitud..."></textarea>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- SECCIÓN 2: AGREGAR ARTÍCULO -->
-                        <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
-                            <div class="card-body p-3">
-                                <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Agregar Artículo</h6>
-                                <div class="row g-2 align-items-end">
-                                    <div class="col-md-4">
-                                        <label class="form-label small text-muted">Producto</label>
-                                        <select id="selectProductoManual" class="form-select form-select-sm">
-                                            <option value="">Seleccionar...</option>
-                                            {% for p in productos %}
-                                            <option value="{{ p.id }}" data-precio="{{ p.precio_costo }}">{{ p.nombre }}</option>
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label small text-muted">Lista</label>
-                                        <select id="selectListaPrecioManual" class="form-select form-select-sm">
-                                            <option value="">-- Seleccionar --</option>
-                                            {% for l in listas_costos %}
-                                            <option value="{{ l.id }}" data-porc="{{ l.porcentaje_extra }}" data-monto="{{ l.monto_extra }}">{{ l.nombre }}</option>
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-                                    <div class="col-md-1">
-                                        <label class="form-label small text-muted">Cant.</label>
-                                        <input type="number" id="inputCantManual" class="form-control form-control-sm text-center" value="1" min="1">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label small text-muted">Costo Unit.</label>
-                                        <div class="input-group input-group-sm">
-                                            <span class="input-group-text">$</span>
-                                            <input type="number" id="inputCostoManual" class="form-control form-control-sm" value="0.00" step="0.01">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-1">
-                                        <button type="button" class="btn btn-brand btn-sm w-100" onclick="agregarArticuloManual()" title="Agregar">
-                                            <i class="bi bi-plus-lg"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- SECCIÓN 3: TABLA DE ARTÍCULOS -->
-                        <div class="card border-0 shadow-sm">
-                            <div class="card-body p-0">
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-hover mb-0 align-middle">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th class="ps-3" style="width: 20%;">Artículo</th>
-                                                <th class="text-center" style="width: 15%;">Lista</th>
-                                                <th class="text-center" style="width: 5%;">Moneda</th>
-                                                <th class="text-center" style="width: 20%;">Proveedor</th>
-                                                <th class="text-center" style="width: 12%;">Sucursal</th>
-                                                <th class="text-center" style="width: 12%;">Almacén</th>
-                                                <th class="text-center" style="width: 4%;">Cant.</th>
-                                                <th class="text-center" style="width: 12%;">Costo</th>
-                                                <th style="width: 60px;"></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="tablaCuerpoManual">
-                                            <!-- JS rows here -->
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <div id="mensajeVacioManual" class="text-center py-3 text-muted small fst-italic">No hay artículos agregados.</div>
-                            </div>
-                        </div>
-
-                    </div>
-                    
-                    <div class="modal-footer border-top bg-white py-2">
-                        <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-brand btn-sm px-4">Crear Solicitud</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- 5. MODAL VER SOLICITUD -->
-    <div class="modal fade" id="modalVerSolicitud" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-xl modal-sheet">
-            <div class="modal-content">
-                <div class="modal-header border-bottom bg-light py-2">
-                    <h5 class="modal-title fw-bold text-dark">
-                        <i class="bi bi-eye me-2" style="color: #00b8b9;"></i> Detalle de Solicitud: <span id="verFolioSolicitud">-</span>
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-3 bg-light">
-                    
-                    <!-- SECCIÓN 1: DATOS GENERALES -->
-                    <div class="card border-0 bg-white shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
-                        <div class="card-body p-3">
-                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Datos Generales</h6>
-                            <div class="row g-3">
-                                <div class="col-md-4">
-                                    <label class="form-label small fw-bold text-secondary mb-0">Cliente</label>
-                                    <div id="verCliente" class="text-dark fw-semibold">--</div>
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-bold text-secondary mb-0">Fecha de solicitud</label>
-                                    <div id="verFechaCreacion" class="text-dark">--</div>
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-bold text-secondary mb-0">Solicitante</label>
-                                    <div id="verSolicitante" class="text-dark fw-semibold">--</div>
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-bold text-secondary mb-0">Folio de pedido</label>
-                                    <div id="verFolioPed" class="text-dark fw-semibold">--</div>
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-bold text-secondary mb-0">Folio de cotización</label>
-                                    <div id="verFolioCot" class="text-dark fw-semibold">--</div>
-                                </div>
-                                <div class="col-md-12">
-                                    <label class="form-label small fw-bold text-secondary mb-0">Notas / Urgencia</label>
-                                    <div id="verNotas" class="text-dark small">--</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- SECCIÓN 2: LISTADO DE ARTÍCULOS -->
-                    <div class="card border-0 shadow-sm">
-                        <div class="card-body p-0">
-                            <h6 class="text-uppercase text-muted fw-bold p-3 mb-0" style="font-size: 0.75rem; letter-spacing: 1px;">Listado de Artículos</h6>
-                            <div class="table-responsive">
-                                <table class="table table-sm table-hover mb-0 align-middle">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th class="ps-3" style="width: 25%;">Artículo</th>
-                                            <th class="text-center" style="width: 8%;">Cant.</th>
-                                            <th class="text-center" style="width: 8%;">Moneda</th>
-                                            <th class="text-center" style="width: 20%;">Proveedor</th>
-                                            <th style="width: 15%;">Suc/Prov</th>
-                                            <th style="width: 14%;">Almacén</th>
-                                            <th class="text-end pe-3" style="width: 10%;">Costo Unit.</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="verTablaCuerpo">
-                                        <!-- JS rows here -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer border-top bg-white py-2">
-                    <button type="button" class="btn btn-light text-secondary btn-sm px-4" data-bs-dismiss="modal">Cerrar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 6. MODAL CONFIRMAR AUTORIZACIÓN -->
-    <div class="modal fade" id="modalConfirmarAutorizacion" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content shadow-lg border-0" style="border-radius: 12px;">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold text-dark w-100 text-center">Confirmar Autorización</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body text-center p-4">
-                    <div class="mb-3">
-                        <i class="bi bi-info-circle text-info display-4" style="color: #00b8b9 !important;"></i>
-                    </div>
-                    <p class="mb-3" id="pResumenAutorizacion">Analizando solicitud...</p>
-                    <div id="divAlertasProveedores" class="text-start mb-0">
-                        <!-- Alertas dinámicas aquí -->
-                    </div>
-                </div>
-                <div class="modal-footer border-0 pt-0 justify-content-center">
-                    <button type="button" class="btn btn-light text-secondary btn-sm px-4" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" id="btnConfirmarFinal" class="btn btn-brand btn-sm px-4 text-white shadow-sm">
-                        Autorizar y Generar OCs
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Div oculto para procesamiento de PDF -->
     <div id="pdf-buffer" style="display:none;"></div>
 
 {% endblock %}
 
 {% block extra_js %}
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // --- PROVEEDOR SEARCHABLE DROPDOWN (FILTROS) ---
-        const wrapperFiltro = document.getElementById('wrapperFiltroProveedor');
-        if (wrapperFiltro) {
-            const selectFiltro = wrapperFiltro.querySelector('.custom-select');
-            const inputFiltro = document.getElementById('filtro_proveedor_busqueda');
-            const fakeFiltro = document.getElementById('filtro_proveedor_fake');
-            const hiddenFiltroId = document.getElementById('filtro_proveedor_id');
-            const optionsFiltro = wrapperFiltro.querySelectorAll('.custom-option');
-
-            const updateFakeVisibility = () => {
-                if (document.activeElement === inputFiltro || inputFiltro.value.length > 0) {
-                    fakeFiltro.style.opacity = "0";
-                } else {
-                    fakeFiltro.style.opacity = "1";
-                }
-            };
-
-            inputFiltro.addEventListener('focus', () => {
-                selectFiltro.classList.add('open');
-                updateFakeVisibility();
-            });
-
-            inputFiltro.addEventListener('blur', updateFakeVisibility);
-
-            inputFiltro.addEventListener('input', function() {
-                fakeFiltro.innerHTML = `<span>${this.value}</span>`;
-                updateFakeVisibility();
-                const term = this.value.toLowerCase();
-                optionsFiltro.forEach(opt => {
-                    const search = (opt.getAttribute('data-search') || '').toLowerCase();
-                    opt.style.display = search.includes(term) ? 'flex' : 'none';
-                });
-                selectFiltro.classList.add('open');
-            });
-
-            optionsFiltro.forEach(option => {
-                option.addEventListener('click', function() {
-                    const valText = this.getAttribute('data-value');
-                    const valId = this.getAttribute('data-id') || 'all';
-                    
-                    if (valId === 'all') {
-                        inputFiltro.value = '';
-                        hiddenFiltroId.value = '';
-                        fakeFiltro.innerHTML = '<span class="text-muted" style="font-weight:400;">Todos...</span>';
-                    } else {
-                        inputFiltro.value = valText;
-                        hiddenFiltroId.value = valId;
-                        fakeFiltro.innerHTML = `<span>${valText}</span>`;
-                    }
-                    
-                    selectFiltro.classList.remove('open');
-                    updateFakeVisibility();
-                    document.getElementById('formFiltrosSolicitudes').submit();
-                });
-            });
-
-            window.addEventListener('click', (e) => {
-                if (wrapperFiltro && !wrapperFiltro.contains(e.target)) selectFiltro.classList.remove('open');
-            });
-        }
-
-        // Asegurar que Enter en inputs de texto envíe el formulario
-        const inputsTexto = document.querySelectorAll('#formFiltrosSolicitudes input[type="text"]');
-        inputsTexto.forEach(input => {
-            input.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    document.getElementById('formFiltrosSolicitudes').submit();
-                }
-            });
-        });
-    });
-
-    function verSolicitud(id) {
-        fetch(`/solicitudes-compras/api/solicitud/${id}/`)
-            .then(response => response.json())
-            .then(data => {
-                if(data.error) { alert(data.error); return; }
-                
-                // Formato de folio SOL-XXXX
-                const folioFormateado = "SOL-" + id.toString().padStart(4, '0');
-                document.getElementById('verFolioSolicitud').innerText = folioFormateado;
-
-                document.getElementById('verSolicitante').innerText = data.solicitante_nombre;
-                document.getElementById('verFechaCreacion').innerText = data.fecha_creacion;
-                document.getElementById('verNotas').innerText = data.notas || 'Sin notas';
-                
-                if (data.pedido_origen) {
-                    document.getElementById('verFolioPed').innerText = '#' + data.pedido_origen.id;
-                    document.getElementById('verFolioCot').innerText = data.pedido_origen.cotizacion_origen_id ? '#' + data.pedido_origen.cotizacion_origen_id : '--';
-                    document.getElementById('verCliente').innerText = data.pedido_origen.cliente.nombre_completo;
-                } else {
-                    document.getElementById('verFolioPed').innerText = 'Manual';
-                    document.getElementById('verFolioCot').innerText = '--';
-                    document.getElementById('verCliente').innerText = 'No especificado';
-                }
-
-                const tbody = document.getElementById('verTablaCuerpo');
-                tbody.innerHTML = '';
-                data.detalles.forEach(det => {
-                    const fila = `
-                        <tr>
-                            <td class="ps-3 align-middle">
-                                <div class="fw-semibold small text-dark text-truncate" title="${det.producto_nombre}">${det.producto_nombre}</div>
-                            </td>
-                            <td class="text-center align-middle small">${det.cantidad}</td>
-                            <td class="text-center align-middle small"><span class="badge bg-light text-dark border">${det.moneda_siglas}</span></td>
-                            <td class="text-center align-middle small">${det.proveedor_nombre}</td>
-                            <td class="align-middle small">${det.sucursal_nombre || '--'}</td>
-                            <td class="align-middle small">${det.almacen_nombre}</td>
-                            <td class="text-end pe-3 align-middle fw-bold text-success">$${parseFloat(det.costo_unitario).toFixed(2)}</td>
-                        </tr>
-                    `;
-                    tbody.insertAdjacentHTML('beforeend', fila);
-                });
-
-                new bootstrap.Modal(document.getElementById('modalVerSolicitud')).show();
-            });
-    }
-
-    function actualizarSucursalesPorFila(selectProv, sucursalIdPreseleccionada = null) {
-        const provId = selectProv.value;
-        const row = selectProv.closest('tr');
-        const selectSuc = row.querySelector('select[name="sucursal_id[]"]');
-        
-        if (!provId) {
-            selectSuc.innerHTML = '<option value="">-- Sin sucursal --</option>';
-            return;
-        }
-
-        fetch(`/api/proveedores/${provId}/`)
-            .then(r => r.json())
-            .then(data => {
-                let options = '<option value="">-- Matriz / Principal --</option>';
-                if (data.sucursales && data.sucursales.length > 0) {
-                    data.sucursales.forEach(s => {
-                        const selected = s.id == sucursalIdPreseleccionada ? 'selected' : '';
-                        options += `<option value="${s.id}" ${selected}>${s.nombre}</option>`;
-                    });
-                }
-                selectSuc.innerHTML = options;
-            });
-    }
-
-    function generarOptions(lista, valorSeleccionado, labelKey = 'nombre') {
-        let options = '<option value="">Seleccionar...</option>';
-        if (lista && Array.isArray(lista)) {
-            lista.forEach(item => {
-                const label = item[labelKey] || item.nombre || item.razon_social || item.siglas || 'Sin nombre';
-                const selected = (String(item.id) === String(valorSeleccionado)) ? 'selected' : '';
-                
-                let dataAttrs = '';
-                if (item.porc !== undefined) dataAttrs += ` data-porc="${item.porc}"`;
-                if (item.monto !== undefined) dataAttrs += ` data-monto="${item.monto}"`;
-                
-                options += `<option value="${item.id}" ${selected}${dataAttrs}>${label}</option>`;
-            });
-        }
-        return options;
-    }
-
-    /**
-     * Actualiza el costo unitario de una fila cuando se cambia la lista de precios en esa fila
-     */
-    window.actualizarCostoDesdeFila = function(selectLista) {
-        const row = selectLista.closest('tr');
-        const prodId = row.querySelector('input[name="producto_id[]"]').value;
-        if (!prodId) return;
-
-        // Buscar el producto en la lista global para obtener su precio base
-        const producto = listaProductos.find(p => String(p.id) === String(prodId));
-        if (!producto) return;
-
-        const base = parseFloat(producto.precio_costo) || 0;
-        const opt = selectLista.options[selectLista.selectedIndex];
-        const p = opt.dataset.porc ? parseFloat(opt.dataset.porc) : 0;
-        const m = opt.dataset.monto ? parseFloat(opt.dataset.monto) : 0;
-
-        let final = base;
-        if (p !== 0) final = base + (base * (p / 100));
-        else if (m !== 0) final = base + m;
-
-        row.querySelector('input[name="costo_unitario[]"]').value = final.toFixed(2);
-    };
-
-    function aplicarProveedorGeneral() {
-        const valor = document.getElementById('selGeneralProveedor').value;
-        if (!valor) return;
-        document.querySelectorAll('select[name="proveedor_id[]"]').forEach(s => {
-            s.value = valor;
-            actualizarSucursalesPorFila(s); // Disparar carga de sucursales para cada fila
-        });
-    }
-
-    function aplicarAlmacenGeneral() {
-        const valor = document.getElementById('selGeneralAlmacen').value;
-        if (!valor) return;
-        document.querySelectorAll('select[name="almacen_id[]"]').forEach(s => s.value = valor);
-    }
-
-    function aplicarSucursalGeneral() {
-        const valor = document.getElementById('selGeneralSucursal').value;
-        if (!valor) return;
-
-        // Como la carga de sucursales en las filas es asíncrona (AJAX), 
-        // necesitamos asegurar que las opciones existan antes de asignar.
-        // Copiaremos las opciones del select general a todos los de las filas.
-        const optionsHtml = document.getElementById('selGeneralSucursal').innerHTML;
-        
-        document.querySelectorAll('select[name="sucursal_id[]"]').forEach(s => {
-            s.innerHTML = optionsHtml;
-            s.value = valor;
-        });
-    }
-
-    function actualizarSucursalesGenerales(provId, sucId = null) {
-        const selectSuc = document.getElementById('selGeneralSucursal');
-        if (!provId) {
-            selectSuc.innerHTML = '<option value="">-- Aplicar a todos --</option>';
-            return;
-        }
-
-        fetch(`/api/proveedores/${provId}/`)
-            .then(r => r.json())
-            .then(data => {
-                let options = '<option value="">-- Matriz / Principal --</option>';
-                if (data.sucursales && data.sucursales.length > 0) {
-                    data.sucursales.forEach(s => {
-                        const sel = (String(s.id) === String(sucId)) ? 'selected' : '';
-                        options += `<option value="${s.id}" ${sel}>${s.nombre}</option>`;
-                    });
-                }
-                selectSuc.innerHTML = options;
-                if (!sucId) aplicarSucursalGeneral();
-            });
-    }
-
-    function aplicarMonedaGeneral() {
-        const valor = document.getElementById('selGeneralMoneda').value;
-        if (!valor) return;
-        document.querySelectorAll('select[name="moneda_id[]"]').forEach(s => s.value = valor);
-    }
-
-    function cargarParaEdicion(id) {
-        document.getElementById('formEditarSolicitud').reset();
-        document.getElementById('tablaCuerpo').innerHTML = '';
-        document.getElementById('selGeneralProveedor').value = "";
-        document.getElementById('selGeneralAlmacen').value = "";
-        document.getElementById('selGeneralMoneda').value = "";
-        
-        fetch(`/solicitudes-compras/api/solicitud/${id}/`)
-            .then(response => response.json())
-            .then(data => {
-                if(data.error) { alert(data.error); return; }
-                
-                const pedido = data.pedido_origen;
-                if (pedido) {
-                    document.getElementById('dispFolioCot').innerText = pedido.cotizacion_origen_id || '-';
-                    document.getElementById('dispFolioPed').innerText = pedido.id || '-';
-                    document.getElementById('dispCliente').innerText = pedido.cliente.nombre_completo || '-';
-                } else {
-                    document.getElementById('dispFolioCot').innerText = '-';
-                    document.getElementById('dispFolioPed').innerText = 'Manual';
-                    document.getElementById('dispCliente').innerText = 'No especificado';
-                }
-
-                document.getElementById('inputNotas').value = data.notas || '';
-                document.getElementById('formEditarSolicitud').action = `/solicitudes-compras/actualizar/${id}/`;
-
-                if(data.detalles && data.detalles.length > 0) {
-                    data.detalles.forEach(det => {
-                        agregarFilaVisual(
-                            det.id, det.producto_id, det.producto_nombre, det.cantidad,
-                            det.proveedor_id, det.costo_unitario, det.almacen_id,
-                            det.moneda_id, det.sucursal_id, det.detalle_pedido_origen_id,
-                            det.lista_id
-                        );
-                    });
-                }
-
-                new bootstrap.Modal(document.getElementById('modalEditarSolicitud')).show();
-            });
-    }
-
-    function getNameById(lista, id, key = 'nombre') {
-        if (!id || !lista) return '--';
-        const item = lista.find(i => String(i.id) === String(id));
-        if (!item) return '--';
-        return item[key] || item.razon_social || item.siglas || item.nombre || '--';
-    }
-
-    function agregarFilaVisual(id, prodId, nombre, cantidad, provId, costo, almId, monId, sucId = null, pedidoDetId = '', listaId = '', sucName = '') {
-        const listText = getNameById(listaCostos, listaId);
-        const monText = getNameById(listaMonedas, monId, 'siglas');
-        const provText = getNameById(listaProveedores, provId, 'razon_social');
-        const almText = getNameById(listaAlmacenes, almId);
-        const sName = sucName || '--';
-
-        const filaHtml = `
-            <tr>
-                <td class="ps-3 align-middle" style="width: 20%;">
-                    <div class="fw-semibold small text-dark text-truncate" style="max-width: 250px;" title="${nombre}">${nombre}</div>
-                    <input type="hidden" name="producto_id[]" value="${prodId}">
-                    <input type="hidden" name="pedido_det_id[]" value="${pedidoDetId || ''}">
-                </td>
-                <td class="text-center align-middle" style="width: 15%;">
-                    <span class="small text-muted">${listText}</span>
-                    <input type="hidden" name="lista_id[]" value="${listaId || ''}">
-                </td>
-                <td class="text-center align-middle" style="width: 5%;">
-                    <span class="badge bg-light text-dark border fw-normal" style="font-size: 0.7rem;">${monText}</span>
-                    <input type="hidden" name="moneda_id[]" value="${monId || ''}">
-                </td>
-                <td class="text-center align-middle" style="width: 15%;">
-                    <span class="small text-dark">${provText}</span>
-                    <input type="hidden" name="proveedor_id[]" value="${provId || ''}">
-                </td>
-                <td class="text-center align-middle" style="width: 12%;">
-                    <span class="small text-muted">${sName}</span>
-                    <input type="hidden" name="sucursal_id[]" value="${sucId || ''}">
-                </td>
-                <td class="text-center align-middle" style="width: 12%;">
-                    <span class="small text-dark">${almText}</span>
-                    <input type="hidden" name="almacen_id[]" value="${almId || ''}">
-                </td>
-                <td class="text-center align-middle" style="width: 4%;">
-                    <span class="fw-bold small">${cantidad}</span>
-                    <input type="hidden" name="cantidad[]" value="${cantidad}">
-                </td>
-                <td class="text-center align-middle" style="width: 12%;">
-                    <span class="text-success fw-bold small">$${parseFloat(costo).toFixed(2)}</span>
-                    <input type="hidden" name="costo_unitario[]" value="${costo}">
-                </td>
-                <td class="text-center align-middle" style="width: 60px;">
-                    <div class="d-flex justify-content-center gap-1">
-                        <button type="button" class="btn btn-sm text-primary p-0" onclick="editarFila(this)" title="Editar">
-                            <i class="bi bi-pencil-square"></i>
-                        </button>
-                        <button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove();" title="Eliminar">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `;
-        
-        // Determinar en qué tabla insertar (Nueva Manual o Editar)
-        const modalManual = document.getElementById('modalNuevaSolicitudManual');
-        const targetTbodyId = (modalManual && modalManual.classList.contains('show')) ? 'tablaCuerpoManual' : 'tablaCuerpo';
-        const targetTbody = document.getElementById(targetTbodyId);
-        
-        if (targetTbody) {
-            targetTbody.insertAdjacentHTML('beforeend', filaHtml);
-        }
-    }
-
-    /**
-     * Carga los datos de una fila en el formulario superior para editarla
-     */
-    window.editarFila = function(btn) {
-        const row = btn.closest('tr');
-        
-        // Extraer datos de los campos ocultos
-        const prodId = row.querySelector('input[name="producto_id[]"]').value;
-        const listaId = row.querySelector('input[name="lista_id[]"]').value;
-        const monedaId = row.querySelector('input[name="moneda_id[]"]').value;
-        const provId = row.querySelector('input[name="proveedor_id[]"]').value;
-        const sucId = row.querySelector('input[name="sucursal_id[]"]').value;
-        const almId = row.querySelector('input[name="almacen_id[]"]').value;
-        const cant = row.querySelector('input[name="cantidad[]"]').value;
-        const costo = row.querySelector('input[name="costo_unitario[]"]').value;
-
-        // Determinar en qué modal estamos
-        const isInManualModal = !!document.getElementById('modalNuevaSolicitudManual').contains(row);
-
-        if (isInManualModal) {
-            document.getElementById('selectProductoManual').value = prodId;
-            document.getElementById('selectListaPrecioManual').value = listaId;
-            document.getElementById('inputCantManual').value = cant;
-            document.getElementById('inputCostoManual').value = costo;
-            document.getElementById('selGeneralProveedorManual').value = provId;
-            document.getElementById('selGeneralAlmacenManual').value = almId;
-            document.getElementById('selGeneralMonedaManual').value = monedaId;
-            actualizarSucursalesGeneralesManual(provId, sucId);
-        } else {
-            document.getElementById('selectProductoEdit').value = prodId;
-            document.getElementById('selectListaPrecioEdit').value = listaId;
-            document.getElementById('inputCantEdit').value = cant;
-            document.getElementById('inputCostoEdit').value = costo;
-            document.getElementById('selGeneralProveedor').value = provId;
-            document.getElementById('selGeneralAlmacen').value = almId;
-            document.getElementById('selGeneralMoneda').value = monedaId;
-            actualizarSucursalesGenerales(provId, sucId);
-        }
-
-        row.remove();
-        if (isInManualModal) checkVacioManual();
-    };
-
-    /**
-     * Sincroniza el costo en el modal de edición
-     */
-    function setupEditModalListeners() {
-        const prodSel = document.getElementById('selectProductoEdit');
-        const listSel = document.getElementById('selectListaPrecioEdit');
-        const costInp = document.getElementById('inputCostoEdit');
-
-        const calcular = () => {
-            const optP = prodSel.options[prodSel.selectedIndex];
-            if (!optP || !optP.value) return;
-            const base = parseFloat(optP.dataset.precio) || 0;
-            
-            const optL = listSel.options[listSel.selectedIndex];
-            const p = (optL && optL.value) ? (parseFloat(optL.dataset.porc) || 0) : 0;
-            const m = (optL && optL.value) ? (parseFloat(optL.dataset.monto) || 0) : 0;
-            
-            let final = base;
-            if (p !== 0) final = base + (base * (p / 100));
-            else if (m !== 0) final = base + m;
-            costInp.value = final.toFixed(2);
-        };
-
-        if (prodSel) prodSel.addEventListener('change', calcular);
-        if (listSel) listSel.addEventListener('change', calcular);
-    }
-
-    /**
-     * Agrega un artículo a la tabla del modal de edición
-     */
-    window.agregarArticuloAEditar = function() {
-        const select = document.getElementById('selectProductoEdit');
-        const pId = select.value;
-        if (!pId) return alert("Selecciona un producto.");
-        
-        const pName = select.options[select.selectedIndex].text;
-        const listaId = document.getElementById('selectListaPrecioEdit').value;
-        const cant = document.getElementById('inputCantEdit').value;
-        const costo = document.getElementById('inputCostoEdit').value;
-
-        // Valores de configuración general
-        const genProv = document.getElementById('selGeneralProveedor').value;
-        const genAlm = document.getElementById('selGeneralAlmacen').value;
-        const genMon = document.getElementById('selGeneralMoneda').value;
-        const genSuc = document.getElementById('selGeneralSucursal').value;
-
-        agregarFilaVisual(null, pId, pName, cant, genProv, costo, genAlm, genMon, genSuc, '', listaId);
-        
-        // Resetear campos de arriba
-        select.value = "";
-        document.getElementById('selectListaPrecioEdit').value = "";
-        document.getElementById('inputCantEdit').value = 1;
-        document.getElementById('inputCostoEdit').value = "0.00";
-    };
-
-    document.getElementById('formEditarSolicitud').addEventListener('submit', function(e) {
-        e.preventDefault();
-        fetch(this.action, {
-            method: 'POST',
-            body: new FormData(this),
-            headers: {'X-CSRFToken': getCookie('csrftoken')}
-        }).then(r => r.json()).then(data => {
-            if(data.success) location.reload();
-            else alert('Error: ' + data.error);
-        });
-    });
-
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            document.cookie.split(';').forEach(c => {
-                const cookie = c.trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                }
-            });
-        }
-        return cookieValue;
-    }
-
-    document.addEventListener("DOMContentLoaded", function() {
-        const selProv = document.getElementById('selGeneralProveedor');
-        const selAlm = document.getElementById('selGeneralAlmacen');
-        const selMon = document.getElementById('selGeneralMoneda');
-        if(selProv && listaProveedores) listaProveedores.forEach(i => selProv.add(new Option(i.razon_social || i.nombre, i.id)));
-        if(selAlm && listaAlmacenes) listaAlmacenes.forEach(i => selAlm.add(new Option(i.nombre, i.id)));
-        if(selMon && listaMonedas) listaMonedas.forEach(i => selMon.add(new Option(i.siglas, i.id)));
-
-        // Llenar selects del modal manual
-        const selProvM = document.getElementById('selGeneralProveedorManual');
-        const selAlmM = document.getElementById('selGeneralAlmacenManual');
-        const selMonM = document.getElementById('selGeneralMonedaManual');
-        if(selProvM && listaProveedores) listaProveedores.forEach(i => selProvM.add(new Option(i.razon_social || i.nombre, i.id)));
-        if(selAlmM && listaAlmacenes) listaAlmacenes.forEach(i => selAlmM.add(new Option(i.nombre, i.id)));
-        if(selMonM && listaMonedas) listaMonedas.forEach(i => selMonM.add(new Option(i.siglas, i.id)));
-
-        setupEditModalListeners();
-    });
-
-    // --- LÓGICA MODAL MANUAL ---
-
-    function prepararNuevaSolicitud() {
-        document.getElementById('formNuevaSolicitudManual').reset();
-        document.getElementById('tablaCuerpoManual').innerHTML = '';
-        document.getElementById('mensajeVacioManual').style.display = 'block';
-    }
-
-    document.getElementById('selectProductoManual').addEventListener('change', function() {
-        const opt = this.options[this.selectedIndex];
-        if (!opt || !opt.value) return;
-        const base = parseFloat(opt.dataset.precio) || 0;
-        
-        const listaSelect = document.getElementById('selectListaPrecioManual');
-        const listaOpt = listaSelect.options[listaSelect.selectedIndex];
-        const p = (listaOpt && listaOpt.value) ? (parseFloat(listaOpt.dataset.porc) || 0) : 0;
-        const m = (listaOpt && listaOpt.value) ? (parseFloat(listaOpt.dataset.monto) || 0) : 0;
-        
-        let final = base;
-        if (p !== 0) final = base + (base * (p / 100));
-        else if (m !== 0) final = base + m;
-        
-        document.getElementById('inputCostoManual').value = final.toFixed(2);
-    });
-
-    document.getElementById('selectListaPrecioManual').addEventListener('change', function() {
-        const prodSelect = document.getElementById('selectProductoManual');
-        const opt = prodSelect.options[prodSelect.selectedIndex];
-        if (!opt || !opt.value) return;
-        
-        const base = parseFloat(opt.dataset.precio) || 0;
-        const listaOpt = this.options[this.selectedIndex];
-        const p = (listaOpt && listaOpt.value) ? (parseFloat(listaOpt.dataset.porc) || 0) : 0;
-        const m = (listaOpt && listaOpt.value) ? (parseFloat(listaOpt.dataset.monto) || 0) : 0;
-        
-        let final = base;
-        if (p !== 0) final = base + (base * (p / 100));
-        else if (m !== 0) final = base + m;
-        
-        document.getElementById('inputCostoManual').value = final.toFixed(2);
-    });
-
-    function agregarArticuloManual() {
-        const select = document.getElementById('selectProductoManual');
-        const pId = select.value;
-        const pName = select.options[select.selectedIndex].text;
-        
-        const selectLista = document.getElementById('selectListaPrecioManual');
-        const listaId = selectLista.value;
-
-        const cant = document.getElementById('inputCantManual').value;
-        const costo = document.getElementById('inputCostoManual').value;
-
-        if (!pId || cant <= 0) return alert("Selecciona un producto y cantidad válida.");
-
-        // Obtener valores actuales de la configuración general
-        const genProv = document.getElementById('selGeneralProveedorManual').value;
-        const genAlm = document.getElementById('selGeneralAlmacenManual').value;
-        const genMon = document.getElementById('selGeneralMonedaManual').value;
-        const genSuc = document.getElementById('selGeneralSucursalManual').value;
-        
-        const selSuc = document.getElementById('selGeneralSucursalManual');
-        const sName = (genSuc && selSuc.selectedIndex >= 0) ? selSuc.options[selSuc.selectedIndex].text : '--';
-
-        // Usamos la función unificada para insertar la fila
-        agregarFilaVisual(null, pId, pName, cant, genProv, costo, genAlm, genMon, genSuc, '', listaId, sName);
-        
-        document.getElementById('mensajeVacioManual').style.display = 'none';
-        
-        // Limpiar formulario superior
-        select.value = "";
-        document.getElementById('selectListaPrecioManual').value = "";
-        document.getElementById('inputCantManual').value = 1;
-        document.getElementById('inputCostoManual').value = "0.00";
-    }
-
-    // --- FUNCIONES MASIVAS MODAL MANUAL ---
-
-    function aplicarProveedorGeneralManual() {
-        const valor = document.getElementById('selGeneralProveedorManual').value;
-        if (!valor) return;
-        document.querySelectorAll('#tablaCuerpoManual select[name="proveedor_id[]"]').forEach(s => {
-            s.value = valor;
-            actualizarSucursalesPorFila(s);
-        });
-    }
-
-    function aplicarAlmacenGeneralManual() {
-        const valor = document.getElementById('selGeneralAlmacenManual').value;
-        if (!valor) return;
-        document.querySelectorAll('#tablaCuerpoManual select[name="almacen_id[]"]').forEach(s => s.value = valor);
-    }
-
-    function aplicarSucursalGeneralManual() {
-        const valor = document.getElementById('selGeneralSucursalManual').value;
-        if (!valor) return;
-        const optionsHtml = document.getElementById('selGeneralSucursalManual').innerHTML;
-        document.querySelectorAll('#tablaCuerpoManual select[name="sucursal_id[]"]').forEach(s => {
-            s.innerHTML = optionsHtml;
-            s.value = valor;
-        });
-    }
-
-    function aplicarMonedaGeneralManual() {
-        const valor = document.getElementById('selGeneralMonedaManual').value;
-        if (!valor) return;
-        document.querySelectorAll('#tablaCuerpoManual select[name="moneda_id[]"]').forEach(s => s.value = valor);
-    }
-
-    function actualizarSucursalesGeneralesManual(provId, sucId = null) {
-        const selectSuc = document.getElementById('selGeneralSucursalManual');
-        if (!provId) {
-            selectSuc.innerHTML = '<option value="">-- Aplicar a todos --</option>';
-            return;
-        }
-        fetch(`/api/proveedores/${provId}/`)
-            .then(r => r.json())
-            .then(data => {
-                let options = '<option value="">-- Matriz / Principal --</option>';
-                if (data.sucursales && data.sucursales.length > 0) {
-                    data.sucursales.forEach(s => {
-                        const sel = (String(s.id) === String(sucId)) ? 'selected' : '';
-                        options += `<option value="${s.id}" ${sel}>${s.nombre}</option>`;
-                    });
-                }
-                selectSuc.innerHTML = options;
-                if (!sucId) aplicarSucursalGeneralManual();
-            });
-    }
-
-    function checkVacioManual() {
-        if (document.getElementById('tablaCuerpoManual').children.length === 0) {
-            document.getElementById('mensajeVacioManual').style.display = 'block';
-        }
-    }
-
-    let idSolicitudProcesando = null;
-
-    function previsualizarAutorizacion(id) {
-        idSolicitudProcesando = id;
-        const divAlertas = document.getElementById('divAlertasProveedores');
-        const pResumen = document.getElementById('pResumenAutorizacion');
-        const btnConfirmar = document.getElementById('btnConfirmarFinal');
-
-        divAlertas.innerHTML = '';
-        pResumen.innerText = 'Analizando solicitud...';
-        btnConfirmar.disabled = true;
-
-        const modal = new bootstrap.Modal(document.getElementById('modalConfirmarAutorizacion'));
-        modal.show();
-
-        fetch(`/solicitudes-compras/autorizar/${id}/?preview=1`)
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    pResumen.innerHTML = `Se generarán <strong>${data.total_ordenes}</strong> órdenes de compra en total.`;
-                    
-                    let hayMultiples = false;
-                    data.desglose.forEach(item => {
-                        if (item.total_oc > 1) {
-                            hayMultiples = true;
-                            const alertHtml = `
-                                <div class="alert alert-warning py-2 mb-2 shadow-none border-0" style="font-size: 0.85rem; background-color: #fff9db; color: #856404;">
-                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                                    Para <strong>${item.proveedor}</strong> se crearán <strong>${item.total_oc}</strong> órdenes (por moneda o almacén).
-                                </div>`;
-                            divAlertas.insertAdjacentHTML('beforeend', alertHtml);
-                        }
-                    });
-
-                    if (!hayMultiples) {
-                        divAlertas.innerHTML = '<div class="text-muted small text-center">Todo unificado correctamente.</div>';
-                    }
-
-                    btnConfirmar.disabled = false;
-                } else {
-                    alert('Error: ' + data.error);
-                    modal.hide();
-                }
-            })
-            .catch(e => {
-                alert('Error de conexión');
-                modal.hide();
-            });
-    }
-
-    document.getElementById('btnConfirmarFinal').addEventListener('click', function() {
-        const btn = this;
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando...';
-
-        fetch(`/solicitudes-compras/autorizar/${idSolicitudProcesando}/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                alert('Error: ' + data.error);
-                btn.disabled = false;
-                btn.innerText = 'Autorizar y Generar OCs';
-            }
-        })
-        .catch(e => {
-            alert('Error crítico al autorizar');
-            btn.disabled = false;
-            btn.innerText = 'Autorizar y Generar OCs';
-        });
-    });
-
-    document.getElementById('formNuevaSolicitudManual').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const btn = this.querySelector('button[type="submit"]');
-        btn.disabled = true; btn.innerText = "Guardando...";
-
-        fetch(this.action, {
-            method: 'POST',
-            body: new FormData(this),
-            headers: {'X-CSRFToken': getCookie('csrftoken')}
-        }).then(r => r.json()).then(data => {
-            if(data.success) location.reload();
-            else { alert('Error: ' + data.error); btn.disabled = false; btn.innerText = "Crear Solicitud"; }
-        });
-    });
-
-    // ==========================================
-    // ALERTA AL CERRAR MODALES DE SOLICITUD
-    // ==========================================
-    let isSubmittingSolicitud = false;
-
-    document.addEventListener('DOMContentLoaded', function() {
-        // Formulario de Edición
-        const formEdit = document.getElementById('formEditarSolicitud');
-        if (formEdit) {
-            formEdit.addEventListener('submit', function() { isSubmittingSolicitud = true; });
-        }
-
-        // Formulario Manual (Nueva)
-        const formManual = document.getElementById('formNuevaSolicitudManual');
-        if (formManual) {
-            formManual.addEventListener('submit', function() { isSubmittingSolicitud = true; });
-        }
-
-        // Modal Editar
-        const modalEdit = document.getElementById('modalEditarSolicitud');
-        if (modalEdit) {
-            modalEdit.addEventListener('hide.bs.modal', function (e) {
-                if (isSubmittingSolicitud) return;
-                // Al ser edición, siempre hay datos. Preguntamos si está seguro de salir.
-                if (!confirm("¿Estás seguro de cerrar la edición? Se perderán los cambios que no hayas guardado.")) {
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
-                    return false;
-                }
-            });
-            modalEdit.addEventListener('hidden.bs.modal', function() { isSubmittingSolicitud = false; });
-        }
-
-        // Modal Nueva (Manual)
-        const modalManual = document.getElementById('modalNuevaSolicitudManual');
-        if (modalManual) {
-            modalManual.addEventListener('hide.bs.modal', function (e) {
-                if (isSubmittingSolicitud) return;
-
-                const tableRows = document.querySelectorAll('#tablaCuerpoManual tr').length;
-                const notas = document.querySelector('#formNuevaSolicitudManual textarea[name="notas"]').value;
-
-                if (tableRows > 0 || (notas && notas.trim() !== "")) {
-                    if (!confirm("¿Estás seguro de cerrar la ventana? Perderás los cambios que no hayas guardado.")) {
-                        e.preventDefault();
-                        e.stopImmediatePropagation();
-                        return false;
-                    }
-                }
-            });
-            modalManual.addEventListener('hidden.bs.modal', function() { isSubmittingSolicitud = false; });
-        }
-    });
-    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="{% static 'js/solicitudcompras.js' %}?v={% now 'U' %}"></script>
     <script>
-    async function descargarSolicitudPDF(id) {
-        const btn = event.currentTarget;
-        const icon = btn.querySelector('i');
-        const originalClass = icon.className;
+        // Lógica de buscador de proveedores para el filtro
+        document.addEventListener('DOMContentLoaded', function() {
+            const wrapper = document.getElementById('wrapperFiltroProveedor');
+            if (wrapper) {
+                const select = wrapper.querySelector('.custom-select');
+                const input = document.getElementById('filtro_proveedor_busqueda');
+                const fake = document.getElementById('filtro_proveedor_fake');
+                const hidden = document.getElementById('filtro_proveedor_id');
+                const options = wrapper.querySelectorAll('.custom-option');
 
-        // Feedback visual
-        icon.className = 'bi bi-arrow-repeat spin';
+                input.addEventListener('focus', () => select.classList.add('open'));
+                input.addEventListener('input', function() {
+                    const t = this.value.toLowerCase();
+                    options.forEach(o => o.style.display = o.getAttribute('data-search').toLowerCase().includes(t) ? 'flex' : 'none');
+                });
 
-        try {
-            // 1. Obtener el HTML de la solicitud
-            const response = await fetch(`/solicitudes-compras/imprimir/${id}/`);
-            const htmlText = await response.text();
+                options.forEach(opt => {
+                    opt.addEventListener('click', function() {
+                        const valId = this.getAttribute('data-id');
+                        const valText = this.getAttribute('data-value');
+                        hidden.value = valId === 'all' ? '' : valId;
+                        document.getElementById('formFiltrosSolicitudes').submit();
+                    });
+                });
 
-            // 2. Parsear el HTML y extraer el contenido imprimible y estilos
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(htmlText, 'text/html');
-            const printableContent = doc.getElementById('printable-content');
-            const styles = doc.querySelectorAll('style');
+                window.addEventListener('click', (e) => { if (!wrapper.contains(e.target)) select.classList.remove('open'); });
+            }
+        });
 
-            // 3. Preparar el buffer local
-            const buffer = document.getElementById('pdf-buffer');
-            buffer.innerHTML = '';
-            styles.forEach(s => buffer.appendChild(s.cloneNode(true)));
-            buffer.appendChild(printableContent.cloneNode(true));
+        async function descargarSolicitudPDF(id) {
+            const btn = event.currentTarget;
+            const icon = btn.querySelector('i');
+            const originalClass = icon.className;
+            icon.className = 'bi bi-arrow-repeat spin';
+            
+            try {
+                const response = await fetch(`/solicitudes-compras/imprimir/${id}/`);
+                const htmlText = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlText, 'text/html');
+                const printableContent = doc.getElementById('printable-content');
+                const styles = doc.querySelectorAll('style');
+                const buffer = document.getElementById('pdf-buffer');
+                
+                buffer.innerHTML = '';
+                styles.forEach(s => buffer.appendChild(s.cloneNode(true)));
+                buffer.appendChild(printableContent.cloneNode(true));
+                
+                const contentToPrint = buffer.querySelector('#printable-content');
+                buffer.style.display = 'block';
+                buffer.style.position = 'absolute';
+                buffer.style.top = '-10000px'; 
 
-            // Ajustar estilo del buffer para que sea capturable pero no visible
-            const contentToPrint = buffer.querySelector('#printable-content');
-            contentToPrint.style.position = 'relative';
-            contentToPrint.style.left = '0';
-            buffer.style.display = 'block';
-            buffer.style.position = 'absolute';
-            buffer.style.top = '-10000px'; 
+                const opt = {
+                    margin: [10, 10, 10, 10],
+                    filename: `Solicitud_#${String(id).padStart(4, '0')}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                };
 
-            // 4. Configurar html2pdf
-            const folio = id.toString().padStart(4, '0');
-            const opt = {
-                margin:       [10, 10, 10, 10],
-                filename:     `Solicitud_SOL-${folio}.pdf`,
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-
-            // 5. Generar y descargar
-            await html2pdf().set(opt).from(contentToPrint).save();
-
-            // Limpieza
-            buffer.style.display = 'none';
-            buffer.innerHTML = '';
-
-        } catch (error) {
-            console.error('Error al generar PDF:', error);
-            alert('No se pudo generar el PDF. Intente de nuevo.');
-        } finally {
-            icon.className = originalClass;
+                await html2pdf().set(opt).from(contentToPrint).save();
+                buffer.style.display = 'none';
+                buffer.innerHTML = '';
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al generar PDF.');
+            } finally {
+                icon.className = originalClass;
+            }
         }
-    }
     </script>
     <style>
-    .spin { animation: spin-icon 1s linear infinite; display: inline-block; }
-    @keyframes spin-icon { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .spin { animation: spin-icon 1s linear infinite; display: inline-block; }
+        @keyframes spin-icon { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
-    {% endblock %}
+{% endblock %}

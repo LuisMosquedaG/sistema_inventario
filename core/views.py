@@ -46,6 +46,7 @@ def crear_producto_rapido(request):
         tipo_abastecimiento = request.POST.get('tipo_abastecimiento', 'compra')
         categoria_id = request.POST.get('categoria', '')
         subcategoria = request.POST.get('subcategoria', '')
+        sucursal_id = request.POST.get('sucursal') or request.session.get('sucursal_id')
         
         categoria_nombre = ""
         if categoria_id:
@@ -66,7 +67,8 @@ def crear_producto_rapido(request):
             estado='revision',
             precio_costo=0.00,
             precio_venta=0.00,
-            empresa=empresa
+            empresa=empresa,
+            sucursal_id=sucursal_id
         )
         
         return JsonResponse({
@@ -109,6 +111,7 @@ def crear_producto_ajax(request):
             if form.is_valid():
                 producto = form.save(commit=False)
                 producto.empresa = empresa_actual
+                producto.sucursal_id = request.POST.get('sucursal') or request.session.get('sucursal_id')
                 test_id = request.POST.get('test_calidad')
                 if test_id:
                     from produccion.models import Test
@@ -129,11 +132,15 @@ def dashboard_inventario(request):
         return render(request, 'error_sin_empresa.html', status=403)
     
     # --- FILTROS ---
+    sucursal_id = request.GET.get('sucursal')
     almacen_id = request.GET.get('almacen')
     q = request.GET.get('q')
     estado = request.GET.get('estado')
 
     productos_qs = Producto.objects.filter(empresa=empresa_actual)
+    if sucursal_id:
+        productos_qs = productos_qs.filter(sucursal_id=sucursal_id)
+        
     if q:
         productos_qs = productos_qs.filter(
             Q(nombre__icontains=q) | Q(marca__icontains=q) | Q(modelo__icontains=q) |
@@ -153,6 +160,8 @@ def dashboard_inventario(request):
 
     # 5. VALOR TOTAL INVENTARIO (POR ALMACÉN SI SE FILTRA)
     inv_val_filter = Q(producto=OuterRef('pk'), cantidad__gt=0)
+    if sucursal_id:
+        inv_val_filter &= Q(sucursal_id=sucursal_id)
     if almacen_id:
         inv_val_filter &= Q(almacen_id=almacen_id)
     costo_inventario_subquery = Inventario.objects.filter(inv_val_filter).values('producto').annotate(valor_total=Sum(ExpressionWrapper(F('cantidad') * F('costo_promedio'), output_field=FloatField()))).values('valor_total')[:1]
@@ -160,6 +169,7 @@ def dashboard_inventario(request):
     # 6. STOCK FISICO Y RESERVADO (DINÁMICO)
     def get_stock_sub(field):
         qs = Inventario.objects.filter(producto=OuterRef('pk'))
+        if sucursal_id: qs = qs.filter(sucursal_id=sucursal_id)
         if almacen_id: qs = qs.filter(almacen_id=almacen_id)
         return qs.values('producto').annotate(total=Sum(field)).values('total')[:1]
 
@@ -171,7 +181,6 @@ def dashboard_inventario(request):
         costo_inventario_anotado=Subquery(costo_inventario_subquery),
         stock_fisico=Subquery(get_stock_sub('cantidad')),
         stock_res=Subquery(get_stock_sub('reservado'))
-    # ... (annotated products query from before) ...
     ).annotate(
         stock_disponible_anotado=ExpressionWrapper(
             Coalesce(F('stock_fisico'), 0) - Coalesce(F('stock_res'), 0),
@@ -184,7 +193,13 @@ def dashboard_inventario(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
+    from preferencias.models import Sucursal
+    sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
+
     almacenes = Almacen.objects.filter(empresa=empresa_actual).order_by('nombre')
+    if sucursal_id:
+        almacenes = almacenes.filter(sucursal_id=sucursal_id)
+
     todas_categorias = Categoria.objects.filter(empresa=empresa_actual).order_by('nombre')
     from produccion.models import Test
     tests_calidad = Test.objects.filter(empresa=empresa_actual).order_by('nombre')
@@ -199,11 +214,13 @@ def dashboard_inventario(request):
     contexto = {
         'page_obj': page_obj,
         'almacenes': almacenes,
+        'sucursales': sucursales,
         'categorias': todas_categorias,
         'tests_calidad': tests_calidad,
         'productos_padre_receta': productos_padre_receta,
         'productos_componentes_receta': productos_componentes_receta,
         'filtros': {
+            'sucursal': sucursal_id or '',
             'almacen': int(almacen_id) if almacen_id else '', 
             'q': q or '',
             'estado': estado or ''
@@ -312,6 +329,7 @@ def obtener_producto_json(request, producto_id):
             'stock_minimo': producto.stock_minimo, 'stock_maximo': producto.stock_maximo,
             'maneja_lote': producto.maneja_lote, 'maneja_serie': producto.maneja_serie,
             'test_calidad_id': producto.test_calidad.id if producto.test_calidad else "",
+            'sucursal': producto.sucursal_id or "",
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=404)
@@ -331,6 +349,7 @@ def actualizar_producto_ajax(request, producto_id):
                 # Maneja el switch manual para lote/serie ya que vienen como 'on'
                 producto.maneja_lote = request.POST.get('maneja_lote') == 'on'
                 producto.maneja_serie = request.POST.get('maneja_serie') == 'on'
+                producto.sucursal_id = request.POST.get('sucursal')
                 
                 test_id = request.POST.get('test_calidad')
                 if test_id:

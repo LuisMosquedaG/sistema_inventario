@@ -98,14 +98,14 @@
                             <input type="text" name="q" class="form-control border-start-0" placeholder="Buscar..." value="{{ filtros.q|default:'' }}">
                         </div>
                     </div>
-                    <!-- 2. Folio Compra -->
-                    <div class="col-12 col-md-4 col-lg-2">
-                        <label class="form-label small fw-bold text-secondary">Folio Compra</label>
+                    <!-- 2. Folio OC -->
+                    <div class="col-12 col-md-4 col-lg-1">
+                        <label class="form-label small fw-bold text-secondary">Folio OC</label>
                         <input type="text" name="folio_compra" class="form-control form-control-sm" placeholder="Ej: 001" value="{{ filtros.folio_compra|default:'' }}">
                     </div>
                     <!-- 3. Folio Solicitud -->
-                    <div class="col-12 col-md-4 col-lg-2">
-                        <label class="form-label small fw-bold text-secondary">Folio Solicitud</label>
+                    <div class="col-12 col-md-4 col-lg-1">
+                        <label class="form-label small fw-bold text-secondary">Folio Sol.</label>
                         <input type="text" name="folio_solicitud" class="form-control form-control-sm" placeholder="Ej: 110" value="{{ filtros.folio_solicitud|default:'' }}">
                     </div>
                     <!-- 4. Proveedor (Buscador) -->
@@ -139,12 +139,12 @@
                     </div>
                 </div>
                     <!-- 5. Fecha -->
-                    <div class="col-12 col-md-4 col-lg-2">
+                    <div class="col-12 col-md-4 col-lg-1">
                         <label class="form-label small fw-bold text-secondary">Fecha</label>
                         <input type="date" name="fecha" class="form-control form-control-sm" value="{{ filtros.fecha|default:'' }}" onchange="this.form.submit()">
                     </div>
                     <!-- 6. Estado -->
-                    <div class="col-12 col-md-4 col-lg-2">
+                    <div class="col-12 col-md-4 col-lg-1">
                         <label class="form-label small fw-bold text-secondary">Estado</label>
                         <select name="estado" class="form-select form-select-sm" onchange="this.form.submit()">
                             <option value="">Todos...</option>
@@ -153,6 +153,16 @@
                             <option value="parcial" {% if filtros.estado == 'parcial' %}selected{% endif %}>Parcial</option>
                             <option value="recibida" {% if filtros.estado == 'recibida' %}selected{% endif %}>Recibida</option>
                             <option value="cancelada" {% if filtros.estado == 'cancelada' %}selected{% endif %}>Cancelada</option>
+                        </select>
+                    </div>
+                    <!-- 7. Sucursal -->
+                    <div class="col-12 col-md-4 col-lg-2">
+                        <label class="form-label small fw-bold text-secondary">Sucursal</label>
+                        <select name="sucursal" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="">Todas las sucursales...</option>
+                            {% for suc in sucursales %}
+                                <option value="{{ suc.id }}" {% if filtros.sucursal|stringformat:"s" == suc.id|stringformat:"s" %}selected{% endif %}>{{ suc.nombre }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                 </form>
@@ -166,6 +176,7 @@
                         <thead>
                             <tr>
                                 <th class="text-center" style="width: 100px;">Acciones</th>
+                                <th class="text-center" style="width: 100px;">Sucursal</th>
                                 <th class="text-center" style="width: 100px;">Folio</th>
                                 <th class="text-center" style="width: 100px;">Proveedor</th>
                                 <th class="text-center" style="width: 100px;">Usuario</th>
@@ -202,23 +213,30 @@
                                             <span onclick="cargarParaEdicionCompra({{ c.id }})" class="icon-action" title="Editar"><i class="bi bi-pencil-square"></i></span>
                                             {% endif %}
                                         {% elif c.estado == 'aprobada' %}
-                                            {% if purchase_ui_permissions.recepciones %}
+                                            {% if granular_purchase_perms.recepciones.crear %}
                                             <a href="/recepciones/?oc_id={{ c.id }}" class="icon-action state-received" title="Recibir Mercancía"><i class="bi bi-box-seam"></i></a>
                                             {% endif %}
                                             {% if granular_purchase_perms.ordenes_compra.cancelar %}
                                             <span onclick="cambiarEstadoCompra({{ c.id }}, 'cancelada')" class="icon-action state-cancelled" title="Cancelar Orden"><i class="bi bi-x-circle"></i></span>
                                             {% endif %}
                                         {% elif c.estado == 'parcial' %}
-                                            {% if purchase_ui_permissions.recepciones %}
+                                            {% if granular_purchase_perms.recepciones.crear %}
                                             <a href="/recepciones/?oc_id={{ c.id }}" class="icon-action state-received" title="Recibir Resto"><i class="bi bi-box-seam"></i></a>
                                             {% endif %}
                                             {% if granular_purchase_perms.ordenes_compra.cancelar %}
-                                            <span onclick="cambiarEstadoCompra({{ c.id }}, 'cancelada')" class="icon-action state-cancelled" title="Cancelar"><i class="bi bi-x-circle"></i></span>
+                                            <span onclick="cambiarEstadoCompra({{ c.id }}, 'cancelada')" class="icon-action state-cancelled" title="Cancelar Orden"><i class="bi bi-x-circle"></i></span>
                                             {% endif %}
                                         {% endif %}
                                     </div>
                                 </td>
-                                <td class="text-center font-monospace small"><span class="text-dark">{{ c.id|stringformat:"04d" }}</span></td>
+
+                                <!-- 1.5 SUCURSAL -->
+                                <td class="text-center small">
+                                    <span class="badge bg-light text-secondary border">{{ c.sucursal_empresa.nombre|default:"Principal" }}</span>
+                                </td>
+
+                                <td class="text-center font-monospace small"><span class="text-dark">OC-{{ c.id|stringformat:"04d" }}</span></td>
+
                                 <td class="text-center"><div class="text-dark">{{ c.proveedor|default:"Sin proveedor" }}</div></td>
                                 <td class="text-center"><div class="text-dark"><i class="bi bi-person-fill me-1 text-muted"></i>{{ c.usuario_corto }}</div></td>
                                 <td class="text-center"><div class="text-dark">{{ c.fecha|date:"d M Y" }}</div></td>
@@ -227,7 +245,7 @@
                                 <!-- COLUMNA ESTADO DE PAGO -->
                                 <td class="text-center">
                                     {% if c.pago_estado == 'pendiente' %}
-                                        <span class="pay-pill pay-pendiente">Pendiente de pago</span>
+                                        <span class="pay-pill pay-pendiente">Pendiente</span>
                                     {% elif c.pago_estado == 'parcial' %}
                                         <span class="pay-pill pay-parcial">Pago parcial</span>
                                     {% elif c.pago_estado == 'pagado' %}
@@ -244,7 +262,7 @@
                                 </td>
                             </tr>
                             {% empty %}
-                            <tr><td colspan="8" class="text-center py-5"><i class="bi bi-receipt display-6 text-muted mb-2 d-block"></i><span class="text-muted fst-italic small">No hay compras registradas aún</span></td></tr>
+                            <tr><td colspan="9" class="text-center py-5"><i class="bi bi-receipt display-6 text-muted mb-2 d-block"></i><span class="text-muted fst-italic small">No hay compras registradas aún</span></td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -412,7 +430,7 @@
                         <i class="bi bi-cash-coin me-2" style="color: #00b8b9;"></i>
                         Registrar Pago de Compra
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
 
                 <form id="formRegistrarPagoCompra" method="post" action="{% url 'api_registrar_pago_compra' %}" novalidate>

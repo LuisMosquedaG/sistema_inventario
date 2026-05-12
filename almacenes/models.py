@@ -21,6 +21,7 @@ class Almacen(models.Model):
     
     # --- RELACIÓN CON EMPRESA ---
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Empresa")
+    sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
     
     fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
 
@@ -43,6 +44,7 @@ class Inventario(models.Model):
 
     fecha_actualizacion = models.DateTimeField(auto_now=True)
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Empresa")
+    sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
 
     class Meta:
         unique_together = ('producto', 'almacen') 
@@ -65,11 +67,12 @@ class Inventario(models.Model):
         inventario, created = cls.objects.select_for_update().get_or_create(
             producto=producto,
             almacen=almacen,
-            # --- CORRECCIÓN: Asignamos la empresa del almacén al crear el inventario ---
+            # --- CORRECCIÓN: Asignamos la empresa y sucursal del almacén al crear el inventario ---
             defaults={
                 'cantidad': 0, 
                 'costo_promedio': Decimal('0.00'),
-                'empresa': almacen.empresa 
+                'empresa': almacen.empresa,
+                'sucursal': almacen.sucursal
             }
         )
 
@@ -101,6 +104,7 @@ class Inventario(models.Model):
         # REGISTRAR EN KARDEX
         Kardex.objects.create(
             empresa=almacen.empresa,
+            sucursal=almacen.sucursal,
             producto=producto,
             almacen=almacen,
             tipo_movimiento='entrada',
@@ -150,6 +154,7 @@ class Inventario(models.Model):
         # REGISTRAR EN KARDEX
         Kardex.objects.create(
             empresa=almacen.empresa,
+            sucursal=almacen.sucursal,
             producto=producto,
             almacen=almacen,
             tipo_movimiento='salida',
@@ -173,6 +178,7 @@ class Kardex(models.Model):
     ]
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
+    sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
     producto = models.ForeignKey('core.Producto', on_delete=models.CASCADE, related_name='movimientos_kardex')
     almacen = models.ForeignKey(Almacen, on_delete=models.CASCADE, related_name='movimientos_kardex')
     
@@ -191,6 +197,11 @@ class Kardex(models.Model):
     
     # NUEVO CAMPO: USUARIO
     usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Usuario Responsable")
+
+    def save(self, *args, **kwargs):
+        if not self.sucursal and self.almacen:
+            self.sucursal = self.almacen.sucursal
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = "Movimiento de Kardex"

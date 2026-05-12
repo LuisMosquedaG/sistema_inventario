@@ -3,6 +3,7 @@
     <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet modal-dialog-scrollable">
         <form id="formCotizacion" method="post" action="{% url 'crear_cotizacion' %}" novalidate class="modal-content">
             {% csrf_token %}
+            <input type="hidden" name="sucursal" value="{{ filtros.sucursal|default:'' }}">
             
             <!-- HEADER -->
             <div class="modal-header border-bottom bg-light">

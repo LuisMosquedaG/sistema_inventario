@@ -52,12 +52,23 @@ def crear_pedido_manual(request):
             if contacto_id:
                 contacto = get_object_or_404(ContactoCliente, id=contacto_id, cliente=cliente)
 
+            # Asignar sucursal desde la sesión
+            sucursal_obj = None
+            sucursal_id = request.session.get('sucursal_id')
+            if sucursal_id:
+                from preferencias.models import Sucursal
+                try:
+                    sucursal_obj = Sucursal.objects.get(id=sucursal_id, empresa=empresa_actual)
+                except Sucursal.DoesNotExist:
+                    pass
+
             # 1. Crear Cabecera
             nuevo_pedido = Pedido.objects.create(
                 cliente=cliente,
                 contacto=contacto,
                 vendedor=request.user,
                 empresa=empresa_actual,
+                sucursal=sucursal_obj,
                 estado='borrador',
                 notas=notas
             )
@@ -115,8 +126,9 @@ def dashboard_pedidos(request):
     contacto_id = request.GET.get('contacto_id', '')
     fecha = request.GET.get('fecha', '')
     estado = request.GET.get('estado', '')
+    sucursal_id_filtro = request.GET.get('sucursal', '')
 
-    lista_pedidos = Pedido.objects.filter(empresa=empresa_actual).order_by('-fecha_creacion')
+    lista_pedidos = Pedido.objects.filter(empresa=empresa_actual).select_related('cliente', 'vendedor', 'sucursal').order_by('-fecha_creacion')
 
     if q:
         lista_pedidos = lista_pedidos.filter(
@@ -142,6 +154,8 @@ def dashboard_pedidos(request):
             pass
     if estado:
         lista_pedidos = lista_pedidos.filter(estado=estado)
+    if sucursal_id_filtro:
+        lista_pedidos = lista_pedidos.filter(sucursal_id=sucursal_id_filtro)
 
     # Para el buscador visual y cascada
     cliente_nombre_display = ""
@@ -171,9 +185,12 @@ def dashboard_pedidos(request):
         'contacto_id': contacto_id,
         'contacto_nombre': contacto_nombre_display,
         'fecha': fecha,
-        'estado': estado
+        'estado': estado,
+        'sucursal': sucursal_id_filtro
     }
     # --- FIN LÓGICA DE FILTRADO ---
+    from preferencias.models import Sucursal
+    sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
 
     # --- DATOS PARA EL MODAL DE NUEVO PEDIDO ---
     clientes = Cliente.objects.filter(empresa=empresa_actual)
@@ -195,6 +212,7 @@ def dashboard_pedidos(request):
         'listas_precios': listas_precios,
         'cajas': cajas,
         'monedas': monedas,
+        'sucursales': sucursales,
         'contactos_filtro': contactos_del_cliente,
         'filtros': filtros,
         'hoy': timezone.now().date()
@@ -218,12 +236,23 @@ def crear_pedido_desde_cotizacion(request, cotizacion_id):
             messages.error(request, 'Solo se pueden crear pedidos desde cotizaciones Aprobadas.')
             return redirect('dashboard_cotizaciones')
 
+        # Asignar sucursal desde la sesión
+        sucursal_obj = None
+        sucursal_id = request.session.get('sucursal_id')
+        if sucursal_id:
+            from preferencias.models import Sucursal
+            try:
+                sucursal_obj = Sucursal.objects.get(id=sucursal_id, empresa=empresa_actual)
+            except Sucursal.DoesNotExist:
+                pass
+
         # 2. Crear Pedido (Cabecera)
         nuevo_pedido = Pedido.objects.create(
             cliente=cotizacion.cliente,
             contacto=cotizacion.contacto,
             vendedor=request.user,
             empresa=empresa_actual,
+            sucursal=sucursal_obj,
             cotizacion_origen_id=cotizacion.id,
             estado='borrador' # Inicia en borrador para que el usuario revise antes de confirmar
         )
@@ -576,6 +605,7 @@ def generar_solicitud_global(request, pedido_id):
             solicitante=request.user,
             empresa=empresa_actual,
             estado='borrador',
+            sucursal=pedido.sucursal,
             notas="Solicitud Global Generada Automáticamente"
         )
 
@@ -601,7 +631,8 @@ def generar_solicitud_global(request, pedido_id):
                 solicitante=request.user, # Quién dispara la solicitud
                 almacen=linea_pedido.pedido.cliente.almacen if hasattr(linea_pedido.pedido.cliente, 'almacen') and linea_pedido.pedido.cliente.almacen else Almacen.objects.filter(empresa=empresa_actual).first(),
                 estado='borrador',
-                notas=f"Generada automáticamente desde Pedido #{pedido.id}"
+                notas=f"Generada automáticamente desde Pedido #{pedido.id}",
+                sucursal=pedido.sucursal
             )
 
             # 2. Explorar receta y COPIAR a DetalleOrdenProduccion

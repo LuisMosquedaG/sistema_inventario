@@ -18,6 +18,7 @@ class OrdenCompra(models.Model):
     fecha = models.DateTimeField(auto_now_add=True)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='borrador')
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Empresa")
+    sucursal_empresa = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal Empresa")
     almacen_destino = models.ForeignKey('almacenes.Almacen', on_delete=models.SET_NULL, null=True, blank=True, related_name='ordenes_compra')
     
     # NUEVOS CAMPOS: MONEDA Y TIPO DE CAMBIO

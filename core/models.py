@@ -72,6 +72,7 @@ class Producto(models.Model):
     
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     empresa = models.ForeignKey('panel.Empresa', on_delete=models.CASCADE, null=True, blank=True, verbose_name="Empresa")
+    sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
     
     # NUEVO: Vínculo al Test de Calidad (Módulo Producción)
     test_calidad = models.ForeignKey('produccion.Test', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Test de Calidad")

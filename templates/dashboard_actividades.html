@@ -186,7 +186,7 @@
                         </div>
                     </div>
                     <!-- 3. Actividad -->
-                    <div class="col-12 col-md-4 col-lg-2">
+                    <div class="col-12 col-md-4 col-lg-1">
                         <label class="form-label small fw-bold text-secondary">Actividad</label>
                         <input type="text" name="actividad" class="form-control form-control-sm" placeholder="Ej: Seguimiento" value="{{ filtros.actividad|default:'' }}">
                     </div>
@@ -208,7 +208,7 @@
                         </select>
                     </div>
                     <!-- 6. Prioridad -->
-                    <div class="col-12 col-md-4 col-lg-2">
+                    <div class="col-12 col-md-4 col-lg-1">
                         <label class="form-label small fw-bold text-secondary">Prioridad</label>
                         <select name="prioridad" class="form-select form-select-sm" onchange="this.form.submit()">
                             <option value="">Todas...</option>
@@ -229,6 +229,16 @@
                             <option value="cancelada" {% if filtros.estado == 'cancelada' %}selected{% endif %}>Cancelada</option>
                         </select>
                     </div>
+                    <!-- 8. Sucursal -->
+                    <div class="col-12 col-md-4 col-lg-2">
+                        <label class="form-label small fw-bold text-secondary">Sucursal</label>
+                        <select name="sucursal" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="">Todas...</option>
+                            {% for suc in sucursales %}
+                                <option value="{{ suc.id }}" {% if filtros.sucursal|stringformat:"s" == suc.id|stringformat:"s" %}selected{% endif %}>{{ suc.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </form>
             </div>
         </div>
@@ -241,6 +251,7 @@
                         <thead>
                             <tr>
                                 <th class="text-center" style="width: 100px;">Acciones</th>
+                                <th class="text-center" style="width: 100px;">Sucursal</th>
                                 <th class="text-center" style="width: 100px;">Cliente / Cotización</th>
                                 <th class="text-center" style="width: 100px;">Actividad</th>
                                 <th class="text-center" style="width: 100px;">Fecha / Hora</th>
@@ -274,6 +285,10 @@
                                             {% endif %}
                                         {% endif %}
                                     </div>
+                                </td>
+                                <!-- 1.5 SUCURSAL -->
+                                <td class="text-center small">
+                                    <span class="badge bg-light text-secondary border">{{ a.sucursal.nombre|default:"Principal" }}</span>
                                 </td>
                                 <!-- 2. CLIENTE / COTIZACIÓN -->
                                 <td class="text-center small">

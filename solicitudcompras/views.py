@@ -44,8 +44,9 @@ def dashboard_solicitudcompras(request):
     proveedor_id = request.GET.get('proveedor_id', '')
     fecha_solicitud = request.GET.get('fecha_solicitud', '')
     estado = request.GET.get('estado', '')
+    sucursal_id_filtro = request.GET.get('sucursal', '')
 
-    solicitudes = SolicitudCompra.objects.filter(empresa=empresa_actual).select_related('pedido_origen', 'solicitante').order_by('-fecha_creacion')
+    solicitudes = SolicitudCompra.objects.filter(empresa=empresa_actual).select_related('pedido_origen', 'solicitante', 'sucursal').order_by('-fecha_creacion')
 
     if q:
         solicitudes = solicitudes.filter(
@@ -76,6 +77,8 @@ def dashboard_solicitudcompras(request):
             pass
     if estado:
         solicitudes = solicitudes.filter(estado=estado)
+    if sucursal_id_filtro:
+        solicitudes = solicitudes.filter(sucursal_id=sucursal_id_filtro)
 
     # Para el buscador visual de proveedor
     proveedor_nombre_display = ""
@@ -94,9 +97,12 @@ def dashboard_solicitudcompras(request):
         'proveedor_id': proveedor_id,
         'proveedor_nombre': proveedor_nombre_display,
         'fecha_solicitud': fecha_solicitud,
-        'estado': estado
+        'estado': estado,
+        'sucursal': sucursal_id_filtro
     }
     # --- FIN LÓGICA DE FILTRADO ---
+    from preferencias.models import Sucursal
+    sucursales_lista = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
     
     # --- NUEVO: Obtener catálogos para los selects del modal ---
     proveedores_activos = Proveedor.objects.filter(empresa=empresa_actual, estado='activo')
@@ -114,6 +120,7 @@ def dashboard_solicitudcompras(request):
         'monedas': list(lista_monedas),
         'productos': list(lista_productos),
         'listas_costos': listas_costos,
+        'sucursales': sucursales_lista,
         'filtros': filtros,
         'section': 'solicitudcompras'
     }
@@ -145,6 +152,7 @@ def crear_solicitud_desde_pedido(request, detalle_id):
             pedido_origen=pedido, 
             solicitante=request.user, 
             empresa=empresa_actual, 
+            sucursal=pedido.sucursal, # Hereda la sucursal del pedido
             estado='borrador'
         )
 
@@ -159,7 +167,8 @@ def crear_solicitud_desde_pedido(request, detalle_id):
             solicitante=request.user,
             almacen=Almacen.objects.filter(empresa=empresa_actual).first(), # Almacen por defecto
             estado='borrador',
-            notas=f"Generada desde Pedido #{pedido.id} (Partida Individual)"
+            notas=f"Generada desde Pedido #{pedido.id} (Partida Individual)",
+            sucursal=pedido.sucursal
         )
 
         # 2. Obtener Receta y copiar a DetalleOrdenProduccion
@@ -353,10 +362,21 @@ def crear_solicitud_manual(request):
             if not empresa_actual:
                 return JsonResponse({'success': False, 'error': 'Empresa no detectada'})
 
+            # Asignar sucursal desde la sesión
+            sucursal_obj = None
+            sucursal_id = request.session.get('sucursal_id')
+            if sucursal_id:
+                from preferencias.models import Sucursal
+                try:
+                    sucursal_obj = Sucursal.objects.get(id=sucursal_id, empresa=empresa_actual)
+                except Sucursal.DoesNotExist:
+                    pass
+
             notas = request.POST.get('notas', '')
             solicitud = SolicitudCompra.objects.create(
                 solicitante=request.user,
                 empresa=empresa_actual,
+                sucursal=sucursal_obj,
                 estado='borrador',
                 notas=notas
             )
@@ -451,9 +471,10 @@ def autorizar_solicitud(request, solicitud_id):
         for (proveedor, sucursal, moneda, almacen), lista_detalles in items_agrupados.items():
             nueva_oc = OrdenCompra.objects.create(
                 proveedor=proveedor,
-                sucursal=sucursal,
+                sucursal=sucursal, # Esta es la sucursal del proveedor
                 usuario=request.user,
                 empresa=empresa_actual,
+                sucursal_empresa=solicitud.sucursal, # Hereda la sucursal de la empresa de la solicitud
                 estado='borrador',
                 almacen_destino=almacen,
                 moneda=moneda,

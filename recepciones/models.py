@@ -15,6 +15,7 @@ class Recepcion(models.Model):
     orden_compra = models.ForeignKey(OrdenCompra, on_delete=models.PROTECT, related_name='recepciones')
     almacen = models.ForeignKey(Almacen, on_delete=models.PROTECT)
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Empresa")
+    sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
     
     # NUEVOS CAMPOS: MONEDA Y TC AL RECIBIR
     moneda = models.ForeignKey('preferencias.Moneda', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Moneda")

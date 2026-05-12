@@ -131,13 +131,13 @@
                         </div>
                     </div>
                     <!-- 2. Folio Pedido -->
-                    <div class="col-12 col-md-4 col-lg-2">
-                        <label class="form-label small fw-bold text-secondary">Folio Pedido</label>
+                    <div class="col-12 col-md-4 col-lg-1">
+                        <label class="form-label small fw-bold text-secondary">Folio Ped.</label>
                         <input type="text" name="folio_pedido" class="form-control form-control-sm" placeholder="Ej: 117" value="{{ filtros.folio_pedido|default:'' }}">
                     </div>
                     <!-- 3. Folio Cotización -->
-                    <div class="col-12 col-md-4 col-lg-2">
-                        <label class="form-label small fw-bold text-secondary">Folio Cotización</label>
+                    <div class="col-12 col-md-4 col-lg-1">
+                        <label class="form-label small fw-bold text-secondary">Folio Cot.</label>
                         <input type="text" name="folio_cotizacion" class="form-control form-control-sm" placeholder="Ej: 110" value="{{ filtros.folio_cotizacion|default:'' }}">
                     </div>
                     <!-- 4. Cliente -->
@@ -226,6 +226,16 @@
                             <option value="cancelado" {% if filtros.estado == 'cancelado' %}selected{% endif %}>Cancelado</option>
                         </select>
                     </div>
+                    <!-- 8. Sucursal -->
+                    <div class="col-12 col-md-4 col-lg-2">
+                        <label class="form-label small fw-bold text-secondary">Sucursal</label>
+                        <select name="sucursal" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="">Todas...</option>
+                            {% for suc in sucursales %}
+                                <option value="{{ suc.id }}" {% if filtros.sucursal|stringformat:"s" == suc.id|stringformat:"s" %}selected{% endif %}>{{ suc.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </form>
             </div>
         </div>
@@ -238,6 +248,7 @@
                         <thead>
                             <tr>
                                 <th class="text-center align-middle" style="width: 100px;">Acciones</th>
+                                <th class="text-center align-middle" style="width: 100px;">Sucursal</th>
                                 <th class="text-center align-middle" style="width: 120px;">Folio Ped.</th>
                                 <th class="text-center align-middle" style="width: 120px;">Folio Cot.</th>
                                 <th class="text-center align-middle" style="width: 120px;">Cliente / Contacto</th>
@@ -332,6 +343,11 @@
                                     </div>
                                 </td>
 
+                                <!-- 1.5 SUCURSAL -->
+                                <td class="text-center align-middle">
+                                    <span class="badge bg-light text-secondary border small">{{ p.sucursal.nombre|default:"Principal" }}</span>
+                                </td>
+
                                 <!-- 2. FOLIO -->
                                 <td class="text-center align-middle">
                                     <span class="fw-bold text-dark font-monospace" style="font-size: 0.9rem;">PED-{{ p.id|stringformat:"04d" }}</span>
@@ -419,7 +435,7 @@
                                 </td>
                             </tr>
                             {% empty %}
-                            <tr><td colspan="9" class="text-center py-5">No hay pedidos.</td></tr>
+                            <tr><td colspan="10" class="text-center py-5">No hay pedidos.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>

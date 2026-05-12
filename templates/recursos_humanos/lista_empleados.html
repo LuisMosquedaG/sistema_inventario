@@ -151,7 +151,7 @@
             <span class="section-subtitle">Módulo de Recursos Humanos</span>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
-            <button class="btn btn-brand text-white btn-sm px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoEmpleado" onclick="prepararNuevoEmpleado()">
+            <button class="btn btn-brand text-white btn-sm px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoEmpleado" onclick="prepararNuevoEmpleado('{{ filtros.sucursal }}')">
                 <i class="bi bi-plus-lg me-1"></i> Nuevo Empleado
             </button>
         </div>
@@ -178,13 +178,22 @@
                     </select>
                 </div>
                 <div class="col-12 col-md-3">
+                    <label class="form-label small fw-bold text-secondary">Sucursal</label>
+                    <select name="sucursal" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todas...</option>
+                        {% for s in sucursales %}
+                        <option value="{{ s.id }}" {% if filtros.sucursal == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 col-md-2">
                     <label class="form-label small fw-bold text-secondary">Estado</label>
                     <select name="estado" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="">Todos...</option>
-                        <option value="activo" {% if request.GET.estado == 'activo' %}selected{% endif %}>Activo</option>
-                        <option value="inactivo" {% if request.GET.estado == 'inactivo' %}selected{% endif %}>Inactivo</option>
-                        <option value="suspendido" {% if request.GET.estado == 'suspendido' %}selected{% endif %}>Suspendido</option>
-                        <option value="baja" {% if request.GET.estado == 'baja' %}selected{% endif %}>Baja</option>
+                        <option value="activo" {% if filtros.estado == 'activo' %}selected{% endif %}>Activo</option>
+                        <option value="inactivo" {% if filtros.estado == 'inactivo' %}selected{% endif %}>Inactivo</option>
+                        <option value="suspendido" {% if filtros.estado == 'suspendido' %}selected{% endif %}>Suspendido</option>
+                        <option value="baja" {% if filtros.estado == 'baja' %}selected{% endif %}>Baja</option>
                     </select>
                 </div>
             </form>
@@ -199,6 +208,7 @@
                     <thead>
                         <tr>
                             <th class="text-center" style="width: 80px;">Acciones</th>
+                            <th class="text-center" style="width: 100px;">Sucursal</th>
                             <th class="text-center" style="width: 100px;">Num Empleado</th>
                             <th class="text-center" style="width: 100px;">Colaborador</th>
                             <th class="text-center" style="width: 100px;">Puesto / Área</th>
@@ -218,6 +228,9 @@
                                         <i class="bi bi-eye"></i>
                                     </span>
                                 </div>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary border" style="font-size: 0.7rem;">{{ empleado.sucursal.nombre|default:"Global" }}</span>
                             </td>
                             <td class="text-center">
                                 {{ empleado.num_empleado }}
@@ -443,6 +456,15 @@
                                             <input type="text" name="num_empleado" class="form-control form-control-sm" required>
                                         </div>
                                         <div class="col-md-6">
+                                            <label class="form-label-custom">Sucursal <span class="text-danger">*</span></label>
+                                            <select name="sucursal" id="selectSucursalEmpleado" class="form-select form-select-sm" required>
+                                                <option value="">Seleccionar Sucursal...</option>
+                                                {% for s in sucursales %}
+                                                <option value="{{ s.id }}">{{ s.nombre }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
                                             <label class="form-label-custom">Estado Actual</label>
                                             <select name="estado" class="form-select form-select-sm">
                                                 <option value="activo">Activo</option>
@@ -625,9 +647,15 @@
 
 {% block extra_js %}
 <script>
-    function prepararNuevoEmpleado() {
+    function prepararNuevoEmpleado(sucursalId = '') {
         document.getElementById('formNuevoEmpleado').reset();
         document.getElementById('empleado_id').value = '';
+        
+        if (sucursalId) {
+            const selSuc = document.getElementById('selectSucursalEmpleado');
+            if (selSuc) selSuc.value = sucursalId;
+        }
+
         document.querySelector('#modalNuevoEmpleado .modal-title').textContent = 'Registro de Nuevo Empleado';
         document.querySelector('#modalNuevoEmpleado .btn-brand').innerHTML = '<i class="bi bi-save me-1"></i> Guardar Empleado';
     }
@@ -656,6 +684,10 @@
                         }
                     }
                 }
+
+                // Asegurar que la sucursal se cargue
+                const selSuc = document.getElementById('selectSucursalEmpleado');
+                if (selSuc) selSuc.value = data.sucursal || '';
 
                 // Cambiar títulos del modal
                 document.querySelector('#modalNuevoEmpleado .modal-title').textContent = 'Editar Empleado';

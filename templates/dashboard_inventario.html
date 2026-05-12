@@ -93,7 +93,7 @@
             {% endif %}
 
             {% if granular_inventory_perms.inventario.crear %}
-            <button class="btn btn-brand text-white btn-pro shadow-sm" onclick="abrirNuevoArticulo()">
+            <button class="btn btn-brand text-white btn-pro shadow-sm" onclick="abrirNuevoArticulo('{{ filtros.sucursal }}')">
                 <i class="bi bi-plus-lg me-1"></i> Nuevo Artículo
             </button>
             {% endif %}
@@ -104,23 +104,32 @@
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body p-3">
             <form method="get" id="formFiltrosInventario" class="row g-2 align-items-end">
-                <div class="col-12 col-md-4 col-lg-3">
+                <div class="col-12 col-md-3 col-lg-3">
                     <label class="form-label small fw-bold text-secondary">Búsqueda General</label>
                     <div class="input-group input-group-sm">
                         <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
-                        <input type="text" name="q" class="form-control border-start-0" placeholder="Buscar..." value="{{ filtros.q }}">
+                        <input type="text" name="q" class="form-control border-start-0" placeholder="Buscar..." value="{{ filtros.q }}" onchange="this.form.submit()">
                     </div>
                 </div>
-                <div class="col-12 col-md-4 col-lg-2">
+                <div class="col-12 col-md-3 col-lg-3">
+                    <label class="form-label small fw-bold text-secondary">Sucursal</label>
+                    <select name="sucursal" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todas...</option>
+                        {% for s in sucursales %}
+                        <option value="{{ s.id }}" {% if filtros.sucursal == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 col-md-3 col-lg-3">
                     <label class="form-label small fw-bold text-secondary">Almacén</label>
                     <select name="almacen" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="">Todos...</option>
                         {% for a in almacenes %}
-                        <option value="{{ a.id }}" {% if filtros.almacen == a.id %}selected{% endif %}>{{ a.nombre }}</option>
+                        <option value="{{ a.id }}" {% if filtros.almacen == a.id|stringformat:"s" %}selected{% endif %}>{{ a.nombre }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-12 col-md-4 col-lg-2">
+                <div class="col-12 col-md-3 col-lg-3">
                     <label class="form-label small fw-bold text-secondary">Estado</label>
                     <select name="estado" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="">Todos...</option>

@@ -42,8 +42,9 @@ def dashboard_ventas(request):
     fecha_salida = request.GET.get('fecha_salida', '')
     cliente_id = request.GET.get('cliente_id', '')
     estado = request.GET.get('estado', '')
+    sucursal_id_filtro = request.GET.get('sucursal', '')
 
-    ordenes = OrdenVenta.objects.filter(empresa=empresa_actual).select_related('pedido_origen', 'cliente').order_by('-fecha_creacion')
+    ordenes = OrdenVenta.objects.filter(empresa=empresa_actual).select_related('pedido_origen', 'cliente', 'sucursal').order_by('-fecha_creacion')
 
     if q:
         ordenes = ordenes.filter(
@@ -76,6 +77,8 @@ def dashboard_ventas(request):
             pass
     if estado:
         ordenes = ordenes.filter(estado=estado)
+    if sucursal_id_filtro:
+        ordenes = ordenes.filter(sucursal_id=sucursal_id_filtro)
 
     # Para el buscador visual
     cliente_nombre_display = ""
@@ -94,9 +97,12 @@ def dashboard_ventas(request):
         'fecha_salida': fecha_salida,
         'cliente_id': cliente_id,
         'cliente_nombre': cliente_nombre_display,
-        'estado': estado
+        'estado': estado,
+        'sucursal': sucursal_id_filtro
     }
     # --- FIN LÓGICA DE FILTRADO ---
+    from preferencias.models import Sucursal
+    sucursales_lista = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
 
     cotizaciones_ids = set()
     for orden in ordenes:
@@ -123,6 +129,7 @@ def dashboard_ventas(request):
         'almacenes_json': almacenes, 
         'clientes': Cliente.objects.filter(empresa=empresa_actual), 
         'productos': Producto.objects.filter(empresa=empresa_actual),
+        'sucursales': sucursales_lista,
         'filtros': filtros,
         'perm_ventas': {
             'ver': user_has_sales_permission(request, 'salidas', 'ver'),
@@ -152,12 +159,23 @@ def crear_salida_directa(request):
         cliente_id = request.POST.get('cliente')
         cliente = get_object_or_404(Cliente, id=cliente_id, empresa=empresa_actual)
         
+        # Asignar sucursal desde la sesión
+        sucursal_obj = None
+        sucursal_id = request.session.get('sucursal_id')
+        if sucursal_id:
+            from preferencias.models import Sucursal
+            try:
+                sucursal_obj = Sucursal.objects.get(id=sucursal_id, empresa=empresa_actual)
+            except Sucursal.DoesNotExist:
+                pass
+
         # 1. Crear la cabecera
         ov = OrdenVenta.objects.create(
             pedido_origen=None,
             cliente=cliente,
             vendedor=request.user,
             empresa=empresa_actual,
+            sucursal=sucursal_obj,
             estado='borrador'
         )
 
@@ -219,6 +237,7 @@ def crear_orden_venta(request, pedido_id):
         cliente=pedido.cliente,
         vendedor=pedido.vendedor, # Se hereda el vendedor del pedido original
         empresa=empresa_actual,
+        sucursal=pedido.sucursal, # Hereda la sucursal del pedido
         estado='borrador'
     )
 
@@ -244,7 +263,7 @@ def crear_orden_venta(request, pedido_id):
 
 @login_required
 @require_sales_permission('salidas', 'aprobar')
-def cambiar_estado_ov(request, orden_id, nuevo_estado):
+def cambiar_estado_ov(request, ov_id, nuevo_estado):
     empresa_actual = get_empresa_actual(request)
     ov = get_object_or_404(OrdenVenta, id=ov_id, empresa=empresa_actual)
     if nuevo_estado == 'aprobado' and ov.estado == 'borrador':

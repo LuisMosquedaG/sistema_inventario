@@ -11,6 +11,7 @@
             <div class="modal-body p-4">
                 <form id="formProductoRapido" method="post" action="{% url 'crear_producto_rapido' %}">
                     {% csrf_token %}
+                    <input type="hidden" name="sucursal" value="{{ filtros.sucursal|default:'' }}">
                     
                     <div class="mb-3">
                         <label class="form-label small fw-bold text-secondary">Nombre del Producto</label>
@@ -64,15 +65,21 @@
                                 return;
                             }
 
-                            // Usamos el endpoint existente del sistema
-                            fetch(`/inventario/api/subcategorias/?categoria_id=${catId}`)
+                            // Usamos el endpoint de detalle de categoría que ya trae las subcategorías
+                            fetch(`/inventario/api/categoria/${catId}/`)
                                 .then(r => r.json())
                                 .then(data => {
                                     selectSub.innerHTML = '<option value="">Seleccionar...</option>';
-                                    data.forEach(s => {
-                                        selectSub.insertAdjacentHTML('beforeend', `<option value="${s.nombre}">${s.nombre}</option>`);
-                                    });
+                                    if (data.subcategorias) {
+                                        data.subcategorias.forEach(s => {
+                                            selectSub.insertAdjacentHTML('beforeend', `<option value="${s.nombre}">${s.nombre}</option>`);
+                                        });
+                                    }
                                     selectSub.disabled = false;
+                                })
+                                .catch(err => {
+                                    console.error("Error al cargar subcategorías:", err);
+                                    selectSub.innerHTML = '<option value="">Error al cargar</option>';
                                 });
                         }
                     </script>
@@ -89,8 +96,92 @@
             </div>
             <div class="modal-footer bg-light border-top p-2">
                 <button type="button" class="btn btn-sm btn-light text-secondary px-3" data-bs-dismiss="modal">Cancelar</button> 
-                <button type="submit" form="formProductoRapido" class="btn btn-sm btn-brand px-4 fw-bold">Guardar Producto</button>
+                <button type="button" onclick="guardarProductoRapido()" class="btn btn-sm btn-brand px-4 fw-bold">Guardar Producto</button>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+    function guardarProductoRapido() {
+        const form = document.getElementById('formProductoRapido');
+        const formData = new FormData(form);
+        const btn = event.currentTarget;
+        const originalText = btn.innerText;
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                // 1. Agregar a la lista de productos del modal de cotización
+                const wrapperP = document.getElementById('wrapperProductoAgregar');
+                if (wrapperP) {
+                    const containerOptions = wrapperP.querySelector('.custom-options');
+                    const newOption = document.createElement('span');
+                    newOption.className = 'custom-option';
+                    newOption.setAttribute('data-value', data.id);
+                    newOption.setAttribute('data-precio', data.precio_venta);
+                    newOption.setAttribute('data-search', data.nombre);
+                    newOption.setAttribute('title', data.nombre);
+                    newOption.innerText = data.nombre;
+                    
+                    // Agregar evento click a la nueva opción
+                    newOption.addEventListener('click', function() {
+                        const opts = containerOptions.querySelectorAll('.custom-option');
+                        opts.forEach(o => o.classList.remove('selected'));
+                        this.classList.add('selected');
+                        
+                        const fakeP = document.getElementById('producto_display_fake');
+                        const hidP = document.getElementById('selectProductoAgregar');
+                        const inpP = document.getElementById('producto_busqueda');
+                        
+                        fakeP.innerHTML = this.innerHTML;
+                        fakeP.setAttribute('title', this.textContent.trim());
+                        inpP.value = '';
+                        hidP.value = data.id;
+                        hidP.setAttribute('data-base-precio', data.precio_venta);
+                        
+                        document.getElementById('inputPrecioAgregar').value = data.precio_venta;
+                        
+                        const selP = wrapperP.querySelector('.custom-select');
+                        selP.classList.remove('open');
+                        fakeP.style.opacity = "1";
+                    });
+
+                    containerOptions.appendChild(newOption);
+
+                    // 2. Seleccionar automáticamente
+                    newOption.click();
+                }
+
+                // 3. Cerrar modal y limpiar
+                const modalEl = document.getElementById('modalCrearProductoRapido');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                modal.hide();
+                form.reset();
+                
+                // Alert suave (opcional)
+                // alert('Producto creado y seleccionado');
+            } else {
+                alert('Error: ' + (data.error || 'No se pudo guardar el producto'));
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error de conexión');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerText = originalText;
+        });
+    }
+</script>

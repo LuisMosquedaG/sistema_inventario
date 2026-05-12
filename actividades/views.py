@@ -39,8 +39,9 @@ def lista_actividades(request):
     tipo = request.GET.get('tipo', '')
     prioridad = request.GET.get('prioridad', '')
     estado = request.GET.get('estado', '')
+    sucursal_id_filtro = request.GET.get('sucursal', '')
 
-    actividades = Actividad.objects.filter(empresa=empresa_actual).select_related('cliente', 'contacto', 'cotizacion').order_by('-fecha', '-hora_inicio')
+    actividades = Actividad.objects.filter(empresa=empresa_actual).select_related('cliente', 'contacto', 'cotizacion', 'sucursal').order_by('-fecha', '-hora_inicio')
 
     if q:
         actividades = actividades.filter(
@@ -67,6 +68,8 @@ def lista_actividades(request):
         actividades = actividades.filter(prioridad=prioridad)
     if estado:
         actividades = actividades.filter(estado=estado)
+    if sucursal_id_filtro:
+        actividades = actividades.filter(sucursal_id=sucursal_id_filtro)
 
     # Para el buscador visual
     cliente_nombre_display = ""
@@ -85,15 +88,19 @@ def lista_actividades(request):
         'fecha': fecha,
         'tipo': tipo,
         'prioridad': prioridad,
-        'estado': estado
+        'estado': estado,
+        'sucursal': sucursal_id_filtro
     }
     # --- FIN LÓGICA DE FILTRADO ---
+    from preferencias.models import Sucursal
+    sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
     
     clientes = Cliente.objects.filter(empresa=empresa_actual)
     
     return render(request, 'dashboard_actividades.html', {
         'actividades': actividades,
         'clientes': clientes,
+        'sucursales': sucursales,
         'filtros': filtros
     })
 
@@ -144,6 +151,16 @@ def crear_actividad(request):
                 except Cotizacion.DoesNotExist:
                     return JsonResponse({'success': False, 'error': 'La cotización no pertenece a este cliente.'})
 
+            # Asignar sucursal desde la sesión
+            sucursal_obj = None
+            sucursal_id = request.session.get('sucursal_id')
+            if sucursal_id:
+                from preferencias.models import Sucursal
+                try:
+                    sucursal_obj = Sucursal.objects.get(id=sucursal_id, empresa=empresa_actual)
+                except Sucursal.DoesNotExist:
+                    pass
+
             Actividad.objects.create(
                 nombre=nombre, 
                 fecha=fecha, 
@@ -158,7 +175,8 @@ def crear_actividad(request):
                 direccion=direccion, 
                 descripcion=descripcion,
                 estado=estado,
-                empresa=empresa_actual
+                empresa=empresa_actual,
+                sucursal=sucursal_obj
             )
             return JsonResponse({'success': True})
         except Exception as e:

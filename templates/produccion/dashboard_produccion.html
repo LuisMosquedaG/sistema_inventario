@@ -134,20 +134,20 @@
             <div class="card-body p-3">
                 <form method="get" id="formFiltrosProduccion" class="row g-2 align-items-end">
                     <!-- 1. Búsqueda General -->
-                    <div class="col-12 col-md-4 col-lg-3">
+                    <div class="col-12 col-md-3 col-lg-2">
                         <label class="form-label small fw-bold text-secondary">Búsqueda General</label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
-                            <input type="text" name="q" class="form-control border-start-0" placeholder="Buscar..." value="{{ filtros.q|default:'' }}">
+                            <input type="text" name="q" class="form-control border-start-0" placeholder="Buscar..." value="{{ filtros.q|default:'' }}" onchange="this.form.submit()">
                         </div>
                     </div>
                     <!-- 2. Folio OP -->
-                    <div class="col-12 col-md-4 col-lg-2">
+                    <div class="col-12 col-md-3 col-lg-2">
                         <label class="form-label small fw-bold text-secondary">Folio OP</label>
-                        <input type="text" name="folio_op" class="form-control form-control-sm" placeholder="Ej: 001" value="{{ filtros.folio_op|default:'' }}">
+                        <input type="text" name="folio_op" class="form-control form-control-sm" placeholder="Ej: 001" value="{{ filtros.folio_op|default:'' }}" onchange="this.form.submit()">
                     </div>
                     <!-- 3. Producto (Buscador) -->
-                    <div class="col-12 col-md-4 col-lg-4">
+                    <div class="col-12 col-md-6 col-lg-3">
                         <label class="form-label small fw-bold text-secondary">Producto</label>
                         <div class="custom-select-wrapper" id="wrapperFiltroProducto">
                             <div class="custom-select">
@@ -172,12 +172,12 @@
                                     <span>{{ p.nombre }}</span>
                                 </span>
                                 {% endfor %}
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
                     <!-- 4. Estado -->
-                    <div class="col-12 col-md-4 col-lg-3">
+                    <div class="col-12 col-md-6 col-lg-2">
                         <label class="form-label small fw-bold text-secondary">Estado</label>
                         <select name="estado" class="form-select form-select-sm" onchange="this.form.submit()">
                             <option value="">Todos...</option>
@@ -186,6 +186,16 @@
                             <option value="testeo" {% if filtros.estado == 'testeo' %}selected{% endif %}>Testeo / Calidad</option>
                             <option value="terminado" {% if filtros.estado == 'terminado' %}selected{% endif %}>Terminado</option>
                             <option value="cancelada" {% if filtros.estado == 'cancelada' %}selected{% endif %}>Cancelada</option>
+                        </select>
+                    </div>
+                    <!-- 5. Sucursal -->
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <label class="form-label small fw-bold text-secondary">Sucursal</label>
+                        <select name="sucursal" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="">Todas...</option>
+                            {% for s in sucursales %}
+                                <option value="{{ s.id }}" {% if filtros.sucursal == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                 </form>
@@ -199,6 +209,7 @@
                         <thead>
                             <tr>
                                 <th class="text-center" >Acciones</th>
+                                <th class="text-center" style="width: 120px;">Sucursal</th>
                                 <th class="text-center" style="width: 120px;">Folio OP</th>
                                 <th class="text-center" style="width: 120px;">Folio Pedido</th>
                                 <th class="text-center">Producto</th>
@@ -248,6 +259,10 @@
                                             {% endif %}
                                         {% endif %}
                                     </div>
+                                </td>
+                                <!-- 1. SUCURSAL -->
+                                <td class="text-center">
+                                    <span class="badge bg-light text-secondary border fw-normal">{{ o.sucursal.nombre|default:"--" }}</span>
                                 </td>
                                 <!-- 2. FOLIO OP -->
                                 <td class="text-center font-monospace small"><span class="fw-bold">{{ o.folio }}</span></td>
@@ -316,7 +331,7 @@
                                 <td class="text-center"><span class="status-pill status-{{ o.estado }}">{{ o.get_estado_display }}</span></td>
                             </tr>
                             {% empty %}
-                            <tr><td colspan="7" class="text-center py-5 text-muted">No hay trabajos en el taller que coincidan con los filtros.</td></tr>
+                            <tr><td colspan="9" class="text-center py-5 text-muted">No hay trabajos en el taller que coincidan con los filtros.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>

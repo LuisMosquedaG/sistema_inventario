@@ -63,6 +63,7 @@ class Empleado(models.Model):
     ]
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
+    sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
     
     # 1. IDENTIFICACIÓN Y DATOS PERSONALES
     num_empleado = models.CharField(max_length=20, default="", verbose_name="Número de Empleado")

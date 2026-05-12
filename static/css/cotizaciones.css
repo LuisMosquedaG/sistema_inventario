@@ -18,9 +18,14 @@
 }
 
 .icon-action:hover {
-    color: #00b8b9; /* Color de marca */
+    color: #00b8b9; /* Color de marca por defecto */
     transform: scale(1.15);
 }
+
+.icon-action-success:hover { color: #198754 !important; }
+.icon-action-info:hover { color: #0dcaf0 !important; }
+.icon-action-brand:hover { color: #00b8b9 !important; }
+.icon-action-danger:hover { color: #dc3545 !important; }
 
 .icon-action:active {
     transform: scale(0.95);

@@ -26,8 +26,10 @@ from core.models import Producto, Categoria as CategoriaCore, Transaccion as Tra
 from categorias.models import Categoria, Subcategoria
 from clientes.models import Cliente, ContactoCliente
 from proveedores.models import Proveedor
+from recursos_humanos.models import Empleado
 from recepciones.models import Recepcion, DetalleRecepcion, DetalleRecepcionExtra
 from cotizaciones.models import Cotizacion, DetalleCotizacion
+from tesoreria.models import Ingreso, Egreso, PagoPedido, PagoCompra
 from decimal import Decimal
 
 # --- HELPER MULTI-TENANCY ---
@@ -215,6 +217,25 @@ def reiniciar_transacciones_ajax(request):
     if request.method == 'POST':
         try:
             # Borrar transacciones en orden de dependencia (Hijos primero para evitar PROTECT)
+            
+            # 1. Tesorería
+            Ingreso.objects.filter(empresa=empresa_actual).delete()
+            Egreso.objects.filter(empresa=empresa_actual).delete()
+            PagoPedido.objects.filter(empresa=empresa_actual).delete()
+            PagoCompra.objects.filter(empresa=empresa_actual).delete()
+            
+            # 2. Detalles y Movimientos
+            DetalleRecepcion.objects.filter(recepcion__empresa=empresa_actual).delete()
+            DetalleOrdenVenta.objects.filter(orden_venta__empresa=empresa_actual).delete()
+            DetalleCompra.objects.filter(orden_compra__empresa=empresa_actual).delete()
+            DetallePedido.objects.filter(pedido__empresa=empresa_actual).delete()
+            DetalleSolicitudCompra.objects.filter(solicitud__empresa=empresa_actual).delete()
+            DetalleOrdenProduccion.objects.filter(orden_produccion__empresa=empresa_actual).delete()
+            ResultadoTestOP.objects.filter(orden_produccion__empresa=empresa_actual).delete()
+            DetalleCotizacion.objects.filter(cotizacion__empresa=empresa_actual).delete()
+            Kardex.objects.filter(empresa=empresa_actual).delete()
+            
+            # 3. Cabeceras
             Recepcion.objects.filter(empresa=empresa_actual).delete()
             OrdenCompra.objects.filter(empresa=empresa_actual).delete()
             SolicitudCompra.objects.filter(empresa=empresa_actual).delete()
@@ -224,7 +245,6 @@ def reiniciar_transacciones_ajax(request):
             Cotizacion.objects.filter(empresa=empresa_actual).delete()
             TransaccionCore.objects.filter(empresa=empresa_actual).delete()
             Actividad.objects.filter(empresa=empresa_actual).delete()
-            Kardex.objects.filter(empresa=empresa_actual).delete()
             
             # Resetear stock en inventario
             Inventario.objects.filter(empresa=empresa_actual).update(cantidad=0, reservado=0)
@@ -251,6 +271,7 @@ def reiniciar_catalogos_ajax(request):
             Producto.objects.filter(empresa=empresa_actual).delete()
             Cliente.objects.filter(empresa=empresa_actual).delete()
             Proveedor.objects.filter(empresa=empresa_actual).delete()
+            Empleado.objects.filter(empresa=empresa_actual).delete()
             Almacen.objects.filter(empresa=empresa_actual).delete()
             Categoria.objects.filter(empresa=empresa_actual).delete()
             Subcategoria.objects.filter(empresa=empresa_actual).delete()

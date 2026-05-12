@@ -36,6 +36,7 @@ class Actividad(models.Model):
     
     # --- NUEVO CAMPO: MULTI-TENANCY ---
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Empresa (Tenant)")
+    sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
     
     # Relaciones
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, verbose_name="Cliente")
