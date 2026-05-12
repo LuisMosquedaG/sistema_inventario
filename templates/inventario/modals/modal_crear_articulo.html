@@ -10,6 +10,7 @@
                 <form id="formCrearArticulo">
                     {% csrf_token %}
                     <input type="hidden" name="producto_id" id="productoId" value="">
+                    <input type="hidden" name="sucursal" id="hiddenSucursalArticulo" value="">
                     
                     <!-- SECCIÓN 1: IDENTIFICACIÓN -->
                     <div class="card border-0 shadow-sm mb-2">
@@ -41,15 +42,6 @@
                                         <option value="inactivo">Inactivo</option>
                                         <option value="descontinuado">Descontinuado</option>
                                         <option value="revision">Revisión</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label small fw-bold text-secondary mb-1">Sucursal</label>
-                                    <select name="sucursal" id="selectSucursalArticulo" class="form-select form-select-sm">
-                                        <option value="">-- Global --</option>
-                                        {% for s in sucursales %}
-                                            <option value="{{ s.id }}">{{ s.nombre }}</option>
-                                        {% endfor %}
                                     </select>
                                 </div>
                                 <div class="col-md-4">

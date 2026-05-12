@@ -38,8 +38,8 @@ window.abrirNuevoArticulo = function(sucursalId = '') {
     const idField = document.getElementById('productoId');
     if (idField) idField.value = '';
 
-    const selSuc = document.getElementById('selectSucursalArticulo');
-    if (selSuc) selSuc.value = sucursalId;
+    const hidSuc = document.getElementById('hiddenSucursalArticulo');
+    if (hidSuc) hidSuc.value = sucursalId;
     
     const selSub = document.getElementById('selectSubcategoria');
     if (selSub) { 
@@ -88,9 +88,9 @@ window.cargarProductoEdicion = function(id) {
             form.querySelector('[name="stock_maximo"]').value = data.stock_maximo || 1000;
             form.querySelector('[name="maneja_lote"]').checked = data.maneja_lote || false;
             form.querySelector('[name="maneja_serie"]').checked = data.maneja_serie || false;
-            if (form.querySelector('[name="sucursal"]')) {
-                form.querySelector('[name="sucursal"]').value = data.sucursal || '';
-            }
+            
+            const hidSuc = document.getElementById('hiddenSucursalArticulo');
+            if (hidSuc) hidSuc.value = data.sucursal || '';
 
             if (data.categoria) {
                 cargarSubcategorias(data.categoria, data.subcategoria);
