@@ -22,8 +22,8 @@ from solicitudcompras.models import SolicitudCompra, DetalleSolicitudCompra
 from produccion.models import OrdenProduccion, DetalleOrdenProduccion, Test, ItemTest, ResultadoTestOP
 from actividades.models import Actividad
 from almacenes.models import Almacen, Inventario, Kardex
-from core.models import Producto, Categoria as CategoriaCore, Transaccion as TransaccionCore
-from categorias.models import Categoria, Subcategoria
+from core.models import Producto, Categoria as CategoriaCore, Transaccion as TransaccionCore, DetalleReceta
+from categorias.models import Categoria, Subcategoria, ListaPrecioCosto
 from clientes.models import Cliente, ContactoCliente
 from proveedores.models import Proveedor
 from recursos_humanos.models import Empleado
@@ -267,15 +267,18 @@ def reiniciar_catalogos_ajax(request):
             # Primero transacciones por integridad (aunque cascade debería manejarlo)
             reiniciar_transacciones_ajax(request)
             
-            # Borrar catálogos
+            # Borrar catálogos en orden de dependencia (PROTECT)
+            DetalleReceta.objects.filter(producto_padre__empresa=empresa_actual).delete()
+            
             Producto.objects.filter(empresa=empresa_actual).delete()
             Cliente.objects.filter(empresa=empresa_actual).delete()
             Proveedor.objects.filter(empresa=empresa_actual).delete()
             Empleado.objects.filter(empresa=empresa_actual).delete()
             Almacen.objects.filter(empresa=empresa_actual).delete()
+            Test.objects.filter(empresa=empresa_actual).delete() # Tests de Calidad
             Categoria.objects.filter(empresa=empresa_actual).delete()
             Subcategoria.objects.filter(empresa=empresa_actual).delete()
-            Moneda.objects.filter(empresa=empresa_actual).exclude(siglas='MXN').delete() # Mantener MXN por seguridad
+            ListaPrecioCosto.objects.filter(empresa=empresa_actual).delete()
             
             return JsonResponse({'success': True, 'message': 'Catálogos reiniciados correctamente.'})
         except Exception as e:
