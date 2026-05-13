@@ -397,7 +397,7 @@ def recotizar(request, cotizacion_id):
                     cotizacion=nueva,
                     producto=detalle.producto,
                     cantidad=detalle.cantidad,
-                    precio_unitario=detalle.precio_unitario
+                    precio_unitario=detalle.precio_unitario or 0
                 )
 
             messages.success(request, f'Cotización recotizada exitosamente. Nuevo folio: {nueva.folio_completo}')

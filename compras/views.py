@@ -289,22 +289,29 @@ def consolidar_compras_ajax(request):
                 return JsonResponse({'success': False, 'message': 'Empresa no detectada.'})
 
             # 1. Obtener órdenes en borrador
+            sucursal_id_req = request.GET.get('sucursal')
+            session_sucursal_id = request.session.get('sucursal_id')
+            
             ordenes_borrador = OrdenCompra.objects.filter(
                 empresa=empresa_actual,
                 estado='borrador'
-            ).select_related('proveedor', 'sucursal', 'moneda', 'almacen_destino')
+            ).select_related('proveedor', 'sucursal', 'moneda', 'almacen_destino', 'sucursal_empresa')
+
+            if sucursal_id_req:
+                ordenes_borrador = ordenes_borrador.filter(sucursal_empresa_id=sucursal_id_req)
 
             if not ordenes_borrador.exists():
                 return JsonResponse({'success': False, 'message': 'No hay órdenes en borrador para consolidar.'})
 
-            # 2. Agrupar por (Proveedor, Sucursal, Moneda, Almacén)
+            # 2. Agrupar por (Proveedor, Sucursal Prov, Moneda, Almacén, Sucursal Empresa)
             grupos = {}
             for oc in ordenes_borrador:
                 llave = (
                     oc.proveedor_id,
                     oc.sucursal_id,
                     oc.moneda_id,
-                    oc.almacen_destino_id
+                    oc.almacen_destino_id,
+                    oc.sucursal_empresa_id
                 )
                 if llave not in grupos:
                     grupos[llave] = []
@@ -324,12 +331,20 @@ def consolidar_compras_ajax(request):
                 folios = [f"OC-{oc.id:04d}" for oc in lista_ocs]
                 leyenda_notas = f"Orden de compra creada de los folios {', '.join(folios)}"
 
+                # Determinar sucursal empresa
+                # Prioridad: 1. Sucursal de las originales, 2. Filtro, 3. Sesión
+                final_sucursal_empresa_id = llave[4]
+                if not final_sucursal_empresa_id:
+                    # Si no hay sucursal en el grupo (Principal), intentamos asignar la seleccionada
+                    final_sucursal_empresa_id = sucursal_id_req or session_sucursal_id
+
                 # Crear la nueva OC
                 nueva_oc = OrdenCompra.objects.create(
                     proveedor_id=llave[0],
                     sucursal_id=llave[1],
                     moneda_id=llave[2],
                     almacen_destino_id=llave[3],
+                    sucursal_empresa_id=final_sucursal_empresa_id,
                     tipo_cambio=oc_base.tipo_cambio,
                     fecha=timezone.now(),
                     estado='borrador',
@@ -345,7 +360,7 @@ def consolidar_compras_ajax(request):
                             orden_compra=nueva_oc,
                             producto=det.producto,
                             cantidad=det.cantidad,
-                            precio_costo=det.precio_costo,
+                            precio_costo=det.precio_costo or 0,
                             detalle_pedido_origen=det.detalle_pedido_origen
                         )
 

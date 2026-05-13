@@ -19,6 +19,7 @@ def procesar_recepcion_servicio(data_post, empresa_actual, usuario=None):
     oc_id = data_post.get('orden_compra')
     almacen_id = data_post.get('almacen')
     fecha = data_post.get('fecha')
+    fecha_comprobante = data_post.get('fecha_comprobante')
     factura = data_post.get('factura')
     
     pedimento = data_post.get('pedimento')
@@ -35,6 +36,10 @@ def procesar_recepcion_servicio(data_post, empresa_actual, usuario=None):
         almacen = Almacen.objects.get(id=almacen_id)
         if almacen.empresa != empresa_actual:
             raise ValueError("Seguridad: El Almacén seleccionado no pertenece a tu empresa.")
+        
+        # --- RESTRICCIÓN: Solo almacenes de la sucursal de la OC ---
+        if almacen.sucursal != orden_compra.sucursal_empresa:
+            raise ValueError(f"El Almacén seleccionado no pertenece a la sucursal de la Orden de Compra ({orden_compra.sucursal_empresa.nombre}).")
             
     except (OrdenCompra.DoesNotExist, Almacen.DoesNotExist):
         raise ValueError("La Orden de Compra o el Almacén no existen.")
@@ -46,6 +51,7 @@ def procesar_recepcion_servicio(data_post, empresa_actual, usuario=None):
         empresa=empresa_actual, 
         sucursal=orden_compra.sucursal_empresa, # Hereda la sucursal de la OC
         fecha=fecha,
+        fecha_comprobante=fecha_comprobante if fecha_comprobante else None,
         factura=factura,
         pedimento=pedimento if pedimento else None,
         aduana=aduana if aduana else None,
@@ -139,6 +145,7 @@ def procesar_recepcion_servicio(data_post, empresa_actual, usuario=None):
                     for extra in extras_list:
                         DetalleRecepcionExtra.objects.create(
                             detalle_recepcion=detalle_recepcion_creado,
+                            producto=producto, # <--- ASIGNAR PRODUCTO
                             tipo=extra['tipo'],
                             lote=extra.get('lote'),
                             cantidad_lote=extra.get('cantidad_lote', 0),

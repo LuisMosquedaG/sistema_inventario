@@ -46,7 +46,6 @@ def crear_producto_rapido(request):
         tipo_abastecimiento = request.POST.get('tipo_abastecimiento', 'compra')
         categoria_id = request.POST.get('categoria', '')
         subcategoria = request.POST.get('subcategoria', '')
-        sucursal_id = request.POST.get('sucursal') or request.session.get('sucursal_id')
         
         categoria_nombre = ""
         if categoria_id:
@@ -111,7 +110,6 @@ def crear_producto_ajax(request):
             if form.is_valid():
                 producto = form.save(commit=False)
                 producto.empresa = empresa_actual
-                producto.sucursal_id = request.POST.get('sucursal') or request.session.get('sucursal_id')
                 test_id = request.POST.get('test_calidad')
                 if test_id:
                     from produccion.models import Test
@@ -138,8 +136,9 @@ def dashboard_inventario(request):
     estado = request.GET.get('estado')
 
     productos_qs = Producto.objects.filter(empresa=empresa_actual)
-    if sucursal_id:
-        productos_qs = productos_qs.filter(sucursal_id=sucursal_id)
+    # ELIMINADO: El catálogo de productos es general, no se filtra por sucursal
+    # if sucursal_id:
+    #     productos_qs = productos_qs.filter(sucursal_id=sucursal_id)
         
     if q:
         productos_qs = productos_qs.filter(
@@ -329,7 +328,6 @@ def obtener_producto_json(request, producto_id):
             'stock_minimo': producto.stock_minimo, 'stock_maximo': producto.stock_maximo,
             'maneja_lote': producto.maneja_lote, 'maneja_serie': producto.maneja_serie,
             'test_calidad_id': producto.test_calidad.id if producto.test_calidad else "",
-            'sucursal': producto.sucursal_id or "",
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=404)
@@ -349,7 +347,6 @@ def actualizar_producto_ajax(request, producto_id):
                 # Maneja el switch manual para lote/serie ya que vienen como 'on'
                 producto.maneja_lote = request.POST.get('maneja_lote') == 'on'
                 producto.maneja_serie = request.POST.get('maneja_serie') == 'on'
-                producto.sucursal_id = request.POST.get('sucursal')
                 
                 test_id = request.POST.get('test_calidad')
                 if test_id:

@@ -242,7 +242,7 @@ function verRecepcion(id) {
             document.getElementById('ver_rec_folio_val').innerText = data.folio;
             document.getElementById('ver_rec_fecha').innerText = data.fecha;
             document.getElementById('ver_rec_factura').innerText = data.factura;
-            document.getElementById('ver_rec_fecha_fact').innerText = data.fecha; // Usamos la misma fecha de recepción si no hay campo específico
+            document.getElementById('ver_rec_fecha_fact').innerText = data.fecha_comprobante; 
             document.getElementById('ver_rec_pedimento').innerText = data.pedimento;
             document.getElementById('ver_rec_fecha_ped').innerText = data.fecha_pedimento;
             document.getElementById('ver_rec_aduana').innerText = data.aduana;

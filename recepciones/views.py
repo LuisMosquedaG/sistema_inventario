@@ -216,6 +216,7 @@ def api_detalle_recepcion(request, recepcion_id):
             'titulo': 'Detalle Recepción',
             'folio': f"REC-{rec.id:04d}",
             'fecha': rec.fecha.strftime('%d/%m/%Y') if rec.fecha else '-',
+            'fecha_comprobante': rec.fecha_comprobante.strftime('%d/%m/%Y') if rec.fecha_comprobante else '-',
             'estado': rec.estado.upper(),
             'proveedor': str(oc.proveedor) if oc else "Directo / Sin OC",
             'sucursal': oc.sucursal.nombre if (oc and oc.sucursal) else 'Matriz / Principal',

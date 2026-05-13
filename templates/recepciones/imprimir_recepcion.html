@@ -86,8 +86,8 @@
                 <h3>Datos de Recepción</h3>
                 <div class="info-item"><span class="info-label">Almacén:</span> <span class="info-value">{{ recepcion.almacen.nombre }}</span></div>
                 <div class="info-item"><span class="info-label">Fecha Recepción:</span> <span class="info-value">{{ recepcion.fecha|date:"d/m/Y" }}</span></div>
-                <div class="info-item"><span class="info-label">Folio Fac/Rem:</span> <span class="info-value">{{ recepcion.factura|default:"--" }}</span></div>
-                <div class="info-item"><span class="info-label">Fecha Fact/Rem:</span> <span class="info-value">{{ recepcion.fecha|date:"d/m/Y" }}</span></div>
+                <div class="info-item"><span class="info-label">Folio Comprobantes:</span> <span class="info-value">{{ recepcion.factura|default:"--" }}</span></div>
+                <div class="info-item"><span class="info-label">Fecha Comprobante:</span> <span class="info-value">{{ recepcion.fecha_comprobante|date:"d/m/Y"|default:"--" }}</span></div>
                 <div class="info-item"><span class="info-label">Estado:</span> <span class="info-value">{{ recepcion.get_estado_display }}</span></div>
             </div>
         </div>

@@ -14,6 +14,7 @@
             <form id="formNuevaSolicitud" method="post" onsubmit="guardarSolicitud(event)">
                 {% csrf_token %}
                 <input type="hidden" id="solicitud_id_edit" name="solicitud_id">
+                <input type="hidden" id="item_indice_edicion" value="-1">
                 
                 <div class="modal-body p-3 bg-light">
                     <!-- SECCIÓN 0: DATOS DEL PEDIDO (Solo visible al editar si existe pedido_origen) -->
@@ -39,11 +40,17 @@
                     <!-- SECCIÓN 1: CONFIGURACIÓN GENERAL -->
                     <div class="card border-0 shadow-sm mb-3">
                         <div class="card-body p-3">
-                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem;">1. Configuración General</h6>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.75rem;">1. Configuración General</h6>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input custom-switch-brand" type="checkbox" id="switchAplicarTodo" onchange="toggleAplicarTodo()">
+                                    <label class="form-check-label small fw-bold text-secondary" for="switchAplicarTodo">Aplicar a todos los artículos</label>
+                                </div>
+                            </div>
                             <div class="row g-2">
                                 <div class="col-md-3">
                                     <label class="form-label small fw-bold text-secondary">Proveedor General</label>
-                                    <select id="gen_proveedor" class="form-select form-select-sm" onchange="cargarSucursalesProveedor(this.value, 'gen_sucursal')">
+                                    <select id="gen_proveedor" class="form-select form-select-sm" onchange="cargarSucursalesProveedor(this.value, 'gen_sucursal'); sincronizarSiAplicarTodo('proveedor')">
                                         <option value="">Seleccionar Proveedor...</option>
                                         {% for p in proveedores %}
                                         <option value="{{ p.id }}">{{ p.razon_social }}</option>
@@ -52,13 +59,13 @@
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small fw-bold text-secondary">Sucursal de Proveedor</label>
-                                    <select id="gen_sucursal" class="form-select form-select-sm" disabled>
+                                    <select id="gen_sucursal" class="form-select form-select-sm" disabled onchange="sincronizarSiAplicarTodo('sucursal')">
                                         <option value="">Seleccione proveedor primero...</option>
                                     </select>
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small fw-bold text-secondary">Almacén Recepción</label>
-                                    <select id="gen_almacen" class="form-select form-select-sm">
+                                    <select id="gen_almacen" class="form-select form-select-sm" onchange="sincronizarSiAplicarTodo('almacen')">
                                         <option value="">Seleccionar...</option>
                                         {% for a in almacenes %}
                                         <option value="{{ a.id }}">{{ a.nombre }}</option>
@@ -67,7 +74,7 @@
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small fw-bold text-secondary">Moneda</label>
-                                    <select id="gen_moneda" class="form-select form-select-sm">
+                                    <select id="gen_moneda" class="form-select form-select-sm" onchange="sincronizarSiAplicarTodo('moneda')">
                                         {% for m in monedas %}
                                         <option value="{{ m.id }}" {% if m.siglas == 'MXN' %}selected{% endif %}>{{ m.siglas }}</option>
                                         {% endfor %}
@@ -85,8 +92,9 @@
                     <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
                         <div class="card-body p-3">
                             <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem;">2. Agregar Artículo</h6>
+                            <input type="hidden" id="edit_item_pedido_det_id" value="">
                             <div class="row g-2 align-items-end">
-                                <div class="col-md-4">
+                                <div class="col-md-5">
                                     <label class="form-label small fw-bold text-secondary">Producto</label>
                                     <select id="add_producto" class="form-select form-select-sm" onchange="actualizarCostoDefault(this)">
                                         <option value="">Buscar producto...</option>
@@ -116,7 +124,7 @@
                                     </div>
                                 </div>
                                 <div class="col-md-1">
-                                    <button type="button" class="btn btn-brand btn-sm w-100 fw-bold" onclick="agregarArticuloManual()" title="Agregar Item">
+                                    <button type="button" id="btnAddItem" class="btn btn-brand btn-sm w-100 fw-bold" onclick="agregarArticuloManual()" title="Agregar Item">
                                         <i class="bi bi-plus-lg"></i>
                                     </button>
                                 </div>
@@ -139,7 +147,7 @@
                                             <th style="min-width: 120px;">Almacén</th>
                                             <th class="text-center" style="width: 80px;">Cant.</th>
                                             <th class="text-end" style="width: 100px;">Costo</th>
-                                            <th style="width: 40px;"></th>
+                                            <th style="width: 80px;">Acciones</th>
                                         </tr>
                                     </thead>
                                     <tbody id="cuerpoTablaSolicitud">
@@ -166,6 +174,7 @@
 </div>
 
 <style>
+    .custom-switch-brand:checked { background-color: #00b8b9 !important; border-color: #00b8b9 !important; }
     .btn-outline-brand { color: #00b8b9; border-color: #00b8b9; }
     .btn-outline-brand:hover { background-color: #00b8b9; color: white; }
     .btn-brand { background-color: #00b8b9; border-color: #00b8b9; color: white; }

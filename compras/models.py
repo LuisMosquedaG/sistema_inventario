@@ -110,4 +110,6 @@ class DetalleCompra(models.Model):
 
     @property
     def subtotal(self):
+        if self.precio_costo is None:
+            return 0
         return self.cantidad * self.precio_costo

@@ -21,10 +21,19 @@ const csrftoken = getCookie('csrftoken');
 function prepararNuevaSolicitud() {
     document.getElementById('formNuevaSolicitud').reset();
     document.getElementById('solicitud_id_edit').value = '';
+    document.getElementById('item_indice_edicion').value = '-1';
     document.getElementById('tituloModalSolicitud').innerText = 'Nueva Solicitud de Compra';
     document.getElementById('cuerpoTablaSolicitud').innerHTML = '';
     document.getElementById('mensajeVacioSolicitud').style.display = 'block';
     
+    // Resetear botón de agregar
+    const btn = document.getElementById('btnAddItem');
+    if (btn) {
+        btn.innerHTML = '<i class="bi bi-plus-lg"></i>';
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-brand');
+    }
+
     // Ocultar sección de datos de pedido
     document.getElementById('seccion_datos_pedido').style.display = 'none';
     
@@ -32,8 +41,6 @@ function prepararNuevaSolicitud() {
     const genSuc = document.getElementById('gen_sucursal');
     genSuc.innerHTML = '<option value="">Seleccione proveedor primero...</option>';
     genSuc.disabled = true;
-
-    // Resetear subcategorías del agregador (si hubiera, pero no hay aquí)
 }
 
 // --- LOGICA DE SUCURSALES ---
@@ -62,7 +69,7 @@ async function cargarSucursalesProveedor(proveedorId, targetSelectId, selectedSu
     }
 }
 
-// --- AGREGAR ARTÍCULO MANUAL ---
+// --- AGREGAR / ACTUALIZAR ARTÍCULO ---
 function agregarArticuloManual() {
     const prodId = document.getElementById('add_producto').value;
     const prodNombre = document.getElementById('add_producto').options[document.getElementById('add_producto').selectedIndex].text;
@@ -105,10 +112,29 @@ function agregarArticuloManual() {
         moneda_id: monId,
         moneda_siglas: monSiglas,
         lista_id: listaId,
-        lista_nombre: listaNombre
+        lista_nombre: listaNombre,
+        detalle_pedido_origen_id: document.getElementById('edit_item_pedido_det_id').value
     };
 
-    agregarFilaProducto(datos);
+    const indiceEdicion = parseInt(document.getElementById('item_indice_edicion').value);
+
+    if (indiceEdicion >= 0) {
+        // ACTUALIZAR FILA EXISTENTE
+        const tbody = document.getElementById('cuerpoTablaSolicitud');
+        const row = tbody.rows[indiceEdicion];
+        if (row) {
+            actualizarFilaHtml(row, datos);
+        }
+        // Resetear estado
+        document.getElementById('item_indice_edicion').value = '-1';
+        document.getElementById('edit_item_pedido_det_id').value = '';
+        const btn = document.getElementById('btnAddItem');
+        btn.innerHTML = '<i class="bi bi-plus-lg"></i>';
+        btn.classList.replace('btn-success', 'btn-brand');
+    } else {
+        // AGREGAR NUEVA FILA
+        agregarFilaProducto(datos);
+    }
 
     // Limpiar agregador
     document.getElementById('add_producto').value = '';
@@ -124,7 +150,12 @@ function agregarFilaProducto(datos) {
     
     const row = document.createElement('tr');
     row.style.fontSize = '0.85rem';
+    
+    actualizarFilaHtml(row, datos);
+    tbody.appendChild(row);
+}
 
+function actualizarFilaHtml(row, datos) {
     row.innerHTML = `
         <td class="ps-3">
             <div class="fw-bold text-dark">${datos.producto_nombre}</div>
@@ -160,13 +191,117 @@ function agregarFilaProducto(datos) {
             <input type="hidden" name="costo_unitario[]" value="${datos.costo_unitario}">
         </td>
         <td class="text-center">
-            <button type="button" class="btn btn-sm text-danger" onclick="eliminarFila(this)">
-                <i class="bi bi-trash"></i>
-            </button>
+            <div class="d-flex justify-content-center gap-1">
+                <button type="button" class="icon-action" onclick="cargarItemParaEdicion(this)" title="Editar Partida">
+                    <i class="bi bi-pencil-square"></i>
+                </button>
+                <button type="button" class="icon-action icon-action-danger" onclick="eliminarFila(this)" title="Eliminar">
+                    <i class="bi bi-x-circle"></i>
+                </button>
+            </div>
         </td>
     `;
+}
+
+function cargarItemParaEdicion(btn) {
+    const row = btn.closest('tr');
+    const index = row.rowIndex - 1; // Ajuste por thead
     
-    tbody.appendChild(row);
+    // Extraer datos de los hidden inputs de la fila
+    const prodId = row.querySelector('[name="producto_id[]"]').value;
+    const pedDetId = row.querySelector('[name="pedido_det_id[]"]')?.value || '';
+    const listaId = row.querySelector('[name="lista_id[]"]').value;
+    const monId = row.querySelector('[name="moneda_id[]"]').value;
+    const provId = row.querySelector('[name="proveedor_id[]"]').value;
+    const sucId = row.querySelector('[name="sucursal_id[]"]').value;
+    const almId = row.querySelector('[name="almacen_id[]"]').value;
+    const cant = row.querySelector('[name="cantidad[]"]').value;
+    const costo = row.querySelector('[name="costo_unitario[]"]').value;
+
+    // Poblar campos de arriba
+    document.getElementById('add_producto').value = prodId;
+    document.getElementById('add_lista').value = listaId;
+    document.getElementById('add_cantidad').value = cant;
+    document.getElementById('add_costo').value = costo;
+    document.getElementById('edit_item_pedido_det_id').value = pedDetId;
+    
+    document.getElementById('gen_proveedor').value = provId;
+    document.getElementById('gen_almacen').value = almId;
+    document.getElementById('gen_moneda').value = monId;
+    
+    // Cargar sucursales del proveedor y seleccionar la correcta
+    cargarSucursalesProveedor(provId, 'gen_sucursal', sucId);
+
+    // Cambiar estado a edición
+    document.getElementById('item_indice_edicion').value = index;
+    const btnAdd = document.getElementById('btnAddItem');
+    btnAdd.innerHTML = '<i class="bi bi-check-lg"></i>'; // Palomita
+    // Mantenemos btn-brand para conservar el color azulito
+    
+    // Scroll hacia arriba para que el usuario vea los campos poblados
+    document.querySelector('.modal-body').scrollTop = 0;
+}
+
+// --- LÓGICA: APLICAR TODO ---
+function toggleAplicarTodo() {
+    const isChecked = document.getElementById('switchAplicarTodo').checked;
+    if (isChecked) {
+        // Sincronizar todos los campos actuales inmediatamente
+        sincronizarSiAplicarTodo('proveedor');
+        sincronizarSiAplicarTodo('sucursal');
+        sincronizarSiAplicarTodo('almacen');
+        sincronizarSiAplicarTodo('moneda');
+    }
+}
+
+function sincronizarSiAplicarTodo(campo) {
+    const isChecked = document.getElementById('switchAplicarTodo').checked;
+    if (!isChecked) return;
+
+    const tbody = document.getElementById('cuerpoTablaSolicitud');
+    const rows = tbody.rows;
+
+    let newValue = "";
+    let newText = "";
+
+    switch(campo) {
+        case 'proveedor':
+            const selProv = document.getElementById('gen_proveedor');
+            newValue = selProv.value;
+            newText = newValue ? selProv.options[selProv.selectedIndex].text : 'No asignado';
+            for (let i = 0; i < rows.length; i++) {
+                rows[i].querySelector('[name="proveedor_id[]"]').value = newValue;
+                rows[i].cells[3].querySelector('div').innerText = newText;
+            }
+            break;
+        case 'sucursal':
+            const selSuc = document.getElementById('gen_sucursal');
+            newValue = selSuc.value;
+            newText = (newValue && !selSuc.disabled) ? selSuc.options[selSuc.selectedIndex].text : (document.getElementById('gen_proveedor').value ? 'Matriz' : '--');
+            for (let i = 0; i < rows.length; i++) {
+                rows[i].querySelector('[name="sucursal_id[]"]').value = newValue;
+                rows[i].cells[4].querySelector('div').innerText = newText;
+            }
+            break;
+        case 'almacen':
+            const selAlm = document.getElementById('gen_almacen');
+            newValue = selAlm.value;
+            newText = newValue ? selAlm.options[selAlm.selectedIndex].text : 'No asignado';
+            for (let i = 0; i < rows.length; i++) {
+                rows[i].querySelector('[name="almacen_id[]"]').value = newValue;
+                rows[i].cells[5].querySelector('div').innerText = newText;
+            }
+            break;
+        case 'moneda':
+            const selMon = document.getElementById('gen_moneda');
+            newValue = selMon.value;
+            newText = selMon.options[selMon.selectedIndex].text;
+            for (let i = 0; i < rows.length; i++) {
+                rows[i].querySelector('[name="moneda_id[]"]').value = newValue;
+                rows[i].cells[2].querySelector('.badge').innerText = newText;
+            }
+            break;
+    }
 }
 
 function eliminarFila(btn) {

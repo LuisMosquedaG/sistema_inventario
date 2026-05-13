@@ -308,7 +308,9 @@ def api_ejecutar_traslado(request):
                         extra.cantidad_lote = F('cantidad_lote') - cantidad
                         extra.save()
                         DetalleRecepcionExtra.objects.create(
-                            detalle_recepcion=extra.detalle_recepcion, tipo='lote', lote=extra.lote,
+                            detalle_recepcion=extra.detalle_recepcion, 
+                            producto=extra.producto, # <--- ASIGNAR PRODUCTO
+                            tipo='lote', lote=extra.lote,
                             cantidad_lote=cantidad, almacen=destino
                         )
                     else:

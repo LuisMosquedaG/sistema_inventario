@@ -53,6 +53,16 @@ function abrirModalSurtido(ovId, forceAlmacenId = null) {
                 return;
             }
 
+            // --- ACTUALIZAR SELECT DE ALMACENES ---
+            // Solo mostramos los que pertenecen a la sucursal de la orden
+            if (data.almacenes_validos) {
+                selectAlmacen.innerHTML = '';
+                data.almacenes_validos.forEach(a => {
+                    const sel = (data.almacen_id == a.id) ? 'selected' : '';
+                    selectAlmacen.insertAdjacentHTML('beforeend', `<option value="${a.id}" ${sel}>${a.nombre}</option>`);
+                });
+            }
+
             if (!forceAlmacenId) {
                 modalEl.querySelector('.modal-title').innerHTML = `<i class="bi bi-box-seam me-2 text-success"></i> Surtir Orden: ${data.folio_display}`;
                 document.getElementById('dispClienteNombre').innerText = data.cliente_razon || data.cliente_nombre;
@@ -78,25 +88,38 @@ function abrirModalSurtido(ovId, forceAlmacenId = null) {
                 
                 let extraHtml = '';
                 if (det.maneja_lote || det.maneja_serie) {
-                    let options = '<option value="">Seleccionar...</option>';
+                    let itemsHtml = '';
                     if (det.extras && det.extras.length > 0) {
                         det.extras.forEach(ex => {
-                            const label = ex.tipo === 'lote' ? `${ex.lote} (Stock: ${ex.cantidad})` : ex.serie;
-                            options += `<option value="${ex.id}">${label}</option>`;
+                            const label = ex.tipo === 'lote' ? ex.lote : ex.serie;
+                            const qtyInput = ex.tipo === 'lote' ? 
+                                `<input type="number" class="lot-qty-input" value="0" min="0" max="${ex.cantidad}" 
+                                        data-ex-id="${ex.id}" data-det-id="${det.id}" 
+                                        onclick="event.stopPropagation()" oninput="recalcularCantidadLotes(${det.id})">` : '';
+                            
+                            itemsHtml += `
+                                <div class="extra-item" data-id="${ex.id}" onclick="toggleExtraSelection(this, ${det.id}, true)">
+                                    <span>${label}</span>
+                                    ${qtyInput}
+                                </div>
+                            `;
                         });
                     } else {
-                        options = '<option value="">Sin existencias en este almacén</option>';
+                        itemsHtml = '<div class="text-muted small p-2 fst-italic">Sin existencias en este almacén</div>';
                     }
                     
-                    const multiple = det.maneja_serie ? 'multiple' : ''; 
-                    const helpText = det.maneja_serie ? '<small class="text-muted d-block" style="font-size:0.7rem">Ctrl+Click p/varios</small>' : '';
-
                     extraHtml = `
-                        <div class="mt-1">
-                            <select name="extra_id_${det.id}[]" class="form-select form-select-sm" ${multiple} required>
-                                ${options}
+                        <div class="mt-2">
+                            <input type="text" class="form-control form-control-sm search-extra" placeholder="Buscar serie/lote..." oninput="filtrarExtras(this, ${det.id})">
+                            <div class="extra-selection-container" id="container-extras-${det.id}">
+                                ${itemsHtml}
+                            </div>
+                            <!-- Select oculto para envío de formulario -->
+                            <select name="extra_id_${det.id}[]" id="hidden-select-${det.id}" multiple style="display:none;">
+                                ${det.extras ? det.extras.map(ex => `<option value="${ex.id}">${ex.tipo === 'lote' ? ex.lote : ex.serie}</option>`).join('') : ''}
                             </select>
-                            ${helpText}
+                            <!-- Contenedor para inputs de cantidades por lote -->
+                            <div id="hidden-qtys-${det.id}" style="display:none;"></div>
                         </div>
                     `;
                 }
@@ -509,4 +532,105 @@ function getCookie(name) {
         }
     }
     return cookieValue;
+}
+
+/**
+ * Maneja la selección visual de Lotes / Series
+ */
+function toggleExtraSelection(element, detalleId, isMultiple) {
+    const hiddenSelect = document.getElementById(`hidden-select-${detalleId}`);
+    const valId = element.dataset.id;
+    const option = hiddenSelect.querySelector(`option[value="${valId}"]`);
+
+    if (isMultiple) {
+        // Modo Múltiple (Series o Lotes ahora permitidos)
+        element.classList.toggle('selected');
+        
+        // Si es Lote y se acaba de seleccionar, poner foco en el input
+        if (element.classList.contains('selected')) {
+            const input = element.querySelector('.lot-qty-input');
+            if (input && parseInt(input.value) === 0) {
+                // Sugerir el pendiente de entrega si es posible
+                input.value = 1; 
+                recalcularCantidadLotes(detalleId);
+            }
+        } else {
+            const input = element.querySelector('.lot-qty-input');
+            if (input) {
+                input.value = 0;
+                recalcularCantidadLotes(detalleId);
+            }
+        }
+
+        if (option) option.selected = element.classList.contains('selected');
+    }
+
+    // Opcional: Actualizar el contador de 'A Entregar' si es modo serie
+    // (recalcularCantidadLotes ya lo hace para lotes)
+    const isSerie = element.closest('tr').innerHTML.includes('serie'); // Check rústico
+    if (isSerie && !element.querySelector('.lot-qty-input')) {
+        const selectedCount = element.closest('.extra-selection-container').querySelectorAll('.extra-item.selected').length;
+        const inputEntregar = document.querySelector(`input[name="cantidad_entregar_${detalleId}"]`);
+        if (inputEntregar) {
+            inputEntregar.value = selectedCount;
+            recalcularSurtido();
+        }
+    }
+}
+
+/**
+ * Filtra visualmente los lotes/series en tiempo real
+ */
+function filtrarExtras(input, detalleId) {
+    const term = input.value.toLowerCase();
+    const container = document.getElementById(`container-extras-${detalleId}`);
+    const items = container.querySelectorAll('.extra-item');
+
+    items.forEach(item => {
+        const text = item.querySelector('span').innerText.toLowerCase();
+        if (text.includes(term)) {
+            item.style.display = 'flex';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+/**
+ * Recalcula la suma de cantidades de lotes y actualiza el campo 'A Entregar'
+ */
+function recalcularCantidadLotes(detalleId) {
+    const container = document.getElementById(`container-extras-${detalleId}`);
+    const inputs = container.querySelectorAll('.lot-qty-input');
+    let total = 0;
+    
+    const hiddenSelect = document.getElementById(`hidden-select-${detalleId}`);
+    const qtysContainer = document.getElementById(`hidden-qtys-${detalleId}`);
+    qtysContainer.innerHTML = '';
+
+    inputs.forEach(inp => {
+        const val = parseInt(inp.value) || 0;
+        const exId = inp.dataset.exId;
+
+        if (val > 0) {
+            inp.closest('.extra-item').classList.add('selected');
+            // Crear input oculto para pasar la cantidad específica al backend
+            qtysContainer.insertAdjacentHTML('beforeend', `<input type="hidden" name="extra_qty_${detalleId}_${exId}" value="${val}">`);
+        } else {
+            inp.closest('.extra-item').classList.remove('selected');
+        }
+        total += val;
+    });
+
+    const inputEntregar = document.querySelector(`input[name="cantidad_entregar_${detalleId}"]`);
+    if (inputEntregar) {
+        inputEntregar.value = total;
+        recalcularSurtido();
+    }
+
+    // Actualizar el select oculto
+    Array.from(hiddenSelect.options).forEach(opt => {
+        const inputRelacionado = container.querySelector(`.lot-qty-input[data-ex-id="${opt.value}"]`);
+        opt.selected = inputRelacionado && parseInt(inputRelacionado.value) > 0;
+    });
 }

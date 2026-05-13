@@ -21,8 +21,9 @@ class Recepcion(models.Model):
     moneda = models.ForeignKey('preferencias.Moneda', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Moneda")
     tipo_cambio = models.DecimalField(max_digits=10, decimal_places=4, default=1.0000, verbose_name="Tipo de Cambio")
 
-    fecha = models.DateField(default=timezone.now)
-    factura = models.CharField("Factura/Remito", max_length=100, blank=True, null=True)
+    fecha = models.DateField(default=timezone.now, verbose_name="Fecha de Recepción")
+    fecha_comprobante = models.DateField("Fecha de Comprobante", blank=True, null=True)
+    factura = models.CharField("Folio de Comprobantes", max_length=100, blank=True, null=True)
     pedimento = models.CharField("Pedimento", max_length=100, blank=True, null=True)
     aduana = models.CharField("Aduana", max_length=100, blank=True, null=True)
     fecha_pedimento = models.DateField("Fecha Pedimento", blank=True, null=True, help_text="Fecha del documento de aduana")
