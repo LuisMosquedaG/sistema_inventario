@@ -34,10 +34,11 @@
 
         /* Navbar Corporativa */
         .navbar {
-            padding: 1rem 0;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(15px);
-            border-bottom: 1px solid #f1f5f9;
+            padding: 0.75rem 0;
+            background: rgba(255, 255, 255, 0.6); /* Más transparente */
+            backdrop-filter: blur(15px); /* Efecto difuminado */
+            -webkit-backdrop-filter: blur(15px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
         }
         .btn-nav-login {
             background: var(--brand-primary);
@@ -59,11 +60,12 @@
 
         /* Hero Section */
         .hero {
-            padding: 80px 0 80px;
+            padding: 0 0 60px;
             background: radial-gradient(circle at 0% 0%, rgba(0, 184, 185, 0.05) 0%, transparent 30%),
                         radial-gradient(circle at 100% 100%, rgba(0, 138, 139, 0.03) 0%, transparent 30%);
         }
         .hero-title {
+            margin-top: 0;
             font-size: 3.75rem;
             font-weight: 800;
             line-height: 1.1;
@@ -119,6 +121,43 @@
             margin-left: 28px;
         }
 
+        /* Sucursal & Branches */
+        .sucursal-border {
+            border: 2px dashed rgba(0, 184, 185, 0.3);
+            border-radius: 32px;
+            padding: 2.5rem;
+            position: relative;
+            background: rgba(255,255,255,0.5);
+        }
+        .sucursal-label {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--brand-primary);
+            color: white;
+            padding: 4px 16px;
+            border-radius: 20px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            white-space: nowrap;
+        }
+
+        .branch-tag {
+            background: white;
+            border: 1px solid #e2e8f0;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            text-transform: uppercase;
+            margin-left: auto;
+        }
+        .tag-income { color: #16a34a; border-left: 3px solid #16a34a; }
+        .tag-expense { color: #dc2626; border-left: 3px solid #dc2626; }
+
         /* Colors by Area */
         .bg-crm { background: rgba(13, 110, 253, 0.1); color: #0d6efd; }
         .bg-quote { background: rgba(102, 16, 242, 0.1); color: #6610f2; }
@@ -146,8 +185,64 @@
         }
         .heart-badge { background: #ef4444; color: white; padding: 4px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
 
-        footer { padding: 80px 0 40px; background: #ffffff; border-top: 1px solid #f1f5f9; }
-    </style>
+        /* Herramientas Styles */
+        .tool-card {
+            background: #ffffff;
+            border: 1px solid #f1f5f9;
+            border-radius: 16px;
+            padding: 1.5rem;
+            height: 100%;
+            transition: all 0.3s ease;
+        }
+        .tool-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.05);
+            border-color: var(--brand-primary);
+        }
+        .tool-icon {
+            width: 48px; height: 48px;
+            background: var(--bg-light);
+            color: var(--brand-primary);
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1.25rem;
+        }
+        .tool-title { font-weight: 700; font-size: 1rem; margin-bottom: 0.5rem; color: var(--text-main); }
+        .tool-desc { font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; }
+
+        /* HR Section Styles */
+        .hr-section {
+            background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
+            border-radius: 40px;
+            padding: 80px 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .construction-badge {
+            background: #f59e0b;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tools-section {
+            background-color: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        footer { padding: 1.25rem 0; background: var(--panel-dark); color: white; border-top: none; }
+        footer .text-muted { color: rgba(255,255,255,0.6) !important; }
+        footer a { color: var(--brand-primary); }
+        </style>
 </head>
 <body>
 
@@ -183,37 +278,41 @@
                 
                 <div class="col-lg-6 d-none d-lg-block">
                     <div class="ecosystem-flow">
-                        <div class="fw-bold text-uppercase text-muted mb-4" style="font-size: 0.7rem; letter-spacing: 1px;">Flujo Maestro CrossoverSuite</div>
+                        <div class="fw-bold text-uppercase text-muted mb-4 text-center" style="font-size: 0.7rem; letter-spacing: 1px;">Ecosistema CrossoverSuite</div>
                         
-                        <!-- Flujo Visual -->
-                        <div class="flow-step">
-                            <div class="flow-icon bg-crm"><i class="bi bi-person-badge"></i></div>
-                            <div class="step-info"><span class="step-name">CRM & Clientes</span><span class="step-desc">Prospección y Agenda</span></div>
-                        </div>
-                        <div class="line-connector"></div>
-                        <div class="flow-step">
-                            <div class="flow-icon bg-quote"><i class="bi bi-file-earmark-ruled"></i></div>
-                            <div class="step-info"><span class="step-name">Cotización</span><span class="step-desc">Oferta y Versiones</span></div>
-                        </div>
-                        <div class="line-connector"></div>
-                        <div class="flow-step" style="border-color: #e2e8f0; background: var(--bg-light);">
-                            <div class="flow-icon bg-order"><i class="bi bi-cpu-fill"></i></div>
-                            <div class="step-info"><span class="step-name">Pedido Inteligente</span><span class="step-desc">Diagnóstico de Stock</span></div>
-                        </div>
-                        <div class="line-connector"></div>
-                        <div class="flow-step">
-                            <div class="flow-icon bg-mrp"><i class="bi bi-gear-wide-connected"></i></div>
-                            <div class="step-info"><span class="step-name">Compras & Producción</span><span class="step-desc">Abastecimiento Automático</span></div>
-                        </div>
-                        <div class="line-connector"></div>
-                        <div class="flow-step">
-                            <div class="flow-icon bg-inv"><i class="bi bi-box-seam"></i></div>
-                            <div class="step-info"><span class="step-name">Gestión de Inventario</span><span class="step-desc">Entradas y Reservas</span></div>
-                        </div>
-                        <div class="line-connector"></div>
-                        <div class="flow-step">
-                            <div class="flow-icon bg-out"><i class="bi bi-truck"></i></div>
-                            <div class="step-info"><span class="step-name">Orden de Salida</span><span class="step-desc">Surtido y Logística</span></div>
+                        <div class="sucursal-border">
+                            <div class="sucursal-label">OPERACIÓN POR SUCURSALES</div>
+
+                            <!-- Flujo Visual -->
+                            <div class="flow-step">
+                                <div class="flow-icon bg-crm"><i class="bi bi-person-badge"></i></div>
+                                <div class="step-info"><span class="step-name">CRM & Clientes</span><span class="step-desc">Prospección y Agenda</span></div>
+                            </div>
+                            <div class="line-connector"></div>
+                            <div class="flow-step">
+                                <div class="flow-icon bg-quote"><i class="bi bi-file-earmark-ruled"></i></div>
+                                <div class="step-info"><span class="step-name">Cotización</span><span class="step-desc">Oferta y Versiones</span></div>
+                            </div>
+                            <div class="line-connector"></div>
+                            <div class="flow-step" style="border-color: #e2e8f0; background: var(--bg-light);">
+                                <div class="flow-icon bg-order"><i class="bi bi-cpu-fill"></i></div>
+                                <div class="step-info"><span class="step-name">Pedido Inteligente</span><span class="step-desc">Diagnóstico de Stock</span></div>
+                            </div>
+                            <div class="line-connector"></div>
+                            <div class="flow-step">
+                                <div class="flow-icon bg-mrp"><i class="bi bi-gear-wide-connected"></i></div>
+                                <div class="step-info"><span class="step-name">Compras & Producción</span><span class="step-desc">Abastecimiento Automático</span></div>
+                            </div>
+                            <div class="line-connector"></div>
+                            <div class="flow-step">
+                                <div class="flow-icon bg-inv"><i class="bi bi-box-seam"></i></div>
+                                <div class="step-info"><span class="step-name">Gestión de Inventario</span><span class="step-desc">Entradas y Reservas</span></div>
+                            </div>
+                            <div class="line-connector"></div>
+                            <div class="flow-step">
+                                <div class="flow-icon bg-out"><i class="bi bi-truck"></i></div>
+                                <div class="step-info"><span class="step-name">Orden de Salida</span><span class="step-desc">Surtido y Logística</span></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -221,8 +320,62 @@
         </div>
     </section>
 
+    <!-- HERRAMIENTAS CORPORATIVAS -->
+    <section class="tools-section py-5">
+        <div class="container py-5">
+            <div class="text-center mb-5">
+                <span class="fw-bold text-uppercase text-brand" style="font-size: 0.75rem; letter-spacing: 2px; color: var(--brand-primary);">Capacidades Core</span>
+                <h2 class="fw-bold mt-2">Herramientas de Control Total</h2>
+            </div>
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="tool-card">
+                        <div class="tool-icon"><i class="bi bi-diagram-3"></i></div>
+                        <h5 class="tool-title">Control por Sucursales</h5>
+                        <p class="tool-desc">Administración segmentada de inventarios, ventas y personal por sedes físicas independientes.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="tool-card">
+                        <div class="tool-icon"><i class="bi bi-file-earmark-pdf"></i></div>
+                        <h5 class="tool-title">Documentación PDF</h5>
+                        <p class="tool-desc">Generación automática de comprobantes profesionales para cotizaciones, pedidos y recepciones.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="tool-card">
+                        <div class="tool-icon"><i class="bi bi-qr-code-scan"></i></div>
+                        <h5 class="tool-title">Trazabilidad Comercial</h5>
+                        <p class="tool-desc">Seguimiento histórico preciso de cada artículo mediante control avanzado de lotes y números de serie.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="tool-card">
+                        <div class="tool-icon"><i class="bi bi-shield-lock"></i></div>
+                        <h5 class="tool-title">Roles y Permisos</h5>
+                        <p class="tool-desc">Seguridad granular por usuario, definiendo quién puede ver, crear o aprobar en cada módulo.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="tool-card">
+                        <div class="tool-icon"><i class="bi bi-currency-exchange"></i></div>
+                        <h5 class="tool-title">Tipo de Cambio</h5>
+                        <p class="tool-desc">Gestión multimoneda dinámica con tipos de cambio personalizados por operación comercial.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="tool-card">
+                        <div class="tool-icon"><i class="bi bi-bank"></i></div>
+                        <h5 class="tool-title">Ingresos y Egresos</h5>
+                        <p class="tool-desc">Control riguroso de tesorería y flujos de efectivo vinculados a tus compras y ventas.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- FASES DETALLADAS (REUTILIZANDO TU LÓGICA) -->
-    <section id="proceso" class="py-5 bg-light">
+    <section id="proceso" class="py-5">
         <div class="container py-5">
             <!-- FASE 1 & 2 -->
             <div class="row g-5 align-items-center mb-5">
@@ -292,6 +445,60 @@
         </div>
     </section>
 
+    <!-- SECCIÓN INDEPENDIENTE: RECURSOS HUMANOS -->
+    <section class="py-5">
+        <div class="container">
+            <div class="hr-section px-4 px-md-5">
+                <div class="row align-items-center g-5">
+                    <div class="col-lg-6">
+                        <div class="construction-badge mb-3">
+                            <i class="bi bi-hammer"></i> Módulo en Construcción
+                        </div>
+                        <h2 class="fw-bold mb-4">Recursos Humanos y Capital Humano</h2>
+                        <p class="text-muted fs-5 mb-4">
+                            Expandimos la Suite para la gestión integral de tu talento humano. Un módulo diseñado para el cumplimiento operativo y legal.
+                        </p>
+                        <div class="row g-3">
+                            <div class="col-sm-6">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary);"></i>
+                                    <span class="fw-semibold small">Gestión de Empleados</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary);"></i>
+                                    <span class="fw-semibold small">Control REPSE</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary);"></i>
+                                    <span class="fw-semibold small">Validación ICSOE</span>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary);"></i>
+                                    <span class="fw-semibold small">Reportes SISUB</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary);"></i>
+                                    <span class="fw-semibold small">Cálculo EMA / EBA</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary);"></i>
+                                    <span class="fw-semibold small">Expedientes Digitales</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6 text-center">
+                        <div class="p-4 bg-white shadow-lg rounded-4 d-inline-block">
+                            <i class="bi bi-person-gear display-1 opacity-50" style="color: var(--brand-primary);"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- FINAL CTA -->
     <section class="py-5 text-center">
         <div class="container py-5">
@@ -305,10 +512,12 @@
     <footer>
         <div class="container">
             <div class="row align-items-center text-center text-md-start">
-                <div class="col-md-6 mb-4 mb-md-0">
-                    <img src="{% static 'img/Logo.png' %}" alt="Logo" height="28" class="mb-3">
-                    <p class="text-muted small mb-0"><strong>CrossoverSuite 2026</strong> - Sistema ERP de Gestión Operativa.</p>
-                    <p class="text-muted small">Soporte Corporativo: <a href="mailto:soporte@crossovermx.com" class="text-decoration-none" style="color:var(--brand-primary)">soporte@crossovermx.com</a></p>
+                <div class="col-md-6 mb-3 mb-md-0">
+                    <div class="d-flex align-items-center justify-content-center justify-content-md-start mb-2">
+                        <img src="/media/logos/logo.png" alt="CrossoverSuite" class="me-2" height="24">
+                        <span class="fw-bold fs-5 text-white" style="letter-spacing: -1px;">Crossover<span style="color:var(--brand-primary)">Suite</span></span>
+                    </div>
+                    <p class="text-muted small mb-0">Gestión Operativa Integral - <a href="mailto:soporte@crossovermx.com" class="text-decoration-none">soporte@crossovermx.com</a></p>
                 </div>
                 <div class="col-md-6 text-md-end">
                     <p class="text-muted small mb-0">© 2026 CrossoverSuite. Todos los derechos reservados.</p>
