@@ -706,6 +706,54 @@ window.verDetalleDoc = function(tipo, id) {
 
 // --- FUNCIONES ESPECÍFICAS DE TRASLADO ---
 
+/**
+ * Filtra los almacenes mostrados en el modal de traslado según la sucursal seleccionada
+ */
+function filtrarAlmacenesTraslado(tipo) {
+    const sucursalId = (tipo === 'origen') ? document.getElementById('selectSucursalOrigen').value : document.getElementById('selectSucursalDestino').value;
+    const selectAlmacen = (tipo === 'origen') ? document.getElementById('selectAlmacenOrigen') : document.getElementById('selectAlmacenDestino');
+    
+    if (!selectAlmacen) return;
+
+    // Resetear select de almacén
+    selectAlmacen.value = "";
+    
+    if (sucursalId) {
+        // Desbloquear si hay sucursal seleccionada
+        selectAlmacen.disabled = false;
+        selectAlmacen.options[0].textContent = "Seleccionar Almacén...";
+    } else {
+        // Bloquear si no hay sucursal
+        selectAlmacen.disabled = true;
+        selectAlmacen.options[0].textContent = "Selecciona sucursal primero...";
+    }
+    
+    // Mostrar/ocultar opciones según sucursal
+    let firstVisible = false;
+    Array.from(selectAlmacen.options).forEach(opt => {
+        if (!opt.value) {
+            opt.style.display = "block"; // Opción vacía siempre visible
+            return;
+        }
+        
+        // Comparamos como strings
+        if (opt.dataset.sucursal === String(sucursalId)) {
+            opt.style.display = "block";
+            if (!firstVisible) {
+                // Opcional: podrías auto-seleccionar el primero si quisieras, 
+                // pero el usuario pidió desbloquear y mostrar.
+            }
+        } else {
+            opt.style.display = "none";
+        }
+    });
+
+    // Si es origen, resetear productos ya que dependen del almacén
+    if (tipo === 'origen') {
+        cargarProductosEnOrigen();
+    }
+}
+
 // Esta función se llama cuando se selecciona un almacén origen
 function cargarProductosEnOrigen() {
     const almacenOrigenId = document.getElementById('selectAlmacenOrigen').value;
@@ -949,6 +997,14 @@ function confirmarTraslado() {
 
 // --- Inicialización ---
 document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar filtros de traslado si existen los selects (en el modal)
+    if (document.getElementById('selectSucursalOrigen')) {
+        filtrarAlmacenesTraslado('origen');
+    }
+    if (document.getElementById('selectSucursalDestino')) {
+        filtrarAlmacenesTraslado('destino');
+    }
+
     // Usamos delegación de eventos para el cambio de almacén origen
     document.addEventListener('change', function(e) {
         if (e.target && e.target.id === 'selectAlmacenOrigen') {

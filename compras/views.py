@@ -188,6 +188,7 @@ def obtener_compra_json(request, compra_id):
             'folio': f"OC-{orden.id:04d}",
             'proveedor_id': orden.proveedor.id,
             'proveedor_nombre': orden.proveedor.razon_social,
+            'sucursal_empresa_id': orden.sucursal_empresa.id if orden.sucursal_empresa else '',
             'sucursal_id': orden.sucursal.id if orden.sucursal else '',
             'sucursal_nombre': orden.sucursal.nombre if orden.sucursal else 'Matriz / Principal',
             'almacen_id': orden.almacen_destino.id if orden.almacen_destino else '',
@@ -241,6 +242,7 @@ def actualizar_compra(request, compra_id):
             # 1. Actualizar Cabecera
             orden.proveedor_id = request.POST.get('proveedor')
             orden.sucursal_id = request.POST.get('sucursal')
+            orden.sucursal_empresa_id = request.POST.get('sucursal_empresa')
             orden.almacen_destino_id = request.POST.get('almacen')
             orden.moneda_id = request.POST.get('moneda')
             orden.tipo_cambio = request.POST.get('tipo_cambio', '1.0000')

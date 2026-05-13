@@ -303,21 +303,32 @@
                                 <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem;">Datos de la Compra</h6>
                                 
                                 <div class="row g-2 mb-2">
-                                    <div class="col-md-4">
-                                        <label class="form-label small fw-bold text-secondary">Almacén de Entrada</label>
-                                        <select name="almacen" class="form-select form-select-sm" required>
-                                            <option value="">Seleccionar...</option>
-                                            {% for a in almacenes %}<option value="{{ a.id }}">{{ a.nombre }}</option>{% endfor %}
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold text-secondary">Sucursal Empresa</label>
+                                        <select name="sucursal_empresa" id="selectSucursalEmpresaOC" class="form-select form-select-sm" onchange="filtrarAlmacenesOC()">
+                                            <option value="">Seleccionar Sucursal...</option>
+                                            {% for s in sucursales %}
+                                            <option value="{{ s.id }}">{{ s.nombre }}</option>
+                                            {% endfor %}
                                         </select>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold text-secondary">Almacén de Entrada</label>
+                                        <select name="almacen" id="selectAlmacenOC" class="form-select form-select-sm" required disabled>
+                                            <option value="">Selecciona sucursal primero...</option>
+                                            {% for a in almacenes %}
+                                            <option value="{{ a.id }}" data-sucursal="{{ a.sucursal.id }}" style="display: none;">{{ a.nombre }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
                                         <label class="form-label small fw-bold text-secondary">Proveedor</label>
                                         <select name="proveedor" class="form-select form-select-sm" required onchange="actualizarSucursalesOC(this.value)">
                                             <option value="">Seleccionar...</option>
                                             {% for p in proveedores %}<option value="{{ p.id }}">{{ p.razon_social }}</option>{% endfor %}
                                         </select>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <label class="form-label small fw-bold text-secondary">Sucursal de Proveedor</label>
                                         <select name="sucursal" id="selectSucursalOC" class="form-select form-select-sm">
                                             <option value="">-- Sin sucursal --</option>
@@ -819,6 +830,11 @@
             
             document.getElementById('selectSucursalOC').innerHTML = '<option value="">-- Sin sucursal --</option>';
 
+            // Reset Sucursal Empresa y Almacenes
+            const selSucEmp = document.getElementById('selectSucursalEmpresaOC');
+            if (selSucEmp) selSucEmp.value = "";
+            filtrarAlmacenesOC();
+
             const selectMoneda = document.getElementById('selectMoneda');
             let mxnEncontrado = false;
             for (let i = 0; i < selectMoneda.options.length; i++) {
@@ -833,6 +849,38 @@
             } else {
                 actualizarTC();
             }
+        }
+
+        // --- FILTRAR ALMACENES POR SUCURSAL ---
+        function filtrarAlmacenesOC() {
+            const sucursalId = document.getElementById('selectSucursalEmpresaOC').value;
+            const selectAlmacen = document.getElementById('selectAlmacenOC');
+            
+            if (!selectAlmacen) return;
+
+            // Resetear valor
+            selectAlmacen.value = "";
+            
+            if (sucursalId) {
+                selectAlmacen.disabled = false;
+                selectAlmacen.options[0].textContent = "Seleccionar Almacén...";
+            } else {
+                selectAlmacen.disabled = true;
+                selectAlmacen.options[0].textContent = "Selecciona sucursal primero...";
+            }
+            
+            // Filtrar opciones
+            Array.from(selectAlmacen.options).forEach(opt => {
+                if (!opt.value) {
+                    opt.style.display = "block";
+                    return;
+                }
+                if (opt.dataset.sucursal === String(sucursalId)) {
+                    opt.style.display = "block";
+                } else {
+                    opt.style.display = "none";
+                }
+            });
         }
 
         function actualizarSucursalesOC(provId, sucursalIdPreseleccionada = null) {
@@ -932,6 +980,12 @@
 
                 form.querySelector('[name="proveedor"]').value = data.proveedor_id || '';
                 actualizarSucursalesOC(data.proveedor_id, data.sucursal_id);
+                
+                // Cargar sucursal empresa y filtrar almacenes
+                const selSucEmp = document.getElementById('selectSucursalEmpresaOC');
+                if (selSucEmp) selSucEmp.value = data.sucursal_empresa_id || '';
+                filtrarAlmacenesOC();
+                
                 form.querySelector('[name="almacen"]').value = data.almacen_id || '';
                 form.querySelector('[name="moneda"]').value = data.moneda_id || '';
                 form.querySelector('[name="tipo_cambio"]').value = data.tipo_cambio || '1.0000';

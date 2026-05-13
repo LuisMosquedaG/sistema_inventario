@@ -13,6 +13,7 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
     # 1. Validaciones y Extracción de Datos de Cabecera
     proveedor = data_post.get('proveedor')
     sucursal_id = data_post.get('sucursal') # Esta es la sucursal del PROVEEDOR
+    sucursal_empresa_id = data_post.get('sucursal_empresa') # Sucursal de la EMPRESA
     almacen_id = data_post.get('almacen')
     moneda_id = data_post.get('moneda')
     tipo_cambio = data_post.get('tipo_cambio', '1.0000')
@@ -22,12 +23,14 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
     if not proveedor:
         raise ValueError("El proveedor es obligatorio.")
 
-    # Asignar sucursal desde la sesión
+    # Asignar sucursal desde POST o desde la sesión
     sucursal_empresa_obj = None
-    if session_sucursal_id:
+    final_sucursal_empresa_id = sucursal_empresa_id or session_sucursal_id
+    
+    if final_sucursal_empresa_id:
         from preferencias.models import Sucursal
         try:
-            sucursal_empresa_obj = Sucursal.objects.get(id=session_sucursal_id, empresa=empresa_actual)
+            sucursal_empresa_obj = Sucursal.objects.get(id=final_sucursal_empresa_id, empresa=empresa_actual)
         except Sucursal.DoesNotExist:
             pass
 

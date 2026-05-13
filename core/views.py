@@ -195,7 +195,8 @@ def dashboard_inventario(request):
     from preferencias.models import Sucursal
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
 
-    almacenes = Almacen.objects.filter(empresa=empresa_actual).order_by('nombre')
+    almacenes_todos = Almacen.objects.filter(empresa=empresa_actual).order_by('nombre')
+    almacenes = almacenes_todos
     if sucursal_id:
         almacenes = almacenes.filter(sucursal_id=sucursal_id)
 
@@ -213,6 +214,7 @@ def dashboard_inventario(request):
     contexto = {
         'page_obj': page_obj,
         'almacenes': almacenes,
+        'almacenes_todos': almacenes_todos,
         'sucursales': sucursales,
         'categorias': todas_categorias,
         'tests_calidad': tests_calidad,
