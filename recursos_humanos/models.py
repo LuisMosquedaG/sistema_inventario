@@ -144,3 +144,33 @@ class Empleado(models.Model):
         verbose_name = "Empleado"
         verbose_name_plural = "Empleados"
 
+class Contrato(models.Model):
+    TIPO_CHOICES = Empleado.TIPO_CONTRATO_CHOICES
+    ESTADO_CHOICES = [
+        ('vigente', 'Vigente'),
+        ('vencido', 'Vencido'),
+        ('suspendido', 'Suspendido'),
+        ('cancelado', 'Cancelado'),
+    ]
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
+    empleado = models.ForeignKey(Empleado, on_delete=models.CASCADE, related_name='contratos', verbose_name="Empleado")
+    
+    fecha_inicio = models.DateField(verbose_name="Fecha de Inicio")
+    fecha_fin = models.DateField(null=True, blank=True, verbose_name="Fecha de Vencimiento")
+    tipo_contrato = models.CharField(max_length=20, choices=TIPO_CHOICES, default='indefinido', verbose_name="Tipo de Contrato")
+    sueldo_mensual = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Sueldo Mensual")
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='vigente', verbose_name="Estado")
+    
+    archivo = models.FileField(upload_to='contratos/', null=True, blank=True, verbose_name="Archivo del Contrato")
+    notas = models.TextField(blank=True, null=True, verbose_name="Notas/Observaciones")
+    
+    fecha_registro = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Contrato {self.id} - {self.empleado}"
+
+    class Meta:
+        verbose_name = "Contrato"
+        verbose_name_plural = "Contratos"
+

@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from panel.models import Empresa
-from .models import Empleado
+from .models import Empleado, Contrato
 
 def get_empresa_actual(request):
     username = request.user.username
@@ -288,6 +288,117 @@ def crear_empleado_ajax(request):
         nuevo_empleado.save()
         return JsonResponse({'success': True, 'message': 'Empleado registrado correctamente.'})
 
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required(login_url='/login/')
+@require_hr_permission('contratos', 'ver')
+def lista_contratos(request):
+    empresa_actual = get_empresa_actual(request)
+    contratos = Contrato.objects.filter(empresa=empresa_actual).select_related('empleado', 'empleado__sucursal').order_by('-fecha_inicio')
+    
+    # --- LÓGICA DE FILTRADO ---
+    q = request.GET.get('q', '')
+    empleado_id = request.GET.get('empleado_id', '')
+    estado = request.GET.get('estado', '')
+
+    if q:
+        contratos = contratos.filter(
+            Q(empleado__nombre__icontains=q) |
+            Q(empleado__apellido_paterno__icontains=q) |
+            Q(empleado__apellido_materno__icontains=q) |
+            Q(notas__icontains=q)
+        )
+    
+    if empleado_id:
+        contratos = contratos.filter(empleado_id=empleado_id)
+    
+    if estado:
+        contratos = contratos.filter(estado=estado)
+            
+    empleados = Empleado.objects.filter(empresa=empresa_actual).order_by('apellido_paterno')
+
+    return render(request, 'recursos_humanos/lista_contratos.html', {
+        'contratos': contratos,
+        'empleados': empleados,
+        'empresa': empresa_actual,
+        'filtros': {
+            'q': q,
+            'empleado_id': empleado_id,
+            'estado': estado
+        }
+    })
+
+@login_required(login_url='/login/')
+@require_hr_permission('contratos', 'ver', json_response=True)
+def obtener_contrato_json(request, id):
+    empresa_actual = get_empresa_actual(request)
+    try:
+        con = Contrato.objects.get(id=id, empresa=empresa_actual)
+        data = {
+            'id': con.id,
+            'empleado_id': con.empleado_id,
+            'fecha_inicio': con.fecha_inicio.isoformat() if con.fecha_inicio else '',
+            'fecha_fin': con.fecha_fin.isoformat() if con.fecha_fin else '',
+            'tipo_contrato': con.tipo_contrato,
+            'sueldo_mensual': str(con.sueldo_mensual),
+            'estado': con.estado,
+            'notas': con.notas,
+        }
+        return JsonResponse({'success': True, 'data': data})
+    except Contrato.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Contrato no encontrado.'})
+
+@login_required(login_url='/login/')
+@require_POST
+@require_hr_permission('contratos', 'crear', json_response=True)
+def crear_contrato_ajax(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'No se encontró la empresa.'}, status=403)
+
+    try:
+        data = request.POST
+        nuevo_contrato = Contrato(
+            empresa=empresa_actual,
+            empleado_id=data.get('empleado'),
+            fecha_inicio=data.get('fecha_inicio'),
+            fecha_fin=data.get('fecha_fin') or None,
+            tipo_contrato=data.get('tipo_contrato'),
+            sueldo_mensual=Decimal(data.get('sueldo_mensual', '0')),
+            estado=data.get('estado', 'vigente'),
+            notas=data.get('notas', ''),
+            archivo=request.FILES.get('archivo')
+        )
+        nuevo_contrato.save()
+        return JsonResponse({'success': True, 'message': 'Contrato registrado correctamente.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required(login_url='/login/')
+@require_POST
+@require_hr_permission('contratos', 'editar', json_response=True)
+def editar_contrato_ajax(request, id):
+    empresa_actual = get_empresa_actual(request)
+    try:
+        con = Contrato.objects.get(id=id, empresa=empresa_actual)
+        data = request.POST
+
+        con.empleado_id = data.get('empleado')
+        con.fecha_inicio = data.get('fecha_inicio')
+        con.fecha_fin = data.get('fecha_fin') or None
+        con.tipo_contrato = data.get('tipo_contrato')
+        con.sueldo_mensual = Decimal(data.get('sueldo_mensual', '0'))
+        con.estado = data.get('estado')
+        con.notas = data.get('notas', '')
+        
+        if request.FILES.get('archivo'):
+            con.archivo = request.FILES.get('archivo')
+            
+        con.save()
+        return JsonResponse({'success': True, 'message': 'Contrato actualizado correctamente.'})
+    except Contrato.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Contrato no encontrado.'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
 
