@@ -21,4 +21,6 @@ urlpatterns = [
     path('sua/', views.lista_sua, name='lista_sua'),
     path('sua/importar/', views.importar_sua_ajax, name='importar_sua_ajax'),
     path('sua/obtener/<int:id>/', views.obtener_registro_sua_json, name='obtener_registro_sua_json'),
+    path('sua/eliminar/<int:id>/', views.eliminar_sua_ajax, name='eliminar_sua_ajax'),
+    path('sua/exportar/<int:id>/', views.exportar_sua_excel, name='exportar_sua_excel'),
 ]

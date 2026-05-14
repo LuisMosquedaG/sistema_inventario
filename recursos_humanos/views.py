@@ -6,6 +6,8 @@ from django.db import transaction
 from django.db.models import Q
 from decimal import Decimal
 import re
+import csv
+from django.http import JsonResponse, HttpResponse
 try:
     import pypdf
 except ImportError:
@@ -642,12 +644,34 @@ def editar_beneficiario_ajax(request, id):
 def lista_sua(request):
     empresa_actual = get_empresa_actual(request)
     importaciones = ImportacionSUA.objects.filter(empresa=empresa_actual).select_related('sucursal').order_by('-fecha_importacion')
-    q = request.GET.get('q', ''); sucursal_id = request.GET.get('sucursal', '')
-    if q: importaciones = importaciones.filter(Q(nombre_razon_social__icontains=q) | Q(periodo__icontains=q) | Q(registro_patronal__icontains=q))
-    if sucursal_id: importaciones = importaciones.filter(sucursal_id=sucursal_id)
+    
+    # Filtros específicos
+    q_reg_pat = request.GET.get('reg_patronal', '')
+    q_razon = request.GET.get('razon_social', '')
+    q_periodo = request.GET.get('periodo', '')
+    sucursal_id = request.GET.get('sucursal', '')
+
+    if q_reg_pat:
+        importaciones = importaciones.filter(registro_patronal__icontains=q_reg_pat)
+    if q_razon:
+        importaciones = importaciones.filter(nombre_razon_social__icontains=q_razon)
+    if q_periodo:
+        importaciones = importaciones.filter(periodo__icontains=q_periodo)
+    if sucursal_id:
+        importaciones = importaciones.filter(sucursal_id=sucursal_id)
+
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
+    
     return render(request, 'recursos_humanos/lista_sua.html', {
-        'importaciones': importaciones, 'sucursales': sucursales, 'empresa': empresa_actual, 'filtros': {'q': q, 'sucursal': sucursal_id}
+        'importaciones': importaciones, 
+        'sucursales': sucursales, 
+        'empresa': empresa_actual, 
+        'filtros': {
+            'reg_patronal': q_reg_pat, 
+            'razon_social': q_razon, 
+            'periodo': q_periodo, 
+            'sucursal': sucursal_id
+        }
     })
 
 @login_required(login_url='/login/')
@@ -712,9 +736,9 @@ def importar_sua_ajax(request):
                 if m_ent: entidad_val = m_ent.group(1).strip()
                 if m_pri: prima_val = m_pri.group(1).strip()
             
-            # Periodo (Suele estar arriba)
-            if "Período de Proceso:" in line:
-                m_per = re.search(r'Período de Proceso:\s*([\w\d-]+)', line, re.I)
+            # Periodo / Bimestre (Suele estar arriba)
+            if "Proceso:" in line:
+                m_per = re.search(r'(?:Período|Bimestre)\s+de\s+Proceso:\s*([\w\d-]+)', line, re.I)
                 if m_per: periodo_val = m_per.group(1).strip()
 
         sucursal_id = request.session.get('sucursal_id')
@@ -902,3 +926,63 @@ def obtener_registro_sua_json(request, id):
         return JsonResponse({'success': False, 'error': 'No se encontró la importación.'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required(login_url='/login/')
+@require_POST
+@require_hr_permission('sua', 'eliminar', json_response=True)
+def eliminar_sua_ajax(request, id):
+    empresa_actual = get_empresa_actual(request)
+    try:
+        imp = ImportacionSUA.objects.get(id=id, empresa=empresa_actual)
+        imp.delete()
+        return JsonResponse({'success': True, 'message': 'Registro eliminado correctamente.'})
+    except ImportacionSUA.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'No se encontró la importación.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required(login_url='/login/')
+@require_hr_permission('sua', 'ver')
+def exportar_sua_excel(request, id):
+    empresa_actual = get_empresa_actual(request)
+    try:
+        imp = ImportacionSUA.objects.get(id=id, empresa=empresa_actual)
+        
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="SUA_{imp.periodo}_{imp.registro_patronal}.csv"'
+        
+        # BOM para Excel (UTF-8)
+        response.write(u'\ufeff'.encode('utf8'))
+        
+        writer = csv.writer(response)
+        
+        # Encabezado Reporte
+        writer.writerow(['REPORTE DE INTEGRACIÓN SUA'])
+        writer.writerow(['Empresa', imp.nombre_razon_social])
+        writer.writerow(['Registro Patronal', imp.registro_patronal])
+        writer.writerow(['Periodo', imp.periodo])
+        writer.writerow([])
+        
+        # Encabezado Tabla
+        writer.writerow([
+            'NSS', 'Nombre', 'RFC/CURP', 'Ubicación', 'Movimiento', 'Fecha Mov.', 
+            'Días', 'SDI', 'Licencias', 'Incapacidad', 'Ausentismo',
+            'Retiro', 'Cesantía Pat.', 'Cesantía Obr.', 'Suma RCV',
+            'Ap. Pat. Infonavit', 'Amortización', 'Suma Infonavit',
+            'Cred. Vivienda', 'Tipo Mov. Cred.', 'Fecha Mov. Cred.',
+            'Baja/Otros Mov.', 'Fecha Baja'
+        ])
+        
+        for t in imp.trabajadores.all():
+            writer.writerow([
+                t.nss, t.nombre, t.rfc_curp, t.clave_ubicacion, t.clave_mov, t.fecha_mov,
+                t.dias, t.sdi, t.licencias, t.incapacidades, t.ausentismos,
+                t.retiro, t.patronal, t.obrera, t.subtotal,
+                t.aportacion_patronal, t.amortizacion, t.suma_infonavit,
+                t.cred_vivienda, t.tipo_mov_credito, t.fecha_mov_credito,
+                t.baja_clave, t.baja_fecha
+            ])
+            
+        return response
+    except ImportacionSUA.DoesNotExist:
+        return HttpResponse("No se encontró la importación", status=404)
