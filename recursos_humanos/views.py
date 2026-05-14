@@ -1028,19 +1028,19 @@ def exportar_sua_excel(request, id):
             'NSS', 'Nombre', 'RFC/CURP', 'Ubicación', 'Movimiento', 'Fecha Mov.', 
             'Días', 'SDI', 'Licencias', 'Incapacidad', 'Ausentismo',
             'Retiro', 'Cesantía Pat.', 'Cesantía Obr.', 'Suma RCV',
-            'Ap. Pat. Infonavit', 'Amortización', 'Suma Infonavit',
+            'Ap. Pat. Infonavit', '% o $ o FD', 'Amortización', 'Suma Infonavit',
             'Cred. Vivienda', 'Tipo Mov. Cred.', 'Fecha Mov. Cred.',
-            'Baja/Otros Mov.', 'Fecha Baja'
+            'Baja/Otros Mov.', 'Fecha Baja', 'Total General'
         ])
         
-        for t in imp.trabajadores.all():
+        for t in imp.trabajadores.all().order_by('id'):
             writer.writerow([
                 t.nss, t.nombre, t.rfc_curp, t.clave_ubicacion, t.clave_mov, t.fecha_mov,
                 t.dias, t.sdi, t.licencias, t.incapacidades, t.ausentismos,
                 t.retiro, t.patronal, t.obrera, t.subtotal,
-                t.aportacion_patronal, t.amortizacion, t.suma_infonavit,
+                t.aportacion_patronal, t.tipo_valor_infonavit or '-', t.amortizacion, t.suma_infonavit,
                 t.cred_vivienda, t.tipo_mov_credito, t.fecha_mov_credito,
-                t.baja_clave, t.baja_fecha
+                t.baja_clave, t.baja_fecha, t.total_general
             ])
             
         return response
