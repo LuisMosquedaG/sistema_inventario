@@ -197,56 +197,25 @@
 
             <div class="modal-body modal-body-gray p-4">
                 <div class="row g-3 mb-4">
-                    <div class="col-md-6">
-                        <div class="header-info-box h-100">
-                            <div class="header-info-title text-brand">1. Datos de la Empresa</div>
-                            <div class="row g-2 mt-1">
-                                <div class="col-4">
-                                    <label class="small text-muted d-block" style="font-size: 0.6rem;">REGISTRO PATRONAL</label>
-                                    <span class="fw-bold small font-monospace" id="infoRegPatronal"></span>
+                    <div class="col-12">
+                        <div class="header-info-box">
+                            <div class="header-info-title text-brand mb-3">1. Datos de la Empresa</div>
+                            <div class="d-flex flex-wrap align-items-start gap-5">
+                                <!-- Bloque Principal -->
+                                <div>
+                                    <div class="fw-bold text-dark fs-5 lh-1 mb-1" id="infoNomRazon"></div>
+                                    <div class="text-muted small font-monospace" id="infoRegPatronal"></div>
                                 </div>
-                                <div class="col-8">
-                                    <label class="small text-muted d-block" style="font-size: 0.6rem;">NOMBRE O RAZÓN SOCIAL</label>
-                                    <span class="fw-bold small d-block" id="infoNomRazon"></span>
-                                </div>
-                                <div class="col-12 mt-2">
-                                    <label class="small text-muted d-block" style="font-size: 0.6rem;">ACTIVIDAD</label>
-                                    <span class="text-muted small d-block" id="infoActividad"></span>
-                                </div>
-                                <div class="col-6 mt-2">
-                                    <label class="small text-muted d-block" style="font-size: 0.6rem;">DOMICILIO</label>
-                                    <span class="text-muted small d-block" id="infoDomicilio"></span>
-                                </div>
-                                <div class="col-4 mt-2">
-                                    <label class="small text-muted d-block" style="font-size: 0.6rem;">ENTIDAD</label>
-                                    <span class="fw-bold small" id="infoEntidad"></span>
-                                </div>
-                                <div class="col-2 mt-2">
-                                    <label class="small text-muted d-block" style="font-size: 0.6rem;">C.P.</label>
-                                    <span class="text-muted small d-block" id="infoCP"></span>
+                                <!-- Actividad -->
+                                <div class="flex-grow-1 border-start ps-4">
+                                    <label class="form-label-custom d-block mb-1" style="font-size: 0.6rem;">Actividad Económica</label>
+                                    <span class="text-dark small d-block" id="infoActividad" style="max-width: 600px;"></span>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="header-info-box h-100">
-                            <div class="header-info-title text-brand">2. Seguro Social</div>
-                            <div class="row g-2 mt-1">
-                                <div class="col-12">
-                                    <label class="small text-muted d-block" style="font-size: 0.6rem;">ÁREA GEOGRÁFICA</label>
-                                    <span class="fw-bold small" id="infoAreaGeo"></span>
-                                </div>
-                                <div class="col-6">
-                                    <label class="small text-muted d-block" style="font-size: 0.6rem;">DELEGACIÓN IMSS</label>
-                                    <span class="fw-bold small d-block" id="infoDelegacion"></span>
-                                </div>
-                                <div class="col-6">
-                                    <label class="small text-muted d-block" style="font-size: 0.6rem;">SUBDELEGACIÓN IMSS</label>
-                                    <span class="fw-bold small d-block" id="infoSubdelegacion"></span>
-                                </div>
-                                <div class="col-12">
-                                    <label class="small text-muted d-block" style="font-size: 0.6rem;">MUNICIPIO / ALCALDÍA</label>
-                                    <span class="text-muted small d-block" id="infoMunAlc"></span>
+                            <div class="mt-3 pt-2 border-top">
+                                <div class="text-muted small">
+                                    <i class="bi bi-geo-alt text-brand me-1"></i>
+                                    <span id="infoDomicilio"></span>, <span id="infoEntidad"></span> | CP: <span id="infoCP"></span>
                                 </div>
                             </div>
                         </div>
@@ -364,10 +333,6 @@
                 document.getElementById('infoDomicilio').innerText = d.empresa.domicilio;
                 document.getElementById('infoCP').innerText = d.empresa.cp;
                 document.getElementById('infoEntidad').innerText = d.empresa.entidad;
-                document.getElementById('infoAreaGeo').innerText = d.seguro.area_geo;
-                document.getElementById('infoDelegacion').innerText = d.seguro.delegacion;
-                document.getElementById('infoSubdelegacion').innerText = d.seguro.subdelegacion;
-                document.getElementById('infoMunAlc').innerText = d.seguro.municipio;
 
                 const body = document.getElementById('bodyTrabajadores');
                 body.innerHTML = '';
