@@ -33,10 +33,62 @@
     .status-cancelado { background-color: #f1f3f5; color: #495057; border: 1px solid #e9ecef; }
 
     .modal-sheet .modal-content { border-radius: 12px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.15); overflow: hidden; }
-    .modal-body-gray { background-color: #f8f9fa; max-height: 70vh; overflow-y: auto; }
+    .modal-body-gray { background-color: #f8f9fa; max-height: 75vh; overflow-y: auto; }
     .form-label-custom { font-size: 0.75rem; font-weight: 700; color: #495057; margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.5px; }
     .card-section { border: 1px solid #e9ecef !important; transition: all 0.2s ease; }
     .card-section:hover { border-color: #00b8b9 !important; }
+
+    /* Estilos para Selección de Colaboradores (Patrón Surtido) */
+    .search-extra {
+        border-bottom-left-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+        border-bottom: none !important;
+        font-size: 0.75rem;
+        background-color: #f1f3f5;
+        border: 1px solid #dee2e6;
+        padding: 8px 12px;
+        width: 100%;
+        outline: none;
+    }
+    .extra-selection-container {
+        border-top-left-radius: 0 !important;
+        border-top-right-radius: 0 !important;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        max-height: 180px;
+        overflow-y: auto;
+        padding: 10px;
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+    }
+    .extra-item {
+        font-size: 0.7rem;
+        padding: 5px 12px;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        user-select: none;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .extra-item:hover {
+        border-color: #00b8b9;
+        background-color: #f0fdfa;
+        color: #00b8b9;
+    }
+    .extra-item.selected {
+        background-color: #00b8b9 !important;
+        color: white !important;
+        border-color: #00b8b9 !important;
+        font-weight: bold;
+        box-shadow: 0 2px 4px rgba(0, 184, 185, 0.2);
+    }
 </style>
 
 <div class="container-fluid py-2 px-4">
@@ -61,7 +113,7 @@
                     <label class="form-label small fw-bold text-secondary">Búsqueda General</label>
                     <div class="input-group input-group-sm">
                         <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
-                        <input type="text" name="q" class="form-control border-start-0" placeholder="Empleado, notas..." value="{{ request.GET.q|default:'' }}">
+                        <input type="text" name="q" class="form-control border-start-0" placeholder="Folio, contratante, colaborador..." value="{{ request.GET.q|default:'' }}">
                     </div>
                 </div>
                 <div class="col-12 col-md-3">
@@ -83,6 +135,15 @@
                         <option value="cancelado" {% if request.GET.estado == 'cancelado' %}selected{% endif %}>Cancelado</option>
                     </select>
                 </div>
+                <div class="col-12 col-md-2">
+                    <label class="form-label small fw-bold text-secondary">Sucursal</label>
+                    <select name="sucursal" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todas...</option>
+                        {% for s in sucursales %}
+                        <option value="{{ s.id }}" {% if filtros.sucursal == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
             </form>
         </div>
     </div>
@@ -96,11 +157,12 @@
                         <tr>
                             <th class="text-center" style="width: 80px;">Acciones</th>
                             <th class="text-center">Sucursal</th>
-                            <th>Colaborador</th>
-                            <th class="text-center">Tipo Contrato</th>
-                            <th class="text-center">Inicio</th>
-                            <th class="text-center">Vencimiento</th>
-                            <th class="text-end">Sueldo</th>
+                            <th>Folio</th>
+                            <th>Beneficiario / Contratista</th>
+                            <th class="text-center">Tipo</th>
+                            <th class="text-center">Vigencia Contrato</th>
+                            <th class="text-center">Periodo</th>
+                            <th class="text-end">Monto</th>
                             <th class="text-center">Estado</th>
                         </tr>
                     </thead>
@@ -112,33 +174,30 @@
                                     <span class="icon-action" title="Editar Contrato" onclick="editarContrato({{ c.id }})">
                                         <i class="bi bi-pencil-square"></i>
                                     </span>
-                                    {% if c.archivo %}
-                                    <a href="{{ c.archivo.url }}" target="_blank" class="icon-action" title="Ver Archivo">
-                                        <i class="bi bi-file-earmark-pdf"></i>
-                                    </a>
-                                    {% endif %}
                                 </div>
                             </td>
                             <td class="text-center">
-                                <span class="badge bg-secondary bg-opacity-10 text-secondary border" style="font-size: 0.7rem;">{{ c.empleado.sucursal.nombre|default:"Global" }}</span>
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary border" style="font-size: 0.7rem;">{{ c.sucursal.nombre|default:"Global" }}</span>
                             </td>
+                            <td class="fw-bold text-dark">{{ c.folio|default:"S/F" }}</td>
                             <td>
-                                <div class="fw-bold text-dark">{{ c.empleado.nombre }} {{ c.empleado.apellido_paterno }}</div>
-                                <div class="text-muted small" style="font-size: 0.7rem;">Num: {{ c.empleado.num_empleado }}</div>
+                                <div class="fw-bold text-dark">{{ c.beneficiario.nombre_razon_social|default:"--" }}</div>
+                                <div class="text-muted small" style="font-size: 0.7rem;">{{ c.contratista.nombre_razon_social|default:"--" }}</div>
                             </td>
                             <td class="text-center small">{{ c.get_tipo_contrato_display }}</td>
-                            <td class="text-center small">{{ c.fecha_inicio|date:"d/m/Y" }}</td>
+                            <td class="text-center small">{% if c.vigencia_contrato %}{{ c.vigencia_contrato|date:"d/m/Y" }}{% else %}--{% endif %}</td>
                             <td class="text-center small">
-                                {% if c.fecha_fin %}{{ c.fecha_fin|date:"d/m/Y" }}{% else %}--{% endif %}
+                                <div>{{ c.fecha_inicio|date:"d/m/Y" }}</div>
+                                <div class="text-muted" style="font-size: 0.7rem;">al {% if c.fecha_fin %}{{ c.fecha_fin|date:"d/m/Y" }}{% else %}--{% endif %}</div>
                             </td>
-                            <td class="text-end fw-bold text-dark">${{ c.sueldo_mensual }}</td>
+                            <td class="text-end fw-bold text-dark">${{ c.monto_contrato }}</td>
                             <td class="text-center">
                                 <span class="status-pill status-{{ c.estado }}">{{ c.get_estado_display }}</span>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="8" class="text-center py-5">
+                            <td colspan="9" class="text-center py-5">
                                 <i class="bi bi-file-earmark-text display-6 text-muted mb-2 d-block"></i>
                                 <span class="text-muted fst-italic small">No hay contratos registrados</span>
                             </td>
@@ -153,7 +212,7 @@
 
 <!-- MODAL: NUEVO/EDITAR CONTRATO -->
 <div class="modal fade" id="modalNuevoContrato" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-sheet">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-sheet modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header bg-white border-bottom-0 py-3">
                 <div class="d-flex align-items-center">
@@ -162,45 +221,84 @@
                     </div>
                     <div>
                         <h5 class="modal-title fw-bold mb-0" id="tituloModalContrato">Registro de Contrato</h5>
-                        <small class="text-muted">Asigna las condiciones laborales</small>
+                        <small class="text-muted">Gestión de condiciones y colaboradores</small>
                     </div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
-            <form id="formContrato" method="post" enctype="multipart/form-data">
+            <form id="formContrato" method="post">
                 {% csrf_token %}
                 <input type="hidden" name="contrato_id" id="contrato_id">
                 <div class="modal-body modal-body-gray p-4">
-                    <div class="card card-section border-0 shadow-sm mb-3">
+                    
+                    <!-- SECCIÓN 1: COLABORADORES Y PARTICIPANTES -->
+                    <div class="card card-section border-0 shadow-sm mb-4">
                         <div class="card-body p-3 bg-white rounded-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">1. Colaboradores y Participantes</h6>
                             <div class="row g-3">
                                 <div class="col-md-12">
-                                    <label class="form-label-custom">Colaborador <span class="text-danger">*</span></label>
-                                    <select name="empleado" id="inputEmpleado" class="form-select form-select-sm" required>
-                                        <option value="">Seleccionar...</option>
-                                        {% for emp in empleados %}
-                                        <option value="{{ emp.id }}">{{ emp.nombre }} {{ emp.apellido_paterno }} ({{ emp.num_empleado }})</option>
+                                    <label class="form-label-custom">Colaboradores (Selección múltiple) <span class="text-danger">*</span></label>
+                                    
+                                    <!-- PATRÓN REPLICADO: BUSCADOR + CAJÓN DE SELECCIÓN -->
+                                    <div class="extra-selection-wrapper">
+                                        <input type="text" class="form-control form-control-sm search-extra" placeholder="Buscar colaborador por nombre..." oninput="filtrarColaboradores(this)">
+                                        <div class="extra-selection-container" id="containerColaboradores">
+                                            {% for emp in empleados %}
+                                            <div class="extra-item" data-id="{{ emp.id }}" onclick="toggleColaboradorSelection(this)">
+                                                <span>{{ emp.nombre }} {{ emp.apellido_paterno }}</span>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        <!-- Select oculto para envío de formulario -->
+                                        <select name="empleados[]" id="inputEmpleadosHidden" multiple style="display:none;">
+                                            {% for emp in empleados %}
+                                            <option value="{{ emp.id }}">{{ emp.nombre }} {{ emp.apellido_paterno }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <small class="text-muted">Haz clic en los nombres para seleccionar/deseleccionar.</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label-custom">Contratista <span class="text-danger">*</span></label>
+                                    <select name="contratista" id="inputContratista" class="form-select form-select-sm" required>
+                                        <option value="">-- Seleccionar Contratista --</option>
+                                        {% for c in contratistas %}
+                                        <option value="{{ c.id }}">{{ c.nombre_razon_social }} ({{ c.rfc }})</option>
                                         {% endfor %}
                                     </select>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label-custom">Fecha Inicio <span class="text-danger">*</span></label>
-                                    <input type="date" name="fecha_inicio" id="inputFechaInicio" class="form-control form-control-sm" required>
+                                    <label class="form-label-custom">Beneficiario <span class="text-danger">*</span></label>
+                                    <select name="beneficiario" id="inputBeneficiario" class="form-select form-select-sm" required>
+                                        <option value="">-- Seleccionar Beneficiario --</option>
+                                        {% for b in beneficiarios %}
+                                        <option value="{{ b.id }}">{{ b.nombre_razon_social }} ({{ b.rfc }})</option>
+                                        {% endfor %}
+                                    </select>
                                 </div>
-                                <div class="col-md-6">
-                                    <label class="form-label-custom">Fecha Vencimiento</label>
-                                    <input type="date" name="fecha_fin" id="inputFechaFin" class="form-control form-control-sm">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 2: DATOS GENERALES DEL CONTRATO -->
+                    <div class="card card-section border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
+                        <div class="card-body p-3 bg-white rounded-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">2. Datos Generales de Contrato</h6>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label-custom">Folio de Contrato</label>
+                                    <input type="text" name="folio" id="inputFolio" class="form-control form-control-sm" placeholder="Ej. CT-2024-001">
                                 </div>
-                                <div class="col-md-6">
-                                    <label class="form-label-custom">Tipo Contrato</label>
+                                <div class="col-md-4">
+                                    <label class="form-label-custom">Tipo de Contrato</label>
                                     <select name="tipo_contrato" id="inputTipoContrato" class="form-select form-select-sm">
                                         <option value="indefinido">Indefinido</option>
                                         <option value="temporal_obra">Por obra</option>
                                         <option value="temporal_tiempo">Tiempo determinado</option>
                                     </select>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <label class="form-label-custom">Estado</label>
                                     <select name="estado" id="inputEstado" class="form-select form-select-sm">
                                         <option value="vigente">Vigente</option>
@@ -210,15 +308,32 @@
                                     </select>
                                 </div>
                                 <div class="col-md-12">
-                                    <label class="form-label-custom">Sueldo Mensual</label>
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text">$</span>
-                                        <input type="number" step="0.01" name="sueldo_mensual" id="inputSueldo" class="form-control" value="0.00">
-                                    </div>
+                                    <label class="form-label-custom">Objeto del Contrato</label>
+                                    <textarea name="objeto_contrato" id="inputObjeto" class="form-control form-control-sm" rows="2" placeholder="Describe el propósito del contrato..."></textarea>
                                 </div>
                                 <div class="col-md-12">
-                                    <label class="form-label-custom">Archivo del Contrato (PDF/Imagen)</label>
-                                    <input type="file" name="archivo" class="form-control form-control-sm">
+                                    <label class="form-label-custom">Monto del Contrato</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" step="0.01" name="monto_contrato" id="inputMonto" class="form-control" value="0.00">
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <label class="form-label-custom">Vigencia de Contrato</label>
+                                    <input type="date" name="vigencia_contrato" id="inputVigenciaContrato" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label-custom">Fecha de Inicio <span class="text-danger">*</span></label>
+                                    <input type="date" name="fecha_inicio" id="inputFechaInicio" class="form-control form-control-sm" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label-custom">Fecha de Término</label>
+                                    <input type="date" name="fecha_fin" id="inputFechaFin" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label-custom">Núm. Estimado de Trabajadores</label>
+                                    <input type="number" name="num_estimado_trabajadores" id="inputNumEst" class="form-control form-control-sm" value="0">
                                 </div>
                                 <div class="col-md-12">
                                     <label class="form-label-custom">Notas / Observaciones</label>
@@ -240,10 +355,49 @@
 </div>
 
 <script>
+    /**
+     * Filtra visualmente los colaboradores en tiempo real
+     */
+    function filtrarColaboradores(input) {
+        const term = input.value.toLowerCase();
+        const container = document.getElementById('containerColaboradores');
+        const items = container.querySelectorAll('.extra-item');
+
+        items.forEach(item => {
+            const text = item.querySelector('span').innerText.toLowerCase();
+            item.style.display = text.includes(term) ? 'flex' : 'none';
+        });
+    }
+
+    /**
+     * Maneja la selección visual y sincronización con el select oculto
+     */
+    function toggleColaboradorSelection(element) {
+        element.classList.toggle('selected');
+        const valId = element.dataset.id;
+        const hiddenSelect = document.getElementById('inputEmpleadosHidden');
+        const option = hiddenSelect.querySelector(`option[value="${valId}"]`);
+        
+        if (option) {
+            option.selected = element.classList.contains('selected');
+        }
+    }
+
     function prepararNuevoContrato() {
         document.getElementById('formContrato').reset();
         document.getElementById('contrato_id').value = '';
         document.getElementById('tituloModalContrato').textContent = 'Registro de Contrato';
+        
+        // Deseleccionar visualmente todo
+        document.querySelectorAll('#containerColaboradores .extra-item').forEach(item => {
+            item.classList.remove('selected');
+        });
+        
+        // Deseleccionar todo en el select oculto
+        const sel = document.getElementById('inputEmpleadosHidden');
+        for (let i = 0; i < sel.options.length; i++) {
+            sel.options[i].selected = false;
+        }
     }
 
     function editarContrato(id) {
@@ -255,13 +409,37 @@
                 const form = document.getElementById('formContrato');
                 document.getElementById('contrato_id').value = data.id;
                 
-                document.getElementById('inputEmpleado').value = data.empleado_id;
-                document.getElementById('inputFechaInicio').value = data.fecha_inicio;
-                document.getElementById('inputFechaFin').value = data.fecha_fin;
+                // --- SINCRONIZACIÓN DE COLABORADORES ---
+                const ids = data.empleados_ids || [];
+                
+                // 1. Limpiar selecciones previas
+                document.querySelectorAll('#containerColaboradores .extra-item').forEach(item => {
+                    const empId = parseInt(item.dataset.id);
+                    if (ids.includes(empId)) {
+                        item.classList.add('selected');
+                    } else {
+                        item.classList.remove('selected');
+                    }
+                });
+
+                // 2. Sincronizar select oculto
+                const sel = document.getElementById('inputEmpleadosHidden');
+                for (let i = 0; i < sel.options.length; i++) {
+                    sel.options[i].selected = ids.includes(parseInt(sel.options[i].value));
+                }
+
+                document.getElementById('inputContratista').value = data.contratista || '';
+                document.getElementById('inputBeneficiario').value = data.beneficiario || '';
+                document.getElementById('inputFolio').value = data.folio || '';
                 document.getElementById('inputTipoContrato').value = data.tipo_contrato;
                 document.getElementById('inputEstado').value = data.estado;
-                document.getElementById('inputSueldo').value = data.sueldo_mensual;
-                document.getElementById('inputNotas').value = data.notas;
+                document.getElementById('inputObjeto').value = data.objeto_contrato || '';
+                document.getElementById('inputMonto').value = data.monto_contrato;
+                document.getElementById('inputVigenciaContrato').value = data.vigencia_contrato;
+                document.getElementById('inputFechaInicio').value = data.fecha_inicio;
+                document.getElementById('inputFechaFin').value = data.fecha_fin;
+                document.getElementById('inputNumEst').value = data.num_estimado_trabajadores;
+                document.getElementById('inputNotas').value = data.notas || '';
 
                 document.getElementById('tituloModalContrato').textContent = 'Editar Contrato';
                 new bootstrap.Modal(document.getElementById('modalNuevoContrato')).show();
@@ -274,6 +452,16 @@
         const id = document.getElementById('contrato_id').value;
         const url = id ? `/recursos-humanos/contratos/editar/${id}/` : "{% url 'crear_contrato_ajax' %}";
         const formData = new FormData(this);
+
+        // Asegurar que los empleados se envíen como lista []
+        // Usamos el select oculto que ya está sincronizado
+        formData.delete('empleados'); // Limpiar por si acaso
+        const sel = document.getElementById('inputEmpleadosHidden');
+        for (let i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].selected) {
+                formData.append('empleados[]', sel.options[i].value);
+            }
+        }
 
         fetch(url, {
             method: 'POST',

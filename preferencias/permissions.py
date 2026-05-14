@@ -45,6 +45,9 @@ INVENTORY_PERMISSION_MATRIX = {
 HR_PERMISSION_MATRIX = {
     'empleados': ['ver', 'crear', 'editar', 'eliminar'],
     'contratos': ['ver', 'crear', 'editar', 'eliminar'],
+    'contratistas': ['ver', 'crear', 'editar', 'eliminar'],
+    'beneficiarios': ['ver', 'crear', 'editar', 'eliminar'],
+    'sua': ['ver', 'importar', 'eliminar'],
 }
 
 

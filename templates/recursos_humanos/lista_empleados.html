@@ -141,6 +141,13 @@
         background-color: #dee2e6;
         border-radius: 4px;
     }
+
+    /* ==========================================
+    HOVER PERSONALIZADO (TODA LA FILA - 7 COLUMNAS)
+    ========================================== */
+    .table.table-pro tbody tr:hover td {
+        background-color: #f1f3f5 !important; /* Gris claro al pasar el puntero */
+    }
 </style>
 
 <div class="container-fluid py-2 px-4">
@@ -262,7 +269,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="6" class="text-center py-5">
+                            <td colspan="7" class="text-center py-5">
                                 <i class="bi bi-people display-6 text-muted mb-2 d-block"></i>
                                 <span class="text-muted fst-italic small">No hay empleados registrados</span>
                             </td>
@@ -456,16 +463,8 @@
                                             <input type="text" name="num_empleado" class="form-control form-control-sm" required>
                                         </div>
                                         <div class="col-md-6">
-                                            <label class="form-label-custom">Sucursal <span class="text-danger">*</span></label>
-                                            <select name="sucursal" id="selectSucursalEmpleado" class="form-select form-select-sm" required>
-                                                <option value="">Seleccionar Sucursal...</option>
-                                                {% for s in sucursales %}
-                                                <option value="{{ s.id }}">{{ s.nombre }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                        <div class="col-md-6">
                                             <label class="form-label-custom">Estado Actual</label>
+
                                             <select name="estado" class="form-select form-select-sm">
                                                 <option value="activo">Activo</option>
                                                 <option value="inactivo">Inactivo</option>
@@ -490,15 +489,29 @@
                                             <input type="date" name="fecha_antiguedad" class="form-control form-control-sm">
                                         </div>
                                         <div class="col-md-6">
-                                            <label class="form-label-custom">Tipo Contrato</label>
-                                            <select name="tipo_contrato" class="form-select form-select-sm">
-                                                <option value="indefinido">Indefinido</option>
-                                                <option value="temporal_obra">Por obra</option>
-                                                <option value="temporal_tiempo">Tiempo determinado</option>
+                                            <label class="form-label-custom">Contrato (Vínculo)</label>
+                                            <select name="contrato_id" id="selectContratoEmpleado" class="form-select form-select-sm" onchange="actualizarInfoContrato(this.value)">
+                                                <option value="">-- Sin Contrato Asignado --</option>
+                                                {% for con in contratos_disponibles %}
+                                                <option value="{{ con.id }}" 
+                                                        data-contratista="{{ con.contratista.nombre_razon_social|default:'--' }}"
+                                                        data-beneficiario="{{ con.beneficiario.nombre_razon_social|default:'--' }}">
+                                                    {{ con.folio|default:"S/F" }} - {{ con.contratista.nombre_razon_social|default:"Sin Contratista" }}
+                                                </option>
+                                                {% endfor %}
                                             </select>
                                         </div>
                                         <div class="col-md-6">
+                                            <label class="form-label-custom">Contratista</label>
+                                            <input type="text" id="infoContratista" class="form-control form-control-sm bg-light" readonly placeholder="Se cargará al elegir contrato">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label-custom">Beneficiario</label>
+                                            <input type="text" id="infoBeneficiario" class="form-control form-control-sm bg-light" readonly placeholder="Se cargará al elegir contrato">
+                                        </div>
+                                        <div class="col-md-6">
                                             <label class="form-label-custom">Jornada</label>
+
                                             <select name="jornada" class="form-select form-select-sm">
                                                 <option value="diurna">Diurna</option>
                                                 <option value="nocturna">Nocturna</option>
@@ -647,14 +660,32 @@
 
 {% block extra_js %}
 <script>
+    /**
+     * Actualiza visualmente la info de contratista y beneficiario según el contrato elegido
+     */
+    function actualizarInfoContrato(contratoId) {
+        const select = document.getElementById('selectContratoEmpleado');
+        const infoContratista = document.getElementById('infoContratista');
+        const infoBeneficiario = document.getElementById('infoBeneficiario');
+
+        if (!contratoId) {
+            infoContratista.value = '';
+            infoBeneficiario.value = '';
+            return;
+        }
+
+        const selectedOption = select.options[select.selectedIndex];
+        infoContratista.value = selectedOption.dataset.contratista || '--';
+        infoBeneficiario.value = selectedOption.dataset.beneficiario || '--';
+    }
+
     function prepararNuevoEmpleado(sucursalId = '') {
         document.getElementById('formNuevoEmpleado').reset();
         document.getElementById('empleado_id').value = '';
         
-        if (sucursalId) {
-            const selSuc = document.getElementById('selectSucursalEmpleado');
-            if (selSuc) selSuc.value = sucursalId;
-        }
+        // Limpiar info de contrato
+        document.getElementById('infoContratista').value = '';
+        document.getElementById('infoBeneficiario').value = '';
 
         document.querySelector('#modalNuevoEmpleado .modal-title').textContent = 'Registro de Nuevo Empleado';
         document.querySelector('#modalNuevoEmpleado .btn-brand').innerHTML = '<i class="bi bi-save me-1"></i> Guardar Empleado';
@@ -685,9 +716,15 @@
                     }
                 }
 
-                // Asegurar que la sucursal se cargue
-                const selSuc = document.getElementById('selectSucursalEmpleado');
-                if (selSuc) selSuc.value = data.sucursal || '';
+                // Cargar info del contrato vinculado si existe
+                if (data.contrato_id) {
+                    const selectContrato = document.getElementById('selectContratoEmpleado');
+                    selectContrato.value = data.contrato_id;
+                    actualizarInfoContrato(data.contrato_id);
+                } else {
+                    document.getElementById('infoContratista').value = '';
+                    document.getElementById('infoBeneficiario').value = '';
+                }
 
                 // Cambiar títulos del modal
                 document.querySelector('#modalNuevoEmpleado .modal-title').textContent = 'Editar Empleado';

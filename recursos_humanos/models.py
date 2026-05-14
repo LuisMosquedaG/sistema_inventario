@@ -118,7 +118,7 @@ class Empleado(models.Model):
     salario_diario_ordinario = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Salario Diario Ordinario")
     unidad_monetaria = models.CharField(max_length=3, default='MXN', verbose_name="Moneda")
     forma_pago = models.CharField(max_length=20, choices=FORMA_PAGO_CHOICES, default='quincenal', verbose_name="Forma de Pago")
-    clave_percepcion_sat = models.CharField(max_length=10, default='001', verbose_name="Clave Percepción SAT")
+    clave_percepcion_sat = models.CharField(max_length=100, default='001', verbose_name="Clave Percepción SAT")
     tipo_salario = models.CharField(max_length=20, choices=TIPO_SALARIO_CHOICES, default='fijo', verbose_name="Tipo de Salario")
 
     # 5. BENEFICIOS
@@ -154,23 +154,144 @@ class Contrato(models.Model):
     ]
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
-    empleado = models.ForeignKey(Empleado, on_delete=models.CASCADE, related_name='contratos', verbose_name="Empleado")
-    
-    fecha_inicio = models.DateField(verbose_name="Fecha de Inicio")
-    fecha_fin = models.DateField(null=True, blank=True, verbose_name="Fecha de Vencimiento")
-    tipo_contrato = models.CharField(max_length=20, choices=TIPO_CHOICES, default='indefinido', verbose_name="Tipo de Contrato")
-    sueldo_mensual = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Sueldo Mensual")
-    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='vigente', verbose_name="Estado")
-    
-    archivo = models.FileField(upload_to='contratos/', null=True, blank=True, verbose_name="Archivo del Contrato")
-    notas = models.TextField(blank=True, null=True, verbose_name="Notas/Observaciones")
-    
-    fecha_registro = models.DateTimeField(auto_now_add=True)
+    sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
 
+    # 1. Colaboradores, Organización y Contratante
+    empleados = models.ManyToManyField(Empleado, related_name='contratos_asignados', verbose_name="Colaboradores")
+    contratista = models.ForeignKey('Contratista', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Contratista")
+    beneficiario = models.ForeignKey('Beneficiario', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Beneficiario")
+
+    # 2. Datos Generales de Contrato
+    folio = models.CharField(max_length=100, blank=True, null=True, verbose_name="Folio de Contrato")
+    tipo_contrato = models.CharField(max_length=20, choices=TIPO_CHOICES, default='indefinido', verbose_name="Tipo de Contrato")
+    objeto_contrato = models.TextField(blank=True, null=True, verbose_name="Objeto del Contrato")
+    monto_contrato = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name="Monto del Contrato")
+
+    # Vigencia
+    fecha_inicio = models.DateField(verbose_name="Fecha de Inicio")
+    fecha_fin = models.DateField(null=True, blank=True, verbose_name="Fecha de Término")
+    vigencia_contrato = models.DateField(null=True, blank=True, verbose_name="Vigencia de Contrato")
+
+    num_estimado_trabajadores = models.IntegerField(default=0, verbose_name="Número Estimado de Trabajadores")
+
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='vigente', verbose_name="Estado")
+    notas = models.TextField(blank=True, null=True, verbose_name="Notas/Observaciones")
+
+    fecha_registro = models.DateTimeField(auto_now_add=True)
     def __str__(self):
-        return f"Contrato {self.id} - {self.empleado}"
+        return f"{self.folio or 'S/F'} - {self.beneficiario or 'Sin beneficiario'}"
 
     class Meta:
         verbose_name = "Contrato"
         verbose_name_plural = "Contratos"
+
+class Contratista(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
+    sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
+    
+    # Datos Identificación
+    rfc = models.CharField(max_length=13, verbose_name="RFC")
+    nombre_razon_social = models.CharField(max_length=200, verbose_name="Nombre / Razón Social")
+    correo = models.EmailField(verbose_name="Correo Electrónico")
+    telefono = models.CharField(max_length=20, blank=True, null=True, verbose_name="Teléfono")
+    registro_patronal = models.CharField(max_length=50, blank=True, null=True, verbose_name="Registro Patronal")
+    
+    # Dirección
+    calle = models.CharField(max_length=200, blank=True, null=True, verbose_name="Calle")
+    num_ext = models.CharField(max_length=50, blank=True, null=True, verbose_name="Núm. Ext.")
+    num_int = models.CharField(max_length=50, blank=True, null=True, verbose_name="Núm. Int.")
+    entre_calle = models.CharField(max_length=150, blank=True, null=True, verbose_name="Entre calle")
+    y_calle = models.CharField(max_length=150, blank=True, null=True, verbose_name="y calle")
+    colonia = models.CharField(max_length=150, blank=True, null=True, verbose_name="Colonia")
+    cp = models.CharField(max_length=10, blank=True, null=True, verbose_name="Código Postal")
+    municipio_alcaldia = models.CharField(max_length=150, blank=True, null=True, verbose_name="Municipio / Alcaldía")
+    entidad_federativa = models.CharField(max_length=100, blank=True, null=True, verbose_name="Entidad Federativa")
+    
+    # Representación y Legal
+    representante_legal = models.CharField(max_length=200, blank=True, null=True, verbose_name="Representante Legal")
+    administrador_unico = models.CharField(max_length=200, blank=True, null=True, verbose_name="Administrador Único")
+    
+    # Información Notarial
+    num_escritura = models.CharField(max_length=100, blank=True, null=True, verbose_name="Núm. de Escritura")
+    nombre_notario_publico = models.CharField(max_length=200, blank=True, null=True, verbose_name="Nombre Notario Público")
+    num_notario_publico = models.CharField(max_length=50, blank=True, null=True, verbose_name="Número de Notario Público")
+    fecha_escritura_publica = models.DateField(null=True, blank=True, verbose_name="Fecha de Escritura Pública")
+    folio_mercantil = models.CharField(max_length=100, blank=True, null=True, verbose_name="Folio Mercantil")
+    
+    # Otros Registros
+    numero_stps = models.CharField(max_length=100, blank=True, null=True, verbose_name="Número STPS")
+    
+    fecha_registro = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.rfc} - {self.nombre_razon_social}"
+
+    class Meta:
+        verbose_name = "Contratista"
+        verbose_name_plural = "Contratistas"
+
+class Beneficiario(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
+    sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
+    
+    # Datos Identificación
+    rfc = models.CharField(max_length=13, verbose_name="RFC")
+    nombre_razon_social = models.CharField(max_length=200, verbose_name="Nombre / Razón Social")
+    registro_patronal = models.CharField(max_length=50, blank=True, null=True, verbose_name="Registro Patronal")
+    
+    # Dirección
+    calle = models.CharField(max_length=200, blank=True, null=True, verbose_name="Calle")
+    num_ext = models.CharField(max_length=50, blank=True, null=True, verbose_name="Núm. Ext.")
+    num_int = models.CharField(max_length=50, blank=True, null=True, verbose_name="Núm. Int.")
+    entre_calle = models.CharField(max_length=150, blank=True, null=True, verbose_name="Entre calle")
+    y_calle = models.CharField(max_length=150, blank=True, null=True, verbose_name="y calle")
+    colonia = models.CharField(max_length=150, blank=True, null=True, verbose_name="Colonia")
+    cp = models.CharField(max_length=10, blank=True, null=True, verbose_name="Código Postal")
+    municipio_alcaldia = models.CharField(max_length=150, blank=True, null=True, verbose_name="Municipio o Alcaldía")
+    entidad_federativa = models.CharField(max_length=100, blank=True, null=True, verbose_name="Entidad Federativa")
+    
+    # Contacto
+    correo = models.EmailField(verbose_name="Correo Electrónico")
+    telefono = models.CharField(max_length=20, blank=True, null=True, verbose_name="Teléfono")
+    
+    fecha_registro = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.rfc} - {self.nombre_razon_social}"
+
+    class Meta:
+        verbose_name = "Beneficiario"
+        verbose_name_plural = "Beneficiarios"
+
+class RegistroSUA(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
+    sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
+    
+    nss = models.CharField(max_length=15, verbose_name="NSS")
+    nombre_trabajador = models.CharField(max_length=255, verbose_name="Nombre del Trabajador")
+    dias_cotizados = models.IntegerField(default=0, verbose_name="Días Cotizados")
+    sdi = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="SDI")
+    
+    # Cuotas
+    cuota_fija = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    excedente_smg = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    prestaciones_dinero = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    gastos_medicos = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    riesgo_trabajo = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    invalidez_vida = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    guarderias = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    retiro = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    cesantia_vejez = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    infonavit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    
+    periodo = models.CharField(max_length=50, verbose_name="Periodo (Mes/Año)")
+    fecha_importacion = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.nss} - {self.nombre_trabajador} ({self.periodo})"
+
+    class Meta:
+        verbose_name = "Registro SUA"
+        verbose_name_plural = "Registros SUA"
+
 

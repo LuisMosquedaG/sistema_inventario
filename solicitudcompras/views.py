@@ -158,6 +158,15 @@ def crear_solicitud_desde_pedido(request, detalle_id):
 
     # --- INTELIGENCIA: ¿ES PRODUCCIÓN? ---
     if producto.tipo_abastecimiento == 'produccion':
+        # Buscar un almacén válido (Prioridad: Sucursal Pedido -> Cualquier Almacén de Empresa)
+        almacen_destino = Almacen.objects.filter(empresa=empresa_actual, sucursal=pedido.sucursal).first()
+        if not almacen_destino:
+            almacen_destino = Almacen.objects.filter(empresa=empresa_actual).first()
+
+        if not almacen_destino:
+            messages.error(request, f'No se pudo generar la orden de producción para "{producto.nombre}" porque no hay almacenes registrados. Por favor, cree un almacén primero.')
+            return redirect('detalle_pedido', pedido_id=pedido.id)
+
         # 1. Crear la Orden de Producción vinculada al pedido (En Borrador)
         op = OrdenProduccion.objects.create(
             empresa=empresa_actual,
@@ -165,7 +174,7 @@ def crear_solicitud_desde_pedido(request, detalle_id):
             cantidad=detalle.cantidad_solicitada,
             pedido_origen=pedido,
             solicitante=request.user,
-            almacen=Almacen.objects.filter(empresa=empresa_actual).first(), # Almacen por defecto
+            almacen=almacen_destino,
             estado='borrador',
             notas=f"Generada desde Pedido #{pedido.id} (Partida Individual)",
             sucursal=pedido.sucursal

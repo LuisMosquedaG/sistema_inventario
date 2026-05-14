@@ -1,7 +1,20 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.db import transaction
+from django.db.models import Q
+from decimal import Decimal
+import re
+try:
+    import pypdf
+except ImportError:
+    pypdf = None
+
 from panel.models import Empresa
-from .models import Empleado, Contrato
+from .models import Empleado, Contrato, Contratista, Beneficiario, RegistroSUA
+from preferencias.models import Sucursal
+from preferencias.permissions import require_hr_permission
 
 def get_empresa_actual(request):
     username = request.user.username
@@ -13,12 +26,11 @@ def get_empresa_actual(request):
             return None
     return None
 
-from django.http import JsonResponse
-from django.views.decorators.http import require_POST
-from decimal import Decimal
-
-from django.db.models import Q
-from preferencias.permissions import require_hr_permission
+def get_sucursal_actual_id(request):
+    """Auxiliar para obtener la sucursal de la sesión o el filtro."""
+    # Prioridad: 1. Parámetro POST (si existiera), 2. Parámetro GET, 3. Sesión
+    suc_id = request.POST.get('sucursal') or request.GET.get('sucursal') or request.session.get('sucursal_id')
+    return suc_id
 
 @login_required(login_url='/login/')
 @require_hr_permission('empleados', 'ver')
@@ -58,11 +70,13 @@ def lista_empleados(request):
 
     from preferencias.models import Sucursal
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
+    contratos_disponibles = Contrato.objects.filter(empresa=empresa_actual).select_related('contratista', 'beneficiario')
 
     return render(request, 'recursos_humanos/lista_empleados.html', {
         'empleados': empleados,
         'departamentos': departamentos,
         'sucursales': sucursales,
+        'contratos_disponibles': contratos_disponibles,
         'empresa': empresa_actual,
         'filtros': {
             'q': q,
@@ -78,8 +92,12 @@ def obtener_empleado_json(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
         emp = Empleado.objects.get(id=id, empresa=empresa_actual)
+        # Buscar contrato vinculado (el más reciente)
+        contrato_vinculado = emp.contratos_asignados.order_by('-fecha_inicio').first()
+
         data = {
             'id': emp.id,
+            'contrato_id': contrato_vinculado.id if contrato_vinculado else '',
             'curp': emp.curp,
             'rfc': emp.rfc,
             'nss': emp.nss,
@@ -196,9 +214,29 @@ def editar_empleado_ajax(request, id):
         emp.clabe = data.get('clabe')
         emp.num_cuenta = data.get('num_cuenta')
         emp.tipo_cuenta = data.get('tipo_cuenta')
-        emp.sucursal_id = data.get('sucursal') or None
+        
+        # Sucursal se mantiene si ya tiene una, o se actualiza de la sesión si es necesario.
+        # Pero el usuario dice "se coloca en automático", así que para editar mantendremos la que ya tiene
+        # a menos que explícitamente se quiera forzar la de la sesión.
+        # Por ahora lo dejamos como está (no se toca en editar si se quitó del modal).
         
         emp.save()
+
+        # Actualizar vínculo con contrato
+        contrato_id = data.get('contrato_id')
+        if contrato_id:
+            try:
+                contrato = Contrato.objects.get(id=contrato_id, empresa=empresa_actual)
+                # Si el contrato cambió, lo removemos de otros y lo agregamos al nuevo
+                # (Asumimos lógica de 1 contrato activo para esta interfaz)
+                emp.contratos_asignados.clear()
+                contrato.empleados.add(emp)
+            except Contrato.DoesNotExist:
+                pass
+        else:
+            # Si se seleccionó "Sin Contrato", remover de todos
+            emp.contratos_asignados.clear()
+
         return JsonResponse({'success': True, 'message': 'Empleado actualizado correctamente.'})
     except Empleado.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Empleado no encontrado.'})
@@ -214,17 +252,17 @@ def crear_empleado_ajax(request):
         return JsonResponse({'success': False, 'error': 'No se encontró la empresa.'}, status=403)
 
     try:
-        # Extraer datos del POST
         data = request.POST
-        
-        # Validar unicidad de número de empleado para esta empresa (opcional, pero recomendado)
         num_emp = data.get('num_empleado')
         if Empleado.objects.filter(empresa=empresa_actual, num_empleado=num_emp).exists():
             return JsonResponse({'success': False, 'error': f'El número de empleado {num_emp} ya existe.'})
 
+        # Obtener sucursal de la sesión
+        sucursal_id = request.session.get('sucursal_id')
+
         nuevo_empleado = Empleado(
             empresa=empresa_actual,
-            sucursal_id=data.get('sucursal') or request.session.get('sucursal_id'),
+            sucursal_id=sucursal_id,
             # 1. Identificación
             curp=data.get('curp', '').upper(),
             rfc=data.get('rfc', '').upper(),
@@ -286,6 +324,16 @@ def crear_empleado_ajax(request):
         )
         
         nuevo_empleado.save()
+
+        # Vincular con contrato si se proporcionó
+        contrato_id = data.get('contrato_id')
+        if contrato_id:
+            try:
+                contrato = Contrato.objects.get(id=contrato_id, empresa=empresa_actual)
+                contrato.empleados.add(nuevo_empleado)
+            except Contrato.DoesNotExist:
+                pass
+
         return JsonResponse({'success': True, 'message': 'Empleado registrado correctamente.'})
 
     except Exception as e:
@@ -295,37 +343,52 @@ def crear_empleado_ajax(request):
 @require_hr_permission('contratos', 'ver')
 def lista_contratos(request):
     empresa_actual = get_empresa_actual(request)
-    contratos = Contrato.objects.filter(empresa=empresa_actual).select_related('empleado', 'empleado__sucursal').order_by('-fecha_inicio')
+    contratos = Contrato.objects.filter(empresa=empresa_actual).prefetch_related('empleados', 'empleados__sucursal').order_by('-fecha_inicio')
     
     # --- LÓGICA DE FILTRADO ---
     q = request.GET.get('q', '')
     empleado_id = request.GET.get('empleado_id', '')
     estado = request.GET.get('estado', '')
+    sucursal_id = request.GET.get('sucursal', '')
 
     if q:
         contratos = contratos.filter(
-            Q(empleado__nombre__icontains=q) |
-            Q(empleado__apellido_paterno__icontains=q) |
-            Q(empleado__apellido_materno__icontains=q) |
+            Q(folio__icontains=q) |
+            Q(beneficiario__nombre_razon_social__icontains=q) |
+            Q(contratista__nombre_razon_social__icontains=q) |
+            Q(empleados__nombre__icontains=q) |
+            Q(empleados__apellido_paterno__icontains=q) |
             Q(notas__icontains=q)
-        )
+        ).distinct()
     
     if empleado_id:
-        contratos = contratos.filter(empleado_id=empleado_id)
+        contratos = contratos.filter(empleados__id=empleado_id)
     
     if estado:
         contratos = contratos.filter(estado=estado)
             
+    if sucursal_id:
+        contratos = contratos.filter(sucursal_id=sucursal_id)
+
     empleados = Empleado.objects.filter(empresa=empresa_actual).order_by('apellido_paterno')
+    contratistas = Contratista.objects.filter(empresa=empresa_actual).order_by('nombre_razon_social')
+    beneficiarios = Beneficiario.objects.filter(empresa=empresa_actual).order_by('nombre_razon_social')
+    
+    from preferencias.models import Sucursal
+    sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
 
     return render(request, 'recursos_humanos/lista_contratos.html', {
         'contratos': contratos,
         'empleados': empleados,
+        'contratistas': contratistas,
+        'beneficiarios': beneficiarios,
+        'sucursales': sucursales,
         'empresa': empresa_actual,
         'filtros': {
             'q': q,
             'empleado_id': empleado_id,
-            'estado': estado
+            'estado': estado,
+            'sucursal': sucursal_id
         }
     })
 
@@ -337,11 +400,17 @@ def obtener_contrato_json(request, id):
         con = Contrato.objects.get(id=id, empresa=empresa_actual)
         data = {
             'id': con.id,
-            'empleado_id': con.empleado_id,
+            'empleados_ids': list(con.empleados.values_list('id', flat=True)),
+            'contratista': con.contratista_id,
+            'beneficiario': con.beneficiario_id,
+            'folio': con.folio,
+            'tipo_contrato': con.tipo_contrato,
+            'objeto_contrato': con.objeto_contrato,
+            'monto_contrato': str(con.monto_contrato),
             'fecha_inicio': con.fecha_inicio.isoformat() if con.fecha_inicio else '',
             'fecha_fin': con.fecha_fin.isoformat() if con.fecha_fin else '',
-            'tipo_contrato': con.tipo_contrato,
-            'sueldo_mensual': str(con.sueldo_mensual),
+            'vigencia_contrato': con.vigencia_contrato.isoformat() if con.vigencia_contrato else '',
+            'num_estimado_trabajadores': con.num_estimado_trabajadores,
             'estado': con.estado,
             'notas': con.notas,
         }
@@ -359,19 +428,35 @@ def crear_contrato_ajax(request):
 
     try:
         data = request.POST
-        nuevo_contrato = Contrato(
-            empresa=empresa_actual,
-            empleado_id=data.get('empleado'),
-            fecha_inicio=data.get('fecha_inicio'),
-            fecha_fin=data.get('fecha_fin') or None,
-            tipo_contrato=data.get('tipo_contrato'),
-            sueldo_mensual=Decimal(data.get('sueldo_mensual', '0')),
-            estado=data.get('estado', 'vigente'),
-            notas=data.get('notas', ''),
-            archivo=request.FILES.get('archivo')
-        )
-        nuevo_contrato.save()
-        return JsonResponse({'success': True, 'message': 'Contrato registrado correctamente.'})
+        sucursal_id = request.session.get('sucursal_id')
+        with transaction.atomic():
+            nuevo_contrato = Contrato(
+                empresa=empresa_actual,
+                sucursal_id=sucursal_id,
+                contratista_id=data.get('contratista'),
+                beneficiario_id=data.get('beneficiario'),
+                folio=data.get('folio'),
+                tipo_contrato=data.get('tipo_contrato'),
+                objeto_contrato=data.get('objeto_contrato'),
+                monto_contrato=Decimal(data.get('monto_contrato', '0')),
+                fecha_inicio=data.get('fecha_inicio'),
+                fecha_fin=data.get('fecha_fin') or None,
+                vigencia_contrato=data.get('vigencia_contrato') or None,
+                num_estimado_trabajadores=int(data.get('num_estimado_trabajadores', 0)),
+                estado=data.get('estado', 'vigente'),
+                notas=data.get('notas', '')
+            )
+            nuevo_contrato.save()
+            
+            # Manejar ManyToMany para empleados
+            empleados_ids = request.POST.getlist('empleados[]')
+            if not empleados_ids:
+                empleados_ids = request.POST.getlist('empleados')
+                
+            if empleados_ids:
+                nuevo_contrato.empleados.set(empleados_ids)
+                
+            return JsonResponse({'success': True, 'message': 'Contrato registrado correctamente.'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
 
@@ -384,21 +469,381 @@ def editar_contrato_ajax(request, id):
         con = Contrato.objects.get(id=id, empresa=empresa_actual)
         data = request.POST
 
-        con.empleado_id = data.get('empleado')
-        con.fecha_inicio = data.get('fecha_inicio')
-        con.fecha_fin = data.get('fecha_fin') or None
-        con.tipo_contrato = data.get('tipo_contrato')
-        con.sueldo_mensual = Decimal(data.get('sueldo_mensual', '0'))
-        con.estado = data.get('estado')
-        con.notas = data.get('notas', '')
-        
-        if request.FILES.get('archivo'):
-            con.archivo = request.FILES.get('archivo')
+        with transaction.atomic():
+            con.contratista_id = data.get('contratista')
+            con.beneficiario_id = data.get('beneficiario')
+            con.folio = data.get('folio')
+            con.tipo_contrato = data.get('tipo_contrato')
+            con.objeto_contrato = data.get('objeto_contrato')
+            con.monto_contrato = Decimal(data.get('monto_contrato', '0'))
+            con.fecha_inicio = data.get('fecha_inicio')
+            con.fecha_fin = data.get('fecha_fin') or None
+            con.vigencia_contrato = data.get('vigencia_contrato') or None
+            con.num_estimado_trabajadores = int(data.get('num_estimado_trabajadores', 0))
+            con.estado = data.get('estado')
+            con.notas = data.get('notas', '')
             
-        con.save()
-        return JsonResponse({'success': True, 'message': 'Contrato actualizado correctamente.'})
+            con.save()
+            
+            # Actualizar empleados
+            empleados_ids = request.POST.getlist('empleados[]')
+            if not empleados_ids:
+                empleados_ids = request.POST.getlist('empleados')
+                
+            con.empleados.set(empleados_ids)
+            
+            return JsonResponse({'success': True, 'message': 'Contrato actualizado correctamente.'})
     except Contrato.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Contrato no encontrado.'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
 
+@login_required(login_url='/login/')
+@require_hr_permission('contratistas', 'ver')
+def lista_contratistas(request):
+    empresa_actual = get_empresa_actual(request)
+    contratistas = Contratista.objects.filter(empresa=empresa_actual).order_by('nombre_razon_social')
+    
+    # --- LÓGICA DE FILTRADO ---
+    q = request.GET.get('q', '')
+    sucursal_id = request.GET.get('sucursal', '')
+    
+    if q:
+        contratistas = contratistas.filter(
+            Q(nombre_razon_social__icontains=q) |
+            Q(rfc__icontains=q) |
+            Q(representante_legal__icontains=q) |
+            Q(correo__icontains=q)
+        )
+        
+    if sucursal_id:
+        contratistas = contratistas.filter(sucursal_id=sucursal_id)
+
+    from preferencias.models import Sucursal
+    sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
+
+    return render(request, 'recursos_humanos/lista_contratistas.html', {
+        'contratistas': contratistas,
+        'sucursales': sucursales,
+        'empresa': empresa_actual,
+        'filtros': {'q': q, 'sucursal': sucursal_id}
+    })
+
+@login_required(login_url='/login/')
+@require_hr_permission('contratistas', 'ver', json_response=True)
+def obtener_contratista_json(request, id):
+    empresa_actual = get_empresa_actual(request)
+    try:
+        cont = Contratista.objects.get(id=id, empresa=empresa_actual)
+        data = {
+            'id': cont.id,
+            'rfc': cont.rfc,
+            'nombre_razon_social': cont.nombre_razon_social,
+            'correo': cont.correo,
+            'telefono': cont.telefono,
+            'registro_patronal': cont.registro_patronal,
+            'calle': cont.calle,
+            'num_ext': cont.num_ext,
+            'num_int': cont.num_int,
+            'entre_calle': cont.entre_calle,
+            'y_calle': cont.y_calle,
+            'colonia': cont.colonia,
+            'cp': cont.cp,
+            'municipio_alcaldia': cont.municipio_alcaldia,
+            'entidad_federativa': cont.entidad_federativa,
+            'representante_legal': cont.representante_legal,
+            'administrador_unico': cont.administrador_unico,
+            'num_escritura': cont.num_escritura,
+            'nombre_notario_publico': cont.nombre_notario_publico,
+            'num_notario_publico': cont.num_notario_publico,
+            'fecha_escritura_publica': cont.fecha_escritura_publica.isoformat() if cont.fecha_escritura_publica else '',
+            'folio_mercantil': cont.folio_mercantil,
+            'numero_stps': cont.numero_stps,
+        }
+        return JsonResponse({'success': True, 'data': data})
+    except Contratista.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Contratista no encontrado.'})
+
+@login_required(login_url='/login/')
+@require_POST
+@require_hr_permission('contratistas', 'crear', json_response=True)
+def crear_contratista_ajax(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'No se encontró la empresa.'}, status=403)
+
+    try:
+        data = request.POST
+        sucursal_id = request.session.get('sucursal_id')
+        nuevo = Contratista(
+            empresa=empresa_actual,
+            sucursal_id=sucursal_id,
+            rfc=data.get('rfc', '').upper(),
+            nombre_razon_social=data.get('nombre_razon_social'),
+            correo=data.get('correo'),
+            telefono=data.get('telefono'),
+            registro_patronal=data.get('registro_patronal'),
+            calle=data.get('calle'),
+            num_ext=data.get('num_ext'),
+            num_int=data.get('num_int'),
+            entre_calle=data.get('entre_calle'),
+            y_calle=data.get('y_calle'),
+            colonia=data.get('colonia'),
+            cp=data.get('cp'),
+            municipio_alcaldia=data.get('municipio_alcaldia'),
+            entidad_federativa=data.get('entidad_federativa'),
+            representante_legal=data.get('representante_legal'),
+            administrador_unico=data.get('administrador_unico'),
+            num_escritura=data.get('num_escritura'),
+            nombre_notario_publico=data.get('nombre_notario_publico'),
+            num_notario_publico=data.get('num_notario_publico'),
+            fecha_escritura_publica=data.get('fecha_escritura_publica') or None,
+            folio_mercantil=data.get('folio_mercantil'),
+            numero_stps=data.get('numero_stps'),
+        )
+        nuevo.save()
+        return JsonResponse({'success': True, 'message': 'Contratista registrado correctamente.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required(login_url='/login/')
+@require_POST
+@require_hr_permission('contratistas', 'editar', json_response=True)
+def editar_contratista_ajax(request, id):
+    empresa_actual = get_empresa_actual(request)
+    try:
+        cont = Contratista.objects.get(id=id, empresa=empresa_actual)
+        data = request.POST
+
+        cont.rfc = data.get('rfc', '').upper()
+        cont.nombre_razon_social = data.get('nombre_razon_social')
+        cont.correo = data.get('correo')
+        cont.telefono = data.get('telefono')
+        cont.registro_patronal = data.get('registro_patronal')
+        cont.calle = data.get('calle')
+        cont.num_ext = data.get('num_ext')
+        cont.num_int = data.get('num_int')
+        cont.entre_calle = data.get('entre_calle')
+        cont.y_calle = data.get('y_calle')
+        cont.colonia = data.get('colonia')
+        cont.cp = data.get('cp')
+        cont.municipio_alcaldia = data.get('municipio_alcaldia')
+        cont.entidad_federativa = data.get('entidad_federativa')
+        cont.representante_legal = data.get('representante_legal')
+        cont.administrador_unico = data.get('administrador_unico')
+        cont.num_escritura = data.get('num_escritura')
+        cont.nombre_notario_publico = data.get('nombre_notario_publico')
+        cont.num_notario_publico = data.get('num_notario_publico')
+        cont.fecha_escritura_publica = data.get('fecha_escritura_publica') or None
+        cont.folio_mercantil = data.get('folio_mercantil')
+        cont.numero_stps = data.get('numero_stps')
+        
+        cont.save()
+        return JsonResponse({'success': True, 'message': 'Contratista actualizado correctamente.'})
+    except Contratista.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Contratista no encontrado.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required(login_url='/login/')
+@require_hr_permission('beneficiarios', 'ver')
+def lista_beneficiarios(request):
+    empresa_actual = get_empresa_actual(request)
+    beneficiarios = Beneficiario.objects.filter(empresa=empresa_actual).order_by('nombre_razon_social')
+    
+    q = request.GET.get('q', '')
+    sucursal_id = request.GET.get('sucursal', '')
+
+    if q:
+        beneficiarios = beneficiarios.filter(
+            Q(nombre_razon_social__icontains=q) |
+            Q(rfc__icontains=q) |
+            Q(correo__icontains=q)
+        )
+        
+    if sucursal_id:
+        beneficiarios = beneficiarios.filter(sucursal_id=sucursal_id)
+
+    from preferencias.models import Sucursal
+    sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
+
+    return render(request, 'recursos_humanos/lista_beneficiarios.html', {
+        'beneficiarios': beneficiarios,
+        'sucursales': sucursales,
+        'empresa': empresa_actual,
+        'filtros': {'q': q, 'sucursal': sucursal_id}
+    })
+
+@login_required(login_url='/login/')
+@require_hr_permission('beneficiarios', 'ver', json_response=True)
+def obtener_beneficiario_json(request, id):
+    empresa_actual = get_empresa_actual(request)
+    try:
+        ben = Beneficiario.objects.get(id=id, empresa=empresa_actual)
+        data = {
+            'id': ben.id,
+            'rfc': ben.rfc,
+            'nombre_razon_social': ben.nombre_razon_social,
+            'registro_patronal': ben.registro_patronal,
+            'calle': ben.calle,
+            'num_ext': ben.num_ext,
+            'num_int': ben.num_int,
+            'entre_calle': ben.entre_calle,
+            'y_calle': ben.y_calle,
+            'colonia': ben.colonia,
+            'cp': ben.cp,
+            'municipio_alcaldia': ben.municipio_alcaldia,
+            'entidad_federativa': ben.entidad_federativa,
+            'correo': ben.correo,
+            'telefono': ben.telefono,
+        }
+        return JsonResponse({'success': True, 'data': data})
+    except Beneficiario.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Beneficiario no encontrado.'})
+
+@login_required(login_url='/login/')
+@require_POST
+@require_hr_permission('beneficiarios', 'crear', json_response=True)
+def crear_beneficiario_ajax(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'No se encontró la empresa.'}, status=403)
+
+    try:
+        data = request.POST
+        sucursal_id = request.session.get('sucursal_id')
+        nuevo = Beneficiario(
+            empresa=empresa_actual,
+            sucursal_id=sucursal_id,
+            rfc=data.get('rfc', '').upper(),
+            nombre_razon_social=data.get('nombre_razon_social'),
+            registro_patronal=data.get('registro_patronal'),
+            calle=data.get('calle'),
+            num_ext=data.get('num_ext'),
+            num_int=data.get('num_int'),
+            entre_calle=data.get('entre_calle'),
+            y_calle=data.get('y_calle'),
+            colonia=data.get('colonia'),
+            cp=data.get('cp'),
+            municipio_alcaldia=data.get('municipio_alcaldia'),
+            entidad_federativa=data.get('entidad_federativa'),
+            correo=data.get('correo'),
+            telefono=data.get('telefono'),
+        )
+        nuevo.save()
+        return JsonResponse({'success': True, 'message': 'Beneficiario registrado correctamente.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required(login_url='/login/')
+@require_POST
+@require_hr_permission('beneficiarios', 'editar', json_response=True)
+def editar_beneficiario_ajax(request, id):
+    empresa_actual = get_empresa_actual(request)
+    try:
+        ben = Beneficiario.objects.get(id=id, empresa=empresa_actual)
+        data = request.POST
+
+        ben.rfc = data.get('rfc', '').upper()
+        ben.nombre_razon_social = data.get('nombre_razon_social')
+        ben.registro_patronal = data.get('registro_patronal')
+        ben.calle = data.get('calle')
+        ben.num_ext = data.get('num_ext')
+        ben.num_int = data.get('num_int')
+        ben.entre_calle = data.get('entre_calle')
+        ben.y_calle = data.get('y_calle')
+        ben.colonia = data.get('colonia')
+        ben.cp = data.get('cp')
+        ben.municipio_alcaldia = data.get('municipio_alcaldia')
+        ben.entidad_federativa = data.get('entidad_federativa')
+        ben.correo = data.get('correo')
+        ben.telefono = data.get('telefono')
+        
+        ben.save()
+        return JsonResponse({'success': True, 'message': 'Beneficiario actualizado correctamente.'})
+    except Beneficiario.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Beneficiario no encontrado.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required(login_url='/login/')
+@require_hr_permission('sua', 'ver')
+def lista_sua(request):
+    empresa_actual = get_empresa_actual(request)
+    registros = RegistroSUA.objects.filter(empresa=empresa_actual).select_related('sucursal').order_by('-fecha_importacion')
+    
+    q = request.GET.get('q', '')
+    sucursal_id = request.GET.get('sucursal', '')
+    
+    if q:
+        registros = registros.filter(
+            Q(nombre_trabajador__icontains=q) |
+            Q(nss__icontains=q) |
+            Q(periodo__icontains=q)
+        )
+    if sucursal_id:
+        registros = registros.filter(sucursal_id=sucursal_id)
+
+    from preferencias.models import Sucursal
+    sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
+    
+    return render(request, 'recursos_humanos/lista_sua.html', {
+        'registros': registros,
+        'sucursales': sucursales,
+        'empresa': empresa_actual,
+        'filtros': {'q': q, 'sucursal': sucursal_id}
+    })
+
+@login_required(login_url='/login/')
+@require_POST
+@require_hr_permission('sua', 'importar', json_response=True)
+def importar_sua_ajax(request):
+    empresa_actual = get_empresa_actual(request)
+    pdf_file = request.FILES.get('archivo_sua')
+    
+    if not pdf_file:
+        return JsonResponse({'success': False, 'error': 'No se proporcionó ningún archivo.'})
+
+    try:
+        if not pypdf:
+            return JsonResponse({'success': False, 'error': 'Librería de lectura PDF (pypdf) no instalada.'})
+
+        reader = pypdf.PdfReader(pdf_file)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() + "\n"
+
+        # Extraer Periodo (Mes/Año)
+        p_match = re.search(r'MES:\s*(\d+)\s*AÑO:\s*(\d+)', text, re.IGNORECASE)
+        periodo_str = f"{p_match.group(1)}/{p_match.group(2)}" if p_match else "No detectado"
+
+        # Buscar patrones de trabajadores (NSS de 11 dígitos)
+        worker_pattern = re.compile(r'(\d{11})\s+([A-ZÁÉÍÓÚÑ\s\.]+?)\s+(\d+)\s+([\d\.,]+)')
+        matches = worker_pattern.findall(text)
+
+        created_count = 0
+        sucursal_id = request.session.get('sucursal_id')
+
+        with transaction.atomic():
+            for m in matches:
+                nss, nombre, dias, sdi_raw = m
+                sdi_val = Decimal(sdi_raw.replace(',', ''))
+                
+                RegistroSUA.objects.create(
+                    empresa=empresa_actual,
+                    sucursal_id=sucursal_id,
+                    nss=nss,
+                    nombre_trabajador=nombre.strip(),
+                    dias_cotizados=int(dias),
+                    sdi=sdi_val,
+                    periodo=periodo_str
+                )
+                created_count += 1
+
+        if created_count == 0:
+            return JsonResponse({'success': False, 'error': 'No se encontraron trabajadores legibles en el PDF. Verifique que sea un archivo oficial de SUA.'})
+
+        return JsonResponse({'success': True, 'message': f'Procesado con éxito: {created_count} registros importados.'})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f"Error al procesar PDF: {str(e)}"})

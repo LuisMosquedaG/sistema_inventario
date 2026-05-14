@@ -622,6 +622,15 @@ def generar_solicitud_global(request, pedido_id):
         
         # --- CASO A: PRODUCCIÓN ---
         if producto.tipo_abastecimiento == 'produccion':
+            # Buscar un almacén válido (Prioridad: Cliente -> Sucursal Pedido -> Cualquier Almacén de Empresa)
+            almacen_destino = Almacen.objects.filter(empresa=empresa_actual, sucursal=pedido.sucursal).first()
+            if not almacen_destino:
+                almacen_destino = Almacen.objects.filter(empresa=empresa_actual).first()
+
+            if not almacen_destino:
+                messages.error(request, f'No se pudo generar la orden de producción para "{producto.nombre}" porque no hay almacenes registrados. Por favor, cree un almacén primero.')
+                return redirect('detalle_pedido', pedido_id=pedido.id)
+
             # 1. Crear la Orden de Producción vinculada al pedido (En Borrador)
             op = OrdenProduccion.objects.create(
                 empresa=empresa_actual,
@@ -629,7 +638,7 @@ def generar_solicitud_global(request, pedido_id):
                 cantidad=linea_pedido.cantidad_solicitada,
                 pedido_origen=pedido,
                 solicitante=request.user, # Quién dispara la solicitud
-                almacen=linea_pedido.pedido.cliente.almacen if hasattr(linea_pedido.pedido.cliente, 'almacen') and linea_pedido.pedido.cliente.almacen else Almacen.objects.filter(empresa=empresa_actual).first(),
+                almacen=almacen_destino,
                 estado='borrador',
                 notas=f"Generada automáticamente desde Pedido #{pedido.id}",
                 sucursal=pedido.sucursal

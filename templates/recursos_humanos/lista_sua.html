@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .modal.fade .modal-dialog {
+        transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease-out !important;
+        transform: scale(0.9) translateY(-50px) !important;
+        opacity: 0;
+    }
+    .modal.show .modal-dialog {
+        transform: scale(1) translateY(0) !important;
+        opacity: 1 !important;
+    }
+
+    .modal-sheet .modal-content { border-radius: 12px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.15); }
+    .form-label-custom { font-size: 0.75rem; font-weight: 700; color: #495057; margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .import-zone {
+        border: 2px dashed #dee2e6;
+        border-radius: 12px;
+        padding: 40px;
+        text-align: center;
+        background: #f8f9fa;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .import-zone:hover {
+        border-color: #00b8b9;
+        background-color: #f0fdfa;
+    }
+    .import-zone i {
+        font-size: 3rem;
+        color: #adb5bd;
+        margin-bottom: 15px;
+        display: block;
+    }
+</style>
+
+<div class="container-fluid py-2 px-4">
+    <!-- HEADER -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+        <div>
+            <h4 class="section-title mb-0">Integrador SUA</h4>
+            <span class="section-subtitle">Importación y lectura de reportes PDF del SUA</span>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalImportarSUA">
+                <i class="bi bi-file-earmark-arrow-up me-1"></i> Importar SUA
+            </button>
+        </div>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+            <form method="get" id="formFiltrosSUA" class="row g-2 align-items-end">
+                <div class="col-12 col-md-6">
+                    <label class="form-label small fw-bold text-secondary">Búsqueda</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                        <input type="text" name="q" class="form-control border-start-0" placeholder="Nombre, NSS, Periodo..." value="{{ filtros.q|default:'' }}">
+                    </div>
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label small fw-bold text-secondary">Sucursal</label>
+                    <select name="sucursal" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todas...</option>
+                        {% for s in sucursales %}
+                        <option value="{{ s.id }}" {% if filtros.sucursal == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 col-md-3">
+                    <button type="submit" class="btn btn-secondary btn-sm w-100">Filtrar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TABLA -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-pro mb-0">
+                    <thead>
+                        <tr>
+                            <th class="text-center">Sucursal</th>
+                            <th>NSS</th>
+                            <th>Trabajador</th>
+                            <th class="text-center">Días</th>
+                            <th class="text-end">S.D.I.</th>
+                            <th class="text-center">Periodo</th>
+                            <th class="text-center">Fecha Imp.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in registros %}
+                        <tr>
+                            <td class="text-center">
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary border" style="font-size: 0.7rem;">{{ r.sucursal.nombre|default:"Global" }}</span>
+                            </td>
+                            <td class="font-monospace">{{ r.nss }}</td>
+                            <td class="fw-bold text-dark">{{ r.nombre_trabajador }}</td>
+                            <td class="text-center">{{ r.dias_cotizados }}</td>
+                            <td class="text-end fw-bold text-primary">${{ r.sdi }}</td>
+                            <td class="text-center"><span class="badge bg-info bg-opacity-10 text-info">{{ r.periodo }}</span></td>
+                            <td class="text-center text-muted small">{{ r.fecha_importacion|date:"d/m/Y H:i" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <i class="bi bi-file-earmark-pdf display-6 text-muted mb-2 d-block"></i>
+                                <span class="text-muted fst-italic small">No hay registros SUA importados</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: IMPORTAR SUA -->
+<div class="modal fade" id="modalImportarSUA" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sheet">
+        <div class="modal-content">
+            <div class="modal-header bg-white border-bottom-0">
+                <h5 class="modal-title fw-bold">Importar Reporte SUA</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formImportarSUA" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-4">Selecciona el archivo PDF generado por el SUA para extraer la información de los trabajadores automáticamente.</p>
+                    
+                    <div class="import-zone" onclick="document.getElementById('archivo_sua').click()">
+                        <i class="bi bi-cloud-arrow-up"></i>
+                        <span class="fw-bold text-dark d-block">Haga clic para subir PDF</span>
+                        <span class="text-muted small" id="fileNameDisplay">Solo archivos .pdf</span>
+                        <input type="file" name="archivo_sua" id="archivo_sua" hidden accept="application/pdf" onchange="updateFileName(this)">
+                    </div>
+
+                    <div id="importProgress" class="mt-3" style="display: none;">
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-brand" role="progressbar" style="width: 100%"></div>
+                        </div>
+                        <p class="text-center small text-muted mt-2">Procesando documento, por favor espere...</p>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0">
+                    <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-brand text-white btn-sm px-4 fw-bold shadow-sm" id="btnConfirmarImport">
+                        Comenzar Importación
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function updateFileName(input) {
+        const display = document.getElementById('fileNameDisplay');
+        if (input.files.length > 0) {
+            display.innerText = input.files[0].name;
+            display.classList.remove('text-muted');
+            display.classList.add('text-brand', 'fw-bold');
+        }
+    }
+
+    document.getElementById('formImportarSUA').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const btn = document.getElementById('btnConfirmarImport');
+        const progress = document.getElementById('importProgress');
+        const formData = new FormData(this);
+
+        btn.disabled = true;
+        progress.style.display = 'block';
+
+        fetch("{% url 'importar_sua_ajax' %}", {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+                btn.disabled = false;
+                progress.style.display = 'none';
+            }
+        })
+        .catch(err => {
+            alert('Error técnico al procesar el archivo.');
+            btn.disabled = false;
+            progress.style.display = 'none';
+        });
+    });
+</script>
+{% endblock %}
