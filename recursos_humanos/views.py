@@ -18,6 +18,19 @@ from .models import Empleado, Contrato, Contratista, Beneficiario, ImportacionSU
 from preferencias.models import Sucursal
 from preferencias.permissions import require_hr_permission
 
+def limpiar_basura_header(texto):
+    """Elimina textos innecesarios del encabezado del SUA como convenios y versiones."""
+    if not texto: return ""
+    patrones = [
+        r'Convenio de Reembolso:.*',
+        r'Aportación Patronal:.*',
+        r'V\s?\d\.\d\.\d.*',
+        r'Página:.*'
+    ]
+    for p in patrones:
+        texto = re.sub(p, '', texto, flags=re.I)
+    return texto.strip()
+
 def get_empresa_actual(request):
     username = request.user.username
     if '@' in username:
@@ -956,8 +969,8 @@ def obtener_registro_sua_json(request, id):
                 'razon_social': imp.nombre_razon_social,
                 'rfc': imp.rfc_empresa,
                 'reg_patronal': imp.registro_patronal,
-                'actividad': imp.actividad,
-                'domicilio': imp.domicilio,
+                'actividad': limpiar_basura_header(imp.actividad),
+                'domicilio': limpiar_basura_header(imp.domicilio),
                 'cp': imp.cp,
                 'entidad': imp.entidad,
                 'periodo': imp.periodo
@@ -965,7 +978,7 @@ def obtener_registro_sua_json(request, id):
             'seguro': {
                 'area_geo': imp.area_geografica,
                 'delegacion': imp.delegacion_imss,
-                'subdelegacion': imp.subdelegacion_imss,
+                'subdelegacion': limpiar_basura_header(imp.subdelegacion_imss),
                 'municipio': imp.municipio_alcaldia,
                 'prima': str(imp.prima_rt)
             },
