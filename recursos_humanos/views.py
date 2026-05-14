@@ -22,10 +22,11 @@ def limpiar_basura_header(texto):
     """Elimina textos innecesarios del encabezado del SUA como convenios y versiones."""
     if not texto: return ""
     patrones = [
-        r'Convenio de Reembolso:.*',
-        r'Aportación Patronal:.*',
+        r'Convenio\s+de\s+Reembolso:.*',
+        r'Aportación\s+Patronal:.*',
         r'V\s?\d\.\d\.\d.*',
-        r'Página:.*'
+        r'Página:.*',
+        r'Hoja:.*'
     ]
     for p in patrones:
         texto = re.sub(p, '', texto, flags=re.I)
@@ -734,7 +735,7 @@ def importar_sua_ajax(request):
 
             if "Código Postal:" in line:
                 m_cp = re.search(r'Código Postal:\s*(\d+)', line, re.I)
-                m_ent = re.search(r'Entidad:\s*(.*?)(?=\s{2,}|Prima|$)', line, re.I)
+                m_ent = re.search(r'Entidad:\s*(.*?)(?=\s{2,}|Prima|Convenio|Aportación|V \d|$)', line, re.I)
                 m_pri = re.search(r'Prima de R\.T\.\s*([\d\.,%]+)', line, re.I)
                 if m_cp: cp_val = m_cp.group(1).strip()
                 if m_ent: entidad_val = m_ent.group(1).strip()
@@ -753,16 +754,16 @@ def importar_sua_ajax(request):
                 registro_patronal=reg_pat_val,
                 rfc_empresa=rfc_emp_val,
                 nombre_razon_social=nom_razon_val,
-                actividad=actividad_val,
-                domicilio=domicilio_val,
+                actividad=limpiar_basura_header(actividad_val),
+                domicilio=limpiar_basura_header(domicilio_val),
                 cp=cp_val,
-                entidad=entidad_val,
-                area_geografica=area_val,
-                delegacion_imss=deleg_val,
-                subdelegacion_imss=subdeleg_val,
-                municipio_alcaldia=mun_alc_val,
+                entidad=limpiar_basura_header(entidad_val),
+                area_geografica=limpiar_basura_header(area_val),
+                delegacion_imss=limpiar_basura_header(deleg_val),
+                subdelegacion_imss=limpiar_basura_header(subdeleg_val),
+                municipio_alcaldia=limpiar_basura_header(mun_alc_val),
                 prima_rt=prima_val,
-                periodo=periodo_val
+                periodo=limpiar_basura_header(periodo_val)
             )
 
             current_worker_info = None
@@ -972,14 +973,14 @@ def obtener_registro_sua_json(request, id):
                 'actividad': limpiar_basura_header(imp.actividad),
                 'domicilio': limpiar_basura_header(imp.domicilio),
                 'cp': imp.cp,
-                'entidad': imp.entidad,
-                'periodo': imp.periodo
+                'entidad': limpiar_basura_header(imp.entidad),
+                'periodo': limpiar_basura_header(imp.periodo)
             },
             'seguro': {
-                'area_geo': imp.area_geografica,
-                'delegacion': imp.delegacion_imss,
+                'area_geo': limpiar_basura_header(imp.area_geografica),
+                'delegacion': limpiar_basura_header(imp.delegacion_imss),
                 'subdelegacion': limpiar_basura_header(imp.subdelegacion_imss),
-                'municipio': imp.municipio_alcaldia,
+                'municipio': limpiar_basura_header(imp.municipio_alcaldia),
                 'prima': str(imp.prima_rt)
             },
             'trabajadores': trabajadores,
