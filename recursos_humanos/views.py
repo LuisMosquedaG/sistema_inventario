@@ -21,8 +21,9 @@ from preferencias.permissions import require_hr_permission
 def limpiar_basura_header(texto):
     """Elimina textos innecesarios del encabezado del SUA como convenios y versiones."""
     if not texto: return ""
+    # Patrones que suelen "pegarse" al final de los campos reales
     patrones = [
-        r'Convenio\s+de\s+Reembolso:.*',
+        r'Convenio\s+de\s+Re?mbolso:.*',
         r'Aportación\s+Patronal:.*',
         r'V\s?\d\.\d\.\d.*',
         r'Página:.*',
@@ -756,7 +757,7 @@ def importar_sua_ajax(request):
                 nombre_razon_social=nom_razon_val,
                 actividad=limpiar_basura_header(actividad_val),
                 domicilio=limpiar_basura_header(domicilio_val),
-                cp=cp_val,
+                cp=limpiar_basura_header(cp_val),
                 entidad=limpiar_basura_header(entidad_val),
                 area_geografica=limpiar_basura_header(area_val),
                 delegacion_imss=limpiar_basura_header(deleg_val),
@@ -972,7 +973,7 @@ def obtener_registro_sua_json(request, id):
                 'reg_patronal': imp.registro_patronal,
                 'actividad': limpiar_basura_header(imp.actividad),
                 'domicilio': limpiar_basura_header(imp.domicilio),
-                'cp': imp.cp,
+                'cp': limpiar_basura_header(imp.cp),
                 'entidad': limpiar_basura_header(imp.entidad),
                 'periodo': limpiar_basura_header(imp.periodo)
             },

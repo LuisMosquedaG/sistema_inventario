@@ -204,7 +204,10 @@
                                 <!-- Bloque Principal -->
                                 <div>
                                     <div class="fw-bold text-dark fs-5 lh-1 mb-1" id="infoNomRazon"></div>
-                                    <div class="text-muted small font-monospace" id="infoRegPatronal"></div>
+                                    <div class="text-muted small font-monospace">
+                                        <span id="infoRFC" class="me-2"></span> | 
+                                        <span id="infoRegPatronal" class="ms-2"></span>
+                                    </div>
                                 </div>
                                 <!-- Actividad -->
                                 <div class="flex-grow-1 border-start ps-4">
@@ -328,6 +331,7 @@
                 const d = res.data;
                 document.getElementById('subtituloDetalle').innerText = `Periodo: ${d.empresa.periodo}`;
                 document.getElementById('infoRegPatronal').innerText = d.empresa.reg_patronal;
+                document.getElementById('infoRFC').innerText = d.empresa.rfc;
                 document.getElementById('infoNomRazon').innerText = d.empresa.razon_social;
                 document.getElementById('infoActividad').innerText = d.empresa.actividad;
                 document.getElementById('infoDomicilio').innerText = d.empresa.domicilio;
