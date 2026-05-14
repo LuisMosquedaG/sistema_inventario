@@ -34,6 +34,25 @@
         margin-bottom: 15px;
         display: block;
     }
+    .icon-action {
+        color: #adb5bd;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 32px; height: 32px; text-decoration: none !important;
+    }
+    .icon-action:hover { color: #00b8b9; transform: scale(1.15); background-color: transparent !important; }
+    
+    .header-info-box {
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-left: 4px solid #00b8b9;
+    }
+    .header-info-title { font-size: 0.65rem; font-weight: 800; color: #6c757d; text-transform: uppercase; margin-bottom: 5px; }
+    .header-info-value { font-size: 0.85rem; font-weight: 600; color: #212529; }
 </style>
 
 <div class="container-fluid py-2 px-4">
@@ -41,7 +60,7 @@
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
         <div>
             <h4 class="section-title mb-0">Integrador SUA</h4>
-            <span class="section-subtitle">Importación y lectura de reportes PDF del SUA</span>
+            <span class="section-subtitle">Gestión masiva de importaciones y reportes de cuotas</span>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
             <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalImportarSUA">
@@ -55,10 +74,10 @@
         <div class="card-body p-3">
             <form method="get" id="formFiltrosSUA" class="row g-2 align-items-end">
                 <div class="col-12 col-md-6">
-                    <label class="form-label small fw-bold text-secondary">Búsqueda</label>
+                    <label class="form-label small fw-bold text-secondary">Búsqueda (Razón Social, Reg. Patronal...)</label>
                     <div class="input-group input-group-sm">
                         <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
-                        <input type="text" name="q" class="form-control border-start-0" placeholder="Nombre, NSS, Periodo..." value="{{ filtros.q|default:'' }}">
+                        <input type="text" name="q" class="form-control border-start-0" placeholder="Nombre, Registro, Periodo..." value="{{ filtros.q|default:'' }}">
                     </div>
                 </div>
                 <div class="col-12 col-md-3">
@@ -71,51 +90,183 @@
                     </select>
                 </div>
                 <div class="col-12 col-md-3">
-                    <button type="submit" class="btn btn-secondary btn-sm w-100">Filtrar</button>
+                    <button type="submit" class="btn btn-secondary btn-sm w-100">Actualizar Vista</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- TABLA -->
+    <!-- TABLA DE IMPORTACIONES -->
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-pro mb-0">
                     <thead>
                         <tr>
+                            <th class="text-center" style="width: 80px;">Acciones</th>
                             <th class="text-center">Sucursal</th>
-                            <th>NSS</th>
-                            <th>Trabajador</th>
-                            <th class="text-center">Días</th>
-                            <th class="text-end">S.D.I.</th>
+                            <th>Razón Social / RFC</th>
                             <th class="text-center">Periodo</th>
-                            <th class="text-center">Fecha Imp.</th>
+                            <th class="text-center">Reg. Patronal</th>
+                            <th class="text-center">Trabajadores</th>
+                            <th class="text-center">Fecha Importación</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for r in registros %}
+                        {% for imp in importaciones %}
                         <tr>
                             <td class="text-center">
-                                <span class="badge bg-secondary bg-opacity-10 text-secondary border" style="font-size: 0.7rem;">{{ r.sucursal.nombre|default:"Global" }}</span>
+                                <div class="d-flex justify-content-center gap-1">
+                                    <span class="icon-action" title="Ver Detalle" onclick="verDetalleImportacion({{ imp.id }})">
+                                        <i class="bi bi-eye"></i>
+                                    </span>
+                                </div>
                             </td>
-                            <td class="font-monospace">{{ r.nss }}</td>
-                            <td class="fw-bold text-dark">{{ r.nombre_trabajador }}</td>
-                            <td class="text-center">{{ r.dias_cotizados }}</td>
-                            <td class="text-end fw-bold text-primary">${{ r.sdi }}</td>
-                            <td class="text-center"><span class="badge bg-info bg-opacity-10 text-info">{{ r.periodo }}</span></td>
-                            <td class="text-center text-muted small">{{ r.fecha_importacion|date:"d/m/Y H:i" }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary border" style="font-size: 0.7rem;">{{ imp.sucursal.nombre|default:"Global" }}</span>
+                            </td>
+                            <td>
+                                <div class="fw-bold text-dark">{{ imp.nombre_razon_social }}</div>
+                                <div class="text-muted small font-monospace" style="font-size: 0.7rem;">{{ imp.rfc_empresa }}</div>
+                            </td>
+                            <td class="text-center"><span class="badge bg-info bg-opacity-10 text-info">{{ imp.periodo }}</span></td>
+                            <td class="text-center small font-monospace">{{ imp.registro_patronal }}</td>
+                            <td class="text-center fw-bold text-primary">{{ imp.trabajadores.count }}</td>
+                            <td class="text-center text-muted small">{{ imp.fecha_importacion|date:"d/m/Y H:i" }}</td>
                         </tr>
                         {% empty %}
                         <tr>
                             <td colspan="7" class="text-center py-5">
                                 <i class="bi bi-file-earmark-pdf display-6 text-muted mb-2 d-block"></i>
-                                <span class="text-muted fst-italic small">No hay registros SUA importados</span>
+                                <span class="text-muted fst-italic small">No hay importaciones SUA registradas</span>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: DETALLE DE IMPORTACIÓN -->
+<div class="modal fade" id="modalDetalleImportacion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-sheet modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-white border-bottom-0 py-3">
+                <div class="d-flex align-items-center">
+                    <div class="bg-primary bg-opacity-10 p-2 rounded me-3" style="color: #00b8b9;">
+                        <i class="bi bi-card-list fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0">Contenido del Reporte SUA</h5>
+                        <small class="text-muted" id="subtituloDetalle"></small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body modal-body-gray p-4">
+                <!-- INFO ENCABEZADO -->
+                <div class="row g-3 mb-4">
+                    <!-- SECCIÓN 1: DATOS DE LA EMPRESA -->
+                    <div class="col-md-6">
+                        <div class="header-info-box h-100">
+                            <div class="header-info-title text-brand">1. Datos de la Empresa</div>
+                            <div class="row g-2 mt-1">
+                                <!-- Línea 1: Registro Patronal y Nombre -->
+                                <div class="col-4">
+                                    <label class="small text-muted d-block" style="font-size: 0.6rem;">REGISTRO PATRONAL</label>
+                                    <span class="fw-bold small font-monospace" id="infoRegPatronal"></span>
+                                </div>
+                                <div class="col-8">
+                                    <label class="small text-muted d-block" style="font-size: 0.6rem;">NOMBRE O RAZÓN SOCIAL</label>
+                                    <span class="fw-bold small d-block" id="infoNomRazon"></span>
+                                </div>
+                                
+                                <!-- Línea 2: Actividad -->
+                                <div class="col-12 mt-2">
+                                    <label class="small text-muted d-block" style="font-size: 0.6rem;">ACTIVIDAD</label>
+                                    <span class="text-muted small d-block" id="infoActividad"></span>
+                                </div>
+
+                                <!-- Línea 3: Domicilio, Entidad y CP -->
+                                <div class="col-6 mt-2">
+                                    <label class="small text-muted d-block" style="font-size: 0.6rem;">DOMICILIO</label>
+                                    <span class="text-muted small d-block" id="infoDomicilio"></span>
+                                </div>
+                                <div class="col-4 mt-2">
+                                    <label class="small text-muted d-block" style="font-size: 0.6rem;">ENTIDAD</label>
+                                    <span class="fw-bold small" id="infoEntidad"></span>
+                                </div>
+                                <div class="col-2 mt-2">
+                                    <label class="small text-muted d-block" style="font-size: 0.6rem;">C.P.</label>
+                                    <span class="text-muted small d-block" id="infoCP"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- SECCIÓN 2: SEGURO SOCIAL -->
+                    <div class="col-md-6">
+                        <div class="header-info-box h-100">
+                            <div class="header-info-title text-brand">2. Seguro Social</div>
+                            <div class="row g-2 mt-1">
+                                <div class="col-12">
+                                    <label class="small text-muted d-block" style="font-size: 0.6rem;">ÁREA GEOGRÁFICA</label>
+                                    <span class="fw-bold small" id="infoAreaGeo"></span>
+                                </div>
+                                <div class="col-6">
+                                    <label class="small text-muted d-block" style="font-size: 0.6rem;">DELEGACIÓN IMSS</label>
+                                    <span class="fw-bold small d-block" id="infoDelegacion"></span>
+                                </div>
+                                <div class="col-6">
+                                    <label class="small text-muted d-block" style="font-size: 0.6rem;">SUBDELEGACIÓN IMSS</label>
+                                    <span class="fw-bold small d-block" id="infoSubdelegacion"></span>
+                                </div>
+                                <div class="col-12">
+                                    <label class="small text-muted d-block" style="font-size: 0.6rem;">MUNICIPIO / ALCALDÍA</label>
+                                    <span class="text-muted small d-block" id="infoMunAlc"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TABLA DE TRABAJADORES -->
+                <div class="card border-0 shadow-sm rounded-3">
+                    <div class="card-body p-0">
+                        <div class="table-responsive" style="max-height: 500px;">
+                            <table class="table table-sm table-hover mb-0" id="tablaTrabajadores" style="font-size: 0.75rem;">
+                                <thead class="bg-light sticky-top">
+                                    <tr>
+                                        <th class="ps-3" rowspan="2">NSS / Nombre / RFC</th>
+                                        <th class="text-center" rowspan="2">Clave / Fecha</th>
+                                        <th class="text-center" rowspan="2">Días</th>
+                                        <th class="text-end" rowspan="2">SDI</th>
+                                        <th class="text-center border-start bg-light" colspan="4">Cuotas RCV (Retiro, Cesantía)</th>
+                                        <th class="text-center border-start bg-light" colspan="3">Infonavit</th>
+                                        <th class="text-center border-start bg-light" rowspan="2">Crédito Vivienda</th>
+                                    </tr>
+                                    <tr>
+                                        <th class="text-end border-start">Retiro</th>
+                                        <th class="text-end">Patronal</th>
+                                        <th class="text-end">Obrera</th>
+                                        <th class="text-end fw-bold bg-opacity-10 bg-info">Suma RCV</th>
+                                        <th class="text-end border-start">Aportación</th>
+                                        <th class="text-end">Amortiz.</th>
+                                        <th class="text-end fw-bold bg-opacity-10 bg-success">Suma INF.</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bodyTrabajadores">
+                                    <!-- Se llena vía JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-white border-top py-3">
+                <button type="button" class="btn btn-secondary btn-sm px-4" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -132,12 +283,12 @@
             <form id="formImportarSUA" enctype="multipart/form-data">
                 {% csrf_token %}
                 <div class="modal-body p-4">
-                    <p class="text-muted small mb-4">Selecciona el archivo PDF generado por el SUA para extraer la información de los trabajadores automáticamente.</p>
+                    <p class="text-muted small mb-4">Selecciona el archivo PDF de la Cédula de Determinación de Cuotas del SUA.</p>
                     
                     <div class="import-zone" onclick="document.getElementById('archivo_sua').click()">
                         <i class="bi bi-cloud-arrow-up"></i>
                         <span class="fw-bold text-dark d-block">Haga clic para subir PDF</span>
-                        <span class="text-muted small" id="fileNameDisplay">Solo archivos .pdf</span>
+                        <span class="text-muted small" id="fileNameDisplay">Solo archivos .pdf oficiales</span>
                         <input type="file" name="archivo_sua" id="archivo_sua" hidden accept="application/pdf" onchange="updateFileName(this)">
                     </div>
 
@@ -145,13 +296,13 @@
                         <div class="progress" style="height: 10px;">
                             <div class="progress-bar progress-bar-striped progress-bar-animated bg-brand" role="progressbar" style="width: 100%"></div>
                         </div>
-                        <p class="text-center small text-muted mt-2">Procesando documento, por favor espere...</p>
+                        <p class="text-center small text-muted mt-2">Leyendo secciones y tablas, por favor espere...</p>
                     </div>
                 </div>
                 <div class="modal-footer border-top-0">
                     <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-brand text-white btn-sm px-4 fw-bold shadow-sm" id="btnConfirmarImport">
-                        Comenzar Importación
+                        Comenzar Extracción
                     </button>
                 </div>
             </form>
@@ -169,13 +320,80 @@
         }
     }
 
+    function verDetalleImportacion(id) {
+        fetch(`/recursos-humanos/sua/obtener/${id}/`)
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                const d = res.data;
+                document.getElementById('subtituloDetalle').innerText = `Periodo: ${d.empresa.periodo}`;
+                
+                // 1. Datos de la Empresa
+                document.getElementById('infoRegPatronal').innerText = d.empresa.reg_patronal;
+                document.getElementById('infoNomRazon').innerText = d.empresa.razon_social;
+                document.getElementById('infoActividad').innerText = d.empresa.actividad;
+                document.getElementById('infoDomicilio').innerText = d.empresa.domicilio;
+                document.getElementById('infoCP').innerText = d.empresa.cp;
+                document.getElementById('infoEntidad').innerText = d.empresa.entidad;
+                
+                // 2. Seguro Social
+                document.getElementById('infoAreaGeo').innerText = d.seguro.area_geo;
+                document.getElementById('infoDelegacion').innerText = d.seguro.delegacion;
+                document.getElementById('infoSubdelegacion').innerText = d.seguro.subdelegacion;
+                document.getElementById('infoMunAlc').innerText = d.seguro.municipio;
+
+                // Tabla
+                const body = document.getElementById('bodyTrabajadores');
+                body.innerHTML = '';
+                
+                d.trabajadores.forEach(t => {
+                    const row = `
+                        <tr>
+                            <td class="ps-3">
+                                <div class="fw-bold">${t.nombre}</div>
+                                <div class="text-muted small font-monospace" style="font-size: 0.65rem;">${t.nss} | ${t.rfc} | ${t.clave_u}</div>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-light text-dark border" style="font-size: 0.6rem;">${t.clave_mov}</span>
+                                <div class="text-muted mb-1" style="font-size: 0.6rem;">${t.fecha_mov}</div>
+                                ${t.baja_clave ? `
+                                    <span class="badge bg-danger" style="font-size: 0.6rem;">${t.baja_clave}</span>
+                                    <div class="text-muted" style="font-size: 0.6rem;">${t.baja_fecha}</div>
+                                ` : ''}
+                            </td>
+                            <td class="text-center">${t.dias}</td>
+                            <td class="text-end">$${t.sdi}</td>
+                            
+                            <td class="text-end border-start">$${t.retiro}</td>
+                            <td class="text-end">$${t.patronal_rcv}</td>
+                            <td class="text-end">$${t.obrera_rcv}</td>
+                            <td class="text-end fw-bold bg-info bg-opacity-10">$${t.total_rcv}</td>
+                            
+                            <td class="text-end border-start">$${t.ap_pat_inf}</td>
+                            <td class="text-end">$${t.amortiz}</td>
+                            <td class="text-end fw-bold bg-success bg-opacity-10">$${t.total_inf}</td>
+                            
+                            <td class="text-center border-start">
+                                <div class="small fw-bold">${t.cred_viv || '-'}</div>
+                                <div class="text-muted" style="font-size: 0.6rem;">${t.tipo_mov_cred} ${t.fecha_mov_cred}</div>
+                            </td>
+                        </tr>
+                    `;
+                    body.insertAdjacentHTML('beforeend', row);
+                });
+
+                new bootstrap.Modal(document.getElementById('modalDetalleImportacion')).show();
+            } else {
+                alert('Error: ' + res.error);
+            }
+        });
+    }
+
     document.getElementById('formImportarSUA').addEventListener('submit', function(e) {
         e.preventDefault();
-        
         const btn = document.getElementById('btnConfirmarImport');
         const progress = document.getElementById('importProgress');
         const formData = new FormData(this);
-
         btn.disabled = true;
         progress.style.display = 'block';
 

@@ -20,4 +20,5 @@ urlpatterns = [
     path('beneficiarios/editar/<int:id>/', views.editar_beneficiario_ajax, name='editar_beneficiario_ajax'),
     path('sua/', views.lista_sua, name='lista_sua'),
     path('sua/importar/', views.importar_sua_ajax, name='importar_sua_ajax'),
+    path('sua/obtener/<int:id>/', views.obtener_registro_sua_json, name='obtener_registro_sua_json'),
 ]

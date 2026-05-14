@@ -263,35 +263,83 @@ class Beneficiario(models.Model):
         verbose_name = "Beneficiario"
         verbose_name_plural = "Beneficiarios"
 
-class RegistroSUA(models.Model):
+class ImportacionSUA(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
     sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
     
-    nss = models.CharField(max_length=15, verbose_name="NSS")
-    nombre_trabajador = models.CharField(max_length=255, verbose_name="Nombre del Trabajador")
-    dias_cotizados = models.IntegerField(default=0, verbose_name="Días Cotizados")
-    sdi = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="SDI")
-    
-    # Cuotas
-    cuota_fija = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    excedente_smg = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    prestaciones_dinero = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    gastos_medicos = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    riesgo_trabajo = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    invalidez_vida = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    guarderias = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    retiro = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    cesantia_vejez = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    infonavit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    
-    periodo = models.CharField(max_length=50, verbose_name="Periodo (Mes/Año)")
+    # 1.1 Sección Empresa
+    registro_patronal = models.CharField(max_length=100, blank=True, null=True)
+    rfc_empresa = models.CharField(max_length=50, blank=True, null=True)
+    nombre_razon_social = models.TextField(blank=True, null=True)
+    actividad = models.TextField(blank=True, null=True)
+    domicilio = models.TextField(blank=True, null=True)
+    cp = models.CharField(max_length=50, blank=True, null=True)
+    entidad = models.TextField(blank=True, null=True)
+
+    # 1.2 Sección Seguro Social
+    area_geografica = models.TextField(blank=True, null=True)
+    delegacion_imss = models.TextField(blank=True, null=True)
+    subdelegacion_imss = models.TextField(blank=True, null=True)
+    municipio_alcaldia = models.TextField(blank=True, null=True)
+    prima_rt = models.TextField(blank=True, null=True, verbose_name="Aportación Patronal / Prima RT")
+
+    periodo = models.CharField(max_length=150, verbose_name="Periodo del Reporte")
+
     fecha_importacion = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.nss} - {self.nombre_trabajador} ({self.periodo})"
+        return f"Importación {self.periodo} - {self.nombre_razon_social}"
 
     class Meta:
-        verbose_name = "Registro SUA"
-        verbose_name_plural = "Registros SUA"
+        verbose_name = "Importación SUA"
+        verbose_name_plural = "Importaciones SUA"
+
+class TrabajadorSUA(models.Model):
+    importacion = models.ForeignKey(ImportacionSUA, on_delete=models.CASCADE, related_name='trabajadores')
+    
+    # Línea 1
+    nss = models.CharField(max_length=20)
+    nombre = models.CharField(max_length=255)
+    rfc_curp = models.CharField(max_length=50, blank=True, null=True)
+    clave_ubicacion = models.CharField(max_length=50, blank=True, null=True)
+    
+    # Línea 2 (General / RCV)
+    clave_mov = models.CharField(max_length=50, blank=True, null=True)
+    fecha_mov = models.CharField(max_length=20, blank=True, null=True)
+    dias = models.IntegerField(default=0)
+    sdi = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    
+    # Detalle Cuotas
+    licencias = models.IntegerField(default=0)
+    incapacidades = models.IntegerField(default=0)
+    ausentismos = models.IntegerField(default=0)
+    
+    # RCV
+    retiro = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    patronal = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Patronal / Cesantía Pat.")
+    obrera = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Obrera / Cesantía Obr.")
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Subtotal / Suma RCV")
+    
+    # Infonavit
+    aportacion_patronal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    amortizacion = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    suma_infonavit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    cred_vivienda = models.CharField(max_length=50, blank=True, null=True)
+    tipo_mov_credito = models.CharField(max_length=50, blank=True, null=True)
+    fecha_mov_credito = models.CharField(max_length=20, blank=True, null=True)
+    
+    # Totales
+    total_general = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    
+    # Línea 3 (Opcional)
+    baja_fecha = models.CharField(max_length=20, blank=True, null=True)
+    baja_clave = models.CharField(max_length=50, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.nss} - {self.nombre}"
+
+    class Meta:
+        verbose_name = "Trabajador SUA"
+        verbose_name_plural = "Trabajadores SUA"
 
 

@@ -12,7 +12,7 @@ except ImportError:
     pypdf = None
 
 from panel.models import Empresa
-from .models import Empleado, Contrato, Contratista, Beneficiario, RegistroSUA
+from .models import Empleado, Contrato, Contratista, Beneficiario, ImportacionSUA, TrabajadorSUA
 from preferencias.models import Sucursal
 from preferencias.permissions import require_hr_permission
 
@@ -215,11 +215,6 @@ def editar_empleado_ajax(request, id):
         emp.num_cuenta = data.get('num_cuenta')
         emp.tipo_cuenta = data.get('tipo_cuenta')
         
-        # Sucursal se mantiene si ya tiene una, o se actualiza de la sesión si es necesario.
-        # Pero el usuario dice "se coloca en automático", así que para editar mantendremos la que ya tiene
-        # a menos que explícitamente se quiera forzar la de la sesión.
-        # Por ahora lo dejamos como está (no se toca en editar si se quitó del modal).
-        
         emp.save()
 
         # Actualizar vínculo con contrato
@@ -227,14 +222,11 @@ def editar_empleado_ajax(request, id):
         if contrato_id:
             try:
                 contrato = Contrato.objects.get(id=contrato_id, empresa=empresa_actual)
-                # Si el contrato cambió, lo removemos de otros y lo agregamos al nuevo
-                # (Asumimos lógica de 1 contrato activo para esta interfaz)
                 emp.contratos_asignados.clear()
                 contrato.empleados.add(emp)
             except Contrato.DoesNotExist:
                 pass
         else:
-            # Si se seleccionó "Sin Contrato", remover de todos
             emp.contratos_asignados.clear()
 
         return JsonResponse({'success': True, 'message': 'Empleado actualizado correctamente.'})
@@ -257,13 +249,11 @@ def crear_empleado_ajax(request):
         if Empleado.objects.filter(empresa=empresa_actual, num_empleado=num_emp).exists():
             return JsonResponse({'success': False, 'error': f'El número de empleado {num_emp} ya existe.'})
 
-        # Obtener sucursal de la sesión
         sucursal_id = request.session.get('sucursal_id')
 
         nuevo_empleado = Empleado(
             empresa=empresa_actual,
             sucursal_id=sucursal_id,
-            # 1. Identificación
             curp=data.get('curp', '').upper(),
             rfc=data.get('rfc', '').upper(),
             nss=data.get('nss', ''),
@@ -278,7 +268,6 @@ def crear_empleado_ajax(request):
             correo_personal=data.get('correo_personal'),
             telefono_movil=data.get('telefono_movil'),
             telefono_fijo=data.get('telefono_fijo'),
-            # Domicilio
             calle=data.get('calle'),
             num_ext=data.get('num_ext'),
             num_int=data.get('num_int'),
@@ -286,10 +275,8 @@ def crear_empleado_ajax(request):
             cp=data.get('cp'),
             ciudad=data.get('ciudad'),
             estado_dir=data.get('estado_dir'),
-            # 2. Control
             num_empleado=num_emp,
             estado=data.get('estado'),
-            # 3. Puesto
             fecha_ingreso=data.get('fecha_ingreso') or None,
             fecha_antiguedad=data.get('fecha_antiguedad') or data.get('fecha_ingreso') or None,
             fecha_expiracion=data.get('fecha_expiracion') or None,
@@ -300,21 +287,18 @@ def crear_empleado_ajax(request):
             supervisor=data.get('supervisor'),
             riesgo_trabajo=data.get('riesgo_trabajo'),
             tipo_trabajador=data.get('tipo_trabajador'),
-            # 4. Salarial
             salario_diario_ordinario=Decimal(data.get('salario_diario_ordinario', '0')),
             sbc=Decimal(data.get('sbc', '0')),
             sdi=Decimal(data.get('sdi', '0')),
             forma_pago=data.get('forma_pago'),
             clave_percepcion_sat=data.get('clave_percepcion_sat', '001'),
             tipo_salario=data.get('tipo_salario'),
-            # 5. Beneficios
             registro_patronal=data.get('registro_patronal'),
             num_infonavit=data.get('num_infonavit'),
             num_fonacot=data.get('num_fonacot'),
             fondo_ahorro=(data.get('fondo_ahorro') == 'on'),
             porcentaje_fondo=Decimal(data.get('porcentaje_fondo', '0')),
             caja_ahorro=(data.get('caja_ahorro') == 'on'),
-            # 6. Bancarios
             banco_nombre=data.get('banco_nombre'),
             clabe=data.get('clabe'),
             num_cuenta=data.get('num_cuenta'),
@@ -322,10 +306,8 @@ def crear_empleado_ajax(request):
             tarjeta_nomina=(data.get('tarjeta_nomina') == 'on'),
             num_tarjeta=data.get('num_tarjeta'),
         )
-        
         nuevo_empleado.save()
 
-        # Vincular con contrato si se proporcionó
         contrato_id = data.get('contrato_id')
         if contrato_id:
             try:
@@ -335,7 +317,6 @@ def crear_empleado_ajax(request):
                 pass
 
         return JsonResponse({'success': True, 'message': 'Empleado registrado correctamente.'})
-
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
 
@@ -345,7 +326,6 @@ def lista_contratos(request):
     empresa_actual = get_empresa_actual(request)
     contratos = Contrato.objects.filter(empresa=empresa_actual).prefetch_related('empleados', 'empleados__sucursal').order_by('-fecha_inicio')
     
-    # --- LÓGICA DE FILTRADO ---
     q = request.GET.get('q', '')
     empleado_id = request.GET.get('empleado_id', '')
     estado = request.GET.get('estado', '')
@@ -374,7 +354,6 @@ def lista_contratos(request):
     contratistas = Contratista.objects.filter(empresa=empresa_actual).order_by('nombre_razon_social')
     beneficiarios = Beneficiario.objects.filter(empresa=empresa_actual).order_by('nombre_razon_social')
     
-    from preferencias.models import Sucursal
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
 
     return render(request, 'recursos_humanos/lista_contratos.html', {
@@ -448,11 +427,7 @@ def crear_contrato_ajax(request):
             )
             nuevo_contrato.save()
             
-            # Manejar ManyToMany para empleados
-            empleados_ids = request.POST.getlist('empleados[]')
-            if not empleados_ids:
-                empleados_ids = request.POST.getlist('empleados')
-                
+            empleados_ids = request.POST.getlist('empleados[]') or request.POST.getlist('empleados')
             if empleados_ids:
                 nuevo_contrato.empleados.set(empleados_ids)
                 
@@ -482,14 +457,9 @@ def editar_contrato_ajax(request, id):
             con.num_estimado_trabajadores = int(data.get('num_estimado_trabajadores', 0))
             con.estado = data.get('estado')
             con.notas = data.get('notas', '')
-            
             con.save()
             
-            # Actualizar empleados
-            empleados_ids = request.POST.getlist('empleados[]')
-            if not empleados_ids:
-                empleados_ids = request.POST.getlist('empleados')
-                
+            empleados_ids = request.POST.getlist('empleados[]') or request.POST.getlist('empleados')
             con.empleados.set(empleados_ids)
             
             return JsonResponse({'success': True, 'message': 'Contrato actualizado correctamente.'})
@@ -503,8 +473,6 @@ def editar_contrato_ajax(request, id):
 def lista_contratistas(request):
     empresa_actual = get_empresa_actual(request)
     contratistas = Contratista.objects.filter(empresa=empresa_actual).order_by('nombre_razon_social')
-    
-    # --- LÓGICA DE FILTRADO ---
     q = request.GET.get('q', '')
     sucursal_id = request.GET.get('sucursal', '')
     
@@ -515,13 +483,10 @@ def lista_contratistas(request):
             Q(representante_legal__icontains=q) |
             Q(correo__icontains=q)
         )
-        
     if sucursal_id:
         contratistas = contratistas.filter(sucursal_id=sucursal_id)
 
-    from preferencias.models import Sucursal
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
-
     return render(request, 'recursos_humanos/lista_contratistas.html', {
         'contratistas': contratistas,
         'sucursales': sucursales,
@@ -536,29 +501,16 @@ def obtener_contratista_json(request, id):
     try:
         cont = Contratista.objects.get(id=id, empresa=empresa_actual)
         data = {
-            'id': cont.id,
-            'rfc': cont.rfc,
-            'nombre_razon_social': cont.nombre_razon_social,
-            'correo': cont.correo,
-            'telefono': cont.telefono,
-            'registro_patronal': cont.registro_patronal,
-            'calle': cont.calle,
-            'num_ext': cont.num_ext,
-            'num_int': cont.num_int,
-            'entre_calle': cont.entre_calle,
-            'y_calle': cont.y_calle,
-            'colonia': cont.colonia,
-            'cp': cont.cp,
-            'municipio_alcaldia': cont.municipio_alcaldia,
-            'entidad_federativa': cont.entidad_federativa,
-            'representante_legal': cont.representante_legal,
-            'administrador_unico': cont.administrador_unico,
-            'num_escritura': cont.num_escritura,
-            'nombre_notario_publico': cont.nombre_notario_publico,
-            'num_notario_publico': cont.num_notario_publico,
+            'id': cont.id, 'rfc': cont.rfc, 'nombre_razon_social': cont.nombre_razon_social,
+            'correo': cont.correo, 'telefono': cont.telefono, 'registro_patronal': cont.registro_patronal,
+            'calle': cont.calle, 'num_ext': cont.num_ext, 'num_int': cont.num_int,
+            'entre_calle': cont.entre_calle, 'y_calle': cont.y_calle, 'colonia': cont.colonia,
+            'cp': cont.cp, 'municipio_alcaldia': cont.municipio_alcaldia,
+            'entidad_federativa': cont.entidad_federativa, 'representante_legal': cont.representante_legal,
+            'administrador_unico': cont.administrador_unico, 'num_escritura': cont.num_escritura,
+            'nombre_notario_publico': cont.nombre_notario_publico, 'num_notario_publico': cont.num_notario_publico,
             'fecha_escritura_publica': cont.fecha_escritura_publica.isoformat() if cont.fecha_escritura_publica else '',
-            'folio_mercantil': cont.folio_mercantil,
-            'numero_stps': cont.numero_stps,
+            'folio_mercantil': cont.folio_mercantil, 'numero_stps': cont.numero_stps,
         }
         return JsonResponse({'success': True, 'data': data})
     except Contratista.DoesNotExist:
@@ -569,42 +521,26 @@ def obtener_contratista_json(request, id):
 @require_hr_permission('contratistas', 'crear', json_response=True)
 def crear_contratista_ajax(request):
     empresa_actual = get_empresa_actual(request)
-    if not empresa_actual:
-        return JsonResponse({'success': False, 'error': 'No se encontró la empresa.'}, status=403)
-
+    if not empresa_actual: return JsonResponse({'success': False, 'error': 'No se encontró la empresa.'}, status=403)
     try:
         data = request.POST
         sucursal_id = request.session.get('sucursal_id')
         nuevo = Contratista(
-            empresa=empresa_actual,
-            sucursal_id=sucursal_id,
-            rfc=data.get('rfc', '').upper(),
-            nombre_razon_social=data.get('nombre_razon_social'),
-            correo=data.get('correo'),
-            telefono=data.get('telefono'),
-            registro_patronal=data.get('registro_patronal'),
-            calle=data.get('calle'),
-            num_ext=data.get('num_ext'),
-            num_int=data.get('num_int'),
-            entre_calle=data.get('entre_calle'),
-            y_calle=data.get('y_calle'),
-            colonia=data.get('colonia'),
-            cp=data.get('cp'),
-            municipio_alcaldia=data.get('municipio_alcaldia'),
-            entidad_federativa=data.get('entidad_federativa'),
-            representante_legal=data.get('representante_legal'),
-            administrador_unico=data.get('administrador_unico'),
-            num_escritura=data.get('num_escritura'),
-            nombre_notario_publico=data.get('nombre_notario_publico'),
-            num_notario_publico=data.get('num_notario_publico'),
-            fecha_escritura_publica=data.get('fecha_escritura_publica') or None,
-            folio_mercantil=data.get('folio_mercantil'),
+            empresa=empresa_actual, sucursal_id=sucursal_id, rfc=data.get('rfc', '').upper(),
+            nombre_razon_social=data.get('nombre_razon_social'), correo=data.get('correo'),
+            telefono=data.get('telefono'), registro_patronal=data.get('registro_patronal'),
+            calle=data.get('calle'), num_ext=data.get('num_ext'), num_int=data.get('num_int'),
+            entre_calle=data.get('entre_calle'), y_calle=data.get('y_calle'), colonia=data.get('colonia'),
+            cp=data.get('cp'), municipio_alcaldia=data.get('municipio_alcaldia'),
+            entidad_federativa=data.get('entidad_federativa'), representante_legal=data.get('representante_legal'),
+            administrador_unico=data.get('administrador_unico'), num_escritura=data.get('num_escritura'),
+            nombre_notario_publico=data.get('nombre_notario_publico'), num_notario_publico=data.get('num_notario_publico'),
+            fecha_escritura_publica=data.get('fecha_escritura_publica') or None, folio_mercantil=data.get('folio_mercantil'),
             numero_stps=data.get('numero_stps'),
         )
         nuevo.save()
         return JsonResponse({'success': True, 'message': 'Contratista registrado correctamente.'})
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+    except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required(login_url='/login/')
 @require_POST
@@ -614,64 +550,35 @@ def editar_contratista_ajax(request, id):
     try:
         cont = Contratista.objects.get(id=id, empresa=empresa_actual)
         data = request.POST
-
         cont.rfc = data.get('rfc', '').upper()
         cont.nombre_razon_social = data.get('nombre_razon_social')
-        cont.correo = data.get('correo')
-        cont.telefono = data.get('telefono')
-        cont.registro_patronal = data.get('registro_patronal')
-        cont.calle = data.get('calle')
-        cont.num_ext = data.get('num_ext')
-        cont.num_int = data.get('num_int')
-        cont.entre_calle = data.get('entre_calle')
-        cont.y_calle = data.get('y_calle')
-        cont.colonia = data.get('colonia')
-        cont.cp = data.get('cp')
-        cont.municipio_alcaldia = data.get('municipio_alcaldia')
-        cont.entidad_federativa = data.get('entidad_federativa')
-        cont.representante_legal = data.get('representante_legal')
-        cont.administrador_unico = data.get('administrador_unico')
-        cont.num_escritura = data.get('num_escritura')
-        cont.nombre_notario_publico = data.get('nombre_notario_publico')
-        cont.num_notario_publico = data.get('num_notario_publico')
-        cont.fecha_escritura_publica = data.get('fecha_escritura_publica') or None
-        cont.folio_mercantil = data.get('folio_mercantil')
-        cont.numero_stps = data.get('numero_stps')
-        
+        cont.correo = data.get('correo'); cont.telefono = data.get('telefono')
+        cont.registro_patronal = data.get('registro_patronal'); cont.calle = data.get('calle')
+        cont.num_ext = data.get('num_ext'); cont.num_int = data.get('num_int')
+        cont.entre_calle = data.get('entre_calle'); cont.y_calle = data.get('y_calle')
+        cont.colonia = data.get('colonia'); cont.cp = data.get('cp')
+        cont.municipio_alcaldia = data.get('municipio_alcaldia'); cont.entidad_federativa = data.get('entidad_federativa')
+        cont.representante_legal = data.get('representante_legal'); cont.administrador_unico = data.get('administrador_unico')
+        cont.num_escritura = data.get('num_escritura'); cont.nombre_notario_publico = data.get('nombre_notario_publico')
+        cont.num_notario_publico = data.get('num_notario_publico'); cont.fecha_escritura_publica = data.get('fecha_escritura_publica') or None
+        cont.folio_mercantil = data.get('folio_mercantil'); cont.numero_stps = data.get('numero_stps')
         cont.save()
         return JsonResponse({'success': True, 'message': 'Contratista actualizado correctamente.'})
-    except Contratista.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'Contratista no encontrado.'})
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+    except Contratista.DoesNotExist: return JsonResponse({'success': False, 'error': 'Contratista no encontrado.'})
+    except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required(login_url='/login/')
 @require_hr_permission('beneficiarios', 'ver')
 def lista_beneficiarios(request):
     empresa_actual = get_empresa_actual(request)
     beneficiarios = Beneficiario.objects.filter(empresa=empresa_actual).order_by('nombre_razon_social')
-    
-    q = request.GET.get('q', '')
-    sucursal_id = request.GET.get('sucursal', '')
-
+    q = request.GET.get('q', ''); sucursal_id = request.GET.get('sucursal', '')
     if q:
-        beneficiarios = beneficiarios.filter(
-            Q(nombre_razon_social__icontains=q) |
-            Q(rfc__icontains=q) |
-            Q(correo__icontains=q)
-        )
-        
-    if sucursal_id:
-        beneficiarios = beneficiarios.filter(sucursal_id=sucursal_id)
-
-    from preferencias.models import Sucursal
+        beneficiarios = beneficiarios.filter(Q(nombre_razon_social__icontains=q) | Q(rfc__icontains=q) | Q(correo__icontains=q))
+    if sucursal_id: beneficiarios = beneficiarios.filter(sucursal_id=sucursal_id)
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
-
     return render(request, 'recursos_humanos/lista_beneficiarios.html', {
-        'beneficiarios': beneficiarios,
-        'sucursales': sucursales,
-        'empresa': empresa_actual,
-        'filtros': {'q': q, 'sucursal': sucursal_id}
+        'beneficiarios': beneficiarios, 'sucursales': sucursales, 'empresa': empresa_actual, 'filtros': {'q': q, 'sucursal': sucursal_id}
     })
 
 @login_required(login_url='/login/')
@@ -681,59 +588,34 @@ def obtener_beneficiario_json(request, id):
     try:
         ben = Beneficiario.objects.get(id=id, empresa=empresa_actual)
         data = {
-            'id': ben.id,
-            'rfc': ben.rfc,
-            'nombre_razon_social': ben.nombre_razon_social,
-            'registro_patronal': ben.registro_patronal,
-            'calle': ben.calle,
-            'num_ext': ben.num_ext,
-            'num_int': ben.num_int,
-            'entre_calle': ben.entre_calle,
-            'y_calle': ben.y_calle,
-            'colonia': ben.colonia,
-            'cp': ben.cp,
-            'municipio_alcaldia': ben.municipio_alcaldia,
-            'entidad_federativa': ben.entidad_federativa,
-            'correo': ben.correo,
-            'telefono': ben.telefono,
+            'id': ben.id, 'rfc': ben.rfc, 'nombre_razon_social': ben.nombre_razon_social,
+            'registro_patronal': ben.registro_patronal, 'calle': ben.calle, 'num_ext': ben.num_ext,
+            'num_int': ben.num_int, 'entre_calle': ben.entre_calle, 'y_calle': ben.y_calle,
+            'colonia': ben.colonia, 'cp': ben.cp, 'municipio_alcaldia': ben.municipio_alcaldia,
+            'entidad_federativa': ben.entidad_federativa, 'correo': ben.correo, 'telefono': ben.telefono,
         }
         return JsonResponse({'success': True, 'data': data})
-    except Beneficiario.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'Beneficiario no encontrado.'})
+    except Beneficiario.DoesNotExist: return JsonResponse({'success': False, 'error': 'Beneficiario no encontrado.'})
 
 @login_required(login_url='/login/')
 @require_POST
 @require_hr_permission('beneficiarios', 'crear', json_response=True)
 def crear_beneficiario_ajax(request):
     empresa_actual = get_empresa_actual(request)
-    if not empresa_actual:
-        return JsonResponse({'success': False, 'error': 'No se encontró la empresa.'}, status=403)
-
+    if not empresa_actual: return JsonResponse({'success': False, 'error': 'No se encontró la empresa.'}, status=403)
     try:
-        data = request.POST
-        sucursal_id = request.session.get('sucursal_id')
+        data = request.POST; sucursal_id = request.session.get('sucursal_id')
         nuevo = Beneficiario(
-            empresa=empresa_actual,
-            sucursal_id=sucursal_id,
-            rfc=data.get('rfc', '').upper(),
-            nombre_razon_social=data.get('nombre_razon_social'),
-            registro_patronal=data.get('registro_patronal'),
-            calle=data.get('calle'),
-            num_ext=data.get('num_ext'),
-            num_int=data.get('num_int'),
-            entre_calle=data.get('entre_calle'),
-            y_calle=data.get('y_calle'),
-            colonia=data.get('colonia'),
-            cp=data.get('cp'),
-            municipio_alcaldia=data.get('municipio_alcaldia'),
-            entidad_federativa=data.get('entidad_federativa'),
-            correo=data.get('correo'),
-            telefono=data.get('telefono'),
+            empresa=empresa_actual, sucursal_id=sucursal_id, rfc=data.get('rfc', '').upper(),
+            nombre_razon_social=data.get('nombre_razon_social'), registro_patronal=data.get('registro_patronal'),
+            calle=data.get('calle'), num_ext=data.get('num_ext'), num_int=data.get('num_int'),
+            entre_calle=data.get('entre_calle'), y_calle=data.get('y_calle'), colonia=data.get('colonia'),
+            cp=data.get('cp'), municipio_alcaldia=data.get('municipio_alcaldia'),
+            entidad_federativa=data.get('entidad_federativa'), correo=data.get('correo'), telefono=data.get('telefono'),
         )
         nuevo.save()
         return JsonResponse({'success': True, 'message': 'Beneficiario registrado correctamente.'})
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+    except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required(login_url='/login/')
 @require_POST
@@ -743,55 +625,29 @@ def editar_beneficiario_ajax(request, id):
     try:
         ben = Beneficiario.objects.get(id=id, empresa=empresa_actual)
         data = request.POST
-
-        ben.rfc = data.get('rfc', '').upper()
-        ben.nombre_razon_social = data.get('nombre_razon_social')
-        ben.registro_patronal = data.get('registro_patronal')
-        ben.calle = data.get('calle')
-        ben.num_ext = data.get('num_ext')
-        ben.num_int = data.get('num_int')
-        ben.entre_calle = data.get('entre_calle')
-        ben.y_calle = data.get('y_calle')
-        ben.colonia = data.get('colonia')
-        ben.cp = data.get('cp')
-        ben.municipio_alcaldia = data.get('municipio_alcaldia')
-        ben.entidad_federativa = data.get('entidad_federativa')
-        ben.correo = data.get('correo')
-        ben.telefono = data.get('telefono')
-        
+        ben.rfc = data.get('rfc', '').upper(); ben.nombre_razon_social = data.get('nombre_razon_social')
+        ben.registro_patronal = data.get('registro_patronal'); ben.calle = data.get('calle')
+        ben.num_ext = data.get('num_ext'); ben.num_int = data.get('num_int')
+        ben.entre_calle = data.get('entre_calle'); ben.y_calle = data.get('y_calle')
+        ben.colonia = data.get('colonia'); ben.cp = data.get('cp')
+        ben.municipio_alcaldia = data.get('municipio_alcaldia'); ben.entidad_federativa = data.get('entidad_federativa')
+        ben.correo = data.get('correo'); ben.telefono = data.get('telefono')
         ben.save()
         return JsonResponse({'success': True, 'message': 'Beneficiario actualizado correctamente.'})
-    except Beneficiario.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'Beneficiario no encontrado.'})
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+    except Beneficiario.DoesNotExist: return JsonResponse({'success': False, 'error': 'Beneficiario no encontrado.'})
+    except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required(login_url='/login/')
 @require_hr_permission('sua', 'ver')
 def lista_sua(request):
     empresa_actual = get_empresa_actual(request)
-    registros = RegistroSUA.objects.filter(empresa=empresa_actual).select_related('sucursal').order_by('-fecha_importacion')
-    
-    q = request.GET.get('q', '')
-    sucursal_id = request.GET.get('sucursal', '')
-    
-    if q:
-        registros = registros.filter(
-            Q(nombre_trabajador__icontains=q) |
-            Q(nss__icontains=q) |
-            Q(periodo__icontains=q)
-        )
-    if sucursal_id:
-        registros = registros.filter(sucursal_id=sucursal_id)
-
-    from preferencias.models import Sucursal
+    importaciones = ImportacionSUA.objects.filter(empresa=empresa_actual).select_related('sucursal').order_by('-fecha_importacion')
+    q = request.GET.get('q', ''); sucursal_id = request.GET.get('sucursal', '')
+    if q: importaciones = importaciones.filter(Q(nombre_razon_social__icontains=q) | Q(periodo__icontains=q) | Q(registro_patronal__icontains=q))
+    if sucursal_id: importaciones = importaciones.filter(sucursal_id=sucursal_id)
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
-    
     return render(request, 'recursos_humanos/lista_sua.html', {
-        'registros': registros,
-        'sucursales': sucursales,
-        'empresa': empresa_actual,
-        'filtros': {'q': q, 'sucursal': sucursal_id}
+        'importaciones': importaciones, 'sucursales': sucursales, 'empresa': empresa_actual, 'filtros': {'q': q, 'sucursal': sucursal_id}
     })
 
 @login_required(login_url='/login/')
@@ -800,50 +656,249 @@ def lista_sua(request):
 def importar_sua_ajax(request):
     empresa_actual = get_empresa_actual(request)
     pdf_file = request.FILES.get('archivo_sua')
-    
-    if not pdf_file:
-        return JsonResponse({'success': False, 'error': 'No se proporcionó ningún archivo.'})
-
+    if not pdf_file: return JsonResponse({'success': False, 'error': 'No se proporcionó ningún archivo.'})
     try:
-        if not pypdf:
-            return JsonResponse({'success': False, 'error': 'Librería de lectura PDF (pypdf) no instalada.'})
-
+        if not pypdf: return JsonResponse({'success': False, 'error': 'Librería pypdf no instalada.'})
         reader = pypdf.PdfReader(pdf_file)
-        text = ""
-        for page in reader.pages:
-            text += page.extract_text() + "\n"
+        text_lines = []
+        for page in reader.pages: text_lines.extend(page.extract_text(extraction_mode="layout").split('\n'))
+        full_text = "\n".join(text_lines)
+        
+        # 1. Extraer Encabezado (Lógica por líneas para Layout mode)
+        reg_pat_val, rfc_emp_val, area_val = "", "", ""
+        nom_razon_val, deleg_val = "", ""
+        actividad_val, subdeleg_val = "", ""
+        domicilio_val, mun_alc_val = "", ""
+        cp_val, entidad_val, prima_val = "", "", ""
+        periodo_val = "Desconocido"
 
-        # Extraer Periodo (Mes/Año)
-        p_match = re.search(r'MES:\s*(\d+)\s*AÑO:\s*(\d+)', text, re.IGNORECASE)
-        periodo_str = f"{p_match.group(1)}/{p_match.group(2)}" if p_match else "No detectado"
+        for line in text_lines:
+            # Fila 1: Reg. Patronal, RFC, Area Geo
+            if "Registro Patronal:" in line:
+                m_rp = re.search(r'Registro Patronal:\s*([\w-]+)', line, re.I)
+                m_rfc = re.search(r'RFC:\s*([\w\d-]+)', line, re.I)
+                m_area = re.search(r'Area Geográfica:\s*(.*?)(?=\s{2,}|Delegación|$)', line, re.I)
+                if m_rp: reg_pat_val = m_rp.group(1).strip()
+                if m_rfc: rfc_emp_val = m_rfc.group(1).strip()
+                if m_area: area_val = m_area.group(1).strip()
+            
+            # Fila 2: Nombre, Delegación
+            if "Nombre o Razón Social:" in line:
+                m_nom = re.search(r'Nombre o Razón Social:\s*(.*?)(?=\s{2,}|Delegación|$)', line, re.I)
+                m_del = re.search(r'Delegación IMSS:\s*(.*?)(?=\s{2,}|Fecha|$)', line, re.I)
+                if m_nom: nom_razon_val = m_nom.group(1).strip()
+                if m_del: deleg_val = m_del.group(1).strip()
 
-        # Buscar patrones de trabajadores (NSS de 11 dígitos)
-        worker_pattern = re.compile(r'(\d{11})\s+([A-ZÁÉÍÓÚÑ\s\.]+?)\s+(\d+)\s+([\d\.,]+)')
-        matches = worker_pattern.findall(text)
+            # Fila 3: Actividad, Subdelegación
+            if "Actividad:" in line:
+                m_act = re.search(r'Actividad:\s*(.*?)(?=\s{2,}|Subdelegación|$)', line, re.I)
+                m_sub = re.search(r'SubDelegación IMSS:\s*(.*?)(?=\s{2,}|Area|$)', line, re.I)
+                if m_act: actividad_val = m_act.group(1).strip()
+                if m_sub: subdeleg_val = m_sub.group(1).strip()
 
-        created_count = 0
+            # Fila 4: Domicilio, Pob/Mun
+            if "Domicilio:" in line:
+                m_dom = re.search(r'Domicilio:\s*(.*?)(?=\s{2,}|Pob|$)', line, re.I)
+                m_mun = re.search(r'Pob\., Mun\. / Alcaldía:\s*(.*?)(?=\s{2,}|Prima|$)', line, re.I)
+                if m_dom: domicilio_val = m_dom.group(1).strip()
+                if m_mun: mun_alc_val = m_mun.group(1).strip()
+
+            # Fila 5: CP, Entidad, Prima
+            if "Código Postal:" in line:
+                m_cp = re.search(r'Código Postal:\s*(\d+)', line, re.I)
+                m_ent = re.search(r'Entidad:\s*(.*?)(?=\s{2,}|Prima|$)', line, re.I)
+                m_pri = re.search(r'Prima de R\.T\.\s*([\d\.,%]+)', line, re.I)
+                if m_cp: cp_val = m_cp.group(1).strip()
+                if m_ent: entidad_val = m_ent.group(1).strip()
+                if m_pri: prima_val = m_pri.group(1).strip()
+            
+            # Periodo (Suele estar arriba)
+            if "Período de Proceso:" in line:
+                m_per = re.search(r'Período de Proceso:\s*([\w\d-]+)', line, re.I)
+                if m_per: periodo_val = m_per.group(1).strip()
+
         sucursal_id = request.session.get('sucursal_id')
+        created_count = 0
 
         with transaction.atomic():
-            for m in matches:
-                nss, nombre, dias, sdi_raw = m
-                sdi_val = Decimal(sdi_raw.replace(',', ''))
-                
-                RegistroSUA.objects.create(
-                    empresa=empresa_actual,
-                    sucursal_id=sucursal_id,
-                    nss=nss,
-                    nombre_trabajador=nombre.strip(),
-                    dias_cotizados=int(dias),
-                    sdi=sdi_val,
-                    periodo=periodo_str
-                )
-                created_count += 1
+            importacion = ImportacionSUA.objects.create(
+                empresa=empresa_actual, sucursal_id=sucursal_id,
+                registro_patronal=reg_pat_val,
+                rfc_empresa=rfc_emp_val,
+                nombre_razon_social=nom_razon_val,
+                actividad=actividad_val,
+                domicilio=domicilio_val,
+                cp=cp_val,
+                entidad=entidad_val,
+                area_geografica=area_val,
+                delegacion_imss=deleg_val,
+                subdelegacion_imss=subdeleg_val,
+                municipio_alcaldia=mun_alc_val,
+                prima_rt=prima_val,
+                periodo=periodo_val
+            )
 
-        if created_count == 0:
-            return JsonResponse({'success': False, 'error': 'No se encontraron trabajadores legibles en el PDF. Verifique que sea un archivo oficial de SUA.'})
+            # 3. Listado de Trabajadores
+            for i, line in enumerate(text_lines):
+                nss_match = re.search(r'(\d{2}-\d{2}-\d{2}-\d{4}-\d)', line)
+                if nss_match:
+                    nss = nss_match.group(1)
+                    # Línea 1: NSS Nombre RFC/CURP Clave Ubicacion
+                    l1_match = re.search(r'\d{2}-\d{2}-\d{2}-\d{4}-\d\s+([A-ZÁÉÍÓÚÑ\s\.]+?)\s+([A-Z0-9]{13,18})\s*(.*)', line)
+                    nombre = l1_match.group(1).strip() if l1_match else "Desconocido"
+                    rfc_curp = l1_match.group(2) if l1_match else ""
+                    clave_u = l1_match.group(3).strip() if l1_match else ""
 
-        return JsonResponse({'success': True, 'message': f'Procesado con éxito: {created_count} registros importados.'})
+                    # Inicializar datos del trabajador
+                    trabajador_data = {
+                        'importacion': importacion, 'nss': nss, 'nombre': nombre, 'rfc_curp': rfc_curp, 'clave_ubicacion': clave_u,
+                        'dias': 0, 'sdi': 0, 'licencias': 0, 'incapacidades': 0, 'ausentismos': 0,
+                        'retiro': 0, 'patronal': 0, 'obrera': 0, 'subtotal': 0,
+                        'aportacion_patronal': 0, 'amortizacion': 0, 'suma_infonavit': 0
+                    }
 
+                    # Buscamos en las siguientes líneas (hasta 5) para capturar toda la info
+                    for j in range(i + 1, min(i + 6, len(text_lines))):
+                        l_raw = text_lines[j]
+                        l_clean = l_raw.replace('$', '').strip()
+                        if not l_clean: continue
+                        
+                        # Detectar otra NSS significa que pasamos al siguiente trabajador
+                        if re.search(r'(\d{2}-\d{2}-\d{2}-\d{4}-\d)', l_clean): break
+
+                        # 1. Intentar línea de Baja/Reingreso PURA (solo Clave y Fecha)
+                        baja_match = re.match(r'^(Baja|Reingreso|Modificación)[,\s]+([\d\/]{10})$', l_clean, re.I)
+                        if baja_match:
+                            trabajador_data.update({
+                                'baja_clave': baja_match.group(1),
+                                'baja_fecha': baja_match.group(2)
+                            })
+                            continue
+
+                        # 2. Intentar línea de datos (Mov, Fecha, Dias, SDI, ...)
+                        header_match = re.match(r'^([A-Z/]+)\s*(\d{2}/\d{2}/\d{4})', l_clean, re.I)
+                        if header_match:
+                            clave = header_match.group(1)
+                            fecha = header_match.group(2)
+                            
+                            if re.match(r'^(ISM|Alta|Baja|Reingreso|Modificación|SM|ISD|SUNSTAR|KNP)$', clave, re.I):
+                                rest = l_clean[header_match.end():]
+                                
+                                # Extraer info de crédito
+                                cred_match = re.search(r'(\d{10})[,\s]+([A-Z]+)[,\s]+([\d\/]{10})', rest)
+                                if cred_match:
+                                    trabajador_data.update({
+                                        'cred_vivienda': cred_match.group(1),
+                                        'tipo_mov_credito': cred_match.group(2),
+                                        'fecha_mov_credito': cred_match.group(3)
+                                    })
+                                    rest = rest.replace(cred_match.group(0), '')
+
+                                # Buscar números decimales o enteros
+                                nums = re.findall(r'\d+(?:\.\d{2})?', rest.replace(',', ''))
+                                
+                                if len(nums) >= 2:
+                                    trabajador_data.update({
+                                        'clave_mov': clave, 'fecha_mov': fecha,
+                                        'dias': int(nums[0]), 'sdi': Decimal(nums[1])
+                                    })
+                                if len(nums) >= 5:
+                                    trabajador_data.update({
+                                        'licencias': int(nums[2]), 'incapacidades': int(nums[3]), 'ausentismos': int(nums[4])
+                                    })
+                                if len(nums) >= 9:
+                                    trabajador_data.update({
+                                        'retiro': Decimal(nums[5]), 'patronal': Decimal(nums[6]),
+                                        'obrera': Decimal(nums[7]), 'subtotal': Decimal(nums[8])
+                                    })
+                                if len(nums) >= 12:
+                                    trabajador_data.update({
+                                        'aportacion_patronal': Decimal(nums[9]),
+                                        'amortizacion': Decimal(nums[10]),
+                                        'suma_infonavit': Decimal(nums[11])
+                                    })
+                                continue
+
+                        # 3. Patrón para Línea 2 básica (SDI tradicional) si no se detectó arriba
+                        l2_basic_match = re.search(r'(\d+)\s+([\d\.,]+\.\d{2}).*?\s+([\d\.,]+\.\d{2})\s+([\d\.,]+\.\d{2})\s+([\d\.,]+\.\d{2})$', l_clean)
+                        if l2_basic_match and trabajador_data['dias'] == 0:
+                            trabajador_data.update({
+                                'dias': int(l2_basic_match.group(1)),
+                                'sdi': Decimal(l2_basic_match.group(2).replace(',', '')),
+                                'patronal': Decimal(l2_basic_match.group(3).replace(',', '')),
+                                'obrera': Decimal(l2_basic_match.group(4).replace(',', '')),
+                                'subtotal': Decimal(l2_basic_match.group(5).replace(',', ''))
+                            })
+                            continue
+                    
+                    if trabajador_data['dias'] > 0 or trabajador_data['subtotal'] > 0:
+                        # Calcular Total General
+                        trabajador_data['total_general'] = trabajador_data['subtotal'] + trabajador_data['suma_infonavit']
+                        TrabajadorSUA.objects.create(**trabajador_data)
+                        created_count += 1
+            
+            if created_count == 0:
+                raise Exception("No se detectaron trabajadores válidos.")
+
+        return JsonResponse({'success': True, 'message': f'Importación exitosa: {created_count} trabajadores.'})
+    except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required(login_url='/login/')
+@require_hr_permission('sua', 'ver', json_response=True)
+def obtener_registro_sua_json(request, id):
+    empresa_actual = get_empresa_actual(request)
+    try:
+        imp = ImportacionSUA.objects.get(id=id, empresa=empresa_actual)
+        trabajadores = []
+        for t in imp.trabajadores.all():
+            trabajadores.append({
+                'nss': t.nss,
+                'nombre': t.nombre,
+                'rfc': t.rfc_curp,
+                'clave_u': t.clave_ubicacion,
+                'clave_mov': t.clave_mov,
+                'fecha_mov': t.fecha_mov,
+                'dias': t.dias,
+                'sdi': str(t.sdi),
+                'lic': t.licencias,
+                'inc': t.incapacidades,
+                'aus': t.ausentismos,
+                'retiro': str(t.retiro),
+                'patronal_rcv': str(t.patronal),
+                'obrera_rcv': str(t.obrera),
+                'total_rcv': str(t.subtotal),
+                'ap_pat_inf': str(t.aportacion_patronal),
+                'amortiz': str(t.amortizacion),
+                'total_inf': str(t.suma_infonavit),
+                'cred_viv': t.cred_vivienda or '',
+                'tipo_mov_cred': t.tipo_mov_credito or '',
+                'fecha_mov_cred': t.fecha_mov_credito or '',
+                'baja_clave': t.baja_clave or '',
+                'baja_fecha': t.baja_fecha or '',
+                'total_general': str(t.total_general),
+            })
+        data = {
+            'empresa': {
+                'razon_social': imp.nombre_razon_social,
+                'rfc': imp.rfc_empresa,
+                'reg_patronal': imp.registro_patronal,
+                'actividad': imp.actividad,
+                'domicilio': imp.domicilio,
+                'cp': imp.cp,
+                'entidad': imp.entidad,
+                'periodo': imp.periodo
+            },
+            'seguro': {
+                'area_geo': imp.area_geografica,
+                'delegacion': imp.delegacion_imss,
+                'subdelegacion': imp.subdelegacion_imss,
+                'municipio': imp.municipio_alcaldia,
+                'prima': str(imp.prima_rt)
+            },
+            'trabajadores': trabajadores
+        }
+        return JsonResponse({'success': True, 'data': data})
+    except ImportacionSUA.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'No se encontró la importación.'})
     except Exception as e:
-        return JsonResponse({'success': False, 'error': f"Error al procesar PDF: {str(e)}"})
+        return JsonResponse({'success': False, 'error': str(e)})
