@@ -290,6 +290,10 @@ class ImportacionSUA(models.Model):
     def __str__(self):
         return f"Importación {self.periodo} - {self.nombre_razon_social}"
 
+    @property
+    def total_trabajadores_unicos(self):
+        return self.trabajadores.values('nss').distinct().count()
+
     class Meta:
         verbose_name = "Importación SUA"
         verbose_name_plural = "Importaciones SUA"
@@ -322,6 +326,7 @@ class TrabajadorSUA(models.Model):
     
     # Infonavit
     aportacion_patronal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    tipo_valor_infonavit = models.CharField(max_length=20, blank=True, null=True, verbose_name="% o $ o FD")
     amortizacion = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     suma_infonavit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     cred_vivienda = models.CharField(max_length=50, blank=True, null=True)
