@@ -174,9 +174,9 @@ def editar_empleado_ajax(request, id):
         emp = Empleado.objects.get(id=id, empresa=empresa_actual)
         data = request.POST
 
-        num_emp = data.get('num_empleado')
-        if num_emp != emp.num_empleado and Empleado.objects.filter(empresa=empresa_actual, num_empleado=num_emp).exists():
-            return JsonResponse({'success': False, 'error': f'El número de empleado {num_emp} ya existe.'})
+        num_empleado = data.get('num_empleado')
+        if num_empleado != emp.num_empleado and Empleado.objects.filter(empresa=empresa_actual, num_empleado=num_empleado).exists():
+            return JsonResponse({'success': False, 'error': f'El número de empleado {num_empleado} ya existe.'})
 
         emp.curp = data.get('curp', '').upper()
         emp.rfc = data.get('rfc', '').upper()
@@ -199,7 +199,7 @@ def editar_empleado_ajax(request, id):
         emp.cp = data.get('cp')
         emp.ciudad = data.get('ciudad')
         emp.estado_dir = data.get('estado_dir')
-        emp.num_empleado = num_emp
+        emp.num_empleado = num_empleado
         emp.estado = data.get('estado')
         emp.fecha_ingreso = data.get('fecha_ingreso') or None
         emp.fecha_antiguedad = data.get('fecha_antiguedad') or None
@@ -255,9 +255,9 @@ def crear_empleado_ajax(request):
 
     try:
         data = request.POST
-        num_emp = data.get('num_empleado')
-        if Empleado.objects.filter(empresa=empresa_actual, num_empleado=num_emp).exists():
-            return JsonResponse({'success': False, 'error': f'El número de empleado {num_emp} ya existe.'})
+        num_empleado = data.get('num_empleado')
+        if Empleado.objects.filter(empresa=empresa_actual, num_empleado=num_empleado).exists():
+            return JsonResponse({'success': False, 'error': f'El número de empleado {num_empleado} ya existe.'})
 
         sucursal_id = request.session.get('sucursal_id')
 
@@ -285,7 +285,7 @@ def crear_empleado_ajax(request):
             cp=data.get('cp'),
             ciudad=data.get('ciudad'),
             estado_dir=data.get('estado_dir'),
-            num_empleado=num_emp,
+            num_empleado=num_empleado,
             estado=data.get('estado'),
             fecha_ingreso=data.get('fecha_ingreso') or None,
             fecha_antiguedad=data.get('fecha_antiguedad') or data.get('fecha_ingreso') or None,
@@ -746,8 +746,15 @@ def importar_sua_ajax(request):
                 m_per = re.search(r'(?:Período|Bimestre)\s+de\s+Proceso:\s*([\w\d-]+)', line, re.I)
                 if m_per: periodo_val = m_per.group(1).strip()
 
+        # Extraer total esperado del reporte para validación
+        total_reporte = 0
+        m_total_rep = re.search(r'Total\s+de\s+cotizaciones:\s*(\d+)', full_text, re.I)
+        if m_total_rep:
+            total_reporte = int(m_total_rep.group(1))
+
         sucursal_id = request.session.get('sucursal_id')
         created_count = 0
+        nss_encontrados = set()
 
         with transaction.atomic():
             importacion = ImportacionSUA.objects.create(
@@ -780,31 +787,41 @@ def importar_sua_ajax(request):
                 l_clean = line.replace('$', '').strip()
                 if not l_clean: continue
 
-                if re.search(r'TOTALES', l_clean.upper()) or re.search(r'(_\s?){8,}|(-\s?){8,}', l_clean):
+                # DETECTOR DE FIN DE LISTADO AGRESIVO
+                # Buscamos palabras que indican el inicio de los totales de pie de página
+                if re.search(r'TOTAL\s+DE\s+(DÍAS|COTIZACIONES|RCV|INFONAVIT)', l_clean.upper()) or \
+                   re.search(r'([_-]\s?){10,}', l_clean):
                     current_worker_info = None
                     stop_workers = True 
                     continue
                 
                 if stop_workers: continue
 
-                if any(k in l_clean.upper() for k in KEYWORDS_EXCLUDE):
-                    current_worker_info = None
-                    continue
-
+                # ¿Es una línea de identidad (NSS)?
                 nss_match = re.search(r'(\d{2}-\d{2}-\d{2}-\d{4}-\d)', l_clean)
                 if nss_match:
-                    l1_strict = re.search(r'(\d{2}-\d{2}-\d{2}-\d{4}-\d)\s+(.+?)\s+([A-Z0-9]{13,18})\s+(\S+)$', l_clean, re.I)
-                    if l1_strict:
+                    nss = nss_match.group(1)
+                    # Tomamos lo que sigue al NSS y dividimos por bloques de espacios
+                    remainder = l_clean.split(nss)[-1].strip()
+                    parts = re.split(r'\s{2,}', remainder)
+                    
+                    if len(parts) >= 2:
                         current_worker_info = {
-                            'nss': l1_strict.group(1),
-                            'nombre': l1_strict.group(2).strip(),
-                            'rfc': l1_strict.group(3).strip(),
-                            'clave_u': l1_strict.group(4).strip()
+                            'nss': nss,
+                            'nombre': parts[0].strip(),
+                            'rfc': parts[1].strip() if len(parts) >= 2 else "",
+                            'clave_u': " ".join(parts[2:]).strip() if len(parts) >= 3 else ""
                         }
+                        nss_encontrados.add(current_worker_info['nss'])
                         continue
                     else:
                         current_worker_info = None 
                         continue
+
+                # RESET de contexto si encontramos encabezados conocidos
+                if any(k in l_clean.upper() for k in KEYWORDS_EXCLUDE):
+                    current_worker_info = None
+                    continue
 
                 if current_worker_info:
                     m_header = re.match(r'^([^0-9\s,]{2,})?\s*(\d{2}/\d{2}/\d{4})?\s*(.*)', l_clean, re.I)
@@ -823,9 +840,14 @@ def importar_sua_ajax(request):
 
                     clave_limpia = clave_mov.lower()
                     es_movimiento_puro = (clave_limpia in ['baja', 'reingreso', 'modificación', 'alta'] and fecha_mov != "")
-                    tiene_datos_cuotas = len(tokens) >= 11
+                    
+                    # VALIDACIÓN CRÍTICA: Un movimiento real suele tener SDI en el token 1
+                    # Las líneas de totales suelen tener pocos números o números muy grandes.
+                    tiene_sdi = len(tokens) >= 2 and re.match(r'^\d+\.?\d*$', tokens[1]) and float(tokens[1]) > 0
+                    # Para ser una fila de datos completa debe tener al menos 11 tokens (desde Días hasta Suma Inf)
+                    tiene_datos_completos = len(tokens) >= 11
 
-                    if es_movimiento_puro or tiene_datos_cuotas:
+                    if es_movimiento_puro or tiene_datos_completos:
                         cred_viv, tipo_cred, fecha_cred = "", "", ""
                         cred_match = re.search(r'(\d{10})\s+([A-Z]+)\s+(\d{2}/\d{2}/\d{4})$', resto_linea)
                         if cred_match:
@@ -848,7 +870,7 @@ def importar_sua_ajax(request):
                             'total_general': 0
                         }
 
-                        if tiene_datos_cuotas:
+                        if len(tokens) >= 2:
                             try:
                                 trabajador_data.update({
                                     'dias': int(float(tokens[0])),
@@ -896,13 +918,19 @@ def importar_sua_ajax(request):
                         TrabajadorSUA.objects.create(**trabajador_data)
                         created_count += 1
                     else:
-                        if "SUBTOTALES" in l_clean.upper():
+                        # Si no es un movimiento válido y no es una línea de identidad, cerramos el trabajador
+                        if not nss_match:
                             current_worker_info = None
 
             if created_count == 0:
                 raise Exception("No se detectaron trabajadores válidos.")
+            
+            unique_count = len(nss_encontrados)
+            msg_validacion = ""
+            if total_reporte > 0 and unique_count != total_reporte:
+                msg_validacion = f" Advertencia: Se detectaron {unique_count} trabajadores únicos pero el reporte indica un total de {total_reporte}."
 
-        return JsonResponse({'success': True, 'message': f'Importación exitosa: {created_count} registros procesados.'})
+        return JsonResponse({'success': True, 'message': f'Importación exitosa: {created_count} registros procesados.{msg_validacion}'})
     except Exception as e: 
         return JsonResponse({'success': False, 'error': str(e)})
 
@@ -976,13 +1004,6 @@ def obtener_registro_sua_json(request, id):
                 'cp': limpiar_basura_header(imp.cp),
                 'entidad': limpiar_basura_header(imp.entidad),
                 'periodo': limpiar_basura_header(imp.periodo)
-            },
-            'seguro': {
-                'area_geo': limpiar_basura_header(imp.area_geografica),
-                'delegacion': limpiar_basura_header(imp.delegacion_imss),
-                'subdelegacion': limpiar_basura_header(imp.subdelegacion_imss),
-                'municipio': limpiar_basura_header(imp.municipio_alcaldia),
-                'prima': str(imp.prima_rt)
             },
             'trabajadores': trabajadores,
             'totales': totales
