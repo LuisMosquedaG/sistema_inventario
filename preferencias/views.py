@@ -26,7 +26,7 @@ from core.models import Producto, Categoria as CategoriaCore, Transaccion as Tra
 from categorias.models import Categoria, Subcategoria, ListaPrecioCosto
 from clientes.models import Cliente, ContactoCliente
 from proveedores.models import Proveedor
-from recursos_humanos.models import Empleado
+from recursos_humanos.models import Empleado, Contrato, Contratista, Beneficiario, ImportacionSUA
 from recepciones.models import Recepcion, DetalleRecepcion, DetalleRecepcionExtra
 from cotizaciones.models import Cotizacion, DetalleCotizacion
 from tesoreria.models import Ingreso, Egreso, PagoPedido, PagoCompra
@@ -269,17 +269,23 @@ def reiniciar_catalogos_ajax(request):
             
             # Borrar catálogos en orden de dependencia (PROTECT)
             DetalleReceta.objects.filter(producto_padre__empresa=empresa_actual).delete()
-            
+
             Producto.objects.filter(empresa=empresa_actual).delete()
             Cliente.objects.filter(empresa=empresa_actual).delete()
             Proveedor.objects.filter(empresa=empresa_actual).delete()
+
+            # --- Recursos Humanos ---
+            Contrato.objects.filter(empresa=empresa_actual).delete()
             Empleado.objects.filter(empresa=empresa_actual).delete()
+            Contratista.objects.filter(empresa=empresa_actual).delete()
+            Beneficiario.objects.filter(empresa=empresa_actual).delete()
+            ImportacionSUA.objects.filter(empresa=empresa_actual).delete()
+
             Almacen.objects.filter(empresa=empresa_actual).delete()
             Test.objects.filter(empresa=empresa_actual).delete() # Tests de Calidad
             Categoria.objects.filter(empresa=empresa_actual).delete()
             Subcategoria.objects.filter(empresa=empresa_actual).delete()
-            ListaPrecioCosto.objects.filter(empresa=empresa_actual).delete()
-            
+            ListaPrecioCosto.objects.filter(empresa=empresa_actual).delete()            
             return JsonResponse({'success': True, 'message': 'Catálogos reiniciados correctamente.'})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
