@@ -857,44 +857,54 @@ def importar_sua_ajax(request):
                 if stop_workers: continue
 
                 # Identificar Asegurado (L1: NSS -> NOMBRE -> RFC -> UBICACION)
-                nss_match = re.search(r'(\d{2}-\d{2}-\d{2}-\d{4}-\d)', l_clean)
+                # El NSS puede venir con guiones (12-34...) o directo (1234...)
+                nss_match = re.search(r'(\d{2}-?\d{2}-?\d{2}-?\d{4}-?\d)', l_clean)
                 if nss_match:
                     nss_val = nss_match.group(1)
                     current_worker_info = None 
                     remainder = l_clean.split(nss_val)[-1].strip()
                     
-                    # Dividimos por bloques de 2 o más espacios (layout=True suele preservarlos)
-                    blocks = [b.strip() for b in re.split(r'\s{2,}', remainder) if b.strip()]
+                    # Buscamos el RFC/CURP como ancla pivotante (bloque alfanumérico de 10-18 chars)
+                    # Usamos una búsqueda más amplia para no omitir variantes
+                    m_rfc = re.search(r'([A-Z]{3,4}[0-9]{6}[A-Z0-9]{0,9})', remainder)
                     
-                    if len(blocks) >= 2:
-                        nombre = blocks[0]
-                        # El RFC suele ser el segundo bloque, pero si está pegado a la ubicación...
-                        rfc_ubic_raw = blocks[1].split(' ', 1)
-                        rfc = rfc_ubic_raw[0]
+                    if m_rfc:
+                        rfc = m_rfc.group(1)
+                        nombre = remainder[:m_rfc.start()].strip()
+                        post_rfc = remainder[m_rfc.end():].strip()
                         
-                        # Ubicación: el resto de la línea
-                        ubic = rfc_ubic_raw[1] if len(rfc_ubic_raw) > 1 else "-"
-                        if len(blocks) > 2:
-                            if ubic == "-": ubic = ""
-                            ubic += " " + " ".join(blocks[2:])
-                            ubic = ubic.strip()
-                        
-                        # Limpiar Ubicación de posibles datos numéricos que se hayan colado
-                        m_nums = re.search(r'(\d{1,2})\s+([\d\.,]+)', ubic)
-                        if m_nums:
-                            l_clean = ubic[m_nums.start():].strip()
-                            ubic = ubic[:m_nums.start()].strip() or "-"
+                        # Ubicación: lo que queda antes del primer bloque numérico (Días SDI)
+                        # Los datos numéricos empiezan con un bloque de 1-2 dígitos (Días) + espacio + SDI
+                        m_data_start = re.search(r'(\d{1,2})\s+([\d\.,]+)', post_rfc)
+                        if m_data_start:
+                            ubic = post_rfc[:m_data_start.start()].strip() or "-"
+                            l_clean = post_rfc[m_data_start.start():].strip()
                         else:
+                            ubic = post_rfc or "-"
                             l_clean = ""
-
-                        if nombre and len(rfc) >= 10:
+                        
+                        if nombre and rfc:
                             current_worker_info = {
                                 'nss': nss_val, 'nombre': nombre, 'rfc': rfc, 'clave_u': ubic
                             }
                             nss_encontrados.add(nss_val)
-                    continue # Saltar a la siguiente línea o procesar l_clean si quedó algo?
-                    # En SUA mensual los datos numéricos suelen venir abajo, pero en bimestral vienen junto al nombre.
-                    # Para no romper bimestral, quitamos el continue si hay l_clean.
+                    else:
+                        # Fallback agresivo para líneas sin RFC claro o con espacios simples
+                        parts = [p.strip() for p in re.split(r'\s+', remainder) if p.strip()]
+                        if len(parts) >= 2:
+                            # Asumimos Nombre y RFC por posición si no hay ancla
+                            # Pero intentamos validar que el segundo bloque parezca un ID
+                            nombre = parts[0]
+                            rfc = parts[1]
+                            ubic = " ".join(parts[2:]) if len(parts) > 2 else "-"
+                            
+                            current_worker_info = {
+                                'nss': nss_val, 'nombre': nombre, 'rfc': rfc, 'clave_u': ubic
+                            }
+                            nss_encontrados.add(nss_val)
+                            l_clean = ""
+                    
+                    # NO usar continue. En bimestrales, los datos suelen estar en la misma línea.
                     if not l_clean: continue
 
                 if current_worker_info:
