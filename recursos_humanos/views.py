@@ -21,6 +21,7 @@ from preferencias.permissions import require_hr_permission
 def limpiar_basura_header(texto):
     """Elimina textos innecesarios del encabezado del SUA como convenios y versiones."""
     if not texto: return ""
+    # Patrones que suelen "pegarse" al final de los campos reales
     patrones = [
         r'Convenio\s+de\s+Re?mbolso:.*',
         r'Aportación\s+Patronal:.*',
@@ -784,36 +785,45 @@ def importar_sua_ajax(request):
             ]
 
             for line in text_lines:
-                l_clean = line.replace('$', '').strip()
+                l_clean = line.strip()
                 if not l_clean: continue
 
                 if re.search(r'TOTAL\s+DE\s+(DÍAS|COTIZACIONES|RCV|INFONAVIT)', l_clean.upper()) or \
-                   re.search(r'([_-]\s?){7,}', l_clean):
+                   re.search(r'([_-]\s?){8,}', l_clean) or \
+                   l_clean.upper().startswith("TOTALES"):
                     current_worker_info = None
-                    if re.search(r'TOTAL\s+DE\s+COTIZACIONES', l_clean.upper()) or "TOTALES" in l_clean.upper():
-                        stop_workers = True 
+                    if "TOTAL DE COTIZACIONES" in l_clean.upper() or "TOTALES" in l_clean.upper():
+                        stop_workers = True
                     continue
-                
                 if stop_workers: continue
 
                 nss_match = re.search(r'(\d{2}-\d{2}-\d{2}-\d{4}-\d)', l_clean)
                 if nss_match:
                     nss = nss_match.group(1)
-                    m_rfc = re.search(r'\s([A-Z0-9]{13,18})\s', l_clean)
+                    # Lógica de división robusta para identidad
+                    m_rfc = re.search(r'([A-Z0-9]{10,18})', l_clean.split(nss)[-1])
                     if m_rfc:
                         rfc = m_rfc.group(1)
-                        parts_nss = l_clean.split(nss)
-                        if len(parts_nss) > 1:
-                            parts_rfc = parts_nss[1].split(rfc)
-                            if len(parts_rfc) > 1:
-                                current_worker_info = {
-                                    'nss': nss,
-                                    'nombre': parts_rfc[0].strip(),
-                                    'rfc': rfc,
-                                    'clave_u': parts_rfc[1].strip()
-                                }
-                                nss_encontrados.add(nss)
-                                continue
+                        remainder = l_clean.split(nss)[-1]
+                        nombre = remainder.split(rfc)[0].strip()
+                        post_rfc = remainder.split(rfc)[-1].strip()
+                        ubic_parts = re.split(r'\s{2,}', post_rfc)
+                        ubic = ubic_parts[0].strip()
+                        
+                        current_worker_info = {
+                            'nss': nss, 'nombre': nombre, 'rfc': rfc, 'clave_u': ubic
+                        }
+                        nss_encontrados.add(nss)
+                        l_clean = "  ".join(ubic_parts[1:]).strip()
+                    else:
+                        parts = [p.strip() for p in re.split(r'\s{2,}', l_clean.split(nss)[-1]) if p.strip()]
+                        if len(parts) >= 2:
+                            current_worker_info = {
+                                'nss': nss, 'nombre': parts[0], 'rfc': parts[1],
+                                'clave_u': parts[2] if len(parts) > 2 else ""
+                            }
+                            nss_encontrados.add(nss)
+                            l_clean = "  ".join(parts[3:]).strip()
 
                 if current_worker_info:
                     m_header = re.match(r'^([^0-9\s,]{2,})?\s*(\d{2}/\d{2}/\d{4})?\s*(.*)', l_clean, re.I)
@@ -858,7 +868,6 @@ def importar_sua_ajax(request):
                                 })
                                 
                                 if tipo_importacion == 'mensual':
-                                    # Formato Mensual: C.F., Exc.Pat, Exc.Obr, P.D.Pat, P.D.Obr, G.M.P.Pat, G.M.P.Obr, R.T., I.V.Pat, I.V.Obr, G.P.S, Pat, Obr, Subtotal
                                     if len(tokens) >= 19:
                                         trabajador_data.update({
                                             'cuota_fija': Decimal(tokens[5]),
@@ -878,20 +887,20 @@ def importar_sua_ajax(request):
                                             'total_general': Decimal(tokens[18])
                                         })
                                 else:
-                                    # Formato Bimestral
-                                    if len(tokens) >= 9:
-                                        trabajador_data.update({
-                                            'retiro': Decimal(tokens[5]), 
-                                            'patronal': Decimal(tokens[6]),
-                                            'obrera': Decimal(tokens[7]), 
-                                            'subtotal': Decimal(tokens[8])
-                                        })
+                                    # Adaptable para Bimestral (13 vs 10 tokens)
                                     if len(tokens) >= 13:
                                         trabajador_data.update({
-                                            'aportacion_patronal': Decimal(tokens[9]),
-                                            'tipo_valor_infonavit': tokens[10],
-                                            'amortizacion': Decimal(tokens[11]),
-                                            'suma_infonavit': Decimal(tokens[12])
+                                            'retiro': Decimal(tokens[5]), 'patronal': Decimal(tokens[6]), 'obrera': Decimal(tokens[7]), 'subtotal': Decimal(tokens[8]),
+                                            'aportacion_patronal': Decimal(tokens[9]), 'tipo_valor_infonavit': tokens[10], 'amortizacion': Decimal(tokens[11]), 'suma_infonavit': Decimal(tokens[12])
+                                        })
+                                    elif len(tokens) >= 10:
+                                        trabajador_data.update({
+                                            'retiro': Decimal(tokens[5]), 'patronal': Decimal(tokens[6]), 'obrera': Decimal(tokens[7]), 'subtotal': Decimal(tokens[8]),
+                                            'aportacion_patronal': Decimal(tokens[9]), 'tipo_valor_infonavit': '-', 'amortizacion': Decimal(tokens[10]), 'suma_infonavit': Decimal(tokens[11])
+                                        })
+                                    elif len(tokens) >= 9:
+                                        trabajador_data.update({
+                                            'retiro': Decimal(tokens[5]), 'patronal': Decimal(tokens[6]), 'obrera': Decimal(tokens[7]), 'subtotal': Decimal(tokens[8])
                                         })
                                     trabajador_data['total_general'] = trabajador_data.get('subtotal', 0) + trabajador_data.get('suma_infonavit', 0)
                             except: pass
@@ -921,14 +930,10 @@ def obtener_registro_sua_json(request, id):
     try:
         imp = ImportacionSUA.objects.get(id=id, empresa=empresa_actual)
         trabajadores = []
-        
-        # Totales adaptables
         totales = {
             'dias': 0, 'total_general': 0,
-            # Bimestral
             'retiro': 0, 'patronal_rcv': 0, 'obrera_rcv': 0, 'total_rcv': 0,
             'ap_pat_inf': 0, 'tipo_val_inf': 0, 'amortiz': 0, 'total_inf': 0,
-            # Mensual
             'cuota_fija': 0, 'exc_pat': 0, 'exc_obr': 0, 'pd_pat': 0, 'pd_obr': 0,
             'gm_pat': 0, 'gm_obr': 0, 'rt': 0, 'iv_pat': 0, 'iv_obr': 0, 'gps': 0,
             'imss_pat': 0, 'imss_obr': 0, 'imss_sub': 0
@@ -938,9 +943,9 @@ def obtener_registro_sua_json(request, id):
             t_dict = {
                 'nss': t.nss, 'nombre': t.nombre, 'rfc': t.rfc_curp, 'clave_u': t.clave_ubicacion,
                 'clave_mov': t.clave_mov, 'fecha_mov': t.fecha_mov, 'dias': t.dias, 'sdi': str(t.sdi),
+                'lic': t.licencias, 'inc': t.incapacidades, 'aus': t.ausentismos,
                 'total_general': str(t.total_general),
             }
-            
             if imp.tipo == 'mensual':
                 t_dict.update({
                     'cf': str(t.cuota_fija), 'exc_pat': str(t.excedente_patronal), 'exc_obr': str(t.excedente_obrera),
@@ -1018,7 +1023,6 @@ def exportar_sua_excel(request, id):
         writer.writerow(['Empresa', imp.nombre_razon_social]); writer.writerow(['Registro Patronal', imp.registro_patronal])
         writer.writerow(['Periodo', imp.periodo]); writer.writerow(['Tipo', imp.get_tipo_display()])
         writer.writerow([])
-        
         if imp.tipo == 'mensual':
             headers = [
                 'NSS', 'Nombre', 'RFC/CURP', 'Ubicación', 'Movimiento', 'Fecha Mov.', 'Días', 'SDI',
@@ -1028,10 +1032,10 @@ def exportar_sua_excel(request, id):
         else:
             headers = [
                 'NSS', 'Nombre', 'RFC/CURP', 'Ubicación', 'Movimiento', 'Fecha Mov.', 'Días', 'SDI',
-                'Retiro', 'Patronal RCV', 'Obrera RCV', 'Suma RCV', 'Ap. Pat. Infonavit', '%/$ /FD', 'Amortización', 'Suma Infonavit', 'Total General'
+                'Lic.', 'Inc.', 'Aus.', 'Retiro', 'Patronal RCV', 'Obrera RCV', 'Suma RCV', 
+                'Ap. Pat. Infonavit', '%/$ /FD', 'Amortización', 'Suma Infonavit', 'Total General'
             ]
         writer.writerow(headers)
-        
         for t in imp.trabajadores.all().order_by('id'):
             if imp.tipo == 'mensual':
                 writer.writerow([
@@ -1044,6 +1048,7 @@ def exportar_sua_excel(request, id):
             else:
                 writer.writerow([
                     t.nss, t.nombre, t.rfc_curp, t.clave_ubicacion, t.clave_mov, t.fecha_mov, t.dias, t.sdi,
+                    t.licencias, t.incapacidades, t.ausentismos,
                     t.retiro, t.patronal, t.obrera, t.subtotal, t.aportacion_patronal, t.tipo_valor_infonavit, t.amortizacion, t.suma_infonavit, t.total_general
                 ])
         return response
