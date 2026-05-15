@@ -101,6 +101,8 @@ class Empleado(models.Model):
     motivo_baja = models.CharField(max_length=200, blank=True, null=True, verbose_name="Motivo de Baja")
 
     # 3. PUESTO Y CONTRATACIÓN
+    contratista = models.ForeignKey('Contratista', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Contratista")
+    beneficiario = models.ForeignKey('Beneficiario', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Beneficiario")
     fecha_ingreso = models.DateField(null=True, blank=True, verbose_name="Fecha de Ingreso")
     fecha_antiguedad = models.DateField(null=True, blank=True, verbose_name="Fecha de Antigüedad")
     fecha_expiracion = models.DateField(null=True, blank=True, verbose_name="Fecha de Expiración Contrato")
@@ -109,6 +111,8 @@ class Empleado(models.Model):
     puesto = models.CharField(max_length=100, default="", verbose_name="Puesto")
     departamento = models.CharField(max_length=100, default="", verbose_name="Departamento/Área")
     supervisor = models.CharField(max_length=150, blank=True, null=True, verbose_name="Supervisor Inmediato")
+    clave_ubicacion = models.CharField(max_length=100, blank=True, null=True, verbose_name="Clave de Ubicación")
+    notas = models.TextField(blank=True, null=True, verbose_name="Notas")
     riesgo_trabajo = models.CharField(max_length=5, choices=RIESGO_TRABAJO_CHOICES, default='I', verbose_name="Riesgo de Trabajo")
     tipo_trabajador = models.CharField(max_length=20, choices=TIPO_TRABAJADOR_CHOICES, default='base', verbose_name="Tipo de Trabajador")
 
@@ -190,6 +194,7 @@ class Contratista(models.Model):
     sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
     
     # Datos Identificación
+    clave = models.CharField(max_length=50, blank=True, null=True, verbose_name="Clave")
     rfc = models.CharField(max_length=13, verbose_name="RFC")
     nombre_razon_social = models.CharField(max_length=200, verbose_name="Nombre / Razón Social")
     correo = models.EmailField(verbose_name="Correo Electrónico")
@@ -235,6 +240,7 @@ class Beneficiario(models.Model):
     sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
     
     # Datos Identificación
+    clave = models.CharField(max_length=50, blank=True, null=True, verbose_name="Clave")
     rfc = models.CharField(max_length=13, verbose_name="RFC")
     nombre_razon_social = models.CharField(max_length=200, verbose_name="Nombre / Razón Social")
     registro_patronal = models.CharField(max_length=50, blank=True, null=True, verbose_name="Registro Patronal")

@@ -245,7 +245,7 @@
                                         <input type="text" class="form-control form-control-sm search-extra" placeholder="Buscar colaborador por nombre..." oninput="filtrarColaboradores(this)">
                                         <div class="extra-selection-container" id="containerColaboradores">
                                             {% for emp in empleados %}
-                                            <div class="extra-item" data-id="{{ emp.id }}" onclick="toggleColaboradorSelection(this)">
+                                            <div class="extra-item" data-id="{{ emp.id }}" data-beneficiario-id="{{ emp.beneficiario_id|default:'' }}" onclick="toggleColaboradorSelection(this)">
                                                 <span>{{ emp.nombre }} {{ emp.apellido_paterno }}</span>
                                             </div>
                                             {% endfor %}
@@ -270,7 +270,7 @@
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label-custom">Beneficiario <span class="text-danger">*</span></label>
-                                    <select name="beneficiario" id="inputBeneficiario" class="form-select form-select-sm" required>
+                                    <select name="beneficiario" id="inputBeneficiario" class="form-select form-select-sm" required onchange="seleccionarEmpleadosPorBeneficiario(this.value)">
                                         <option value="">-- Seleccionar Beneficiario --</option>
                                         {% for b in beneficiarios %}
                                         <option value="{{ b.id }}">{{ b.nombre_razon_social }} ({{ b.rfc }})</option>
@@ -381,6 +381,33 @@
         if (option) {
             option.selected = element.classList.contains('selected');
         }
+    }
+
+    /**
+     * Selecciona automáticamente a todos los empleados vinculados al beneficiario elegido
+     * y desmarca a los que no pertenecen a dicha selección.
+     */
+    function seleccionarEmpleadosPorBeneficiario(beneficiarioId) {
+        const items = document.querySelectorAll('#containerColaboradores .extra-item');
+        const hiddenSelect = document.getElementById('inputEmpleadosHidden');
+
+        items.forEach(item => {
+            const itemBeneficiarioId = item.dataset.beneficiarioId;
+            const option = hiddenSelect.querySelector(`option[value="${item.dataset.id}"]`);
+
+            // Si hay un beneficiario seleccionado y coincide, lo marcamos
+            if (beneficiarioId && itemBeneficiarioId === beneficiarioId) {
+                item.classList.add('selected');
+                if (option) option.selected = true;
+            } else {
+                // Si no hay beneficiario o no coincide, y el empleado tiene un beneficiario asignado, lo desmarcamos
+                // Esto cumple con "al desmarcar beneficiario... se deben desmarcar"
+                if (itemBeneficiarioId) {
+                    item.classList.remove('selected');
+                    if (option) option.selected = false;
+                }
+            }
+        });
     }
 
     function prepararNuevoContrato() {

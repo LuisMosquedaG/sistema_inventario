@@ -44,6 +44,8 @@
     }
     .icon-action:hover { color: #00b8b9; transform: scale(1.15); background-color: transparent !important; }
     .icon-action-success:hover { color: #28a745 !important; }
+    .icon-action-alta:hover { color: #00b8b9 !important; }
+    .icon-action-danger:hover { color: #dc3545 !important; }
     
     .btn-delete-circle {
         width: 32px;
@@ -148,7 +150,6 @@
                     <thead>
                         <tr>
                             <th class="text-center" style="width: 80px;">Acciones</th>
-                            <th class="text-center">Sucursal</th>
                             <th class="text-center">Reg. Patronal</th>
                             <th>Razón Social / RFC</th>
                             <th class="text-center">Periodo</th>
@@ -161,7 +162,10 @@
                         {% for imp in importaciones %}
                         <tr>
                             <td class="text-center">
-                                <div class="d-flex justify-content-center gap-2">
+                                <div class="d-flex justify-content-center gap-1">
+                                    <span class="icon-action icon-action-alta" title="Alta de Empleados" onclick="altaEmpleadosSUA({{ imp.id }})">
+                                        <i class="bi bi-person-plus"></i>
+                                    </span>
                                     <span class="icon-action icon-action-success" title="Exportar Excel" onclick="location.href='{% url 'exportar_sua_excel' imp.id %}'">
                                         <i class="bi bi-file-earmark-excel"></i>
                                     </span>
@@ -173,26 +177,19 @@
                                     </span>
                                 </div>
                             </td>
-                            <td class="text-center">
-                                <span class="badge bg-secondary bg-opacity-10 text-secondary border" style="font-size: 0.7rem;">{{ imp.sucursal.nombre|default:"Global" }}</span>
-                            </td>
-                            <td class="text-center small font-monospace">{{ imp.registro_patronal }}</td>
+                            <td class="text-center text-muted small">{{ imp.registro_patronal }}</td>
                             <td>
-                                <div class="fw-bold text-dark">{{ imp.nombre_razon_social }}</div>
-                                <div class="text-muted small font-monospace" style="font-size: 0.7rem;">{{ imp.rfc_empresa }}</div>
+                                <div class="fw-bold text-dark small">{{ imp.nombre_razon_social }}</div>
+                                <div class="text-muted small" style="font-size: 0.65rem;">{{ imp.rfc_empresa }}</div>
                             </td>
                             <td class="text-center text-muted small">{{ imp.periodo }}</td>
-                            <td class="text-center text-muted small">
-                                <span class="badge {% if imp.tipo == 'bimestral' %}bg-info{% else %}bg-success{% endif %} bg-opacity-10 text-dark border">
-                                    {{ imp.get_tipo_display }}
-                                </span>
-                            </td>
+                            <td class="text-center text-muted small">{{ imp.get_tipo_display }}</td>
                             <td class="text-center text-muted small">{{ imp.total_trabajadores_unicos }}</td>
                             <td class="text-center text-muted small">{{ imp.fecha_importacion|date:"d/m/Y H:i" }}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="8" class="text-center py-5">
+                            <td colspan="7" class="text-center py-5">
                                 <i class="bi bi-file-earmark-pdf display-6 text-muted mb-2 d-block"></i>
                                 <span class="text-muted fst-italic small">No hay importaciones SUA registradas</span>
                             </td>
@@ -505,6 +502,26 @@
             if (data.success) {
                 alert(data.message);
                 location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    }
+
+    function altaEmpleadosSUA(id) {
+        if (!confirm('¿Deseas realizar el alta automática de los empleados detectados en esta cédula?\n\n- Se crearán registros con NSS, RFC, Nombre y SDI.\n- Se asignará el Beneficiario automáticamente si coincide con la Clave de Ubicación.')) return;
+        
+        fetch(`/recursos-humanos/sua/alta-empleados/${id}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                if (confirm('¿Deseas ir al módulo de empleados para ver los registros?')) {
+                    location.href = "{% url 'lista_empleados' %}";
+                }
             } else {
                 alert('Error: ' + data.error);
             }

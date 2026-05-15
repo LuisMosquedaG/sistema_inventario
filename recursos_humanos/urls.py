@@ -23,4 +23,5 @@ urlpatterns = [
     path('sua/obtener/<int:id>/', views.obtener_registro_sua_json, name='obtener_registro_sua_json'),
     path('sua/eliminar/<int:id>/', views.eliminar_sua_ajax, name='eliminar_sua_ajax'),
     path('sua/exportar/<int:id>/', views.exportar_sua_excel, name='exportar_sua_excel'),
+    path('sua/alta-empleados/<int:id>/', views.alta_empleados_sua_ajax, name='alta_empleados_sua_ajax'),
 ]

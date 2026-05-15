@@ -99,7 +99,9 @@
                             </td>
                             <td>
                                 <div class="fw-bold text-dark">{{ b.nombre_razon_social }}</div>
-                                <div class="text-muted small font-monospace">{{ b.rfc }}</div>
+                                <div class="text-muted small font-monospace" style="font-size: 0.7rem;">
+                                    {{ b.rfc }}{% if b.clave %} | <span class="text-brand fw-bold">{{ b.clave }}</span>{% endif %}
+                                </div>
                             </td>
                             <td>
                                 <div class="text-dark small">{{ b.correo }}</div>
@@ -155,11 +157,15 @@
                         <div class="card-body p-3 bg-white rounded-3">
                             <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">1. Identificación y Contacto</h6>
                             <div class="row g-3">
-                                <div class="col-md-4">
+                                <div class="col-md-3">
+                                    <label class="form-label-custom">Clave</label>
+                                    <input type="text" name="clave" id="inputClave" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-3">
                                     <label class="form-label-custom">RFC <span class="text-danger">*</span></label>
                                     <input type="text" name="rfc" id="inputRFC" class="form-control form-control-sm" required maxlength="13" style="text-transform: uppercase;">
                                 </div>
-                                <div class="col-md-8">
+                                <div class="col-md-6">
                                     <label class="form-label-custom">Nombre / Razón Social <span class="text-danger">*</span></label>
                                     <input type="text" name="nombre_razon_social" id="inputRazonSocial" class="form-control form-control-sm" required>
                                 </div>
@@ -250,6 +256,7 @@
             if (res.success) {
                 const data = res.data;
                 document.getElementById('beneficiario_id').value = data.id;
+                document.getElementById('inputClave').value = data.clave;
                 document.getElementById('inputRFC').value = data.rfc;
                 document.getElementById('inputRazonSocial').value = data.nombre_razon_social;
                 document.getElementById('inputRegPatronal').value = data.registro_patronal;
