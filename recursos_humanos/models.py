@@ -318,13 +318,31 @@ class TrabajadorSUA(models.Model):
     incapacidades = models.IntegerField(default=0)
     ausentismos = models.IntegerField(default=0)
     
-    # RCV
+    # RCV (Para Bimestral)
     retiro = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     patronal = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Patronal / Cesantía Pat.")
     obrera = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Obrera / Cesantía Obr.")
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Subtotal / Suma RCV")
     
-    # Infonavit
+    # IMSS Mensual (Nuevos campos)
+    cuota_fija = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    excedente_patronal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    excedente_obrera = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    prestaciones_dinero_patronal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    prestaciones_dinero_obrera = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    gastos_medicos_patronal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    gastos_medicos_obrera = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    riesgo_trabajo_cuota = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    invalidez_vida_patronal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    invalidez_vida_obrera = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    guarderias_ps = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    # Reutilizamos patronal, obrera y subtotal para los totales de la línea mensual si es necesario, 
+    # o creamos campos específicos para evitar confusión con RCV.
+    imss_patronal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    imss_obrera = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    imss_subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    
+    # Infonavit (Bimestral)
     aportacion_patronal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     tipo_valor_infonavit = models.CharField(max_length=20, blank=True, null=True, verbose_name="% o $ o FD")
     amortizacion = models.DecimalField(max_digits=12, decimal_places=2, default=0)

@@ -347,7 +347,7 @@ def lista_contratos(request):
             Q(contratista__nombre_razon_social__icontains=q) |
             Q(empleados__nombre__icontains=q) |
             Q(empleados__apellido_paterno__icontains=q) |
-            Q(notes__icontains=q)
+            Q(notas__icontains=q)
         ).distinct()
     
     if empleado_id:
@@ -461,7 +461,7 @@ def editar_contrato_ajax(request, id):
             con.objeto_contrato = data.get('objeto_contrato')
             con.monto_contrato = Decimal(data.get('monto_contrato', '0'))
             con.fecha_inicio = data.get('fecha_inicio')
-            con.fecha_fin = data.get('fecha_fin') or None
+            con.fecha_fin = data.get('fecha_fin') or None,
             con.vigencia_contrato = data.get('vigencia_contrato') or None
             con.num_estimado_trabajadores = int(data.get('num_estimado_trabajadores', 0))
             con.estado = data.get('estado')
@@ -583,11 +583,11 @@ def lista_beneficiarios(request):
     beneficiarios = Beneficiario.objects.filter(empresa=empresa_actual).order_by('nombre_razon_social')
     q = request.GET.get('q', ''); sucursal_id = request.GET.get('sucursal', '')
     if q:
-        beneficiarios = beneficiarios.filter(Q(nombre_razon_social__icontains=q) | Q(rfc__icontains=q) | Q(correo__icontains=q))
-    if sucursal_id: beneficiarios = beneficiarios.filter(sucursal_id=sucursal_id)
+        beneficiarios = beneficiaries.filter(Q(nombre_razon_social__icontains=q) | Q(rfc__icontains=q) | Q(correo__icontains=q))
+    if sucursal_id: beneficiarios = beneficiaries.filter(sucursal_id=sucursal_id)
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
     return render(request, 'recursos_humanos/lista_beneficiarios.html', {
-        'beneficiarios': beneficiarios, 'sucursales': sucursales, 'empresa': empresa_actual, 'filtros': {'q': q, 'sucursal': sucursal_id}
+        'beneficiarios': beneficiaries, 'sucursales': sucursales, 'empresa': empresa_actual, 'filtros': {'q': q, 'sucursal': sucursal_id}
     })
 
 @login_required(login_url='/login/')
@@ -787,28 +787,21 @@ def importar_sua_ajax(request):
                 l_clean = line.replace('$', '').strip()
                 if not l_clean: continue
 
-                # PARO DEFINITIVO REFORZADO:
-                # Si la línea tiene palabras de resumen contable O bloques de subrayado, cerramos contexto.
                 if re.search(r'TOTAL\s+DE\s+(DÍAS|COTIZACIONES|RCV|INFONAVIT)', l_clean.upper()) or \
                    re.search(r'([_-]\s?){7,}', l_clean):
                     current_worker_info = None
-                    # Si es la sección final de totales, activamos el stop general
                     if re.search(r'TOTAL\s+DE\s+COTIZACIONES', l_clean.upper()) or "TOTALES" in l_clean.upper():
                         stop_workers = True 
                     continue
                 
                 if stop_workers: continue
 
-                # Detección de Identidad (L1) con soporte para espacios en ubicación
                 nss_match = re.search(r'(\d{2}-\d{2}-\d{2}-\d{4}-\d)', l_clean)
                 if nss_match:
                     nss = nss_match.group(1)
-                    # Buscamos el RFC/CURP que siempre rodea al nombre y antecede a la ubicación
                     m_rfc = re.search(r'\s([A-Z0-9]{13,18})\s', l_clean)
                     if m_rfc:
                         rfc = m_rfc.group(1)
-                        # El nombre está entre el NSS y el RFC
-                        # La ubicación está después del RFC
                         parts_nss = l_clean.split(nss)
                         if len(parts_nss) > 1:
                             parts_rfc = parts_nss[1].split(rfc)
@@ -823,17 +816,10 @@ def importar_sua_ajax(request):
                                 continue
 
                 if current_worker_info:
-                    # Detectar cabecera de movimiento
                     m_header = re.match(r'^([^0-9\s,]{2,})?\s*(\d{2}/\d{2}/\d{4})?\s*(.*)', l_clean, re.I)
-                    
-                    clave_mov = '-'
-                    fecha_mov = ''
-                    resto_linea = l_clean
-
-                    if m_header:
-                        clave_mov = m_header.group(1).strip().rstrip(',') if m_header.group(1) else '-'
-                        fecha_mov = m_header.group(2) or ''
-                        resto_linea = m_header.group(3).strip()
+                    clave_mov = m_header.group(1).strip().rstrip(',') if m_header and m_header.group(1) else '-'
+                    fecha_mov = m_header.group(2) or '' if m_header else ''
+                    resto_linea = m_header.group(3).strip() if m_header else l_clean
 
                     tokens = re.findall(r'\$?\s*[\d\.,]+%?|FD', resto_linea)
                     tokens = [t.replace(',', '').strip() for t in tokens if t.strip()]
@@ -841,9 +827,6 @@ def importar_sua_ajax(request):
                     clave_limpia = clave_mov.lower()
                     es_movimiento_puro = (clave_limpia in ['baja', 'reingreso', 'modificación', 'alta'] and fecha_mov != "")
                     
-                    # VALIDACIÓN CRÍTICA SUGERIDA: 
-                    # 1. El token 0 (Días) no puede ser de más de 2 dígitos (máx 99).
-                    # 2. Debe haber un SDI válido en el token 1.
                     try:
                         dias_val = int(float(tokens[0]))
                         tiene_sdi = len(tokens) >= 2 and re.match(r'^\d+\.?\d*$', tokens[1]) and float(tokens[1]) > 0
@@ -852,11 +835,6 @@ def importar_sua_ajax(request):
                         es_movimiento_datos = False
 
                     if es_movimiento_puro or es_movimiento_datos:
-                        cred_viv, tipo_cred, fecha_cred = "", "", ""
-                        cred_match = re.search(r'(\d{10})\s+([A-Z]+)\s+(\d{2}/\d{2}/\d{4})$', resto_linea)
-                        if cred_match:
-                            cred_viv, tipo_cred, fecha_cred = cred_match.groups()
-
                         trabajador_data = {
                             'importacion': importacion,
                             'nss': current_worker_info['nss'],
@@ -865,12 +843,7 @@ def importar_sua_ajax(request):
                             'clave_ubicacion': current_worker_info['clave_u'],
                             'clave_mov': clave_mov,
                             'fecha_mov': fecha_mov,
-                            'cred_vivienda': cred_viv,
-                            'tipo_mov_credito': tipo_cred,
-                            'fecha_mov_credito': fecha_cred,
                             'dias': 0, 'sdi': 0, 'licencias': 0, 'incapacidades': 0, 'ausentismos': 0,
-                            'retiro': 0, 'patronal': 0, 'obrera': 0, 'subtotal': 0,
-                            'aportacion_patronal': 0, 'tipo_valor_infonavit': '-', 'amortizacion': 0, 'suma_infonavit': 0,
                             'total_general': 0
                         }
 
@@ -878,50 +851,54 @@ def importar_sua_ajax(request):
                             try:
                                 trabajador_data.update({
                                     'dias': dias_val,
-                                    'sdi': Decimal(tokens[1])
+                                    'sdi': Decimal(tokens[1]),
+                                    'licencias': int(float(tokens[2])), 
+                                    'incapacidades': int(float(tokens[3])), 
+                                    'ausentismos': int(float(tokens[4]))
                                 })
-                                if len(tokens) >= 5:
-                                    trabajador_data.update({
-                                        'licencias': int(float(tokens[2])), 
-                                        'incapacidades': int(float(tokens[3])), 
-                                        'ausentismos': int(float(tokens[4]))
-                                    })
-                                if len(tokens) >= 9:
-                                    trabajador_data.update({
-                                        'retiro': Decimal(tokens[5]), 
-                                        'patronal': Decimal(tokens[6]),
-                                        'obrera': Decimal(tokens[7]), 
-                                        'subtotal': Decimal(tokens[8])
-                                    })
-                                if len(tokens) >= 13:
-                                    trabajador_data.update({
-                                        'aportacion_patronal': Decimal(tokens[9]),
-                                        'tipo_valor_infonavit': tokens[10],
-                                        'amortizacion': Decimal(tokens[11]),
-                                        'suma_infonavit': Decimal(tokens[12])
-                                    })
-                                elif len(tokens) == 12:
-                                    trabajador_data.update({
-                                        'aportacion_patronal': Decimal(tokens[9]),
-                                        'tipo_valor_infonavit': '-',
-                                        'amortizacion': Decimal(tokens[10]),
-                                        'suma_infonavit': Decimal(tokens[11])
-                                    })
-                                elif len(tokens) == 11:
-                                    trabajador_data.update({
-                                        'aportacion_patronal': Decimal(tokens[9]),
-                                        'tipo_valor_infonavit': '-',
-                                        'amortizacion': Decimal('0.00'),
-                                        'suma_infonavit': Decimal(tokens[10])
-                                    })
                                 
-                                trabajador_data['total_general'] = trabajador_data['subtotal'] + trabajador_data['suma_infonavit']
+                                if tipo_importacion == 'mensual':
+                                    # Formato Mensual: C.F., Exc.Pat, Exc.Obr, P.D.Pat, P.D.Obr, G.M.P.Pat, G.M.P.Obr, R.T., I.V.Pat, I.V.Obr, G.P.S, Pat, Obr, Subtotal
+                                    if len(tokens) >= 19:
+                                        trabajador_data.update({
+                                            'cuota_fija': Decimal(tokens[5]),
+                                            'excedente_patronal': Decimal(tokens[6]),
+                                            'excedente_obrera': Decimal(tokens[7]),
+                                            'prestaciones_dinero_patronal': Decimal(tokens[8]),
+                                            'prestaciones_dinero_obrera': Decimal(tokens[9]),
+                                            'gastos_medicos_patronal': Decimal(tokens[10]),
+                                            'gastos_medicos_obrera': Decimal(tokens[11]),
+                                            'riesgo_trabajo_cuota': Decimal(tokens[12]),
+                                            'invalidez_vida_patronal': Decimal(tokens[13]),
+                                            'invalidez_vida_obrera': Decimal(tokens[14]),
+                                            'guarderias_ps': Decimal(tokens[15]),
+                                            'imss_patronal': Decimal(tokens[16]),
+                                            'imss_obrera': Decimal(tokens[17]),
+                                            'imss_subtotal': Decimal(tokens[18]),
+                                            'total_general': Decimal(tokens[18])
+                                        })
+                                else:
+                                    # Formato Bimestral
+                                    if len(tokens) >= 9:
+                                        trabajador_data.update({
+                                            'retiro': Decimal(tokens[5]), 
+                                            'patronal': Decimal(tokens[6]),
+                                            'obrera': Decimal(tokens[7]), 
+                                            'subtotal': Decimal(tokens[8])
+                                        })
+                                    if len(tokens) >= 13:
+                                        trabajador_data.update({
+                                            'aportacion_patronal': Decimal(tokens[9]),
+                                            'tipo_valor_infonavit': tokens[10],
+                                            'amortizacion': Decimal(tokens[11]),
+                                            'suma_infonavit': Decimal(tokens[12])
+                                        })
+                                    trabajador_data['total_general'] = trabajador_data.get('subtotal', 0) + trabajador_data.get('suma_infonavit', 0)
                             except: pass
 
                         TrabajadorSUA.objects.create(**trabajador_data)
                         created_count += 1
                     else:
-                        # Si encontramos TOTAL o algo que no cuadra con días/SDI, cerramos contexto
                         if not nss_match:
                             current_worker_info = None
 
@@ -944,79 +921,76 @@ def obtener_registro_sua_json(request, id):
     try:
         imp = ImportacionSUA.objects.get(id=id, empresa=empresa_actual)
         trabajadores = []
+        
+        # Totales adaptables
         totales = {
-            'dias': 0, 'retiro': 0, 'patronal_rcv': 0, 'obrera_rcv': 0, 'total_rcv': 0,
-            'ap_pat_inf': 0, 'tipo_val_inf': 0, 'amortiz': 0, 'total_inf': 0, 'total_general': 0
+            'dias': 0, 'total_general': 0,
+            # Bimestral
+            'retiro': 0, 'patronal_rcv': 0, 'obrera_rcv': 0, 'total_rcv': 0,
+            'ap_pat_inf': 0, 'tipo_val_inf': 0, 'amortiz': 0, 'total_inf': 0,
+            # Mensual
+            'cuota_fija': 0, 'exc_pat': 0, 'exc_obr': 0, 'pd_pat': 0, 'pd_obr': 0,
+            'gm_pat': 0, 'gm_obr': 0, 'rt': 0, 'iv_pat': 0, 'iv_obr': 0, 'gps': 0,
+            'imss_pat': 0, 'imss_obr': 0, 'imss_sub': 0
         }
 
         for t in imp.trabajadores.all().order_by('id'):
-            trabajadores.append({
-                'nss': t.nss,
-                'nombre': t.nombre,
-                'rfc': t.rfc_curp,
-                'clave_u': t.clave_ubicacion,
-                'clave_mov': t.clave_mov,
-                'fecha_mov': t.fecha_mov,
-                'dias': t.dias,
-                'sdi': str(t.sdi),
-                'lic': t.licencias,
-                'inc': t.incapacidades,
-                'aus': t.ausentismos,
-                'retiro': str(t.retiro),
-                'patronal_rcv': str(t.patronal),
-                'obrera_rcv': str(t.obrera),
-                'total_rcv': str(t.subtotal),
-                'ap_pat_inf': str(t.aportacion_patronal),
-                'tipo_val_inf': t.tipo_valor_infonavit or '-',
-                'amortiz': str(t.amortizacion),
-                'total_inf': str(t.suma_infonavit),
-                'cred_viv': t.cred_vivienda or '',
-                'tipo_mov_cred': t.tipo_mov_credito or '',
-                'fecha_mov_cred': t.fecha_mov_credito or '',
-                'baja_clave': t.baja_clave or '',
-                'baja_fecha': t.baja_fecha or '',
+            t_dict = {
+                'nss': t.nss, 'nombre': t.nombre, 'rfc': t.rfc_curp, 'clave_u': t.clave_ubicacion,
+                'clave_mov': t.clave_mov, 'fecha_mov': t.fecha_mov, 'dias': t.dias, 'sdi': str(t.sdi),
                 'total_general': str(t.total_general),
-            })
-            totales['dias'] += t.dias
-            totales['retiro'] += float(t.retiro)
-            totales['patronal_rcv'] += float(t.patronal)
-            totales['obrera_rcv'] += float(t.obrera)
-            totales['total_rcv'] += float(t.subtotal)
-            totales['ap_pat_inf'] += float(t.aportacion_patronal)
+            }
             
-            if t.tipo_valor_infonavit and t.tipo_valor_infonavit != '-':
-                val_limpio = re.sub(r'[^\d.]', '', t.tipo_valor_infonavit)
-                if val_limpio:
-                    totales['tipo_val_inf'] += float(val_limpio)
+            if imp.tipo == 'mensual':
+                t_dict.update({
+                    'cf': str(t.cuota_fija), 'exc_pat': str(t.excedente_patronal), 'exc_obr': str(t.excedente_obrera),
+                    'pd_pat': str(t.prestaciones_dinero_patronal), 'pd_obr': str(t.prestaciones_dinero_obrera),
+                    'gm_pat': str(t.gastos_medicos_patronal), 'gm_obr': str(t.gastos_medicos_obrera),
+                    'rt': str(t.riesgo_trabajo_cuota), 'iv_pat': str(t.invalidez_vida_patronal),
+                    'iv_obr': str(t.invalidez_vida_obrera), 'gps': str(t.guarderias_ps),
+                    'imss_pat': str(t.imss_patronal), 'imss_obr': str(t.imss_obrera), 'imss_sub': str(t.imss_subtotal)
+                })
+                totales['cuota_fija'] += float(t.cuota_fija)
+                totales['exc_pat'] += float(t.excedente_patronal); totales['exc_obr'] += float(t.excedente_obrera)
+                totales['pd_pat'] += float(t.prestaciones_dinero_patronal); totales['pd_obr'] += float(t.prestaciones_dinero_obrera)
+                totales['gm_pat'] += float(t.gastos_medicos_patronal); totales['gm_obr'] += float(t.gastos_medicos_obrera)
+                totales['rt'] += float(t.riesgo_trabajo_cuota)
+                totales['iv_pat'] += float(t.invalidez_vida_patronal); totales['iv_obr'] += float(t.invalidez_vida_obrera)
+                totales['gps'] += float(t.guarderias_ps)
+                totales['imss_pat'] += float(t.imss_patronal); totales['imss_obr'] += float(t.imss_obrera); totales['imss_sub'] += float(t.imss_subtotal)
+            else:
+                t_dict.update({
+                    'retiro': str(t.retiro), 'patronal_rcv': str(t.patronal), 'obrera_rcv': str(t.obrera), 'total_rcv': str(t.subtotal),
+                    'ap_pat_inf': str(t.aportacion_patronal), 'tipo_val_inf': t.tipo_valor_infonavit or '-',
+                    'amortiz': str(t.amortizacion), 'total_inf': str(t.suma_infonavit),
+                    'cred_viv': t.cred_vivienda or '', 'tipo_mov_cred': t.tipo_mov_credito or '', 'fecha_mov_cred': t.fecha_mov_credito or ''
+                })
+                totales['retiro'] += float(t.retiro); totales['patronal_rcv'] += float(t.patronal); totales['obrera_rcv'] += float(t.obrera); totales['total_rcv'] += float(t.subtotal)
+                totales['ap_pat_inf'] += float(t.aportacion_patronal); totales['amortiz'] += float(t.amortizacion); totales['total_inf'] += float(t.suma_infonavit)
+                if t.tipo_valor_infonavit and t.tipo_valor_infonavit != '-':
+                    v_l = re.sub(r'[^\d.]', '', t.tipo_valor_infonavit)
+                    if v_l: totales['tipo_val_inf'] += float(v_l)
 
-            totales['amortiz'] += float(t.amortizacion)
-            totales['total_inf'] += float(t.suma_infonavit)
+            totales['dias'] += t.dias
             totales['total_general'] += float(t.total_general)
+            trabajadores.append(t_dict)
 
-        for key in totales:
-            if key == 'dias': totales[key] = int(totales[key])
-            else: totales[key] = "{:,.2f}".format(totales[key])
+        for k in totales:
+            if k == 'dias': totales[k] = int(totales[k])
+            else: totales[k] = "{:,.2f}".format(totales[k])
 
         data = {
             'empresa': {
-                'razon_social': imp.nombre_razon_social,
-                'rfc': imp.rfc_empresa,
-                'reg_patronal': imp.registro_patronal,
-                'actividad': limpiar_basura_header(imp.actividad),
-                'domicilio': limpiar_basura_header(imp.domicilio),
-                'cp': limpiar_basura_header(imp.cp),
-                'entidad': limpiar_basura_header(imp.entidad),
-                'periodo': limpiar_basura_header(imp.periodo),
-                'tipo': imp.get_tipo_display()
+                'razon_social': imp.nombre_razon_social, 'rfc': imp.rfc_empresa, 'reg_patronal': imp.registro_patronal,
+                'actividad': limpiar_basura_header(imp.actividad), 'domicilio': limpiar_basura_header(imp.domicilio),
+                'cp': limpiar_basura_header(imp.cp), 'entidad': limpiar_basura_header(imp.entidad),
+                'periodo': limpiar_basura_header(imp.periodo), 'tipo': imp.get_tipo_display(), 'tipo_raw': imp.tipo
             },
-            'trabajadores': trabajadores,
-            'totales': totales
+            'trabajadores': trabajadores, 'totales': totales
         }
         return JsonResponse({'success': True, 'data': data})
-    except ImportacionSUA.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'No se encontró la importación.'})
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+    except ImportacionSUA.DoesNotExist: return JsonResponse({'success': False, 'error': 'No se encontró la importación.'})
+    except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required(login_url='/login/')
 @require_POST
@@ -1027,10 +1001,8 @@ def eliminar_sua_ajax(request, id):
         imp = ImportacionSUA.objects.get(id=id, empresa=empresa_actual)
         imp.delete()
         return JsonResponse({'success': True, 'message': 'Registro eliminado correctamente.'})
-    except ImportacionSUA.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'No se encontró la importación.'})
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+    except ImportacionSUA.DoesNotExist: return JsonResponse({'success': False, 'error': 'No se encontró la importación.'})
+    except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required(login_url='/login/')
 @require_hr_permission('sua', 'ver')
@@ -1038,37 +1010,41 @@ def exportar_sua_excel(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
         imp = ImportacionSUA.objects.get(id=id, empresa=empresa_actual)
-        
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="SUA_{imp.periodo}_{imp.registro_patronal}.csv"'
         response.write(u'\ufeff'.encode('utf8'))
-        
         writer = csv.writer(response)
         writer.writerow(['REPORTE DE INTEGRACIÓN SUA'])
-        writer.writerow(['Empresa', imp.nombre_razon_social])
-        writer.writerow(['Registro Patronal', imp.registro_patronal])
-        writer.writerow(['Periodo', imp.periodo])
-        writer.writerow(['Tipo', imp.get_tipo_display()])
+        writer.writerow(['Empresa', imp.nombre_razon_social]); writer.writerow(['Registro Patronal', imp.registro_patronal])
+        writer.writerow(['Periodo', imp.periodo]); writer.writerow(['Tipo', imp.get_tipo_display()])
         writer.writerow([])
-        writer.writerow([
-            'NSS', 'Nombre', 'RFC/CURP', 'Ubicación', 'Movimiento', 'Fecha Mov.', 
-            'Días', 'SDI', 'Licencias', 'Incapacidad', 'Ausentismo',
-            'Retiro', 'Cesantía Pat.', 'Cesantía Obr.', 'Suma RCV',
-            'Ap. Pat. Infonavit', '% o $ o FD', 'Amortización', 'Suma Infonavit',
-            'Cred. Vivienda', 'Tipo Mov. Cred.', 'Fecha Mov. Cred.',
-            'Baja/Otros Mov.', 'Fecha Baja', 'Total General'
-        ])
+        
+        if imp.tipo == 'mensual':
+            headers = [
+                'NSS', 'Nombre', 'RFC/CURP', 'Ubicación', 'Movimiento', 'Fecha Mov.', 'Días', 'SDI',
+                'Lic.', 'Inc.', 'Aus.', 'C.F.', 'Exc. Pat.', 'Exc. Obr.', 'P.D. Pat.', 'P.D. Obr.', 'G.M.P. Pat.', 'G.M.P. Obr.', 
+                'R.T.', 'I.V. Pat.', 'I.V. Obr.', 'G.P.S.', 'Patronal', 'Obrera', 'Subtotal'
+            ]
+        else:
+            headers = [
+                'NSS', 'Nombre', 'RFC/CURP', 'Ubicación', 'Movimiento', 'Fecha Mov.', 'Días', 'SDI',
+                'Retiro', 'Patronal RCV', 'Obrera RCV', 'Suma RCV', 'Ap. Pat. Infonavit', '%/$ /FD', 'Amortización', 'Suma Infonavit', 'Total General'
+            ]
+        writer.writerow(headers)
         
         for t in imp.trabajadores.all().order_by('id'):
-            writer.writerow([
-                t.nss, t.nombre, t.rfc_curp, t.clave_ubicacion, t.clave_mov, t.fecha_mov,
-                t.dias, t.sdi, t.licencias, t.incapacidades, t.ausentismos,
-                t.retiro, t.patronal, t.obrera, t.subtotal,
-                t.aportacion_patronal, t.tipo_valor_infonavit or '-', t.amortizacion, t.suma_infonavit,
-                t.cred_vivienda, t.tipo_mov_credito, t.fecha_mov_credito,
-                t.baja_clave, t.baja_fecha, t.total_general
-            ])
-            
+            if imp.tipo == 'mensual':
+                writer.writerow([
+                    t.nss, t.nombre, t.rfc_curp, t.clave_ubicacion, t.clave_mov, t.fecha_mov, t.dias, t.sdi,
+                    t.licencias, t.incapacidades, t.ausentismos,
+                    t.cuota_fija, t.excedente_patronal, t.excedente_obrera, t.prestaciones_dinero_patronal, t.prestaciones_dinero_obrera,
+                    t.gastos_medicos_patronal, t.gastos_medicos_obrera, t.riesgo_trabajo_cuota, t.invalidez_vida_patronal, t.invalidez_vida_obrera,
+                    t.guarderias_ps, t.imss_patronal, t.imss_obrera, t.imss_subtotal
+                ])
+            else:
+                writer.writerow([
+                    t.nss, t.nombre, t.rfc_curp, t.clave_ubicacion, t.clave_mov, t.fecha_mov, t.dias, t.sdi,
+                    t.retiro, t.patronal, t.obrera, t.subtotal, t.aportacion_patronal, t.tipo_valor_infonavit, t.amortizacion, t.suma_infonavit, t.total_general
+                ])
         return response
-    except ImportacionSUA.DoesNotExist:
-        return HttpResponse("No se encontró la importación", status=404)
+    except ImportacionSUA.DoesNotExist: return HttpResponse("No se encontró la importación", status=404)
