@@ -343,7 +343,7 @@
                 if (tipo === 'mensual') {
                     thead.innerHTML = `
                         <tr>
-                            <th rowspan="2" class="ps-3" style="min-width: 220px;">Asegurado / RFC</th>
+                            <th rowspan="2" class="ps-3" style="min-width: 250px;">Asegurado / RFC / UBIC</th>
                             <th rowspan="2" class="text-center">Clave/Fecha</th>
                             <th rowspan="2" class="text-center">Días</th>
                             <th rowspan="2" class="text-end">SDI</th>
@@ -373,8 +373,8 @@
                         tbody.insertAdjacentHTML('beforeend', `
                             <tr>
                                 <td class="ps-3">
-                                    <div class="fw-bold">${t.nombre}</div>
-                                    <div class="text-muted small">${t.nss} | ${t.rfc}</div>
+                                    <div class="fw-bold text-dark" style="font-size: 0.72rem;">${t.nombre}</div>
+                                    <div class="text-muted small">${t.nss} | ${t.rfc} | ${t.clave_u}</div>
                                 </td>
                                 <td class="text-center small">${t.clave_mov}<br>${t.fecha_mov}</td>
                                 <td class="text-center">${t.dias}</td>

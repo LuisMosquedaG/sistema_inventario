@@ -21,7 +21,6 @@ from preferencias.permissions import require_hr_permission
 def limpiar_basura_header(texto):
     """Elimina textos innecesarios del encabezado del SUA como convenios y versiones."""
     if not texto: return ""
-    # Patrones que suelen "pegarse" al final de los campos reales
     patrones = [
         r'Convenio\s+de\s+Re?mbolso:.*',
         r'Aportación\s+Patronal:.*',
@@ -747,6 +746,23 @@ def importar_sua_ajax(request):
                 m_per = re.search(r'(?:Período|Bimestre)\s+de\s+Proceso:\s*([\w\d-]+)', line, re.I)
                 if m_per: periodo_val = m_per.group(1).strip()
 
+        # Validación de Duplicados
+        periodo_final = limpiar_basura_header(periodo_val).strip()
+        razon_final = nom_razon_val.strip()
+        reg_pat_final = reg_pat_val.strip()
+        
+        if ImportacionSUA.objects.filter(
+            empresa=empresa_actual,
+            periodo=periodo_final,
+            nombre_razon_social=razon_final,
+            registro_patronal=reg_pat_final,
+            tipo=tipo_importacion
+        ).exists():
+            return JsonResponse({
+                'success': False, 
+                'error': f'Error: Esta cédula ya fue registrada (Periodo: {periodo_final}, Empresa: {razon_final}, Tipo: {tipo_importacion.upper()}).'
+            })
+
         total_reporte = 0
         m_total_rep = re.search(r'Total\s+de\s+cotizaciones:\s*(\d+)', full_text, re.I)
         if m_total_rep:
@@ -771,7 +787,7 @@ def importar_sua_ajax(request):
                 subdelegacion_imss=limpiar_basura_header(subdeleg_val),
                 municipio_alcaldia=limpiar_basura_header(mun_alc_val),
                 prima_rt=prima_val,
-                periodo=limpiar_basura_header(periodo_val),
+                periodo=periodo_final,
                 tipo=tipo_importacion
             )
 
@@ -788,42 +804,53 @@ def importar_sua_ajax(request):
                 l_clean = line.strip()
                 if not l_clean: continue
 
-                if re.search(r'TOTAL\s+DE\s+(DÍAS|COTIZACIONES|RCV|INFONAVIT)', l_clean.upper()) or \
-                   re.search(r'([_-]\s?){8,}', l_clean) or \
-                   l_clean.upper().startswith("TOTALES"):
+                # Detector de Paro
+                if "TOTAL DE COTIZACIONES" in l_clean.upper() or \
+                   "TOTALES" in l_clean.upper() or \
+                   re.search(r'([_-]\s?){15,}', l_clean):
                     current_worker_info = None
-                    if "TOTAL DE COTIZACIONES" in l_clean.upper() or "TOTALES" in l_clean.upper():
-                        stop_workers = True
+                    stop_workers = True 
                     continue
                 if stop_workers: continue
 
+                # Identificar Asegurado (L1: NSS -> NOMBRE -> RFC -> UBICACION)
                 nss_match = re.search(r'(\d{2}-\d{2}-\d{2}-\d{4}-\d)', l_clean)
                 if nss_match:
-                    nss = nss_match.group(1)
-                    # Lógica de división robusta para identidad
-                    m_rfc = re.search(r'([A-Z0-9]{10,18})', l_clean.split(nss)[-1])
-                    if m_rfc:
-                        rfc = m_rfc.group(1)
-                        remainder = l_clean.split(nss)[-1]
-                        nombre = remainder.split(rfc)[0].strip()
-                        post_rfc = remainder.split(rfc)[-1].strip()
-                        ubic_parts = re.split(r'\s{2,}', post_rfc)
-                        ubic = ubic_parts[0].strip()
+                    nss_val = nss_match.group(1)
+                    current_worker_info = None # Limpiar contexto anterior
+                    
+                    remainder = l_clean.split(nss_val)[-1].strip()
+                    
+                    # Split por 2 o más espacios (layout=True usualmente respeta esto)
+                    parts = [p.strip() for p in re.split(r'\s{2,}', remainder) if p.strip()]
+                    
+                    # Fallback: Si no hay bloques claros, buscar el RFC como ancla
+                    if len(parts) < 2:
+                        rfc_match = re.search(r'([A-Z][A-Z0-9]{9,17})', remainder)
+                        if rfc_match:
+                            rfc = rfc_match.group(1)
+                            nombre = remainder.split(rfc)[0].strip()
+                            # Reconstruir parts para el flujo siguiente
+                            parts = [nombre, rfc] + re.split(r'\s+', remainder.split(rfc)[-1].strip())
+
+                    if len(parts) >= 2:
+                        nombre = parts[0]
+                        rfc = parts[1]
+                        ubic = "-"
+                        data_start_idx = 2
                         
-                        current_worker_info = {
-                            'nss': nss, 'nombre': nombre, 'rfc': rfc, 'clave_u': ubic
-                        }
-                        nss_encontrados.add(nss)
-                        l_clean = "  ".join(ubic_parts[1:]).strip()
-                    else:
-                        parts = [p.strip() for p in re.split(r'\s{2,}', l_clean.split(nss)[-1]) if p.strip()]
-                        if len(parts) >= 2:
+                        # Si el tercer bloque NO parece ser el número de días (1-2 dígitos), es la ubicación
+                        if len(parts) > 2 and not re.match(r'^\d{1,2}$', parts[2]):
+                            ubic = parts[2]
+                            data_start_idx = 3
+                        
+                        if nombre and len(rfc) >= 10:
                             current_worker_info = {
-                                'nss': nss, 'nombre': parts[0], 'rfc': parts[1],
-                                'clave_u': parts[2] if len(parts) > 2 else ""
+                                'nss': nss_val, 'nombre': nombre, 'rfc': rfc, 'clave_u': ubic
                             }
-                            nss_encontrados.add(nss)
-                            l_clean = "  ".join(parts[3:]).strip()
+                            nss_encontrados.add(nss_val)
+                            # Actualizar l_clean para capturar datos en la misma línea
+                            l_clean = "  ".join(parts[data_start_idx:]).strip()
 
                 if current_worker_info:
                     m_header = re.match(r'^([^0-9\s,]{2,})?\s*(\d{2}/\d{2}/\d{4})?\s*(.*)', l_clean, re.I)
@@ -832,15 +859,24 @@ def importar_sua_ajax(request):
                     resto_linea = m_header.group(3).strip() if m_header else l_clean
 
                     tokens = re.findall(r'\$?\s*[\d\.,]+%?|FD', resto_linea)
-                    tokens = [t.replace(',', '').strip() for t in tokens if t.strip()]
+                    # Limpiar $ y comas de los números
+                    tokens = [t.replace(',', '').replace('$', '').strip() for t in tokens if t.strip()]
 
                     clave_limpia = clave_mov.lower()
                     es_movimiento_puro = (clave_limpia in ['baja', 'reingreso', 'modificación', 'alta'] and fecha_mov != "")
                     
                     try:
-                        dias_val = int(float(tokens[0]))
-                        tiene_sdi = len(tokens) >= 2 and re.match(r'^\d+\.?\d*$', tokens[1]) and float(tokens[1]) > 0
+                        # Si el primer token es FD, lo saltamos para buscar Días
+                        num_idx = 0
+                        if tokens[num_idx] == 'FD': num_idx += 1
+                        
+                        dias_val = int(float(tokens[num_idx]))
+                        tiene_sdi = len(tokens) > (num_idx + 1) and re.match(r'^\d+\.?\d*$', tokens[num_idx+1]) and float(tokens[num_idx+1]) > 0
                         es_movimiento_datos = (dias_val <= 99 and tiene_sdi)
+                        
+                        if es_movimiento_datos:
+                            # Re-alinear tokens si hubo FD
+                            if num_idx > 0: tokens = tokens[num_idx:]
                     except:
                         es_movimiento_datos = False
 
@@ -860,7 +896,7 @@ def importar_sua_ajax(request):
                         if es_movimiento_datos:
                             try:
                                 trabajador_data.update({
-                                    'dias': dias_val,
+                                    'dias': int(float(tokens[0])),
                                     'sdi': Decimal(tokens[1]),
                                     'licencias': int(float(tokens[2])), 
                                     'incapacidades': int(float(tokens[3])), 
@@ -887,7 +923,6 @@ def importar_sua_ajax(request):
                                             'total_general': Decimal(tokens[18])
                                         })
                                 else:
-                                    # Adaptable para Bimestral (13 vs 10 tokens)
                                     if len(tokens) >= 13:
                                         trabajador_data.update({
                                             'retiro': Decimal(tokens[5]), 'patronal': Decimal(tokens[6]), 'obrera': Decimal(tokens[7]), 'subtotal': Decimal(tokens[8]),
@@ -912,7 +947,7 @@ def importar_sua_ajax(request):
                             current_worker_info = None
 
             if created_count == 0:
-                raise Exception("No se detectaron trabajadores válidos.")
+                raise Exception("No se detectaron trabajadores válidos. Verifique que el archivo sea una Cédula original del SUA.")
             
             unique_count = len(nss_encontrados)
             msg_validacion = ""
