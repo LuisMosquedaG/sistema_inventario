@@ -84,8 +84,11 @@
             <span class="section-subtitle">Gestión masiva de importaciones y reportes de cuotas</span>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
-            <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalImportarSUA">
-                <i class="bi bi-file-earmark-arrow-up me-1"></i> Importar SUA
+            <button class="btn btn-brand text-white btn-pro shadow-sm" onclick="abrirModalImportar('bimestral')">
+                <i class="bi bi-file-earmark-arrow-up me-1"></i> + Sua bim
+            </button>
+            <button class="btn btn-outline-brand btn-pro shadow-sm" onclick="abrirModalImportar('mensual')">
+                <i class="bi bi-file-earmark-arrow-up me-1"></i> + Sua mes
             </button>
         </div>
     </div>
@@ -131,6 +134,7 @@
                             <th class="text-center">Reg. Patronal</th>
                             <th>Razón Social / RFC</th>
                             <th class="text-center">Periodo</th>
+                            <th class="text-center">Tipo</th>
                             <th class="text-center">Trabajadores</th>
                             <th class="text-center">Fecha Importación</th>
                         </tr>
@@ -160,12 +164,17 @@
                                 <div class="text-muted small font-monospace" style="font-size: 0.7rem;">{{ imp.rfc_empresa }}</div>
                             </td>
                             <td class="text-center text-muted small">{{ imp.periodo }}</td>
+                            <td class="text-center text-muted small">
+                                <span class="badge {% if imp.tipo == 'bimestral' %}bg-info{% else %}bg-success{% endif %} bg-opacity-10 text-dark border">
+                                    {{ imp.get_tipo_display }}
+                                </span>
+                            </td>
                             <td class="text-center text-muted small">{{ imp.total_trabajadores_unicos }}</td>
                             <td class="text-center text-muted small">{{ imp.fecha_importacion|date:"d/m/Y H:i" }}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="7" class="text-center py-5">
+                            <td colspan="8" class="text-center py-5">
                                 <i class="bi bi-file-earmark-pdf display-6 text-muted mb-2 d-block"></i>
                                 <span class="text-muted fst-italic small">No hay importaciones SUA registradas</span>
                             </td>
@@ -231,7 +240,7 @@
                             <table class="table table-sm table-hover mb-0" id="tablaTrabajadores" style="font-size: 0.72rem;">
                                 <thead class="bg-light sticky-top">
                                     <tr>
-                                        <th class="ps-3" rowspan="2" style="min-width: 200px;">NSS / Nombre / RFC</th>
+                                        <th class="ps-3" rowspan="2" style="min-width: 250px;">NSS / Nombre / RFC</th>
                                         <th class="text-center" rowspan="2" style="width: 90px;">Clave / Fecha</th>
                                         <th class="text-center" rowspan="2" style="width: 50px;">Días</th>
                                         <th class="text-end" rowspan="2" style="width: 90px;">SDI</th>
@@ -289,6 +298,7 @@
             </div>
             <form id="formImportarSUA" enctype="multipart/form-data">
                 {% csrf_token %}
+                <input type="hidden" name="tipo" id="importTipo" value="bimestral">
                 <div class="modal-body p-4">
                     <p class="text-muted small mb-4">Selecciona el archivo PDF de la Cédula de Determinación de Cuotas del SUA.</p>
                     <div class="import-zone" onclick="document.getElementById('archivo_sua').click()">
@@ -323,13 +333,20 @@
         }
     }
 
+    function abrirModalImportar(tipo) {
+        document.getElementById('importTipo').value = tipo;
+        const titulo = tipo === 'bimestral' ? 'Importar Reporte SUA Bimestral' : 'Importar Reporte SUA Mensual';
+        document.querySelector('#modalImportarSUA .modal-title').innerText = titulo;
+        new bootstrap.Modal(document.getElementById('modalImportarSUA')).show();
+    }
+
     function verDetalleImportacion(id) {
         fetch(`/recursos-humanos/sua/obtener/${id}/`)
         .then(r => r.json())
         .then(res => {
             if (res.success) {
                 const d = res.data;
-                document.getElementById('subtituloDetalle').innerText = `Periodo: ${d.empresa.periodo}`;
+                document.getElementById('subtituloDetalle').innerText = `Periodo: ${d.empresa.periodo} | Tipo: ${d.empresa.tipo}`;
                 document.getElementById('infoRegPatronal').innerText = d.empresa.reg_patronal;
                 document.getElementById('infoRFC').innerText = d.empresa.rfc;
                 document.getElementById('infoNomRazon').innerText = d.empresa.razon_social;

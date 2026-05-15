@@ -284,7 +284,7 @@ class ImportacionSUA(models.Model):
     prima_rt = models.TextField(blank=True, null=True, verbose_name="Aportación Patronal / Prima RT")
 
     periodo = models.CharField(max_length=150, verbose_name="Periodo del Reporte")
-
+    tipo = models.CharField(max_length=20, choices=[('mensual', 'Mensual'), ('bimestral', 'Bimestral')], default='mensual')
     fecha_importacion = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

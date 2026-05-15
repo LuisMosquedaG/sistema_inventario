@@ -21,7 +21,6 @@ from preferencias.permissions import require_hr_permission
 def limpiar_basura_header(texto):
     """Elimina textos innecesarios del encabezado del SUA como convenios y versiones."""
     if not texto: return ""
-    # Patrones que suelen "pegarse" al final de los campos reales
     patrones = [
         r'Convenio\s+de\s+Re?mbolso:.*',
         r'Aportación\s+Patronal:.*',
@@ -348,7 +347,7 @@ def lista_contratos(request):
             Q(contratista__nombre_razon_social__icontains=q) |
             Q(empleados__nombre__icontains=q) |
             Q(empleados__apellido_paterno__icontains=q) |
-            Q(notas__icontains=q)
+            Q(notes__icontains=q)
         ).distinct()
     
     if empleado_id:
@@ -687,6 +686,7 @@ def lista_sua(request):
 def importar_sua_ajax(request):
     empresa_actual = get_empresa_actual(request)
     pdf_file = request.FILES.get('archivo_sua')
+    tipo_importacion = request.POST.get('tipo', 'bimestral')
     if not pdf_file: return JsonResponse({'success': False, 'error': 'No se proporcionó ningún archivo.'})
     try:
         if not pdfplumber: return JsonResponse({'success': False, 'error': 'Librería pdfplumber no instalada.'})
@@ -746,7 +746,6 @@ def importar_sua_ajax(request):
                 m_per = re.search(r'(?:Período|Bimestre)\s+de\s+Proceso:\s*([\w\d-]+)', line, re.I)
                 if m_per: periodo_val = m_per.group(1).strip()
 
-        # Extraer total esperado del reporte para validación
         total_reporte = 0
         m_total_rep = re.search(r'Total\s+de\s+cotizaciones:\s*(\d+)', full_text, re.I)
         if m_total_rep:
@@ -771,7 +770,8 @@ def importar_sua_ajax(request):
                 subdelegacion_imss=limpiar_basura_header(subdeleg_val),
                 municipio_alcaldia=limpiar_basura_header(mun_alc_val),
                 prima_rt=prima_val,
-                periodo=limpiar_basura_header(periodo_val)
+                periodo=limpiar_basura_header(periodo_val),
+                tipo=tipo_importacion
             )
 
             current_worker_info = None
@@ -787,43 +787,43 @@ def importar_sua_ajax(request):
                 l_clean = line.replace('$', '').strip()
                 if not l_clean: continue
 
-                # DETECTOR DE FIN DE LISTADO AGRESIVO
-                # Buscamos palabras que indican el inicio de los totales de pie de página
+                # PARO DEFINITIVO REFORZADO:
+                # Si la línea tiene palabras de resumen contable O bloques de subrayado, cerramos contexto.
                 if re.search(r'TOTAL\s+DE\s+(DÍAS|COTIZACIONES|RCV|INFONAVIT)', l_clean.upper()) or \
-                   re.search(r'([_-]\s?){10,}', l_clean):
+                   re.search(r'([_-]\s?){7,}', l_clean):
                     current_worker_info = None
-                    stop_workers = True 
+                    # Si es la sección final de totales, activamos el stop general
+                    if re.search(r'TOTAL\s+DE\s+COTIZACIONES', l_clean.upper()) or "TOTALES" in l_clean.upper():
+                        stop_workers = True 
                     continue
                 
                 if stop_workers: continue
 
-                # ¿Es una línea de identidad (NSS)?
+                # Detección de Identidad (L1) con soporte para espacios en ubicación
                 nss_match = re.search(r'(\d{2}-\d{2}-\d{2}-\d{4}-\d)', l_clean)
                 if nss_match:
                     nss = nss_match.group(1)
-                    # Tomamos lo que sigue al NSS y dividimos por bloques de espacios
-                    remainder = l_clean.split(nss)[-1].strip()
-                    parts = re.split(r'\s{2,}', remainder)
-                    
-                    if len(parts) >= 2:
-                        current_worker_info = {
-                            'nss': nss,
-                            'nombre': parts[0].strip(),
-                            'rfc': parts[1].strip() if len(parts) >= 2 else "",
-                            'clave_u': " ".join(parts[2:]).strip() if len(parts) >= 3 else ""
-                        }
-                        nss_encontrados.add(current_worker_info['nss'])
-                        continue
-                    else:
-                        current_worker_info = None 
-                        continue
-
-                # RESET de contexto si encontramos encabezados conocidos
-                if any(k in l_clean.upper() for k in KEYWORDS_EXCLUDE):
-                    current_worker_info = None
-                    continue
+                    # Buscamos el RFC/CURP que siempre rodea al nombre y antecede a la ubicación
+                    m_rfc = re.search(r'\s([A-Z0-9]{13,18})\s', l_clean)
+                    if m_rfc:
+                        rfc = m_rfc.group(1)
+                        # El nombre está entre el NSS y el RFC
+                        # La ubicación está después del RFC
+                        parts_nss = l_clean.split(nss)
+                        if len(parts_nss) > 1:
+                            parts_rfc = parts_nss[1].split(rfc)
+                            if len(parts_rfc) > 1:
+                                current_worker_info = {
+                                    'nss': nss,
+                                    'nombre': parts_rfc[0].strip(),
+                                    'rfc': rfc,
+                                    'clave_u': parts_rfc[1].strip()
+                                }
+                                nss_encontrados.add(nss)
+                                continue
 
                 if current_worker_info:
+                    # Detectar cabecera de movimiento
                     m_header = re.match(r'^([^0-9\s,]{2,})?\s*(\d{2}/\d{2}/\d{4})?\s*(.*)', l_clean, re.I)
                     
                     clave_mov = '-'
@@ -841,13 +841,17 @@ def importar_sua_ajax(request):
                     clave_limpia = clave_mov.lower()
                     es_movimiento_puro = (clave_limpia in ['baja', 'reingreso', 'modificación', 'alta'] and fecha_mov != "")
                     
-                    # VALIDACIÓN CRÍTICA: Un movimiento real suele tener SDI en el token 1
-                    # Las líneas de totales suelen tener pocos números o números muy grandes.
-                    tiene_sdi = len(tokens) >= 2 and re.match(r'^\d+\.?\d*$', tokens[1]) and float(tokens[1]) > 0
-                    # Para ser una fila de datos completa debe tener al menos 11 tokens (desde Días hasta Suma Inf)
-                    tiene_datos_completos = len(tokens) >= 11
+                    # VALIDACIÓN CRÍTICA SUGERIDA: 
+                    # 1. El token 0 (Días) no puede ser de más de 2 dígitos (máx 99).
+                    # 2. Debe haber un SDI válido en el token 1.
+                    try:
+                        dias_val = int(float(tokens[0]))
+                        tiene_sdi = len(tokens) >= 2 and re.match(r'^\d+\.?\d*$', tokens[1]) and float(tokens[1]) > 0
+                        es_movimiento_datos = (dias_val <= 99 and tiene_sdi)
+                    except:
+                        es_movimiento_datos = False
 
-                    if es_movimiento_puro or tiene_datos_completos:
+                    if es_movimiento_puro or es_movimiento_datos:
                         cred_viv, tipo_cred, fecha_cred = "", "", ""
                         cred_match = re.search(r'(\d{10})\s+([A-Z]+)\s+(\d{2}/\d{2}/\d{4})$', resto_linea)
                         if cred_match:
@@ -870,10 +874,10 @@ def importar_sua_ajax(request):
                             'total_general': 0
                         }
 
-                        if len(tokens) >= 2:
+                        if es_movimiento_datos:
                             try:
                                 trabajador_data.update({
-                                    'dias': int(float(tokens[0])),
+                                    'dias': dias_val,
                                     'sdi': Decimal(tokens[1])
                                 })
                                 if len(tokens) >= 5:
@@ -889,7 +893,6 @@ def importar_sua_ajax(request):
                                         'obrera': Decimal(tokens[7]), 
                                         'subtotal': Decimal(tokens[8])
                                     })
-                                
                                 if len(tokens) >= 13:
                                     trabajador_data.update({
                                         'aportacion_patronal': Decimal(tokens[9]),
@@ -918,7 +921,7 @@ def importar_sua_ajax(request):
                         TrabajadorSUA.objects.create(**trabajador_data)
                         created_count += 1
                     else:
-                        # Si no es un movimiento válido y no es una línea de identidad, cerramos el trabajador
+                        # Si encontramos TOTAL o algo que no cuadra con días/SDI, cerramos contexto
                         if not nss_match:
                             current_worker_info = None
 
@@ -1003,7 +1006,8 @@ def obtener_registro_sua_json(request, id):
                 'domicilio': limpiar_basura_header(imp.domicilio),
                 'cp': limpiar_basura_header(imp.cp),
                 'entidad': limpiar_basura_header(imp.entidad),
-                'periodo': limpiar_basura_header(imp.periodo)
+                'periodo': limpiar_basura_header(imp.periodo),
+                'tipo': imp.get_tipo_display()
             },
             'trabajadores': trabajadores,
             'totales': totales
@@ -1044,6 +1048,7 @@ def exportar_sua_excel(request, id):
         writer.writerow(['Empresa', imp.nombre_razon_social])
         writer.writerow(['Registro Patronal', imp.registro_patronal])
         writer.writerow(['Periodo', imp.periodo])
+        writer.writerow(['Tipo', imp.get_tipo_display()])
         writer.writerow([])
         writer.writerow([
             'NSS', 'Nombre', 'RFC/CURP', 'Ubicación', 'Movimiento', 'Fecha Mov.', 
