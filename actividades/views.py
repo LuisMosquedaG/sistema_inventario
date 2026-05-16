@@ -1,11 +1,17 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.forms.models import model_to_dict
+from django.contrib.auth.decorators import login_required
+from django.db.models import Q
+from django.db import transaction
+import openpyxl
+from datetime import datetime, time
+from io import BytesIO
+
 from .models import Actividad
 from clientes.models import Cliente, ContactoCliente
 from cotizaciones.models import Cotizacion
-from django.contrib.auth.decorators import login_required
 from panel.models import Empresa
 from preferencias.permissions import require_sales_permission
 
@@ -20,7 +26,215 @@ def get_empresa_actual(request):
             return None
     return None
 
-from django.db.models import Q
+@login_required(login_url='/login/')
+@require_sales_permission('actividades', 'crear', json_response=True)
+def importar_actividades_ajax(request):
+    if request.method == 'POST' and request.FILES.get('archivo_actividades'):
+        empresa_actual = get_empresa_actual(request)
+        excel_file = request.FILES['archivo_actividades']
+        
+        try:
+            wb = openpyxl.load_workbook(excel_file)
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
+            
+            if len(rows) < 2:
+                return JsonResponse({'success': False, 'error': 'El archivo está vacío o no tiene datos.'})
+            
+            data_rows = rows[1:]
+            creados = 0
+            errores = []
+            
+            with transaction.atomic():
+                for idx, row in enumerate(data_rows, start=2):
+                    if not any(row): continue # Saltar filas vacías
+                    
+                    try:
+                        nombre = str(row[0] or '').strip()
+                        fecha_raw = row[1]
+                        hora_inicio_raw = row[2]
+                        hora_fin_raw = row[3]
+                        tipo = str(row[4] or 'llamada').strip().lower()
+                        prioridad = str(row[5] or 'media').strip().lower()
+                        cliente_input = str(row[6] or '').strip()
+                        descripcion = str(row[7] or '').strip()
+
+                        if not nombre or not fecha_raw or not hora_inicio_raw or not cliente_input:
+                            errores.append(f"Fila {idx}: Actividad, Fecha, Hora Inicio y Cliente son obligatorios.")
+                            continue
+
+                        # Procesar Fecha
+                        if isinstance(fecha_raw, datetime):
+                            fecha = fecha_raw.date()
+                        elif isinstance(fecha_raw, str):
+                            fecha = datetime.strptime(fecha_raw, '%Y-%m-%d').date()
+                        else:
+                            fecha = fecha_raw
+
+                        # Procesar Horas
+                        def parse_time(t):
+                            if isinstance(t, time): return t
+                            if isinstance(t, datetime): return t.time()
+                            if isinstance(t, str): return datetime.strptime(t, '%H:%M').time()
+                            return t
+
+                        hora_inicio = parse_time(hora_inicio_raw)
+                        hora_fin = parse_time(hora_fin_raw) if hora_fin_raw else None
+
+                        # Buscar Cliente
+                        cliente = None
+                        if cliente_input.isdigit():
+                            cliente = Cliente.objects.filter(id=int(cliente_input), empresa=empresa_actual).first()
+                        
+                        if not cliente:
+                            cliente = Cliente.objects.filter(
+                                Q(nombre__icontains=cliente_input) | 
+                                Q(apellidos__icontains=cliente_input) | 
+                                Q(razon_social__icontains=cliente_input),
+                                empresa=empresa_actual
+                            ).first()
+
+                        if not cliente:
+                            errores.append(f"Fila {idx}: No se encontró el cliente '{cliente_input}'.")
+                            continue
+
+                        # Crear Actividad
+                        Actividad.objects.create(
+                            empresa=empresa_actual,
+                            nombre=nombre,
+                            fecha=fecha,
+                            hora_inicio=hora_inicio,
+                            hora_fin=hora_fin,
+                            tipo=tipo,
+                            prioridad=prioridad,
+                            cliente=cliente,
+                            descripcion=descripcion,
+                            estado='pendiente' # Por defecto al importar
+                        )
+                        creados += 1
+
+                    except Exception as row_err:
+                        errores.append(f"Fila {idx}: {str(row_err)}")
+            
+            if creados == 0 and errores:
+                return JsonResponse({'success': False, 'error': f"No se pudo importar ninguna actividad. Errores: {', '.join(errores[:3])}..."})
+
+            msg = f'Importación exitosa. {creados} actividades creadas.'
+            if errores:
+                msg += f' ({len(errores)} filas con error)'
+                
+            return JsonResponse({'success': True, 'message': msg})
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f'Error al procesar el archivo: {str(e)}'})
+            
+    return JsonResponse({'success': False, 'error': 'Solicitud inválida.'})
+
+@login_required(login_url='/login/')
+@require_sales_permission('actividades', 'crear')
+def descargar_plantilla_actividades(request):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Plantilla Actividades"
+    
+    # Encabezados basados en los campos del modelo Actividad
+    headers = [
+        'Actividad', 'Fecha (YYYY-MM-DD)', 'Hora Inicio (HH:MM)', 'Hora Fin (HH:MM)', 
+        'Tipo (llamada/visita/reunion/envio/seguimiento)', 
+        'Prioridad (baja/media/alta/urgente)', 
+        'Cliente (Nombre o ID)', 'Descripcion'
+    ]
+    
+    ws.append(headers)
+    
+    # Ajustar ancho de columnas
+    for col_idx, header in enumerate(headers, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = len(header) + 5
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="Plantilla_Actividades.xlsx"'
+    wb.save(response)
+    return response
+
+@login_required(login_url='/login/')
+@require_sales_permission('actividades', 'ver')
+def exportar_actividades_excel(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return HttpResponse("No autorizado", status=403)
+
+    # --- LÓGICA DE FILTRADO (Igual que lista_actividades) ---
+    q = request.GET.get('q', '')
+    cliente_id = request.GET.get('cliente_id', '')
+    actividad_nombre = request.GET.get('actividad', '')
+    fecha = request.GET.get('fecha', '')
+    tipo = request.GET.get('tipo', '')
+    prioridad = request.GET.get('prioridad', '')
+    estado = request.GET.get('estado', '')
+    sucursal_id_filtro = request.GET.get('sucursal', '')
+
+    actividades = Actividad.objects.filter(empresa=empresa_actual).select_related('cliente', 'contacto', 'cotizacion', 'sucursal').order_by('-fecha', '-hora_inicio')
+
+    if q:
+        actividades = actividades.filter(
+            Q(nombre__icontains=q) |
+            Q(cliente__razon_social__icontains=q) |
+            Q(cliente__nombre__icontains=q) |
+            Q(cliente__apellidos__icontains=q) |
+            Q(tipo__icontains=q) |
+            Q(prioridad__icontains=q) |
+            Q(estado__icontains=q)
+        )
+    if cliente_id and cliente_id != 'all':
+        actividades = actividades.filter(cliente_id=cliente_id)
+    if actividad_nombre:
+        actividades = actividades.filter(nombre__icontains=actividad_nombre)
+    if fecha:
+        try:
+            actividades = actividades.filter(fecha=fecha)
+        except:
+            pass
+    if tipo:
+        actividades = actividades.filter(tipo=tipo)
+    if prioridad:
+        actividades = actividades.filter(prioridad=prioridad)
+    if estado:
+        actividades = actividades.filter(estado=estado)
+    if sucursal_id_filtro:
+        actividades = actividades.filter(sucursal_id=sucursal_id_filtro)
+
+    # --- Generación del Excel ---
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Reporte de Actividades"
+
+    headers = [
+        'ID', 'Actividad', 'Fecha', 'Hora Inicio', 'Hora Fin', 'Tipo', 'Prioridad',
+        'Cliente', 'Contacto', 'Cotización', 'Estado', 'Descripción', 'Sucursal', 'Fecha Creación'
+    ]
+    ws.append(headers)
+
+    for a in actividades:
+        cliente_str = a.cliente.razon_social if a.cliente.razon_social else f"{a.cliente.nombre} {a.cliente.apellidos}"
+        contacto_str = a.contacto.nombre_completo if a.contacto else "N/A"
+        cotizacion_str = a.cotizacion.folio_completo if a.cotizacion else "N/A"
+        sucursal_str = a.sucursal.nombre if a.sucursal else "N/A"
+        
+        ws.append([
+            a.id, a.nombre, a.fecha.strftime('%Y-%m-%d'), a.hora_inicio.strftime('%H:%M'),
+            a.hora_fin.strftime('%H:%M') if a.hora_fin else "N/A", a.get_tipo_display(),
+            a.get_prioridad_display(), cliente_str, contacto_str, cotizacion_str,
+            a.get_estado_display(), a.descripcion, sucursal_str, a.creado_en.strftime('%Y-%m-%d %H:%M')
+        ])
+
+    # Ajustar ancho de columnas
+    for col_idx, header in enumerate(headers, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = 20
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="Reporte_Actividades_{empresa_actual.nombre}.xlsx"'
+    wb.save(response)
+    return response
 
 # 1. VISTA PRINCIPAL (LISTA)
 @login_required(login_url='/login/')

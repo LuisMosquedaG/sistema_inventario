@@ -278,7 +278,7 @@ document.addEventListener('click', function(e) {
 window.verCotizacion = function(id) {
     const tablaVer = document.getElementById('ver_tabla_cuerpo');
     tablaVer.innerHTML = '<tr><td colspan="4" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</td></tr>';
-    fetch(`/api/cotizaciones/${id}/`)
+    fetch(`/cotizaciones/api/${id}/`)
         .then(response => response.json())
         .then(data => {
             if(data.error) { alert(data.error); return; }
@@ -329,7 +329,7 @@ window.cargarParaEdicion = function(id) {
     if (btnAgregarArt) btnAgregarArt.innerHTML = '<i class="bi bi-plus-lg"></i>';
     document.querySelector('.modal-title').innerHTML = '<i class="bi bi-pencil-square me-2" style="color: #00b8b9;"></i> Editar Cotización #' + id;
     form.action = `/cotizaciones/actualizar/${id}/`;
-    fetch(`/api/cotizaciones/${id}/`)
+    fetch(`/cotizaciones/api/${id}/`)
         .then(response => response.json())
         .then(data => {
             if(data.error) { alert(data.error); return; }

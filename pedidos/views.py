@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from .models import Pedido, DetallePedido
 from django.contrib import messages
 from clientes.models import Cliente, ContactoCliente
@@ -10,13 +10,38 @@ from django.contrib.auth.decorators import login_required
 from panel.models import Empresa
 from django.utils import timezone
 import json
-from django.db.models import F, Sum
+import openpyxl
+from django.db.models import F, Sum, Q
 from django.db import transaction
 from collections import defaultdict
 from solicitudcompras.models import SolicitudCompra, DetalleSolicitudCompra
 from produccion.models import OrdenProduccion
 from notificaciones.utils import crear_notificacion
 from preferencias.permissions import require_sales_permission
+
+@login_required(login_url='/login/')
+@require_sales_permission('pedidos', 'crear')
+def descargar_plantilla_pedidos(request):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Plantilla Pedidos"
+    
+    # Encabezados: Referencia ayuda a agrupar productos en un mismo pedido
+    headers = [
+        'Referencia (Ej: PED-001)', 'Cliente (Nombre o ID)', 'Fecha (YYYY-MM-DD)', 
+        'Producto (Nombre o ID)', 'Cantidad', 'Precio Unitario', 'Notas'
+    ]
+    
+    ws.append(headers)
+    
+    # Ajustar ancho de columnas
+    for col_idx, header in enumerate(headers, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = len(header) + 5
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="Plantilla_Pedidos.xlsx"'
+    wb.save(response)
+    return response
 
 # --- HELPER MULTI-TENANCY ---
 def get_empresa_actual(request):
@@ -28,6 +53,194 @@ def get_empresa_actual(request):
         except Empresa.DoesNotExist:
             return None
     return None
+
+@login_required(login_url='/login/')
+@require_sales_permission('pedidos', 'crear', json_response=True)
+def importar_pedidos_ajax(request):
+    if request.method == 'POST' and request.FILES.get('archivo_pedidos'):
+        empresa_actual = get_empresa_actual(request)
+        excel_file = request.FILES['archivo_pedidos']
+        
+        try:
+            from datetime import datetime
+            wb = openpyxl.load_workbook(excel_file)
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
+            
+            if len(rows) < 2:
+                return JsonResponse({'success': False, 'error': 'El archivo está vacío o no tiene datos.'})
+            
+            data_rows = rows[1:]
+            
+            # Agrupar por Referencia para crear un solo pedido con varias partidas
+            pedidos_data = {}
+            for idx, row in enumerate(data_rows, start=2):
+                if not any(row): continue
+                ref = str(row[0] or f"TEMP-{idx}").strip()
+                if ref not in pedidos_data:
+                    pedidos_data[ref] = {
+                        'cliente_input': str(row[1] or '').strip(),
+                        'fecha_raw': row[2],
+                        'notas': str(row[6] or '').strip(),
+                        'items': []
+                    }
+                pedidos_data[ref]['items'].append({
+                    'prod_input': str(row[3] or '').strip(),
+                    'cantidad': row[4] or 1,
+                    'precio': row[5] or 0
+                })
+
+            creados = 0
+            errores = []
+            
+            with transaction.atomic():
+                # Obtener sucursal de la sesión
+                sucursal_obj = None
+                sucursal_id = request.session.get('sucursal_id')
+                if sucursal_id:
+                    from preferencias.models import Sucursal
+                    try:
+                        sucursal_obj = Sucursal.objects.get(id=sucursal_id, empresa=empresa_actual)
+                    except Sucursal.DoesNotExist:
+                        pass
+
+                for ref, data in pedidos_data.items():
+                    try:
+                        # Buscar Cliente
+                        cliente = None
+                        if data['cliente_input'].isdigit():
+                            cliente = Cliente.objects.filter(id=int(data['cliente_input']), empresa=empresa_actual).first()
+                        if not cliente:
+                            cliente = Cliente.objects.filter(
+                                Q(nombre__icontains=data['cliente_input']) | 
+                                Q(apellidos__icontains=data['cliente_input']) | 
+                                Q(razon_social__icontains=data['cliente_input']),
+                                empresa=empresa_actual
+                            ).first()
+                        
+                        if not cliente:
+                            errores.append(f"Ref {ref}: No se encontró el cliente '{data['cliente_input']}'.")
+                            continue
+
+                        # Crear Pedido
+                        pedido = Pedido.objects.create(
+                            empresa=empresa_actual,
+                            cliente=cliente,
+                            vendedor=request.user,
+                            sucursal=sucursal_obj,
+                            estado='borrador',
+                            notas=data['notas']
+                        )
+
+                        # Crear Detalles
+                        for item in data['items']:
+                            producto = None
+                            if item['prod_input'].isdigit():
+                                producto = Producto.objects.filter(id=int(item['prod_input']), empresa=empresa_actual).first()
+                            if not producto:
+                                producto = Producto.objects.filter(nombre__icontains=item['prod_input'], empresa=empresa_actual).first()
+                            
+                            if producto:
+                                DetallePedido.objects.create(
+                                    pedido=pedido,
+                                    producto=producto,
+                                    cantidad_solicitada=item['cantidad'],
+                                    precio_unitario=item['precio'],
+                                    estado_linea='pendiente'
+                                )
+                        
+                        creados += 1
+                    except Exception as e:
+                        errores.append(f"Ref {ref}: {str(e)}")
+            
+            if creados == 0 and errores:
+                return JsonResponse({'success': False, 'error': f"No se pudo importar nada. Errores: {', '.join(errores[:2])}"})
+
+            msg = f'Importación exitosa. {creados} pedidos creados.'
+            if errores: msg += f' ({len(errores)} errores)'
+            return JsonResponse({'success': True, 'message': msg})
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f'Error al procesar: {str(e)}'})
+            
+    return JsonResponse({'success': False, 'error': 'Solicitud inválida.'})
+
+@login_required(login_url='/login/')
+@require_sales_permission('pedidos', 'ver')
+def exportar_pedidos_excel(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return HttpResponse("No autorizado", status=403)
+
+    # --- LÓGICA DE FILTRADO (Igual que dashboard_pedidos) ---
+    q = request.GET.get('q', '')
+    folio_pedido = request.GET.get('folio_pedido', '')
+    folio_cotizacion = request.GET.get('folio_cotizacion', '')
+    cliente_id = request.GET.get('cliente_id', '')
+    contacto_id = request.GET.get('contacto_id', '')
+    estado = request.GET.get('estado', '')
+    sucursal_id_filtro = request.GET.get('sucursal', '')
+
+    pedidos = Pedido.objects.filter(empresa=empresa_actual).select_related('cliente', 'vendedor', 'sucursal').order_by('-fecha_creacion')
+
+    if q:
+        pedidos = pedidos.filter(
+            Q(id__icontains=q) | Q(cotizacion_origen_id__icontains=q) |
+            Q(cliente__razon_social__icontains=q) | Q(cliente__nombre__icontains=q) |
+            Q(cliente__apellidos__icontains=q) | Q(estado__icontains=q)
+        )
+    if folio_pedido:
+        pedidos = pedidos.filter(id__icontains=folio_pedido)
+    if folio_cotizacion:
+        pedidos = pedidos.filter(cotizacion_origen_id__icontains=folio_cotizacion)
+    if cliente_id and cliente_id != 'all':
+        pedidos = pedidos.filter(cliente_id=cliente_id)
+    if contacto_id and contacto_id != 'all':
+        pedidos = pedidos.filter(contacto_id=contacto_id)
+    if estado:
+        pedidos = pedidos.filter(estado=estado)
+    if sucursal_id_filtro:
+        pedidos = pedidos.filter(sucursal_id=sucursal_id_filtro)
+
+    # --- Generación del Excel ---
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Reporte de Pedidos"
+
+    headers = [
+        'ID', 'Cliente', 'Vendedor', 'Sucursal', 'Cotización Origen', 
+        'Fecha Creación', 'Estado', 'Total', 'Saldo Pendiente', 'Notas'
+    ]
+    ws.append(headers)
+
+    for p in pedidos:
+        cliente_str = p.cliente.razon_social if p.cliente.razon_social else f"{p.cliente.nombre} {p.cliente.apellidos}"
+        ws.append([
+            p.id, cliente_str, p.vendedor.get_full_name() or p.vendedor.username,
+            p.sucursal.nombre if p.sucursal else "Principal",
+            p.cotizacion_origen_id or "N/A",
+            p.fecha_creacion.strftime('%Y-%m-%d %H:%M'),
+            p.get_estado_display(),
+            p.total_pedido,
+            p.saldo_pendiente,
+            p.notas
+        ])
+
+    # Ajustar ancho de columnas
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except: pass
+        ws.column_dimensions[column].width = max_length + 2
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="Reporte_Pedidos_{empresa_actual.nombre}.xlsx"'
+    wb.save(response)
+    return response
 
 @login_required(login_url='/login/')
 @transaction.atomic

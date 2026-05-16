@@ -3,7 +3,7 @@ from .models import Cotizacion, DetalleCotizacion
 from django.contrib import messages
 from clientes.models import Cliente, ContactoCliente
 from core.models import Producto
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.forms.models import model_to_dict
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
@@ -11,6 +11,12 @@ from django.contrib.auth.decorators import login_required
 from panel.models import Empresa
 from notificaciones.utils import crear_notificacion
 from preferencias.permissions import require_sales_permission
+
+from django.db import transaction
+from django.db.models import Q
+import openpyxl
+from datetime import datetime
+from io import BytesIO
 
 # --- 1. FUNCIÓN AYUDANTE ESTÁNDAR ---
 def get_empresa_actual(request):
@@ -23,7 +29,213 @@ def get_empresa_actual(request):
             return None
     return None
 
-from django.db.models import Q
+@login_required(login_url='/login/')
+@require_sales_permission('cotizaciones', 'crear')
+def descargar_plantilla_cotizaciones(request):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Plantilla Cotizaciones"
+    
+    # Encabezados: Referencia ayuda a agrupar productos en una misma cotización
+    headers = [
+        'Referencia (Ej: COT-001)', 'Cliente (Nombre o ID)', 'Vigencia Inicio (YYYY-MM-DD)', 
+        'Vigencia Fin (YYYY-MM-DD)', 'Origen', 'Direccion Entrega', 
+        'Producto (Nombre o ID)', 'Cantidad', 'Precio Unitario'
+    ]
+    
+    ws.append(headers)
+    
+    # Ajustar ancho de columnas
+    for col_idx, header in enumerate(headers, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = len(header) + 5
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="Plantilla_Cotizaciones.xlsx"'
+    wb.save(response)
+    return response
+
+@login_required(login_url='/login/')
+@require_sales_permission('cotizaciones', 'ver')
+def exportar_cotizaciones_excel(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return HttpResponse("No autorizado", status=403)
+
+    # --- Filtrado ---
+    q = request.GET.get('q', '')
+    folio = request.GET.get('folio', '')
+    cliente_id = request.GET.get('cliente_id', '')
+    fecha = request.GET.get('fecha', '')
+    estado = request.GET.get('estado', '')
+    sucursal_id_filtro = request.GET.get('sucursal', '')
+
+    cotizaciones = Cotizacion.objects.filter(empresa=empresa_actual).select_related('cliente', 'vendedor', 'sucursal').order_by('-creado_en')
+
+    if q:
+        cotizaciones = cotizaciones.filter(
+            Q(id__icontains=q) | Q(cliente__razon_social__icontains=q) |
+            Q(cliente__nombre__icontains=q) | Q(cliente__apellidos__icontains=q) |
+            Q(origen__icontains=q) | Q(estado__icontains=q)
+        )
+    if folio:
+        cotizaciones = cotizaciones.filter(id__icontains=folio)
+    if cliente_id and cliente_id != 'all':
+        cotizaciones = cotizaciones.filter(cliente_id=cliente_id)
+    if fecha:
+        try: cotizaciones = cotizaciones.filter(fecha_inicio=fecha)
+        except: pass
+    if estado:
+        cotizaciones = cotizaciones.filter(estado=estado)
+    if sucursal_id_filtro:
+        cotizaciones = cotizaciones.filter(sucursal_id=sucursal_id_filtro)
+
+    # --- Generar Excel ---
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Reporte de Cotizaciones"
+
+    headers = [
+        'ID', 'Folio', 'Cliente', 'Vendedor', 'Inicio Vigencia', 'Fin Vigencia', 
+        'Origen', 'Estado', 'Total', 'Sucursal', 'Fecha Creación'
+    ]
+    ws.append(headers)
+
+    for c in cotizaciones:
+        cliente_str = c.cliente.razon_social if c.cliente.razon_social else f"{c.cliente.nombre} {c.cliente.apellidos}"
+        ws.append([
+            c.id, c.folio_completo, cliente_str, c.vendedor.get_full_name() or c.vendedor.username,
+            c.fecha_inicio.strftime('%Y-%m-%d'), c.fecha_fin.strftime('%Y-%m-%d'),
+            c.origen, c.get_estado_display(), c.calcular_total,
+            c.sucursal.nombre if c.sucursal else "Principal",
+            c.creado_en.strftime('%Y-%m-%d %H:%M')
+        ])
+
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except: pass
+        ws.column_dimensions[column].width = max_length + 2
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="Reporte_Cotizaciones_{empresa_actual.nombre}.xlsx"'
+    wb.save(response)
+    return response
+
+@login_required(login_url='/login/')
+@require_sales_permission('cotizaciones', 'crear', json_response=True)
+def importar_cotizaciones_ajax(request):
+    if request.method == 'POST' and request.FILES.get('archivo_cotizaciones'):
+        empresa_actual = get_empresa_actual(request)
+        excel_file = request.FILES['archivo_cotizaciones']
+        
+        try:
+            wb = openpyxl.load_workbook(excel_file)
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
+            
+            if len(rows) < 2:
+                return JsonResponse({'success': False, 'error': 'El archivo está vacío o no tiene datos.'})
+            
+            data_rows = rows[1:]
+            
+            # Agrupar por Referencia
+            cotizaciones_data = {}
+            for idx, row in enumerate(data_rows, start=2):
+                if not any(row): continue
+                ref = str(row[0] or f"TEMP-{idx}").strip()
+                if ref not in cotizaciones_data:
+                    cotizaciones_data[ref] = {
+                        'cliente_input': str(row[1] or '').strip(),
+                        'fecha_ini': row[2],
+                        'fecha_fin': row[3],
+                        'origen': str(row[4] or '').strip(),
+                        'direccion': str(row[5] or '').strip(),
+                        'items': []
+                    }
+                cotizaciones_data[ref]['items'].append({
+                    'prod_input': str(row[6] or '').strip(),
+                    'cantidad': row[7] or 1,
+                    'precio': row[8] or 0
+                })
+
+            creadas = 0
+            errores = []
+            
+            with transaction.atomic():
+                for ref, data in cotizaciones_data.items():
+                    try:
+                        # Buscar Cliente
+                        cliente = None
+                        if data['cliente_input'].isdigit():
+                            cliente = Cliente.objects.filter(id=int(data['cliente_input']), empresa=empresa_actual).first()
+                        if not cliente:
+                            cliente = Cliente.objects.filter(
+                                Q(nombre__icontains=data['cliente_input']) | 
+                                Q(apellidos__icontains=data['cliente_input']) | 
+                                Q(razon_social__icontains=data['cliente_input']),
+                                empresa=empresa_actual
+                            ).first()
+                        
+                        if not cliente:
+                            errores.append(f"Ref {ref}: No se encontró el cliente '{data['cliente_input']}'.")
+                            continue
+
+                        # Procesar Fechas
+                        def parse_date(d):
+                            if isinstance(d, datetime): return d.date()
+                            if isinstance(d, str): return datetime.strptime(d, '%Y-%m-%d').date()
+                            return d
+
+                        f_ini = parse_date(data['fecha_ini'])
+                        f_fin = parse_date(data['fecha_fin'])
+
+                        # Crear Cotización
+                        cotizacion = Cotizacion.objects.create(
+                            empresa=empresa_actual,
+                            cliente=cliente,
+                            vendedor=request.user,
+                            fecha_inicio=f_ini,
+                            fecha_fin=f_fin,
+                            origen=data['origen'],
+                            direccion_entrega=data['direccion'],
+                            estado='borrador'
+                        )
+
+                        # Crear Detalles
+                        for item in data['items']:
+                            producto = None
+                            if item['prod_input'].isdigit():
+                                producto = Producto.objects.filter(id=int(item['prod_input']), empresa=empresa_actual).first()
+                            if not producto:
+                                producto = Producto.objects.filter(nombre__icontains=item['prod_input'], empresa=empresa_actual).first()
+                            
+                            if producto:
+                                DetalleCotizacion.objects.create(
+                                    cotizacion=cotizacion,
+                                    producto=producto,
+                                    cantidad=item['cantidad'],
+                                    precio_unitario=item['precio']
+                                )
+                        
+                        creadas += 1
+                    except Exception as e:
+                        errores.append(f"Ref {ref}: {str(e)}")
+            
+            if creadas == 0 and errores:
+                return JsonResponse({'success': False, 'error': f"No se pudo importar nada. Errores: {', '.join(errores[:2])}"})
+
+            msg = f'Importación exitosa. {creadas} cotizaciones creadas.'
+            if errores: msg += f' ({len(errores)} errores)'
+            return JsonResponse({'success': True, 'message': msg})
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f'Error al procesar: {str(e)}'})
+            
+    return JsonResponse({'success': False, 'error': 'Solicitud inválida.'})
 
 @login_required(login_url='/login/')
 @require_sales_permission('cotizaciones', 'ver')

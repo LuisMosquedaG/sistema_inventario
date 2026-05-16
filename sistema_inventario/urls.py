@@ -16,7 +16,11 @@ from cotizaciones.views import (
     aprobar_cotizacion, recotizar, cancelar_cotizacion,
     imprimir_cotizacion
 )
-from clientes.views import dashboard_clientes, crear_cliente, obtener_cliente_json, actualizar_cliente, obtener_contactos_cliente, guardar_contactos_cliente
+from clientes.views import (
+    dashboard_clientes, crear_cliente, obtener_cliente_json, actualizar_cliente, 
+    obtener_contactos_cliente, guardar_contactos_cliente,
+    descargar_plantilla_clientes, importar_clientes_ajax, exportar_clientes_excel
+)
 from preferencias.views import (
     dashboard_preferencias, crear_usuario_ajax, crear_moneda_ajax,
     api_detalle_usuario, actualizar_usuario_ajax,
@@ -97,14 +101,7 @@ urlpatterns = [
     path('preferencias/', dashboard_preferencias, name='dashboard_preferencias'),
     
     # --- RUTAS DE COTIZACIONES ---
-    path('cotizaciones/crear/', crear_cotizacion, name='crear_cotizacion'),
-    path('api/cotizaciones/<int:cotizacion_id>/', obtener_cotizacion_json, name='obtener_cotizacion'),
-    path('cotizaciones/actualizar/<int:cotizacion_id>/', actualizar_cotizacion, name='actualizar_cotizacion'),
-    path('cotizaciones/aprobar/<int:cotizacion_id>/', aprobar_cotizacion, name='aprobar_cotizacion'),
-    path('cotizaciones/recotizar/<int:cotizacion_id>/', recotizar, name='recotizar'),
-    path('cotizaciones/cancelar/<int:cotizacion_id>/', cancelar_cotizacion, name='cancelar_cotizacion'),
-    path('cotizaciones/imprimir/<int:pk>/', imprimir_cotizacion, name='imprimir_cotizacion'),
-    path('cotizaciones/', dashboard_cotizaciones, name='dashboard_cotizaciones'),
+    path('cotizaciones/', include('cotizaciones.urls')),
 
     # --- RUTAS DE CLIENTES ---
     path('clientes/', dashboard_clientes, name='dashboard_clientes'),
@@ -113,6 +110,9 @@ urlpatterns = [
     path('clientes/actualizar/<int:cliente_id>/', actualizar_cliente, name='actualizar_cliente'),
     path('api/clientes/<int:cliente_id>/contactos/', obtener_contactos_cliente, name='obtener_contactos'),
     path('api/clientes/guardar/<int:cliente_id>/', guardar_contactos_cliente, name='guardar_contactos'),
+    path('clientes/plantilla/', descargar_plantilla_clientes, name='descargar_plantilla_clientes'),
+    path('clientes/importar/', importar_clientes_ajax, name='importar_clientes_ajax'),
+    path('clientes/exportar/', exportar_clientes_excel, name='exportar_clientes_excel'),
 
     # --- RUTAS DE PROVEEDORES ---
     path('proveedores/', dashboard_proveedores, name='dashboard_proveedores'),

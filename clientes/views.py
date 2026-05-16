@@ -7,8 +7,188 @@ from django.forms.models import model_to_dict
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 import json
+import openpyxl
+from django.http import HttpResponse, JsonResponse
+from io import BytesIO
+from django.db import transaction
 from panel.models import Empresa
 from preferencias.permissions import require_sales_permission
+
+# ... existing code ...
+
+@login_required(login_url='/login/')
+@require_sales_permission('clientes', 'crear')
+def descargar_plantilla_clientes(request):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Plantilla Clientes"
+    
+    # Encabezados basados en los campos del modelo y formulario
+    headers = [
+        'Nombre', 'Apellidos', 'Razon Social', 'RFC', 'Email', 'Telefono',
+        'Calle', 'Num Ext', 'Num Int', 'Colonia', 'Estado Ubicacion', 'CP',
+        'Envio Calle', 'Envio Num Ext', 'Envio Num Int', 'Envio Colonia', 
+        'Envio Estado', 'Envio CP', 'Envio Quien Recibe', 'Envio Telefono', 
+        'Envio Correo', 'Envio Notas', 'Estado (activo/suspendido/inactivo)', 
+        'Tipo (prospecto/cliente_nuevo/cliente_activo/cliente_inactivo/vip)', 
+        'Relacion (directo/referido/revendedor)'
+    ]
+    
+    ws.append(headers)
+    
+    # Ajustar ancho de columnas
+    for col_idx, header in enumerate(headers, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = len(header) + 5
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="Plantilla_Clientes.xlsx"'
+    wb.save(response)
+    return response
+
+@login_required(login_url='/login/')
+@require_sales_permission('clientes', 'crear', json_response=True)
+def importar_clientes_ajax(request):
+    if request.method == 'POST' and request.FILES.get('archivo_clientes'):
+        empresa_actual = get_empresa_actual(request)
+        excel_file = request.FILES['archivo_clientes']
+        
+        try:
+            wb = openpyxl.load_workbook(excel_file)
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
+            
+            if len(rows) < 2:
+                return JsonResponse({'success': False, 'error': 'El archivo está vacío o no tiene datos.'})
+            
+            data_rows = rows[1:]
+            
+            creados = 0
+            errores = []
+            
+            with transaction.atomic():
+                for idx, row in enumerate(data_rows, start=2):
+                    if not any(row): continue # Saltar filas vacías
+                    
+                    try:
+                        # Mapeo por posición (basado en la plantilla)
+                        cliente = Cliente(
+                            empresa=empresa_actual,
+                            nombre=str(row[0] or '').strip(),
+                            apellidos=str(row[1] or '').strip(),
+                            razon_social=str(row[2] or '').strip(),
+                            rfc=str(row[3] or '').strip().upper(),
+                            email=str(row[4] or '').strip(),
+                            telefono=str(row[5] or '').strip(),
+                            calle=str(row[6] or '').strip(),
+                            numero_ext=str(row[7] or '').strip(),
+                            numero_int=str(row[8] or '').strip(),
+                            colonia=str(row[9] or '').strip(),
+                            estado_dir=str(row[10] or '').strip(),
+                            cp=str(row[11] or '').strip(),
+                            envio_calle=str(row[12] or '').strip(),
+                            envio_numero_ext=str(row[13] or '').strip(),
+                            envio_numero_int=str(row[14] or '').strip(),
+                            envio_colonia=str(row[15] or '').strip(),
+                            envio_estado=str(row[16] or '').strip(),
+                            envio_cp=str(row[17] or '').strip(),
+                            envio_quien_recibe=str(row[18] or '').strip(),
+                            envio_telefono=str(row[19] or '').strip(),
+                            envio_correo=str(row[20] or '').strip(),
+                            envio_notas=str(row[21] or '').strip(),
+                            estado=(str(row[22] or 'activo')).strip().lower(),
+                            tipo=(str(row[23] or 'prospecto')).strip().lower(),
+                            relacion=(str(row[24] or 'directo')).strip().lower(),
+                        )
+                        
+                        if not cliente.nombre:
+                            errores.append(f"Fila {idx}: El nombre es obligatorio.")
+                            continue
+                            
+                        cliente.save()
+                        creados += 1
+                    except Exception as row_err:
+                        errores.append(f"Fila {idx}: {str(row_err)}")
+            
+            if creados == 0 and errores:
+                return JsonResponse({'success': False, 'error': f"No se pudo importar ningún cliente. Errores: {', '.join(errores[:3])}..."})
+
+            msg = f'Importación exitosa. {creados} clientes creados.'
+            if errores:
+                msg += f' ({len(errores)} filas con error)'
+                
+            return JsonResponse({'success': True, 'message': msg})
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f'Error al procesar el archivo: {str(e)}'})
+            
+    return JsonResponse({'success': False, 'error': 'Solicitud inválida.'})
+
+
+@login_required(login_url='/login/')
+@require_sales_permission('clientes', 'ver')
+def exportar_clientes_excel(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return HttpResponse("No autorizado", status=403)
+        
+    # --- Mismo filtrado que dashboard_clientes ---
+    q = request.GET.get('q', '')
+    cliente_id = request.GET.get('cliente_id', '')
+    email = request.GET.get('email', '')
+    tipo = request.GET.get('tipo', '')
+    relacion = request.GET.get('relacion', '')
+    estado = request.GET.get('estado', '')
+
+    clientes = Cliente.objects.filter(empresa=empresa_actual).order_by('-creado_en')
+
+    if q:
+        clientes = clientes.filter(
+            Q(nombre__icontains=q) | Q(apellidos__icontains=q) |
+            Q(razon_social__icontains=q) | Q(email__icontains=q) |
+            Q(rfc__icontains=q) | Q(telefono__icontains=q)
+        )
+    if cliente_id and cliente_id != 'all':
+        clientes = clientes.filter(id=cliente_id)
+    if email:
+        clientes = clientes.filter(email__icontains=email)
+    if tipo:
+        clientes = clientes.filter(tipo=tipo)
+    if relacion:
+        clientes = clientes.filter(relacion=relacion)
+    if estado:
+        clientes = clientes.filter(estado=estado)
+
+    # --- Generación del Excel ---
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Directorio de Clientes"
+    
+    headers = [
+        'ID', 'Nombre', 'Apellidos', 'Razon Social', 'RFC', 'Email', 'Telefono',
+        'Calle', 'Num Ext', 'Num Int', 'Colonia', 'Estado Ubicacion', 'CP',
+        'Envio Calle', 'Envio Num Ext', 'Envio Num Int', 'Envio Colonia', 
+        'Envio Estado', 'Envio CP', 'Envio Quien Recibe', 'Envio Telefono', 
+        'Envio Correo', 'Envio Notas', 'Estado', 'Tipo', 'Relacion', 'Fecha Registro'
+    ]
+    ws.append(headers)
+    
+    for c in clientes:
+        ws.append([
+            c.id, c.nombre, c.apellidos, c.razon_social, c.rfc, c.email, c.telefono,
+            c.calle, c.numero_ext, c.numero_int, c.colonia, c.estado_dir, c.cp,
+            c.envio_calle, c.envio_numero_ext, c.envio_numero_int, c.envio_colonia,
+            c.envio_estado, c.envio_cp, c.envio_quien_recibe, c.envio_telefono,
+            c.envio_correo, c.envio_notas, c.get_estado_display(), c.get_tipo_display(),
+            c.get_relacion_display(), c.creado_en.strftime('%d/%m/%Y %H:%M') if c.creado_en else ''
+        ])
+        
+    for col_idx, header in enumerate(headers, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = 20
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="Reporte_Clientes_{empresa_actual.subdominio}.xlsx"'
+    wb.save(response)
+    return response
 
 # --- 1. FUNCIÓN AYUDANTE ESTÁNDAR ---
 def get_empresa_actual(request):

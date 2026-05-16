@@ -4,6 +4,10 @@ from . import views
 urlpatterns = [
     path('', views.dashboard_pedidos, name='dashboard_pedidos'),
     path('crear/', views.crear_pedido_manual, name='crear_pedido_manual'),
+    path('importar/', views.importar_pedidos_ajax, name='importar_pedidos_ajax'),
+    path('descargar-plantilla/', views.descargar_plantilla_pedidos, name='descargar_plantilla_pedidos'),
+    path('exportar/', views.exportar_pedidos_excel, name='exportar_pedidos_excel'),
+    
     path('crear-desde-cotizacion/<int:cotizacion_id>/', views.crear_pedido_desde_cotizacion, name='crear_pedido_desde_cotizacion'),
     path('validar/<int:pedido_id>/', views.validar_pedido, name='validar_pedido'),
     path('api/detalle/<int:pedido_id>/', views.api_detalle_pedido, name='api_detalle_pedido'),
