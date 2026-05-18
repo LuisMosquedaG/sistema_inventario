@@ -3,6 +3,12 @@ from . import views
 
 urlpatterns = [
     path('', views.dashboard_produccion, name='dashboard_produccion'),
+    
+    # Importador y Exportador
+    path('descargar-plantilla/', views.descargar_plantilla_produccion, name='descargar_plantilla_produccion'),
+    path('importar/', views.importar_produccion_ajax, name='importar_produccion_ajax'),
+    path('exportar/', views.exportar_produccion_excel, name='exportar_produccion_excel'),
+
     path('crear/', views.crear_orden_produccion, name='crear_orden_produccion'),
     path('api/detalle/<int:orden_id>/', views.api_detalle_orden, name='api_detalle_orden'),
     path('api/obtener-test/<int:orden_id>/', views.api_obtener_test_orden, name='api_obtener_test_orden'),

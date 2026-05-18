@@ -1,17 +1,21 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.db import transaction
 from django.utils import timezone
 from django.core.paginator import Paginator
 from django.db.models import F, Q
 from decimal import Decimal
+import openpyxl
+from datetime import datetime
 from .models import OrdenProduccion, DetalleOrdenProduccion
 from core.models import Producto, DetalleReceta
 from almacenes.models import Inventario, Almacen
 from panel.models import Empresa
 from notificaciones.utils import crear_notificacion
+from django.contrib.auth.models import User
+from preferencias.permissions import require_production_permission, user_has_production_permission
 import json
 
 # --- HELPER MULTI-TENANCY ---
@@ -25,7 +29,237 @@ def get_empresa_actual(request):
             return None
     return None
 
-from preferencias.permissions import require_production_permission, user_has_production_permission
+# --- 1. IMPORTADOR Y EXPORTADOR ---
+
+@login_required(login_url='/login/')
+@require_production_permission('tablero_control', 'crear')
+def descargar_plantilla_produccion(request):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Plantilla Produccion"
+    
+    # Encabezados: Referencia ayuda a agrupar componentes en una misma OP
+    headers = [
+        'Referencia (Ej: OP-001)', 'Producto Final (Nombre o ID)', 'Cantidad Producir', 
+        'Almacen PT (ID o Nombre)', 'Almacen MP (ID o Nombre)', 'Responsable (User)',
+        'Componente (Nombre o ID)', 'Cantidad Componente', 'Notas'
+    ]
+    
+    ws.append(headers)
+    
+    # Ajustar ancho de columnas
+    for col_idx, header in enumerate(headers, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = len(header) + 5
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="Plantilla_Produccion.xlsx"'
+    wb.save(response)
+    return response
+
+@login_required(login_url='/login/')
+@require_production_permission('tablero_control', 'crear', json_response=True)
+def importar_produccion_ajax(request):
+    if request.method == 'POST' and request.FILES.get('archivo_produccion'):
+        empresa_actual = get_empresa_actual(request)
+        excel_file = request.FILES['archivo_produccion']
+        
+        try:
+            wb = openpyxl.load_workbook(excel_file)
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
+            
+            if len(rows) < 2:
+                return JsonResponse({'success': False, 'error': 'El archivo está vacío.'})
+            
+            data_rows = rows[1:]
+            
+            # Agrupar por Referencia
+            ordenes_data = {}
+            for idx, row in enumerate(data_rows, start=2):
+                if not any(row): continue
+                ref = str(row[0] or f"TEMP-{idx}").strip()
+                if ref not in ordenes_data:
+                    ordenes_data[ref] = {
+                        'prod_final_input': str(row[1] or '').strip(),
+                        'cant_producir': row[2] or 1,
+                        'alm_pt_input': str(row[3] or '').strip(),
+                        'alm_mp_input': str(row[4] or '').strip(),
+                        'resp_input': str(row[5] or '').strip(),
+                        'notas': str(row[8] or '').strip(),
+                        'items': []
+                    }
+                # Si hay componente en esta fila
+                if row[6]:
+                    ordenes_data[ref]['items'].append({
+                        'comp_input': str(row[6]).strip(),
+                        'cant_comp': row[7] or 1
+                    })
+
+            creadas = 0
+            errores = []
+            
+            with transaction.atomic():
+                # Obtener sucursal de la sesión
+                sucursal_obj = None
+                sucursal_id = request.session.get('sucursal_id')
+                if sucursal_id:
+                    from preferencias.models import Sucursal
+                    try:
+                        sucursal_obj = Sucursal.objects.get(id=sucursal_id, empresa=empresa_actual)
+                    except Sucursal.DoesNotExist:
+                        pass
+
+                for ref, data in ordenes_data.items():
+                    try:
+                        # Buscar Producto Final
+                        producto_final = None
+                        if data['prod_final_input'].isdigit():
+                            producto_final = Producto.objects.filter(id=int(data['prod_final_input']), empresa=empresa_actual, tipo_abastecimiento='produccion').first()
+                        if not producto_final:
+                            producto_final = Producto.objects.filter(nombre__icontains=data['prod_final_input'], empresa=empresa_actual, tipo_abastecimiento='produccion').first()
+                        
+                        if not producto_final:
+                            errores.append(f"Ref {ref}: No se encontró el producto final '{data['prod_final_input']}' o no es de producción.")
+                            continue
+
+                        # Buscar Almacenes
+                        alm_pt = None
+                        if data['alm_pt_input']:
+                            if data['alm_pt_input'].isdigit(): alm_pt = Almacen.objects.filter(id=int(data['alm_pt_input']), empresa=empresa_actual).first()
+                            else: alm_pt = Almacen.objects.filter(nombre__icontains=data['alm_pt_input'], empresa=empresa_actual).first()
+
+                        alm_mp = None
+                        if data['alm_mp_input']:
+                            if data['alm_mp_input'].isdigit(): alm_mp = Almacen.objects.filter(id=int(data['alm_mp_input']), empresa=empresa_actual).first()
+                            else: alm_mp = Almacen.objects.filter(nombre__icontains=data['alm_mp_input'], empresa=empresa_actual).first()
+
+                        # Responsable
+                        responsable_user = None
+                        if data['resp_input']:
+                            responsable_user = User.objects.filter(username=data['resp_input']).first()
+
+                        # Crear Orden de Producción
+                        orden = OrdenProduccion.objects.create(
+                            empresa=empresa_actual,
+                            producto=producto_final,
+                            cantidad=data['cant_producir'],
+                            almacen=alm_pt if alm_pt else Almacen.objects.filter(empresa=empresa_actual).first(),
+                            almacen_materia_prima=alm_mp,
+                            responsable=responsable_user,
+                            solicitante=request.user,
+                            sucursal=sucursal_obj,
+                            estado='borrador',
+                            notas=data['notas']
+                        )
+
+                        # Si traía items personalizados en el Excel
+                        if data['items']:
+                            for item in data['items']:
+                                comp_prod = None
+                                if item['comp_input'].isdigit():
+                                    comp_prod = Producto.objects.filter(id=int(item['comp_input']), empresa=empresa_actual).first()
+                                else:
+                                    comp_prod = Producto.objects.filter(nombre__icontains=item['comp_input'], empresa=empresa_actual).first()
+                                
+                                if comp_prod:
+                                    DetalleOrdenProduccion.objects.create(
+                                        orden_produccion=orden,
+                                        producto=comp_prod,
+                                        cantidad=item['cant_comp']
+                                    )
+                        else:
+                            # Cargar receta por defecto si no hay items en Excel
+                            receta = DetalleReceta.objects.filter(producto_padre=producto_final)
+                            for r in receta:
+                                DetalleOrdenProduccion.objects.create(
+                                    orden_produccion=orden,
+                                    producto=r.componente,
+                                    cantidad=r.cantidad * orden.cantidad
+                                )
+                        
+                        creadas += 1
+                    except Exception as e:
+                        errores.append(f"Ref {ref}: {str(e)}")
+            
+            if creadas == 0 and errores:
+                return JsonResponse({'success': False, 'error': f"Error: {errores[0]}"})
+
+            msg = f'Importación exitosa. {creadas} órdenes de producción creadas.'
+            if errores: msg += f' ({len(errores)} errores)'
+            return JsonResponse({'success': True, 'message': msg})
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+            
+    return JsonResponse({'success': False, 'error': 'Solicitud inválida.'})
+
+@login_required(login_url='/login/')
+@require_production_permission('tablero_control', 'ver')
+def exportar_produccion_excel(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return HttpResponse("No autorizado", status=403)
+
+    # --- Filtrado (Sincronizado con dashboard) ---
+    q = request.GET.get('q', '')
+    folio_op = request.GET.get('folio_op', '')
+    producto_id = request.GET.get('producto_id', '')
+    estado = request.GET.get('estado', '')
+    sucursal_id_filtro = request.GET.get('sucursal', '')
+
+    ordenes = OrdenProduccion.objects.filter(empresa=empresa_actual).select_related(
+        'producto', 'almacen', 'responsable', 'solicitante', 'sucursal'
+    ).order_by('-fecha_creacion')
+
+    if q:
+        ordenes = ordenes.filter(
+            Q(id__icontains=q) | Q(producto__nombre__icontains=q) |
+            Q(responsable__username__icontains=q) | Q(estado__icontains=q)
+        )
+    if folio_op:
+        ordenes = ordenes.filter(id__icontains=folio_op.replace('OP-', ''))
+    if producto_id and producto_id != 'all':
+        ordenes = ordenes.filter(producto_id=producto_id)
+    if estado:
+        ordenes = ordenes.filter(estado=estado)
+    if sucursal_id_filtro:
+        ordenes = ordenes.filter(sucursal_id=sucursal_id_filtro)
+
+    # --- Generar Excel ---
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Reporte Produccion"
+
+    headers = [
+        'ID', 'Folio', 'Producto Final', 'Cantidad', 'Almacén PT', 
+        'Responsable', 'Estado', 'Fecha Creación', 'Fecha Inicio', 'Fecha Terminado', 'Sucursal'
+    ]
+    ws.append(headers)
+
+    for o in ordenes:
+        ws.append([
+            o.id, o.folio, o.producto.nombre, o.cantidad, o.almacen.nombre,
+            o.responsable.username if o.responsable else "N/A",
+            o.get_estado_display(),
+            o.fecha_creacion.strftime('%Y-%m-%d %H:%M'),
+            o.fecha_inicio.strftime('%Y-%m-%d %H:%M') if o.fecha_inicio else "N/A",
+            o.fecha_terminado.strftime('%Y-%m-%d %H:%M') if o.fecha_terminado else "N/A",
+            o.sucursal.nombre if o.sucursal else "Principal"
+        ])
+
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length: max_length = len(str(cell.value))
+            except: pass
+        ws.column_dimensions[column].width = max_length + 2
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="Reporte_Produccion_{empresa_actual.nombre}.xlsx"'
+    wb.save(response)
+    return response
 
 @login_required(login_url='/login/')
 @require_production_permission('tablero_control', 'ver')
