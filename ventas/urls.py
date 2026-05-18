@@ -25,4 +25,9 @@ urlpatterns = [
 
     # 7. Impresión de Orden de Salida
     path('imprimir/<int:pk>/', views.imprimir_salida, name='imprimir_salida'),
+
+    # 8. Importador y Exportador
+    path('descargar-plantilla/', views.descargar_plantilla_salidas, name='descargar_plantilla_salidas'),
+    path('importar/', views.importar_salidas_ajax, name='importar_salidas_ajax'),
+    path('exportar/', views.exportar_salidas_excel, name='exportar_salidas_excel'),
 ]

@@ -1,12 +1,162 @@
 from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from .models import Proveedor, SucursalProveedor
-from compras.models import OrdenCompra  # <--- PARA VERIFICAR HISTORIAL
+from compras.models import OrdenCompra
 from panel.models import Empresa
 from django.utils import timezone
 import json
+import openpyxl
+from django.db.models import Q
+from django.core.paginator import Paginator
+
+@login_required(login_url='/login/')
+def descargar_plantilla_proveedores(request):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Plantilla Proveedores"
+    
+    headers = [
+        'Razon Social', 'RFC', 'CP', 'Domicilio Fiscal', 
+        'Nombre Contacto', 'Telefono', 'Email', 'Estado (activo/suspendido/inactivo)'
+    ]
+    
+    ws.append(headers)
+    
+    for col_idx, header in enumerate(headers, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = len(header) + 5
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="Plantilla_Proveedores.xlsx"'
+    wb.save(response)
+    return response
+
+@login_required(login_url='/login/')
+def importar_proveedores_ajax(request):
+    if request.method == 'POST' and request.FILES.get('archivo_proveedores'):
+        empresa_actual = get_empresa_actual(request)
+        excel_file = request.FILES['archivo_proveedores']
+        
+        try:
+            wb = openpyxl.load_workbook(excel_file)
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
+            
+            if len(rows) < 2:
+                return JsonResponse({'success': False, 'error': 'El archivo está vacío.'})
+            
+            data_rows = rows[1:]
+            creados = 0
+            errores = []
+            
+            with transaction.atomic():
+                for idx, row in enumerate(data_rows, start=2):
+                    if not any(row): continue
+                    
+                    try:
+                        razon_social = str(row[0] or '').strip()
+                        rfc = str(row[1] or '').strip().upper()
+                        cp = str(row[2] or '').strip()
+                        domicilio = str(row[3] or '').strip()
+                        contacto_nombre = str(row[4] or '').strip()
+                        contacto_telefono = str(row[5] or '').strip()
+                        contacto_email = str(row[6] or '').strip()
+                        estado = str(row[7] or 'activo').strip().lower()
+
+                        if not razon_social or not rfc:
+                            errores.append(f"Fila {idx}: Razón Social y RFC son obligatorios.")
+                            continue
+
+                        if Proveedor.objects.filter(rfc=rfc, empresa=empresa_actual).exists():
+                            errores.append(f"Fila {idx}: El RFC '{rfc}' ya existe.")
+                            continue
+
+                        Proveedor.objects.create(
+                            empresa=empresa_actual,
+                            razon_social=razon_social,
+                            rfc=rfc,
+                            cp=cp,
+                            domicilio=domicilio,
+                            contacto_nombre=contacto_nombre,
+                            contacto_telefono=contacto_telefono,
+                            contacto_email=contacto_email,
+                            estado=estado if estado in ['activo', 'suspendido', 'inactivo'] else 'activo'
+                        )
+                        creados += 1
+                    except Exception as e:
+                        errores.append(f"Fila {idx}: {str(e)}")
+            
+            if creados == 0 and errores:
+                return JsonResponse({'success': False, 'error': f"Error: {errores[0]}"})
+
+            msg = f'Importación exitosa. {creados} proveedores creados.'
+            if errores: msg += f' ({len(errores)} errores)'
+            return JsonResponse({'success': True, 'message': msg})
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+            
+    return JsonResponse({'success': False, 'error': 'Solicitud inválida.'})
+
+@login_required(login_url='/login/')
+def exportar_proveedores_excel(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return HttpResponse("No autorizado", status=403)
+
+    # --- Filtrado ---
+    q = request.GET.get('q', '')
+    proveedor_id = request.GET.get('proveedor_id', '')
+    sucursal = request.GET.get('sucursal', '')
+    email = request.GET.get('email', '')
+    estado = request.GET.get('estado', '')
+
+    proveedores = Proveedor.objects.filter(empresa=empresa_actual).order_by('-creado_en')
+
+    if q:
+        proveedores = proveedores.filter(
+            Q(razon_social__icontains=q) | Q(rfc__icontains=q) |
+            Q(contacto_nombre__icontains=q) | Q(domicilio__icontains=q)
+        )
+    if proveedor_id and proveedor_id != 'all':
+        proveedores = proveedores.filter(id=proveedor_id)
+    if sucursal:
+        proveedores = proveedores.filter(sucursales__nombre__icontains=sucursal).distinct()
+    if email:
+        proveedores = proveedores.filter(contacto_email__icontains=email)
+    if estado:
+        proveedores = proveedores.filter(estado=estado)
+
+    # --- Generar Excel ---
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Reporte de Proveedores"
+
+    headers = ['ID', 'Razón Social', 'RFC', 'CP', 'Domicilio', 'Contacto', 'Teléfono', 'Email', 'Estado', 'Fecha Creación']
+    ws.append(headers)
+
+    for p in proveedores:
+        ws.append([
+            p.id, p.razon_social, p.rfc, p.cp, p.domicilio,
+            p.contacto_nombre, p.contacto_telefono, p.contacto_email,
+            p.get_estado_display(), p.creado_en.strftime('%Y-%m-%d %H:%M')
+        ])
+
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except: pass
+        ws.column_dimensions[column].width = max_length + 2
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="Reporte_Proveedores_{empresa_actual.nombre}.xlsx"'
+    wb.save(response)
+    return response
 
 # --- 1. FUNCIÓN AYUDANTE RESTAURADA (Igual a Clientes) ---
 def get_empresa_actual(request):

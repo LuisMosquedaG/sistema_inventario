@@ -1,10 +1,11 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import get_object_or_404
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.forms.models import model_to_dict
 from django.db import transaction
+import openpyxl
+from datetime import datetime
 from collections import defaultdict
 from panel.models import Empresa
 from pedidos.models import Pedido, DetallePedido
@@ -16,6 +17,210 @@ from proveedores.models import Proveedor
 from almacenes.models import Almacen
 from preferencias.models import Moneda
 from notificaciones.utils import crear_notificacion
+from preferencias.permissions import require_sales_permission
+
+@login_required(login_url='/login/')
+def descargar_plantilla_solicitudes(request):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Plantilla Solicitudes"
+    
+    # Encabezados: Referencia ayuda a agrupar productos en una misma solicitud
+    headers = [
+        'Referencia (Ej: SOL-001)', 'Producto (Nombre o ID)', 'Cantidad', 
+        'Proveedor (Nombre o ID)', 'Notas'
+    ]
+    
+    ws.append(headers)
+    
+    # Ajustar ancho de columnas
+    for col_idx, header in enumerate(headers, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = len(header) + 5
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="Plantilla_Solicitudes.xlsx"'
+    wb.save(response)
+    return response
+
+@login_required(login_url='/login/')
+def importar_solicitudes_ajax(request):
+    if request.method == 'POST' and request.FILES.get('archivo_solicitudes'):
+        empresa_actual = get_empresa_actual(request)
+        excel_file = request.FILES['archivo_solicitudes']
+        
+        try:
+            wb = openpyxl.load_workbook(excel_file)
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
+            
+            if len(rows) < 2:
+                return JsonResponse({'success': False, 'error': 'El archivo está vacío.'})
+            
+            data_rows = rows[1:]
+            
+            # Agrupar por Referencia
+            solicitudes_data = {}
+            for idx, row in enumerate(data_rows, start=2):
+                if not any(row): continue
+                ref = str(row[0] or f"TEMP-{idx}").strip()
+                if ref not in solicitudes_data:
+                    solicitudes_data[ref] = {
+                        'notas': str(row[4] or '').strip(),
+                        'items': []
+                    }
+                solicitudes_data[ref]['items'].append({
+                    'prod_input': str(row[1] or '').strip(),
+                    'cantidad': row[2] or 1,
+                    'prov_input': str(row[3] or '').strip()
+                })
+
+            creadas = 0
+            errores = []
+            
+            with transaction.atomic():
+                # Obtener sucursal de la sesión
+                sucursal_obj = None
+                sucursal_id = request.session.get('sucursal_id')
+                if sucursal_id:
+                    from preferencias.models import Sucursal
+                    try:
+                        sucursal_obj = Sucursal.objects.get(id=sucursal_id, empresa=empresa_actual)
+                    except Sucursal.DoesNotExist:
+                        pass
+
+                for ref, data in solicitudes_data.items():
+                    try:
+                        # Crear Solicitud
+                        solicitud = SolicitudCompra.objects.create(
+                            empresa=empresa_actual,
+                            solicitante=request.user,
+                            sucursal=sucursal_obj,
+                            estado='borrador',
+                            notas=data['notas']
+                        )
+
+                        # Crear Detalles
+                        for item in data['items']:
+                            # Buscar Producto
+                            producto = None
+                            if item['prod_input'].isdigit():
+                                producto = Producto.objects.filter(id=int(item['prod_input']), empresa=empresa_actual).first()
+                            if not producto:
+                                producto = Producto.objects.filter(nombre__icontains=item['prod_input'], empresa=empresa_actual).first()
+                            
+                            if not producto:
+                                errores.append(f"Ref {ref}: No se encontró el producto '{item['prod_input']}'.")
+                                continue
+
+                            # Buscar Proveedor (opcional)
+                            proveedor = None
+                            if item['prov_input']:
+                                if item['prov_input'].isdigit():
+                                    proveedor = Proveedor.objects.filter(id=int(item['prov_input']), empresa=empresa_actual).first()
+                                if not proveedor:
+                                    proveedor = Proveedor.objects.filter(razon_social__icontains=item['prov_input'], empresa=empresa_actual).first()
+
+                            DetalleSolicitudCompra.objects.create(
+                                solicitud=solicitud,
+                                producto=producto,
+                                cantidad_solicitada=item['cantidad'],
+                                proveedor=proveedor,
+                                costo_unitario=producto.precio_costo or 0
+                            )
+                        
+                        creadas += 1
+                    except Exception as e:
+                        errores.append(f"Ref {ref}: {str(e)}")
+            
+            if creadas == 0 and errores:
+                return JsonResponse({'success': False, 'error': f"Error: {errores[0]}"})
+
+            msg = f'Importación exitosa. {creadas} solicitudes creadas.'
+            if errores: msg += f' ({len(errores)} errores)'
+            return JsonResponse({'success': True, 'message': msg})
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+            
+    return JsonResponse({'success': False, 'error': 'Solicitud inválida.'})
+
+@login_required(login_url='/login/')
+def exportar_solicitudes_excel(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return HttpResponse("No autorizado", status=403)
+
+    # --- Filtrado ---
+    q = request.GET.get('q', '')
+    folio_solicitud = request.GET.get('folio_solicitud', '')
+    folio_cotizacion = request.GET.get('folio_cotizacion', '')
+    folio_pedido = request.GET.get('folio_pedido', '')
+    proveedor_id = request.GET.get('proveedor_id', '')
+    fecha_solicitud = request.GET.get('fecha_solicitud', '')
+    estado = request.GET.get('estado', '')
+    sucursal_id_filtro = request.GET.get('sucursal', '')
+
+    solicitudes = SolicitudCompra.objects.filter(empresa=empresa_actual).select_related('pedido_origen', 'solicitante', 'sucursal').order_by('-fecha_creacion')
+
+    from django.db.models import Q
+    if q:
+        solicitudes = solicitudes.filter(
+            Q(id__icontains=q) | Q(pedido_origen__id__icontains=q) |
+            Q(solicitante__username__icontains=q) | Q(estado__icontains=q)
+        ).distinct()
+    
+    if folio_solicitud:
+        clean_sol = folio_solicitud.upper().replace('SOL-', '').replace('SOL', '').strip()
+        solicitudes = solicitudes.filter(id__icontains=clean_sol)
+    if folio_cotizacion:
+        clean_cot = folio_cotizacion.upper().replace('COT-', '').replace('COT', '').strip()
+        solicitudes = solicitudes.filter(pedido_origen__cotizacion_origen_id__icontains=clean_cot)
+    if folio_pedido:
+        clean_ped = folio_pedido.upper().replace('PED-', '').replace('PED', '').strip()
+        solicitudes = solicitudes.filter(pedido_origen__id__icontains=clean_ped)
+    if proveedor_id and proveedor_id != 'all':
+        solicitudes = solicitudes.filter(detalles__proveedor_id=proveedor_id).distinct()
+    if estado:
+        solicitudes = solicitudes.filter(estado=estado)
+    if sucursal_id_filtro:
+        solicitudes = solicitudes.filter(sucursal_id=sucursal_id_filtro)
+
+    # --- Generar Excel ---
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Reporte de Solicitudes"
+
+    headers = [
+        'ID', 'Solicitante', 'Sucursal', 'Pedido Origen', 
+        'Fecha Creación', 'Estado', 'Partidas', 'Notas'
+    ]
+    ws.append(headers)
+
+    for s in solicitudes:
+        ws.append([
+            s.id, s.solicitante.get_full_name() or s.solicitante.username,
+            s.sucursal.nombre if s.sucursal else "Principal",
+            s.pedido_origen_id or "N/A",
+            s.fecha_creacion.strftime('%Y-%m-%d %H:%M'),
+            s.get_estado_display(),
+            s.total_items,
+            s.notas
+        ])
+
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except: pass
+        ws.column_dimensions[column].width = max_length + 2
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="Reporte_Solicitudes_{empresa_actual.nombre}.xlsx"'
+    wb.save(response)
+    return response
 
 def get_empresa_actual(request):
     username = request.user.username

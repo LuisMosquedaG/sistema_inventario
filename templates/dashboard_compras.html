@@ -64,6 +64,29 @@
         .custom-option:hover { background-color: #f8f9fa; color: #00b8b9; }
         .real-input-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; background: transparent; padding: 0 0.75rem; font-size: 0.875rem; z-index: 2; outline: none; }
         .fake-input-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 0 0.75rem; display: flex; align-items: center; z-index: 1; pointer-events: none; color: #212529; }
+
+        /* ==========================================
+        ZONA DE IMPORTACIÓN
+        ========================================== */
+        .import-zone {
+            border: 2px dashed #dee2e6;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background-color: #f8f9fa;
+        }
+        .import-zone:hover {
+            border-color: #00b8b9;
+            background-color: #f0fdfa;
+        }
+        .import-zone i {
+            font-size: 3rem;
+            color: #00b8b9 !important;
+            margin-bottom: 15px;
+            display: block;
+        }
     </style>
 
     <div class="container-fluid py-2 px-4">
@@ -73,8 +96,20 @@
                 <span class="section-subtitle">Entrada de mercancía a almacén</span>
             </div>
             <div class="d-flex flex-wrap align-items-center gap-2">
+                <button class="btn btn-light border text-secondary btn-pro shadow-sm" onclick="exportarCompras()">
+                    <i class="bi bi-download me-1"></i> Exportador
+                </button>
+
+                {% if granular_purchase_perms.ordenes_compra.crear %}
+                <button class="btn btn-light border text-secondary btn-pro shadow-sm" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#modalImportarCompras">
+                    <i class="bi bi-upload me-1"></i> Importador
+                </button>
+                {% endif %}
+
                 {% if granular_purchase_perms.ordenes_compra.consolidar %}
-                <button class="btn btn-light border text-secondary btn-sm px-3 shadow-sm" onclick="consolidarOrdenes('{{ filtros.sucursal }}')">
+                <button class="btn btn-light border text-secondary btn-pro shadow-sm" onclick="consolidarOrdenes('{{ filtros.sucursal }}')">
                     <i class="bi bi-layers me-1"></i> Consolidar
                 </button>
                 {% endif %}
@@ -284,6 +319,48 @@
 
     <!-- MODALES -->
     {% include "compras/modal_ver_compra.html" %}
+
+    <!-- MODAL: IMPORTAR COMPRAS -->
+    <div class="modal fade" id="modalImportarCompras" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sheet">
+            <div class="modal-content border-0">
+                <div class="modal-header border-bottom bg-light">
+                    <h5 class="modal-title fw-bold">Importar Órdenes de Compra</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="formImportarCompras" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="modal-body p-4">
+                        <p class="text-muted small mb-4">Carga un archivo Excel (.xlsx) para importar órdenes de compra masivamente. Los productos se agruparán por la columna 'Referencia'.</p>
+                        
+                        <div class="import-zone" onclick="document.getElementById('archivo_compras').click()">
+                            <i class="bi bi-upload"></i>
+                            <span class="fw-bold text-dark d-block">Haga clic para subir Excel</span>
+                            <span class="text-muted small" id="buyFileNameDisplay">Solo archivos .xlsx</span>
+                            <input type="file" name="archivo_compras" id="archivo_compras" hidden accept=".xlsx" onchange="updateBuyFileName(this)">
+                        </div>
+
+                        <div class="mt-3 d-flex justify-content-center">
+                            <a href="{% url 'descargar_plantilla_compras' %}" class="btn btn-light btn-sm text-secondary border shadow-sm px-3">
+                                <i class="bi bi-download me-1"></i> Descargar Plantilla
+                            </a>
+                        </div>
+
+                        <div id="importBuyProgress" class="mt-3" style="display: none;">
+                            <div class="progress" style="height: 10px;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-brand" role="progressbar" style="width: 100%"></div>
+                            </div>
+                            <p class="text-center small text-muted mt-2">Procesando registros, por favor espere...</p>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-top-0">
+                        <button type="button" class="btn btn-light btn-sm text-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-brand text-white btn-sm px-4 fw-bold shadow-sm" id="btnConfirmarImportBuy">Subir</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
     
     <!-- MODAL: NUEVA COMPRA -->
     <div class="modal fade" id="modalNuevaCompra" tabindex="-1" aria-hidden="true">
@@ -1009,6 +1086,68 @@
                 modalInstance.show();
             });
         }
+
+        function exportarCompras() {
+            const form = document.getElementById('formFiltrosCompras');
+            const formData = new FormData(form);
+            const params = new URLSearchParams(formData).toString();
+            window.location.href = `{% url 'exportar_compras_excel' %}?${params}`;
+        }
+
+        function updateBuyFileName(input) {
+            const display = document.getElementById('buyFileNameDisplay');
+            if (input.files && input.files[0]) {
+                display.textContent = input.files[0].name;
+                display.classList.remove('text-muted');
+                display.classList.add('text-brand', 'fw-bold');
+            } else {
+                display.textContent = "Solo archivos .xlsx";
+                display.classList.remove('text-brand', 'fw-bold');
+                display.classList.add('text-muted');
+            }
+        }
+
+        document.getElementById('formImportarCompras').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const progress = document.getElementById('importBuyProgress');
+            const btn = document.getElementById('btnConfirmarImportBuy');
+            
+            if (!document.getElementById('archivo_compras').files.length) {
+                alert('Por favor selecciona un archivo.');
+                return;
+            }
+
+            progress.style.display = 'block';
+            btn.disabled = true;
+
+            const formData = new FormData(this);
+            
+            fetch('{% url "importar_compras_ajax" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                progress.style.display = 'none';
+                btn.disabled = false;
+                
+                if (data.success) {
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                progress.style.display = 'none';
+                btn.disabled = false;
+                alert('Ocurrió un error al procesar la importación.');
+            });
+        });
 
         function cambiarEstadoCompra(id, nuevoEstado) {
             if(confirm(`¿Cambiar estado a ${nuevoEstado}?`)) {

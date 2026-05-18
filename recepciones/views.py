@@ -1,15 +1,237 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Sum, F
+import openpyxl
+from datetime import datetime
 from .models import Recepcion, DetalleRecepcion, DetalleRecepcionExtra
 from compras.models import OrdenCompra, DetalleCompra
 from almacenes.models import Almacen, Inventario
 from .services import procesar_recepcion_servicio
 from panel.models import Empresa
 from notificaciones.utils import crear_notificacion
+
+@login_required(login_url='/login/')
+def descargar_plantilla_recepciones(request):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Plantilla Recepciones"
+    
+    # Encabezados: Referencia ayuda a agrupar productos en una misma recepción
+    headers = [
+        'Referencia (Ej: REC-001)', 'Orden Compra (ID)', 'Almacen (Nombre o ID)',
+        'Fecha (YYYY-MM-DD)', 'Factura', 'Producto (Nombre o ID)', 'Cantidad Recibida'
+    ]
+    
+    ws.append(headers)
+    
+    for col_idx, header in enumerate(headers, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = len(header) + 5
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="Plantilla_Recepciones.xlsx"'
+    wb.save(response)
+    return response
+
+@login_required(login_url='/login/')
+def importar_recepciones_ajax(request):
+    if request.method == 'POST' and request.FILES.get('archivo_recepciones'):
+        empresa_actual = get_empresa_actual(request)
+        excel_file = request.FILES['archivo_recepciones']
+        
+        try:
+            wb = openpyxl.load_workbook(excel_file)
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
+            
+            if len(rows) < 2:
+                return JsonResponse({'success': False, 'error': 'El archivo está vacío.'})
+            
+            data_rows = rows[1:]
+            
+            # Agrupar por Referencia
+            recepciones_data = {}
+            for idx, row in enumerate(data_rows, start=2):
+                if not any(row): continue
+                ref = str(row[0] or f"TEMP-{idx}").strip()
+                if ref not in recepciones_data:
+                    recepciones_data[ref] = {
+                        'oc_input': str(row[1] or '').strip(),
+                        'alm_input': str(row[2] or '').strip(),
+                        'fecha_raw': row[3],
+                        'factura': str(row[4] or '').strip(),
+                        'items': []
+                    }
+                recepciones_data[ref]['items'].append({
+                    'prod_input': str(row[5] or '').strip(),
+                    'cantidad': row[6] or 0
+                })
+
+            creadas = 0
+            errores = []
+            
+            with transaction.atomic():
+                # Obtener sucursal de la sesión
+                sucursal_obj = None
+                sucursal_id = request.session.get('sucursal_id')
+                if sucursal_id:
+                    from preferencias.models import Sucursal
+                    try:
+                        sucursal_obj = Sucursal.objects.get(id=sucursal_id, empresa=empresa_actual)
+                    except Sucursal.DoesNotExist:
+                        pass
+
+                for ref, data in recepciones_data.items():
+                    try:
+                        # Buscar Orden de Compra
+                        orden = None
+                        if data['oc_input'].isdigit():
+                            orden = OrdenCompra.objects.filter(id=int(data['oc_input']), empresa=empresa_actual).first()
+                        if not orden:
+                            errores.append(f"Ref {ref}: No se encontró la OC '{data['oc_input']}'.")
+                            continue
+
+                        # Buscar Almacén
+                        almacen = None
+                        if data['alm_input'].isdigit():
+                            almacen = Almacen.objects.filter(id=int(data['alm_input']), empresa=empresa_actual).first()
+                        if not almacen:
+                            almacen = Almacen.objects.filter(nombre__icontains=data['alm_input'], empresa=empresa_actual).first()
+                        
+                        if not almacen:
+                            errores.append(f"Ref {ref}: No se encontró el almacén '{data['alm_input']}'.")
+                            continue
+
+                        # Procesar Fecha
+                        fecha_rec = timezone.now().date()
+                        if data['fecha_raw']:
+                            if isinstance(data['fecha_raw'], datetime):
+                                fecha_rec = data['fecha_raw'].date()
+                            elif isinstance(data['fecha_raw'], str):
+                                try: fecha_rec = datetime.strptime(data['fecha_raw'], '%Y-%m-%d').date()
+                                except: pass
+
+                        # Crear Recepción
+                        recepcion = Recepcion.objects.create(
+                            empresa=empresa_actual,
+                            orden_compra=orden,
+                            almacen=almacen,
+                            sucursal=sucursal_obj,
+                            fecha=fecha_rec,
+                            factura=data['factura'],
+                            estado='completada'
+                        )
+
+                        # Crear Detalles
+                        for item in data['items']:
+                            from core.models import Producto
+                            producto = None
+                            if item['prod_input'].isdigit():
+                                producto = Producto.objects.filter(id=int(item['prod_input']), empresa=empresa_actual).first()
+                            if not producto:
+                                producto = Producto.objects.filter(nombre__icontains=item['prod_input'], empresa=empresa_actual).first()
+                            
+                            if producto:
+                                # Buscar el detalle de compra correspondiente para vincular
+                                det_compra = DetalleCompra.objects.filter(orden_compra=orden, producto=producto).first()
+                                
+                                DetalleRecepcion.objects.create(
+                                    recepcion=recepcion,
+                                    producto=producto,
+                                    detalle_compra=det_compra,
+                                    cantidad_recibida=item['cantidad'],
+                                    costo_unitario=det_compra.precio_costo if det_compra else (producto.precio_costo or 0)
+                                )
+                        
+                        creadas += 1
+                    except Exception as e:
+                        errores.append(f"Ref {ref}: {str(e)}")
+            
+            if creadas == 0 and errores:
+                return JsonResponse({'success': False, 'error': f"Error: {errores[0]}"})
+
+            msg = f'Importación exitosa. {creadas} recepciones creadas.'
+            if errores: msg += f' ({len(errores)} errores)'
+            return JsonResponse({'success': True, 'message': msg})
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+            
+    return JsonResponse({'success': False, 'error': 'Solicitud inválida.'})
+
+@login_required(login_url='/login/')
+def exportar_recepciones_excel(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return HttpResponse("No autorizado", status=403)
+
+    # --- Filtrado ---
+    from django.db.models import Q
+    q = request.GET.get('q', '')
+    folio_recepcion = request.GET.get('folio_recepcion', '')
+    folio_oc = request.GET.get('folio_oc', '')
+    proveedor_id = request.GET.get('proveedor_id', '')
+    almacen_id = request.GET.get('almacen_id', '')
+    fecha = request.GET.get('fecha', '')
+    estado = request.GET.get('estado', '')
+    sucursal_id_filtro = request.GET.get('sucursal', '')
+
+    recepciones = Recepcion.objects.filter(empresa=empresa_actual).select_related('orden_compra', 'almacen', 'orden_compra__proveedor', 'sucursal').order_by('-fecha', '-id')
+
+    if q:
+        recepciones = recepciones.filter(
+            Q(id__icontains=q) | Q(orden_compra__id__icontains=q) |
+            Q(orden_compra__proveedor__razon_social__icontains=q) | Q(factura__icontains=q)
+        )
+    if folio_recepcion:
+        recepciones = recepciones.filter(id__icontains=folio_recepcion.replace('REC-', ''))
+    if folio_oc:
+        recepciones = recepciones.filter(orden_compra__id__icontains=folio_oc.replace('OC-', ''))
+    if proveedor_id and proveedor_id != 'all':
+        recepciones = recepciones.filter(orden_compra__proveedor_id=proveedor_id)
+    if almacen_id:
+        recepciones = recepciones.filter(almacen_id=almacen_id)
+    if fecha:
+        try: recepciones = recepciones.filter(fecha=fecha)
+        except: pass
+    if estado:
+        recepciones = recepciones.filter(estado=estado)
+    if sucursal_id_filtro:
+        recepciones = recepciones.filter(sucursal_id=sucursal_id_filtro)
+
+    # --- Generar Excel ---
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Reporte de Recepciones"
+
+    headers = [
+        'ID', 'Folio', 'OC Origen', 'Proveedor', 'Almacén', 'Fecha', 'Factura', 'Estado', 'Total'
+    ]
+    ws.append(headers)
+
+    for r in recepciones:
+        ws.append([
+            r.id, f"REC-{r.id:04d}", f"OC-{r.orden_compra.id:04d}",
+            r.orden_compra.proveedor.razon_social, r.almacen.nombre,
+            r.fecha.strftime('%Y-%m-%d'), r.factura, r.get_estado_display(), r.total
+        ])
+
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except: pass
+        ws.column_dimensions[column].width = max_length + 2
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="Reporte_Recepciones_{empresa_actual.nombre}.xlsx"'
+    wb.save(response)
+    return response
 
 # --- 1. FUNCIÓN AYUDANTE ESTÁNDAR ---
 def get_empresa_actual(request):

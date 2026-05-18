@@ -33,7 +33,12 @@ function mostrarModal(id) {
 
 window.abrirNuevoArticulo = function(sucursalId = '') {
     const form = document.getElementById('formCrearArticulo');
-    if (form) form.reset();
+    if (form) {
+        form.reset();
+        // Asegurar que el campo clave se limpie explícitamente si reset() no lo hace
+        const claveInput = document.getElementById('inputClave');
+        if (claveInput) claveInput.value = '';
+    }
     
     const idField = document.getElementById('productoId');
     if (idField) idField.value = '';
@@ -70,6 +75,9 @@ window.cargarProductoEdicion = function(id) {
             if (!form) return;
             
             document.getElementById('productoId').value = data.id;
+            const claveInput = document.getElementById('inputClave');
+            if (claveInput) claveInput.value = data.clave || '';
+            
             form.querySelector('[name="nombre"]').value = data.nombre || '';
             form.querySelector('[name="descripcion"]').value = data.descripcion || '';
             form.querySelector('[name="tipo"]').value = data.tipo || 'producto';

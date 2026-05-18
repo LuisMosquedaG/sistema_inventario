@@ -1,8 +1,10 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
+import openpyxl
+from datetime import datetime
 from proveedores.models import Proveedor
 from .models import OrdenCompra, DetalleCompra
 from core.models import Producto
@@ -13,7 +15,6 @@ from .services import crear_orden_compra_servicio
 from panel.models import Empresa
 from notificaciones.utils import crear_notificacion
 
-# --- 1. FUNCIÓN AYUDANTE (Estándar en todo el proyecto) ---
 def get_empresa_actual(request):
     """Detecta la empresa basándose en el username del usuario logueado."""
     username = request.user.username
@@ -24,6 +25,224 @@ def get_empresa_actual(request):
         except Empresa.DoesNotExist:
             return None
     return None
+
+@login_required(login_url='/login/')
+def descargar_plantilla_compras(request):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Plantilla Compras"
+    
+    # Encabezados: Referencia ayuda a agrupar productos en una misma orden de compra
+    headers = [
+        'Referencia (Ej: OC-001)', 'Proveedor (Nombre o ID)', 'Almacen Destino (Nombre o ID)',
+        'Moneda (Siglas)', 'Producto (Nombre o ID)', 'Cantidad', 'Costo Unitario', 'Notas'
+    ]
+    
+    ws.append(headers)
+    
+    # Ajustar ancho de columnas
+    for col_idx, header in enumerate(headers, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = len(header) + 5
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="Plantilla_Compras.xlsx"'
+    wb.save(response)
+    return response
+
+@login_required(login_url='/login/')
+def importar_compras_ajax(request):
+    if request.method == 'POST' and request.FILES.get('archivo_compras'):
+        empresa_actual = get_empresa_actual(request)
+        excel_file = request.FILES['archivo_compras']
+        
+        try:
+            wb = openpyxl.load_workbook(excel_file)
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
+            
+            if len(rows) < 2:
+                return JsonResponse({'success': False, 'error': 'El archivo está vacío.'})
+            
+            data_rows = rows[1:]
+            
+            # Agrupar por Referencia
+            compras_data = {}
+            for idx, row in enumerate(data_rows, start=2):
+                if not any(row): continue
+                ref = str(row[0] or f"TEMP-{idx}").strip()
+                if ref not in compras_data:
+                    compras_data[ref] = {
+                        'prov_input': str(row[1] or '').strip(),
+                        'alm_input': str(row[2] or '').strip(),
+                        'moneda_input': str(row[3] or '').strip(),
+                        'notas': str(row[7] or '').strip(),
+                        'items': []
+                    }
+                compras_data[ref]['items'].append({
+                    'prod_input': str(row[4] or '').strip(),
+                    'cantidad': row[5] or 1,
+                    'costo': row[6] or 0
+                })
+
+            creadas = 0
+            errores = []
+            
+            with transaction.atomic():
+                # Obtener sucursal de la sesión
+                sucursal_obj = None
+                sucursal_id = request.session.get('sucursal_id')
+                if sucursal_id:
+                    from preferencias.models import Sucursal
+                    try:
+                        sucursal_obj = Sucursal.objects.get(id=sucursal_id, empresa=empresa_actual)
+                    except Sucursal.DoesNotExist:
+                        pass
+
+                for ref, data in compras_data.items():
+                    try:
+                        # Buscar Proveedor
+                        proveedor = None
+                        if data['prov_input'].isdigit():
+                            proveedor = Proveedor.objects.filter(id=int(data['prov_input']), empresa=empresa_actual).first()
+                        if not proveedor:
+                            proveedor = Proveedor.objects.filter(razon_social__icontains=data['prov_input'], empresa=empresa_actual).first()
+                        
+                        if not proveedor:
+                            errores.append(f"Ref {ref}: No se encontró el proveedor '{data['prov_input']}'.")
+                            continue
+
+                        # Buscar Almacén
+                        almacen = None
+                        if data['alm_input']:
+                            if data['alm_input'].isdigit():
+                                almacen = Almacen.objects.filter(id=int(data['alm_input']), empresa=empresa_actual).first()
+                            if not almacen:
+                                almacen = Almacen.objects.filter(nombre__icontains=data['alm_input'], empresa=empresa_actual).first()
+
+                        # Buscar Moneda
+                        moneda = None
+                        if data['moneda_input']:
+                            moneda = Moneda.objects.filter(siglas__iexact=data['moneda_input'], empresa=empresa_actual).first()
+
+                        # Crear Orden de Compra
+                        orden = OrdenCompra.objects.create(
+                            empresa=empresa_actual,
+                            proveedor=proveedor,
+                            usuario=request.user,
+                            sucursal_empresa=sucursal_obj,
+                            almacen_destino=almacen,
+                            moneda=moneda,
+                            estado='borrador',
+                            notas=data['notas']
+                        )
+
+                        # Crear Detalles
+                        for item in data['items']:
+                            producto = None
+                            if item['prod_input'].isdigit():
+                                producto = Producto.objects.filter(id=int(item['prod_input']), empresa=empresa_actual).first()
+                            if not producto:
+                                producto = Producto.objects.filter(nombre__icontains=item['prod_input'], empresa=empresa_actual).first()
+                            
+                            if producto:
+                                DetalleCompra.objects.create(
+                                    orden_compra=orden,
+                                    producto=producto,
+                                    cantidad=item['cantidad'],
+                                    precio_costo=item['costo']
+                                )
+                        
+                        creadas += 1
+                    except Exception as e:
+                        errores.append(f"Ref {ref}: {str(e)}")
+            
+            if creadas == 0 and errores:
+                return JsonResponse({'success': False, 'error': f"Error: {errores[0]}"})
+
+            msg = f'Importación exitosa. {creadas} órdenes de compra creadas.'
+            if errores: msg += f' ({len(errores)} errores)'
+            return JsonResponse({'success': True, 'message': msg})
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+            
+    return JsonResponse({'success': False, 'error': 'Solicitud inválida.'})
+
+@login_required(login_url='/login/')
+def exportar_compras_excel(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return HttpResponse("No autorizado", status=403)
+
+    # --- Filtrado ---
+    from django.db.models import Q
+    q = request.GET.get('q', '')
+    folio_compra = request.GET.get('folio_compra', '')
+    folio_solicitud = request.GET.get('folio_solicitud', '')
+    proveedor_id = request.GET.get('proveedor_id', '')
+    fecha = request.GET.get('fecha', '')
+    estado = request.GET.get('estado', '')
+    sucursal_id_filtro = request.GET.get('sucursal', '')
+
+    compras = OrdenCompra.objects.filter(empresa=empresa_actual).select_related('proveedor', 'usuario', 'sucursal_empresa').order_by('-fecha', '-id')
+
+    if q:
+        compras = compras.filter(
+            Q(id__icontains=q) | Q(proveedor__razon_social__icontains=q) |
+            Q(usuario__username__icontains=q) | Q(estado__icontains=q)
+        )
+    if folio_compra:
+        clean_folio = folio_compra.upper().replace('OC-', '').replace('OC', '').strip()
+        compras = compras.filter(id__icontains=clean_folio)
+    if folio_solicitud:
+        clean_sol = folio_solicitud.upper().replace('SOL-', '').replace('SOL', '').strip()
+        compras = compras.filter(solicitud_origen__id__icontains=clean_sol)
+    if proveedor_id and proveedor_id != 'all':
+        compras = compras.filter(proveedor_id=proveedor_id)
+    if fecha:
+        try: compras = compras.filter(fecha__date=fecha)
+        except: pass
+    if estado:
+        compras = compras.filter(estado=estado)
+    if sucursal_id_filtro:
+        compras = compras.filter(sucursal_empresa_id=sucursal_id_filtro)
+
+    # --- Generar Excel ---
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Reporte de Compras"
+
+    headers = [
+        'ID', 'Folio', 'Proveedor', 'Vendedor', 'Sucursal', 'Solicitud Origen', 
+        'Fecha', 'Estado', 'Total', 'Saldo Pendiente'
+    ]
+    ws.append(headers)
+
+    for c in compras:
+        ws.append([
+            c.id, f"OC-{c.id:04d}", c.proveedor.razon_social, c.usuario.get_full_name() or c.usuario.username,
+            c.sucursal_empresa.nombre if c.sucursal_empresa else "Principal",
+            c.solicitud_origen_id or "N/A",
+            c.fecha.strftime('%Y-%m-%d %H:%M'),
+            c.get_estado_display(),
+            c.total,
+            c.saldo_pendiente
+        ])
+
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except: pass
+        ws.column_dimensions[column].width = max_length + 2
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="Reporte_Compras_{empresa_actual.nombre}.xlsx"'
+    wb.save(response)
+    return response
 
 from django.db.models import Q
 

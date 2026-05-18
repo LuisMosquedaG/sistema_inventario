@@ -68,6 +68,29 @@
         color: #d9480f;
         border: 1px solid #ffd8a8;
     }
+
+    /* ==========================================
+    ZONA DE IMPORTACIÓN
+    ========================================== */
+    .import-zone {
+        border: 2px dashed #dee2e6;
+        border-radius: 12px;
+        padding: 40px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background-color: #f8f9fa;
+    }
+    .import-zone:hover {
+        border-color: #00b8b9;
+        background-color: #f0fdfa;
+    }
+    .import-zone i {
+        font-size: 3rem;
+        color: #00b8b9 !important;
+        margin-bottom: 15px;
+        display: block;
+    }
 </style>
 
 <div class="container-fluid py-2 px-4">
@@ -79,6 +102,18 @@
         </div>
         
         <div class="d-flex flex-wrap align-items-center gap-2">
+            <button class="btn btn-light border text-secondary btn-pro shadow-sm" onclick="exportarExistencias()">
+                <i class="bi bi-download me-1"></i> Existencias
+            </button>
+
+            {% if granular_inventory_perms.inventario.crear %}
+            <button class="btn btn-light border text-secondary btn-pro shadow-sm" 
+                    data-bs-toggle="modal" 
+                    data-bs-target="#modalImportarArticulos">
+                <i class="bi bi-upload me-1"></i> Importador
+            </button>
+            {% endif %}
+
             <!-- BOTÓN TRASLADO -->
             {% if granular_inventory_perms.inventario.traslado %}
             <button class="btn btn-light border text-secondary btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalTraslado">
@@ -267,10 +302,140 @@
 {% include "inventario/modals/modal_lista_precios.html" %}
 {% include "inventario/modals/modal_traslado.html" %} {# INCLUIR EL NUEVO MODAL #}
 
+<!-- MODAL: IMPORTAR ARTICULOS -->
+<div class="modal fade" id="modalImportarArticulos" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sheet">
+        <div class="modal-content border-0">
+            <div class="modal-header border-bottom bg-light">
+                <h5 class="modal-title fw-bold">Importar Artículos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formImportarArticulos" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <!-- Switch de Modo -->
+                    <div class="d-flex justify-content-center mb-4">
+                        <div class="btn-group btn-group-sm" role="group">
+                            <input type="radio" class="btn-check" name="importMode" id="modeArt" value="articulos" checked onchange="toggleImportMode()">
+                            <label class="btn btn-outline-brand" for="modeArt">Artículos</label>
+
+                            <input type="radio" class="btn-check" name="importMode" id="modeRec" value="recetas" onchange="toggleImportMode()">
+                            <label class="btn btn-outline-brand" for="modeRec">Recetas</label>
+                        </div>
+                    </div>
+
+                    <p class="text-muted small mb-4" id="importDesc">Carga un archivo Excel (.xlsx) para importar artículos al catálogo masivamente.</p>
+
+                    <div class="import-zone" onclick="document.getElementById('archivo_articulos').click()">
+                        <i class="bi bi-upload"></i>
+                        <span class="fw-bold text-dark d-block">Haga clic para subir Excel</span>
+                        <span class="text-muted small" id="artFileNameDisplay">Solo archivos .xlsx</span>
+                        <input type="file" name="archivo_articulos" id="archivo_articulos" hidden accept=".xlsx" onchange="updateArtFileName(this)">
+                    </div>
+
+                    <div class="mt-3 d-flex justify-content-center">
+                        <a href="{% url 'descargar_plantilla_articulos' %}" id="btnPlantillaDinamica" class="btn btn-light btn-sm text-secondary border shadow-sm px-3">
+                            <i class="bi bi-download me-1"></i> Descargar Plantilla
+                        </a>
+                    </div>
+                    <div id="importArtProgress" class="mt-3" style="display: none;">
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-brand" role="progressbar" style="width: 100%"></div>
+                        </div>
+                        <p class="text-center small text-muted mt-2">Procesando registros, por favor espere...</p>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0">
+                    <button type="button" class="btn btn-light btn-sm text-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-brand text-white btn-sm px-4 fw-bold shadow-sm" id="btnConfirmarImportArt">Subir</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
+    function toggleImportMode() {
+        const isReceta = document.getElementById('modeRec').checked;
+        const desc = document.getElementById('importDesc');
+        const btnPlantilla = document.getElementById('btnPlantillaDinamica');
+        
+        if (isReceta) {
+            desc.innerText = "Carga un archivo Excel (.xlsx) para configurar recetas de forma masiva (Padre Producción -> Componentes).";
+            btnPlantilla.href = "{% url 'descargar_plantilla_recetas' %}";
+        } else {
+            desc.innerText = "Carga un archivo Excel (.xlsx) para importar artículos al catálogo masivamente.";
+            btnPlantilla.href = "{% url 'descargar_plantilla_articulos' %}";
+        }
+    }
+
+    function exportarExistencias() {
+        const form = document.getElementById('formFiltrosInventario');
+        const formData = new FormData(form);
+        const params = new URLSearchParams(formData).toString();
+        window.location.href = `{% url 'exportar_existencias_excel' %}?${params}`;
+    }
+
+    function updateArtFileName(input) {
+        const display = document.getElementById('artFileNameDisplay');
+        if (input.files && input.files[0]) {
+            display.textContent = input.files[0].name;
+            display.classList.remove('text-muted');
+            display.classList.add('text-brand', 'fw-bold');
+        } else {
+            display.textContent = "Solo archivos .xlsx";
+            display.classList.remove('text-brand', 'fw-bold');
+            display.classList.add('text-muted');
+        }
+    }
+
+    document.getElementById('formImportarArticulos').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const progress = document.getElementById('importArtProgress');
+        const btn = document.getElementById('btnConfirmarImportArt');
+        
+        if (!document.getElementById('archivo_articulos').files.length) {
+            alert('Por favor selecciona un archivo.');
+            return;
+        }
+
+        progress.style.display = 'block';
+        btn.disabled = true;
+
+        const formData = new FormData(this);
+        const isReceta = document.getElementById('modeRec').checked;
+        const url = isReceta ? '{% url "importar_recetas_ajax" %}' : '{% url "importar_articulos_ajax" %}';
+        
+        fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            progress.style.display = 'none';
+            btn.disabled = false;
+            
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            progress.style.display = 'none';
+            btn.disabled = false;
+            alert('Ocurrió un error al procesar la importación.');
+        });
+    });
+
     const APP_URLS = {
         api_subcategorias: "/inventario/api/subcategorias/",
         api_detalle_producto: "/inventario/api/detalle-producto/",

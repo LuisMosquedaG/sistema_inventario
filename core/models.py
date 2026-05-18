@@ -19,6 +19,7 @@ class Categoria(models.Model):
 
 class Producto(models.Model):
     # --- 1. IDENTIFICACIÓN ---
+    clave = models.CharField(max_length=100, blank=True, null=True, verbose_name="Clave")
     nombre = models.CharField(max_length=200)
     descripcion = models.TextField(blank=True, null=True)
     

@@ -38,7 +38,8 @@ from django.shortcuts import render, redirect
 from proveedores.views import (
     dashboard_proveedores, crear_proveedor, 
     obtener_proveedor_json, actualizar_proveedor, 
-    desactivar_proveedor
+    desactivar_proveedor,
+    descargar_plantilla_proveedores, importar_proveedores_ajax, exportar_proveedores_excel
 )
 
 from solicitudcompras import views as sc_views
@@ -120,6 +121,9 @@ urlpatterns = [
     path('api/proveedores/<int:proveedor_id>/', obtener_proveedor_json, name='obtener_proveedor'),
     path('proveedores/actualizar/<int:proveedor_id>/', actualizar_proveedor, name='actualizar_proveedor'),
     path('proveedores/desactivar/<int:proveedor_id>/', desactivar_proveedor, name='desactivar_proveedor'),
+    path('proveedores/plantilla/', descargar_plantilla_proveedores, name='descargar_plantilla_proveedores'),
+    path('proveedores/importar/', importar_proveedores_ajax, name='importar_proveedores_ajax'),
+    path('proveedores/exportar/', exportar_proveedores_excel, name='exportar_proveedores_excel'),
 
     # --- CORE Y OTROS INCLUDES ---
     # (Se eliminaron rutas duplicadas que ya vienen en core.urls)

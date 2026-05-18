@@ -14,4 +14,11 @@ urlpatterns = [
     path('api/guardar-receta/', views.guardar_receta, name='guardar_receta'),
     path('api/ejecutar-prod/', views.ejecutar_produccion, name='ejecutar_produccion'),
     path('api/receta/<int:producto_id>/', views.obtener_receta, name='obtener_receta'),
+    
+    # Importador y Exportador
+    path('descargar-plantilla/', views.descargar_plantilla_articulos, name='descargar_plantilla_articulos'),
+    path('descargar-plantilla-recetas/', views.descargar_plantilla_recetas, name='descargar_plantilla_recetas'),
+    path('importar/', views.importar_articulos_ajax, name='importar_articulos_ajax'),
+    path('importar-recetas/', views.importar_recetas_ajax, name='importar_recetas_ajax'),
+    path('exportar-existencias/', views.exportar_existencias_excel, name='exportar_existencias_excel'),
 ]
