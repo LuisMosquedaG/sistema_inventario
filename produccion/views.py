@@ -98,19 +98,19 @@ def importar_produccion_ajax(request):
             creadas = 0
             errores = []
             
-            with transaction.atomic():
-                # Obtener sucursal de la sesión
-                sucursal_obj = None
-                sucursal_id = request.session.get('sucursal_id')
-                if sucursal_id:
-                    from preferencias.models import Sucursal
-                    try:
-                        sucursal_obj = Sucursal.objects.get(id=sucursal_id, empresa=empresa_actual)
-                    except Sucursal.DoesNotExist:
-                        pass
+            # Obtener sucursal de la sesión
+            sucursal_obj = None
+            sucursal_id = request.session.get('sucursal_id')
+            if sucursal_id:
+                from preferencias.models import Sucursal
+                try:
+                    sucursal_obj = Sucursal.objects.get(id=sucursal_id, empresa=empresa_actual)
+                except Sucursal.DoesNotExist:
+                    pass
 
-                for ref, data in ordenes_data.items():
-                    try:
+            for ref, data in ordenes_data.items():
+                try:
+                    with transaction.atomic():
                         # Buscar Producto Final
                         producto_final = None
                         if data['prod_final_input'].isdigit():
@@ -178,14 +178,20 @@ def importar_produccion_ajax(request):
                                 )
                         
                         creadas += 1
-                    except Exception as e:
-                        errores.append(f"Ref {ref}: {str(e)}")
+                except Exception as e:
+                    errores.append(f"Ref {ref}: {str(e)}")
             
             if creadas == 0 and errores:
-                return JsonResponse({'success': False, 'error': f"Error: {errores[0]}"})
+                return JsonResponse({'success': False, 'error': f"No se pudo importar ninguna orden. Primer error: {errores[0]}"})
 
-            msg = f'Importación exitosa. {creadas} órdenes de producción creadas.'
-            if errores: msg += f' ({len(errores)} errores)'
+            msg = f'Importación finalizada.\nÓrdenes de producción creadas: {creadas}\n'
+            if errores:
+                msg += f'\nFilas con error: {len(errores)}\n'
+                msg += '\nDetalle de primeros errores:\n'
+                msg += "\n".join(errores[:10])
+                if len(errores) > 10:
+                    msg += "\n... (revisa el resto de tu archivo Excel)"
+                
             return JsonResponse({'success': True, 'message': msg})
 
         except Exception as e:

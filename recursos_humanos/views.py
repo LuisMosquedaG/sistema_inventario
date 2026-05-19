@@ -1150,81 +1150,117 @@ def alta_empleados_sua_ajax(request, id):
     try:
         importacion = ImportacionSUA.objects.get(id=id, empresa=empresa_actual)
         trabajadores = importacion.trabajadores.all()
-        sucursal_id = request.session.get('sucursal_id'); creados = 0; actualizados = 0
+        sucursal_id = request.session.get('sucursal_id')
+        creados = 0; actualizados = 0
         beneficiarios_map = {b.clave.strip().upper(): b for b in Beneficiario.objects.filter(empresa=empresa_actual) if b.clave}
-        # Buscar contratista por registro patronal del reporte
-        contratista_obj = Contratista.objects.filter(
-            registro_patronal=importacion.registro_patronal, 
-            empresa=empresa_actual
-        ).first()
+        
+        # Limpieza de datos del reporte para búsqueda unificada
+        rfc_reporte = re.sub(r'[^A-Z0-9]', '', (importacion.rfc_empresa or '').upper()).strip()[:13]
+        rp_reporte = re.sub(r'[^A-Z0-9]', '', (importacion.registro_patronal or '').upper()).strip()
+        nombre_reporte = (importacion.nombre_razon_social or '').strip()
 
+        # Búsqueda unificada: Si coincide RFC O Registro Patronal O Nombre, usamos el existente
+        filtros_or = Q()
+        if rfc_reporte and rfc_reporte != "POR_DEFINIR":
+            filtros_or |= Q(rfc__iexact=rfc_reporte)
+        if rp_reporte:
+            filtros_or |= Q(registro_patronal__iexact=rp_reporte)
+        if nombre_reporte:
+            filtros_or |= Q(nombre_razon_social__iexact=nombre_reporte)
+            
+        contratista_obj = Contratista.objects.filter(Q(empresa=empresa_actual) & filtros_or).first()
+
+        status_cont = "Existente"
         if not contratista_obj:
-            # Limpiar RFC de la empresa (quitar etiquetas, guiones, espacios)
-            rfc_limpio = re.sub(r'[^A-Z0-9]', '', (importacion.rfc_empresa or '').upper())
-            rfc_final = rfc_limpio[:13] or "POR_DEFINIR"
-
-            # Crear contratista automáticamente si no existe
             contratista_obj = Contratista.objects.create(
-                empresa=empresa_actual,
-                sucursal_id=sucursal_id,
-                registro_patronal=importacion.registro_patronal,
-                nombre_razon_social=importacion.nombre_razon_social,
-                rfc=rfc_final,
-                calle=importacion.domicilio,
-                cp=importacion.cp,
-                entidad_federativa=importacion.entidad,
-                correo=f"contacto@{importacion.registro_patronal}.com"
+                empresa=empresa_actual, sucursal_id=sucursal_id,
+                registro_patronal=rp_reporte, nombre_razon_social=nombre_reporte,
+                rfc=rfc_reporte or "POR_DEFINIR", calle=importacion.domicilio,
+                cp=importacion.cp, entidad_federativa=importacion.entidad,
+                correo=f"contacto@{rp_reporte or 'empresa'}.com"
             )
+            status_cont = "NUEVO REGISTRO"
+        else:
+            save_needed = False
+            if (not contratista_obj.rfc or contratista_obj.rfc == "POR_DEFINIR") and rfc_reporte:
+                contratista_obj.rfc = rfc_reporte; save_needed = True
+            if not contratista_obj.registro_patronal and rp_reporte:
+                contratista_obj.registro_patronal = rp_reporte; save_needed = True
+            if save_needed: contratista_obj.save()
+
+        info_contratista = f"{contratista_obj.nombre_razon_social} (ID: {contratista_obj.id}, {status_cont})"
 
         with transaction.atomic():
             for t in trabajadores:
-                # Limpieza profunda de NSS (solo números, máx 11) y CURP (alfanumérico, máx 18)
                 nss_clean = re.sub(r'[^0-9]', '', t.nss).strip()[:11]
                 curp_clean = re.sub(r'[^A-Z0-9]', '', (t.rfc_curp or '').upper()).strip()[:18]
-
-                # Buscar si ya existe por NSS o CURP
-                empleado = Empleado.objects.filter(
-                    Q(nss=nss_clean) | Q(curp=curp_clean),
-                    empresa=empresa_actual
-                ).first()
-                # Buscar beneficiario por clave de ubicación (Normalizado)
-                clave_u_clean = (t.clave_ubicacion or "").strip().upper()
-                beneficiario_obj = beneficiarios_map.get(clave_u_clean)
-                nombre_partes = t.nombre.strip().split(' '); paterno = ""; materno = ""; nombres = t.nombre
+                empleado = Empleado.objects.filter(Q(nss=nss_clean) | Q(curp=curp_clean), empresa=empresa_actual).first()
+                beneficiario_obj = beneficiarios_map.get((t.clave_ubicacion or "").strip().upper())
+                
+                nombre_partes = t.nombre.strip().split(' ')
+                paterno = ""; materno = ""; nombres = t.nombre
                 if len(nombre_partes) >= 3:
                     paterno = nombre_partes[0]; materno = nombre_partes[1]; nombres = " ".join(nombre_partes[2:])
                 elif len(nombre_partes) == 2:
                     paterno = nombre_partes[0]; nombres = nombre_partes[1]
+
                 if not empleado:
-                    # Generar nota de auditoría detallada
                     fecha_imp = importacion.fecha_importacion.strftime('%d/%m/%Y')
                     audit_nota = f"Importado el día {fecha_imp} de la cédula {importacion.periodo} del contratista {importacion.nombre_razon_social}"
-
                     nuevo = Empleado(
-                        empresa=empresa_actual, 
-                        sucursal_id=sucursal_id, 
-                        nss=nss_clean, 
-                        curp=curp_clean, 
-                        nombre=nombres, 
-                        apellido_paterno=paterno, 
-                        apellido_materno=materno, 
-                        sdi=t.sdi, 
-                        contratista=contratista_obj, 
-                        beneficiario=beneficiario_obj, 
-                        puesto="", # Campo limpio como se solicitó
-                        departamento="General", # Se quita la clave de ubicación de aquí
-                        clave_ubicacion=t.clave_ubicacion,
-                        notas=audit_nota, # Nota detallada con info de la cédula
-                        estado='activo'
+                        empresa=empresa_actual, sucursal_id=sucursal_id, nss=nss_clean, curp=curp_clean,
+                        nombre=nombres, apellido_paterno=paterno, apellido_materno=materno,
+                        sdi=t.sdi, contratista=contratista_obj, beneficiario=beneficiario_obj,
+                        puesto="", departamento="General", clave_ubicacion=t.clave_ubicacion,
+                        notas=audit_nota, estado='activo'
                     )
-                    nuevo.save()
-                    creados += 1
+                    nuevo.save(); creados += 1
                 else:
                     empleado.sdi = t.sdi
                     if beneficiario_obj: empleado.beneficiario = beneficiario_obj
                     if contratista_obj: empleado.contratista = contratista_obj
                     if t.clave_ubicacion: empleado.clave_ubicacion = t.clave_ubicacion
                     empleado.save(); actualizados += 1
-        return JsonResponse({'success': True, 'message': f'Proceso completado: {creados} nuevos empleados creados y {actualizados} actualizados.'})
+
+        return JsonResponse({'success': True, 'message': f'Proceso completado: {creados} nuevos empleados, {actualizados} actualizados. Contratista utilizado: {info_contratista}'})
     except ImportacionSUA.DoesNotExist: return JsonResponse({'success': False, 'error': 'No se encontró el registro SUA.'})
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required(login_url='/login/')
+@require_hr_permission('contratistas', 'ver')
+def exportar_sisub_contratos(request, id):
+    empresa_actual = get_empresa_actual(request)
+    try:
+        contratista = Contratista.objects.get(id=id, empresa=empresa_actual)
+        cuatrimestre = request.GET.get('cuatrimestre', '')
+        anio = request.GET.get('anio', '')
+        contratos = Contrato.objects.filter(contratista=contratista, empresa=empresa_actual).select_related('beneficiario')
+        
+        import openpyxl
+        from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
+        from openpyxl.utils import get_column_letter
+
+        wb = openpyxl.Workbook(); ws = wb.active; ws.title = "SISUB Contratos"
+        fill_main = PatternFill(start_color="00b8b9", end_color="00b8b9", fill_type="solid")
+        fill_sec = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
+        fill_head = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+        border = Border(left=Side(style='thin', color="CCCCCC"), right=Side(style='thin', color="CCCCCC"), top=Side(style='thin', color="CCCCCC"), bottom=Side(style='thin', color="CCCCCC"))
+        
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=25)
+        c1 = ws.cell(row=1, column=1, value="b-Contratos de servicio (cliente)"); c1.alignment = Alignment(horizontal="center", vertical="center"); c1.font = Font(bold=True, color="FFFFFF", size=12); c1.fill = fill_main; c1.border = border
+        ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=2); ws.cell(row=2, column=1, value="periodo").alignment = Alignment(horizontal="center")
+        ws.merge_cells(start_row=2, start_column=3, end_row=2, end_column=11); ws.cell(row=2, column=3, value="a-Datos generales del contrato").alignment = Alignment(horizontal="center")
+        ws.merge_cells(start_row=2, start_column=12, end_row=2, end_column=14); ws.cell(row=2, column=12, value="b-Identificacion del beneficiario").alignment = Alignment(horizontal="center")
+        ws.merge_cells(start_row=2, start_column=15, end_row=2, end_column=25); ws.cell(row=2, column=15, value="c-Domicilio fiscal del beneficiario").alignment = Alignment(horizontal="center")
+        for c in range(1, 26): cell = ws.cell(row=2, column=c); cell.fill = fill_sec; cell.font = Font(bold=True); cell.border = border
+        
+        headers = ['Cuatrimestre', 'Año', 'RFC Sujeto', 'Folio', 'Tipo', 'Objeto', 'Monto', 'Vigencia', 'Inicio', 'Termino', 'Trabajadores', 'RFC Ben', 'Nombre Ben', 'RegPat Ben', 'Calle', 'Ext', 'Int', 'Entre', 'Y', 'Colonia', 'CP', 'Mun', 'Edo', 'Email', 'Tel']
+        for i, h in enumerate(headers, 1): cell = ws.cell(row=3, column=i, value=h); cell.fill = fill_head; cell.font = Font(bold=True); cell.border = border; cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        
+        for con in contratos:
+            ben = con.beneficiario
+            ws.append([cuatrimestre, anio, contratista.rfc, con.folio, con.get_tipo_contrato_display(), con.objeto_contrato, con.monto_contrato, str(con.vigencia_contrato), str(con.fecha_inicio), str(con.fecha_fin), con.num_estimado_trabajadores, ben.rfc if ben else '', ben.nombre_razon_social if ben else '', ben.registro_patronal if ben else '', ben.calle if ben else '', ben.num_ext if ben else '', ben.num_int if ben else '', ben.entre_calle if ben else '', ben.y_calle if ben else '', ben.colonia if ben else '', ben.cp if ben else '', ben.municipio_alcaldia if ben else '', ben.entidad_federativa if ben else '', ben.correo if ben else '', ben.telefono if ben else ''])
+            for cell in ws[ws.max_row]: cell.border = border; cell.alignment = Alignment(vertical="center")
+        for i, col in enumerate(ws.columns, 1): ws.column_dimensions[get_column_letter(i)].width = 20
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); response['Content-Disposition'] = f'attachment; filename="SISUB_{contratista.rfc}.xlsx"'; wb.save(response); return response
+    except Exception as e: return HttpResponse(str(e), status=500)

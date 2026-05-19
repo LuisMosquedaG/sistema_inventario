@@ -149,9 +149,9 @@
                 <table class="table table-pro mb-0">
                     <thead>
                         <tr>
-                            <th class="text-center" style="width: 80px;">Acciones</th>
+                            <th class="text-center" style="width: 120px;">Acciones</th>
                             <th class="text-center">Reg. Patronal</th>
-                            <th>Razón Social / RFC</th>
+                            <th class="text-center">Razón Social / RFC / Clave</th>
                             <th class="text-center">Periodo</th>
                             <th class="text-center">Tipo</th>
                             <th class="text-center">Trabajadores</th>
@@ -178,9 +178,11 @@
                                 </div>
                             </td>
                             <td class="text-center text-muted small">{{ imp.registro_patronal }}</td>
-                            <td>
-                                <div class="fw-bold text-dark small">{{ imp.nombre_razon_social }}</div>
-                                <div class="text-muted small" style="font-size: 0.65rem;">{{ imp.rfc_empresa }}</div>
+                            <td class="text-center">
+                                <div class="text-dark small fw-bold">{{ imp.nombre_razon_social }}</div>
+                                <div class="text-muted small" style="font-size: 0.65rem;">
+                                    {{ imp.rfc_empresa }}
+                                </div>
                             </td>
                             <td class="text-center text-muted small">{{ imp.periodo }}</td>
                             <td class="text-center text-muted small">{{ imp.get_tipo_display }}</td>
