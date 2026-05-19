@@ -19,19 +19,19 @@ class Cliente(models.Model):
     
     # 4. DATOS DE DIRECCIÓN
     calle = models.CharField(max_length=200, blank=True, null=True, verbose_name="Calle")
-    numero_ext = models.CharField(max_length=10, blank=True, null=True, verbose_name="Número Exterior")
-    numero_int = models.CharField(max_length=10, blank=True, null=True, verbose_name="Número Interior")
+    numero_ext = models.CharField(max_length=50, blank=True, null=True, verbose_name="Número Exterior")
+    numero_int = models.CharField(max_length=50, blank=True, null=True, verbose_name="Número Interior")
     colonia = models.CharField(max_length=100, blank=True, null=True, verbose_name="Colonia")
     estado_dir = models.CharField(max_length=100, blank=True, null=True, verbose_name="Estado (Ubicación)")
-    cp = models.CharField(max_length=10, blank=True, null=True, verbose_name="Código Postal")
+    cp = models.CharField(max_length=50, blank=True, null=True, verbose_name="Código Postal")
     
     # --- 5. DATOS DE DIRECCIÓN DE ENVÍO (NUEVOS) ---
     envio_calle = models.CharField(max_length=200, blank=True, null=True, verbose_name="Calle Envío")
-    envio_numero_ext = models.CharField(max_length=10, blank=True, null=True, verbose_name="Número Ext. Envío")
-    envio_numero_int = models.CharField(max_length=10, blank=True, null=True, verbose_name="Número Int. Envío")
+    envio_numero_ext = models.CharField(max_length=50, blank=True, null=True, verbose_name="Número Ext. Envío")
+    envio_numero_int = models.CharField(max_length=50, blank=True, null=True, verbose_name="Número Int. Envío")
     envio_colonia = models.CharField(max_length=100, blank=True, null=True, verbose_name="Colonia Envío")
     envio_estado = models.CharField(max_length=100, blank=True, null=True, verbose_name="Estado Envío")
-    envio_cp = models.CharField(max_length=10, blank=True, null=True, verbose_name="CP Envío")
+    envio_cp = models.CharField(max_length=50, blank=True, null=True, verbose_name="CP Envío")
     
     envio_quien_recibe = models.CharField(max_length=150, blank=True, null=True, verbose_name="Quién Recibe")
     envio_telefono = models.CharField(max_length=20, blank=True, null=True, verbose_name="Teléfono Recibe")

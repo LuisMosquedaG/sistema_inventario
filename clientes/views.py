@@ -50,6 +50,9 @@ def descargar_plantilla_clientes(request):
 def importar_clientes_ajax(request):
     if request.method == 'POST' and request.FILES.get('archivo_clientes'):
         empresa_actual = get_empresa_actual(request)
+        if not empresa_actual:
+            return JsonResponse({'success': False, 'error': 'Empresa no detectada.'})
+            
         excel_file = request.FILES['archivo_clientes']
         
         try:
@@ -65,15 +68,20 @@ def importar_clientes_ajax(request):
             creados = 0
             errores = []
             
-            with transaction.atomic():
-                for idx, row in enumerate(data_rows, start=2):
-                    if not any(row): continue # Saltar filas vacías
-                    
-                    try:
+            for idx, row in enumerate(data_rows, start=2):
+                if not any(row): continue # Saltar filas vacías
+                
+                try:
+                    with transaction.atomic():
+                        nombre = str(row[0] or '').strip()
+                        if not nombre:
+                            errores.append(f"Fila {idx}: El nombre es obligatorio.")
+                            continue
+
                         # Mapeo por posición (basado en la plantilla)
                         cliente = Cliente(
                             empresa=empresa_actual,
-                            nombre=str(row[0] or '').strip(),
+                            nombre=nombre,
                             apellidos=str(row[1] or '').strip(),
                             razon_social=str(row[2] or '').strip(),
                             rfc=str(row[3] or '').strip().upper(),
@@ -100,21 +108,21 @@ def importar_clientes_ajax(request):
                             relacion=(str(row[24] or 'directo')).strip().lower(),
                         )
                         
-                        if not cliente.nombre:
-                            errores.append(f"Fila {idx}: El nombre es obligatorio.")
-                            continue
-                            
                         cliente.save()
                         creados += 1
-                    except Exception as row_err:
-                        errores.append(f"Fila {idx}: {str(row_err)}")
+                except Exception as row_err:
+                    errores.append(f"Fila {idx}: {str(row_err)}")
             
             if creados == 0 and errores:
-                return JsonResponse({'success': False, 'error': f"No se pudo importar ningún cliente. Errores: {', '.join(errores[:3])}..."})
+                return JsonResponse({'success': False, 'error': f"No se pudo importar ningún cliente. Primer error: {errores[0]}"})
 
-            msg = f'Importación exitosa. {creados} clientes creados.'
+            msg = f'Importación finalizada.\nClientes creados exitosamente: {creados}\n'
             if errores:
-                msg += f' ({len(errores)} filas con error)'
+                msg += f'\nFilas con error: {len(errores)}\n'
+                msg += '\nDetalle de primeros errores:\n'
+                msg += "\n".join(errores[:10])
+                if len(errores) > 10:
+                    msg += "\n... (revisa el resto de tu archivo Excel)"
                 
             return JsonResponse({'success': True, 'message': msg})
             

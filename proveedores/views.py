@@ -50,11 +50,11 @@ def importar_proveedores_ajax(request):
             creados = 0
             errores = []
             
-            with transaction.atomic():
-                for idx, row in enumerate(data_rows, start=2):
-                    if not any(row): continue
-                    
-                    try:
+            for idx, row in enumerate(data_rows, start=2):
+                if not any(row): continue
+                
+                try:
+                    with transaction.atomic():
                         razon_social = str(row[0] or '').strip()
                         rfc = str(row[1] or '').strip().upper()
                         cp = str(row[2] or '').strip()
@@ -84,14 +84,20 @@ def importar_proveedores_ajax(request):
                             estado=estado if estado in ['activo', 'suspendido', 'inactivo'] else 'activo'
                         )
                         creados += 1
-                    except Exception as e:
-                        errores.append(f"Fila {idx}: {str(e)}")
+                except Exception as row_err:
+                    errores.append(f"Fila {idx}: {str(row_err)}")
             
             if creados == 0 and errores:
-                return JsonResponse({'success': False, 'error': f"Error: {errores[0]}"})
+                return JsonResponse({'success': False, 'error': f"No se pudo importar ningún proveedor. Primer error: {errores[0]}"})
 
-            msg = f'Importación exitosa. {creados} proveedores creados.'
-            if errores: msg += f' ({len(errores)} errores)'
+            msg = f'Importación finalizada.\nProveedores creados exitosamente: {creados}\n'
+            if errores:
+                msg += f'\nFilas con error: {len(errores)}\n'
+                msg += '\nDetalle de primeros errores:\n'
+                msg += "\n".join(errores[:10])
+                if len(errores) > 10:
+                    msg += "\n... (revisa el resto de tu archivo Excel)"
+                
             return JsonResponse({'success': True, 'message': msg})
 
         except Exception as e:

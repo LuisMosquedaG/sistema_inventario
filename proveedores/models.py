@@ -12,7 +12,7 @@ class Proveedor(models.Model):
     # --- DATOS FISCALES ---
     razon_social = models.CharField(max_length=200, verbose_name="Razón Social")
     rfc = models.CharField(max_length=13, verbose_name="RFC", unique=True)
-    cp = models.CharField(max_length=10, blank=True, null=True, verbose_name="Código Postal")
+    cp = models.CharField(max_length=50, blank=True, null=True, verbose_name="Código Postal")
     domicilio = models.TextField(blank=True, null=True, verbose_name="Domicilio Fiscal")
     
     # --- CONTACTO PRINCIPAL ---

@@ -63,11 +63,11 @@ def importar_articulos_ajax(request):
             actualizados = 0
             errores = []
             
-            with transaction.atomic():
-                for idx, row in enumerate(data_rows, start=2):
-                    if not any(row): continue
-                    
-                    try:
+            for idx, row in enumerate(data_rows, start=2):
+                if not any(row): continue
+                
+                try:
+                    with transaction.atomic():
                         clave = str(row[0] or '').strip()
                         nombre = str(row[1] or '').strip()
                         tipo = str(row[2] or 'producto').strip().lower()
@@ -149,14 +149,20 @@ def importar_articulos_ajax(request):
                                 estado='activo'
                             )
                             creados += 1
-                    except Exception as e:
-                        errores.append(f"Fila {idx}: {str(e)}")
+                except Exception as row_err:
+                    errores.append(f"Fila {idx}: {str(row_err)}")
             
             if creados == 0 and actualizados == 0 and errores:
-                return JsonResponse({'success': False, 'error': f"Error: {errores[0]}"})
+                return JsonResponse({'success': False, 'error': f"No se pudo procesar ningún artículo. Primer error: {errores[0]}"})
 
-            msg = f'Importación exitosa. {creados} creados, {actualizados} actualizados.'
-            if errores: msg += f' ({len(errores)} errores)'
+            msg = f'Importación finalizada.\nArtículos creados: {creados}\nArtículos actualizados: {actualizados}\n'
+            if errores:
+                msg += f'\nFilas con error: {len(errores)}\n'
+                msg += '\nDetalle de primeros errores:\n'
+                msg += "\n".join(errores[:10])
+                if len(errores) > 10:
+                    msg += "\n... (revisa el resto de tu archivo Excel)"
+                
             return JsonResponse({'success': True, 'message': msg})
 
         except Exception as e:
@@ -274,9 +280,9 @@ def importar_recetas_ajax(request):
             creadas = 0
             errores = []
             
-            with transaction.atomic():
-                for clave_padre, items in recetas_data.items():
-                    try:
+            for clave_padre, items in recetas_data.items():
+                try:
+                    with transaction.atomic():
                         # 1. Validar Padre
                         padre = Producto.objects.filter(clave=clave_padre, empresa=empresa_actual).first()
                         if not padre:
@@ -294,11 +300,11 @@ def importar_recetas_ajax(request):
                         for item in items:
                             comp = Producto.objects.filter(clave=item['clave_comp'], empresa=empresa_actual).first()
                             if not comp:
-                                errores.append(f"Fila {item['fila']}: El componente '{item['clave_comp']}' no existe.")
+                                errores.append(f"Padre '{clave_padre}', Fila {item['fila']}: El componente '{item['clave_comp']}' no existe.")
                                 continue
                             
                             if comp.tipo_abastecimiento not in ['stock', 'compra']:
-                                errores.append(f"Fila {item['fila']}: El componente '{item['clave_comp']}' debe ser Stock o Compra.")
+                                errores.append(f"Padre '{clave_padre}', Fila {item['fila']}: El componente '{item['clave_comp']}' debe ser Stock o Compra.")
                                 continue
                             
                             DetalleReceta.objects.create(
@@ -308,14 +314,20 @@ def importar_recetas_ajax(request):
                             )
                         
                         creadas += 1
-                    except Exception as e:
-                        errores.append(f"Padre '{clave_padre}': {str(e)}")
+                except Exception as e:
+                    errores.append(f"Padre '{clave_padre}': {str(e)}")
             
             if creadas == 0 and errores:
-                return JsonResponse({'success': False, 'error': f"Error: {errores[0]}"})
+                return JsonResponse({'success': False, 'error': f"No se pudo procesar ninguna receta. Primer error: {errores[0]}"})
 
-            msg = f'Importación de recetas finalizada. {creadas} recetas configuradas.'
-            if errores: msg += f' ({len(errores)} errores en filas)'
+            msg = f'Importación de recetas finalizada.\nRecetas configuradas: {creadas}\n'
+            if errores:
+                msg += f'\nFilas/Padres con error: {len(errores)}\n'
+                msg += '\nDetalle de primeros errores:\n'
+                msg += "\n".join(errores[:10])
+                if len(errores) > 10:
+                    msg += "\n... (revisa el resto de tu archivo Excel)"
+                
             return JsonResponse({'success': True, 'message': msg})
 
         except Exception as e:
