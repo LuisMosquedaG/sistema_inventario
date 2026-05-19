@@ -213,11 +213,28 @@
 
         /* HR Section Styles */
         .hr-section {
-            background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
+            background: #f1f5f9; /* Fondo gris claro profesional */
+            border: 2px solid rgba(0, 184, 185, 0.4); /* Contorno azulito inicial */
             border-radius: 40px;
             padding: 80px 0;
             position: relative;
             overflow: hidden;
+            animation: breathe 4s infinite ease-in-out; /* Efecto respiración */
+        }
+
+        @keyframes breathe {
+            0% {
+                box-shadow: 0 0 0 0 rgba(0, 184, 185, 0.1);
+                border-color: rgba(0, 184, 185, 0.3);
+            }
+            50% {
+                box-shadow: 0 0 30px 10px rgba(0, 184, 185, 0.15);
+                border-color: rgba(0, 184, 185, 0.8);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(0, 184, 185, 0.1);
+                border-color: rgba(0, 184, 185, 0.3);
+            }
         }
         .construction-badge {
             background: #f59e0b;
@@ -450,48 +467,60 @@
         <div class="container">
             <div class="hr-section px-4 px-md-5">
                 <div class="row align-items-center g-5">
-                    <div class="col-lg-6">
-                        <div class="construction-badge mb-3">
-                            <i class="bi bi-hammer"></i> Módulo en Construcción
+                    <div class="col-lg-7">
+                        <div class="d-flex gap-2 mb-3">
+                            <div class="construction-badge" style="background: var(--brand-primary);">
+                                <i class="bi bi-cpu-fill"></i> Potenciado por IA
+                            </div>
+                            <div class="construction-badge" style="background: #64748b;">
+                                <i class="bi bi-clock-history"></i> Próximamente
+                            </div>
                         </div>
-                        <h2 class="fw-bold mb-4">Recursos Humanos y Capital Humano</h2>
-                        <p class="text-muted fs-5 mb-4">
-                            Expandimos la Suite para la gestión integral de tu talento humano. Un módulo diseñado para el cumplimiento operativo y legal.
+                        
+                        <h2 class="fw-bold mb-4">Módulo de Recursos Humanos</h2>
+                        <p class="text-dark fs-6 mb-3">
+                            Nuestro nuevo módulo de Recursos Humanos está diseñado para <strong>automatizar y agilizar</strong> los procesos administrativos y operativos relacionados con personal y contratistas.
                         </p>
-                        <div class="row g-3">
+                        <p class="text-muted small mb-4">
+                            El sistema cuenta con la capacidad de leer archivos <strong>SUA mensuales y bimestrales</strong> en cuestión de segundos, permitiendo la extracción automática de empleados de forma rápida y organizada. Toda la información podrá exportarse fácilmente a Excel para su análisis, validación y control.
+                        </p>
+                        
+                        <div class="row g-3 mb-4">
                             <div class="col-sm-6">
-                                <div class="d-flex align-items-center gap-2 mb-2">
-                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary);"></i>
-                                    <span class="fw-semibold small">Gestión de Empleados</span>
+                                <div class="d-flex align-items-start gap-2 mb-2">
+                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary); margin-top: 2px;"></i>
+                                    <span class="fw-semibold small">Alta y administración de empleados</span>
                                 </div>
-                                <div class="d-flex align-items-center gap-2 mb-2">
-                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary);"></i>
-                                    <span class="fw-semibold small">Control REPSE</span>
+                                <div class="d-flex align-items-start gap-2 mb-2">
+                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary); margin-top: 2px;"></i>
+                                    <span class="fw-semibold small">Registro de empresas contratistas</span>
                                 </div>
-                                <div class="d-flex align-items-center gap-2">
-                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary);"></i>
-                                    <span class="fw-semibold small">Validación ICSOE</span>
+                                <div class="d-flex align-items-start gap-2">
+                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary); margin-top: 2px;"></i>
+                                    <span class="fw-semibold small">Asignación de contratos y beneficiarios</span>
                                 </div>
                             </div>
                             <div class="col-sm-6">
-                                <div class="d-flex align-items-center gap-2 mb-2">
-                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary);"></i>
-                                    <span class="fw-semibold small">Reportes SISUB</span>
+                                <div class="d-flex align-items-start gap-2 mb-2">
+                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary); margin-top: 2px;"></i>
+                                    <span class="fw-semibold small">Organización centralizada laboral</span>
                                 </div>
-                                <div class="d-flex align-items-center gap-2 mb-2">
-                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary);"></i>
-                                    <span class="fw-semibold small">Cálculo EMA / EBA</span>
-                                </div>
-                                <div class="d-flex align-items-center gap-2">
-                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary);"></i>
-                                    <span class="fw-semibold small">Expedientes Digitales</span>
+                                <div class="d-flex align-items-start gap-2 mb-2">
+                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary); margin-top: 2px;"></i>
+                                    <span class="fw-semibold small">Layouts compatibles con ICSOE y SISUB</span>
                                 </div>
                             </div>
+                        </div>
+
+                        <div class="p-3 border-start border-4 rounded-end bg-white shadow-sm" style="border-color: var(--brand-primary) !important;">
+                            <p class="text-muted small mb-0 italic">
+                                Con este módulo, las empresas podrán <strong>reducir tiempos operativos</strong>, minimizar errores manuales y mantener un mejor control sobre la información requerida para cumplimiento y reportes.
+                            </p>
                         </div>
                     </div>
-                    <div class="col-lg-6 text-center">
+                    <div class="col-lg-5 text-center">
                         <div class="p-4 bg-white shadow-lg rounded-4 d-inline-block">
-                            <i class="bi bi-person-gear display-1 opacity-50" style="color: var(--brand-primary);"></i>
+                            <i class="bi bi-person-video2 display-1 opacity-50" style="color: var(--brand-primary);"></i>
                         </div>
                     </div>
                 </div>
