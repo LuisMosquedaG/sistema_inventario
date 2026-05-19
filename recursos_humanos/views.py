@@ -518,17 +518,30 @@ def editar_contrato_ajax(request, id):
 @require_hr_permission('contratistas', 'ver')
 def lista_contratistas(request):
     empresa_actual = get_empresa_actual(request)
-    contratistas = Contratista.objects.filter(empresa=empresa_actual).order_by('nombre_razon_social')
-    q = request.GET.get('q', '')
-    sucursal_id = request.GET.get('sucursal', '')
+    from django.db.models import Count
+    contratistas = Contratista.objects.filter(empresa=empresa_actual).annotate(total_colaboradores=Count('empleado')).order_by('nombre_razon_social')
     
+    q = request.GET.get('q', '')
+    f_razon = request.GET.get('razon_social', '')
+    f_rfc = request.GET.get('rfc', '')
+    f_rp = request.GET.get('reg_patronal', '')
+    sucursal_id = request.GET.get('sucursal', '')
+
     if q:
         contratistas = contratistas.filter(
             Q(nombre_razon_social__icontains=q) |
             Q(rfc__icontains=q) |
             Q(representante_legal__icontains=q) |
-            Q(correo__icontains=q)
+            Q(correo__icontains=q) |
+            Q(clave__icontains=q)
         )
+    
+    if f_razon:
+        contratistas = contratistas.filter(nombre_razon_social__icontains=f_razon)
+    if f_rfc:
+        contratistas = contratistas.filter(rfc__icontains=f_rfc)
+    if f_rp:
+        contratistas = contratistas.filter(registro_patronal__icontains=f_rp)
     if sucursal_id:
         contratistas = contratistas.filter(sucursal_id=sucursal_id)
 
@@ -537,11 +550,17 @@ def lista_contratistas(request):
         'contratistas': contratistas,
         'sucursales': sucursales,
         'empresa': empresa_actual,
-        'filtros': {'q': q, 'sucursal': sucursal_id}
+        'filtros': {
+            'q': q,
+            'razon_social': f_razon,
+            'rfc': f_rfc,
+            'reg_patronal': f_rp,
+            'sucursal': sucursal_id
+        }
     })
 
 @login_required(login_url='/login/')
-@require_hr_permission('contratistas', 'ver', json_response=True)
+@require_hr_permission('beneficiarios', 'ver', json_response=True)
 def obtener_contratista_json(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
@@ -620,14 +639,52 @@ def editar_contratista_ajax(request, id):
 @require_hr_permission('beneficiarios', 'ver')
 def lista_beneficiarios(request):
     empresa_actual = get_empresa_actual(request)
-    beneficiarios = Beneficiario.objects.filter(empresa=empresa_actual).order_by('nombre_razon_social')
-    q = request.GET.get('q', ''); sucursal_id = request.GET.get('sucursal', '')
+    from django.db.models import Count
+    beneficiarios = Beneficiario.objects.filter(empresa=empresa_actual).annotate(total_empleados=Count('empleado')).order_by('nombre_razon_social')
+    
+    q = request.GET.get('q', '')
+    f_razon = request.GET.get('razon_social', '')
+    f_rfc = request.GET.get('rfc', '')
+    f_clave = request.GET.get('clave', '')
+    f_cont = request.GET.get('contacto', '')
+    f_rp = request.GET.get('reg_patronal', '')
+    sucursal_id = request.GET.get('sucursal', '')
+
     if q:
-        beneficiarios = beneficiarios.filter(Q(nombre_razon_social__icontains=q) | Q(rfc__icontains=q) | Q(correo__icontains=q))
-    if sucursal_id: beneficiarios = beneficiarios.filter(sucursal_id=sucursal_id)
+        beneficiarios = beneficiarios.filter(
+            Q(nombre_razon_social__icontains=q) | 
+            Q(rfc__icontains=q) | 
+            Q(correo__icontains=q) |
+            Q(clave__icontains=q)
+        )
+    
+    if f_razon:
+        beneficiarios = beneficiarios.filter(nombre_razon_social__icontains=f_razon)
+    if f_rfc:
+        beneficiarios = beneficiarios.filter(rfc__icontains=f_rfc)
+    if f_clave:
+        beneficiarios = beneficiarios.filter(clave__icontains=f_clave)
+    if f_cont:
+        beneficiarios = beneficiarios.filter(Q(correo__icontains=f_cont) | Q(telefono__icontains=f_cont))
+    if f_rp:
+        beneficiarios = beneficiarios.filter(registro_patronal__icontains=f_rp)
+    if sucursal_id:
+        beneficiarios = beneficiarios.filter(sucursal_id=sucursal_id)
+
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
     return render(request, 'recursos_humanos/lista_beneficiarios.html', {
-        'beneficiarios': beneficiarios, 'sucursales': sucursales, 'empresa': empresa_actual, 'filtros': {'q': q, 'sucursal': sucursal_id}
+        'beneficiarios': beneficiarios, 
+        'sucursales': sucursales, 
+        'empresa': empresa_actual, 
+        'filtros': {
+            'q': q, 
+            'razon_social': f_razon, 
+            'rfc': f_rfc, 
+            'clave': f_clave, 
+            'contacto': f_cont, 
+            'reg_patronal': f_rp, 
+            'sucursal': sucursal_id
+        }
     })
 
 @login_required(login_url='/login/')
