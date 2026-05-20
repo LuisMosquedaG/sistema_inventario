@@ -14,6 +14,7 @@
 
             <form id="formSalidaDirecta" method="post" action="{% url 'crear_salida_directa' %}" novalidate>
                 {% csrf_token %}
+                <input type="hidden" id="edit_index_salida" value="-1">
                 
                 <div class="modal-body p-3 bg-light">
                     
@@ -54,7 +55,7 @@
                                             </div>
                                             <div class="custom-options">
                                                 {% for p in productos %}
-                                                <span class="custom-option" data-value="{{ p.id }}" data-precio="{{ p.precio_venta }}" data-search="{{ p.nombre }}" title="{{ p.nombre }}">
+                                                <span class="custom-option" data-value="{{ p.id }}" data-precio="{{ p.precio_venta }}" data-iva="{{ p.iva|default:0 }}" data-search="{{ p.nombre }}" title="{{ p.nombre }}">
                                                     {{ p.nombre }}
                                                 </span>
                                                 {% endfor %}
@@ -89,10 +90,12 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th class="ps-3">Artículo</th>
-                                        <th class="text-center" style="width: 80px;">Cant.</th>
-                                        <th class="text-end" style="width: 100px;">Precio</th>
-                                        <th class="text-end" style="width: 100px;">Total</th>
-                                        <th style="width: 50px;"></th>
+                                        <th class="text-center" style="width: 70px;">Cant.</th>
+                                        <th class="text-end" style="width: 90px;">Precio</th>
+                                        <th class="text-end" style="width: 90px;">Subtotal</th>
+                                        <th class="text-end" style="width: 80px;">IVA</th>
+                                        <th class="text-end pe-3" style="width: 100px;">Importe</th>
+                                        <th style="width: 40px;"></th>
                                     </tr>
                                 </thead>
                                 <tbody id="tablaCuerpoSalida">
@@ -103,11 +106,23 @@
                                 No hay artículos agregados aún.
                             </div>
                         </div>
-                        <div class="card-footer bg-white border-0 py-2 d-flex justify-content-end">
-                            <div class="me-3">
-                                <span class="text-muted small">Total Salida:</span>
+                        <div class="card-footer bg-white border-0 py-3">
+                            <div class="row justify-content-end">
+                                <div class="col-md-5">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span class="text-muted small">Subtotal:</span>
+                                        <span class="fw-semibold text-dark" id="salidaSubtotal">$0.00</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
+                                        <span class="text-muted small">IVA:</span>
+                                        <span class="fw-semibold text-dark" id="salidaIvaTotal">$0.00</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="text-muted fw-bold small uppercase">Total Salida:</span>
+                                        <span class="fw-bold fs-5 text-brand" id="granTotalSalida">$0.00</span>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="fw-bold fs-5 text-success" id="granTotalSalida">$0.00</div>
                         </div>
                     </div>
 

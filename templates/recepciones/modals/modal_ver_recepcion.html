@@ -89,9 +89,11 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th class="ps-3">Artículo</th>
-                                        <th class="text-center" style="width: 100px;">Cantidad</th>
-                                        <th class="text-end" style="width: 120px;">Costo Unit.</th>
-                                        <th class="text-end pe-3" style="width: 120px;">Subtotal</th>
+                                        <th class="text-center" style="width: 70px;">Cant.</th>
+                                        <th class="text-end" style="width: 100px;">Costo</th>
+                                        <th class="text-end" style="width: 100px;">Subtotal</th>
+                                        <th class="text-end" style="width: 80px;">IVA</th>
+                                        <th class="text-end pe-3" style="width: 100px;">Importe</th>
                                     </tr>
                                 </thead>
                                 <tbody id="ver_rec_tabla_cuerpo">
@@ -100,11 +102,23 @@
                             </table>
                         </div>
                     </div>
-                    <div class="card-footer bg-white border-0 py-3 d-flex justify-content-end">
-                        <div class="me-3 mt-1">
-                            <span class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem; letter-spacing: 1px;">Total Recibido:</span>
+                    <div class="card-footer bg-white border-0 py-3">
+                        <div class="row justify-content-end">
+                            <div class="col-md-5">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-muted small">Subtotal:</span>
+                                    <span class="fw-semibold text-dark" id="ver_rec_subtotal">$0.00</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
+                                    <span class="text-muted small">IVA:</span>
+                                    <span class="fw-semibold text-dark" id="ver_rec_iva_total">$0.00</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="text-muted fw-bold small uppercase">Total Recibido:</span>
+                                    <span class="fw-bold fs-4 text-brand" id="ver_rec_gran_total">$0.00</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="fw-bold fs-4 text-success" id="ver_rec_gran_total">$0.00</div>
                     </div>
                 </div>
 

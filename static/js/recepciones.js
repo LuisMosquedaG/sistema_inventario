@@ -98,29 +98,33 @@ function cargarItemsOrdenCompra() {
                 } else {
                     inputHtml = `
                         <input type="number" name="cantidad_recibida[]" 
-                            class="form-control form-control-sm text-center input-cant-recibir" 
+                            class="form-control form-control-sm text-center input-cant-recibir mx-auto" 
+                            style="max-width: 80px;"
                             value="${cant_faltante}" 
                             min="0" max="${cant_faltante}" 
-                            onchange="recalcularFila(this, ${item.costo})" oninput="recalcularFila(this, ${item.costo})">
+                            onchange="recalcularFila(this, ${item.costo}, ${item.iva_porcentaje})" oninput="recalcularFila(this, ${item.costo}, ${item.iva_porcentaje})">
                     `;
                 }
 
-                const subtotal = (cant_faltante * item.costo).toFixed(2);
+                const subtotal = cant_faltante * item.costo;
+                const ivaMonto = subtotal * (item.iva_porcentaje / 100);
+                const total = subtotal + ivaMonto;
                 
                 const filaHtml = `
-                    <tr data-detalle-id="${item.id}" data-costo="${item.costo}" data-tipo="${item.maneja_serie ? 'serie' : (item.maneja_lote ? 'lote' : 'normal')}">
-                        <td class="ps-3 text-center">
+                    <tr data-detalle-id="${item.id}" data-costo="${item.costo}" data-iva-porc="${item.iva_porcentaje}" data-tipo="${item.maneja_serie ? 'serie' : (item.maneja_lote ? 'lote' : 'normal')}">
+                        <td class="ps-3">
                             <div class="fw-semibold small text-dark">${item.nombre}</div>
                             <input type="hidden" name="detalle_compra_id[]" value="${item.id}">
                         </td>
                         <td class="text-center small">${item.cant_ordenada}</td>
-                        <td class="text-center small text-muted">${item.cant_recibida_anterior}</td>
                         <td class="text-center">${inputHtml}</td>
-                        <td class="text-center small text-muted">
+                        <td class="text-end small text-muted">
                             $${parseFloat(item.costo).toFixed(2)}
                             <input type="hidden" name="costo_unitario[]" value="${item.costo}">
                         </td>
-                        <td class="text-center fw-bold small text-dark row-subtotal">$${subtotal}</td>
+                        <td class="text-end small text-dark row-subtotal">$${subtotal.toFixed(2)}</td>
+                        <td class="text-end small text-muted row-iva">$${ivaMonto.toFixed(2)}</td>
+                        <td class="text-end pe-3 fw-bold small text-dark row-total">$${total.toFixed(2)}</td>
                     </tr>
                 `;
                 tbody.insertAdjacentHTML('beforeend', filaHtml);
@@ -199,25 +203,62 @@ function recalcularFilaPorId(id) {
     const tr = document.querySelector(`tr[data-detalle-id="${id}"]`);
     if(!tr) return;
     const h = document.getElementById(`hidden-cant-${id}`);
-    const c = h ? parseFloat(h.value) : 0;
-    const sub = c * parseFloat(tr.getAttribute('data-costo'));
+    const cant = h ? parseFloat(h.value) : 0;
+    const costo = parseFloat(tr.getAttribute('data-costo'));
+    const ivaPorc = parseFloat(tr.getAttribute('data-iva-porc')) || 0;
+
+    const sub = cant * costo;
+    const iva = sub * (ivaPorc / 100);
+    const total = sub + iva;
+
     const subLabel = tr.querySelector('.row-subtotal');
     if(subLabel) subLabel.innerText = '$' + sub.toFixed(2);
+
+    const ivaLabel = tr.querySelector('.row-iva');
+    if(ivaLabel) ivaLabel.innerText = '$' + iva.toFixed(2);
+
+    const totLabel = tr.querySelector('.row-total');
+    if(totLabel) totLabel.innerText = '$' + total.toFixed(2);
+
     calcularTotalRecepcion();
 }
 
-function recalcularFila(input, costo) {
+function recalcularFila(input, costo, ivaPorc) {
     const fila = input.closest('tr');
+    const cant = parseFloat(input.value || 0);
+    const sub = cant * costo;
+    const iva = sub * (ivaPorc / 100);
+    const total = sub + iva;
+
     const subLabel = fila.querySelector('.row-subtotal');
-    if(subLabel) subLabel.innerText = '$' + (parseFloat(input.value || 0) * costo).toFixed(2);
+    if(subLabel) subLabel.innerText = '$' + sub.toFixed(2);
+
+    const ivaLabel = fila.querySelector('.row-iva');
+    if(ivaLabel) ivaLabel.innerText = '$' + iva.toFixed(2);
+
+    const totLabel = fila.querySelector('.row-total');
+    if(totLabel) totLabel.innerText = '$' + total.toFixed(2);
+
     calcularTotalRecepcion();
 }
 
 function calcularTotalRecepcion() {
-    let t = 0;
-    document.querySelectorAll('.row-subtotal').forEach(s => t += parseFloat(s.innerText.replace('$', '')));
+    let subAcum = 0;
+    let ivaAcum = 0;
+    let totAcum = 0;
+
+    document.querySelectorAll('.row-subtotal').forEach(s => subAcum += parseFloat(s.innerText.replace('$', '').replace(',', '')) || 0);
+    document.querySelectorAll('.row-iva').forEach(s => ivaAcum += parseFloat(s.innerText.replace('$', '').replace(',', '')) || 0);
+    document.querySelectorAll('.row-total').forEach(s => totAcum += parseFloat(s.innerText.replace('$', '').replace(',', '')) || 0);
+
+    const elSub = document.getElementById('recepcionSubtotal');
+    if(elSub) elSub.innerText = '$' + subAcum.toLocaleString('en-US', {minimumFractionDigits: 2});
+
+    const elIva = document.getElementById('recepcionIvaTotal');
+    if(elIva) elIva.innerText = '$' + ivaAcum.toLocaleString('en-US', {minimumFractionDigits: 2});
+
     const gt = document.getElementById('granTotalRecepcion');
-    if(gt) gt.innerText = '$' + t.toFixed(2);
+    if(gt) gt.innerText = '$' + totAcum.toLocaleString('en-US', {minimumFractionDigits: 2});
 }
 
 function verRecepcion(id) {
@@ -249,23 +290,35 @@ function verRecepcion(id) {
 
             // SECCIÓN 3: LISTADO DE ARTÍCULOS
             tbody.innerHTML = '';
-            let totalG = 0;
-            data.detalles.forEach(det => {
-                const fila = `
-                    <tr>
-                        <td class="ps-3">
-                            <div class="fw-semibold small text-dark">${det.producto}</div>
-                        </td>
-                        <td class="text-center small">${det.cant}</td>
-                        <td class="text-end small text-muted">$${parseFloat(det.precio).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
-                        <td class="text-end pe-3 fw-bold small text-dark">$${parseFloat(det.subtotal).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
-                    </tr>
-                `;
-                tbody.insertAdjacentHTML('beforeend', fila);
-                totalG += parseFloat(det.subtotal);
-            });
+            
+            if (data.detalles && data.detalles.length > 0) {
+                data.detalles.forEach(det => {
+                    const fila = `
+                        <tr>
+                            <td class="ps-3">
+                                <div class="fw-semibold small text-dark">${det.producto}</div>
+                            </td>
+                            <td class="text-center small">${det.cant}</td>
+                            <td class="text-end small text-muted">$${parseFloat(det.precio).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                            <td class="text-end small text-dark">$${parseFloat(det.subtotal).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                            <td class="text-end small text-muted">$${parseFloat(det.iva_monto || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                            <td class="text-end pe-3 fw-bold small text-dark">$${parseFloat(det.total).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                        </tr>
+                    `;
+                    tbody.insertAdjacentHTML('beforeend', fila);
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-muted fst-italic">No hay artículos en esta recepción.</td></tr>';
+            }
 
-            document.getElementById('ver_rec_gran_total').innerText = '$' + totalG.toLocaleString('en-US', {minimumFractionDigits: 2});
+            const elSub = document.getElementById('ver_rec_subtotal');
+            if (elSub) elSub.innerText = '$' + parseFloat(data.subtotal_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+
+            const elIva = document.getElementById('ver_rec_iva_total');
+            if (elIva) elIva.innerText = '$' + parseFloat(data.iva_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+
+            const elTotal = document.getElementById('ver_rec_gran_total');
+            if (elTotal) elTotal.innerText = '$' + parseFloat(data.gran_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
             
             const modal = new bootstrap.Modal(document.getElementById('modalVerRecepcion'));
             modal.show();

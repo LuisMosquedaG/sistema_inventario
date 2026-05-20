@@ -464,43 +464,71 @@ function agregarAListaSalida() {
     const fake = document.getElementById('producto_display_fake_salida');
     const prodId = hidden.value;
     const prodNombre = fake.innerText.trim();
-    const cant = document.getElementById('inputCantidadSalida').value;
-    const precio = document.getElementById('inputPrecioSalida').value;
-    const total = (parseFloat(cant) * parseFloat(precio)).toFixed(2);
+    
+    // Obtener IVA del producto seleccionado
+    const option = document.querySelector(`#wrapperProductoSalida .custom-option[data-value="${prodId}"]`);
+    const ivaPorc = option ? parseFloat(option.getAttribute('data-iva')) : 0;
+    
+    const cant = parseFloat(document.getElementById('inputCantidadSalida').value) || 0;
+    const precio = parseFloat(document.getElementById('inputPrecioSalida').value) || 0;
+    const editIndex = document.getElementById('edit_index_salida').value;
 
     if (!prodId || cant <= 0) {
         alert("Selecciona un producto y cantidad válida.");
         return;
     }
 
-    const fila = `
-        <tr>
-            <td class="ps-3">
-                <div class="fw-semibold small text-dark">${prodNombre}</div>
-                <input type="hidden" name="producto_id[]" value="${prodId}">
-            </td>
-            <td class="text-center">
-                <span class="small text-dark">${cant}</span>
-                <input type="hidden" name="cantidad[]" value="${cant}">
-            </td>
-            <td class="text-end">
-                <span class="small text-muted">$${parseFloat(precio).toFixed(2)}</span>
-                <input type="hidden" name="precio_unitario[]" value="${precio}">
-            </td>
-            <td class="text-end">
-                <span class="fw-bold small text-dark">$${total}</span>
-            </td>
-            <td class="text-center">
-                <button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); calcularTotalSalida();">
-                    <i class="bi bi-x-circle-fill"></i>
+    const subtotal = cant * precio;
+    const ivaMonto = subtotal * (ivaPorc / 100);
+    const total = subtotal + ivaMonto;
+
+    const filaHtml = `
+        <td class="ps-3">
+            <div class="fw-semibold small text-dark">${prodNombre}</div>
+            <input type="hidden" name="producto_id[]" value="${prodId}">
+        </td>
+        <td class="text-center">
+            <span class="small text-dark">${cant}</span>
+            <input type="hidden" name="cantidad[]" value="${cant}">
+        </td>
+        <td class="text-end">
+            <span class="small text-muted">$${precio.toFixed(2)}</span>
+            <input type="hidden" name="precio_unitario[]" value="${precio}">
+        </td>
+        <td class="text-end">
+            <span class="small text-dark">$${subtotal.toFixed(2)}</span>
+        </td>
+        <td class="text-end">
+            <span class="small text-muted">$${ivaMonto.toFixed(2)}</span>
+            <input type="hidden" name="iva_porcentaje[]" value="${ivaPorc}">
+        </td>
+        <td class="text-end pe-3">
+            <span class="fw-bold small text-dark">$${total.toFixed(2)}</span>
+        </td>
+        <td class="text-center">
+            <div class="d-flex justify-content-center gap-1">
+                <button type="button" class="icon-action" onclick="editarFilaSalida(this)" title="Editar Partida">
+                    <i class="bi bi-pencil-square"></i>
                 </button>
-            </td>
-        </tr>
+                <button type="button" class="icon-action icon-action-danger" onclick="this.closest('tr').remove(); calcularTotalSalida();" title="Eliminar">
+                    <i class="bi bi-x-circle"></i>
+                </button>
+            </div>
+        </td>
     `;
 
-    document.getElementById('tablaCuerpoSalida').insertAdjacentHTML('beforeend', fila);
-    document.getElementById('mensajeVacioSalida').style.display = 'none';
-    
+    if (editIndex !== "-1") {
+        const tbody = document.getElementById('tablaCuerpoSalida');
+        const row = tbody.rows[parseInt(editIndex)];
+        row.innerHTML = filaHtml;
+        document.getElementById('edit_index_salida').value = "-1";
+        const btnAdd = document.querySelector('button[onclick="agregarAListaSalida()"]');
+        if (btnAdd) btnAdd.innerHTML = '<i class="bi bi-plus-lg"></i> Agregar';
+    } else {
+        document.getElementById('tablaCuerpoSalida').insertAdjacentHTML('beforeend', `<tr>${filaHtml}</tr>`);
+        document.getElementById('mensajeVacioSalida').style.display = 'none';
+    }
+
     // Reset inputs
     hidden.value = "";
     document.getElementById('producto_busqueda_salida').value = "";
@@ -511,14 +539,49 @@ function agregarAListaSalida() {
     calcularTotalSalida();
 }
 
+function editarFilaSalida(btn) {
+    const row = btn.closest('tr');
+    const tbody = document.getElementById('tablaCuerpoSalida');
+    const index = Array.from(tbody.rows).indexOf(row);
+    
+    const pId = row.querySelector('[name="producto_id[]"]').value;
+    const cant = row.querySelector('[name="cantidad[]"]').value;
+    const prec = row.querySelector('[name="precio_unitario[]"]').value;
+
+    const fake = document.getElementById('producto_display_fake_salida');
+    const option = document.querySelector(`#wrapperProductoSalida .custom-option[data-value="${pId}"]`);
+    
+    if (option) {
+        fake.innerHTML = option.innerHTML;
+        fake.setAttribute('title', option.textContent.trim());
+        document.getElementById('producto_busqueda_salida').value = '';
+    }
+
+    document.getElementById('selectProductoSalida').value = pId;
+    document.getElementById('inputCantidadSalida').value = cant;
+    document.getElementById('inputPrecioSalida').value = prec;
+    document.getElementById('edit_index_salida').value = index;
+
+    const btnAdd = document.querySelector('button[onclick="agregarAListaSalida()"]');
+    if (btnAdd) btnAdd.innerHTML = '<i class="bi bi-check-lg"></i>';
+}
+
 function calcularTotalSalida() {
-    let total = 0;
+    let subAcum = 0;
+    let ivaAcum = 0;
+    let totAcum = 0;
+
     document.querySelectorAll('#tablaCuerpoSalida tr').forEach(tr => {
-        const text = tr.cells[3].innerText.replace('$', '');
-        total += parseFloat(text);
+        subAcum += parseFloat(tr.cells[3].innerText.replace('$', '').replace(',', '')) || 0;
+        ivaAcum += parseFloat(tr.cells[4].innerText.replace('$', '').replace(',', '')) || 0;
+        totAcum += parseFloat(tr.cells[5].innerText.replace('$', '').replace(',', '')) || 0;
     });
-    document.getElementById('granTotalSalida').innerText = '$' + total.toFixed(2);
-    if (total === 0) document.getElementById('mensajeVacioSalida').style.display = 'block';
+
+    document.getElementById('salidaSubtotal').innerText = '$' + subAcum.toLocaleString('en-US', {minimumFractionDigits: 2});
+    document.getElementById('salidaIvaTotal').innerText = '$' + ivaAcum.toLocaleString('en-US', {minimumFractionDigits: 2});
+    document.getElementById('granTotalSalida').innerText = '$' + totAcum.toLocaleString('en-US', {minimumFractionDigits: 2});
+    
+    if (totAcum === 0) document.getElementById('mensajeVacioSalida').style.display = 'block';
 }
 
 function getCookie(name) {

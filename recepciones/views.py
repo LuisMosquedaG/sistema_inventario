@@ -377,6 +377,7 @@ def obtener_items_orden_compra(request, oc_id):
                 'cant_ordenada': det.cantidad,
                 'cant_recibida_anterior': total_recibido,
                 'costo': float(det.precio_costo),
+                'iva_porcentaje': float(det.producto.iva or 0),
                 'maneja_lote': det.producto.maneja_lote,
                 'maneja_serie': det.producto.maneja_serie,
             })
@@ -456,9 +457,14 @@ def api_detalle_recepcion(request, recepcion_id):
                     'producto': d.producto.nombre,
                     'cant': d.cantidad_recibida,
                     'precio': float(d.costo_unitario),
-                    'subtotal': float(d.subtotal)
+                    'subtotal': float(d.subtotal),
+                    'iva_monto': float(d.iva_monto),
+                    'total': float(d.total)
                 } for d in rec.detalles.all()
-            ]
+            ],
+            'subtotal_total': float(rec.calcular_subtotal),
+            'iva_total': float(rec.calcular_iva),
+            'gran_total': float(rec.calcular_total)
         }
         return JsonResponse(data)
     except Exception as e:

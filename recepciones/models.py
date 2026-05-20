@@ -35,8 +35,26 @@ class Recepcion(models.Model):
         return f"REC-{self.id:04d} | OC-{self.orden_compra.id}"
 
     @property
+    def calcular_subtotal(self):
+        total = Decimal('0')
+        for detalle in self.detalles.all():
+            total += detalle.subtotal
+        return total
+
+    @property
+    def calcular_iva(self):
+        total = Decimal('0')
+        for detalle in self.detalles.all():
+            total += detalle.iva_monto
+        return total
+
+    @property
+    def calcular_total(self):
+        return self.calcular_subtotal + self.calcular_iva
+
+    @property
     def total(self):
-        return sum(detalle.subtotal for detalle in self.detalles.all())
+        return self.calcular_total
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
@@ -60,7 +78,18 @@ class DetalleRecepcion(models.Model):
 
     @property
     def subtotal(self):
-        return self.cantidad_recibida * self.costo_unitario
+        if self.costo_unitario is None:
+            return Decimal('0')
+        return Decimal(str(self.cantidad_recibida)) * self.costo_unitario
+
+    @property
+    def iva_monto(self):
+        porc = self.producto.iva or Decimal('0')
+        return self.subtotal * (porc / 100)
+
+    @property
+    def total(self):
+        return self.subtotal + self.iva_monto
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
