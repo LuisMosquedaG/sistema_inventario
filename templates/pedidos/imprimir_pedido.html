@@ -100,10 +100,12 @@
         <table>
             <thead>
                 <tr>
-                    <th style="width: 50px;" class="text-center">Cant.</th>
+                    <th style="width: 40px;" class="text-center">Cant.</th>
                     <th>Descripción del Producto</th>
-                    <th style="width: 100px;" class="text-right">Unitario</th>
-                    <th style="width: 100px;" class="text-right">Importe</th>
+                    <th style="width: 80px;" class="text-right">Unitario</th>
+                    <th style="width: 80px;" class="text-right">Subtotal</th>
+                    <th style="width: 60px;" class="text-right">IVA</th>
+                    <th style="width: 90px;" class="text-right">Importe</th>
                 </tr>
             </thead>
             <tbody>
@@ -118,6 +120,8 @@
                     </td>
                     <td class="text-right">${{ detalle.precio_unitario|floatformat:2 }}</td>
                     <td class="text-right">${{ detalle.subtotal|floatformat:2 }}</td>
+                    <td class="text-right">${{ detalle.iva_monto|floatformat:2 }}</td>
+                    <td class="text-right">${{ detalle.total|floatformat:2 }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -127,11 +131,15 @@
             <table class="totals-table">
                 <tr>
                     <td class="text-right">Subtotal:</td>
-                    <td class="text-right">${{ pedido.total_pedido|floatformat:2 }}</td>
+                    <td class="text-right">${{ pedido.calcular_subtotal|floatformat:2 }}</td>
+                </tr>
+                <tr>
+                    <td class="text-right">IVA:</td>
+                    <td class="text-right">${{ pedido.calcular_iva|floatformat:2 }}</td>
                 </tr>
                 <tr class="total-row">
                     <td class="text-right">TOTAL:</td>
-                    <td class="text-right">${{ pedido.total_pedido|floatformat:2 }}</td>
+                    <td class="text-right">${{ pedido.calcular_total|floatformat:2 }}</td>
                 </tr>
             </table>
         </div>

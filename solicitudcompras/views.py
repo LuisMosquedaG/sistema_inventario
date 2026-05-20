@@ -417,8 +417,10 @@ def crear_solicitud_desde_pedido(request, detalle_id):
                 })
 
         if not items_a_solicitar:
-            messages.info(request, f'Para producir {producto.nombre} ya tienes todos los componentes necesarios en stock. No se generó solicitud.')
-            # Podríamos cambiar el estado a 'pendiente' si quisieras, pero lo dejamos así.
+            msg = f'Para producir {producto.nombre} ya tienes todos los componentes necesarios en stock. No se generó solicitud.'
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'message': msg})
+            messages.info(request, msg)
             return redirect('dashboard_pedidos')
 
         # 3. Crear Detalles en la Solicitud
@@ -444,7 +446,10 @@ def crear_solicitud_desde_pedido(request, detalle_id):
         detalle.estado_linea = 'en_proceso' # Marcamos que ya se inició el trámite
         detalle.save()
         
-        messages.success(request, f'Solicitud de componentes para "{producto.nombre}" generada correctamente.')
+        msg = f'Solicitud de componentes para "{producto.nombre}" generada correctamente.'
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'message': msg})
+        messages.success(request, msg)
 
     else:
         # --- CASO NORMAL: COMPRAR EL PRODUCTO DIRECTO ---
@@ -459,7 +464,10 @@ def crear_solicitud_desde_pedido(request, detalle_id):
         detalle.estado_linea = 'en_proceso'
         detalle.save()
         
-        messages.success(request, f'Producto agregado a la Solicitud #{target_solicitud.id}.')
+        msg = f'Producto "{producto.nombre}" agregado a la Solicitud #{target_solicitud.id}.'
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'message': msg})
+        messages.success(request, msg)
 
     return redirect('dashboard_solicitudcompras')
 
@@ -487,10 +495,13 @@ def obtener_solicitud_json(request, solicitud_id):
         else:
             data['pedido_origen'] = None
 
-        # --- CORRECCIÓN AQUÍ: Usar 'cantidad_solicitada' en lugar de 'cantidad' ---
+        # --- CORRECCIÓN: Mantener lista plana para Edición y agrupada para Ver ---
         detalles_list = []
-        for det in solicitud.detalles.all():
-            detalles_list.append({
+        detalles_agrupados = {}
+        
+        for det in solicitud.detalles.all().select_related('producto', 'proveedor', 'almacen', 'moneda', 'detalle_pedido_origen__producto'):
+            # Info básica para ambos usos
+            item_data = {
                 'id': det.id,
                 'producto_id': det.producto.id,
                 'producto_nombre': det.producto.nombre,
@@ -499,15 +510,50 @@ def obtener_solicitud_json(request, solicitud_id):
                 'proveedor_nombre': det.proveedor.razon_social if det.proveedor else 'No asignado',
                 'sucursal_id': det.sucursal.id if det.sucursal else None,
                 'sucursal_nombre': det.sucursal.nombre if det.sucursal else '',
-                'costo_unitario': str(det.costo_unitario),
                 'almacen_id': det.almacen.id if det.almacen else None,
                 'almacen_nombre': det.almacen.nombre if det.almacen else 'No asignado',
+                'costo_unitario': str(det.costo_unitario),
+                'subtotal': str(det.subtotal),
+                'iva_porcentaje': str(det.producto.iva or 0),
+                'iva_monto': str(det.iva_monto),
+                'total': str(det.total),
                 'moneda_id': det.moneda.id if det.moneda else None,
                 'moneda_siglas': det.moneda.siglas if det.moneda else 'MXN',
+                'tipo_cambio': str(det.moneda.factor) if det.moneda else '1.0000',
                 'lista_id': det.lista.id if det.lista else None,
                 'detalle_pedido_origen_id': det.detalle_pedido_origen.id if det.detalle_pedido_origen else None
-            })
+            }
+            
+            # Agregar a lista plana (Edición)
+            detalles_list.append(item_data)
+
+            # Identificar el grupo (Visualización Árbol)
+            if det.detalle_pedido_origen and det.detalle_pedido_origen.producto.tipo_abastecimiento == 'produccion':
+                grupo_nombre = f"Producción de: {det.detalle_pedido_origen.producto.nombre}"
+            else:
+                grupo_nombre = "Compras Directas / Reabastecimiento"
+            
+            if grupo_nombre not in detalles_agrupados:
+                detalles_agrupados[grupo_nombre] = []
+                
+            detalles_agrupados[grupo_nombre].append(item_data)
+            
         data['detalles'] = detalles_list
+        data['grupos'] = []
+        # Asegurar que 'Compras Directas' aparezca al final si existe
+        nombres_grupos = sorted([g for g in detalles_agrupados.keys() if g != "Compras Directas / Reabastecimiento"])
+        if "Compras Directas / Reabastecimiento" in detalles_agrupados:
+            nombres_grupos.append("Compras Directas / Reabastecimiento")
+            
+        for g_nom in nombres_grupos:
+            data['grupos'].append({
+                'nombre': g_nom,
+                'items': detalles_agrupados[g_nom]
+            })
+
+        data['subtotal_total'] = str(solicitud.calcular_subtotal)
+        data['iva_total'] = str(solicitud.calcular_iva)
+        data['gran_total'] = str(solicitud.calcular_total)
         data['solicitante_nombre'] = solicitud.solicitante.username.split('@')[0] if solicitud.solicitante else 'Sistema'
         data['fecha_creacion'] = solicitud.fecha_creacion.strftime('%d/%m/%Y %H:%M')
         data['estado_display'] = solicitud.get_estado_display()
@@ -743,9 +789,34 @@ def imprimir_solicitud(request, pk):
     if not solicitante_nombre:
         solicitante_nombre = solicitud.solicitante.username.split('@')[0]
 
+    # --- Lógica de Agrupación (Árbol) ---
+    detalles_agrupados = {}
+    for det in solicitud.detalles.all().select_related('producto', 'proveedor', 'almacen', 'moneda', 'detalle_pedido_origen__producto'):
+        if det.detalle_pedido_origen and det.detalle_pedido_origen.producto.tipo_abastecimiento == 'produccion':
+            grupo_nombre = f"Producción de: {det.detalle_pedido_origen.producto.nombre}"
+        else:
+            grupo_nombre = "Compras Directas / Reabastecimiento"
+        
+        if grupo_nombre not in detalles_agrupados:
+            detalles_agrupados[grupo_nombre] = []
+        detalles_agrupados[grupo_nombre].append(det)
+
+    grupos_final = []
+    nombres_grupos = sorted([g for g in detalles_agrupados.keys() if g != "Compras Directas / Reabastecimiento"])
+    if "Compras Directas / Reabastecimiento" in detalles_agrupados:
+        nombres_grupos.append("Compras Directas / Reabastecimiento")
+        
+    for g_nom in nombres_grupos:
+        grupos_final.append({
+            'nombre': g_nom,
+            'items': detalles_agrupados[g_nom],
+            'es_directo': g_nom == "Compras Directas / Reabastecimiento"
+        })
+
     context = {
         'solicitud': solicitud,
         'empresa': empresa_actual,
         'solicitante_nombre': solicitante_nombre,
+        'grupos': grupos_final,
     }
     return render(request, 'solicitudcompras/imprimir_solicitud.html', context)

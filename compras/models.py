@@ -2,6 +2,7 @@ from django.db import models
 from core.models import Producto 
 from panel.models import Empresa
 from django.contrib.auth.models import User
+from decimal import Decimal
 
 class OrdenCompra(models.Model):
     """ Cabecera de la Orden de Compra """
@@ -40,15 +41,33 @@ class OrdenCompra(models.Model):
         return f"OC-{self.id:04d} | {self.proveedor}"
 
     @property
+    def calcular_subtotal(self):
+        total = Decimal('0')
+        for detalle in self.detalles.all():
+            total += detalle.subtotal
+        return total
+
+    @property
+    def calcular_iva(self):
+        total = Decimal('0')
+        for detalle in self.detalles.all():
+            total += detalle.iva_monto
+        return total
+
+    @property
+    def calcular_total(self):
+        return self.calcular_subtotal + self.calcular_iva
+
+    @property
     def total(self):
-        return sum(detalle.subtotal for detalle in self.detalles.all())
+        return self.calcular_total
     
     @property
     def total_pagado(self):
         """Suma de todos los pagos registrados para esta compra"""
         from django.db.models import Sum
         total = self.pagos.filter(estado='aplicado').aggregate(Sum('monto'))['monto__sum']
-        return total or 0
+        return total or Decimal('0')
 
     @property
     def saldo_pendiente(self):
@@ -85,9 +104,6 @@ class OrdenCompra(models.Model):
             return str(self.usuario).split('@')[0]
         return "Sistema"
 
-    # --- ELIMINADO EL MÉTODO SAVE QUE HACÍA LA LIBERACIÓN MASIVA ---
-    # La sincronización ahora es granular y se maneja en DetalleRecepcion
-    # para evitar que partidas no recibidas se marquen como listas.
 
 class DetalleCompra(models.Model):
     """ Ítems de la Orden de Compra """
@@ -111,5 +127,14 @@ class DetalleCompra(models.Model):
     @property
     def subtotal(self):
         if self.precio_costo is None:
-            return 0
-        return self.cantidad * self.precio_costo
+            return Decimal('0')
+        return Decimal(str(self.cantidad)) * self.precio_costo
+
+    @property
+    def iva_monto(self):
+        porc = self.producto.iva or Decimal('0')
+        return self.subtotal * (porc / 100)
+
+    @property
+    def total(self):
+        return self.subtotal + self.iva_monto

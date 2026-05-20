@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from decimal import Decimal
 from panel.models import Empresa
 from core.models import Producto
 from pedidos.models import DetallePedido 
@@ -8,7 +9,7 @@ class SolicitudCompra(models.Model):
     """Representa una petición de compra al departamento de compras"""
     ESTADO_CHOICES = (
         ('borrador', 'Borrador'),
-        ('aprobada', 'Aprobada'),  # <--- AGREGADO
+        ('aprobada', 'Aprobada'),
         ('enviada', 'Enviada a Compras'),
         ('atendida', 'Atendida (OC Generada)'),
         ('cancelada', 'Cancelada'),
@@ -27,8 +28,6 @@ class SolicitudCompra(models.Model):
 
     def __str__(self):
         return f"Solicitud #{self.id} - {self.get_estado_display()}"
-    
-        # ... resto de la clase SolicitudCompra ...
 
     @property
     def solicitante_nombre_corto(self):
@@ -40,6 +39,24 @@ class SolicitudCompra(models.Model):
     @property
     def total_items(self):
         return self.detalles.count()
+
+    @property
+    def calcular_subtotal(self):
+        total = Decimal('0')
+        for detalle in self.detalles.all():
+            total += detalle.subtotal
+        return total
+
+    @property
+    def calcular_iva(self):
+        total = Decimal('0')
+        for detalle in self.detalles.all():
+            total += detalle.iva_monto
+        return total
+
+    @property
+    def calcular_total(self):
+        return self.calcular_subtotal + self.calcular_iva
 
 class DetalleSolicitudCompra(models.Model):
     solicitud = models.ForeignKey(SolicitudCompra, related_name='detalles', on_delete=models.CASCADE)
@@ -61,3 +78,18 @@ class DetalleSolicitudCompra(models.Model):
 
     def __str__(self):
         return f"{self.cantidad_solicitada} x {self.producto.nombre}"
+
+    @property
+    def subtotal(self):
+        if self.costo_unitario is None:
+            return Decimal('0')
+        return Decimal(str(self.cantidad_solicitada)) * self.costo_unitario
+
+    @property
+    def iva_monto(self):
+        porc = self.producto.iva or Decimal('0')
+        return self.subtotal * (porc / 100)
+
+    @property
+    def total(self):
+        return self.subtotal + self.iva_monto

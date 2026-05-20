@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from decimal import Decimal
 from panel.models import Empresa
 from clientes.models import Cliente, ContactoCliente
 from core.models import Producto
@@ -51,17 +52,32 @@ class Pedido(models.Model):
     
     @property
     def total_pedido(self):
-        total = 0
+        return self.calcular_total
+    
+    @property
+    def calcular_subtotal(self):
+        total = Decimal('0')
         for detalle in self.detalles.all():
             total += detalle.subtotal
         return total
+
+    @property
+    def calcular_iva(self):
+        total = Decimal('0')
+        for detalle in self.detalles.all():
+            total += detalle.iva_monto
+        return total
+
+    @property
+    def calcular_total(self):
+        return self.calcular_subtotal + self.calcular_iva
     
     @property
     def total_pagado(self):
         """Suma de todos los pagos registrados para este pedido"""
         from django.db.models import Sum
         total = self.pagos.filter(estado='aplicado').aggregate(Sum('monto'))['monto__sum']
-        return total or 0
+        return total or Decimal('0')
 
     @property
     def saldo_pendiente(self):
@@ -139,7 +155,18 @@ class DetallePedido(models.Model):
 
     @property
     def subtotal(self):
-        return self.cantidad_solicitada * self.precio_unitario
+        if self.precio_unitario is None:
+            return Decimal('0')
+        return Decimal(str(self.cantidad_solicitada)) * self.precio_unitario
+
+    @property
+    def iva_monto(self):
+        porc = self.producto.iva or Decimal('0')
+        return self.subtotal * (porc / 100)
+
+    @property
+    def total(self):
+        return self.subtotal + self.iva_monto
 
     @property
     def pendiente_entrega(self):

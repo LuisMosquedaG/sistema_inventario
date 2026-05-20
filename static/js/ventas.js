@@ -183,7 +183,7 @@ function abrirModalDetalle(ovId) {
     const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
     const tbody = document.getElementById('tablaArticulosDetalle');
     
-    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3"><span class="spinner-border spinner-border-sm"></span> Cargando...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3"><span class="spinner-border spinner-border-sm"></span> Cargando...</td></tr>';
 
     fetch(`/ventas/api/preparar-surtido/${ovId}/`)
         .then(response => response.json())
@@ -209,21 +209,23 @@ function abrirModalDetalle(ovId) {
             document.getElementById('detNotas').innerText = data.notas_envio || 'Sin notas';
 
             tbody.innerHTML = '';
-            let totalFinal = 0;
             
             data.detalles.forEach(det => {
-                totalFinal += det.subtotal;
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td class="ps-3 fw-semibold small text-dark">${det.producto_nombre}</td>
                     <td class="text-center small">${det.cantidad}</td>
                     <td class="text-end small text-muted">$${parseFloat(det.precio).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
-                    <td class="text-end pe-3 fw-bold small text-dark">$${parseFloat(det.subtotal).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                    <td class="text-end small text-dark">$${parseFloat(det.subtotal).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                    <td class="text-end small text-muted">$${parseFloat(det.iva_monto).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                    <td class="text-end pe-3 fw-bold small text-dark">$${parseFloat(det.total).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                 `;
                 tbody.appendChild(tr);
             });
 
-            document.getElementById('totalDetalleVenta').innerText = '$' + totalFinal.toLocaleString('en-US', {minimumFractionDigits: 2});
+            document.getElementById('detSubtotal').innerText = '$' + parseFloat(data.subtotal_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+            document.getElementById('detIvaTotal').innerText = '$' + parseFloat(data.iva_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+            document.getElementById('totalDetalleVenta').innerText = '$' + parseFloat(data.total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
             
             modal.show();
         })

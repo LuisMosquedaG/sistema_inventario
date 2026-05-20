@@ -829,20 +829,28 @@ def generar_solicitud_global(request, pedido_id):
     for det_sol in solicitud_maestra.detalles.all():
         mapa_solicitud[det_sol.producto.id] = det_sol
 
+    # Buscar Almacén y Moneda por defecto
+    almacen_def = Almacen.objects.filter(empresa=empresa_actual, sucursal=pedido.sucursal).first()
+    if not almacen_def:
+        almacen_def = Almacen.objects.filter(empresa=empresa_actual).first()
+    
+    from preferencias.models import Moneda
+    moneda_def = Moneda.objects.filter(empresa=empresa_actual, siglas='MXN').first()
+    if not moneda_def:
+        moneda_def = Moneda.objects.filter(empresa=empresa_actual).first()
+
+    lineas_procesadas_ids = []
+
     # 4. Procesar cada línea del pedido
     for linea_pedido in lineas_a_comprar:
         producto = linea_pedido.producto
+        linea_ok = False
         
         # --- CASO A: PRODUCCIÓN ---
         if producto.tipo_abastecimiento == 'produccion':
-            # Buscar un almacén válido (Prioridad: Cliente -> Sucursal Pedido -> Cualquier Almacén de Empresa)
-            almacen_destino = Almacen.objects.filter(empresa=empresa_actual, sucursal=pedido.sucursal).first()
-            if not almacen_destino:
-                almacen_destino = Almacen.objects.filter(empresa=empresa_actual).first()
-
-            if not almacen_destino:
-                messages.error(request, f'No se pudo generar la orden de producción para "{producto.nombre}" porque no hay almacenes registrados. Por favor, cree un almacén primero.')
-                return redirect('detalle_pedido', pedido_id=pedido.id)
+            if not almacen_def:
+                messages.error(request, f'No se pudo generar la orden de producción para "{producto.nombre}" porque no hay almacenes registrados.')
+                continue
 
             # 1. Crear la Orden de Producción vinculada al pedido (En Borrador)
             op = OrdenProduccion.objects.create(
@@ -850,8 +858,8 @@ def generar_solicitud_global(request, pedido_id):
                 producto=producto,
                 cantidad=linea_pedido.cantidad_solicitada,
                 pedido_origen=pedido,
-                solicitante=request.user, # Quién dispara la solicitud
-                almacen=almacen_destino,
+                solicitante=request.user,
+                almacen=almacen_def,
                 estado='borrador',
                 notas=f"Generada automáticamente desde Pedido #{pedido.id}",
                 sucursal=pedido.sucursal
@@ -864,8 +872,8 @@ def generar_solicitud_global(request, pedido_id):
                 messages.error(request, f'El producto "{producto.nombre}" es de producción pero NO TIENE RECETA asignada.')
                 continue
 
+            componentes_agregados = False
             for item_receta in receta:
-                # Copiamos a la tabla de la orden específica
                 from produccion.models import DetalleOrdenProduccion
                 DetalleOrdenProduccion.objects.create(
                     orden_produccion=op,
@@ -873,7 +881,6 @@ def generar_solicitud_global(request, pedido_id):
                     cantidad=item_receta.cantidad * linea_pedido.cantidad_solicitada
                 )
 
-                # Lógica de compra para materiales faltantes
                 componente = item_receta.componente
                 cantidad_necesaria = item_receta.cantidad * linea_pedido.cantidad_solicitada
                 stock_componente = componente.stock_disponible
@@ -881,12 +888,9 @@ def generar_solicitud_global(request, pedido_id):
                 if stock_componente < cantidad_necesaria:
                     faltante = cantidad_necesaria - stock_componente
                     
-                    # Agregar o sumar al mapa
                     if componente.id in mapa_solicitud:
                         det_sol_existente = mapa_solicitud[componente.id]
                         det_sol_existente.cantidad_solicitada += faltante
-                        det_sol_existente.costo_unitario = componente.precio_costo
-                        # Mantenemos el vínculo al pedido si ya existe, o lo ponemos
                         if not det_sol_existente.detalle_pedido_origen:
                             det_sol_existente.detalle_pedido_origen = linea_pedido
                         det_sol_existente.save()
@@ -896,18 +900,20 @@ def generar_solicitud_global(request, pedido_id):
                             producto=componente,
                             cantidad_solicitada=faltante,
                             costo_unitario=componente.precio_costo,
-                            detalle_pedido_origen=linea_pedido # <--- VÍNCULO CRÍTICO
+                            almacen=almacen_def,
+                            moneda=moneda_def,
+                            detalle_pedido_origen=linea_pedido
                         )
                         mapa_solicitud[componente.id] = nuevo_det
                     componentes_agregados = True
             
             if not componentes_agregados:
-                # CAMBIO: Aviso de por qué se saltó
                 messages.warning(request, f'El producto "{producto.nombre}" se ignora porque YA TIENES STOCK SUFICIENTE de todos sus componentes.')
+            
+            linea_ok = True
 
         # --- CASO B: STOCK / COMPRA (NORMAL) ---
         else:
-            # Agregar o sumar el producto final
             if producto.id in mapa_solicitud:
                 det_sol_existente = mapa_solicitud[producto.id]
                 det_sol_existente.cantidad_solicitada += linea_pedido.cantidad_solicitada
@@ -921,22 +927,32 @@ def generar_solicitud_global(request, pedido_id):
                     producto=producto,
                     cantidad_solicitada=linea_pedido.cantidad_solicitada,
                     costo_unitario=producto.precio_costo,
-                    detalle_pedido_origen=linea_pedido # <--- VÍNCULO CRÍTICO
+                    almacen=almacen_def,
+                    moneda=moneda_def,
+                    detalle_pedido_origen=linea_pedido
                 )
                 mapa_solicitud[producto.id] = nuevo_det
+            linea_ok = True
 
-    # 5. Actualizar el estado de todas las líneas procesadas
-    lineas_a_comprar.update(estado_linea='en_proceso')
+        if linea_ok:
+            lineas_procesadas_ids.append(linea_pedido.id)
+
+    # 5. Actualizar el estado de solo las líneas procesadas
+    DetallePedido.objects.filter(id__in=lineas_procesadas_ids).update(estado_linea='en_proceso')
 
     # NOTIFICACIÓN
     crear_notificacion(
         empresa=empresa_actual,
-        mensaje=f"Se ha generado una Solicitud de Compra desde el Pedido #{pedido.id}",
+        mensaje=f"Se ha generado una Solicitud de Compra Global desde el Pedido #{pedido.id}",
         actor=request.user,
         propietario=pedido.vendedor if pedido.vendedor else None
     )
 
-    messages.success(request, f'Solicitud Global generada exitosamente con {len(mapa_solicitud)} ítems únicos.')
+    msg = f'Solicitud Global generada exitosamente con {len(mapa_solicitud)} ítems únicos.'
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'success': True, 'message': msg})
+    
+    messages.success(request, msg)
     return redirect('dashboard_solicitudcompras')
 
 @login_required(login_url='/login/')
@@ -964,8 +980,16 @@ def obtener_pedido_json(request, pedido_id):
             data['detalles'].append({
                 'producto': det.producto.nombre,
                 'solicitado': det.cantidad_solicitada,
+                'precio': str(det.precio_unitario),
+                'subtotal': str(det.subtotal),
+                'iva_monto': str(det.iva_monto),
+                'total': str(det.total),
                 'estado': det.get_estado_linea_display()
             })
+
+        data['subtotal_total'] = str(pedido.calcular_subtotal)
+        data['iva_total'] = str(pedido.calcular_iva)
+        data['gran_total'] = str(pedido.calcular_total)
 
         return JsonResponse(data)
     except Exception as e:
@@ -1022,7 +1046,10 @@ def api_detalle_pedido_edicion(request, pedido_id):
             'producto_nombre': det.producto.nombre,
             'cantidad': det.cantidad_solicitada,
             'precio_unitario': float(det.precio_unitario),
-            'total': float(det.subtotal)
+            'iva_porcentaje': float(det.producto.iva or 0),
+            'subtotal': float(det.subtotal),
+            'iva_monto': float(det.iva_monto),
+            'total': float(det.total)
         })
 
     data = {
@@ -1033,7 +1060,9 @@ def api_detalle_pedido_edicion(request, pedido_id):
         'contacto_id': pedido.contacto.id if pedido.contacto else '',
         'notas': pedido.notas or '',
         'detalles': detalles,
-        'total': float(pedido.total_pedido)
+        'subtotal_total': float(pedido.calcular_subtotal),
+        'iva_total': float(pedido.calcular_iva),
+        'total': float(pedido.calcular_total)
     }
     return JsonResponse(data)
 

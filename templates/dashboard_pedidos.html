@@ -709,7 +709,7 @@
                                                 </div>
                                                 <div class="custom-options">
                                                     {% for p in productos %}
-                                                    <span class="custom-option" data-value="{{ p.id }}" data-precio="{{ p.precio_venta }}" data-search="{{ p.nombre }}">
+                                                    <span class="custom-option" data-value="{{ p.id }}" data-precio="{{ p.precio_venta }}" data-iva="{{ p.iva|default:0 }}" data-search="{{ p.nombre }}">
                                                         {{ p.nombre }}
                                                     </span>
                                                     {% endfor %}
@@ -752,23 +752,36 @@
                                 <table class="table table-sm table-hover mb-0 align-middle">
                                     <thead class="table-light">
                                         <tr>
-                                            <th class="text-center align-middle">Artículo</th>
-                                            <th class="text-center align-middle" style="width: 100px;">Cantidad</th>
-                                            <th class="text-center align-middle" style="width: 120px;">Precio Unit.</th>
-                                            <th class="text-center align-middle" style="width: 120px;">Total</th>
-                                            <th style="width: 50px;"></th>
+                                            <th class="ps-3 align-middle">Artículo</th>
+                                            <th class="text-center align-middle" style="width: 70px;">Cant.</th>
+                                            <th class="text-end align-middle" style="width: 90px;">Precio</th>
+                                            <th class="text-end align-middle" style="width: 90px;">Subtotal</th>
+                                            <th class="text-end align-middle" style="width: 80px;">IVA</th>
+                                            <th class="text-end align-middle pe-3" style="width: 100px;">Importe</th>
+                                            <th style="width: 40px;"></th>
                                         </tr>
                                     </thead>
                                     <tbody id="tablaCuerpoNuevo"></tbody>
-                                    <tfoot class="table-light fw-bold">
-                                        <tr>
-                                            <td colspan="3" class="text-end pe-3 border-0">Total Pedido:</td>
-                                            <td class="text-center text-success border-0" id="granTotalNuevo">$0.00</td>
-                                            <td class="border-0"></td>
-                                        </tr>
-                                    </tfoot>
                                 </table>
                                 <div id="mensajeVacioNuevo" class="text-center py-3 text-muted small fst-italic">No hay artículos agregados.</div>
+                            </div>
+                            <div class="card-footer bg-white border-0 py-3">
+                                <div class="row justify-content-end">
+                                    <div class="col-md-5">
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span class="text-muted small">Subtotal:</span>
+                                            <span class="fw-semibold text-dark" id="pedidoSubtotal">$0.00</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
+                                            <span class="text-muted small">IVA:</span>
+                                            <span class="fw-semibold text-dark" id="pedidoIvaTotal">$0.00</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="text-muted fw-bold small uppercase">Total Pedido:</span>
+                                            <span class="fw-bold fs-5 text-brand" id="granTotalNuevo">$0.00</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1206,6 +1219,8 @@
         document.getElementById('tablaCuerpoNuevo').innerHTML = '';
         document.getElementById('mensajeVacioNuevo').style.display = 'block';
         document.getElementById('granTotalNuevo').innerText = '$0.00';
+        document.getElementById('pedidoSubtotal').innerText = '$0.00';
+        document.getElementById('pedidoIvaTotal').innerText = '$0.00';
         
         // 3. Limpiar Sección "Agregar Artículo"
         document.getElementById('selectProductoNuevo').value = "";
@@ -1264,9 +1279,15 @@
                         <tr>
                             <td class="ps-3 fw-semibold small text-dark">${det.producto_nombre}<input type="hidden" name="producto_id[]" value="${det.producto_id}"></td>
                             <td class="text-center small">${det.cantidad}<input type="hidden" name="cantidad[]" value="${det.cantidad}"></td>
-                            <td class="text-center small text-muted">$${det.precio_unitario.toFixed(2)}<input type="hidden" name="precio_unitario[]" value="${det.precio_unitario}"></td>
-                            <td class="text-center fw-bold small text-dark">$${det.total.toFixed(2)}</td>
-                            <td class="text-center"><button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); calcularTotalNuevo();"><i class="bi bi-x-circle-fill"></i></button></td>
+                            <td class="text-end small text-muted">$${parseFloat(det.precio_unitario).toFixed(2)}<input type="hidden" name="precio_unitario[]" value="${det.precio_unitario}"></td>
+                            <td class="text-end small text-dark">$${parseFloat(det.subtotal).toFixed(2)}</td>
+                            <td class="text-end small text-muted">$${parseFloat(det.iva_monto).toFixed(2)}<input type="hidden" name="iva_porcentaje[]" value="${det.iva_porcentaje}"></td>
+                            <td class="text-end pe-3 fw-bold small text-dark">$${parseFloat(det.total).toFixed(2)}</td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); calcularTotalNuevo();">
+                                    <i class="bi bi-x-circle-fill"></i>
+                                </button>
+                            </td>
                         </tr>`;
                     tbody.insertAdjacentHTML('beforeend', fila);
                 });
@@ -1323,19 +1344,32 @@
         const fake = document.getElementById('producto_display_fake');
         const pId = hidden.value;
         const pName = fake.innerText.trim();
-        const cant = document.getElementById('inputCantNuevo').value;
-        const prec = document.getElementById('inputPrecioNuevo').value;
+        const cant = parseFloat(document.getElementById('inputCantNuevo').value) || 0;
+        const prec = parseFloat(document.getElementById('inputPrecioNuevo').value) || 0;
+
+        // Obtener IVA del producto seleccionado
+        const option = document.querySelector(`#wrapperProductoNuevo .custom-option[data-value="${pId}"]`);
+        const ivaPorc = option ? parseFloat(option.getAttribute('data-iva')) : 0;
 
         if (!pId || cant <= 0) return alert("Selecciona producto y cantidad válida.");
 
-        const total = (parseFloat(cant) * parseFloat(prec)).toFixed(2);
+        const subtotal = cant * prec;
+        const ivaMonto = subtotal * (ivaPorc / 100);
+        const total = subtotal + ivaMonto;
+
         const fila = `
             <tr>
                 <td class="ps-3 fw-semibold small text-dark">${pName}<input type="hidden" name="producto_id[]" value="${pId}"></td>
                 <td class="text-center small">${cant}<input type="hidden" name="cantidad[]" value="${cant}"></td>
-                <td class="text-center small text-muted">$${parseFloat(prec).toFixed(2)}<input type="hidden" name="precio_unitario[]" value="${prec}"></td>
-                <td class="text-center fw-bold small text-dark">$${total}</td>
-                <td class="text-center"><button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); calcularTotalNuevo();"><i class="bi bi-x-circle-fill"></i></button></td>
+                <td class="text-end small text-muted">$${prec.toFixed(2)}<input type="hidden" name="precio_unitario[]" value="${prec}"></td>
+                <td class="text-end small text-dark">$${subtotal.toFixed(2)}</td>
+                <td class="text-end small text-muted">$${ivaMonto.toFixed(2)}<input type="hidden" name="iva_porcentaje[]" value="${ivaPorc}"></td>
+                <td class="text-end pe-3 fw-bold small text-dark">$${total.toFixed(2)}</td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); calcularTotalNuevo();">
+                        <i class="bi bi-x-circle-fill"></i>
+                    </button>
+                </td>
             </tr>`;
         
         document.getElementById('tablaCuerpoNuevo').insertAdjacentHTML('beforeend', fila);
@@ -1356,12 +1390,23 @@
     }
 
     function calcularTotalNuevo() {
-        let total = 0;
+        let subtotalAcum = 0;
+        let ivaAcum = 0;
+        let totalAcum = 0;
+
         document.querySelectorAll('#tablaCuerpoNuevo tr').forEach(tr => {
-            total += parseFloat(tr.cells[3].innerText.replace('$', ''));
+            subtotalAcum += parseFloat(tr.cells[3].innerText.replace('$', '').replace(',', '')) || 0;
+            ivaAcum += parseFloat(tr.cells[4].innerText.replace('$', '').replace(',', '')) || 0;
+            totalAcum += parseFloat(tr.cells[5].innerText.replace('$', '').replace(',', '')) || 0;
         });
-        document.getElementById('granTotalNuevo').innerText = '$' + total.toFixed(2);
-        if (document.querySelectorAll('#tablaCuerpoNuevo tr').length === 0) document.getElementById('mensajeVacioNuevo').style.display = 'block';
+
+        document.getElementById('pedidoSubtotal').innerText = '$' + subtotalAcum.toLocaleString('en-US', {minimumFractionDigits: 2});
+        document.getElementById('pedidoIvaTotal').innerText = '$' + ivaAcum.toLocaleString('en-US', {minimumFractionDigits: 2});
+        document.getElementById('granTotalNuevo').innerText = '$' + totalAcum.toLocaleString('en-US', {minimumFractionDigits: 2});
+
+        if (document.querySelectorAll('#tablaCuerpoNuevo tr').length === 0) {
+            document.getElementById('mensajeVacioNuevo').style.display = 'block';
+        }
     }
 
     document.getElementById('formNuevoPedido').addEventListener('submit', function(e) {
@@ -1482,12 +1527,11 @@
                     } else if (det.estado_linea === 'compra') {
                         pillClass = 'status-cancelado'; pillText = 'Falta Stock';
                         if (permsPedidos.solicitar) {
-                            accionIcon = `<a href="/solicitudes-compras/crear-desde-pedido/${det.id}/" class="icon-action" title="Solicitar"><i class="bi bi-cart-plus"></i></a>`;
+                            accionIcon = `<span class="icon-action" title="Solicitar" onclick="confirmarSolicitudItem(${det.id})"><i class="bi bi-cart-plus"></i></span>`;
                         } else {
                             accionIcon = `<span class="icon-action" style="cursor: default; opacity: 0.5;" title="Sin permiso"><i class="bi bi-slash-circle"></i></span>`;
                         }
                     }
-
                     const row = `
                         <tr id="fila-detalle-${det.id}" class="${filaClase}">
                             <td class="text-center align-middle ${productoClase}" style="padding-left: ${esHijo ? '1.5rem' : '1rem'};">${textoProducto}</td>
@@ -1523,7 +1567,41 @@
         const pedidoId = btn.dataset.pedidoId;
         if(!pedidoId || pedidoId == "0") { alert("Error: No se pudo identificar el pedido."); return; }
         if(!confirm("¿Generar solicitud de compra global para todas las partidas faltantes?")) return;
-        window.location.href = `/pedidos/generar-solicitud-global/${pedidoId}/`;
+        
+        fetch(`/pedidos/generar-solicitud-global/${pedidoId}/`, {
+            method: 'GET',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                if(lastPedidoElement) cargarDetallePedido(lastPedidoElement);
+            } else {
+                alert("Error: " + data.error);
+            }
+        })
+        .catch(err => { console.error(err); alert("Error de conexión al generar solicitud global."); });
+    }
+
+    function confirmarSolicitudItem(detalleId) {
+        if(!confirm("¿Generar solicitud de compra para esta partida?")) return;
+        
+        fetch(`/solicitudes-compras/crear-desde-pedido/${detalleId}/`, {
+            method: 'GET',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                // Refrescamos el modal
+                if(lastPedidoElement) cargarDetallePedido(lastPedidoElement);
+            } else {
+                alert("Error: " + data.error);
+            }
+        })
+        .catch(err => { console.error(err); alert("Error de conexión al solicitar partida."); });
     }
 
     function confirmarRecepcion(detalleId) {
@@ -1586,9 +1664,11 @@
 
     function verPedido(id) {
         const tbody = document.getElementById('ver_pedido_tabla_cuerpo');
-        tbody.innerHTML = '<tr><td colspan="3" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</td></tr>';
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</td></tr>';
         
-        const modal = new bootstrap.Modal(document.getElementById('modalVerPedido'));
+        const modalEl = document.getElementById('modalVerPedido');
+        const modal = new bootstrap.Modal(modalEl);
         modal.show();
 
         fetch(`/pedidos/api/ver/${id}/`)
@@ -1608,17 +1688,35 @@
                 document.getElementById('ver_pedido_contacto_email').innerText = data.contacto_email;
 
                 tbody.innerHTML = '';
-                data.detalles.forEach(det => {
-                    tbody.insertAdjacentHTML('beforeend', `
-                        <tr>
-                            <td class="ps-3 fw-semibold small text-dark">${det.producto}</td>
-                            <td class="text-center small">${det.solicitado}</td>
-                            <td class="text-center">
-                                <span class="status-pill status-confirmado" style="font-size: 0.65rem;">${det.estado}</span>
-                            </td>
-                        </tr>
-                    `);
-                });
+                if (data.detalles && data.detalles.length > 0) {
+                    data.detalles.forEach(det => {
+                        tbody.insertAdjacentHTML('beforeend', `
+                            <tr>
+                                <td class="ps-3 fw-semibold small text-dark">${det.producto}</td>
+                                <td class="text-center small">${det.solicitado}</td>
+                                <td class="text-end small text-muted">$${parseFloat(det.precio).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                <td class="text-end small text-dark">$${parseFloat(det.subtotal).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                <td class="text-end small text-muted">$${parseFloat(det.iva_monto).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                <td class="text-end pe-3 fw-bold small text-dark">$${parseFloat(det.total).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                            </tr>
+                        `);
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-muted fst-italic">No hay artículos en este pedido.</td></tr>';
+                }
+
+                const elSub = document.getElementById('ver_pedido_subtotal');
+                if (elSub) elSub.innerText = '$' + parseFloat(data.subtotal_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+
+                const elIva = document.getElementById('ver_pedido_iva_total');
+                if (elIva) elIva.innerText = '$' + parseFloat(data.iva_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+
+                const elTotal = document.getElementById('ver_pedido_gran_total');
+                if (elTotal) elTotal.innerText = '$' + parseFloat(data.gran_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+            })
+            .catch(error => {
+                console.error("Error al cargar pedido:", error);
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-3">Error al cargar datos.</td></tr>';
             });
     }
     // ==========================================

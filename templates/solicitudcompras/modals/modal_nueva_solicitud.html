@@ -1,7 +1,8 @@
 <!-- Modal para Nueva Solicitud Manual y Edición -->
 <div class="modal fade" id="modalNuevaSolicitudManual" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-xl modal-sheet">
-        <div class="modal-content">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-sheet modal-dialog-scrollable">
+        <form id="formNuevaSolicitud" method="post" onsubmit="guardarSolicitud(event)" class="modal-content">
+            {% csrf_token %}
             <!-- HEADER -->
             <div class="modal-header border-bottom bg-light">
                 <h5 class="modal-title fw-bold text-dark">
@@ -11,12 +12,10 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
-            <form id="formNuevaSolicitud" method="post" onsubmit="guardarSolicitud(event)">
-                {% csrf_token %}
+            <div class="modal-body p-3 bg-light">
                 <input type="hidden" id="solicitud_id_edit" name="solicitud_id">
                 <input type="hidden" id="item_indice_edicion" value="-1">
-                
-                <div class="modal-body p-3 bg-light">
+                <input type="hidden" id="edit_item_pedido_det_id" value="">
                     <!-- SECCIÓN 0: DATOS DEL PEDIDO (Solo visible al editar si existe pedido_origen) -->
                     <div id="seccion_datos_pedido" class="card border-0 mb-3" style="display: none;">
                         <div class="card-body p-3 pt-0">
@@ -99,7 +98,7 @@
                                     <select id="add_producto" class="form-select form-select-sm" onchange="actualizarCostoDefault(this)">
                                         <option value="">Buscar producto...</option>
                                         {% for p in productos %}
-                                        <option value="{{ p.id }}" data-precio="{{ p.precio_costo }}">{{ p.nombre }}</option>
+                                        <option value="{{ p.id }}" data-precio="{{ p.precio_costo }}" data-iva="{{ p.iva|default:0 }}">{{ p.nombre }}</option>
                                         {% endfor %}
                                     </select>
                                 </div>
@@ -143,10 +142,12 @@
                                             <th style="min-width: 100px;">Lista</th>
                                             <th style="min-width: 80px;">Moneda</th>
                                             <th style="min-width: 150px;">Proveedor</th>
-                                            <th style="min-width: 130px;">Sucursal Prov.</th>
                                             <th style="min-width: 120px;">Almacén</th>
-                                            <th class="text-center" style="width: 80px;">Cant.</th>
-                                            <th class="text-end" style="width: 100px;">Costo</th>
+                                            <th class="text-center" style="width: 70px;">Cant.</th>
+                                            <th class="text-end" style="width: 90px;">Costo</th>
+                                            <th class="text-end" style="width: 90px;">Subtotal</th>
+                                            <th class="text-end" style="width: 80px;">IVA</th>
+                                            <th class="text-end pe-3" style="width: 100px;">Importe</th>
                                             <th style="width: 80px;">Acciones</th>
                                         </tr>
                                     </thead>
@@ -158,6 +159,24 @@
                             
                             <div id="mensajeVacioSolicitud" class="text-center py-4 text-muted small fst-italic bg-white border border-dashed rounded mt-2">
                                 No hay productos agregados.
+                            </div>
+                        </div>
+                        <div class="card-footer bg-white border-0 py-3">
+                            <div class="row justify-content-end">
+                                <div class="col-md-5">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span class="text-muted small">Subtotal:</span>
+                                        <span class="fw-semibold text-dark" id="solicitudSubtotal">$0.00</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
+                                        <span class="text-muted small">IVA:</span>
+                                        <span class="fw-semibold text-dark" id="solicitudIvaTotal">$0.00</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="text-muted fw-bold small uppercase">Total Solicitud:</span>
+                                        <span class="fw-bold fs-5 text-brand" id="granTotalSolicitud">$0.00</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

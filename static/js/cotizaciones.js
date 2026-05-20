@@ -90,9 +90,18 @@ function agregarALista() {
     const productId = select.value;
     const fakeProd = document.getElementById('producto_display_fake');
     const productName = fakeProd.innerText.trim();
-    const cantidad = document.getElementById('inputCantidadAgregar').value;
-    const precio = document.getElementById('inputPrecioAgregar').value;
-    const total = (parseFloat(cantidad) * parseFloat(precio)).toFixed(2);
+    const cantidad = parseFloat(document.getElementById('inputCantidadAgregar').value) || 0;
+    const precio = parseFloat(document.getElementById('inputPrecioAgregar').value) || 0;
+    
+    // Obtener IVA del producto seleccionado
+    const option = document.querySelector(`#wrapperProductoAgregar .custom-option[data-value="${productId}"]`);
+    const ivaPorc = option ? parseFloat(option.getAttribute('data-iva')) : 0;
+    
+    // Cálculos
+    const subtotal = cantidad * precio;
+    const ivaMonto = subtotal * (ivaPorc / 100);
+    const total = subtotal + ivaMonto;
+
     const editIndex = document.getElementById('edit_index').value;
 
     if (!productId || productId === "" || cantidad <= 0) {
@@ -110,19 +119,26 @@ function agregarALista() {
             <input type="hidden" name="cantidad[]" value="${cantidad}">
         </td>
         <td class="text-end">
-            <span class="small text-muted">$${parseFloat(precio).toFixed(2)}</span>
+            <span class="small text-muted">$${precio.toFixed(2)}</span>
             <input type="hidden" name="precio_unitario[]" value="${precio}">
         </td>
         <td class="text-end">
-            <span class="fw-bold small text-dark">$${total}</span>
+            <span class="small text-dark">$${subtotal.toFixed(2)}</span>
+        </td>
+        <td class="text-end">
+            <span class="small text-muted">$${ivaMonto.toFixed(2)}</span>
+            <input type="hidden" name="iva_porcentaje[]" value="${ivaPorc}">
+        </td>
+        <td class="text-end">
+            <span class="fw-bold small text-dark">$${total.toFixed(2)}</span>
         </td>
         <td class="text-center">
-            <div class="d-flex justify-content-center gap-2">
-                <button type="button" class="btn btn-sm text-primary p-0" onclick="editarFila(this)">
-                    <i class="bi bi-pencil-fill"></i>
+            <div class="d-flex justify-content-center gap-1">
+                <button type="button" class="icon-action" onclick="editarFila(this)" title="Editar Partida">
+                    <i class="bi bi-pencil-square"></i>
                 </button>
-                <button type="button" class="btn btn-sm text-danger p-0" onclick="eliminarDeLista(this)">
-                    <i class="bi bi-x-circle-fill"></i>
+                <button type="button" class="icon-action icon-action-danger" onclick="eliminarDeLista(this)" title="Eliminar">
+                    <i class="bi bi-x-circle"></i>
                 </button>
             </div>
         </td>
@@ -192,15 +208,30 @@ function eliminarDeLista(boton) {
 }
 
 function calcularGranTotalLista() {
+    let subtotalTotal = 0;
+    let ivaTotal = 0;
     let granTotal = 0;
+
     document.querySelectorAll('#tablaCuerpo tr').forEach(fila => {
-        const textoTotal = fila.cells[3].innerText.replace('$', '').replace(',', '');
-        granTotal += parseFloat(textoTotal);
+        const sub = parseFloat(fila.cells[3].innerText.replace('$', '').replace(',', '')) || 0;
+        const iva = parseFloat(fila.cells[4].innerText.replace('$', '').replace(',', '')) || 0;
+        const tot = parseFloat(fila.cells[5].innerText.replace('$', '').replace(',', '')) || 0;
+        
+        subtotalTotal += sub;
+        ivaTotal += iva;
+        granTotal += tot;
     });
-    document.getElementById('granTotalModal').innerText = '$' + granTotal.toFixed(2);
+
+    document.getElementById('modalSubtotal').innerText = '$' + subtotalTotal.toLocaleString('en-US', {minimumFractionDigits: 2});
+    document.getElementById('modalIvaTotal').innerText = '$' + ivaTotal.toLocaleString('en-US', {minimumFractionDigits: 2});
+    document.getElementById('granTotalModal').innerText = '$' + granTotal.toLocaleString('en-US', {minimumFractionDigits: 2});
 }
 
-function agregarFilaVisual(id, nombre, cant, precio, total) {
+function agregarFilaVisual(id, nombre, cant, precio, ivaPorc) {
+    const subtotal = parseFloat(cant) * parseFloat(precio);
+    const ivaMonto = subtotal * (parseFloat(ivaPorc) / 100);
+    const total = subtotal + ivaMonto;
+
     const filaHtml = `
         <tr>
             <td class="ps-3">
@@ -216,15 +247,22 @@ function agregarFilaVisual(id, nombre, cant, precio, total) {
                 <input type="hidden" name="precio_unitario[]" value="${precio}">
             </td>
             <td class="text-end">
-                <span class="fw-bold small text-dark">$${total}</span>
+                <span class="small text-dark">$${subtotal.toFixed(2)}</span>
+            </td>
+            <td class="text-end">
+                <span class="small text-muted">$${ivaMonto.toFixed(2)}</span>
+                <input type="hidden" name="iva_porcentaje[]" value="${ivaPorc}">
+            </td>
+            <td class="text-end">
+                <span class="fw-bold small text-dark">$${total.toFixed(2)}</span>
             </td>
             <td class="text-center">
-                <div class="d-flex justify-content-center gap-2">
-                    <button type="button" class="btn btn-sm text-primary p-0" onclick="editarFila(this)">
-                        <i class="bi bi-pencil-fill"></i>
+                <div class="d-flex justify-content-center gap-1">
+                    <button type="button" class="icon-action" onclick="editarFila(this)" title="Editar Partida">
+                        <i class="bi bi-pencil-square"></i>
                     </button>
-                    <button type="button" class="btn btn-sm text-danger p-0" onclick="eliminarDeLista(this)">
-                        <i class="bi bi-x-circle-fill"></i>
+                    <button type="button" class="icon-action icon-action-danger" onclick="eliminarDeLista(this)" title="Eliminar">
+                        <i class="bi bi-x-circle"></i>
                     </button>
                 </div>
             </td>
@@ -251,6 +289,8 @@ window.limpiarModalCotizacion = function() {
     document.getElementById('tablaCuerpo').innerHTML = '';
     document.getElementById('mensajeVacio').style.display = 'block';
     document.getElementById('granTotalModal').innerText = '$0.00';
+    document.getElementById('modalSubtotal').innerText = '$0.00';
+    document.getElementById('modalIvaTotal').innerText = '$0.00';
     document.getElementById('selectProductoAgregar').value = "";
     document.getElementById('producto_busqueda').value = "";
     document.getElementById('producto_display_fake').innerHTML = '<span class="text-muted" style="font-weight:400;">Seleccionar...</span>';
@@ -277,40 +317,70 @@ document.addEventListener('click', function(e) {
 // ==========================================
 window.verCotizacion = function(id) {
     const tablaVer = document.getElementById('ver_tabla_cuerpo');
-    tablaVer.innerHTML = '<tr><td colspan="4" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</td></tr>';
+    if (!tablaVer) { console.error("No se encontró ver_tabla_cuerpo"); return; }
+    
+    tablaVer.innerHTML = '<tr><td colspan="6" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</td></tr>';
+    
     fetch(`/cotizaciones/api/${id}/`)
         .then(response => response.json())
         .then(data => {
             if(data.error) { alert(data.error); return; }
-            document.getElementById('ver_folio').innerText = data.folio_completo;
-            document.getElementById('ver_imprimir_btn').href = `/cotizaciones/imprimir/${id}/`;
-            document.getElementById('ver_cliente').innerText = data.cliente_nombre;
-            document.getElementById('ver_contacto').innerText = data.contacto_nombre || 'Sin contacto';
-            document.getElementById('ver_fecha_inicio').innerText = data.fecha_inicio;
-            document.getElementById('ver_fecha_fin').innerText = data.fecha_fin;
-            document.getElementById('ver_origen').innerText = data.origen || '--';
-            document.getElementById('ver_direccion').innerText = data.direccion_entrega || '--';
+            
+            const elFolio = document.getElementById('ver_folio');
+            if (elFolio) elFolio.innerText = data.folio_completo;
+            
+            const elCliente = document.getElementById('ver_cliente');
+            if (elCliente) elCliente.innerText = data.cliente_nombre;
+            
+            const elContacto = document.getElementById('ver_contacto');
+            if (elContacto) elContacto.innerText = data.contacto_nombre || 'Sin contacto';
+            
+            const elFechaIni = document.getElementById('ver_fecha_inicio');
+            if (elFechaIni) elFechaIni.innerText = data.fecha_inicio;
+            
+            const elFechaFin = document.getElementById('ver_fecha_fin');
+            if (elFechaFin) elFechaFin.innerText = data.fecha_fin;
+            
+            const elOrigen = document.getElementById('ver_origen');
+            if (elOrigen) elOrigen.innerText = data.origen || '--';
+            
+            const elDir = document.getElementById('ver_direccion');
+            if (elDir) elDir.innerText = data.direccion_entrega || '--';
+            
             tablaVer.innerHTML = '';
-            let totalG = 0;
-            data.detalles.forEach(det => {
-                const fila = `
-                    <tr>
-                        <td class="ps-3"><div class="fw-semibold small text-dark">${det.producto_nombre}</div></td>
-                        <td class="text-center small">${det.cantidad}</td>
-                        <td class="text-end small text-muted">$${parseFloat(det.precio).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
-                        <td class="text-end pe-3 fw-bold small text-dark">$${parseFloat(det.total).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
-                    </tr>
-                `;
-                tablaVer.insertAdjacentHTML('beforeend', fila);
-                totalG += parseFloat(det.total);
-            });
-            if (data.detalles.length === 0) {
-                tablaVer.innerHTML = '<tr><td colspan="4" class="text-center py-3 text-muted fst-italic">No hay artículos en esta cotización.</td></tr>';
+            if (data.detalles && data.detalles.length > 0) {
+                data.detalles.forEach(det => {
+                    const fila = `
+                        <tr>
+                            <td class="ps-3"><div class="fw-semibold small text-dark">${det.producto_nombre}</div></td>
+                            <td class="text-center small">${det.cantidad}</td>
+                            <td class="text-end small text-muted">$${parseFloat(det.precio).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                            <td class="text-end small text-dark">$${parseFloat(det.subtotal).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                            <td class="text-end small text-muted">$${parseFloat(det.iva_monto).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                            <td class="text-end pe-3 fw-bold small text-dark">$${parseFloat(det.total).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                        </tr>
+                    `;
+                    tablaVer.insertAdjacentHTML('beforeend', fila);
+                });
+            } else {
+                tablaVer.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-muted fst-italic">No hay artículos en esta cotización.</td></tr>';
             }
-            document.getElementById('ver_gran_total').innerText = '$' + totalG.toLocaleString('en-US', {minimumFractionDigits: 2});
+            
+            const elSub = document.getElementById('ver_subtotal');
+            if (elSub) elSub.innerText = '$' + parseFloat(data.subtotal_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+            
+            const elIva = document.getElementById('ver_iva_total');
+            if (elIva) elIva.innerText = '$' + parseFloat(data.iva_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+            
+            const elTotal = document.getElementById('ver_gran_total');
+            if (elTotal) elTotal.innerText = '$' + parseFloat(data.gran_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+            
             mostrarModal('modalVerCotizacion');
         })
-        .catch(error => console.error('Error:', error));
+        .catch(error => {
+            console.error('Error al cargar cotización:', error);
+            alert("Error al cargar los datos de la cotización.");
+        });
 };
 
 window.cargarParaEdicion = function(id) {
@@ -318,6 +388,8 @@ window.cargarParaEdicion = function(id) {
     form.reset();
     document.getElementById('tablaCuerpo').innerHTML = ''; 
     document.getElementById('granTotalModal').innerText = '$0.00';
+    document.getElementById('modalSubtotal').innerText = '$0.00';
+    document.getElementById('modalIvaTotal').innerText = '$0.00';
     document.getElementById('mensajeVacio').style.display = 'block';
     document.getElementById('selectProductoAgregar').value = "";
     document.getElementById('producto_busqueda').value = "";
@@ -346,13 +418,11 @@ window.cargarParaEdicion = function(id) {
                 optionCliente.dispatchEvent(mdown);
             }
 
-            let totalAcumulado = 0;
             data.detalles.forEach(det => {
-                agregarFilaVisual(det.producto_id, det.producto_nombre, det.cantidad, det.precio, det.total);
-                totalAcumulado += parseFloat(det.total);
+                agregarFilaVisual(det.producto_id, det.producto_nombre, det.cantidad, det.precio, det.iva_porcentaje);
             });
             if(data.detalles.length > 0) { document.getElementById('mensajeVacio').style.display = 'none'; }
-            document.getElementById('granTotalModal').innerText = '$' + totalAcumulado.toFixed(2);
+            calcularGranTotalLista();
             
             if (data.contacto_id) {
                 setTimeout(() => {
@@ -556,6 +626,29 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.disabled = false;
                 this.innerText = 'Sí, Aprobar';
             });
+        });
+    }
+
+    // --- VALIDACIÓN AL GUARDAR ---
+    const formCot = document.getElementById('formCotizacion');
+    if (formCot) {
+        formCot.addEventListener('submit', function(e) {
+            const clienteId = document.getElementById('cliente_id_input').value;
+            const tablaCuerpo = document.getElementById('tablaCuerpo');
+            
+            if (!clienteId || clienteId === "") {
+                e.preventDefault();
+                alert("⚠️ Falta seleccionar un cliente para guardar la cotización.");
+                return false;
+            }
+            
+            if (tablaCuerpo.rows.length === 0) {
+                e.preventDefault();
+                alert("⚠️ Debes agregar al menos un artículo a la cotización.");
+                return false;
+            }
+            
+            window.isSubmittingCotizacion = true;
         });
     }
 });

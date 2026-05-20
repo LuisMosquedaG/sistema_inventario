@@ -63,9 +63,11 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th class="ps-3">Artículo</th>
-                                        <th class="text-center" style="width: 100px;">Cantidad</th>
-                                        <th class="text-end" style="width: 120px;">Precio</th>
-                                        <th class="text-end pe-3" style="width: 120px;">Total</th>
+                                        <th class="text-center" style="width: 80px;">Cant.</th>
+                                        <th class="text-end" style="width: 100px;">Precio</th>
+                                        <th class="text-end" style="width: 100px;">Subtotal</th>
+                                        <th class="text-end" style="width: 80px;">IVA</th>
+                                        <th class="text-end pe-3" style="width: 100px;">Importe</th>
                                     </tr>
                                 </thead>
                                 <tbody id="ver_tabla_cuerpo">
@@ -74,21 +76,30 @@
                             </table>
                         </div>
                     </div>
-                    <div class="card-footer bg-white border-0 py-3 d-flex justify-content-end">
-                        <div class="me-3 mt-1">
-                            <span class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem; letter-spacing: 1px;">Suma Total:</span>
+                    <div class="card-footer bg-white border-0 py-3">
+                        <div class="row justify-content-end">
+                            <div class="col-md-4">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-muted small">Subtotal:</span>
+                                    <span class="fw-semibold text-dark" id="ver_subtotal">$0.00</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
+                                    <span class="text-muted small">IVA:</span>
+                                    <span class="fw-semibold text-dark" id="ver_iva_total">$0.00</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="text-muted fw-bold small uppercase">Total General:</span>
+                                    <span class="fw-bold fs-4 text-brand" id="ver_gran_total">$0.00</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="fw-bold fs-4 text-success" id="ver_gran_total">$0.00</div>
                     </div>
                 </div>
 
             </div>
 
             <!-- FOOTER -->
-            <div class="modal-footer border-top bg-white d-flex justify-content-between">
-                <a href="#" id="ver_imprimir_btn" target="_blank" class="btn btn-brand btn-sm px-4 text-white">
-                    <i class="bi bi-printer me-2"></i>Imprimir
-                </a>
+            <div class="modal-footer border-top bg-white d-flex justify-content-end">
                 <button type="button" class="btn btn-light text-secondary btn-sm px-4" data-bs-dismiss="modal">Cerrar</button>
             </div>
 

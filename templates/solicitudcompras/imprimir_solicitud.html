@@ -42,11 +42,10 @@
         .prod-name { font-weight: bold; color: #222; margin-bottom: 2px; font-size: 0.85rem; }
         .prod-desc { font-size: 0.7rem; color: #777; line-height: 1.3; }
         
-        .status-pill { padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; }
-        .status-borrador { background: #f1f3f5; color: #495057; }
-        .status-aprobada { background: #e7f5ff; color: #1971c2; }
-        .status-enviada { background: #fff3bf; color: #f08c00; }
-        .status-atendida { background: #ebfbee; color: #2f9e44; }
+        .totals-wrapper { display: flex; justify-content: flex-end; }
+        .totals-table { width: 250px; margin-bottom: 0; }
+        .totals-table td { border-bottom: none !important; padding: 3px 10px; }
+        .total-row td { border-top: 2px solid #00b8b9 !important; font-weight: bold; font-size: 1.1rem; padding-top: 8px; color: #000; }
 
         @page { size: A4; margin: 0; }
     </style>
@@ -93,33 +92,67 @@
         <table>
             <thead>
                 <tr>
-                    <th style="width: 50px;" class="text-center">Cant.</th>
-                    <th>Producto</th>
-                    <th>Proveedor Sugerido</th>
-                    <th>Almacén Destino</th>
-                    <th style="width: 100px;" class="text-right">Costo Unit.</th>
+                    <th style="width: 40px;" class="text-center">Cant.</th>
+                    <th>Producto / Insumo</th>
+                    <th>Proveedor / Almacén</th>
+                    <th style="width: 70px;" class="text-right">Costo</th>
+                    <th style="width: 40px;" class="text-center">T.C.</th>
+                    <th style="width: 80px;" class="text-right">Subtotal</th>
+                    <th style="width: 60px;" class="text-right">IVA</th>
+                    <th style="width: 85px;" class="text-right">Importe</th>
                 </tr>
             </thead>
             <tbody>
-                {% for det in solicitud.detalles.all %}
+                {% for grupo in grupos %}
+                <!-- Fila de Encabezado de Grupo -->
+                <tr>
+                    <td colspan="8" style="padding: 6px 10px; border-bottom: 1px solid #00b8b9;">
+                        <span style="font-weight: bold; color: #333; font-size: 0.75rem; text-transform: uppercase;">
+                            {% if grupo.es_directo %}🛒{% else %}⚙️{% endif %} {{ grupo.nombre }}
+                        </span>
+                    </td>
+                </tr>
+                
+                {% for det in grupo.items %}
                 <tr>
                     <td class="text-center">{{ det.cantidad_solicitada }}</td>
-                    <td>
-                        <div class="prod-name">{{ det.producto.nombre }}</div>
+                    <td style="padding-left: 20px;">
+                        <div class="prod-name"><span style="color: #666; margin-right: 5px;">↳</span>{{ det.producto.nombre }}</div>
                         <div class="prod-desc">
                             {% if det.moneda %}Moneda: {{ det.moneda.siglas }}{% endif %}
                         </div>
                     </td>
                     <td>
-                        <div class="prod-name">{{ det.proveedor.razon_social|default:"No asignado" }}</div>
-                        {% if det.sucursal %}<div class="prod-desc">Suc: {{ det.sucursal.nombre }}</div>{% endif %}
+                        <div class="prod-name" style="font-size: 0.75rem;">Prov: {{ det.proveedor.razon_social|default:"No asignado" }}</div>
+                        <div class="prod-desc">Destino: {{ det.almacen.nombre|default:"No asignado" }}</div>
                     </td>
-                    <td>{{ det.almacen.nombre|default:"No asignado" }}</td>
                     <td class="text-right">${{ det.costo_unitario|floatformat:2 }}</td>
+                    <td class="text-center" style="font-size: 0.7rem; color: #777;">{{ det.moneda.factor|default:"1.00" }}</td>
+                    <td class="text-right">${{ det.subtotal|floatformat:2 }}</td>
+                    <td class="text-right">${{ det.iva_monto|floatformat:2 }}</td>
+                    <td class="text-right" style="font-weight: bold;">${{ det.total|floatformat:2 }}</td>
                 </tr>
+                {% endfor %}
                 {% endfor %}
             </tbody>
         </table>
+
+        <div class="totals-wrapper">
+            <table class="totals-table">
+                <tr>
+                    <td class="text-right">Subtotal:</td>
+                    <td class="text-right">${{ solicitud.calcular_subtotal|floatformat:2 }}</td>
+                </tr>
+                <tr>
+                    <td class="text-right">IVA:</td>
+                    <td class="text-right">${{ solicitud.calcular_iva|floatformat:2 }}</td>
+                </tr>
+                <tr class="total-row">
+                    <td class="text-right">TOTAL:</td>
+                    <td class="text-right">${{ solicitud.calcular_total|floatformat:2 }}</td>
+                </tr>
+            </table>
+        </div>
 
         {% if solicitud.notas %}
         <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px;">

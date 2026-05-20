@@ -577,10 +577,8 @@ def api_preparar_surtido(request, ov_id):
     final_notas = ov.notas_envio or getattr(cliente, 'envio_notas', '')
 
     detalles_data = []
-    total_calculado = 0
+    detalles_data = []
     for det in ov.detalles.all():
-        subtotal = float(det.subtotal)
-        total_calculado += subtotal
         extras_disponibles = []
         if (det.producto.maneja_lote or det.producto.maneja_serie) and almacen_final_id:
             # Filtro directo por producto_id y por el almacén específico (usando IDs numéricos)
@@ -601,9 +599,18 @@ def api_preparar_surtido(request, ov_id):
                 })
 
         detalles_data.append({
-            'id': det.id, 'producto_id': det.producto.id, 'producto_nombre': det.producto.nombre,
-            'cantidad': det.cantidad, 'precio': float(det.precio_unitario), 'subtotal': subtotal,
-            'maneja_lote': det.producto.maneja_lote, 'maneja_serie': det.producto.maneja_serie, 'extras': extras_disponibles
+            'id': det.id, 
+            'producto_id': det.producto.id, 
+            'producto_nombre': det.producto.nombre,
+            'cantidad': det.cantidad, 
+            'precio': float(det.precio_unitario),
+            'iva_porcentaje': float(det.producto.iva or 0),
+            'subtotal': float(det.subtotal),
+            'iva_monto': float(det.iva_monto),
+            'total': float(det.total),
+            'maneja_lote': det.producto.maneja_lote, 
+            'maneja_serie': det.producto.maneja_serie, 
+            'extras': extras_disponibles
         })
 
     return JsonResponse({
@@ -614,7 +621,10 @@ def api_preparar_surtido(request, ov_id):
         'contacto_nombre': contacto_nombre, 'contacto_correo': contacto_correo, 'contacto_telefono': contacto_telefono,
         'direccion_envio': ov.direccion_envio or direccion_cliente_envio,
         'quien_recibe': final_quien_recibe, 'telefono_recibe': final_telefono, 'email': final_correo, 'guia': ov.guia or '', 'notas_envio': final_notas,
-        'detalles': detalles_data, 'total': total_calculado
+        'detalles': detalles_data, 
+        'subtotal_total': float(ov.calcular_subtotal),
+        'iva_total': float(ov.calcular_iva),
+        'total': float(ov.calcular_total)
     })
 
 @login_required

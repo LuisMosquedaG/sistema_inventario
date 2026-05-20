@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from panel.models import Empresa
 from clientes.models import Cliente
 from core.models import Producto
+from decimal import Decimal
 
 # ==========================================
 # MODELO: ORDEN DE VENTA (CABECERA)
@@ -72,10 +73,25 @@ class OrdenVenta(models.Model):
 
     @property
     def total_orden(self):
-        total = 0
+        return self.calcular_total
+
+    @property
+    def calcular_subtotal(self):
+        total = Decimal('0')
         for detalle in self.detalles.all():
             total += detalle.subtotal
         return total
+
+    @property
+    def calcular_iva(self):
+        total = Decimal('0')
+        for detalle in self.detalles.all():
+            total += detalle.iva_monto
+        return total
+
+    @property
+    def calcular_total(self):
+        return self.calcular_subtotal + self.calcular_iva
 
     @property
     def final_direccion_envio(self):
@@ -128,5 +144,14 @@ class DetalleOrdenVenta(models.Model):
     @property
     def subtotal(self):
         if self.precio_unitario is None:
-            return 0
-        return self.cantidad * self.precio_unitario
+            return Decimal('0')
+        return Decimal(str(self.cantidad)) * self.precio_unitario
+
+    @property
+    def iva_monto(self):
+        porc = self.producto.iva or Decimal('0')
+        return self.subtotal * (porc / 100)
+
+    @property
+    def total(self):
+        return self.subtotal + self.iva_monto

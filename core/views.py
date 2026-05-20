@@ -380,8 +380,7 @@ def crear_producto_rapido(request):
             estado='revision',
             precio_costo=0.00,
             precio_venta=0.00,
-            empresa=empresa,
-            sucursal_id=sucursal_id
+            empresa=empresa
         )
         
         return JsonResponse({

@@ -459,13 +459,18 @@ def obtener_cotizacion_json(request, cotizacion_id):
                 'producto_nombre': det.producto.nombre,
                 'cantidad': det.cantidad,
                 'precio': str(det.precio_unitario),
-                'total': str(det.subtotal)
+                'iva_porcentaje': str(det.producto.iva),
+                'subtotal': str(det.subtotal),
+                'iva_monto': str(det.iva_monto),
+                'total': str(det.total)
             })
-        
-        data['detalles'] = detalles_list
 
-        return JsonResponse(data)
-    
+        data['detalles'] = detalles_list
+        data['subtotal_total'] = str(cotizacion.calcular_subtotal)
+        data['iva_total'] = str(cotizacion.calcular_iva)
+        data['gran_total'] = str(cotizacion.calcular_total)
+
+        return JsonResponse(data)    
     except Exception as e:
         return JsonResponse({'error': 'Cotización no encontrada'}, status=404)
 

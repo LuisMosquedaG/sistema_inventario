@@ -26,6 +26,11 @@ function prepararNuevaSolicitud() {
     document.getElementById('cuerpoTablaSolicitud').innerHTML = '';
     document.getElementById('mensajeVacioSolicitud').style.display = 'block';
     
+    // Resetear totales
+    document.getElementById('solicitudSubtotal').innerText = '$0.00';
+    document.getElementById('solicitudIvaTotal').innerText = '$0.00';
+    document.getElementById('granTotalSolicitud').innerText = '$0.00';
+    
     // Resetear botón de agregar
     const btn = document.getElementById('btnAddItem');
     if (btn) {
@@ -71,17 +76,25 @@ async function cargarSucursalesProveedor(proveedorId, targetSelectId, selectedSu
 
 // --- AGREGAR / ACTUALIZAR ARTÍCULO ---
 function agregarArticuloManual() {
-    const prodId = document.getElementById('add_producto').value;
-    const prodNombre = document.getElementById('add_producto').options[document.getElementById('add_producto').selectedIndex].text;
+    const selectP = document.getElementById('add_producto');
+    const prodId = selectP.value;
+    const prodNombre = selectP.options[selectP.selectedIndex].text;
+    const ivaPorc = parseFloat(selectP.options[selectP.selectedIndex].getAttribute('data-iva')) || 0;
+    
     const listaId = document.getElementById('add_lista').value;
     const listaNombre = document.getElementById('add_lista').options[document.getElementById('add_lista').selectedIndex].text;
-    const cantidad = document.getElementById('add_cantidad').value;
-    const costo = document.getElementById('add_costo').value;
+    const cantidad = parseFloat(document.getElementById('add_cantidad').value) || 0;
+    const costo = parseFloat(document.getElementById('add_costo').value) || 0;
 
-    if (!prodId) {
-        alert("Selecciona un producto.");
+    if (!prodId || cantidad <= 0) {
+        alert("Selecciona un producto y cantidad válida.");
         return;
     }
+
+    // Cálculos
+    const subtotal = cantidad * costo;
+    const ivaMonto = subtotal * (ivaPorc / 100);
+    const total = subtotal + ivaMonto;
 
     // Obtener valores de Configuración General (Defaults)
     const provId = document.getElementById('gen_proveedor').value;
@@ -109,6 +122,10 @@ function agregarArticuloManual() {
         almacen_id: almId,
         almacen_nombre: almNombre,
         costo_unitario: costo,
+        subtotal: subtotal,
+        iva_porcentaje: ivaPorc,
+        iva_monto: ivaMonto,
+        total: total,
         moneda_id: monId,
         moneda_siglas: monSiglas,
         lista_id: listaId,
@@ -119,28 +136,25 @@ function agregarArticuloManual() {
     const indiceEdicion = parseInt(document.getElementById('item_indice_edicion').value);
 
     if (indiceEdicion >= 0) {
-        // ACTUALIZAR FILA EXISTENTE
         const tbody = document.getElementById('cuerpoTablaSolicitud');
         const row = tbody.rows[indiceEdicion];
         if (row) {
             actualizarFilaHtml(row, datos);
         }
-        // Resetear estado
         document.getElementById('item_indice_edicion').value = '-1';
         document.getElementById('edit_item_pedido_det_id').value = '';
         const btn = document.getElementById('btnAddItem');
         btn.innerHTML = '<i class="bi bi-plus-lg"></i>';
         btn.classList.replace('btn-success', 'btn-brand');
     } else {
-        // AGREGAR NUEVA FILA
         agregarFilaProducto(datos);
     }
 
-    // Limpiar agregador
     document.getElementById('add_producto').value = '';
     document.getElementById('add_lista').value = '';
     document.getElementById('add_cantidad').value = 1;
     document.getElementById('add_costo').value = '0.00';
+    calcularTotalSolicitud();
 }
 
 // --- MANEJO DE FILAS DINÁMICAS ---
@@ -158,7 +172,7 @@ function agregarFilaProducto(datos) {
 function actualizarFilaHtml(row, datos) {
     row.innerHTML = `
         <td class="ps-3">
-            <div class="fw-bold text-dark">${datos.producto_nombre}</div>
+            <div class="fw-bold text-dark text-truncate" style="max-width: 200px;">${datos.producto_nombre}</div>
             <input type="hidden" name="producto_id[]" value="${datos.producto_id}">
             <input type="hidden" name="pedido_det_id[]" value="${datos.detalle_pedido_origen_id || ''}">
         </td>
@@ -171,24 +185,31 @@ function actualizarFilaHtml(row, datos) {
             <input type="hidden" name="moneda_id[]" value="${datos.moneda_id}">
         </td>
         <td>
-            <div class="small">${datos.proveedor_nombre}</div>
+            <div class="small text-truncate" style="max-width: 150px;">${datos.proveedor_nombre}</div>
             <input type="hidden" name="proveedor_id[]" value="${datos.proveedor_id || ''}">
-        </td>
-        <td>
-            <div class="small text-muted">${datos.sucursal_nombre}</div>
             <input type="hidden" name="sucursal_id[]" value="${datos.sucursal_id || ''}">
         </td>
         <td>
-            <div class="small">${datos.almacen_nombre}</div>
+            <div class="small text-truncate" style="max-width: 120px;">${datos.almacen_nombre}</div>
             <input type="hidden" name="almacen_id[]" value="${datos.almacen_id || ''}">
         </td>
-        <td class="text-center fw-bold">
-            ${datos.cantidad}
+        <td class="text-center">
+            <span class="small">${datos.cantidad}</span>
             <input type="hidden" name="cantidad[]" value="${datos.cantidad}">
         </td>
         <td class="text-end">
-            $${parseFloat(datos.costo_unitario).toFixed(2)}
+            <span class="small text-muted">$${parseFloat(datos.costo_unitario).toFixed(2)}</span>
             <input type="hidden" name="costo_unitario[]" value="${datos.costo_unitario}">
+        </td>
+        <td class="text-end">
+            <span class="small text-dark">$${parseFloat(datos.subtotal).toFixed(2)}</span>
+        </td>
+        <td class="text-end">
+            <span class="small text-muted">$${parseFloat(datos.iva_monto).toFixed(2)}</span>
+            <input type="hidden" name="iva_porcentaje[]" value="${datos.iva_porcentaje}">
+        </td>
+        <td class="text-end pe-3">
+            <span class="fw-bold small text-dark">$${parseFloat(datos.total).toFixed(2)}</span>
         </td>
         <td class="text-center">
             <div class="d-flex justify-content-center gap-1">
@@ -203,11 +224,30 @@ function actualizarFilaHtml(row, datos) {
     `;
 }
 
+function calcularTotalSolicitud() {
+    let subtotalTotal = 0;
+    let ivaTotal = 0;
+    let granTotal = 0;
+
+    document.querySelectorAll('#cuerpoTablaSolicitud tr').forEach(fila => {
+        const sub = parseFloat(fila.cells[7].innerText.replace('$', '').replace(',', '')) || 0;
+        const iva = parseFloat(fila.cells[8].innerText.replace('$', '').replace(',', '')) || 0;
+        const tot = parseFloat(fila.cells[9].innerText.replace('$', '').replace(',', '')) || 0;
+        
+        subtotalTotal += sub;
+        ivaTotal += iva;
+        granTotal += tot;
+    });
+
+    document.getElementById('solicitudSubtotal').innerText = '$' + subtotalTotal.toLocaleString('en-US', {minimumFractionDigits: 2});
+    document.getElementById('solicitudIvaTotal').innerText = '$' + ivaTotal.toLocaleString('en-US', {minimumFractionDigits: 2});
+    document.getElementById('granTotalSolicitud').innerText = '$' + granTotal.toLocaleString('en-US', {minimumFractionDigits: 2});
+}
+
 function cargarItemParaEdicion(btn) {
     const row = btn.closest('tr');
-    const index = row.rowIndex - 1; // Ajuste por thead
+    const index = row.rowIndex - 1; 
     
-    // Extraer datos de los hidden inputs de la fila
     const prodId = row.querySelector('[name="producto_id[]"]').value;
     const pedDetId = row.querySelector('[name="pedido_det_id[]"]')?.value || '';
     const listaId = row.querySelector('[name="lista_id[]"]').value;
@@ -218,7 +258,6 @@ function cargarItemParaEdicion(btn) {
     const cant = row.querySelector('[name="cantidad[]"]').value;
     const costo = row.querySelector('[name="costo_unitario[]"]').value;
 
-    // Poblar campos de arriba
     document.getElementById('add_producto').value = prodId;
     document.getElementById('add_lista').value = listaId;
     document.getElementById('add_cantidad').value = cant;
@@ -229,16 +268,12 @@ function cargarItemParaEdicion(btn) {
     document.getElementById('gen_almacen').value = almId;
     document.getElementById('gen_moneda').value = monId;
     
-    // Cargar sucursales del proveedor y seleccionar la correcta
     cargarSucursalesProveedor(provId, 'gen_sucursal', sucId);
 
-    // Cambiar estado a edición
     document.getElementById('item_indice_edicion').value = index;
     const btnAdd = document.getElementById('btnAddItem');
-    btnAdd.innerHTML = '<i class="bi bi-check-lg"></i>'; // Palomita
-    // Mantenemos btn-brand para conservar el color azulito
+    btnAdd.innerHTML = '<i class="bi bi-check-lg"></i>';
     
-    // Scroll hacia arriba para que el usuario vea los campos poblados
     document.querySelector('.modal-body').scrollTop = 0;
 }
 
@@ -246,7 +281,6 @@ function cargarItemParaEdicion(btn) {
 function toggleAplicarTodo() {
     const isChecked = document.getElementById('switchAplicarTodo').checked;
     if (isChecked) {
-        // Sincronizar todos los campos actuales inmediatamente
         sincronizarSiAplicarTodo('proveedor');
         sincronizarSiAplicarTodo('sucursal');
         sincronizarSiAplicarTodo('almacen');
@@ -280,7 +314,6 @@ function sincronizarSiAplicarTodo(campo) {
             newText = (newValue && !selSuc.disabled) ? selSuc.options[selSuc.selectedIndex].text : (document.getElementById('gen_proveedor').value ? 'Matriz' : '--');
             for (let i = 0; i < rows.length; i++) {
                 rows[i].querySelector('[name="sucursal_id[]"]').value = newValue;
-                rows[i].cells[4].querySelector('div').innerText = newText;
             }
             break;
         case 'almacen':
@@ -289,7 +322,7 @@ function sincronizarSiAplicarTodo(campo) {
             newText = newValue ? selAlm.options[selAlm.selectedIndex].text : 'No asignado';
             for (let i = 0; i < rows.length; i++) {
                 rows[i].querySelector('[name="almacen_id[]"]').value = newValue;
-                rows[i].cells[5].querySelector('div').innerText = newText;
+                rows[i].cells[4].querySelector('div').innerText = newText;
             }
             break;
         case 'moneda':
@@ -310,13 +343,13 @@ function eliminarFila(btn) {
     if (document.getElementById('cuerpoTablaSolicitud').children.length === 0) {
         document.getElementById('mensajeVacioSolicitud').style.display = 'block';
     }
+    calcularTotalSolicitud();
 }
 
 function actualizarCostoDefault(select) {
     const option = select.options[select.selectedIndex];
     const precio = option.getAttribute('data-precio') || '0.00';
     document.getElementById('add_costo').value = precio;
-    // Resetear lista al cambiar producto
     document.getElementById('add_lista').value = '';
 }
 
@@ -406,26 +439,54 @@ async function verSolicitud(id) {
 
         const tbody = document.getElementById('cuerpoVerSolicitud');
         tbody.innerHTML = '';
-        let total = 0;
 
-        data.detalles.forEach(d => {
-            const subtotal = parseFloat(d.cantidad) * parseFloat(d.costo_unitario);
-            total += subtotal;
-            
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${d.producto_nombre}</td>
-                <td class="text-center">${d.cantidad}</td>
-                <td>${d.proveedor_nombre}</td>
-                <td>${d.almacen_nombre}</td>
-                <td class="text-end">$${parseFloat(d.costo_unitario).toLocaleString('en-US', {minimumFractionDigits:2})}</td>
-                <td class="text-center">${d.moneda_siglas}</td>
-                <td class="text-end fw-bold">$${subtotal.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
-            `;
-            tbody.appendChild(tr);
-        });
+        if (data.grupos && data.grupos.length > 0) {
+            data.grupos.forEach(grupo => {
+                // Fila de Encabezado de Grupo (Estilo Árbol)
+                const isDirect = grupo.nombre === "Compras Directas / Reabastecimiento";
+                const trGrupo = document.createElement('tr');
+                trGrupo.style.backgroundColor = '#f8f9fa';
+                trGrupo.innerHTML = `
+                    <td colspan="9" class="ps-3 py-2">
+                        <div class="d-flex align-items-center">
+                            <i class="bi ${isDirect ? 'bi-cart-fill' : 'bi-gear-wide-connected'} me-2 text-brand" style="font-size: 1rem;"></i>
+                            <span class="fw-bold text-dark uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">
+                                ${grupo.nombre}
+                            </span>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(trGrupo);
 
-        document.getElementById('ver_total_solicitud').innerText = `$${total.toLocaleString('en-US', {minimumFractionDigits:2})}`;
+                // Filas de Items del Grupo
+                grupo.items.forEach(d => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="ps-5">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-arrow-return-right text-muted me-2"></i>
+                                <span class="text-dark small">${d.producto_nombre}</span>
+                            </div>
+                        </td>
+                        <td class="text-center small">${d.cantidad}</td>
+                        <td class="small text-muted text-truncate" style="max-width: 150px;">${d.proveedor_nombre}</td>
+                        <td class="small text-muted text-truncate" style="max-width: 120px;">${d.almacen_nombre}</td>
+                        <td class="text-end small">$${parseFloat(d.costo_unitario).toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+                        <td class="text-center small text-muted">${d.tipo_cambio}</td>
+                        <td class="text-end small text-dark">$${parseFloat(d.subtotal).toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+                        <td class="text-end small text-muted">$${parseFloat(d.iva_monto).toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+                        <td class="text-end pe-3 fw-bold small text-dark">$${parseFloat(d.total).toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            });
+        } else {
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center py-3 text-muted fst-italic">No hay artículos en esta solicitud.</td></tr>';
+        }
+
+        document.getElementById('ver_solicitud_subtotal').innerText = `$${parseFloat(data.subtotal_total || 0).toLocaleString('en-US', {minimumFractionDigits:2})}`;
+        document.getElementById('ver_solicitud_iva_total').innerText = `$${parseFloat(data.iva_total || 0).toLocaleString('en-US', {minimumFractionDigits:2})}`;
+        document.getElementById('ver_total_solicitud').innerText = `$${parseFloat(data.gran_total || 0).toLocaleString('en-US', {minimumFractionDigits:2})}`;
         
         const modal = new bootstrap.Modal(document.getElementById('modalVerSolicitud'));
         modal.show();
@@ -446,13 +507,12 @@ async function cargarParaEdicion(id) {
             return;
         }
 
-        prepararNuevaSolicitud(); // Limpiar primero
+        prepararNuevaSolicitud(); 
         
         document.getElementById('solicitud_id_edit').value = id;
         document.getElementById('tituloModalSolicitud').innerText = `Editar Solicitud SOL-${String(id).padStart(4, '0')}`;
         document.getElementById('notas_solicitud').value = data.notas || '';
         
-        // Manejar sección 0: Datos de Pedido
         const secPedido = document.getElementById('seccion_datos_pedido');
         if (data.pedido_origen) {
             secPedido.style.display = 'block';
@@ -467,9 +527,7 @@ async function cargarParaEdicion(id) {
         tbody.innerHTML = '';
         document.getElementById('mensajeVacioSolicitud').style.display = 'none';
 
-        // Llenar tabla de artículos
         data.detalles.forEach(d => {
-            // Buscamos el nombre de la lista si existe lista_id
             let lNombre = 'Manual';
             if (d.lista_id) {
                 const lObj = listaCostos.find(lc => lc.id == d.lista_id);
@@ -487,6 +545,10 @@ async function cargarParaEdicion(id) {
                 almacen_id: d.almacen_id,
                 almacen_nombre: d.almacen_nombre,
                 costo_unitario: d.costo_unitario,
+                subtotal: d.subtotal,
+                iva_porcentaje: d.iva_porcentaje,
+                iva_monto: d.iva_monto,
+                total: d.total,
                 moneda_id: d.moneda_id,
                 moneda_siglas: d.moneda_siglas,
                 lista_id: d.lista_id,
@@ -494,6 +556,8 @@ async function cargarParaEdicion(id) {
                 detalle_pedido_origen_id: d.detalle_pedido_origen_id
             });
         });
+        
+        calcularTotalSolicitud();
 
         const modal = new bootstrap.Modal(document.getElementById('modalNuevaSolicitudManual'));
         modal.show();

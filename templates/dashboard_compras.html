@@ -373,6 +373,7 @@
                 </div>
                 <form id="formCompra" method="post" action="{% url 'crear_compra' %}" novalidate>
                     {% csrf_token %}
+                    <input type="hidden" id="edit_index_compra" value="-1">
                     <div class="modal-body p-3 bg-light">
                         <!-- DATOS DE LA COMPRA -->
                         <div class="card border-0 shadow-sm mb-3">
@@ -446,7 +447,9 @@
                                         <label class="form-label small text-muted">Producto</label>
                                         <select id="selectProductoAgregar" class="form-select form-select-sm">
                                             <option value="">Seleccionar...</option>
-                                            {% for p in productos %}<option value="{{ p.id }}" data-precio="{{ p.precio_costo }}">{{ p.nombre }}</option>{% endfor %}
+                                            {% for p in productos %}
+                                            <option value="{{ p.id }}" data-precio="{{ p.precio_costo }}" data-iva="{{ p.iva|default:0 }}">{{ p.nombre }}</option>
+                                            {% endfor %}
                                         </select>
                                     </div>
                                     <div class="col-md-3">
@@ -484,19 +487,35 @@
                                     <thead class="table-light">
                                         <tr>
                                             <th class="ps-3">Artículo</th>
-                                            <th class="text-center" style="width: 120px;">Cantidad</th>
-                                            <th class="text-center" style="width: 150px;">Costo Unit.</th>
-                                            <th class="text-center" style="width: 150px;">Total</th>
-                                            <th style="width: 50px;"></th>
+                                            <th class="text-center" style="width: 70px;">Cant.</th>
+                                            <th class="text-end" style="width: 90px;">Costo</th>
+                                            <th class="text-end" style="width: 90px;">Subtotal</th>
+                                            <th class="text-end" style="width: 80px;">IVA</th>
+                                            <th class="text-end pe-3" style="width: 100px;">Importe</th>
+                                            <th style="width: 40px;"></th>
                                         </tr>
                                     </thead>
                                     <tbody id="tablaCuerpo"></tbody>
                                 </table>
                                 <div id="mensajeVacio" class="text-center py-3 text-muted small fst-italic">No hay artículos agregados.</div>
                             </div>
-                            <div class="card-footer bg-white border-0 py-2 d-flex justify-content-end">
-                                <div class="me-3"><span class="text-muted small">Total Compra:</span></div>
-                                <div class="fs-5 text-dark" id="granTotalModal" style="font-weight:400;">$0.00</div>
+                            <div class="card-footer bg-white border-0 py-3">
+                                <div class="row justify-content-end">
+                                    <div class="col-md-5">
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span class="text-muted small">Subtotal:</span>
+                                            <span class="fw-semibold text-dark" id="ocSubtotal">$0.00</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
+                                            <span class="text-muted small">IVA:</span>
+                                            <span class="fw-semibold text-dark" id="ocIvaTotal">$0.00</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="text-muted fw-bold small uppercase">Total OC:</span>
+                                            <span class="fw-bold fs-5 text-brand" id="granTotalModal">$0.00</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -850,8 +869,8 @@
 
         function verCompra(id) {
             const tbody = document.getElementById('ver_compra_tabla_cuerpo');
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</td></tr>';
-            
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</td></tr>';
+
             fetch(`/compras/api/compras/${id}/`)
                 .then(r => r.json())
                 .then(data => {
@@ -867,7 +886,6 @@
                     document.getElementById('ver_compra_notas').innerText = data.notas || 'Sin notas';
 
                     tbody.innerHTML = '';
-                    let totalG = 0;
                     data.detalles.forEach(det => {
                         const fila = `
                             <tr>
@@ -876,15 +894,18 @@
                                 </td>
                                 <td class="text-center small">${det.cantidad}</td>
                                 <td class="text-end small text-muted">$${parseFloat(det.precio).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                <td class="text-end small text-dark">$${parseFloat(det.subtotal).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                <td class="text-end small text-muted">$${parseFloat(det.iva_monto).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                                 <td class="text-end pe-3 fw-bold small text-dark">$${parseFloat(det.total).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                             </tr>
                         `;
                         tbody.insertAdjacentHTML('beforeend', fila);
-                        totalG += parseFloat(det.total);
                     });
 
-                    document.getElementById('ver_compra_gran_total').innerText = '$' + totalG.toLocaleString('en-US', {minimumFractionDigits: 2});
-                    
+                    document.getElementById('ver_compra_subtotal').innerText = '$' + parseFloat(data.subtotal_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+                    document.getElementById('ver_compra_iva_total').innerText = '$' + parseFloat(data.iva_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+                    document.getElementById('ver_compra_gran_total').innerText = '$' + parseFloat(data.gran_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+
                     const modal = new bootstrap.Modal(document.getElementById('modalVerCompra'));
                     modal.show();
                 })
@@ -893,7 +914,6 @@
                     alert('No se pudo cargar la información de la compra.');
                 });
         }
-
         function prepararNuevaCompra() {
             const form = document.getElementById('formCompra');
             form.reset();
@@ -1028,21 +1048,108 @@
             const select = document.getElementById('selectProductoAgregar');
             const productId = select.value;
             const productName = select.options[select.selectedIndex].text;
-            const cantidad = document.getElementById('inputCantidadAgregar').value;
-            const precio = document.getElementById('inputPrecioAgregar').value;
+            const ivaPorc = parseFloat(select.options[select.selectedIndex].getAttribute('data-iva')) || 0;
+            const cantidad = parseFloat(document.getElementById('inputCantidadAgregar').value) || 0;
+            const precio = parseFloat(document.getElementById('inputPrecioAgregar').value) || 0;
+            const editIndex = document.getElementById('edit_index_compra').value;
+
             if (!productId || cantidad <= 0) return alert("Selecciona un producto y cantidad.");
-            const total = (parseFloat(cantidad) * parseFloat(precio)).toFixed(2);
-            const filaHtml = `<tr><td class="ps-3"><div class="fw-semibold small text-dark">${productName}</div><input type="hidden" name="producto_id[]" value="${productId}"></td><td class="text-center"><span class="small text-dark">${cantidad}</span><input type="hidden" name="cantidad[]" value="${cantidad}"></td><td class="text-center"><span class="small text-muted">$${parseFloat(precio).toFixed(2)}</span><input type="hidden" name="precio_unitario[]" value="${precio}"></td><td class="text-center"><span class="fw-bold small text-dark">$${total}</span></td><td class="text-center"><button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); calcularGranTotalLista();"><i class="bi bi-x-circle-fill"></i></button></td></tr>`;
-            document.getElementById('tablaCuerpo').insertAdjacentHTML('beforeend', filaHtml);
-            document.getElementById('mensajeVacio').style.display = 'none';
+
+            const subtotal = cantidad * precio;
+            const ivaMonto = subtotal * (ivaPorc / 100);
+            const total = subtotal + ivaMonto;
+
+            const filaHtml = `
+                <td class="ps-3">
+                    <div class="fw-semibold small text-dark">${productName}</div>
+                    <input type="hidden" name="producto_id[]" value="${productId}">
+                </td>
+                <td class="text-center">
+                    <span class="small text-dark">${cantidad}</span>
+                    <input type="hidden" name="cantidad[]" value="${cantidad}">
+                </td>
+                <td class="text-end">
+                    <span class="small text-muted">$${precio.toFixed(2)}</span>
+                    <input type="hidden" name="precio_unitario[]" value="${precio}">
+                </td>
+                <td class="text-end">
+                    <span class="small text-dark">$${subtotal.toFixed(2)}</span>
+                </td>
+                <td class="text-end">
+                    <span class="small text-muted">$${ivaMonto.toFixed(2)}</span>
+                    <input type="hidden" name="iva_porcentaje[]" value="${ivaPorc}">
+                </td>
+                <td class="text-end pe-3">
+                    <span class="fw-bold small text-dark">$${total.toFixed(2)}</span>
+                </td>
+                <td class="text-center">
+                    <div class="d-flex justify-content-center gap-1">
+                        <button type="button" class="icon-action" onclick="editarFilaCompra(this)" title="Editar Partida">
+                            <i class="bi bi-pencil-square"></i>
+                        </button>
+                        <button type="button" class="icon-action icon-action-danger" onclick="this.closest('tr').remove(); calcularGranTotalLista();" title="Eliminar">
+                            <i class="bi bi-x-circle"></i>
+                        </button>
+                    </div>
+                </td>`;
+
+            if (editIndex !== "-1") {
+                const tbody = document.getElementById('tablaCuerpo');
+                const row = tbody.rows[parseInt(editIndex)];
+                row.innerHTML = filaHtml;
+                document.getElementById('edit_index_compra').value = "-1";
+                const btnAdd = document.querySelector('button[onclick="agregarALista()"]');
+                if (btnAdd) btnAdd.innerHTML = '<i class="bi bi-plus-lg"></i>';
+            } else {
+                document.getElementById('tablaCuerpo').insertAdjacentHTML('beforeend', `<tr>${filaHtml}</tr>`);
+                document.getElementById('mensajeVacio').style.display = 'none';
+            }
+
+            // Limpiar campos
+            select.value = "";
+            document.getElementById('inputCantidadAgregar').value = 1;
+            document.getElementById('inputPrecioAgregar').value = "0.00";
+            document.getElementById('selectListaPrecioAgregar').value = "";
+            
             calcularGranTotalLista();
         }
 
+        function editarFilaCompra(btn) {
+            const row = btn.closest('tr');
+            const tbody = document.getElementById('tablaCuerpo');
+            const index = Array.from(tbody.rows).indexOf(row);
+            
+            const pId = row.querySelector('[name="producto_id[]"]').value;
+            const cant = row.querySelector('[name="cantidad[]"]').value;
+            const prec = row.querySelector('[name="precio_unitario[]"]').value;
+
+            document.getElementById('selectProductoAgregar').value = pId;
+            document.getElementById('inputCantidadAgregar').value = cant;
+            document.getElementById('inputPrecioAgregar').value = prec;
+            document.getElementById('edit_index_compra').value = index;
+
+            const btnAdd = document.querySelector('button[onclick="agregarALista()"]');
+            if (btnAdd) btnAdd.innerHTML = '<i class="bi bi-check-lg"></i>';
+        }
+
         function calcularGranTotalLista() {
-            let granTotal = 0;
-            document.querySelectorAll('#tablaCuerpo tr').forEach(fila => { granTotal += parseFloat(fila.cells[3].innerText.replace('$', '')); });
-            document.getElementById('granTotalModal').innerText = '$' + granTotal.toFixed(2);
-            if (document.querySelectorAll('#tablaCuerpo tr').length === 0) document.getElementById('mensajeVacio').style.display = 'block';
+            let subtotalAcum = 0;
+            let ivaAcum = 0;
+            let totalAcum = 0;
+
+            document.querySelectorAll('#tablaCuerpo tr').forEach(fila => {
+                subtotalAcum += parseFloat(fila.cells[3].innerText.replace('$', '').replace(',', '')) || 0;
+                ivaAcum += parseFloat(fila.cells[4].innerText.replace('$', '').replace(',', '')) || 0;
+                totalAcum += parseFloat(fila.cells[5].innerText.replace('$', '').replace(',', '')) || 0;
+            });
+
+            document.getElementById('ocSubtotal').innerText = '$' + subtotalAcum.toLocaleString('en-US', {minimumFractionDigits: 2});
+            document.getElementById('ocIvaTotal').innerText = '$' + ivaAcum.toLocaleString('en-US', {minimumFractionDigits: 2});
+            document.getElementById('granTotalModal').innerText = '$' + totalAcum.toLocaleString('en-US', {minimumFractionDigits: 2});
+
+            if (document.querySelectorAll('#tablaCuerpo tr').length === 0) {
+                document.getElementById('mensajeVacio').style.display = 'block';
+            }
         }
 
         function cargarParaEdicionCompra(id) {
@@ -1073,8 +1180,41 @@
                 tbody.innerHTML = '';
                 if (data.detalles) {
                     data.detalles.forEach(d => {
-                        const subtotal = (d.cantidad * d.precio).toFixed(2);
-                        const fila = `<tr><td class="ps-3"><div class="fw-semibold small text-dark">${d.producto_nombre}</div><input type="hidden" name="producto_id[]" value="${d.producto_id}"></td><td class="text-center"><span class="small text-dark">${d.cantidad}</span><input type="hidden" name="cantidad[]" value="${d.cantidad}"></td><td class="text-center"><span class="small text-muted">$${d.precio.toFixed(2)}</span><input type="hidden" name="precio_unitario[]" value="${d.precio}"></td><td class="text-center"><span class="fw-bold small text-dark">$${subtotal}</span></td><td class="text-center"><button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); calcularGranTotalLista();"><i class="bi bi-x-circle-fill"></i></button></td></tr>`;
+                        const fila = `
+                            <tr>
+                                <td class="ps-3">
+                                    <div class="fw-semibold small text-dark">${d.producto_nombre}</div>
+                                    <input type="hidden" name="producto_id[]" value="${d.producto_id}">
+                                </td>
+                                <td class="text-center">
+                                    <span class="small text-dark">${d.cantidad}</span>
+                                    <input type="hidden" name="cantidad[]" value="${d.cantidad}">
+                                </td>
+                                <td class="text-end">
+                                    <span class="small text-muted">$${d.precio.toFixed(2)}</span>
+                                    <input type="hidden" name="precio_unitario[]" value="${d.precio}">
+                                </td>
+                                <td class="text-end">
+                                    <span class="small text-dark">$${parseFloat(d.subtotal).toFixed(2)}</span>
+                                </td>
+                                <td class="text-end">
+                                    <span class="small text-muted">$${parseFloat(d.iva_monto).toFixed(2)}</span>
+                                    <input type="hidden" name="iva_porcentaje[]" value="${d.iva_porcentaje}">
+                                </td>
+                                <td class="text-end pe-3">
+                                    <span class="fw-bold small text-dark">$${parseFloat(d.total).toFixed(2)}</span>
+                                </td>
+                                <td class="text-center">
+                                    <div class="d-flex justify-content-center gap-1">
+                                        <button type="button" class="icon-action" onclick="editarFilaCompra(this)" title="Editar Partida">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </button>
+                                        <button type="button" class="icon-action icon-action-danger" onclick="this.closest('tr').remove(); calcularGranTotalLista();" title="Eliminar">
+                                            <i class="bi bi-x-circle"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>`;
                         tbody.insertAdjacentHTML('beforeend', fila);
                     });
                 }

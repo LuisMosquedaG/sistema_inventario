@@ -402,6 +402,19 @@ def obtener_compra_json(request, compra_id):
         orden = get_object_or_404(OrdenCompra, id=compra_id, empresa=empresa_actual)
         detalles = DetalleCompra.objects.filter(orden_compra=orden)
 
+        detalles_list = []
+        for d in detalles:
+            detalles_list.append({
+                'producto_id': d.producto.id,
+                'producto_nombre': d.producto.nombre,
+                'cantidad': d.cantidad,
+                'precio': float(d.precio_costo),
+                'iva_porcentaje': float(d.producto.iva or 0),
+                'subtotal': float(d.subtotal),
+                'iva_monto': float(d.iva_monto),
+                'total': float(d.total),
+            })
+
         data = {
             'id': orden.id,
             'folio': f"OC-{orden.id:04d}",
@@ -419,15 +432,10 @@ def obtener_compra_json(request, compra_id):
             'fecha_formateada': orden.fecha.strftime('%d/%m/%Y'),
             'notas': orden.notas or '',
             'estado': orden.estado,
-            'detalles': [
-                {
-                    'producto_id': d.producto.id,
-                    'producto_nombre': d.producto.nombre,
-                    'cantidad': d.cantidad,
-                    'precio': float(d.precio_costo),
-                    'total': float(d.subtotal),
-                } for d in detalles
-            ]
+            'detalles': detalles_list,
+            'subtotal_total': float(orden.calcular_subtotal),
+            'iva_total': float(orden.calcular_iva),
+            'gran_total': float(orden.calcular_total)
         }
         return JsonResponse(data)
     except Exception as e:

@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from decimal import Decimal
 from panel.models import Empresa  # <--- IMPORTANTE
 from clientes.models import Cliente, ContactoCliente 
 from core.models import Producto    
@@ -66,12 +67,22 @@ class Cotizacion(models.Model):
         return f"{self.folio_completo} - {self.cliente}"
     
     @property
-    def calcular_total(self):
-        """Calcula la suma total de todos los detalles de esta cotización"""
-        total = 0
+    def calcular_subtotal(self):
+        total = Decimal('0')
         for detalle in self.detalles.all():
             total += detalle.subtotal
         return total
+
+    @property
+    def calcular_iva(self):
+        total = Decimal('0')
+        for detalle in self.detalles.all():
+            total += detalle.iva_monto
+        return total
+
+    @property
+    def calcular_total(self):
+        return self.calcular_subtotal + self.calcular_iva
 
     @property
     def folio_completo(self):
@@ -87,8 +98,6 @@ class Cotizacion(models.Model):
 
 class DetalleCotizacion(models.Model):
     """Tabla para guardar los productos de cada cotización"""
-    # Nota: No necesita campo 'empresa' porque pertenece a una Cotización, 
-    # y la Cotización ya pertenece a una empresa.
     cotizacion = models.ForeignKey(Cotizacion, related_name='detalles', on_delete=models.CASCADE)
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, verbose_name="Producto")
     cantidad = models.PositiveIntegerField(default=1)
@@ -97,8 +106,21 @@ class DetalleCotizacion(models.Model):
     @property
     def subtotal(self):
         if self.precio_unitario is None:
-            return 0
+            return Decimal('0')
         return self.cantidad * self.precio_unitario
+
+    @property
+    def iva_monto(self):
+        porc = self.producto.iva or Decimal('0')
+        return self.subtotal * (porc / 100)
+
+    @property
+    def total(self):
+        return self.subtotal + self.iva_monto
 
     def __str__(self):
         return f"{self.cantidad} x {self.producto.nombre}"
+
+
+# Modificar Cotizacion para usar estas propiedades
+# (Necesito re-definir Cotizacion parcialmente o usar replace quirúrgico)
