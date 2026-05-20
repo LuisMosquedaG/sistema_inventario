@@ -117,6 +117,12 @@
                                             <span style="position: absolute; font-size: 0.55rem; font-weight: 900; top: 56%; left: 50%; transform: translate(-50%, -50%);">C</span>
                                         </div>
                                     </span>
+                                    <span class="icon-action" title="Información (ICSOE)" onclick="abrirModalICSOE({{ c.id }})">
+                                        <div style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
+                                            <i class="bi bi-file-earmark"></i>
+                                            <span style="position: absolute; font-size: 0.55rem; font-weight: 900; top: 56%; left: 50%; transform: translate(-50%, -50%);">I</span>
+                                        </div>
+                                    </span>
                                 </div>
                             </td>
                             <td class="text-center">
@@ -341,6 +347,38 @@
     </div>
 </div>
 
+<!-- MODAL: PERIODO ICSOE -->
+<div class="modal fade" id="modalICSOE" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h6 class="modal-title fw-bold">Periodo Reporte ICSOE</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="icsoe_contratista_id">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Cuatrimestre</label>
+                    <select id="icsoe_cuatrimestre" class="form-select form-select-sm">
+                        <option value="1">Primero (Ene-Abr)</option>
+                        <option value="2">Segundo (May-Ago)</option>
+                        <option value="3">Tercero (Sep-Dic)</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small fw-bold">Año</label>
+                    <input type="number" id="icsoe_anio" class="form-select form-select-sm" value="{% now 'Y' %}">
+                </div>
+            </div>
+            <div class="modal-footer border-top-0 pt-0">
+                <button type="button" class="btn btn-brand text-white btn-sm w-100 fw-bold" onclick="generarReporteICSOE()">
+                    <i class="bi bi-download me-1"></i> Descargar Excel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     function abrirModalSISUB(id) {
         document.getElementById('sisub_contratista_id').value = id;
@@ -356,6 +394,22 @@
         
         window.location.href = `/recursos-humanos/contratistas/exportar-sisub/${id}/?cuatrimestre=${cuat}&anio=${anio}`;
         bootstrap.Modal.getInstance(document.getElementById('modalSISUB')).hide();
+    }
+
+    function abrirModalICSOE(id) {
+        document.getElementById('icsoe_contratista_id').value = id;
+        new bootstrap.Modal(document.getElementById('modalICSOE')).show();
+    }
+
+    function generarReporteICSOE() {
+        const id = document.getElementById('icsoe_contratista_id').value;
+        const cuat = document.getElementById('icsoe_cuatrimestre').value;
+        const anio = document.getElementById('icsoe_anio').value;
+        
+        if(!anio) { alert("Indique el año"); return; }
+        
+        window.location.href = `/recursos-humanos/contratistas/exportar-icsoe/${id}/?cuatrimestre=${cuat}&anio=${anio}`;
+        bootstrap.Modal.getInstance(document.getElementById('modalICSOE')).hide();
     }
 
     function prepararNuevoContratista() {

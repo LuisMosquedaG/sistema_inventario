@@ -515,6 +515,20 @@ def editar_contrato_ajax(request, id):
         return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required(login_url='/login/')
+@require_POST
+@require_hr_permission('contratos', 'eliminar', json_response=True)
+def eliminar_contrato_ajax(request, id):
+    empresa_actual = get_empresa_actual(request)
+    try:
+        con = Contrato.objects.get(id=id, empresa=empresa_actual)
+        con.delete()
+        return JsonResponse({'success': True, 'message': 'Contrato eliminado correctamente.'})
+    except Contrato.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Contrato no encontrado.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required(login_url='/login/')
 @require_hr_permission('contratistas', 'ver')
 def lista_contratistas(request):
     empresa_actual = get_empresa_actual(request)
@@ -1321,3 +1335,183 @@ def exportar_sisub_contratos(request, id):
         for i, col in enumerate(ws.columns, 1): ws.column_dimensions[get_column_letter(i)].width = 20
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); response['Content-Disposition'] = f'attachment; filename="SISUB_{contratista.rfc}.xlsx"'; wb.save(response); return response
     except Exception as e: return HttpResponse(str(e), status=500)
+
+@login_required(login_url='/login/')
+@require_hr_permission('contratistas', 'ver')
+def exportar_icsoe(request, id):
+    empresa_actual = get_empresa_actual(request)
+    try:
+        contratista = Contratista.objects.get(id=id, empresa=empresa_actual)
+        cuat = request.GET.get('cuatrimestre', '1')
+        anio = request.GET.get('anio', '')
+        
+        if not anio: return HttpResponse("Año requerido", status=400)
+        
+        # Mapeo de periodos bimestrales por cuatrimestre (meses pares que cierran el bimestre)
+        periodos_busqueda = []
+        if cuat == '1':
+            periodos_busqueda = ['FEBRERO', 'ABRIL']
+        elif cuat == '2':
+            periodos_busqueda = ['JUNIO', 'AGOSTO']
+        elif cuat == '3':
+            periodos_busqueda = ['OCTUBRE', 'DICIEMBRE']
+
+        # Limpiamos el RFC del contratista (quitamos guiones y espacios)
+        rfc_input_clean = re.sub(r'[^A-Z0-9]', '', contratista.rfc.upper())
+        
+        # Buscamos todas las importaciones bimestrales de la empresa actual
+        importaciones_qs = ImportacionSUA.objects.filter(
+            empresa=empresa_actual,
+            tipo='bimestral'
+        )
+        
+        # Filtrado manual para mayor precisión con RFCs formateados distinto
+        importaciones_validas = []
+        for imp in importaciones_qs:
+            # Validar Año en el periodo
+            if anio not in imp.periodo:
+                continue
+            
+            # Validar Mes (alguno de los dos del cuatrimestre)
+            mes_valido = False
+            for mes in periodos_busqueda:
+                if mes.upper() in imp.periodo.upper():
+                    mes_valido = True
+                    break
+            if not mes_valido:
+                continue
+                
+            # Validar RFC (limpiamos el del reporte para comparar)
+            rfc_rep_clean = re.sub(r'[^A-Z0-9]', '', (imp.rfc_empresa or '').upper())
+            # Match si el RFC limpio coincide exactamente o si uno contiene al otro
+            if rfc_input_clean == rfc_rep_clean or rfc_input_clean in rfc_rep_clean or rfc_rep_clean in rfc_input_clean:
+                importaciones_validas.append(imp)
+        
+        total_sin_credito = Decimal('0')
+        total_con_credito = Decimal('0')
+        total_amortizaciones = Decimal('0')
+        
+        registros_encontrados = []
+        for imp in importaciones_validas:
+            registros_encontrados.append(imp.periodo)
+            for t in imp.trabajadores.all():
+                val_inf = (t.tipo_valor_infonavit or '').strip()
+                if not val_inf or val_inf == '-':
+                    total_sin_credito += t.aportacion_patronal
+                else:
+                    total_con_credito += t.aportacion_patronal
+                
+                total_amortizaciones += t.amortizacion
+        
+        import openpyxl
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from openpyxl.utils import get_column_letter
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "ICSOE Informativo"
+        
+        # Estilos
+        fill_brand = PatternFill(start_color="00b8b9", end_color="00b8b9", fill_type="solid")
+        fill_gray = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
+        fill_light = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+        font_white = Font(bold=True, color="FFFFFF")
+        font_bold = Font(bold=True)
+        border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+
+        # FILA 1: a-Datos Generales (A1:AA1)
+        ws.merge_cells('A1:AA1')
+        c1 = ws['A1']
+        c1.value = "a-Datos Generales"
+        c1.fill = fill_brand
+        c1.font = font_white
+        c1.alignment = Alignment(horizontal="center")
+        c1.border = border
+
+        # FILA 2: Subgrupos
+        subgrupos = [
+            ("Periodo", 2),
+            ("b-Datos de identificacion", 5),
+            ("c-Domicilio fiscal", 9),
+            ("d-Datos actuales de la escritura publica", 7),
+            ("g-Aportacion y Amortización", 3),
+            ("a-Registro en STPS", 1)
+        ]
+        
+        curr_col = 1
+        for nombre, span in subgrupos:
+            start_cell = get_column_letter(curr_col) + "2"
+            end_cell = get_column_letter(curr_col + span - 1) + "2"
+            if span > 1:
+                ws.merge_cells(f"{start_cell}:{end_cell}")
+            
+            cell = ws[start_cell]
+            cell.value = nombre
+            cell.fill = fill_gray
+            cell.font = font_bold
+            cell.alignment = Alignment(horizontal="center")
+            cell.border = border
+            
+            # Aplicar bordes a todas las celdas del merge
+            for c in range(curr_col, curr_col + span):
+                ws.cell(row=2, column=c).border = border
+                
+            curr_col += span
+
+        # FILA 3: Campos específicos
+        headers = [
+            # Periodo
+            "cuatrimestre que declara", "año que se declara",
+            # Identificación
+            "Registro Federal de Contribuyente", "Nombre denominacion o razon social", "Correo electronico", "Telefono (numero extension)", "Registro patronal",
+            # Domicilio
+            "Calle", "Numero exterior", "Numero interior", "Entre calle", "Y calle", "Colonia", "Codigo Postal", "Municipio o Alcaldia", "Entidad Federativa",
+            # Escritura
+            "Representante legal", "Administrador Unico", "Numero de escritura", "Nombre del Notario Publico", "Numero de Notario Publico", "Fecha de escritura publica", "Folio mercantil",
+            # Aportación y Amortización
+            "Aportacion sin credito de los trabajadores del contrato", "Aportacion con credito de los trabajadores del contrato", "Amortizacion de los trabajadores del contrato",
+            # STPS
+            "Numero de registro ante la Secretaria de Trabajo y Prevision Social"
+        ]
+
+        for i, h in enumerate(headers, 1):
+            cell = ws.cell(row=3, column=i, value=h)
+            cell.fill = fill_light
+            cell.font = font_bold
+            cell.border = border
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            ws.column_dimensions[get_column_letter(i)].width = 20
+
+        # FILA 4: Datos
+        data_row = [
+            # Periodo
+            f"Cuatrimestre {cuat}", anio,
+            # Identificación
+            contratista.rfc, contratista.nombre_razon_social, contratista.correo, contratista.telefono, contratista.registro_patronal,
+            # Domicilio
+            contratista.calle, contratista.num_ext, contratista.num_int, contratista.entre_calle, contratista.y_calle, contratista.colonia, contratista.cp, contratista.municipio_alcaldia, contratista.entidad_federativa,
+            # Escritura
+            contratista.representante_legal, contratista.administrador_unico, contratista.num_escritura, contratista.nombre_notario_publico, contratista.num_notario_publico, str(contratista.fecha_escritura_publica) if contratista.fecha_escritura_publica else '', contratista.folio_mercantil,
+            # Aportación y Amortización (Calculados Fase 1)
+            total_sin_credito, total_con_credito, total_amortizaciones,
+            # STPS
+            contratista.numero_stps
+        ]
+        
+        ws.append(data_row)
+        
+        # Formato de moneda para las sumatorias
+        for col_idx in [24, 25, 26]:
+            ws.cell(row=4, column=col_idx).number_format = '"$"#,##0.00'
+        
+        # Bordes a la fila de datos
+        for col_idx in range(1, 28):
+            ws.cell(row=4, column=col_idx).border = border
+
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="ICSOE_INFO_{rfc_input_clean}_{anio}_C{cuat}.xlsx"'
+        wb.save(response)
+        return response
+        
+    except Exception as e:
+        return HttpResponse(str(e), status=500)

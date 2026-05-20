@@ -206,6 +206,9 @@
                                     <span class="icon-action" title="Editar Contrato" onclick="editarContrato({{ c.id }})">
                                         <i class="bi bi-pencil-square"></i>
                                     </span>
+                                    <span class="icon-action icon-action-danger" title="Eliminar Contrato" onclick="eliminarContrato({{ c.id }})">
+                                        <i class="bi bi-x-circle"></i>
+                                    </span>
                                 </div>
                             </td>
                             <td class="text-center">
@@ -545,5 +548,30 @@
             }
         });
     });
+
+    function eliminarContrato(id) {
+        if (confirm("⚠️ ¿Estás seguro de eliminar este contrato? Esta acción no se puede deshacer.")) {
+            fetch(`/recursos-humanos/contratos/eliminar/${id}/`, {
+                method: 'POST',
+                headers: { 
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Ocurrió un error al intentar eliminar el contrato.");
+            });
+        }
+    }
 </script>
 {% endblock %}
