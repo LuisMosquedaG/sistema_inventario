@@ -310,6 +310,7 @@
     <!-- MODALES -->
     {% include "solicitudcompras/modals/modal_nueva_solicitud.html" %}
     {% include "solicitudcompras/modals/modal_ver_solicitud.html" %}
+    {% include "pedidos/modals/modal_ver_pedido.html" %}
 
     <!-- MODAL: IMPORTAR SOLICITUDES -->
     <div class="modal fade" id="modalImportarSolicitudes" tabindex="-1" aria-hidden="true">
@@ -499,4 +500,93 @@
         .spin { animation: spin-icon 1s linear infinite; display: inline-block; }
         @keyframes spin-icon { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
+    
+    <script>
+        // --- LÓGICA PARA MODALES APILADOS (STACKED MODALS) ---
+        // Manejo manual de z-index para permitir que un modal obscurezca al anterior
+        document.addEventListener('show.bs.modal', function (event) {
+            const openModals = document.querySelectorAll('.modal.show');
+            const numOpen = openModals.length;
+            
+            // Base z-index de Bootstrap es 1050
+            const newZIndex = 1050 + (numOpen * 20);
+            event.target.style.zIndex = newZIndex;
+            
+            // Esperar a que Bootstrap cree el backdrop
+            setTimeout(() => {
+                const backdrops = document.querySelectorAll('.modal-backdrop:not(.modal-stack)');
+                if (backdrops.length > 0) {
+                    const latestBackdrop = backdrops[backdrops.length - 1];
+                    latestBackdrop.style.zIndex = newZIndex - 10;
+                    latestBackdrop.classList.add('modal-stack');
+                }
+            }, 50);
+        });
+
+        document.addEventListener('hidden.bs.modal', function () {
+            const openModals = document.querySelectorAll('.modal.show');
+            if (openModals.length > 0) {
+                // Restaurar el scroll si todavía hay un modal abierto
+                document.body.classList.add('modal-open');
+            }
+        });
+
+        function verPedido(id) {
+            const tbody = document.getElementById('ver_pedido_tabla_cuerpo');
+            if (!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</td></tr>';
+            
+            const modalEl = document.getElementById('modalVerPedido');
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+
+            fetch(`/pedidos/api/ver/${id}/`)
+                .then(r => r.json())
+                .then(data => {
+                    if(data.error) { alert(data.error); return; }
+
+                    document.getElementById('ver_pedido_folio').innerText = data.folio;
+                    document.getElementById('ver_pedido_cliente').innerText = data.cliente_nombre;
+                    document.getElementById('ver_pedido_contacto').innerText = data.contacto_nombre;
+                    document.getElementById('ver_pedido_cliente_tel').innerText = data.cliente_tel;
+                    document.getElementById('ver_pedido_cliente_email').innerText = data.cliente_email;
+                    document.getElementById('ver_pedido_fecha').innerText = data.fecha;
+                    document.getElementById('ver_pedido_cotizacion').innerText = data.cotizacion_folio;
+                    document.getElementById('ver_pedido_contacto_nom').innerText = data.contacto_nombre;
+                    document.getElementById('ver_pedido_contacto_tel').innerText = data.contacto_tel;
+                    document.getElementById('ver_pedido_contacto_email').innerText = data.contacto_email;
+
+                    tbody.innerHTML = '';
+                    if (data.detalles && data.detalles.length > 0) {
+                        data.detalles.forEach(det => {
+                            tbody.insertAdjacentHTML('beforeend', `
+                                <tr>
+                                    <td class="ps-3 fw-semibold small text-dark">${det.producto}</td>
+                                    <td class="text-center small">${det.solicitado}</td>
+                                    <td class="text-end small text-muted">$${parseFloat(det.precio).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                    <td class="text-end small text-dark">$${parseFloat(det.subtotal).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                    <td class="text-end small text-muted">$${parseFloat(det.iva_monto).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                    <td class="text-end pe-3 fw-bold small text-dark">$${parseFloat(det.total).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                </tr>
+                            `);
+                        });
+                    } else {
+                        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-muted fst-italic">No hay artículos en este pedido.</td></tr>';
+                    }
+
+                    const elSub = document.getElementById('ver_pedido_subtotal');
+                    if (elSub) elSub.innerText = '$' + parseFloat(data.subtotal_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+
+                    const elIva = document.getElementById('ver_pedido_iva_total');
+                    if (elIva) elIva.innerText = '$' + parseFloat(data.iva_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+
+                    const elTotal = document.getElementById('ver_pedido_gran_total');
+                    if (elTotal) elTotal.innerText = '$' + parseFloat(data.gran_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+                })
+                .catch(error => {
+                    console.error("Error al cargar pedido:", error);
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-3">Error al cargar datos.</td></tr>';
+                });
+        }
+    </script>
 {% endblock %}

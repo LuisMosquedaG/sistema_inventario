@@ -435,7 +435,15 @@ async function verSolicitud(id) {
         document.getElementById('ver_solicitante_solicitud').innerText = data.solicitante_nombre;
         document.getElementById('ver_fecha_solicitud').innerText = data.fecha_creacion;
         document.getElementById('ver_notas_solicitud').innerText = data.notas || 'Sin notas.';
-        document.getElementById('ver_pedido_origen').innerText = data.pedido_origen ? `PED-${String(data.pedido_origen.id).padStart(4, '0')}` : 'Manual';
+        
+        const elPed = document.getElementById('ver_pedido_origen');
+        if (data.pedido_origen) {
+            elPed.innerHTML = `<a href="javascript:void(0)" onclick="verPedido(${data.pedido_origen.id})" class="text-brand fw-bold text-decoration-none">
+                                    <i class="bi bi-link-45deg me-1"></i>PED-${String(data.pedido_origen.id).padStart(4, '0')}
+                               </a>`;
+        } else {
+            elPed.innerText = 'Manual';
+        }
 
         const tbody = document.getElementById('cuerpoVerSolicitud');
         tbody.innerHTML = '';
