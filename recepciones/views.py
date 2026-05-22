@@ -318,7 +318,7 @@ def dashboard_recepciones(request):
     from preferencias.models import Sucursal
     sucursales_lista = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
 
-    paginator = Paginator(recepciones_list, 10)
+    paginator = Paginator(recepciones_list, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 

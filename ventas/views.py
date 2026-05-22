@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.utils import timezone
 from django.db import transaction
 from django.db.models import F, Q, Sum
@@ -321,8 +322,12 @@ def dashboard_ventas(request):
     from preferencias.models import Sucursal
     sucursales_lista = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
 
+    paginator = Paginator(ordenes, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     cotizaciones_ids = set()
-    for orden in ordenes:
+    for orden in page_obj:
         if orden.pedido_origen and orden.pedido_origen.cotizacion_origen_id:
             cotizaciones_ids.add(orden.pedido_origen.cotizacion_origen_id)
     
@@ -333,7 +338,7 @@ def dashboard_ventas(request):
         for dato in datos_cot:
             fechas_map[dato['id']] = dato['creado_en']
 
-    for orden in ordenes:
+    for orden in page_obj:
         orden.fecha_cotizacion_display = None
         if orden.pedido_origen and orden.pedido_origen.cotizacion_origen_id:
             orden.fecha_cotizacion_display = fechas_map.get(orden.pedido_origen.cotizacion_origen_id)
@@ -346,7 +351,7 @@ def dashboard_ventas(request):
     almacenes = list(almacenes_qs.values('id', 'nombre'))
 
     contexto = {
-        'ordenes': ordenes, 
+        'page_obj': page_obj, 
         'almacenes_json': almacenes, 
         'clientes': Cliente.objects.filter(empresa=empresa_actual), 
         'productos': Producto.objects.filter(empresa=empresa_actual),

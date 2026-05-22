@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
+from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.db.models import Q
@@ -105,8 +106,13 @@ def lista_empleados(request):
     beneficiarios = Beneficiario.objects.filter(empresa=empresa_actual).order_by('nombre_razon_social')
     contratos_disponibles = Contrato.objects.filter(empresa=empresa_actual).select_related('contratista', 'beneficiario')
 
+    # PAGINACIÓN
+    paginator = Paginator(empleados, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'recursos_humanos/lista_empleados.html', {
-        'empleados': empleados,
+        'page_obj': page_obj,
         'sucursales': sucursales,
         'contratistas': contratistas,
         'beneficiarios': beneficiarios,
@@ -402,8 +408,18 @@ def lista_contratos(request):
     
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
 
+    # PAGINACIÓN
+    paginator = Paginator(contratos, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Re-obtener parámetros para el dict de filtros
+    folio = request.GET.get('folio', '')
+    beneficiario_id = request.GET.get('beneficiario_id', '')
+    contratista_id = request.GET.get('contratista_id', '')
+
     return render(request, 'recursos_humanos/lista_contratos.html', {
-        'contratos': contratos,
+        'page_obj': page_obj,
         'empleados': empleados,
         'contratistas': contratistas,
         'beneficiarios': beneficiarios,
@@ -411,6 +427,9 @@ def lista_contratos(request):
         'empresa': empresa_actual,
         'filtros': {
             'q': q,
+            'folio': folio,
+            'beneficiario_id': beneficiario_id,
+            'contratista_id': contratista_id,
             'empleado_id': empleado_id,
             'estado': estado,
             'sucursal': sucursal_id
@@ -560,8 +579,14 @@ def lista_contratistas(request):
         contratistas = contratistas.filter(sucursal_id=sucursal_id)
 
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
+    
+    # PAGINACIÓN
+    paginator = Paginator(contratistas, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'recursos_humanos/lista_contratistas.html', {
-        'contratistas': contratistas,
+        'page_obj': page_obj,
         'sucursales': sucursales,
         'empresa': empresa_actual,
         'filtros': {
@@ -686,8 +711,14 @@ def lista_beneficiarios(request):
         beneficiarios = beneficiarios.filter(sucursal_id=sucursal_id)
 
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
+    
+    # PAGINACIÓN
+    paginator = Paginator(beneficiarios, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'recursos_humanos/lista_beneficiarios.html', {
-        'beneficiarios': beneficiarios, 
+        'page_obj': page_obj, 
         'sucursales': sucursales, 
         'empresa': empresa_actual, 
         'filtros': {
@@ -782,8 +813,13 @@ def lista_sua(request):
 
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
     
+    # PAGINACIÓN
+    paginator = Paginator(importaciones, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'recursos_humanos/lista_sua.html', {
-        'importaciones': importaciones, 
+        'page_obj': page_obj, 
         'sucursales': sucursales, 
         'empresa': empresa_actual, 
         'filtros': {

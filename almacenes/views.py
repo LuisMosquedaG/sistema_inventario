@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import F, Q
 import json
@@ -106,8 +107,13 @@ def dashboard_kardex(request):
     for u in usuarios_list:
         u.clean_name = u.username.split('@')[0] if '@' in u.username else u.username
 
+    # --- PAGINACIÓN ---
+    paginator = Paginator(movimientos, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     contexto = {
-        'movimientos': movimientos[:100],
+        'page_obj': page_obj,
         'productos': productos,
         'almacenes': almacenes,
         'sucursales': sucursales,

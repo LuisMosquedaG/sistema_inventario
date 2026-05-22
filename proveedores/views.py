@@ -238,7 +238,7 @@ def dashboard_proveedores(request):
     }
     # --- FIN LÓGICA DE FILTRADO ---
 
-    paginator = Paginator(proveedores_qs, 10)
+    paginator = Paginator(proveedores_qs, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 

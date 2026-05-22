@@ -302,7 +302,7 @@
             </div>
         </div>
 
-        <!-- FOOTER CON PAGINACIÓN -->
+        <!-- Footer Unificado con Paginación -->
         <div class="card-footer bg-white border-0 py-2 px-4 d-flex justify-content-between align-items-center">
             <span class="text-muted small" style="font-size: 0.75rem;">
                 Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }}
@@ -310,17 +310,37 @@
 
             <div class="d-flex gap-1">
                 {% if page_obj.has_previous %}
-                    <a href="?page={{ page_obj.previous_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.folio_recepcion %}&folio_recepcion={{ filtros.folio_recepcion }}{% endif %}{% if filtros.folio_oc %}&folio_oc={{ filtros.folio_oc }}{% endif %}{% if filtros.proveedor_id %}&proveedor_id={{ filtros.proveedor_id }}{% endif %}{% if filtros.almacen_id %}&almacen_id={{ filtros.almacen_id }}{% endif %}{% if filtros.fecha %}&fecha={{ filtros.fecha }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted">&laquo;</a>
+                    <!-- Primero -->
+                    <a href="?page=1{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.folio_recepcion %}&folio_recepcion={{ filtros.folio_recepcion }}{% endif %}{% if filtros.folio_oc %}&folio_oc={{ filtros.folio_oc }}{% endif %}{% if filtros.proveedor_id %}&proveedor_id={{ filtros.proveedor_id }}{% endif %}{% if filtros.almacen_id %}&almacen_id={{ filtros.almacen_id }}{% endif %}{% if filtros.fecha %}&fecha={{ filtros.fecha }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Primera página">&laquo;&laquo;</a>
+                    
+                    <!-- Anterior -->
+                    <a href="?page={{ page_obj.previous_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.folio_recepcion %}&folio_recepcion={{ filtros.folio_recepcion }}{% endif %}{% if filtros.folio_oc %}&folio_oc={{ filtros.folio_oc }}{% endif %}{% if filtros.proveedor_id %}&proveedor_id={{ filtros.proveedor_id }}{% endif %}{% if filtros.almacen_id %}&almacen_id={{ filtros.almacen_id }}{% endif %}{% if filtros.fecha %}&fecha={{ filtros.fecha }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Anterior">&laquo;</a>
                 {% else %}
+                    <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;&laquo;</button>
                     <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;</button>
                 {% endif %}
 
-                <button class="btn btn-sm btn-light border-0 text-dark fw-bold">{{ page_obj.number }}</button>
+                <!-- Números de Página (Rango de 5) -->
+                {% for i in page_obj.paginator.page_range %}
+                    {% if i >= page_obj.number|add:"-2" and i <= page_obj.number|add:"2" %}
+                        {% if page_obj.number == i %}
+                            <button class="btn btn-sm btn-brand text-white fw-bold shadow-sm" style="min-width: 32px;">{{ i }}</button>
+                        {% else %}
+                            <a href="?page={{ i }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.folio_recepcion %}&folio_recepcion={{ filtros.folio_recepcion }}{% endif %}{% if filtros.folio_oc %}&folio_oc={{ filtros.folio_oc }}{% endif %}{% if filtros.proveedor_id %}&proveedor_id={{ filtros.proveedor_id }}{% endif %}{% if filtros.almacen_id %}&almacen_id={{ filtros.almacen_id }}{% endif %}{% if filtros.fecha %}&fecha={{ filtros.fecha }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}" 
+                               class="btn btn-sm btn-light border-0 text-dark" style="min-width: 32px;">{{ i }}</a>
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
 
                 {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.folio_recepcion %}&folio_recepcion={{ filtros.folio_recepcion }}{% endif %}{% if filtros.folio_oc %}&folio_oc={{ filtros.folio_oc }}{% endif %}{% if filtros.proveedor_id %}&proveedor_id={{ filtros.proveedor_id }}{% endif %}{% if filtros.almacen_id %}&almacen_id={{ filtros.almacen_id }}{% endif %}{% if filtros.fecha %}&fecha={{ filtros.fecha }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted">&raquo;</a>
+                    <!-- Siguiente -->
+                    <a href="?page={{ page_obj.next_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.folio_recepcion %}&folio_recepcion={{ filtros.folio_recepcion }}{% endif %}{% if filtros.folio_oc %}&folio_oc={{ filtros.folio_oc }}{% endif %}{% if filtros.proveedor_id %}&proveedor_id={{ filtros.proveedor_id }}{% endif %}{% if filtros.almacen_id %}&almacen_id={{ filtros.almacen_id }}{% endif %}{% if filtros.fecha %}&fecha={{ filtros.fecha }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Siguiente">&raquo;</a>
+                    
+                    <!-- Último -->
+                    <a href="?page={{ page_obj.paginator.num_pages }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.folio_recepcion %}&folio_recepcion={{ filtros.folio_recepcion }}{% endif %}{% if filtros.folio_oc %}&folio_oc={{ filtros.folio_oc }}{% endif %}{% if filtros.proveedor_id %}&proveedor_id={{ filtros.proveedor_id }}{% endif %}{% if filtros.almacen_id %}&almacen_id={{ filtros.almacen_id }}{% endif %}{% if filtros.fecha %}&fecha={{ filtros.fecha }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Última página">&raquo;&raquo;</a>
                 {% else %}
                     <button class="btn btn-sm btn-light border-0 text-muted" disabled>&raquo;</button>
+                    <button class="btn btn-sm btn-light border-0 text-muted" disabled>&raquo;&raquo;</button>
                 {% endif %}
             </div>
         </div>

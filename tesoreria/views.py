@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from .models import CajaBanco, PagoPedido, Ingreso, PagoCompra, Egreso
 from panel.models import Empresa
 from preferencias.models import Moneda
@@ -54,6 +55,11 @@ def lista_egresos(request):
         egresos = egresos.filter(fecha=fecha)
     # --- FIN LÓGICA DE FILTRADO ---
 
+    # PAGINACIÓN
+    paginator = Paginator(egresos, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     from preferencias.models import Sucursal
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
     
@@ -65,7 +71,7 @@ def lista_egresos(request):
     }
     
     contexto = {
-        'egresos': egresos,
+        'page_obj': page_obj,
         'sucursales': sucursales,
         'filtros': filtros,
         'section': 'tesoreria_egresos'
@@ -236,6 +242,11 @@ def lista_ingresos(request):
     from preferencias.models import Sucursal
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
     
+    # PAGINACIÓN
+    paginator = Paginator(ingresos, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     filtros = {
         'q': q,
         'folio': folio,
@@ -244,7 +255,7 @@ def lista_ingresos(request):
     }
     
     contexto = {
-        'ingresos': ingresos,
+        'page_obj': page_obj,
         'sucursales': sucursales,
         'filtros': filtros,
         'section': 'tesoreria_ingresos'

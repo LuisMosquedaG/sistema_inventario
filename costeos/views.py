@@ -2,6 +2,8 @@ from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.db import transaction
+from django.core.paginator import Paginator
+from django.db.models import Q
 from panel.models import Empresa
 from core.models import Producto
 from preferencias.models import Moneda, Sucursal
@@ -27,18 +29,38 @@ def dashboard_costeos(request):
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)
     
-    costeos = Costeo.objects.filter(empresa=empresa_actual).select_related('sucursal', 'vendedor').prefetch_related(
+    q = request.GET.get('q', '')
+    sucursal_id = request.GET.get('sucursal', '')
+
+    costeos_qs = Costeo.objects.filter(empresa=empresa_actual).select_related('sucursal', 'vendedor').prefetch_related(
         'materias_primas', 'mano_obra', 'gastos_indirectos',
         'costos_adquisicion', 'personal_servicio', 'materiales_servicio',
         'materias_primas__moneda', 'mano_obra__moneda', 'gastos_indirectos__moneda',
         'costos_adquisicion__moneda', 'personal_servicio__moneda', 'materiales_servicio__moneda'
-    )
+    ).order_by('-fecha_creacion')
+
+    if q:
+        costeos_qs = costeos_qs.filter(
+            Q(nombre_identificador__icontains=q) |
+            Q(vendedor__username__icontains=q)
+        )
+    if sucursal_id:
+        costeos_qs = costeos_qs.filter(sucursal_id=sucursal_id)
+
+    # PAGINACIÓN
+    paginator = Paginator(costeos_qs, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
     
     contexto = {
-        'costeos': costeos,
+        'page_obj': page_obj,
         'productos': Producto.objects.filter(empresa=empresa_actual),
         'monedas': Moneda.objects.filter(empresa=empresa_actual),
         'sucursales': Sucursal.objects.filter(empresa=empresa_actual),
+        'filtros': {
+            'q': q,
+            'sucursal': sucursal_id
+        },
         'section': 'costeos'
     }
     return render(request, 'costeos/dashboard_costeos.html', contexto)

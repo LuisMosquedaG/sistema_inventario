@@ -125,15 +125,19 @@
                 </div>
                 <div class="card-body p-4">
                     <div class="row g-4">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
+                            <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Clientes Activos</h6>
+                            <div style="height: 180px; position: relative;"><canvas id="chartClientes"></canvas></div>
+                        </div>
+                        <div class="col-md-3">
                             <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Cotizaciones</h6>
                             <div style="height: 180px; position: relative;"><canvas id="chartCotizaciones"></canvas></div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Pedidos</h6>
                             <div style="height: 180px; position: relative;"><canvas id="chartPedidos"></canvas></div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Salidas</h6>
                             <div style="height: 180px; position: relative;"><canvas id="chartSalidas"></canvas></div>
                         </div>
@@ -238,6 +242,45 @@
         });
     }
 
+    function createClientsBarChart(canvasId, statsData) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!statsData || statsData.length === 0) {
+            ctx.font = "14px Inter"; ctx.fillStyle = "#adb5bd"; ctx.textAlign = "center";
+            ctx.fillText("Sin clientes activos", canvas.width/2, canvas.height/2); return;
+        }
+        
+        const labels = statsData.map(item => {
+            return item.tipo.charAt(0).toUpperCase() + item.tipo.slice(1).replace('_', ' ');
+        });
+        const data = statsData.map(item => item.total);
+        
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Cantidad',
+                    data: data,
+                    backgroundColor: '#00b8b9',
+                    borderRadius: 4,
+                    barThickness: 30
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y', // Barra horizontal para mejor lectura de tipos
+                scales: {
+                    x: { beginAtZero: true, ticks: { precision: 0 } },
+                    y: { ticks: { font: { size: 10 } } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
     // --- LÓGICA DE CAROUSEL CON FADE ---
     let currentSlide = 0;
     const slides = ['slide0', 'slide1', 'slide2'];
@@ -309,6 +352,8 @@
             createDoughnutChart('chartCompras', stats.compras);
             createDoughnutChart('chartRecepciones', stats.recepciones);
             createDoughnutChart('chartProduccion', stats.produccion);
+
+            createClientsBarChart('chartClientes', stats.clientes);
 
             createPaymentBarChart('chartPagosVentas', stats.monetario_ventas, 'Cobrado');
             createPaymentBarChart('chartPagosCompras', stats.monetario_compras, 'Pagado');

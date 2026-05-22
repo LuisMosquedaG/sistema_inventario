@@ -3,6 +3,7 @@ from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.forms.models import model_to_dict
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db.models import Q
 from django.db import transaction
 import openpyxl
@@ -305,6 +306,12 @@ def lista_actividades(request):
         'estado': estado,
         'sucursal': sucursal_id_filtro
     }
+    
+    # PAGINACIÓN
+    paginator = Paginator(actividades, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     # --- FIN LÓGICA DE FILTRADO ---
     from preferencias.models import Sucursal
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
@@ -312,7 +319,7 @@ def lista_actividades(request):
     clientes = Cliente.objects.filter(empresa=empresa_actual)
     
     return render(request, 'dashboard_actividades.html', {
-        'actividades': actividades,
+        'page_obj': page_obj,
         'clientes': clientes,
         'sucursales': sucursales,
         'filtros': filtros

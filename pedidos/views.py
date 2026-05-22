@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from .models import Pedido, DetallePedido
 from django.contrib import messages
+from django.core.paginator import Paginator
 from clientes.models import Cliente, ContactoCliente
 from core.models import Producto, DetalleReceta
 from cotizaciones.models import Cotizacion
@@ -401,6 +402,12 @@ def dashboard_pedidos(request):
         'estado': estado,
         'sucursal': sucursal_id_filtro
     }
+    
+    # PAGINACIÓN
+    paginator = Paginator(lista_pedidos, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     # --- FIN LÓGICA DE FILTRADO ---
     from preferencias.models import Sucursal
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
@@ -419,7 +426,7 @@ def dashboard_pedidos(request):
     listas_precios = ListaPrecioCosto.objects.filter(empresa=empresa_actual, tipo='precio').order_by('nombre')
 
     contexto = {
-        'pedidos': lista_pedidos,
+        'page_obj': page_obj,
         'clientes': clientes,
         'productos': productos,
         'listas_precios': listas_precios,

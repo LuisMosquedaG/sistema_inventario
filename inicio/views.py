@@ -10,6 +10,7 @@ from compras.models import OrdenCompra
 from recepciones.models import Recepcion
 from produccion.models import OrdenProduccion
 from tesoreria.models import PagoPedido, PagoCompra
+from clientes.models import Cliente
 from decimal import Decimal
 import json
 
@@ -36,6 +37,15 @@ def dashboard_inicio(request):
     stats_cotizaciones = list(Cotizacion.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id')))
     stats_pedidos = list(Pedido.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id')))
     stats_salidas = list(OrdenVenta.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id')))
+    
+    # Conteos específicos por tipo para clientes ACTIVOS
+    stats_clientes = [
+        {'tipo': 'prospecto', 'total': Cliente.objects.filter(empresa=empresa_actual, estado='activo', tipo='prospecto').count()},
+        {'tipo': 'nuevo', 'total': Cliente.objects.filter(empresa=empresa_actual, estado='activo', tipo='cliente_nuevo').count()},
+        {'tipo': 'activo', 'total': Cliente.objects.filter(empresa=empresa_actual, estado='activo', tipo='cliente_activo').count()},
+        {'tipo': 'inactivo', 'total': Cliente.objects.filter(empresa=empresa_actual, estado='activo', tipo='cliente_inactivo').count()},
+        {'tipo': 'vip', 'total': Cliente.objects.filter(empresa=empresa_actual, estado='activo', tipo='vip').count()},
+    ]
 
     # MONTO DE COBROS (VENTAS)
     pedidos_activos = Pedido.objects.filter(empresa=empresa_actual).exclude(estado='cancelado')
@@ -127,6 +137,7 @@ def dashboard_inicio(request):
             'cotizaciones': stats_cotizaciones,
             'pedidos': stats_pedidos,
             'salidas': stats_salidas,
+            'clientes': stats_clientes,
             'compras': stats_compras,
             'recepciones': stats_recepciones,
             'produccion': stats_produccion,

@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import Cotizacion, DetalleCotizacion
 from django.contrib import messages
+from django.core.paginator import Paginator
+from .models import Cotizacion, DetalleCotizacion
 from clientes.models import Cliente, ContactoCliente
 from core.models import Producto
 from django.http import JsonResponse, HttpResponse
@@ -298,6 +299,12 @@ def dashboard_cotizaciones(request):
         'estado': estado,
         'sucursal': sucursal_id_filtro
     }
+    
+    # PAGINACIÓN
+    paginator = Paginator(lista_cotizaciones, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     # --- FIN LÓGICA DE FILTRADO ---
     from preferencias.models import Sucursal
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
@@ -310,7 +317,7 @@ def dashboard_cotizaciones(request):
     todas_listas = ListaPrecioCosto.objects.filter(empresa=empresa_actual)
     
     contexto = {
-        'cotizaciones': lista_cotizaciones,
+        'page_obj': page_obj,
         'clientes': todos_los_clientes,
         'productos': todos_los_productos,
         'categorias_catalogo': todas_categorias,

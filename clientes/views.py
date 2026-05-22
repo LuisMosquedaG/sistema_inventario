@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
+from django.core.paginator import Paginator
 from .models import Cliente, ContactoCliente
 from .forms import ClienteForm
 from django.http import JsonResponse
@@ -270,13 +271,19 @@ def dashboard_clientes(request):
         'relacion': relacion,
         'estado': estado
     }
+    
+    # PAGINACIÓN
+    paginator = Paginator(lista_clientes, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     # --- FIN LÓGICA DE FILTRADO ---
     
     todos_los_productos = Producto.objects.filter(empresa=empresa_actual)
     form = ClienteForm()
     
     contexto = {
-        'clientes': lista_clientes,
+        'page_obj': page_obj,
         'todos_los_clientes': Cliente.objects.filter(empresa=empresa_actual), # Para el selector de filtro
         'productos': todos_los_productos,
         'form': form,
