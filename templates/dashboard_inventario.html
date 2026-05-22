@@ -146,7 +146,7 @@
                         <input type="text" name="q" class="form-control border-start-0" placeholder="Buscar..." value="{{ filtros.q }}" onchange="this.form.submit()">
                     </div>
                 </div>
-                <div class="col-12 col-md-3 col-lg-3">
+                <div class="col-12" style="width: 15%;">
                     <label class="form-label small fw-bold text-secondary">Sucursal</label>
                     <select name="sucursal" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="">Todas...</option>
@@ -155,7 +155,7 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-12 col-md-3 col-lg-3">
+                <div class="col-12" style="width: 15%;">
                     <label class="form-label small fw-bold text-secondary">Almacén</label>
                     <select name="almacen" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="">Todos...</option>
@@ -164,7 +164,22 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-12 col-md-3 col-lg-3">
+                <div class="col-12" style="width: 15%;">
+                    <label class="form-label small fw-bold text-secondary">Vista</label>
+                    <select name="vista" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="existencias" {% if filtros.vista == 'existencias' %}selected{% endif %}>Existencias</option>
+                        <option value="productos" {% if filtros.vista == 'productos' %}selected{% endif %}>Productos</option>
+                    </select>
+                </div>
+                <div class="col-12" style="width: 15%;">
+                    <label class="form-label small fw-bold text-secondary">Existencias</label>
+                    <select name="existencias" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todas...</option>
+                        <option value="con" {% if filtros.existencias == 'con' %}selected{% endif %}>Con existencias</option>
+                        <option value="sin" {% if filtros.existencias == 'sin' %}selected{% endif %}>Sin existencias</option>
+                    </select>
+                </div>
+                <div class="col-12" style="width: 15%;">
                     <label class="form-label small fw-bold text-secondary">Estado</label>
                     <select name="estado" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="">Todos...</option>
@@ -189,10 +204,14 @@
                             <th class="text-center">Nombre</th>
                             <th class="text-center">Categoría / Subcategoría</th>
                             <th class="text-center">Marca / Modelo</th>
-                            <th class="text-center">Stock</th>
-                            <th class="text-center">Costos</th>
-                            <th class="text-center">Precios</th>
-                            <th class="text-center">Costo Inv.</th>
+                            {% if filtros.vista == 'existencias' %}
+                                <th class="text-center">Stock</th>
+                                <th class="text-center">Costos</th>
+                                <th class="text-center">Precios</th>
+                                <th class="text-center">Costo Inv.</th>
+                            {% else %}
+                                <th class="text-center">Abastecimiento</th>
+                            {% endif %}
                             <th class="text-center">Estado</th>
                         </tr>
                     </thead>
@@ -221,7 +240,9 @@
                                 </div>
                             </td>
                             <td class="text-center">
-                                <div class="fw-bold text-dark text-truncate mx-auto" style="max-width: 180px;" title="{{ p.nombre }}">
+                                <div class="fw-bold text-dark text-truncate mx-auto" 
+                                     style="max-width: {% if filtros.vista == 'productos' %}350px{% else %}180px{% endif %};" 
+                                     title="{{ p.nombre }}">
                                     {{ p.nombre }}
                                 </div>
                                 <div class="text-muted small">Tipo: {{ p.tipo }}</div>
@@ -231,29 +252,39 @@
                                 <div class="text-muted small" style="font-size:0.75rem;">{{ p.subcategoria|default:"--" }}</div>
                             </td>
                             <td class="text-center">
-                                <div class="small text-truncate mx-auto" style="max-width: 150px;" title="{{ p.marca|default:'' }}">
+                                <div class="small text-truncate mx-auto" 
+                                     style="max-width: {% if filtros.vista == 'productos' %}350px{% else %}150px{% endif %};" 
+                                     title="{{ p.marca|default:'' }}">
                                     {{ p.marca|default:"--" }}
                                 </div>
-                                <div class="text-muted small text-truncate mx-auto" style="font-size:0.75rem; max-width: 180px;" title="{{ p.modelo|default:'' }}">
+                                <div class="text-muted small text-truncate mx-auto" 
+                                     style="font-size:0.75rem; max-width: {% if filtros.vista == 'productos' %}350px{% else %}180px{% endif %};" 
+                                     title="{{ p.modelo|default:'' }}">
                                     {{ p.modelo|default:"--" }}
                                 </div>
                             </td>
-                            <td class="text-center">
-                                <div class="text-muted small">Exist: <span class="{% if p.stock_fisico < p.stock_minimo %}text-danger{% else %}text-success{% endif %} fw-bold">{{ p.stock_fisico|default:0 }}</span></div>
-                                <div class="text-muted small">Reser: <span class="text-warning fw-bold">{{ p.stock_res|default:0 }}</span></div>
-                                <div class="text-muted small">Dispo: <span class="text-success fw-bold">{{ p.stock_disponible_anotado|default:0 }}</span></div>
-                            </td>
-                            <td class="text-center small text-muted">
-                                <div>Prom: ${{ p.costo_promedio_anotado|floatformat:2|default:"-" }}</div>
-                                <div>Max: ${{ p.costo_max_compra|floatformat:2|default:"-" }}</div>
-                            </td>
-                            <td class="text-center small text-muted">
-                                <div>Prom: ${{ p.precio_promedio_venta|floatformat:2|default:"-" }}</div>
-                                <div>Max: ${{ p.precio_max_venta|floatformat:2|default:"-" }}</div>
-                            </td>
-                            <td class="text-center">
-                                <div class="text-muted small">${{ p.costo_inventario_anotado|floatformat:2|default:"0.00" }}</div>
-                            </td>
+                            {% if filtros.vista == 'existencias' %}
+                                <td class="text-center">
+                                    <div class="text-muted small">Exist: <span class="{% if p.stock_fisico < p.stock_minimo %}text-danger{% else %}text-success{% endif %} fw-bold">{{ p.stock_fisico|default:0 }}</span></div>
+                                    <div class="text-muted small">Reser: <span class="text-warning fw-bold">{{ p.stock_res|default:0 }}</span></div>
+                                    <div class="text-muted small">Dispo: <span class="text-success fw-bold">{{ p.stock_disponible_anotado|default:0 }}</span></div>
+                                </td>
+                                <td class="text-center small text-muted">
+                                    <div>Prom: ${{ p.costo_promedio_anotado|floatformat:2|default:"-" }}</div>
+                                    <div>Max: ${{ p.costo_max_compra|floatformat:2|default:"-" }}</div>
+                                </td>
+                                <td class="text-center small text-muted">
+                                    <div>Prom: ${{ p.precio_promedio_venta|floatformat:2|default:"-" }}</div>
+                                    <div>Max: ${{ p.precio_max_venta|floatformat:2|default:"-" }}</div>
+                                </td>
+                                <td class="text-center">
+                                    <div class="text-muted small">${{ p.costo_inventario_anotado|floatformat:2|default:"0.00" }}</div>
+                                </td>
+                            {% else %}
+                                <td class="text-center">
+                                    <div class="small text-uppercase fw-semibold text-secondary">{{ p.tipo_abastecimiento }}</div>
+                                </td>
+                            {% endif %}
                             <td class="text-center">
                                 <span class="status-pill status-{{ p.estado|lower }}">
                                     {{ p.get_estado_display }}
@@ -262,7 +293,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="9" class="text-center py-5">
+                            <td colspan="{% if filtros.vista == 'existencias' %}9{% else %}6{% endif %}" class="text-center py-5">
                                 <i class="bi bi-inbox display-6 text-muted mb-2 d-block"></i>
                                 <span class="text-muted fst-italic small">No hay artículos que coincidan con los filtros</span>
                             </td>
@@ -279,7 +310,7 @@
             </span>
             <div class="d-flex gap-1">
                 {% if page_obj.has_previous %}
-                    <a href="?page={{ page_obj.previous_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted">&laquo;</a>
+                    <a href="?page={{ page_obj.previous_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted">&laquo;</a>
                 {% else %}
                     <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;</button>
                 {% endif %}
@@ -287,7 +318,7 @@
                 <button class="btn btn-sm btn-light border-0 text-dark fw-bold">{{ page_obj.number }}</button>
                 
                 {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted">&raquo;</a>
+                    <a href="?page={{ page_obj.next_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted">&raquo;</a>
                 {% else %}
                     <button class="btn btn-sm btn-light border-0 text-muted" disabled>&raquo;</button>
                 {% endif %}

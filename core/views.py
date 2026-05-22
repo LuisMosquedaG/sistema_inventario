@@ -459,6 +459,8 @@ def dashboard_inventario(request):
     almacen_id = request.GET.get('almacen')
     q = request.GET.get('q')
     estado = request.GET.get('estado')
+    vista = request.GET.get('vista', 'existencias')
+    stock_status = request.GET.get('existencias')
 
     productos_qs = Producto.objects.filter(empresa=empresa_actual)
     # ELIMINADO: El catálogo de productos es general, no se filtra por sucursal
@@ -510,7 +512,14 @@ def dashboard_inventario(request):
             Coalesce(F('stock_fisico'), 0) - Coalesce(F('stock_res'), 0),
             output_field=IntegerField()
         )
-    ).order_by('nombre')
+    )
+
+    if stock_status == 'con':
+        productos = productos.filter(stock_fisico__gt=0)
+    elif stock_status == 'sin':
+        productos = productos.filter(Q(stock_fisico__lte=0) | Q(stock_fisico__isnull=True))
+
+    productos = productos.order_by('nombre')
     
     # --- PAGINACIÓN ---
     paginator = Paginator(productos, 20)
@@ -549,7 +558,9 @@ def dashboard_inventario(request):
             'sucursal': sucursal_id or '',
             'almacen': int(almacen_id) if almacen_id else '', 
             'q': q or '',
-            'estado': estado or ''
+            'estado': estado or '',
+            'vista': vista,
+            'existencias': stock_status or ''
         },
         'section': 'inventario'
     }
