@@ -435,7 +435,7 @@
                 <div class="collapse {% if '/inventario/' in request.path %}show{% endif %}" id="submenu-inventario">
                     <ul class="list-unstyled mb-0">
                         {% if inventory_ui_permissions.inventario %}
-                        <li><a href="/inventario/" class="sidebar-link sidebar-level-2 {% if request.path == '/inventario/' %}sidebar-sub-active{% endif %}"><i class="bi bi-box-seam me-2 small"></i> Inventarios</a></li>
+                        <li><a href="/inventario/" class="sidebar-link sidebar-level-2 {% if request.path == '/inventario/' %}sidebar-sub-active{% endif %}"><i class="bi bi-box-seam me-2 small"></i> Existencias</a></li>
                         {% endif %}
 
                         {% if inventory_ui_permissions.kardex %}
