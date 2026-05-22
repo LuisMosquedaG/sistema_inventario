@@ -221,7 +221,7 @@
                                 </div>
                             </td>
                             <td class="text-center">
-                                <div class="fw-bold text-dark text-truncate mx-auto" style="max-width: 250px;" title="{{ p.nombre }}">
+                                <div class="fw-bold text-dark text-truncate mx-auto" style="max-width: 180px;" title="{{ p.nombre }}">
                                     {{ p.nombre }}
                                 </div>
                                 <div class="text-muted small">Tipo: {{ p.tipo }}</div>
@@ -231,8 +231,12 @@
                                 <div class="text-muted small" style="font-size:0.75rem;">{{ p.subcategoria|default:"--" }}</div>
                             </td>
                             <td class="text-center">
-                                <div class="small">{{ p.marca|default:"--" }}</div>
-                                <div class="text-muted small" style="font-size:0.75rem;">{{ p.modelo|default:"--" }}</div>
+                                <div class="small text-truncate mx-auto" style="max-width: 150px;" title="{{ p.marca|default:'' }}">
+                                    {{ p.marca|default:"--" }}
+                                </div>
+                                <div class="text-muted small text-truncate mx-auto" style="font-size:0.75rem; max-width: 180px;" title="{{ p.modelo|default:'' }}">
+                                    {{ p.modelo|default:"--" }}
+                                </div>
                             </td>
                             <td class="text-center">
                                 <div class="text-muted small">Exist: <span class="{% if p.stock_fisico < p.stock_minimo %}text-danger{% else %}text-success{% endif %} fw-bold">{{ p.stock_fisico|default:0 }}</span></div>
