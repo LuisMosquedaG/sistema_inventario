@@ -56,8 +56,9 @@ class Producto(models.Model):
     modelo = models.CharField(max_length=100, blank=True, null=True, verbose_name="Modelo")
     linea = models.CharField(max_length=100, blank=True, null=True, verbose_name="Línea")
     unidad_medida = models.CharField(max_length=50, default="PZA", verbose_name="Unidad de Medida")
-    iva = models.DecimalField(max_digits=5, decimal_places=2, default=0.00, verbose_name="IVA (%)", help_text="Impuesto al Valor Agregado")
-    ieps = models.DecimalField(max_digits=5, decimal_places=2, default=0.00, verbose_name="IEPS (%)", help_text="Impuesto Especial sobre Producción y Servicios")
+    iva = models.DecimalField(max_digits=5, decimal_places=2, default=0.00, blank=True, verbose_name="IVA (%)", help_text="Impuesto al Valor Agregado")
+    ieps = models.DecimalField(max_digits=5, decimal_places=2, default=0.00, blank=True, verbose_name="IEPS (%)", help_text="Impuesto Especial sobre Producción y Servicios")
+    tiene_iva = models.BooleanField(default=True, verbose_name="Tiene IVA")
 
     # --- 3. INVENTARIO Y LOGÍSTICA (CAMBIOS) ---
     precio_costo = models.DecimalField(max_digits=10, decimal_places=2)

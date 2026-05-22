@@ -299,6 +299,15 @@
             </div>
             {% endif %}
 
+            <!-- MÓDULO: COSTEOS -->
+            {% if costing_ui_permissions.costeos %}
+            <div>
+                <a href="/costeos/" class="sidebar-link {% if '/costeos/' in request.path %}sidebar-active{% endif %}">
+                    <i class="bi bi-calculator sidebar-icon"></i> Costeos
+                </a>
+            </div>
+            {% endif %}
+
             <!-- MÓDULO: VENTAS -->
             {% if sales_ui_permissions.clientes or sales_ui_permissions.actividades or sales_ui_permissions.cotizaciones or sales_ui_permissions.pedidos or sales_ui_permissions.salidas %}
             <div>

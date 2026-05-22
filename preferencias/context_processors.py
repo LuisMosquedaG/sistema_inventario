@@ -75,8 +75,13 @@ def app_permissions(request):
         'cajas_bancos': user_has_treasury_permission(request, 'cajas_bancos', 'ver'),
     }
 
+    p_costing_ui = {
+        'costeos': user_has_module_permission(request, 'costeos', 'ver'),
+    }
+
     return {
         'sales_ui_permissions': get_sales_ui_permissions(request),
+        'costing_ui_permissions': p_costing_ui,
         'purchase_ui_permissions': p_purchase_ui,
         'production_ui_permissions': p_production_ui,
         'inventory_ui_permissions': p_inventory_ui,

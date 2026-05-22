@@ -59,6 +59,19 @@ window.abrirNuevoArticulo = function(sucursalId = '') {
         selTest.classList.add('bg-light');
     }
 
+    // Reset IVA
+    const checkIVA = document.getElementById('checkIVA');
+    if (checkIVA) {
+        checkIVA.checked = true;
+        const inputIVA = document.getElementById('inputIVA');
+        if (inputIVA) {
+            inputIVA.disabled = false;
+            inputIVA.classList.remove('bg-light');
+            inputIVA.value = "16";
+        }
+    }
+
+    actualizarCalculosPrecios();
     mostrarModal('modalCrearArticulo');
 }
 
@@ -96,6 +109,8 @@ window.cargarProductoEdicion = function(id) {
             form.querySelector('[name="stock_maximo"]').value = data.stock_maximo || 1000;
             form.querySelector('[name="maneja_lote"]').checked = data.maneja_lote || false;
             form.querySelector('[name="maneja_serie"]').checked = data.maneja_serie || false;
+            form.querySelector('[name="tiene_iva"]').checked = data.tiene_iva ?? true;
+            toggleIVA();
             
             const hidSuc = document.getElementById('hiddenSucursalArticulo');
             if (hidSuc) hidSuc.value = data.sucursal || '';
@@ -117,9 +132,48 @@ window.cargarProductoEdicion = function(id) {
                 }
             }
 
+            actualizarCalculosPrecios();
             mostrarModal('modalCrearArticulo');
         })
         .catch(err => alert(err.message));
+}
+
+window.toggleIVA = function() {
+    const check = document.getElementById('checkIVA');
+    const input = document.getElementById('inputIVA');
+    if (!check || !input) return;
+    
+    if (check.checked) {
+        input.readOnly = false;
+        input.classList.remove('bg-light');
+    } else {
+        input.readOnly = true;
+        input.classList.add('bg-light');
+    }
+}
+
+window.actualizarCalculosPrecios = function() {
+    const costo = parseFloat(document.getElementById('inputPrecioCosto').value) || 0;
+    const venta = parseFloat(document.getElementById('inputPrecioVenta').value) || 0;
+    const ivaPorc = parseFloat(document.getElementById('inputIVA').value) || 0;
+    const tieneIva = document.getElementById('checkIVA').checked;
+
+    let ivaMonto = 0;
+    if (tieneIva) {
+        ivaMonto = venta * (ivaPorc / 100);
+    }
+
+    const total = venta + ivaMonto;
+    let margen = 0;
+    if (venta > 0) {
+        margen = ((venta - costo) / venta) * 100;
+    }
+
+    const fmt = (v) => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+    document.getElementById('infoIVAMonto').innerText = fmt(ivaMonto);
+    document.getElementById('infoTotalVenta').innerText = fmt(total);
+    document.getElementById('infoMargenPrec').innerText = margen.toFixed(1) + '%';
 }
 
 window.guardarProducto = function() {

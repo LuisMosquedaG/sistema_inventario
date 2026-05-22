@@ -136,6 +136,7 @@ urlpatterns = [
     path('tesoreria/', include('tesoreria.urls')),
     path('produccion/', include('produccion.urls')),
     path('recursos-humanos/', include('recursos_humanos.urls')),
+    path('costeos/', include('costeos.urls')),
     path('notificaciones/', include('notificaciones.urls')),
     
     path('inventario/', include('almacenes.urls')), 

@@ -12,6 +12,9 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
+import sys
+
+# Triggering reload
 from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -62,6 +65,7 @@ INSTALLED_APPS = [
     'tesoreria',
     'notificaciones',
     'recursos_humanos',
+    'costeos.apps.CosteosConfig',
 ]
 
 MIDDLEWARE = [

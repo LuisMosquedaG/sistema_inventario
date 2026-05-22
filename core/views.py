@@ -380,6 +380,8 @@ def crear_producto_rapido(request):
             estado='revision',
             precio_costo=0.00,
             precio_venta=0.00,
+            iva=16.00,
+            tiene_iva=True,
             empresa=empresa
         )
         
@@ -387,7 +389,8 @@ def crear_producto_rapido(request):
             'success': True,
             'id': producto.id,
             'nombre': producto.nombre,
-            'precio_venta': str(producto.precio_venta)
+            'precio_venta': str(producto.precio_venta),
+            'iva': str(producto.iva)
         })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
@@ -423,6 +426,15 @@ def crear_producto_ajax(request):
             if form.is_valid():
                 producto = form.save(commit=False)
                 producto.empresa = empresa_actual
+                
+                # Manejo manual de switches
+                producto.maneja_lote = request.POST.get('maneja_lote') == 'on'
+                producto.maneja_serie = request.POST.get('maneja_serie') == 'on'
+                producto.tiene_iva = request.POST.get('tiene_iva') == 'on'
+
+                if not producto.tiene_iva:
+                    producto.iva = 0.00
+
                 test_id = request.POST.get('test_calidad')
                 if test_id:
                     from produccion.models import Test
@@ -642,6 +654,7 @@ def obtener_producto_json(request, producto_id):
             'listas_maestras': list(listas_maestras),
             'stock_minimo': producto.stock_minimo, 'stock_maximo': producto.stock_maximo,
             'maneja_lote': producto.maneja_lote, 'maneja_serie': producto.maneja_serie,
+            'tiene_iva': producto.tiene_iva,
             'test_calidad_id': producto.test_calidad.id if producto.test_calidad else "",
         })
     except Exception as e:
@@ -662,6 +675,10 @@ def actualizar_producto_ajax(request, producto_id):
                 # Maneja el switch manual para lote/serie ya que vienen como 'on'
                 producto.maneja_lote = request.POST.get('maneja_lote') == 'on'
                 producto.maneja_serie = request.POST.get('maneja_serie') == 'on'
+                producto.tiene_iva = request.POST.get('tiene_iva') == 'on'
+                
+                if not producto.tiene_iva:
+                    producto.iva = 0.00
                 
                 test_id = request.POST.get('test_calidad')
                 if test_id:

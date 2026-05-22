@@ -88,6 +88,7 @@ def crear_empresa(request):
                 modulo_produccion=(request.POST.get('modulo_produccion') == 'on'),
                 modulo_inventarios=(request.POST.get('modulo_inventarios') == 'on'),
                 modulo_recursos_humanos=(request.POST.get('modulo_recursos_humanos') == 'on'),
+                modulo_costeos=(request.POST.get('modulo_costeos') == 'on'),
                 fecha_inicio_licencia=request.POST.get('fecha_inicio_licencia') or None,
                 fecha_vencimiento_licencia=request.POST.get('fecha_vencimiento_licencia') or None,
             )
@@ -199,6 +200,7 @@ def obtener_empresa_json(request, empresa_id):
         'modulo_produccion': empresa.modulo_produccion,
         'modulo_inventarios': empresa.modulo_inventarios,
         'modulo_recursos_humanos': empresa.modulo_recursos_humanos,
+        'modulo_costeos': empresa.modulo_costeos,
         'fecha_inicio_licencia': empresa.fecha_inicio_licencia.isoformat() if empresa.fecha_inicio_licencia else '',
         'fecha_vencimiento_licencia': empresa.fecha_vencimiento_licencia.isoformat() if empresa.fecha_vencimiento_licencia else '',
     }
@@ -240,6 +242,7 @@ def actualizar_empresa(request, empresa_id):
             empresa.modulo_produccion = (request.POST.get('modulo_produccion') == 'on')
             empresa.modulo_inventarios = (request.POST.get('modulo_inventarios') == 'on')
             empresa.modulo_recursos_humanos = (request.POST.get('modulo_recursos_humanos') == 'on')
+            empresa.modulo_costeos = (request.POST.get('modulo_costeos') == 'on')
 
             # Actualizar licenciamiento
             empresa.fecha_inicio_licencia = request.POST.get('fecha_inicio_licencia') or None

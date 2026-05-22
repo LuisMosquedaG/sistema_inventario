@@ -199,6 +199,7 @@
                                     <i class="bi bi-gear-fill" title="Producción" style="color: {% if emp.modulo_produccion %}#00b8b9{% else %}#dee2e6{% endif %};"></i>
                                     <i class="bi bi-box-seam" title="Inventarios" style="color: {% if emp.modulo_inventarios %}#00b8b9{% else %}#dee2e6{% endif %};"></i>
                                     <i class="bi bi-people-fill" title="Recursos Humanos" style="color: {% if emp.modulo_recursos_humanos %}#00b8b9{% else %}#dee2e6{% endif %};"></i>
+                                    <i class="bi bi-calculator" title="Costeos" style="color: {% if emp.modulo_costeos %}#00b8b9{% else %}#dee2e6{% endif %};"></i>
                                 </div>
                             </td>
 
@@ -307,8 +308,11 @@
                                     <input class="form-check-input" type="checkbox" name="modulo_recursos_humanos" id="checkRRHH" checked>
                                     <label class="form-check-label small fw-bold text-secondary" for="checkRRHH">Recursos Humanos</label>
                                 </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="modulo_costeos" id="checkCosteos" checked>
+                                    <label class="form-check-label small fw-bold text-secondary" for="checkCosteos">Costeos</label>
                                 </div>
-                            <hr class="my-3 opacity-50">
+                                </div>                            <hr class="my-3 opacity-50">
 
                             <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Información del Tenant</h6>
                             <div class="row g-3">
@@ -421,6 +425,7 @@
         document.getElementById('checkProduccion').checked = true;
         document.getElementById('checkInventarios').checked = true;
         document.getElementById('checkRRHH').checked = true;
+        document.getElementById('checkCosteos').checked = true;
 
         // Resetear fechas
         document.getElementById('inputFechaInicio').value = '';
@@ -489,6 +494,7 @@
                 document.getElementById('checkProduccion').checked = data.modulo_produccion;
                 document.getElementById('checkInventarios').checked = data.modulo_inventarios;
                 document.getElementById('checkRRHH').checked = data.modulo_recursos_humanos;
+                document.getElementById('checkCosteos').checked = data.modulo_costeos;
 
                 // Fechas
                 document.getElementById('inputFechaInicio').value = data.fecha_inicio_licencia || '';

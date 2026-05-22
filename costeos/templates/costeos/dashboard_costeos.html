@@ -1,0 +1,1151 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+    <style>
+        /* Iconos de Acción */
+        .icon-action {
+            color: #adb5bd; font-size: 1.1rem; cursor: pointer; transition: all 0.2s ease;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 32px; height: 32px; border-radius: 6px; text-decoration: none !important;
+            background: transparent; border: none;
+        }
+        .icon-action:hover { color: #00b8b9; transform: scale(1.15); }
+        .icon-action-danger:hover { color: #dc3545 !important; }
+        .icon-action-success:hover { color: #2f9e44 !important; }
+
+        /* Modal Sheet */
+        .modal-sheet .modal-content {
+            border-radius: 12px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.15); overflow: hidden;
+        }
+        .modal-sheet .modal-body {
+            max-height: 85vh; overflow-y: auto; background-color: #ffffff;
+        }
+        .modal-sheet .modal-body::-webkit-scrollbar { width: 6px; }
+        .modal-sheet .modal-body::-webkit-scrollbar-thumb { background-color: #dee2e6; border-radius: 4px; }
+
+        /* Compact Header Style */
+        .sticky-header-costeo {
+            position: sticky; top: 0; z-index: 1020; background: #fff;
+            margin: 0 -1.5rem; padding: 1.5rem 1.5rem 0.75rem 1.5rem;
+            border-bottom: 1px solid #f1f3f5;
+        }
+
+        /* Summary Cards - More Compact & Clean */
+        .summary-card-minimal {
+            text-align: center; padding: 0.5rem; border-radius: 8px; border: 1px solid #f1f3f5;
+            transition: all 0.2s; background: #fff;
+        }
+        .summary-card-minimal .summary-label { font-size: 0.6rem; font-weight: 700; color: #adb5bd; text-transform: uppercase; margin-bottom: 1px; }
+        .summary-card-minimal .summary-value { font-size: 1.1rem; font-weight: 700; color: #343a40; }
+        .summary-card-minimal .summary-subvalue { font-size: 0.65rem; color: #adb5bd; }
+
+        /* Type Selectors - Minimalist */
+        .type-selector-pill {
+            border: 1px solid #e9ecef; background: #f8f9fa; color: #868e96; font-weight: 600;
+            padding: 0.4rem 1rem; border-radius: 50px; transition: all 0.2s; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+            font-size: 0.7rem; text-transform: uppercase; width: 100%;
+        }
+        .type-selector-pill i { font-size: 0.9rem; }
+        .type-selector-pill.active { border-color: #00b8b9; color: #00b8b9; background-color: #e6fcf5; }
+
+        /* Input Sections - Compact & Clean */
+        .cost-section-minimal { display: none; margin-bottom: 2rem; }
+        .cost-section-minimal.active { display: block; }
+        .section-title-minimal {
+            font-size: 0.7rem; font-weight: 600; color: #adb5bd; text-transform: uppercase;
+            letter-spacing: 0.5px; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;
+        }
+        .section-title-minimal i { color: #00b8b9; font-size: 0.9rem; }
+
+        /* Tables - Clean & Tight */
+        .table-minimal { width: 100%; margin-bottom: 1rem; }
+        .table-minimal thead th {
+            font-size: 0.65rem; font-weight: 700; color: #adb5bd; text-transform: uppercase;
+            padding: 8px 10px; border-bottom: 1px solid #f1f3f5; border-top: none;
+        }
+        .table-minimal tbody td { padding: 6px 10px; border-bottom: 1px solid #f8f9fa; }
+        
+        /* Sub-section separators */
+        .cost-sub-section { 
+            padding-bottom: 1.5rem; 
+            margin-bottom: 1.5rem; 
+            border-bottom: 1px solid rgba(0, 184, 185, 0.15); 
+        }
+        .cost-sub-section:last-child { border-bottom: none; }
+
+        .table-minimal .form-control-sm, .table-minimal .form-select-sm {
+            border: 1px solid #f1f3f5; background-color: #fcfcfc; font-size: 0.8rem; height: 28px;
+        }
+        .table-minimal .form-control-sm:focus { border-color: #00b8b9; box-shadow: none; background-color: #fff; }
+
+        /* Margin bar area */
+        .margin-container-minimal {
+            background: #f8f9fa; border-radius: 12px; padding: 1.25rem; margin-top: 1.5rem;
+        }
+
+        .input-inline-minimal {
+            border: none; border-bottom: 2px solid #e9ecef; border-radius: 0; padding: 0.25rem 0;
+            font-weight: 400; font-size: 1rem; transition: border-color 0.2s; width: 100%;
+        }
+        .input-inline-minimal:focus { border-color: #00b8b9; outline: none; box-shadow: none; }
+
+        /* Custom Range Slider */
+        .custom-range-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 5px;
+            background: #e9ecef;
+            outline: none;
+            cursor: pointer;
+        }
+        .custom-range-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #00b8b9;
+            cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: all 0.2s ease;
+        }
+        .custom-range-slider::-webkit-slider-thumb:hover { transform: scale(1.1); background: #00a0a1; }
+        .custom-range-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #00b8b9;
+            cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        /* Custom Switch Color */
+        .form-check-input:checked {
+            background-color: #00b8b9;
+            border-color: #00b8b9;
+        }
+
+        /* PILLS FINAS (ESTADO, TIPO) - ESTILO CLIENTES */
+        .client-pill {
+            display: inline-flex;
+            align-items: center;
+            font-size: 0.65rem;
+            line-height: 1;
+            padding: 0.25em 0.6em;
+            font-weight: 600;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: middle;
+            border-radius: 50px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            transition: all 0.2s ease-in-out;
+        }
+
+        /* --- ESTADOS --- */
+        .status-borrador {
+            background-color: #f1f3f5;
+            color: #495057;
+            border: 1px solid #e9ecef;
+        }
+        .status-activo {
+            background-color: #ebfbee;
+            color: #2f9e44;
+            border: 1px solid #b2f2bb;
+        }
+
+        /* --- TIPOS --- */
+        .type-manuf {
+            background-color: #f1f3f5;
+            color: #495057;
+            border: 1px solid #e9ecef;
+        }
+        .type-comer {
+            background-color: #ebfbee;
+            color: #2f9e44;
+            border: 1px solid #b2f2bb;
+        }
+        .type-serv {
+            background-color: #e7f5ff;
+            color: #1971c2;
+            border: 1px solid #d0ebff;
+        }
+
+    </style>
+
+    <div class="container-fluid py-2 px-4">
+        <!-- HEADER DASHBOARD -->
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+            <div>
+                <h4 class="section-title mb-0">Costeos</h4>
+                <span class="section-subtitle">Análisis de costos y márgenes de utilidad</span>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <button class="btn btn-brand text-white btn-pro shadow-sm" onclick="nuevoCosteo()">
+                    <i class="bi bi-plus-lg me-1"></i> Nuevo Costeo
+                </button>
+            </div>
+        </div>
+
+        <!-- LISTA DE COSTEOS -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-pro mb-0">
+                        <thead>
+                            <tr>
+                                <th class="text-center" style="width: 80px;">Acciones</th>
+                                <th class="text-center">Sucursal</th>
+                                <th class="text-center">Folio</th>
+                                <th>Nombre</th>
+                                <th class="text-center">Fecha</th>
+                                <th class="text-center">Costo / Venta</th>
+                                <th class="text-center">Utilidad</th>
+                                <th class="text-center">Tipo</th>
+                                <th class="text-center">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in costeos %}
+                            <tr>
+                                <td class="text-center">
+                                    <div class="d-flex justify-content-center gap-1">
+                                        <span class="icon-action" title="Ver Detalle" onclick="verDetalle({{ c.id }})"><i class="bi bi-eye"></i></span>
+                                        <span class="icon-action" title="Duplicar Costeo" onclick="duplicarCosteo({{ c.id }})"><i class="bi bi-files"></i></span>
+                                        {% if c.estado == 'BORRADOR' %}
+                                        <span class="icon-action" title="Editar Costeo" onclick="editarCosteo({{ c.id }})"><i class="bi bi-pencil-square"></i></span>
+                                        <span class="icon-action icon-action-success" title="Aprobar Costeo" onclick="aprobarCosteo({{ c.id }})"><i class="bi bi-check-circle"></i></span>
+                                        {% endif %}
+                                        <span class="icon-action icon-action-danger" title="Eliminar" onclick="eliminarCosteo({{ c.id }})"><i class="bi bi-x-circle"></i></span>
+                                    </div>
+                                </td>
+                                <td class="text-center small text-muted">{{ c.sucursal.nombre|default:"Principal" }}</td>
+                                <td class="text-center text-dark small">{{ c.folio }}</td>
+                                <td class="text-dark small">{{ c.nombre_identificador }}</td>
+                                <td class="text-center small text-muted">{{ c.fecha_creacion|date:"d/m/Y" }}</td>
+                                <td class="text-center">
+                                    <div class="d-flex flex-column align-items-center">
+                                        <span class="text-dark" style="font-size: 0.75rem;">${{ c.get_costo_total|floatformat:2 }}</span>
+                                        <span class="text-dark" style="font-size: 0.85rem;">${{ c.get_venta_total|floatformat:2 }}</span>
+                                    </div>
+                                </td>
+                                <td class="text-center text-dark" style="font-size: 0.85rem;">
+                                    ${{ c.get_utilidad|floatformat:2 }}
+                                </td>
+                                <td class="text-center">
+                                    <div class="d-flex justify-content-center gap-1">
+                                        {% if c.es_manufactura %}<span class="client-pill type-manuf">MANUFACTURA</span>{% endif %}
+                                        {% if c.es_comercio %}<span class="client-pill type-comer">COMERCIO</span>{% endif %}
+                                        {% if c.es_servicio %}<span class="client-pill type-serv">SERVICIO</span>{% endif %}
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    {% if c.estado == 'BORRADOR' %}
+                                        <span class="client-pill status-borrador">BORRADOR</span>
+                                    {% elif c.estado == 'APROBADO' %}
+                                        <span class="client-pill status-activo">APROBADO</span>
+                                    {% else %}
+                                        <span class="client-pill status-borrador">{{ c.estado }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="9" class="text-center py-5">
+                                    <i class="bi bi-calculator display-6 text-muted mb-2 d-block opacity-25"></i>
+                                    <span class="text-muted fst-italic small">No hay costeos registrados aún</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: DETALLE DE COSTEO -->
+    <div class="modal fade" id="modalDetalleCosteo" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header border-bottom-0 bg-white py-3">
+                    <h5 class="modal-title fw-bold text-dark"><i class="bi bi-eye me-2 text-brand"></i>Detalle de Costeo: <span id="detFolio"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                
+                <div class="modal-body p-4 pt-0">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h4 class="fw-bold text-dark mb-0" id="detNombre"></h4>
+                            <span class="text-muted small" id="detMeta"></span>
+                        </div>
+                        <div id="detEstadoBadge"></div>
+                    </div>
+
+                    <!-- RESUMEN FINANCIERO -->
+                    <div class="row g-2 mb-4">
+                        <div class="col-4">
+                            <div class="summary-card-minimal" style="border-bottom: 2px solid #dc3545;">
+                                <div class="summary-label">Costo Total</div>
+                                <div class="summary-value" id="detCostoTotal"></div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="summary-card-minimal" style="border-bottom: 2px solid #00b8b9;">
+                                <div class="summary-label">Venta Total</div>
+                                <div class="summary-value text-brand" id="detVentaTotal"></div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="summary-card-minimal" style="border-bottom: 2px solid #2f9e44;">
+                                <div class="summary-label">Utilidad</div>
+                                <div class="summary-value text-success" id="detUtilidad"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="detContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: NUEVO COSTEO -->
+    <div class="modal fade" id="modalNuevoCosteo" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header border-bottom-0 bg-white py-3">
+                    <h5 class="modal-title fw-bold text-dark"><i class="bi bi-calculator me-2 text-brand"></i>Calculadora de Costos</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                
+                <div class="modal-body p-4 pt-0">
+                    <form id="formCosteo">
+                        {% csrf_token %}
+                        <input type="hidden" name="costeo_id" id="inputIdCosteo">
+                        
+                        <!-- COMPACT STICKY HEADER -->
+                        <div class="sticky-header-costeo">
+                            <!-- FINANCES -->
+                            <div class="row g-2 mb-3">
+                                <div class="col-4">
+                                    <div class="summary-card-minimal" style="border-bottom: 2px solid #dc3545;">
+                                        <div class="summary-label">Costo</div>
+                                        <div class="summary-value" id="resCostoTotal">$0.00</div>
+                                        <div class="summary-subvalue" id="resCostoSubtotal">Sub: $0.00</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="summary-card-minimal" style="border-bottom: 2px solid #00b8b9;">
+                                        <div class="summary-label">Venta</div>
+                                        <div class="summary-value text-brand" id="resVentaTotal">$0.00</div>
+                                        <div class="summary-subvalue" id="resVentaSubtotal">Sub: $0.00</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="summary-card-minimal" style="border-bottom: 2px solid #2f9e44;">
+                                        <div class="summary-label">Utilidad</div>
+                                        <div class="summary-value text-success" id="resUtilidad">$0.00</div>
+                                        <div class="summary-subvalue" id="resUtilidadSubtotal">50%</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- TYPES -->
+                            <div class="row g-2">
+                                <div class="col-4">
+                                    <div class="type-selector-pill" id="btnTypeManuf" onclick="toggleType('manufactura')">
+                                        <i class="bi bi-tools"></i> Manufactura
+                                    </div>
+                                    <input type="checkbox" name="es_manufactura" id="checkManuf" hidden>
+                                </div>
+                                <div class="col-4">
+                                    <div class="type-selector-pill" id="btnTypeComer" onclick="toggleType('comercio')">
+                                        <i class="bi bi-shop"></i> Comercio
+                                    </div>
+                                    <input type="checkbox" name="es_comercio" id="checkComer" hidden>
+                                </div>
+                                <div class="col-4">
+                                    <div class="type-selector-pill" id="btnTypeServ" onclick="toggleType('servicio')">
+                                        <i class="bi bi-person-gear"></i> Servicios
+                                    </div>
+                                    <input type="checkbox" name="es_servicio" id="checkServ" hidden>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CONTENT AREA -->
+                        <div class="mt-4">
+                            
+                            <!-- SECCIÓN MANUFACTURA -->
+                            <div id="sectionManuf" class="cost-section-minimal">
+                                <div class="section-title-minimal"><i class="bi bi-tools"></i> Manufactura</div>
+                                <div class="mb-4">
+                                    <input type="text" name="nombre_manuf" class="input-inline-minimal" placeholder="Nombre del Producto Manufacturado...">
+                                </div>
+
+                                <!-- Materias Primas -->
+                                <div class="cost-sub-section">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="fw-bold text-dark" style="font-size: 0.7rem; text-transform: uppercase;">Materias Primas</span>
+                                        <button type="button" class="btn btn-link text-brand p-0 text-decoration-none fw-bold" style="font-size: 0.7rem;" onclick="addTableRow('tableManufMP')">+ AGREGAR</button>
+                                    </div>
+                                    <table class="table-minimal" id="tableManufMP">
+                                        <thead>
+                                            <tr>
+                                                <th>Insumo</th>
+                                                <th style="width: 80px;" class="text-center">Cant.</th>
+                                                <th style="width: 110px;" class="text-end">Costo U.</th>
+                                                <th style="width: 110px;" class="text-center">Moneda</th>
+                                                <th style="width: 30px;"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+
+                                <!-- Mano de Obra -->
+                                <div class="cost-sub-section">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="fw-bold text-dark" style="font-size: 0.7rem; text-transform: uppercase;">Mano de Obra</span>
+                                        <button type="button" class="btn btn-link text-brand p-0 text-decoration-none fw-bold" style="font-size: 0.7rem;" onclick="addTableRow('tableManufMO')">+ AGREGAR</button>
+                                    </div>
+                                    <table class="table-minimal" id="tableManufMO">
+                                        <thead>
+                                            <tr>
+                                                <th>Concepto</th>
+                                                <th style="width: 80px;" class="text-center">Horas</th>
+                                                <th style="width: 110px;" class="text-end">Costo/Hr</th>
+                                                <th style="width: 110px;" class="text-center">Moneda</th>
+                                                <th style="width: 30px;"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+
+                                <!-- Gastos Indirectos -->
+                                <div class="cost-sub-section">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="fw-bold text-dark" style="font-size: 0.7rem; text-transform: uppercase;">Gastos Indirectos</span>
+                                        <button type="button" class="btn btn-link text-brand p-0 text-decoration-none fw-bold" style="font-size: 0.7rem;" onclick="addTableRow('tableManufGI')">+ AGREGAR</button>
+                                    </div>
+                                    <table class="table-minimal" id="tableManufGI">
+                                        <thead>
+                                            <tr>
+                                                <th>Concepto</th>
+                                                <th style="width: 120px;" class="text-end">Monto</th>
+                                                <th style="width: 110px;" class="text-center">Moneda</th>
+                                                <th style="width: 30px;"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- SECCIÓN COMERCIO -->
+                            <div id="sectionComer" class="cost-section-minimal">
+                                <div class="section-title-minimal"><i class="bi bi-shop"></i> Comercio / Reventa</div>
+                                <div class="mb-4">
+                                    <input type="text" name="nombre_comer" class="input-inline-minimal" placeholder="Nombre del Artículo Comercial...">
+                                </div>
+                                <div class="cost-sub-section">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="fw-bold text-dark" style="font-size: 0.7rem; text-transform: uppercase;">Adquisición</span>
+                                        <button type="button" class="btn btn-link text-brand p-0 text-decoration-none fw-bold" style="font-size: 0.7rem;" onclick="addTableRow('tableComer')">+ AGREGAR</button>
+                                    </div>
+                                    <table class="table-minimal" id="tableComer">
+                                        <thead>
+                                            <tr>
+                                                <th>Concepto</th>
+                                                <th style="width: 120px;" class="text-end">Monto</th>
+                                                <th style="width: 110px;" class="text-center">Moneda</th>
+                                                <th style="width: 30px;"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- SECCIÓN SERVICIOS -->
+                            <div id="sectionServ" class="cost-section-minimal">
+                                <div class="section-title-minimal"><i class="bi bi-person-gear"></i> Servicios</div>
+                                <div class="mb-4">
+                                    <input type="text" name="nombre_serv" class="input-inline-minimal" placeholder="Nombre del Servicio...">
+                                </div>
+                                <div class="cost-sub-section">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="fw-bold text-dark" style="font-size: 0.7rem; text-transform: uppercase;">Personal</span>
+                                        <button type="button" class="btn btn-link text-brand p-0 text-decoration-none fw-bold" style="font-size: 0.7rem;" onclick="addTableRow('tableServPers')">+ AGREGAR</button>
+                                    </div>
+                                    <table class="table-minimal" id="tableServPers">
+                                        <thead>
+                                            <tr>
+                                                <th>Rol / Puesto</th>
+                                                <th style="width: 80px;" class="text-center">Horas</th>
+                                                <th style="width: 110px;" class="text-end">Tarifa/Hr</th>
+                                                <th style="width: 110px;" class="text-center">Moneda</th>
+                                                <th style="width: 30px;"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                                <div class="cost-sub-section">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="fw-bold text-dark" style="font-size: 0.7rem; text-transform: uppercase;">Materiales/Gastos</span>
+                                        <button type="button" class="btn btn-link text-brand p-0 text-decoration-none fw-bold" style="font-size: 0.7rem;" onclick="addTableRow('tableServMat')">+ AGREGAR</button>
+                                    </div>
+                                    <table class="table-minimal" id="tableServMat">
+                                        <thead>
+                                            <tr>
+                                                <th>Concepto</th>
+                                                <th style="width: 80px;" class="text-center">Cant.</th>
+                                                <th style="width: 110px;" class="text-end">Costo</th>
+                                                <th style="width: 110px;" class="text-center">Moneda</th>
+                                                <th style="width: 30px;"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- MARGEN Y PRECIO -->
+                            <div class="margin-container-minimal py-2 px-3">
+                                <div class="d-flex align-items-center gap-2">
+                                    <h6 class="fw-bold text-dark m-0" style="font-size: 0.75rem; white-space: nowrap;">Margen</h6>
+                                    
+                                    <div class="form-check form-switch m-0 d-flex align-items-center me-2">
+                                        <input class="form-check-input me-1" type="checkbox" id="switchUtilizaPorcentaje" checked onchange="toggleUtilizaPorcentaje()" style="width: 1.8rem; height: 0.9rem;">
+                                        <label class="form-check-label small text-muted mb-0" for="switchUtilizaPorcentaje" style="font-size: 0.6rem;">%</label>
+                                    </div>
+
+                                    <div class="flex-grow-1 mx-2">
+                                        <div id="wrapperPorcentaje">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <input type="range" class="custom-range-slider flex-grow-1" id="inputMargenPorcentaje" min="0" max="100" value="50" oninput="updateMargen(this.value)">
+                                                <span class="fw-bold text-brand" id="labelPorcentaje" style="font-size: 0.8rem; min-width: 32px;">50%</span>
+                                            </div>
+                                        </div>
+
+                                        <div id="wrapperPrecioFijo" style="display: none;">
+                                            <div class="d-flex align-items-center bg-light px-2" style="border-radius: 6px; height: 24px;">
+                                                <span class="text-dark me-1 fw-bold" style="font-size: 0.75rem;">$</span>
+                                                <input type="number" step="0.01" id="inputPrecioVentaFijo" class="form-control border-0 bg-transparent py-0 ps-1" placeholder="Precio Final" oninput="recalcularTodo()" style="font-size: 0.75rem; height: 100%; box-shadow: none;">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="ms-auto d-flex align-items-center gap-2">
+                                        <span class="fw-bold text-dark m-0" style="font-size: 0.75rem; white-space: nowrap;">Moneda</span>
+                                        <select id="selectMasterMoneda" class="form-select form-select-sm border-0 bg-light py-0" style="font-size: 0.75rem; width: 80px; height: 24px; border-radius: 6px;" onchange="updateMasterCurrency()">
+                                            {% for m in monedas %}
+                                            <option value="{{ m.id }}" data-siglas="{{ m.siglas }}" {% if m.siglas == 'MXN' %}selected{% endif %}>{{ m.siglas }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Gráfica de Distribución (Compacta) -->
+                            <div class="mt-4 mb-5 border-top pt-4">
+                                <h6 class="fw-bold text-muted text-uppercase" style="font-size: 0.6rem; letter-spacing: 1px;">Desglose de Costo Operativo</h6>
+                                <div style="height: 120px;">
+                                    <canvas id="chartDistribucion"></canvas>
+                                </div>
+                            </div>
+
+                        </div>
+                    </form>
+                </div>
+
+                <div class="modal-footer border-top bg-white py-2">
+                    <button type="button" class="btn btn-light text-secondary btn-sm px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-brand btn-sm px-4 shadow-sm" onclick="guardarCosteo()">
+                        <i class="bi bi-save me-1"></i> Guardar Costeo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // --- LÓGICA DE UI ---
+    
+    let distChart = null;
+
+    function toggleType(type) {
+        const typeMap = {
+            'manufactura': 'Manuf',
+            'comercio': 'Comer',
+            'servicio': 'Serv'
+        };
+        const typeKey = typeMap[type];
+        const check = document.getElementById('check' + typeKey);
+        const btn = document.getElementById('btnType' + typeKey);
+        const section = document.getElementById('section' + typeKey);
+        
+        const isChecked = !check.checked;
+        check.checked = isChecked;
+        
+        if (isChecked) {
+            btn.classList.add('active');
+            section.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+            section.classList.remove('active');
+        }
+        recalcularTodo();
+    }
+
+    function toggleUtilizaPorcentaje() {
+        const usePorc = document.getElementById('switchUtilizaPorcentaje').checked;
+        document.getElementById('wrapperPorcentaje').style.display = usePorc ? 'block' : 'none';
+        document.getElementById('wrapperPrecioFijo').style.display = usePorc ? 'none' : 'block';
+        recalcularTodo();
+    }
+
+    function updateMargen(val) {
+        const label = document.getElementById('labelPorcentaje');
+        if (label) label.innerText = val + '%';
+        
+        const slider = document.getElementById('inputMargenPorcentaje');
+        if (slider) {
+            const percentage = (val - slider.min) / (slider.max - slider.min) * 100;
+            slider.style.background = `linear-gradient(to right, #00b8b9 ${percentage}%, #e9ecef ${percentage}%)`;
+        }
+        recalcularTodo();
+    }
+
+    function updateMasterCurrency() {
+        const masterId = document.getElementById('selectMasterMoneda').value;
+        document.querySelectorAll('.currency-field').forEach(sel => {
+            sel.value = masterId;
+        });
+        recalcularTodo();
+    }
+
+    function nuevoCosteo() {
+        // Limpiar formulario
+        document.getElementById('formCosteo').reset();
+        document.getElementById('inputIdCosteo').value = '';
+        
+        // Limpiar tablas
+        document.querySelectorAll('.table-minimal tbody').forEach(tb => tb.innerHTML = '');
+        
+        // Reset types
+        ['Manuf', 'Comer', 'Serv'].forEach(k => {
+            document.getElementById('check' + k).checked = false;
+            document.getElementById('btnType' + k).classList.remove('active');
+            document.getElementById('section' + k).classList.remove('active');
+        });
+
+        // Reset margin
+        document.getElementById('inputMargenPorcentaje').value = 50;
+        updateMargen(50);
+        document.getElementById('switchUtilizaPorcentaje').checked = true;
+        toggleUtilizaPorcentaje();
+
+        recalcularTodo();
+        new bootstrap.Modal(document.getElementById('modalNuevoCosteo')).show();
+    }
+
+    function editarCosteo(id) {
+        fetch(`/costeos/api/detalle/${id}/`)
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                const d = res.data;
+                nuevoCosteo(); // Limpia primero
+                
+                document.getElementById('inputIdCosteo').value = d.id;
+                
+                if (d.es_manufactura) {
+                    toggleType('manufactura');
+                    document.querySelector('input[name="nombre_manuf"]').value = d.nombre;
+                    d.items.manufactura_mp.forEach(i => {
+                        addTableRow('tableManufMP');
+                        const tr = document.querySelector('#tableManufMP tbody tr:last-child');
+                        tr.querySelector('.name-field').value = i.nombre;
+                        tr.querySelector('.qty-field').value = i.cantidad;
+                        tr.querySelector('.cost-field').value = i.costo_unitario;
+                        tr.querySelector('.currency-field').value = i.moneda_id;
+                    });
+                    d.items.manufactura_mo.forEach(i => {
+                        addTableRow('tableManufMO');
+                        const tr = document.querySelector('#tableManufMO tbody tr:last-child');
+                        tr.querySelector('.name-field').value = i.concepto;
+                        tr.querySelector('.qty-field').value = i.horas;
+                        tr.querySelector('.cost-field').value = i.costo_hour || i.costo_hora;
+                        tr.querySelector('.currency-field').value = i.moneda_id;
+                    });
+                    d.items.manufactura_gi.forEach(i => {
+                        addTableRow('tableManufGI');
+                        const tr = document.querySelector('#tableManufGI tbody tr:last-child');
+                        tr.querySelector('.name-field').value = i.concepto;
+                        tr.querySelector('.cost-field').value = i.monto;
+                        tr.querySelector('.currency-field').value = i.moneda_id;
+                    });
+                }
+                if (d.es_comercio) {
+                    toggleType('comercio');
+                    document.querySelector('input[name="nombre_comer"]').value = d.nombre;
+                    d.items.comercio_items.forEach(i => {
+                        addTableRow('tableComer');
+                        const tr = document.querySelector('#tableComer tbody tr:last-child');
+                        tr.querySelector('.name-field').value = i.concepto;
+                        tr.querySelector('.cost-field').value = i.monto;
+                        tr.querySelector('.currency-field').value = i.moneda_id;
+                    });
+                }
+                if (d.es_servicio) {
+                    toggleType('servicio');
+                    document.querySelector('input[name="nombre_serv"]').value = d.nombre;
+                    d.items.servicio_personal.forEach(i => {
+                        addTableRow('tableServPers');
+                        const tr = document.querySelector('#tableServPers tbody tr:last-child');
+                        tr.querySelector('.name-field').value = i.rol;
+                        tr.querySelector('.qty-field').value = i.horas;
+                        tr.querySelector('.cost-field').value = i.tarifa_hora;
+                        tr.querySelector('.currency-field').value = i.moneda_id;
+                    });
+                    d.items.servicio_materiales.forEach(i => {
+                        addTableRow('tableServMat');
+                        const tr = document.querySelector('#tableServMat tbody tr:last-child');
+                        tr.querySelector('.name-field').value = i.concepto;
+                        tr.querySelector('.qty-field').value = i.cantidad;
+                        tr.querySelector('.cost-field').value = i.costo;
+                        tr.querySelector('.currency-field').value = i.moneda_id;
+                    });
+                }
+
+                document.getElementById('inputMargenPorcentaje').value = d.margen_porcentaje;
+                updateMargen(d.margen_porcentaje);
+                document.getElementById('inputPrecioVentaFijo').value = d.precio_venta_fijo;
+                document.getElementById('switchUtilizaPorcentaje').checked = d.utiliza_porcentaje;
+                toggleUtilizaPorcentaje();
+
+                recalcularTodo();
+            }
+        });
+    }
+
+    function verDetalle(id) {
+        fetch(`/costeos/api/detalle/${id}/`)
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                const data = res.data;
+                const fmt = (v) => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2});
+                
+                document.getElementById('detFolio').innerText = data.folio;
+                document.getElementById('detNombre').innerText = data.nombre;
+                document.getElementById('detMeta').innerText = `${data.fecha} | ${data.sucursal} | Por: ${data.vendedor}`;
+                
+                // Estado badge
+                let statusClass = data.estado === 'APROBADO' ? 'status-activo' : 'status-borrador';
+                document.getElementById('detEstadoBadge').innerHTML = `<span class="client-pill ${statusClass}">${data.estado}</span>`;
+                
+                // Totales
+                document.getElementById('detCostoTotal').innerText = fmt(data.costo_total);
+                document.getElementById('detVentaTotal').innerText = fmt(data.venta_total);
+                document.getElementById('detUtilidad').innerText = fmt(data.utilidad);
+
+                // Contenido de tablas
+                let html = '';
+                
+                if (data.es_manufactura) {
+                    html += `
+                        <div class="mb-4">
+                            <h6 class="fw-bold text-muted small text-uppercase mb-2"><i class="bi bi-tools me-2"></i>Manufactura</h6>
+                            <table class="table-minimal">
+                                <thead>
+                                    <tr><th>Concepto</th><th class="text-center">Cant/Hrs</th><th class="text-end">Costo</th><th class="text-center">Moneda</th></tr>
+                                </thead>
+                                <tbody>
+                                    ${data.items.manufactura_mp.map(i => `<tr><td>${i.nombre}</td><td class="text-center">${i.cantidad}</td><td class="text-end">${fmt(i.costo_unitario)}</td><td class="text-center">${i.moneda__siglas}</td></tr>`).join('')}
+                                    ${data.items.manufactura_mo.map(i => `<tr><td>${i.concepto}</td><td class="text-center">${i.horas}</td><td class="text-end">${fmt(i.costo_hora)}</td><td class="text-center">${i.moneda__siglas}</td></tr>`).join('')}
+                                    ${data.items.manufactura_gi.map(i => `<tr><td>${i.concepto}</td><td></td><td class="text-end">${fmt(i.monto)}</td><td class="text-center">${i.moneda__siglas}</td></tr>`).join('')}
+                                </tbody>
+                            </table>
+                        </div>`;
+                }
+
+                if (data.es_comercio) {
+                    html += `
+                        <div class="mb-4">
+                            <h6 class="fw-bold text-muted small text-uppercase mb-2"><i class="bi bi-shop me-2"></i>Comercio / Reventa</h6>
+                            <table class="table-minimal">
+                                <thead>
+                                    <tr><th>Concepto</th><th class="text-end">Monto</th><th class="text-center">Moneda</th></tr>
+                                </thead>
+                                <tbody>
+                                    ${data.items.comercio_items.map(i => `<tr><td>${i.concepto}</td><td class="text-end">${fmt(i.monto)}</td><td class="text-center">${i.moneda__siglas}</td></tr>`).join('')}
+                                </tbody>
+                            </table>
+                        </div>`;
+                }
+
+                if (data.es_servicio) {
+                    html += `
+                        <div class="mb-4">
+                            <h6 class="fw-bold text-muted small text-uppercase mb-2"><i class="bi bi-person-gear me-2"></i>Servicios</h6>
+                            <table class="table-minimal">
+                                <thead>
+                                    <tr><th>Concepto</th><th class="text-center">Cant/Hrs</th><th class="text-end">Costo</th><th class="text-center">Moneda</th></tr>
+                                </thead>
+                                <tbody>
+                                    ${data.items.servicio_personal.map(i => `<tr><td>${i.rol}</td><td class="text-center">${i.horas}</td><td class="text-end">${fmt(i.tarifa_hora)}</td><td class="text-center">${i.moneda__siglas}</td></tr>`).join('')}
+                                    ${data.items.servicio_materiales.map(i => `<tr><td>${i.concepto}</td><td class="text-center">${i.cantidad}</td><td class="text-end">${fmt(i.costo)}</td><td class="text-center">${i.moneda__siglas}</td></tr>`).join('')}
+                                </tbody>
+                            </table>
+                        </div>`;
+                }
+
+                document.getElementById('detContent').innerHTML = html;
+                
+                new bootstrap.Modal(document.getElementById('modalDetalleCosteo')).show();
+            } else {
+                alert('Error al cargar detalle: ' + res.error);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error de conexión al servidor');
+        });
+    }
+
+    function aprobarCosteo(id) {
+        if (!confirm('¿Está seguro de que desea aprobar este costeo?')) return;
+        
+        fetch(`/costeos/api/aprobar/${id}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                location.reload();
+            } else {
+                alert('Error al aprobar: ' + res.error);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error de conexión al servidor');
+        });
+    }
+
+    function duplicarCosteo(id) {
+        if (!confirm('¿Desea duplicar este costeo?')) return;
+        
+        fetch(`/costeos/api/duplicar/${id}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                location.reload();
+            } else {
+                alert('Error al duplicar: ' + res.error);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error de conexión al servidor');
+        });
+    }
+
+    function eliminarCosteo(id) {
+        if (!confirm('¿Está seguro de que desea eliminar este costeo permanentemente?')) return;
+        
+        fetch(`/costeos/api/eliminar/${id}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                location.reload();
+            } else {
+                alert('Error al eliminar: ' + res.error);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error de conexión al servidor');
+        });
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // --- LÓGICA DE TABLAS ---
+
+    function addTableRow(tableId) {
+        const masterId = document.getElementById('selectMasterMoneda').value;
+        const tbody = document.querySelector('#' + tableId + ' tbody');
+        let html = '';
+        
+        const monedaOptions = '{% for m in monedas %}<option value="{{ m.id }}" data-factor="{{ m.factor }}">{{ m.siglas }}</option>{% endfor %}';
+
+        if (tableId === 'tableManufMP') {
+            html = `<tr>
+                <td><input type="text" class="form-control form-control-sm name-field border-0 bg-transparent" placeholder="Describir insumo..."></td>
+                <td><input type="number" class="form-control form-control-sm text-center qty-field border-0 bg-transparent" value="1" step="0.01" oninput="recalcularTodo()"></td>
+                <td><input type="number" class="form-control form-control-sm text-end cost-field border-0 bg-transparent" value="0.00" step="0.01" oninput="recalcularTodo()"></td>
+                <td><select class="form-select form-select-sm currency-field border-0 bg-transparent" onchange="recalcularTodo()">${monedaOptions}</select></td>
+                <td class="text-center"><i class="bi bi-x-circle text-muted" style="cursor:pointer;" onclick="this.closest('tr').remove(); recalcularTodo();"></i></td>
+            </tr>`;
+        } else if (tableId === 'tableManufMO' || tableId === 'tableServPers') {
+            html = `<tr>
+                <td><input type="text" class="form-control form-control-sm name-field border-0 bg-transparent" placeholder="Puesto / Actividad..."></td>
+                <td><input type="number" class="form-control form-control-sm text-center qty-field border-0 bg-transparent" value="1" step="0.1" oninput="recalcularTodo()"></td>
+                <td><input type="number" class="form-control form-control-sm text-end cost-field border-0 bg-transparent" value="0.00" step="0.01" oninput="recalcularTodo()"></td>
+                <td><select class="form-select form-select-sm currency-field border-0 bg-transparent" onchange="recalcularTodo()">${monedaOptions}</select></td>
+                <td class="text-center"><i class="bi bi-x-circle text-muted" style="cursor:pointer;" onclick="this.closest('tr').remove(); recalcularTodo();"></i></td>
+            </tr>`;
+        } else if (tableId === 'tableManufGI' || tableId === 'tableComer') {
+            html = `<tr>
+                <td><input type="text" class="form-control form-control-sm name-field border-0 bg-transparent" placeholder="Describir concepto..."></td>
+                <td><input type="number" class="form-control form-control-sm text-end cost-field border-0 bg-transparent" value="0.00" step="0.01" oninput="recalcularTodo()"></td>
+                <td><select class="form-select form-select-sm currency-field border-0 bg-transparent" onchange="recalcularTodo()">${monedaOptions}</select></td>
+                <td class="text-center"><i class="bi bi-x-circle text-muted" style="cursor:pointer;" onclick="this.closest('tr').remove(); recalcularTodo();"></i></td>
+            </tr>`;
+        } else if (tableId === 'tableServMat') {
+            html = `<tr>
+                <td><input type="text" class="form-control form-control-sm name-field border-0 bg-transparent" placeholder="Insumo / Gasto..."></td>
+                <td><input type="number" class="form-control form-control-sm text-center qty-field border-0 bg-transparent" value="1" step="0.01" oninput="recalcularTodo()"></td>
+                <td><input type="number" class="form-control form-control-sm text-end cost-field border-0 bg-transparent" value="0.00" step="0.01" oninput="recalcularTodo()"></td>
+                <td><select class="form-select form-select-sm currency-field border-0 bg-transparent" onchange="recalcularTodo()">${monedaOptions}</select></td>
+                <td class="text-center"><i class="bi bi-x-circle text-muted" style="cursor:pointer;" onclick="this.closest('tr').remove(); recalcularTodo();"></i></td>
+            </tr>`;
+        }
+        
+        tbody.insertAdjacentHTML('beforeend', html);
+
+        // ASIGNAR MONEDA MAESTRA A LA NUEVA FILA
+        const newRow = tbody.lastElementChild;
+        const newSelect = newRow.querySelector('.currency-field');
+        if (newSelect) {
+            newSelect.value = masterId;
+        }
+    }
+
+    // --- CÁLCULOS MAESTROS ---
+
+    function recalcularTodo() {
+        let totalMat = 0;
+        let totalMano = 0;
+        let totalGasto = 0;
+
+        // Sumar Manufactura
+        if (document.getElementById('checkManuf').checked) {
+            document.querySelectorAll('#tableManufMP tbody tr').forEach(tr => {
+                const q = parseFloat(tr.querySelector('.qty-field').value) || 0;
+                const c = parseFloat(tr.querySelector('.cost-field').value) || 0;
+                const f = parseFloat(tr.querySelector('.currency-field').selectedOptions[0].dataset.factor) || 1;
+                totalMat += (q * c * f);
+            });
+            document.querySelectorAll('#tableManufMO tbody tr').forEach(tr => {
+                const q = parseFloat(tr.querySelector('.qty-field').value) || 0;
+                const c = parseFloat(tr.querySelector('.cost-field').value) || 0;
+                const f = parseFloat(tr.querySelector('.currency-field').selectedOptions[0].dataset.factor) || 1;
+                totalMano += (q * c * f);
+            });
+            document.querySelectorAll('#tableManufGI tbody tr').forEach(tr => {
+                const c = parseFloat(tr.querySelector('.cost-field').value) || 0;
+                const f = parseFloat(tr.querySelector('.currency-field').selectedOptions[0].dataset.factor) || 1;
+                totalGasto += (c * f);
+            });
+        }
+
+        // Sumar Comercio
+        if (document.getElementById('checkComer').checked) {
+            document.querySelectorAll('#tableComer tbody tr').forEach(tr => {
+                const c = parseFloat(tr.querySelector('.cost-field').value) || 0;
+                const f = parseFloat(tr.querySelector('.currency-field').selectedOptions[0].dataset.factor) || 1;
+                totalMat += (c * f);
+            });
+        }
+
+        // Sumar Servicios
+        if (document.getElementById('checkServ').checked) {
+            document.querySelectorAll('#tableServPers tbody tr').forEach(tr => {
+                const q = parseFloat(tr.querySelector('.qty-field').value) || 0;
+                const c = parseFloat(tr.querySelector('.cost-field').value) || 0;
+                const f = parseFloat(tr.querySelector('.currency-field').selectedOptions[0].dataset.factor) || 1;
+                totalMano += (q * c * f);
+            });
+            document.querySelectorAll('#tableServMat tbody tr').forEach(tr => {
+                const q = parseFloat(tr.querySelector('.qty-field').value) || 0;
+                const c = parseFloat(tr.querySelector('.cost-field').value) || 0;
+                const f = parseFloat(tr.querySelector('.currency-field').selectedOptions[0].dataset.factor) || 1;
+                totalMat += (q * c * f);
+            });
+        }
+
+        const subtotalCosto = totalMat + totalMano + totalGasto;
+        const ivaCosto = subtotalCosto * 0.16;
+        const totalCosto = subtotalCosto + ivaCosto;
+
+        const fmt = (v) => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2});
+        document.getElementById('resCostoTotal').innerText = fmt(totalCosto);
+        document.getElementById('resCostoSubtotal').innerText = `Sub: ${fmt(subtotalCosto)}`;
+
+        let subtotalVenta = 0;
+        const usePorc = document.getElementById('switchUtilizaPorcentaje').checked;
+        
+        if (usePorc) {
+            const porc = parseFloat(document.getElementById('inputMargenPorcentaje').value) || 0;
+            subtotalVenta = subtotalCosto + (subtotalCosto * (porc / 100));
+        } else {
+            const precioFijo = parseFloat(document.getElementById('inputPrecioVentaFijo').value) || 0;
+            subtotalVenta = precioFijo;
+        }
+
+        const ivaVenta = subtotalVenta * 0.16;
+        const totalVenta = subtotalVenta + ivaVenta;
+
+        document.getElementById('resVentaTotal').innerText = fmt(totalVenta);
+        document.getElementById('resVentaSubtotal').innerText = `Sub: ${fmt(subtotalVenta)}`;
+
+        const utilidad = subtotalVenta - subtotalCosto;
+        document.getElementById('resUtilidad').innerText = fmt(utilidad);
+        document.getElementById('resUtilidad').className = utilidad >= 0 ? 'summary-value text-success' : 'summary-value text-danger';
+
+        const labelUtilidadSub = document.getElementById('resUtilidadSubtotal');
+        if (usePorc) {
+            labelUtilidadSub.innerText = `${document.getElementById('inputMargenPorcentaje').value}%`;
+        } else {
+            labelUtilidadSub.innerText = `Fijo`;
+        }
+
+        updateChart(totalMat, totalMano, totalGasto);
+    }
+
+    function updateChart(mat, mano, gastro) {
+        const total = mat + mano + gastro;
+        if (total === 0) return;
+
+        const data = [(mat/total)*100, (mano/total)*100, (gastro/total)*100];
+
+        if (distChart) {
+            distChart.data.datasets[0].data = data;
+            distChart.update();
+        } else {
+            const ctx = document.getElementById('chartDistribucion').getContext('2d');
+            distChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Materiales', 'Mano de Obra', 'Indirectos'],
+                    datasets: [{
+                        data: data,
+                        backgroundColor: ['#00b8b9', '#343a40', '#adb5bd'],
+                        borderRadius: 3,
+                        barThickness: 20
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: { x: { display: false, max: 100 }, y: { grid: { display: false }, ticks: { font: { size: 9 } } } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+    }
+
+    function guardarCosteo() {
+        const btn = event.currentTarget;
+        const originalText = btn.innerHTML;
+        const data = {
+            id: document.getElementById('inputIdCosteo').value,
+            es_manufactura: document.getElementById('checkManuf').checked,
+            es_comercio: document.getElementById('checkComer').checked,
+            es_servicio: document.getElementById('checkServ').checked,
+            nombre_manuf: document.querySelector('input[name="nombre_manuf"]').value,
+            nombre_comer: document.querySelector('input[name="nombre_comer"]').value,
+            nombre_serv: document.querySelector('input[name="nombre_serv"]').value,
+            utiliza_porcentaje: document.getElementById('switchUtilizaPorcentaje').checked,
+            margen_porcentaje: parseFloat(document.getElementById('inputMargenPorcentaje').value) || 0,
+            precio_venta_fijo: parseFloat(document.getElementById('inputPrecioVentaFijo').value) || 0,
+            iva_porcentaje: 16.00,
+            manufactura_mp: [], manufactura_mo: [], manufactura_gi: [],
+            comercio_items: [], servicio_personal: [], servicio_materiales: []
+        };
+
+        if (!data.es_manufactura && !data.es_comercio && !data.es_servicio) { alert("Activa al menos un tipo de costeo."); return; }
+
+        if (data.es_manufactura) {
+            document.querySelectorAll('#tableManufMP tbody tr').forEach(tr => {
+                data.manufactura_mp.push({ nombre: tr.querySelector('.name-field').value, cantidad: tr.querySelector('.qty-field').value, costo: tr.querySelector('.cost-field').value, moneda_id: tr.querySelector('.currency-field').value });
+            });
+            document.querySelectorAll('#tableManufMO tbody tr').forEach(tr => {
+                data.manufactura_mo.push({ concepto: tr.querySelector('.name-field').value, horas: tr.querySelector('.qty-field').value, costo_hora: tr.querySelector('.cost-field').value, moneda_id: tr.querySelector('.currency-field').value });
+            });
+            document.querySelectorAll('#tableManufGI tbody tr').forEach(tr => {
+                data.manufactura_gi.push({ concepto: tr.querySelector('.name-field').value, monto: tr.querySelector('.cost-field').value, moneda_id: tr.querySelector('.currency-field').value });
+            });
+        }
+        if (data.es_comercio) {
+            document.querySelectorAll('#tableComer tbody tr').forEach(tr => {
+                data.comercio_items.push({ concepto: tr.querySelector('.name-field').value, monto: tr.querySelector('.cost-field').value, moneda_id: tr.querySelector('.currency-field').value });
+            });
+        }
+        if (data.es_servicio) {
+            document.querySelectorAll('#tableServPers tbody tr').forEach(tr => {
+                data.servicio_personal.push({ rol: tr.querySelector('.name-field').value, horas: tr.querySelector('.qty-field').value, tarifa_hora: tr.querySelector('.cost-field').value, moneda_id: tr.querySelector('.currency-field').value });
+            });
+            document.querySelectorAll('#tableServMat tbody tr').forEach(tr => {
+                data.servicio_materiales.push({ concepto: tr.querySelector('.name-field').value, cantidad: tr.querySelector('.qty-field').value, costo: tr.querySelector('.cost-field').value, moneda_id: tr.querySelector('.currency-field').value });
+            });
+        }
+
+        btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>...';
+        fetch('/costeos/api/guardar/', { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') } })
+        .then(r => r.json()).then(res => { if (res.success) { location.reload(); } else { alert("Error: " + res.error); btn.disabled = false; btn.innerHTML = originalText; } })
+        .catch(err => { console.error(err); btn.disabled = false; btn.innerHTML = originalText; });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => { 
+        recalcularTodo(); 
+        const slider = document.getElementById('inputMargenPorcentaje');
+        if (slider) updateMargen(slider.value);
+    });
+</script>
+{% endblock %}

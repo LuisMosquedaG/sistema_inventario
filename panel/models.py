@@ -31,6 +31,7 @@ class Empresa(models.Model):
     modulo_produccion = models.BooleanField(default=True, verbose_name="Módulo Producción")
     modulo_inventarios = models.BooleanField(default=True, verbose_name="Módulo Inventarios")
     modulo_recursos_humanos = models.BooleanField(default=True, verbose_name="Módulo Recursos Humanos")
+    modulo_costeos = models.BooleanField(default=True, verbose_name="Módulo Costeos")
 
     # Licenciamiento
     fecha_inicio_licencia = models.DateField(null=True, blank=True, verbose_name="Inicio de Licencia")

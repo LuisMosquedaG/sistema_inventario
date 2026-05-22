@@ -16,6 +16,10 @@ SALES_PERMISSION_MATRIX = {
     'salidas': ['ver', 'crear', 'imprimir', 'aprobar', 'surtir_orden', 'actualizar_entrega'],
 }
 
+COSTING_PERMISSION_MATRIX = {
+    'costeos': ['ver', 'crear', 'editar', 'eliminar'],
+}
+
 PURCHASES_PERMISSION_MATRIX = {
     'proveedores': ['ver', 'crear', 'editar', 'eliminar'],
     'solicitudes': ['ver', 'crear', 'editar', 'imprimir', 'autorizar'],
@@ -79,6 +83,7 @@ def user_has_module_permission(request, modulo, accion):
         'inventario': 'modulo_inventarios',
         'tesoreria': 'modulo_tesoreria',
         'recursos_humanos': 'modulo_recursos_humanos',
+        'costeos': 'modulo_costeos',
     }
     
     campo_modulo = mapa_modulos.get(modulo)
