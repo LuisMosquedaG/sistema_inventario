@@ -1,8 +1,9 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from panel.models import Empresa
 from django.db.models import Count, Q, Sum, F
 from django.utils import timezone
+from django.http import JsonResponse
 from cotizaciones.models import Cotizacion
 from pedidos.models import Pedido
 from ventas.models import OrdenVenta
@@ -187,3 +188,56 @@ def dashboard_inicio(request):
         'resumen_json': json.dumps(resumen_periodo)
     }
     return render(request, 'inicio/dashboard_inicio.html', contexto)
+
+@login_required(login_url='/login/')
+def api_detalle_mes(request):
+    try:
+        empresa_actual = get_empresa_actual(request)
+        if not empresa_actual:
+            return JsonResponse({'error': 'Empresa no encontrada'}, status=403)
+        
+        tipo = request.GET.get('tipo') # 'ventas' o 'compras'
+        mes_nombre = request.GET.get('mes')
+        anio = timezone.now().year
+        
+        from django.db.models.functions import Coalesce
+        from django.db.models import DecimalField
+
+        meses_es = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+        try:
+            mes_num = meses_es.index(mes_nombre) + 1
+        except ValueError:
+            return JsonResponse({'error': f'Mes inválido: {mes_nombre}'}, status=400)
+
+        ahora = timezone.now()
+        if mes_num > ahora.month:
+            anio -= 1
+
+        data = []
+        if tipo == 'ventas':
+            detalles = Pedido.objects.filter(
+                empresa=empresa_actual,
+                fecha_creacion__year=anio,
+                fecha_creacion__month=mes_num,
+                estado__in=['revision', 'confirmado', 'completo']
+            ).values('cliente__razon_social').annotate(
+                total=Coalesce(Sum(F('detalles__cantidad_solicitada') * F('detalles__precio_unitario')), 0, output_field=DecimalField())
+            ).order_by('-total')
+            
+            data = [{'entidad': d['cliente__razon_social'], 'monto': float(d['total'])} for d in detalles]
+            
+        elif tipo == 'compras':
+            detalles = OrdenCompra.objects.filter(
+                empresa=empresa_actual,
+                fecha__year=anio,
+                fecha__month=mes_num,
+                estado__in=['aprobada', 'recibida', 'parcial']
+            ).values('proveedor__razon_social').annotate(
+                total=Coalesce(Sum(F('detalles__cantidad') * F('detalles__precio_costo') * F('tipo_cambio')), 0, output_field=DecimalField())
+            ).order_by('-total')
+            
+            data = [{'entidad': d['proveedor__razon_social'], 'monto': float(d['total'])} for d in detalles]
+
+        return JsonResponse({'data': data, 'mes': mes_nombre, 'anio': anio})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
