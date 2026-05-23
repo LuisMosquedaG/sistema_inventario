@@ -461,6 +461,7 @@ def dashboard_inventario(request):
     estado = request.GET.get('estado')
     vista = request.GET.get('vista', 'existencias')
     stock_status = request.GET.get('existencias')
+    categoria_id = request.GET.get('categoria')
 
     productos_qs = Producto.objects.filter(empresa=empresa_actual)
     # ELIMINADO: El catálogo de productos es general, no se filtra por sucursal
@@ -474,6 +475,9 @@ def dashboard_inventario(request):
         )
     if estado:
         productos_qs = productos_qs.filter(estado=estado)
+    
+    if categoria_id:
+        productos_qs = productos_qs.filter(categoria=categoria_id)
 
     # 1. PRECIO PROMEDIO VENTA (GLOBAL)
     avg_venta_subquery = DetalleOrdenVenta.objects.filter(producto=OuterRef('pk')).values('producto').annotate(promedio=Avg('precio_unitario')).values('promedio')[:1]
@@ -560,7 +564,8 @@ def dashboard_inventario(request):
             'q': q or '',
             'estado': estado or '',
             'vista': vista,
-            'existencias': stock_status or ''
+            'existencias': stock_status or '',
+            'categoria': categoria_id or ''
         },
         'section': 'inventario'
     }
