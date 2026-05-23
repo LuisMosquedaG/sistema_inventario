@@ -117,14 +117,22 @@ def dashboard_inicio(request):
         empresa=empresa_actual,
         fecha_creacion__gte=hace_30_dias,
         estado__in=['revision', 'confirmado', 'completo']
-    ).values('cliente__razon_social').annotate(
+    ).values(
+        'cliente__razon_social', 
+        'cliente__nombre', 
+        'cliente__apellidos'
+    ).annotate(
         total_venta=Coalesce(Sum(F('detalles__cantidad_solicitada') * F('detalles__precio_unitario')), 0, output_field=DecimalField())
     ).order_by('-total_venta')[:5]
 
-    stats_top_clientes = [
-        {'nombre': c['cliente__razon_social'], 'total': float(c['total_venta'])}
-        for c in top_clientes
-    ]
+    stats_top_clientes = []
+    for c in top_clientes:
+        nombre = c['cliente__razon_social']
+        if not nombre:
+            nombre = f"{c['cliente__nombre']} {c['cliente__apellidos']}".strip()
+        if not nombre:
+            nombre = "Cliente sin nombre"
+        stats_top_clientes.append({'nombre': nombre, 'total': float(c['total_venta'])})
 
     # --- RESUMEN OPERATIVO (HISTÓRICO 6 MESES) ---
     ahora = timezone.now()
@@ -220,11 +228,21 @@ def api_detalle_mes(request):
                 fecha_creacion__year=anio,
                 fecha_creacion__month=mes_num,
                 estado__in=['revision', 'confirmado', 'completo']
-            ).values('cliente__razon_social').annotate(
+            ).values(
+                'cliente__razon_social', 
+                'cliente__nombre', 
+                'cliente__apellidos'
+            ).annotate(
                 total=Coalesce(Sum(F('detalles__cantidad_solicitada') * F('detalles__precio_unitario')), 0, output_field=DecimalField())
             ).order_by('-total')
             
-            data = [{'entidad': d['cliente__razon_social'], 'monto': float(d['total'])} for d in detalles]
+            for d in detalles:
+                nombre = d['cliente__razon_social']
+                if not nombre:
+                    nombre = f"{d['cliente__nombre']} {d['cliente__apellidos']}".strip()
+                if not nombre:
+                    nombre = "Cliente sin nombre"
+                data.append({'entidad': nombre, 'monto': float(d['total'])})
             
         elif tipo == 'compras':
             detalles = OrdenCompra.objects.filter(
