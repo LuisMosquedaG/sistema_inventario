@@ -45,12 +45,18 @@
             max-width: 360px; /* Tamaño reducido */
             padding: 2rem;
             border: 1px solid #e2e8f0;
-            animation: fadeInScale 0.5s ease-out;
+            animation: fadeInScale 0.5s ease-out, breathingGlow 4s ease-in-out infinite;
         }
 
         @keyframes fadeInScale {
             from { transform: scale(0.98); opacity: 0; }
             to { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes breathingGlow {
+            0% { box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 0 0px rgba(0, 184, 185, 0); border-color: #e2e8f0; }
+            50% { box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 0 20px rgba(0, 184, 185, 0.15); border-color: rgba(0, 184, 185, 0.3); }
+            100% { box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 0 0px rgba(0, 184, 185, 0); border-color: #e2e8f0; }
         }
 
         .login-logo {

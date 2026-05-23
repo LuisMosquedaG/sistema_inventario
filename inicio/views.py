@@ -92,33 +92,71 @@ def dashboard_inicio(request):
     # --- DATOS PARA GRÁFICAS: PRODUCCIÓN ---
     stats_produccion = list(OrdenProduccion.objects.filter(empresa=empresa_actual).values('estado').annotate(total=Count('id')))
 
-    # --- RESUMEN OPERATIVO (HISTÓRICO 4 MESES) ---
+    ahora = timezone.now()
+
+    # --- 2. PARETO DE VALOR: TOP 10 PRODUCTOS POR VALOR DE INVENTARIO ---
+    from almacenes.models import Inventario
+    from django.db.models.functions import Coalesce
+    from django.db.models import DecimalField
+    top_productos_valor = Inventario.objects.filter(
+        empresa=empresa_actual,
+        cantidad__gt=0
+    ).values('producto__nombre').annotate(
+        valor_total=Coalesce(Sum(F('cantidad') * F('costo_promedio')), 0, output_field=DecimalField())
+    ).order_by('-valor_total')[:10]
+    
+    stats_pareto_valor = [
+        {'nombre': p['producto__nombre'], 'valor': float(p['valor_total'])} 
+        for p in top_productos_valor
+    ]
+
+    # --- 4. RENDIMIENTO DE VENTAS: TOP 5 CLIENTES (FACTURACIÓN ÚLTIMOS 30 DÍAS) ---
+    hace_30_dias = ahora - timezone.timedelta(days=30)
+    top_clientes = Pedido.objects.filter(
+        empresa=empresa_actual,
+        fecha_creacion__gte=hace_30_dias,
+        estado__in=['revision', 'confirmado', 'completo']
+    ).values('cliente__razon_social').annotate(
+        total_venta=Coalesce(Sum(F('detalles__cantidad_solicitada') * F('detalles__precio_unitario')), 0, output_field=DecimalField())
+    ).order_by('-total_venta')[:5]
+
+    stats_top_clientes = [
+        {'nombre': c['cliente__razon_social'], 'total': float(c['total_venta'])}
+        for c in top_clientes
+    ]
+
+    # --- RESUMEN OPERATIVO (HISTÓRICO 6 MESES) ---
     ahora = timezone.now()
     mes_actual = ahora.month
     anio_actual = ahora.year
     meses_es = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
     
     resumen_periodo = []
-    for i in range(3, -1, -1):
+    for i in range(5, -1, -1):
         target_month = mes_actual - i
         target_year = anio_actual
         while target_month <= 0:
             target_month += 12
             target_year -= 1
         
-        v = OrdenVenta.objects.filter(
+        # VENTAS: Pedidos que están en revisión, confirmados o completos
+        # Se toma la fecha_creacion como referencia (o podrías usar fecha_confirmacion si aplica)
+        v = Pedido.objects.filter(
             empresa=empresa_actual,
             fecha_creacion__year=target_year,
-            fecha_creacion__month=target_month
-        ).exclude(estado='cancelado').aggregate(
-            total=Sum(F('detalles__cantidad') * F('detalles__precio_unitario'))
+            fecha_creacion__month=target_month,
+            estado__in=['revision', 'confirmado', 'completo']
+        ).aggregate(
+            total=Sum(F('detalles__cantidad_solicitada') * F('detalles__precio_unitario'))
         )['total'] or Decimal('0.00')
 
+        # COMPRAS: Órdenes de compra aprobadas, recibidas o parciales
         c = OrdenCompra.objects.filter(
             empresa=empresa_actual,
             fecha__year=target_year,
-            fecha__month=target_month
-        ).exclude(estado='cancelada').aggregate(
+            fecha__month=target_month,
+            estado__in=['aprobada', 'recibida', 'parcial']
+        ).aggregate(
             total=Sum(F('detalles__cantidad') * F('detalles__precio_costo') * F('tipo_cambio'))
         )['total'] or Decimal('0.00')
 
@@ -143,6 +181,8 @@ def dashboard_inicio(request):
             'produccion': stats_produccion,
             'monetario_ventas': stats_monetario_ventas,
             'monetario_compras': stats_monetario_compras,
+            'pareto_valor': stats_pareto_valor,
+            'top_clientes': stats_top_clientes,
         }),
         'resumen_json': json.dumps(resumen_periodo)
     }
