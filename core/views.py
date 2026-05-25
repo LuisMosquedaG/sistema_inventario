@@ -180,16 +180,31 @@ def exportar_existencias_excel(request):
     # --- Filtrado ---
     q = request.GET.get('q', '')
     almacen_id = request.GET.get('almacen', '')
-    
-    existencias = Inventario.objects.filter(empresa=empresa_actual).select_related('producto', 'almacen')
+    sucursal_id = request.GET.get('sucursal', '')
+    categoria = request.GET.get('categoria', '')
+    estado = request.GET.get('estado', '')
+    stock_status = request.GET.get('existencias', '')
+
+    existencias = Inventario.objects.filter(almacen__empresa=empresa_actual).select_related('producto', 'almacen')
 
     if q:
         existencias = existencias.filter(
-            Q(producto__nombre__icontains=q) | Q(producto__marca__icontains=q) | Q(producto__modelo__icontains=q)
+            Q(producto__nombre__icontains=q) | Q(producto__clave__icontains=q) | Q(producto__marca__icontains=q) | Q(producto__modelo__icontains=q)
         )
-    if almacen_id and almacen_id != 'all':
+    if almacen_id:
         existencias = existencias.filter(almacen_id=almacen_id)
-
+    elif sucursal_id:
+        existencias = existencias.filter(almacen__sucursal_id=sucursal_id)
+        
+    if categoria:
+        existencias = existencias.filter(producto__categoria=categoria)
+    if estado:
+        existencias = existencias.filter(producto__estado=estado)
+        
+    if stock_status == 'con':
+        existencias = existencias.filter(cantidad__gt=0)
+    elif stock_status == 'sin':
+        existencias = existencias.filter(cantidad__lte=0)
     # --- Generar Excel ---
     wb = openpyxl.Workbook()
     ws = wb.active
