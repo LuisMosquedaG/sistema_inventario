@@ -177,7 +177,7 @@ def exportar_existencias_excel(request):
     if not empresa_actual:
         return HttpResponse("No autorizado", status=403)
 
-    # --- Filtrado ---
+    # --- Filtrado (Misma lógica que el dashboard) ---
     q = request.GET.get('q', '')
     almacen_id = request.GET.get('almacen', '')
     sucursal_id = request.GET.get('sucursal', '')
@@ -185,43 +185,72 @@ def exportar_existencias_excel(request):
     estado = request.GET.get('estado', '')
     stock_status = request.GET.get('existencias', '')
 
-    existencias = Inventario.objects.filter(almacen__empresa=empresa_actual).select_related('producto', 'almacen')
+    productos_qs = Producto.objects.filter(empresa=empresa_actual)
 
     if q:
-        existencias = existencias.filter(
-            Q(producto__nombre__icontains=q) | Q(producto__clave__icontains=q) | Q(producto__marca__icontains=q) | Q(producto__modelo__icontains=q)
+        productos_qs = productos_qs.filter(
+            Q(nombre__icontains=q) | Q(clave__icontains=q) | Q(marca__icontains=q) | Q(modelo__icontains=q) |
+            Q(categoria__icontains=q) | Q(subcategoria__icontains=q)
         )
-    if almacen_id:
-        existencias = existencias.filter(almacen_id=almacen_id)
-    elif sucursal_id:
-        existencias = existencias.filter(almacen__sucursal_id=sucursal_id)
-        
-    if categoria:
-        existencias = existencias.filter(producto__categoria=categoria)
     if estado:
-        existencias = existencias.filter(producto__estado=estado)
-        
+        productos_qs = productos_qs.filter(estado=estado)
+    if categoria:
+        productos_qs = productos_qs.filter(categoria=categoria)
+
+    # --- Anotaciones de Stock (Misma lógica que el dashboard) ---
+    def get_stock_sub(field):
+        qs = Inventario.objects.filter(producto=OuterRef('pk'))
+        if sucursal_id and sucursal_id != 'all': qs = qs.filter(sucursal_id=sucursal_id)
+        if almacen_id and almacen_id != 'all': qs = qs.filter(almacen_id=almacen_id)
+        return qs.values('producto').annotate(total=Sum(field)).values('total')[:1]
+
+    # Para el costo promedio, si hay filtro de almacén/sucursal usamos el promedio de esa zona
+    # Si no, el costo_promedio_global del modelo (o anotación similar)
+    costo_prom_qs = Inventario.objects.filter(producto=OuterRef('pk'))
+    if sucursal_id and sucursal_id != 'all': costo_prom_qs = costo_prom_qs.filter(sucursal_id=sucursal_id)
+    if almacen_id and almacen_id != 'all': costo_prom_qs = costo_prom_qs.filter(almacen_id=almacen_id)
+    
+    costo_prom_subquery = costo_prom_qs.values('producto').annotate(avg=Avg('costo_promedio')).values('avg')[:1]
+
+    productos = productos_qs.annotate(
+        stock_fisico_anotado=Coalesce(Subquery(get_stock_sub('cantidad')), 0),
+        stock_res_anotado=Coalesce(Subquery(get_stock_sub('reservado')), 0),
+        costo_prom_anotado=Coalesce(Subquery(costo_prom_subquery), F('precio_costo'))
+    ).annotate(
+        stock_disponible_anotado=F('stock_fisico_anotado') - F('stock_res_anotado')
+    )
+
     if stock_status == 'con':
-        existencias = existencias.filter(cantidad__gt=0)
+        productos = productos.filter(stock_fisico_anotado__gt=0)
     elif stock_status == 'sin':
-        existencias = existencias.filter(cantidad__lte=0)
+        productos = productos.filter(stock_fisico_anotado__lte=0)
+
     # --- Generar Excel ---
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Existencias Inventario"
 
+    # Determinar nombre del almacén para la columna
+    nombre_almacen_col = "GLOBAL"
+    if almacen_id and almacen_id != 'all':
+        alm_obj = Almacen.objects.filter(id=almacen_id).first()
+        if alm_obj: nombre_almacen_col = alm_obj.nombre
+    elif sucursal_id and sucursal_id != 'all':
+        from preferencias.models import Sucursal
+        suc_obj = Sucursal.objects.filter(id=sucursal_id).first()
+        if suc_obj: nombre_almacen_col = f"SUC: {suc_obj.nombre}"
+
     headers = [
-        'Clave', 'Producto', 'Almacén', 'Stock Físico', 'Reservado', 'Disponible', 
+        'Clave', 'Producto', 'Zona/Almacén', 'Stock Físico', 'Reservado', 'Disponible', 
         'UM', 'Costo Unit.', 'Costo Promedio', 'Valor Inventario'
     ]
     ws.append(headers)
 
-    for e in existencias:
-        disponible = e.cantidad - e.reservado
-        valor = float(e.cantidad) * float(e.costo_promedio)
+    for p in productos:
+        valor = float(p.stock_fisico_anotado) * float(p.costo_prom_anotado)
         ws.append([
-            e.producto.clave or '', e.producto.nombre, e.almacen.nombre, e.cantidad, e.reservado, disponible,
-            e.producto.unidad_medida, e.producto.precio_costo, e.costo_promedio, valor
+            p.clave or '', p.nombre, nombre_almacen_col, p.stock_fisico_anotado, p.stock_res_anotado, p.stock_disponible_anotado,
+            p.unidad_medida, p.precio_costo, p.costo_prom_anotado, valor
         ])
 
     for col in ws.columns:
