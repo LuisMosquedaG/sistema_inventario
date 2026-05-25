@@ -606,6 +606,7 @@ def obtener_contratista_json(request, id):
         cont = Contratista.objects.get(id=id, empresa=empresa_actual)
         data = {
             'id': cont.id, 'clave': cont.clave or '', 'rfc': cont.rfc, 'nombre_razon_social': cont.nombre_razon_social,
+            'regimen': cont.regimen or '',
             'correo': cont.correo, 'telefono': cont.telefono, 'registro_patronal': cont.registro_patronal,
             'calle': cont.calle, 'num_ext': cont.num_ext, 'num_int': cont.num_int,
             'entre_calle': cont.entre_calle, 'y_calle': cont.y_calle, 'colonia': cont.colonia,
@@ -633,7 +634,9 @@ def crear_contratista_ajax(request):
             empresa=empresa_actual, sucursal_id=sucursal_id, 
             clave=data.get('clave', ''),
             rfc=data.get('rfc', '').upper(),
-            nombre_razon_social=data.get('nombre_razon_social'), correo=data.get('correo'),
+            nombre_razon_social=data.get('nombre_razon_social'), 
+            regimen=data.get('regimen'),
+            correo=data.get('correo'),
             telefono=data.get('telefono'), registro_patronal=data.get('registro_patronal'),
             calle=data.get('calle'), num_ext=data.get('num_ext'), num_int=data.get('num_int'),
             entre_calle=data.get('entre_calle'), y_calle=data.get('y_calle'), colonia=data.get('colonia'),
@@ -659,6 +662,7 @@ def editar_contratista_ajax(request, id):
         cont.clave = data.get('clave', '')
         cont.rfc = data.get('rfc', '').upper()
         cont.nombre_razon_social = data.get('nombre_razon_social')
+        cont.regimen = data.get('regimen')
         cont.correo = data.get('correo'); cont.telefono = data.get('telefono')
         cont.registro_patronal = data.get('registro_patronal'); cont.calle = data.get('calle')
         cont.num_ext = data.get('num_ext'); cont.num_int = data.get('num_int')

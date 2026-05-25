@@ -372,8 +372,33 @@ window.abrirModalExistencias = function(id, nombre) {
 window.abrirConfigurarReceta = function() {
     const form = document.getElementById('formReceta');
     if (form) form.reset();
+
+    // Resetear el buscador personalizado si existe (Padre)
+    const fake = document.getElementById('receta_padre_fake');
+    const hidden = document.getElementById('selectRecetaPadre');
+    const busqueda = document.getElementById('receta_padre_busqueda');
+    if (fake && hidden && busqueda) {
+        fake.innerHTML = '<span class="text-muted" style="font-weight:400;">Seleccionar Producto (Tipo: Producción)...</span>';
+        hidden.value = '';
+        busqueda.value = '';
+        fake.style.opacity = "1";
+    }
+
+    // Resetear el buscador personalizado si existe (Componente)
+    const fakeC = document.getElementById('componente_fake');
+    const hiddenC = document.getElementById('selectComponente');
+    const busquedaC = document.getElementById('componente_busqueda');
+    if (fakeC && hiddenC && busquedaC) {
+        fakeC.innerHTML = '<span class="text-muted" style="font-weight:400;">Seleccionar componente...</span>';
+        hiddenC.value = '';
+        busquedaC.value = '';
+        fakeC.style.opacity = "1";
+    }
+
     const tbody = document.getElementById('tbodyRecetaEdit');
     if (tbody) tbody.innerHTML = '';
+    document.getElementById('subtotalReceta').innerText = '$0.00';
+    document.getElementById('ivaTotalReceta').innerText = '$0.00';
     document.getElementById('totalCostoReceta').innerText = '$0.00';
     document.getElementById('msgVacioReceta').style.display = 'block';
     mostrarModal('modalProduccion');
@@ -397,82 +422,196 @@ window.cargarRecetaExistente = function() {
             if (data.length > 0) {
                 if (msg) msg.style.display = 'none';
                 data.forEach(i => {
-                    const subtotal = i.cant * i.costo;
+                    const cant = i.cant;
+                    const costo = i.costo;
+                    const subtotal = cant * costo;
+                    const ivaPorc = i.tiene_iva ? (parseFloat(i.iva) || 0) : 0;
+                    const ivaMonto = subtotal * (ivaPorc / 100);
+                    const importe = subtotal + ivaMonto;
+
                     tbody.insertAdjacentHTML('beforeend', `
-                        <tr data-id="${i.id}" data-costo="${i.costo}">
-                            <td class="ps-3 fw-semibold">${i.nombre}</td>
+                        <tr data-id="${i.id}" data-costo="${costo}" data-iva-porc="${ivaPorc}">
+                            <td class="ps-3">${i.nombre}</td>
                             <td class="text-center">
-                                <input type="number" class="form-control form-control-sm text-center mx-auto" 
-                                       value="${i.cant}" min="1" style="max-width: 70px;" 
-                                       onchange="recalcularTotalesReceta()">
+                                <span class="small text-dark">${cant}</span>
+                                <input type="hidden" class="inp-cant-receta" value="${cant}">
                             </td>
-                            <td class="text-end text-muted">$${parseFloat(i.costo).toFixed(2)}</td>
-                            <td class="text-end fw-bold subtotal-fila">$${subtotal.toFixed(2)}</td>
+                            <td class="text-end text-muted small">$${costo.toFixed(2)}</td>
+                            <td class="text-end subtotal-fila">$${subtotal.toFixed(2)}</td>
+                            <td class="text-end iva-fila text-muted small">$${ivaMonto.toFixed(2)}</td>
+                            <td class="text-end importe-fila">$${importe.toFixed(2)}</td>
                             <td class="text-center">
-                                <button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); recalcularTotalesReceta();">
-                                    <i class="bi bi-trash"></i>
-                                </button>
+                                <div class="d-flex justify-content-center gap-1">
+                                    <button type="button" class="icon-action" onclick="editarFilaReceta(this)" title="Editar">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </button>
+                                    <button type="button" class="icon-action icon-action-danger" onclick="this.closest('tr').remove(); recalcularTotalesReceta();" title="Eliminar">
+                                        <i class="bi bi-x-circle"></i>
+                                    </button>
+                                </div>
                             </td>
                         </tr>`);
                 });
                 recalcularTotalesReceta();
             } else {
                 if (msg) msg.style.display = 'block';
+                document.getElementById('subtotalReceta').innerText = '$0.00';
+                document.getElementById('ivaTotalReceta').innerText = '$0.00';
                 document.getElementById('totalCostoReceta').innerText = '$0.00';
             }
         });
 }
 
 window.agregarComponenteReceta = function() {
-    const sel = document.getElementById('selectComponente');
-    const pId = sel.value;
-    const pName = sel.options[sel.selectedIndex].text;
+    const hiddenC = document.getElementById('selectComponente');
+    const pId = hiddenC.value;
     const cant = parseInt(document.getElementById('cantComponente').value) || 1;
+    const editIndex = document.getElementById('edit_index_receta').value;
+
     if (!pId) return alert("Selecciona un componente");
-    const existente = document.querySelector(`#tbodyRecetaEdit tr[data-id="${pId}"]`);
-    if (existente) {
-        const inp = existente.querySelector('input');
-        inp.value = parseInt(inp.value) + cant;
-        recalcularTotalesReceta();
-        return;
+    
+    // Si no estamos editando, verificar si ya existe en la lista para sumar
+    if (editIndex === "-1") {
+        const existente = document.querySelector(`#tbodyRecetaEdit tr[data-id="${pId}"]`);
+        if (existente) {
+            const inp = existente.querySelector('.inp-cant-receta');
+            const span = existente.querySelector('.text-center span');
+            const nuevaCant = parseInt(inp.value) + cant;
+            inp.value = nuevaCant;
+            span.innerText = nuevaCant;
+            recalcularTotalesReceta();
+            resetBuscadorComponente();
+            return;
+        }
     }
+
     fetch(APP_URLS.api_producto.replace('0', pId))
         .then(r => r.json())
         .then(data => {
             const tbody = document.getElementById('tbodyRecetaEdit');
             const msg = document.getElementById('msgVacioReceta');
             if (msg) msg.style.display = 'none';
-            const subtotal = cant * data.precio_costo;
-            tbody.insertAdjacentHTML('beforeend', `
-                <tr data-id="${data.id}" data-costo="${data.precio_costo}">
-                    <td class="ps-3 fw-semibold">${data.nombre}</td>
-                    <td class="text-center">
-                        <input type="number" class="form-control form-control-sm text-center mx-auto" 
-                               value="${cant}" min="1" style="max-width: 70px;" 
-                               onchange="recalcularTotalesReceta()">
-                    </td>
-                    <td class="text-end text-muted">$${parseFloat(data.precio_costo).toFixed(2)}</td>
-                    <td class="text-end fw-bold subtotal-fila">$${subtotal.toFixed(2)}</td>
-                    <td class="text-center">
-                        <button type="button" class="btn btn-sm text-danger p-0" onclick="this.closest('tr').remove(); recalcularTotalesReceta();">
-                            <i class="bi bi-trash"></i>
+            
+            const costo = parseFloat(data.precio_costo) || 0;
+            const subtotal = cant * costo;
+            const ivaPorc = data.tiene_iva ? (parseFloat(data.iva) || 0) : 0;
+            const ivaMonto = subtotal * (ivaPorc / 100);
+            const importe = subtotal + ivaMonto;
+
+            const filaHtml = `
+                <td class="ps-3">${data.nombre}</td>
+                <td class="text-center">
+                    <span class="small text-dark">${cant}</span>
+                    <input type="hidden" class="inp-cant-receta" value="${cant}">
+                </td>
+                <td class="text-end text-muted small">$${costo.toFixed(2)}</td>
+                <td class="text-end subtotal-fila">$${subtotal.toFixed(2)}</td>
+                <td class="text-end iva-fila text-muted small">$${ivaMonto.toFixed(2)}</td>
+                <td class="text-end importe-fila">$${importe.toFixed(2)}</td>
+                <td class="text-center">
+                    <div class="d-flex justify-content-center gap-1">
+                        <button type="button" class="icon-action" onclick="editarFilaReceta(this)" title="Editar">
+                            <i class="bi bi-pencil-square"></i>
                         </button>
-                    </td>
-                </tr>`);
+                        <button type="button" class="icon-action icon-action-danger" onclick="this.closest('tr').remove(); recalcularTotalesReceta();" title="Eliminar">
+                            <i class="bi bi-x-circle"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+
+            if (editIndex !== "-1") {
+                const fila = tbody.rows[parseInt(editIndex)];
+                fila.innerHTML = filaHtml;
+                fila.dataset.id = data.id;
+                fila.dataset.costo = costo;
+                fila.dataset.ivaPorc = ivaPorc;
+            } else {
+                const tr = document.createElement('tr');
+                tr.dataset.id = data.id;
+                tr.dataset.costo = costo;
+                tr.dataset.ivaPorc = ivaPorc;
+                tr.innerHTML = filaHtml;
+                tbody.appendChild(tr);
+            }
+
             recalcularTotalesReceta();
+            resetBuscadorComponente();
         });
 }
 
+function resetBuscadorComponente() {
+    const fakeC = document.getElementById('componente_fake');
+    const hiddenC = document.getElementById('selectComponente');
+    const busquedaC = document.getElementById('componente_busqueda');
+    if (fakeC && hiddenC && busquedaC) {
+        fakeC.innerHTML = '<span class="text-muted" style="font-weight:400;">Seleccionar componente...</span>';
+        hiddenC.value = '';
+        busquedaC.value = '';
+        fakeC.style.opacity = "1";
+    }
+    document.getElementById('cantComponente').value = 1;
+    document.getElementById('edit_index_receta').value = "-1";
+    
+    const btnAdd = document.querySelector('button[onclick="agregarComponenteReceta()"]');
+    if (btnAdd) btnAdd.innerHTML = '<i class="bi bi-plus-lg"></i>';
+}
+
+window.editarFilaReceta = function(btn) {
+    const fila = btn.closest('tr');
+    const tbody = document.getElementById('tbodyRecetaEdit');
+    const index = Array.from(tbody.rows).indexOf(fila);
+    const pId = fila.dataset.id;
+    const cant = fila.querySelector('.inp-cant-receta').value;
+
+    document.getElementById('edit_index_receta').value = index;
+    document.getElementById('cantComponente').value = cant;
+
+    // Cargar en el buscador
+    const hiddenC = document.getElementById('selectComponente');
+    const fakeC = document.getElementById('componente_fake');
+    const busquedaC = document.getElementById('componente_busqueda');
+    const option = document.querySelector(`#wrapperComponente .custom-option[data-value="${pId}"]`);
+
+    if (option) {
+        hiddenC.value = pId;
+        fakeC.innerHTML = option.innerHTML;
+        fakeC.setAttribute('title', option.textContent.trim());
+        busquedaC.value = "";
+        fakeC.style.opacity = "1";
+    }
+
+    // Cambiar icono del botón a check para indicar edición
+    const btnAdd = document.querySelector('button[onclick="agregarComponenteReceta()"]');
+    if (btnAdd) btnAdd.innerHTML = '<i class="bi bi-check-lg"></i>';
+}
+
 window.recalcularTotalesReceta = function() {
-    let total = 0;
+    let subtotalReceta = 0;
+    let ivaTotalReceta = 0;
+
     document.querySelectorAll('#tbodyRecetaEdit tr').forEach(tr => {
         const costo = parseFloat(tr.dataset.costo) || 0;
-        const cant = parseInt(tr.querySelector('input').value) || 0;
-        const sub = costo * cant;
-        tr.querySelector('.subtotal-fila').innerText = '$' + sub.toFixed(2);
-        total += sub;
+        const ivaPorc = parseFloat(tr.dataset.ivaPorc) || 0;
+        const cant = parseInt(tr.querySelector('.inp-cant-receta').value) || 0;
+        
+        const subtotalFila = costo * cant;
+        const ivaFila = subtotalFila * (ivaPorc / 100);
+        const importeFila = subtotalFila + ivaFila;
+
+        tr.querySelector('.subtotal-fila').innerText = '$' + subtotalFila.toFixed(2);
+        tr.querySelector('.iva-fila').innerText = '$' + ivaFila.toFixed(2);
+        tr.querySelector('.importe-fila').innerText = '$' + importeFila.toFixed(2);
+        
+        subtotalReceta += subtotalFila;
+        ivaTotalReceta += ivaFila;
     });
-    document.getElementById('totalCostoReceta').innerText = '$' + total.toFixed(2);
+
+    const totalReceta = subtotalReceta + ivaTotalReceta;
+
+    document.getElementById('subtotalReceta').innerText = '$' + subtotalReceta.toFixed(2);
+    document.getElementById('ivaTotalReceta').innerText = '$' + ivaTotalReceta.toFixed(2);
+    document.getElementById('totalCostoReceta').innerText = '$' + totalReceta.toFixed(2);
 }
 
 window.guardarReceta = function() {
@@ -480,7 +619,7 @@ window.guardarReceta = function() {
     if (!pId) return alert("Selecciona el producto final");
     const componentes = [];
     document.querySelectorAll('#tbodyRecetaEdit tr').forEach(tr => {
-        componentes.push({ id: tr.dataset.id, cant: parseInt(tr.querySelector('input').value) });
+        componentes.push({ id: tr.dataset.id, cant: parseInt(tr.querySelector('.inp-cant-receta').value) });
     });
     fetch(APP_URLS.api_guardar_receta, {
         method: 'POST',
@@ -1057,8 +1196,122 @@ function confirmarTraslado() {
     });
 }
 
+// --- Helper para Selects Personalizados con Buscador ---
+function setupCustomSelect(wrapperId, inputId, fakeId, hiddenId, onSelect) {
+    const wrapper = document.getElementById(wrapperId);
+    if (!wrapper) return;
+    const select = wrapper.querySelector('.custom-select');
+    const input = document.getElementById(inputId);
+    const fake = document.getElementById(fakeId);
+    const hidden = document.getElementById(hiddenId);
+    const options = wrapper.querySelectorAll('.custom-option');
+    
+    // Guardar el placeholder original
+    const originalPlaceholder = fake.innerHTML;
+    
+    const updateVisibility = () => {
+        if (!input || !fake) return;
+        // Si hay texto escrito o se ha seleccionado algo, mostramos la capa fake
+        if (input.value.length > 0 || (hidden && hidden.value !== "" && hidden.value !== "all")) {
+            fake.style.opacity = "1";
+        } else if (document.activeElement === input) {
+            // Si está enfocado pero vacío, ocultamos el placeholder
+            fake.style.opacity = "0";
+        } else {
+            // Si no está enfocado y está vacío, mostramos el placeholder
+            fake.innerHTML = originalPlaceholder;
+            fake.style.opacity = "1";
+        }
+    };
+
+    if (input) {
+        input.addEventListener('focus', () => { 
+            // Limpiar selección previa al hacer clic para nueva búsqueda
+            input.value = "";
+            if (hidden) hidden.value = "";
+            
+            // Resetear visibilidad de todas las opciones al abrir
+            options.forEach(o => o.style.display = 'flex');
+            select.classList.add('open'); 
+            updateVisibility(); 
+        });
+        
+        input.addEventListener('blur', () => {
+            setTimeout(() => {
+                select.classList.remove('open');
+                updateVisibility();
+            }, 150);
+        });
+
+        input.addEventListener('input', function() {
+            const t = this.value.toLowerCase();
+            if (this.value.length > 0) {
+                fake.innerHTML = `<span class="typing-text">${this.value}</span>`;
+            } else {
+                fake.innerHTML = originalPlaceholder;
+            }
+            updateVisibility();
+            options.forEach(o => {
+                const search = (o.getAttribute('data-search') || '').toLowerCase();
+                o.style.display = search.includes(t) ? 'flex' : 'none';
+            });
+            select.classList.add('open');
+        });
+    }
+
+    if (wrapper) {
+        wrapper.addEventListener('mousedown', function(e) {
+            const option = e.target.closest('.custom-option');
+            if (!option) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            select.classList.remove('open');
+            if (input) {
+                input.value = "";
+                input.blur();
+            }
+
+            options.forEach(opt => opt.classList.remove('selected'));
+            option.classList.add('selected');
+            
+            fake.innerHTML = option.innerHTML;
+            fake.setAttribute('title', option.textContent.trim());
+            
+            const valId = option.getAttribute('data-value');
+            if (hidden) hidden.value = valId;
+            
+            updateVisibility();
+            if (onSelect) onSelect(valId);
+        });
+    }
+}
+
 // --- Inicialización ---
 document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar buscador de Receta Padre
+    setupCustomSelect(
+        'wrapperRecetaPadre', 
+        'receta_padre_busqueda', 
+        'receta_padre_fake', 
+        'selectRecetaPadre', 
+        () => {
+            if (typeof window.cargarRecetaExistente === 'function') {
+                window.cargarRecetaExistente();
+            }
+        }
+    );
+
+    // Inicializar buscador de Agregar Componente
+    setupCustomSelect(
+        'wrapperComponente', 
+        'componente_busqueda', 
+        'componente_fake', 
+        'selectComponente',
+        null
+    );
+
     // Inicializar filtros de traslado si existen los selects (en el modal)
     if (document.getElementById('selectSucursalOrigen')) {
         filtrarAlmacenesTraslado('origen');

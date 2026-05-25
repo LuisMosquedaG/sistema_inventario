@@ -776,7 +776,17 @@ def obtener_receta(request, producto_id):
     try:
         empresa_actual = get_empresa_actual(request)
         get_object_or_404(Producto, id=producto_id, empresa=empresa_actual)
-        return JsonResponse([{'id': r.componente.id, 'nombre': r.componente.nombre, 'cant': r.cantidad, 'costo': float(r.componente.precio_costo)} for r in DetalleReceta.objects.filter(producto_padre_id=producto_id)], safe=False)
+        receta_data = []
+        for r in DetalleReceta.objects.filter(producto_padre_id=producto_id):
+            receta_data.append({
+                'id': r.componente.id, 
+                'nombre': r.componente.nombre, 
+                'cant': r.cantidad, 
+                'costo': float(r.componente.precio_costo),
+                'iva': float(r.componente.iva),
+                'tiene_iva': r.componente.tiene_iva
+            })
+        return JsonResponse(receta_data, safe=False)
     except Exception as e: return JsonResponse({'error': str(e)}, status=400)
 
 @login_required

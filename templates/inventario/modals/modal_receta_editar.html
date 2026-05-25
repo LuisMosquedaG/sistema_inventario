@@ -11,17 +11,30 @@
             <div class="modal-body p-3 bg-light">
                 <form id="formReceta">
                     {% csrf_token %}
-                    
+                    <input type="hidden" id="edit_index_receta" value="-1">                    
                     <!-- Selección del Producto Final -->
                     <div class="card border-0 shadow-sm mb-3">
                         <div class="card-body p-2">
                             <label class="form-label small fw-bold text-secondary mb-1">Producto a Ensamblar (Padre)</label>
-                            <select id="selectRecetaPadre" class="form-select form-select-sm" onchange="cargarRecetaExistente()">
-                                <option value="">Seleccionar Producto (Tipo: Producción)...</option>
-                                {% for p in productos_padre_receta %}
-                                    <option value="{{ p.id }}"> {{ p.nombre }} </option>
-                                {% endfor %}
-                            </select>
+                            <div class="custom-select-wrapper" id="wrapperRecetaPadre">
+                                <div class="custom-select">
+                                    <div class="custom-select__trigger">
+                                        <div id="receta_padre_fake" class="fake-input-layer">
+                                            <span class="text-muted" style="font-weight:400;">Seleccionar Producto (Tipo: Producción)...</span>
+                                        </div>
+                                        <input type="text" id="receta_padre_busqueda" class="real-input-layer" autocomplete="off" value="" style="color: transparent !important; -webkit-text-fill-color: transparent !important;">
+                                        <input type="hidden" name="producto_id" id="selectRecetaPadre" value="">
+                                        <i class="bi bi-chevron-down ms-auto" style="z-index:3; pointer-events:none; font-size: 0.7rem; color: #adb5bd;"></i>
+                                    </div>
+                                    <div class="custom-options">
+                                        {% for p in productos_padre_receta %}
+                                        <span class="custom-option" data-id="{{ p.id }}" data-value="{{ p.id }}" data-search="{{ p.nombre }}">
+                                            {{ p.nombre }}
+                                        </span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -31,12 +44,25 @@
                             <label class="form-label small fw-bold text-secondary mb-1">Agregar Componente</label>
                             <div class="input-group input-group-sm">
                                 <span class="input-group-text bg-white border-end-0"><i class="bi bi-box-seam"></i></span>
-                                <select id="selectComponente" class="form-select border-start-0">
-                                    <option value="">Seleccionar componente...</option>
-                                    {% for p in productos_componentes_receta %}
-                                        <option value="{{ p.id }}">{{ p.nombre }}</option>
-                                    {% endfor %}
-                                </select>
+                                <div class="custom-select-wrapper flex-grow-1" id="wrapperComponente" style="width: 1% !important; min-width: 0;">
+                                    <div class="custom-select">
+                                        <div class="custom-select__trigger" style="border-top-left-radius: 0; border-bottom-left-radius: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; height: 31px;">
+                                            <div id="componente_fake" class="fake-input-layer">
+                                                <span class="text-muted" style="font-weight:400;">Seleccionar componente...</span>
+                                            </div>
+                                            <input type="text" id="componente_busqueda" class="real-input-layer" autocomplete="off" value="" style="color: transparent !important; -webkit-text-fill-color: transparent !important;">
+                                            <input type="hidden" id="selectComponente" value="">
+                                            <i class="bi bi-chevron-down ms-auto" style="z-index:3; pointer-events:none; font-size: 0.7rem; color: #adb5bd;"></i>
+                                        </div>
+                                        <div class="custom-options">
+                                            {% for p in productos_componentes_receta %}
+                                            <span class="custom-option" data-id="{{ p.id }}" data-value="{{ p.id }}" data-search="{{ p.nombre }}">
+                                                {{ p.nombre }}
+                                            </span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
                                 <input type="number" id="cantComponente" class="form-control" placeholder="Cant" style="max-width: 80px;" value="1" min="1">
                                 <button class="btn btn-brand" type="button" onclick="agregarComponenteReceta()">
                                     <i class="bi bi-plus-lg"></i>
@@ -51,21 +77,37 @@
                             <div class="table-responsive bg-white rounded">
                                 <table class="table table-sm table-hover mb-0 align-middle">
                                     <thead class="table-light">
-                                        <tr>
-                                            <th class="ps-3">Componente</th>
-                                            <th class="text-center" style="width: 100px;">Cantidad</th>
-                                            <th class="text-end" style="width: 100px;">Costo Unit.</th>
-                                            <th class="text-end" style="width: 100px;">Subtotal</th>
-                                            <th style="width: 50px;"></th>
+                                        <tr class="fw-normal">
+                                            <th class="ps-3 fw-normal">Componente</th>
+                                            <th class="text-center fw-normal" style="width: 80px;">Cantidad</th>
+                                            <th class="text-end fw-normal" style="width: 90px;">Costo Unit.</th>
+                                            <th class="text-end fw-normal" style="width: 90px;">Subtotal</th>
+                                            <th class="text-end fw-normal" style="width: 80px;">IVA</th>
+                                            <th class="text-end fw-normal" style="width: 100px;">Importe</th>
+                                            <th style="width: 40px;"></th>
                                         </tr>
                                     </thead>
                                     <tbody id="tbodyRecetaEdit">
                                     </tbody>
                                 </table>
                             </div>
-                            <div class="d-flex justify-content-between align-items-center p-2 border-top">
-                                <span class="fw-bold text-secondary small">COSTO TOTAL DE ENSAMBLE:</span>
-                                <span id="totalCostoReceta" class="fw-bold text-brand fs-5">$0.00</span>
+                            <div class="bg-light p-3 border-top">
+                                <div class="row justify-content-end">
+                                    <div class="col-md-5">
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span class="text-secondary small">SUBTOTAL RECETA:</span>
+                                            <span id="subtotalReceta" class="fw-bold">$0.00</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span class="text-secondary small">IVA TOTAL:</span>
+                                            <span id="ivaTotalReceta" class="fw-bold">$0.00</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between pt-1 border-top">
+                                            <span class="text-secondary fw-bold small">COSTO TOTAL DE ENSAMBLE:</span>
+                                            <span id="totalCostoReceta" class="fw-bold text-brand fs-5">$0.00</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             <div id="msgVacioReceta" class="text-center py-3 text-muted small fst-italic">
                                 No hay componentes en la receta.

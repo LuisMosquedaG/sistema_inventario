@@ -245,6 +245,38 @@
                                     <input type="text" name="nombre_razon_social" id="inputRazonSocial" class="form-control form-control-sm" required>
                                 </div>
                                 <div class="col-md-6">
+                                    <label class="form-label-custom">Régimen Fiscal</label>
+                                    <select name="regimen" id="inputRegimen" class="form-select form-select-sm">
+                                        <option value="">Seleccione...</option>
+                                        <option value="601">601 - REGIMEN GENERAL DE LEY PERSONAS MORALES</option>
+                                        <option value="602">602 - RÉGIMEN SIMPLIFICADO DE LEY PERSONAS MORALES</option>
+                                        <option value="603">603 - PERSONAS MORALES CON FINES NO LUCRATIVOS</option>
+                                        <option value="604">604 - RÉGIMEN DE PEQUEÑOS CONTRIBUYENTES</option>
+                                        <option value="605">605 - RÉGIMEN DE SUELDOS Y SALARIOS E INGRESOS ASIMILADOS A SALARIOS</option>
+                                        <option value="606">606 - RÉGIMEN DE ARRENDAMIENTO</option>
+                                        <option value="607">607 - RÉGIMEN DE ENAJENACIÓN O ADQUISICIÓN DE BIENES</option>
+                                        <option value="608">608 - RÉGIMEN DE LOS DEMÁS INGRESOS</option>
+                                        <option value="609">609 - RÉGIMEN DE CONSOLIDACIÓN</option>
+                                        <option value="610">610 - RÉGIMEN RESIDENTES EN EL EXTRANJERO SIN ESTABLECIMIENTO PERMANENTE EN MÉXICO</option>
+                                        <option value="611">611 - RÉGIMEN DE INGRESOS POR DIVIDENDOS (SOCIOS Y ACCIONISTAS)</option>
+                                        <option value="612">612 - RÉGIMEN DE LAS PERSONAS FÍSICAS CON ACTIVIDADES EMPRESARIALES Y PROFESIONALES</option>
+                                        <option value="613">613 - RÉGIMEN INTERMEDIO DE LAS PERSONAS FÍSICAS CON ACTIVIDADES EMPRESARIALES</option>
+                                        <option value="614">614 - RÉGIMEN DE LOS INGRESOS POR INTERESES</option>
+                                        <option value="615">615 - RÉGIMEN DE LOS INGRESOS POR OBTENCIÓN DE PREMIOS</option>
+                                        <option value="616">616 - SIN OBLIGACIONES FISCALES</option>
+                                        <option value="617">617 - PEMEX</option>
+                                        <option value="618">618 - RÉGIMEN SIMPLIFICADO DE LEY PERSONAS FÍSICAS</option>
+                                        <option value="619">619 - INGRESOS POR LA OBTENCIÓN DE PRÉSTAMOS</option>
+                                        <option value="620">620 - SOCIEDADES COOPERATIVAS DE PRODUCCIÓN QUE OPTAN POR DIFERIR SUS INGRESOS.</option>
+                                        <option value="621">621 - RÉGIMEN DE INCORPORACIÓN FISCAL</option>
+                                        <option value="622">622 - RÉGIMEN DE ACTIVIDADES AGRÍCOLAS, GANADERAS, SILVÍCOLAS Y PESQUERAS PM</option>
+                                        <option value="623">623 - RÉGIMEN DE OPCIONAL PARA GRUPOS DE SOCIEDADES</option>
+                                        <option value="624">624 - RÉGIMEN DE LOS COORDINADOS</option>
+                                        <option value="625">625 - RÉGIMEN DE LAS ACTIVIDADES EMPRESARIALES CON INGRESOS A TRAVÉS DE PLATAFORMAS TECNOLÓGICAS.</option>
+                                        <option value="626">626 - RÉGIMEN SIMPLIFICADO DE CONFIANZA</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
                                     <label class="form-label-custom">Correo Electrónico <span class="text-danger">*</span></label>
                                     <input type="email" name="correo" id="inputCorreo" class="form-control form-control-sm" required>
                                 </div>
@@ -474,6 +506,7 @@
                 document.getElementById('inputClave').value = data.clave;
                 document.getElementById('inputRFC').value = data.rfc;
                 document.getElementById('inputRazonSocial').value = data.nombre_razon_social;
+                document.getElementById('inputRegimen').value = data.regimen || '';
                 document.getElementById('inputCorreo').value = data.correo;
                 document.getElementById('inputTelefono').value = data.telefono;
                 document.getElementById('inputRegPatronal').value = data.registro_patronal;
