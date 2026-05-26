@@ -9,6 +9,7 @@ from pedidos.models import Pedido
 from compras.models import OrdenCompra
 from django.db import transaction
 from preferencias.permissions import require_treasury_permission
+from notificaciones.utils import crear_notificacion
 
 # --- FUNCIÓN AYUDANTE ---
 def get_empresa_actual(request):
@@ -139,6 +140,14 @@ def api_registrar_pago_compra(request):
                 pago_compra=pago,
                 sucursal=sucursal_obj
             )
+
+            # --- NOTIFICACIÓN ---
+            crear_notificacion(
+                empresa=empresa_actual,
+                mensaje=f"Se registró un pago de ${monto:,.2f} {moneda.siglas} para la Orden de Compra OC-{compra.id:04d}.",
+                actor=request.user,
+                propietario=compra.usuario
+            )
             
             return JsonResponse({'success': True, 'message': 'Pago registrado correctamente.'})
         except Exception as e:
@@ -174,6 +183,14 @@ def api_cancelar_egreso(request, id):
                 pago.estado = 'cancelado'
                 pago.motivo_cancelacion = motivo
                 pago.save()
+
+                # --- NOTIFICACIÓN ---
+                crear_notificacion(
+                    empresa=empresa_actual,
+                    mensaje=f"Se ha CANCELADO el pago de ${egreso.monto:,.2f} {egreso.moneda.siglas} de la OC-{pago.orden_compra.id:04d}.",
+                    actor=request.user,
+                    propietario=pago.orden_compra.usuario
+                )
             
             return JsonResponse({'success': True, 'message': 'Egreso cancelado correctamente.'})
         except Exception as e:
@@ -315,6 +332,14 @@ def api_cancelar_ingreso(request, id):
                 pago.estado = 'cancelado'
                 pago.motivo_cancelacion = motivo
                 pago.save()
+
+                # --- NOTIFICACIÓN ---
+                crear_notificacion(
+                    empresa=empresa_actual,
+                    mensaje=f"Se ha CANCELADO el pago de ${ingreso.monto:,.2f} {ingreso.moneda.siglas} del Pedido PED-{pago.pedido.id:04d}.",
+                    actor=request.user,
+                    propietario=pago.pedido.vendedor
+                )
             
             return JsonResponse({'success': True, 'message': 'Ingreso cancelado correctamente.'})
         except Exception as e:
@@ -381,6 +406,14 @@ def api_registrar_pago_pedido(request):
                 referencia=referencia,
                 pago_pedido=pago,
                 sucursal=sucursal_obj
+            )
+            
+            # --- NOTIFICACIÓN ---
+            crear_notificacion(
+                empresa=empresa_actual,
+                mensaje=f"Se registró un pago de ${monto:,.2f} {moneda.siglas} para el Pedido PED-{pedido.id:04d}.",
+                actor=request.user,
+                propietario=pedido.vendedor
             )
             
             return JsonResponse({'success': True, 'message': 'Pago registrado correctamente.'})
