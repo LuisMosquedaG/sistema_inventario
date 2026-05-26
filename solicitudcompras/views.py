@@ -810,12 +810,27 @@ def cancelar_solicitud(request, solicitud_id):
         return redirect('dashboard_solicitudcompras')
 
     # 1. Liberar las partidas del pedido
+    from almacenes.models import Inventario
     detalles_solicitud = solicitud.detalles.all()
     for detalle in detalles_solicitud:
         if detalle.detalle_pedido_origen:
             detalle_pedido = detalle.detalle_pedido_origen
-            if detalle_pedido.estado_linea == 'en_proceso':
-                # Revertir al estado original de abastecimiento según el tipo de producto
+            
+            # Si estaba reservado, liberar el stock físico en el inventario
+            if detalle_pedido.estado_linea == 'reservado':
+                # Buscamos el inventario en el almacén que corresponda (o el primero con reserva)
+                # Intentamos ser específicos si el detalle_pedido tuviera almacén, si no, buscamos por producto
+                inv_reserva = Inventario.objects.filter(
+                    producto=detalle_pedido.producto,
+                    reservado__gt=0
+                ).first()
+                if inv_reserva:
+                    inv_reserva.reservado = max(0, inv_reserva.reservado - detalle_pedido.cantidad_solicitada)
+                    inv_reserva.save()
+
+            # Revertir al estado original de abastecimiento según el tipo de producto
+            # Ampliamos para que cualquier estado que no sea el final (completo) se libere
+            if detalle_pedido.estado_linea in ['en_proceso', 'comprado', 'reservado', 'pendiente']:
                 if detalle_pedido.producto.tipo_abastecimiento == 'produccion':
                     detalle_pedido.estado_linea = 'produccion'
                 else:
@@ -826,6 +841,11 @@ def cancelar_solicitud(request, solicitud_id):
     # en borrador vinculadas a este pedido, también las cancelamos para no duplicar.
     if solicitud.pedido_origen:
         from produccion.models import OrdenProduccion
+        # También verificamos si el pedido estaba en 'completo' y lo regresamos a 'revision'
+        if solicitud.pedido_origen.estado == 'completo':
+            solicitud.pedido_origen.estado = 'revision'
+            solicitud.pedido_origen.save()
+
         ordenes_produccion = OrdenProduccion.objects.filter(
             pedido_origen=solicitud.pedido_origen,
             estado='borrador',
