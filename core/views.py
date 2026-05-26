@@ -31,7 +31,7 @@ def descargar_plantilla_articulos(request):
 
     headers = [
         'Clave', 'Nombre*', 'Tipo (producto/servicio)', 'Abastecimiento (stock/produccion/compra)',
-        'Categoria', 'Subcategoria', 'Marca', 'Modelo', 'Unidad Medida', 'Costo*', 'Precio Venta*',
+        'Categoria', 'Subcategoria', 'Marca', 'Modelo', 'Unidad Medida (H87/E48)', 'Costo*', 'Precio Venta*',
         'IVA (%)', 'Stock Minimo', 'Stock Maximo', 'Maneja Lote (si/no)', 'Maneja Serie (si/no)'
     ]
     ws.append(headers)
@@ -70,82 +70,92 @@ def importar_articulos_ajax(request):
                     with transaction.atomic():
                         clave = str(row[0] or '').strip()
                         nombre = str(row[1] or '').strip()
-                        tipo = str(row[2] or 'producto').strip().lower()
-                        abast = str(row[3] or 'compra').strip().lower()
-                        cat_name = str(row[4] or '').strip()
-                        subcat_name = str(row[5] or '').strip()
-                        marca = str(row[6] or '').strip()
-                        modelo = str(row[7] or '').strip()
-                        um = str(row[8] or 'PZA').strip().upper()
-                        costo = float(row[9] or 0)
-                        precio = float(row[10] or 0)
-                        iva = float(row[11] or 0)
-                        s_min = int(row[12] or 0)
-                        s_max = int(row[13] or 1000)
-                        lote = str(row[14] or 'no').strip().lower() == 'si'
-                        serie = str(row[15] or 'no').strip().lower() == 'si'
 
                         if not nombre:
                             errores.append(f"Fila {idx}: El nombre es obligatorio.")
                             continue
 
-                        # --- AUTO-CREACIÓN DE CATEGORÍA Y SUBCATEGORÍA EN EL CATÁLOGO ---
-                        if cat_name:
-                            cat_obj, created_cat = Categoria.objects.get_or_create(
-                                nombre=cat_name, 
+                        # --- LÓGICA DE IDENTIFICACIÓN: CLAVE Y NOMBRE ---
+                        if not clave:
+                            # Escenario 1: Clave vacía en Excel -> Buscar mismo nombre con clave vacía/nula en DB
+                            producto = Producto.objects.filter(
+                                Q(clave__isnull=True) | Q(clave=''),
+                                nombre=nombre,
                                 empresa=empresa_actual
-                            )
-                            if subcat_name:
-                                Subcategoria.objects.get_or_create(
-                                    nombre=subcat_name,
-                                    categoria=cat_obj,
-                                    empresa=empresa_actual
-                                )
-
-                        # --- LÓGICA DE UPSERT POR CLAVE ---
-                        producto = None
-                        if clave:
-                            producto = Producto.objects.filter(clave=clave, empresa=empresa_actual).first()
+                            ).first()
+                        else:
+                            # Escenario 2: Clave con datos en Excel -> Coincidencia exacta de Clave y Nombre
+                            producto = Producto.objects.filter(
+                                clave=clave,
+                                nombre=nombre,
+                                empresa=empresa_actual
+                            ).first()
 
                         if producto:
-                            # Actualizar existente
-                            producto.nombre = nombre
-                            producto.tipo = tipo if tipo in ['producto', 'servicio'] else 'producto'
-                            producto.tipo_abastecimiento = abast if abast in ['stock', 'produccion', 'compra'] else 'compra'
-                            producto.categoria = cat_name
-                            producto.subcategoria = subcat_name
-                            producto.marca = marca
-                            producto.modelo = modelo
-                            producto.unidad_medida = um
-                            producto.precio_costo = costo
-                            producto.precio_venta = precio
-                            producto.iva = iva
-                            producto.stock_minimo = s_min
-                            producto.stock_maximo = s_max
-                            producto.maneja_lote = lote
-                            producto.maneja_serie = serie
+                            # --- ACTUALIZAR EXISTENTE (Solo campos no vacíos en Excel) ---
+                            # Tipo
+                            val_tipo = str(row[2] or '').strip().lower()
+                            if val_tipo in ['producto', 'servicio']: 
+                                producto.tipo = val_tipo
+                            
+                            # Abastecimiento
+                            val_abast = str(row[3] or '').strip().lower()
+                            if val_abast in ['stock', 'produccion', 'compra']:
+                                producto.tipo_abastecimiento = val_abast
+
+                            # Categoría y Subcategoría (con auto-creación)
+                            val_cat = str(row[4] or '').strip()
+                            val_sub = str(row[5] or '').strip()
+                            if val_cat:
+                                producto.categoria = val_cat
+                                cat_obj, _ = Categoria.objects.get_or_create(nombre=val_cat, empresa=empresa_actual)
+                                if val_sub:
+                                    producto.subcategoria = val_sub
+                                    Subcategoria.objects.get_or_create(nombre=val_sub, categoria=cat_obj, empresa=empresa_actual)
+
+                            if str(row[6] or '').strip(): producto.marca = str(row[6]).strip()
+                            if str(row[7] or '').strip(): producto.modelo = str(row[7]).strip()
+                            if str(row[8] or '').strip(): producto.unidad_medida = str(row[8]).strip().upper()
+                            
+                            if row[9] is not None: producto.precio_costo = float(row[9])
+                            if row[10] is not None: producto.precio_venta = float(row[10])
+                            if row[11] is not None: producto.iva = float(row[11])
+                            if row[12] is not None: producto.stock_minimo = int(row[12])
+                            if row[13] is not None: producto.stock_maximo = int(row[13])
+                            
+                            if row[14] is not None: producto.maneja_lote = str(row[14]).strip().lower() == 'si'
+                            if row[15] is not None: producto.maneja_serie = str(row[15]).strip().lower() == 'si'
+                            
                             producto.save()
                             actualizados += 1
                         else:
-                            # Crear nuevo
+                            # --- CREAR NUEVO ---
+                            cat_name = str(row[4] or '').strip()
+                            subcat_name = str(row[5] or '').strip()
+                            
+                            if cat_name:
+                                cat_obj, _ = Categoria.objects.get_or_create(nombre=cat_name, empresa=empresa_actual)
+                                if subcat_name:
+                                    Subcategoria.objects.get_or_create(nombre=subcat_name, categoria=cat_obj, empresa=empresa_actual)
+
                             Producto.objects.create(
                                 empresa=empresa_actual,
                                 clave=clave,
                                 nombre=nombre,
-                                tipo=tipo if tipo in ['producto', 'servicio'] else 'producto',
-                                tipo_abastecimiento=abast if abast in ['stock', 'produccion', 'compra'] else 'compra',
+                                tipo=str(row[2] or 'producto').strip().lower() if str(row[2] or '').strip().lower() in ['producto', 'servicio'] else 'producto',
+                                tipo_abastecimiento=str(row[3] or 'compra').strip().lower() if str(row[3] or '').strip().lower() in ['stock', 'produccion', 'compra'] else 'compra',
                                 categoria=cat_name,
                                 subcategoria=subcat_name,
-                                marca=marca,
-                                modelo=modelo,
-                                unidad_medida=um,
-                                precio_costo=costo,
-                                precio_venta=precio,
-                                iva=iva,
-                                stock_minimo=s_min,
-                                stock_maximo=s_max,
-                                maneja_lote=lote,
-                                maneja_serie=serie,
+                                marca=str(row[6] or '').strip(),
+                                modelo=str(row[7] or '').strip(),
+                                unidad_medida=str(row[8] or 'H87').strip().upper(),
+                                precio_costo=float(row[9] or 0),
+                                precio_venta=float(row[10] or 0),
+                                iva=float(row[11] or 0),
+                                stock_minimo=int(row[12] or 0),
+                                stock_maximo=int(row[13] or 1000),
+                                maneja_lote=str(row[14] or 'no').strip().lower() == 'si',
+                                maneja_serie=str(row[15] or 'no').strip().lower() == 'si',
                                 estado='activo'
                             )
                             creados += 1
@@ -242,15 +252,18 @@ def exportar_existencias_excel(request):
 
     headers = [
         'Clave', 'Producto', 'Zona/Almacén', 'Stock Físico', 'Reservado', 'Disponible', 
-        'UM', 'Costo Unit.', 'Costo Promedio', 'Valor Inventario'
+        'Unidad de medida', 'Costo Unit.', 'Costo Promedio', 'Valor Inventario'
     ]
     ws.append(headers)
 
     for p in productos:
         valor = float(p.stock_fisico_anotado) * float(p.costo_prom_anotado)
+        # Obtener el nombre legible de la unidad de medida
+        um_display = dict(p.UNIDAD_OPCIONES).get(p.unidad_medida, p.unidad_medida)
+        
         ws.append([
             p.clave or '', p.nombre, nombre_almacen_col, p.stock_fisico_anotado, p.stock_res_anotado, p.stock_disponible_anotado,
-            p.unidad_medida, p.precio_costo, p.costo_prom_anotado, valor
+            um_display, p.precio_costo, p.costo_prom_anotado, valor
         ])
 
     for col in ws.columns:

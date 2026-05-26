@@ -100,7 +100,7 @@ window.cargarProductoEdicion = function(id) {
             form.querySelector('[name="marca"]').value = data.marca || '';
             form.querySelector('[name="modelo"]').value = data.modelo || '';
             form.querySelector('[name="linea"]').value = data.linea || '';
-            form.querySelector('[name="unidad_medida"]').value = data.unidad_medida || 'PZA';
+            form.querySelector('[name="unidad_medida"]').value = data.unidad_medida || 'H87';
             form.querySelector('[name="iva"]').value = data.iva || '0.00';
             form.querySelector('[name="ieps"]').value = data.ieps || '0.00';
             form.querySelector('[name="precio_costo"]').value = data.precio_costo || '0.00';
