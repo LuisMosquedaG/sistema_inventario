@@ -26,16 +26,19 @@ def api_notificaciones_recientes(request):
     if not empresa:
         return JsonResponse({'success': False, 'error': 'Sin empresa'})
 
-    es_admin = request.user.is_superuser or request.user.is_staff
+    # Definición de Admin/Sadmin según requerimiento
+    es_admin = request.user.is_superuser or \
+               request.user.is_staff or \
+               request.user.username.startswith('sadmin@') or \
+               request.user.username == 'madmin@crossoversuite'
 
     if es_admin:
-        # Admins ven todo de su empresa (excepto lo propio)
+        # Admins/Sadmins ven todo de su empresa (excepto lo propio para no auto-notificarse)
         qs = Notificacion.objects.filter(empresa=empresa, visto_en_toast=False).exclude(actor=request.user)
     else:
-        # Usuarios ven solo notificaciones de sus registros (excepto lo propio) o globales (propietario=None)
-        from django.db.models import Q
+        # Usuarios tipo "usuario" ven solo notificaciones de registros donde son dueños (propietario_recurso)
         qs = Notificacion.objects.filter(
-            Q(propietario_recurso=request.user) | Q(propietario_recurso__isnull=True),
+            propietario_recurso=request.user,
             empresa=empresa, 
             visto_en_toast=False
         ).exclude(actor=request.user)
@@ -65,14 +68,20 @@ def lista_notificaciones(request):
         return render(request, 'error_sin_empresa.html')
 
     hace_una_semana = timezone.now() - timedelta(days=7)
-    es_admin = request.user.is_superuser or request.user.is_staff
+    
+    # Definición de Admin/Sadmin según requerimiento
+    es_admin = request.user.is_superuser or \
+               request.user.is_staff or \
+               request.user.username.startswith('sadmin@') or \
+               request.user.username == 'madmin@crossoversuite'
 
     if es_admin:
+        # Admins/Sadmins ven todo el historial de la empresa
         qs = Notificacion.objects.filter(empresa=empresa, fecha__gte=hace_una_semana)
     else:
-        from django.db.models import Q
+        # Usuarios normales solo ven historial de sus propios registros
         qs = Notificacion.objects.filter(
-            Q(propietario_recurso=request.user) | Q(propietario_recurso__isnull=True),
+            propietario_recurso=request.user,
             empresa=empresa, 
             fecha__gte=hace_una_semana
         )

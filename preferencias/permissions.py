@@ -22,7 +22,7 @@ COSTING_PERMISSION_MATRIX = {
 
 PURCHASES_PERMISSION_MATRIX = {
     'proveedores': ['ver', 'crear', 'editar', 'eliminar'],
-    'solicitudes': ['ver', 'crear', 'editar', 'imprimir', 'autorizar'],
+    'solicitudes': ['ver', 'crear', 'editar', 'imprimir', 'autorizar', 'cancelar'],
     'ordenes_compra': ['ver', 'crear', 'editar', 'imprimir', 'registrar_pago', 'consolidar', 'aprobar', 'cancelar'],
     'recepciones': ['ver', 'crear', 'imprimir', 'cancelar'],
 }

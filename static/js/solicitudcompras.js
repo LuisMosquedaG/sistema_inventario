@@ -603,3 +603,30 @@ async function previsualizarAutorizacion(id) {
         alert("Ocurrió un error en el servidor.");
     }
 }
+
+async function cancelarSolicitud(id) {
+    if (!confirm(`¿Está seguro de CANCELAR la Solicitud SOL-${String(id).padStart(4, '0')}?\n\nEsta acción liberará las partidas del pedido original.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/solicitudes-compras/cancelar/${id}/`, {
+            method: 'POST',
+            headers: { 
+                'X-CSRFToken': csrftoken,
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            location.reload();
+        } else {
+            alert("Error al cancelar: " + (result.error || result.message));
+        }
+    } catch (error) {
+        console.error("Error:", error);
+        alert("Ocurrió un error en el servidor.");
+    }
+}

@@ -785,6 +785,84 @@ def autorizar_solicitud(request, solicitud_id):
 
     return redirect('dashboard_solicitudcompras')
 
+@login_required(login_url='/login/')
+@transaction.atomic
+def cancelar_solicitud(request, solicitud_id):
+    """
+    Cancela una solicitud de compra y libera las partidas del pedido origen
+    para que puedan ser solicitadas nuevamente.
+    """
+    empresa_actual = get_empresa_actual(request)
+    solicitud = get_object_or_404(SolicitudCompra, id=solicitud_id, empresa=empresa_actual)
+
+    if solicitud.estado == 'atendida':
+        msg = "No se puede cancelar una solicitud que ya ha sido atendida (OC generada)."
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': msg})
+        messages.error(request, msg)
+        return redirect('dashboard_solicitudcompras')
+
+    if solicitud.estado == 'cancelada':
+        msg = "Esta solicitud ya está cancelada."
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': msg})
+        messages.warning(request, msg)
+        return redirect('dashboard_solicitudcompras')
+
+    # 1. Liberar las partidas del pedido
+    detalles_solicitud = solicitud.detalles.all()
+    for detalle in detalles_solicitud:
+        if detalle.detalle_pedido_origen:
+            detalle_pedido = detalle.detalle_pedido_origen
+            if detalle_pedido.estado_linea == 'en_proceso':
+                # Revertir al estado original de abastecimiento según el tipo de producto
+                if detalle_pedido.producto.tipo_abastecimiento == 'produccion':
+                    detalle_pedido.estado_linea = 'produccion'
+                else:
+                    detalle_pedido.estado_linea = 'compra'
+                detalle_pedido.save()
+    
+    # 2. Si la solicitud tiene un pedido_origen, y se generaron órdenes de producción
+    # en borrador vinculadas a este pedido, también las cancelamos para no duplicar.
+    if solicitud.pedido_origen:
+        from produccion.models import OrdenProduccion
+        ordenes_produccion = OrdenProduccion.objects.filter(
+            pedido_origen=solicitud.pedido_origen,
+            estado='borrador',
+            empresa=empresa_actual
+        )
+        for op in ordenes_produccion:
+            op.estado = 'cancelado'
+            op.save()
+
+    # 3. Marcar solicitud como cancelada
+    solicitud.estado = 'cancelada'
+    solicitud.save()
+
+    # NOTIFICACIÓN
+    crear_notificacion(
+        empresa=empresa_actual,
+        mensaje=f"La Solicitud #{solicitud.id} ha sido CANCELADA y las partidas del pedido liberadas.",
+        actor=request.user,
+        propietario=solicitud.solicitante
+    )
+    
+    # Notificar también al vendedor del pedido si es una persona distinta
+    if solicitud.pedido_origen and solicitud.pedido_origen.vendedor != solicitud.solicitante:
+        crear_notificacion(
+            empresa=empresa_actual,
+            mensaje=f"La solicitud vinculada al Pedido #{solicitud.pedido_origen.id} ha sido CANCELADA.",
+            actor=request.user,
+            propietario=solicitud.pedido_origen.vendedor
+        )
+
+    msg = f'Solicitud SOL-{solicitud.id:04d} cancelada correctamente.'
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'success': True, 'message': msg})
+
+    messages.success(request, msg)
+    return redirect('dashboard_solicitudcompras')
+
 @login_required
 def imprimir_solicitud(request, pk):
     """Genera la vista para impresión de solicitud de compra (PDF)"""
