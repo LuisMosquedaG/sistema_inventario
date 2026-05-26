@@ -317,12 +317,14 @@
                                         </span>
                                         {% endif %}
 
-                                        <!-- BOTÓN PAGAR: Solo para revisión y completo -->
+                                        <!-- BOTÓN PAGAR: Solo para revisión y completo si no está pagado totalmente -->
                                         {% if p.estado == 'revision' or p.estado == 'completo' %}
-                                            {% if granular_sales_perms.pedidos.registrar_pago %}
-                                            <span onclick="abrirModalPago({{ p.id }})" class="icon-action" title="Registrar Pago">
-                                                <i class="bi bi-cash-stack"></i>
-                                            </span>
+                                            {% if p.pago_estado != 'pagado' %}
+                                                {% if granular_sales_perms.pedidos.registrar_pago %}
+                                                <span onclick="abrirModalPago({{ p.id }})" class="icon-action" title="Registrar Pago">
+                                                    <i class="bi bi-cash-stack"></i>
+                                                </span>
+                                                {% endif %}
                                             {% endif %}
                                         {% endif %}
 
