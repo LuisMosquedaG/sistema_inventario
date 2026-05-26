@@ -32,7 +32,8 @@ def descargar_plantilla_articulos(request):
     headers = [
         'Clave', 'Nombre*', 'Tipo (producto/servicio)', 'Abastecimiento (stock/produccion/compra)',
         'Categoria', 'Subcategoria', 'Marca', 'Modelo', 'Unidad Medida (H87/E48)', 'Costo*', 'Precio Venta*',
-        'IVA (%)', 'Stock Minimo', 'Stock Maximo', 'Maneja Lote (si/no)', 'Maneja Serie (si/no)'
+        'IVA (%)', 'Stock Minimo', 'Stock Maximo', 'Maneja Lote (si/no)', 'Maneja Serie (si/no)',
+        'Estado (activo/inactivo/descontinuado/revision)'
     ]
     ws.append(headers)
     for col_idx, header in enumerate(headers, 1):
@@ -126,6 +127,12 @@ def importar_articulos_ajax(request):
                             if row[14] is not None: producto.maneja_lote = str(row[14]).strip().lower() == 'si'
                             if row[15] is not None: producto.maneja_serie = str(row[15]).strip().lower() == 'si'
                             
+                            # Estado
+                            if len(row) > 16 and row[16] is not None:
+                                val_estado = str(row[16]).strip().lower()
+                                if val_estado in ['activo', 'inactivo', 'descontinuado', 'revision']:
+                                    producto.estado = val_estado
+                            
                             producto.save()
                             actualizados += 1
                         else:
@@ -137,6 +144,13 @@ def importar_articulos_ajax(request):
                                 cat_obj, _ = Categoria.objects.get_or_create(nombre=cat_name, empresa=empresa_actual)
                                 if subcat_name:
                                     Subcategoria.objects.get_or_create(nombre=subcat_name, categoria=cat_obj, empresa=empresa_actual)
+
+                            # Determinar estado inicial
+                            nuevo_estado = 'activo'
+                            if len(row) > 16 and row[16] is not None:
+                                val_estado = str(row[16]).strip().lower()
+                                if val_estado in ['activo', 'inactivo', 'descontinuado', 'revision']:
+                                    nuevo_estado = val_estado
 
                             Producto.objects.create(
                                 empresa=empresa_actual,
@@ -156,7 +170,7 @@ def importar_articulos_ajax(request):
                                 stock_maximo=int(row[13] or 1000),
                                 maneja_lote=str(row[14] or 'no').strip().lower() == 'si',
                                 maneja_serie=str(row[15] or 'no').strip().lower() == 'si',
-                                estado='activo'
+                                estado=nuevo_estado
                             )
                             creados += 1
                 except Exception as row_err:
