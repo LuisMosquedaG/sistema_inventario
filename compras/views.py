@@ -428,6 +428,7 @@ def obtener_compra_json(request, compra_id):
             'moneda_id': orden.moneda.id if orden.moneda else '',
             'moneda_nombre': orden.moneda.siglas if orden.moneda else 'MXN',
             'tipo_cambio': str(orden.tipo_cambio),
+            'descuento': str(orden.descuento),
             'fecha': orden.fecha.strftime('%Y-%m-%d'),
             'fecha_formateada': orden.fecha.strftime('%d/%m/%Y'),
             'notas': orden.notas or '',
@@ -473,6 +474,7 @@ def actualizar_compra(request, compra_id):
             orden.almacen_destino_id = request.POST.get('almacen')
             orden.moneda_id = request.POST.get('moneda')
             orden.tipo_cambio = request.POST.get('tipo_cambio', '1.0000')
+            orden.descuento = request.POST.get('descuento', '0.00')
 
             nueva_fecha_str = request.POST.get('fecha')
             if nueva_fecha_str:

@@ -132,6 +132,12 @@
                     <td class="text-right">Subtotal:</td>
                     <td class="text-right">${{ orden.calcular_subtotal|floatformat:2 }}</td>
                 </tr>
+                {% if orden.descuento > 0 %}
+                <tr>
+                    <td class="text-right">Descuento:</td>
+                    <td class="text-right">-${{ orden.descuento|floatformat:2 }}</td>
+                </tr>
+                {% endif %}
                 <tr>
                     <td class="text-right">IVA:</td>
                     <td class="text-right">${{ orden.calcular_iva|floatformat:2 }}</td>
@@ -140,6 +146,13 @@
                     <td class="text-right">TOTAL:</td>
                     <td class="text-right">${{ orden.calcular_total|floatformat:2 }}</td>
                 </tr>
+                {% if orden.moneda.siglas != 'MXN' %}
+                {% load humanize %}
+                <tr>
+                    <td class="text-right" style="font-size: 0.75rem; color: #666; padding-top: 10px;">Total en Pesos (MXN):</td>
+                    <td class="text-right" style="font-size: 0.85rem; color: #333; padding-top: 10px;">${{ orden.total_en_pesos|floatformat:2|intcomma }}</td>
+                </tr>
+                {% endif %}
             </table>
         </div>
 

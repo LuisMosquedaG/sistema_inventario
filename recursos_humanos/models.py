@@ -92,7 +92,7 @@ class Empleado(models.Model):
     num_ext = models.CharField(max_length=50, blank=True, null=True, verbose_name="Número Exterior")
     num_int = models.CharField(max_length=50, blank=True, null=True, verbose_name="Número Interior")
     colonia = models.CharField(max_length=150, blank=True, null=True, verbose_name="Colonia")
-    cp = models.CharField(max_length=10, blank=True, null=True, verbose_name="Código Postal")
+    cp = models.CharField(max_length=255, blank=True, null=True, verbose_name="Código Postal")
     ciudad = models.CharField(max_length=150, blank=True, null=True, verbose_name="Ciudad")
     estado_dir = models.CharField(max_length=100, blank=True, null=True, verbose_name="Estado")
 
@@ -110,6 +110,10 @@ class Empleado(models.Model):
     fecha_expiracion = models.DateField(null=True, blank=True, verbose_name="Fecha de Expiración Contrato")
     tipo_contrato = models.CharField(max_length=20, choices=TIPO_CONTRATO_CHOICES, default='01', verbose_name="Tipo de Contrato")
     jornada = models.CharField(max_length=20, choices=JORNADA_CHOICES, default='diurna', verbose_name="Jornada")
+    tipo_regimen_sat = models.CharField(max_length=50, blank=True, null=True, verbose_name="Tipo Régimen (SAT)")
+    jornada_sat = models.CharField(max_length=50, blank=True, null=True, verbose_name="Tipo Jornada (SAT)")
+    antiguedad_sat = models.CharField(max_length=50, blank=True, null=True, verbose_name="Antigüedad (Texto/SAT)")
+    periodicidad_pago_sat = models.CharField(max_length=50, blank=True, null=True, verbose_name="Periodicidad Pago (SAT)")
     puesto = models.CharField(max_length=100, default="", verbose_name="Puesto")
     departamento = models.CharField(max_length=100, default="", verbose_name="Departamento/Área")
     supervisor = models.CharField(max_length=150, blank=True, null=True, verbose_name="Supervisor Inmediato")
@@ -402,5 +406,59 @@ class TrabajadorSUA(models.Model):
     class Meta:
         verbose_name = "Trabajador SUA"
         verbose_name_plural = "Trabajadores SUA"
+
+
+class Nomina(models.Model):
+    TIPO_NOMINA_CHOICES = [
+        ('O', 'O - Nómina ordinaria'),
+        ('E', 'E - Nómina extraordinaria'),
+    ]
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
+    empleado = models.ForeignKey(Empleado, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Empleado", related_name="nominas")
+    sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
+
+    # 1. Datos de timbrado
+    periodo = models.CharField(max_length=100, verbose_name="Periodo")
+    uso_cfdi = models.CharField(max_length=255, default="CN01", verbose_name="Uso de CFDI")
+    uuid = models.CharField(max_length=36, blank=True, null=True, verbose_name="UUID")
+    tipo_nomina = models.CharField(max_length=1, choices=TIPO_NOMINA_CHOICES, default='O', verbose_name="Tipo de Nómina")
+    serie = models.CharField(max_length=20, blank=True, null=True, verbose_name="Serie")
+    folio = models.CharField(max_length=20, blank=True, null=True, verbose_name="Folio")
+    fecha_emision = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de Emisión")
+    fecha_certificacion = models.DateTimeField(null=True, blank=True, verbose_name="Fecha Certificación")
+    fecha_pago = models.DateField(null=True, blank=True, verbose_name="Fecha Pago")
+    fecha_inicial_pago = models.DateField(null=True, blank=True, verbose_name="Fecha Inicial Pago")
+    fecha_final_pago = models.DateField(null=True, blank=True, verbose_name="Fecha Final Pago")
+    dias_pagados = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Días Pagados")
+
+    # 2. Datos del trabajador
+    rfc = models.CharField(max_length=13, verbose_name="RFC")
+    curp = models.CharField(max_length=18, verbose_name="CURP")
+    nss = models.CharField(max_length=11, verbose_name="NSS")
+    nombre = models.CharField(max_length=255, verbose_name="Nombre")
+    rfc_contratista = models.CharField(max_length=13, blank=True, null=True, verbose_name="RFC (Contratista)")
+    sdi = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="SDI")
+    sbc = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="SBC")
+
+    # 3. Percepciones
+    # Exento
+    vacaciones_exento = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Vacaciones (Exento)")
+    vacaciones_dignas_exento = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Vacaciones Dignas (Exento)")
+    aguinaldo_exento = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Aguinaldo (Exento)")
+    
+    # Gravado
+    sueldo_gravado = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Sueldo (Gravado)")
+    vacaciones_gravado = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Vacaciones (Gravado)")
+    vacaciones_dignas_gravado = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Vacaciones Dignas (Gravado)")
+    aguinaldo_gravado = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Aguinaldo (Gravado)")
+
+    def __str__(self):
+        return f"Nómina {self.folio or self.id} - {self.nombre} ({self.periodo})"
+
+    class Meta:
+        verbose_name = "Nómina"
+        verbose_name_plural = "Nóminas"
+        ordering = ['-fecha_pago', 'nombre']
 
 

@@ -1,0 +1,736 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    /* ==========================================
+    ANIMACIÓN SUAVE DEL MODAL
+    ========================================== */
+    .modal.fade .modal-dialog {
+        transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease-out !important;
+        transform: scale(0.9) translateY(-50px) !important;
+        opacity: 0;
+    }
+    .modal.show .modal-dialog {
+        transform: scale(1) translateY(0) !important;
+        opacity: 1 !important;
+    }
+
+    /* ==========================================
+    ICONOS DE ACCIÓN
+    ========================================== */
+    .icon-action {
+        color: #adb5bd;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        text-decoration: none !important;
+    }
+    .icon-action:hover {
+        color: #00b8b9;
+        transform: scale(1.15);
+        background-color: transparent !important;
+    }
+    .icon-action:active {
+        transform: scale(0.95);
+    }
+    .icon-action-danger:hover {
+        color: #e03131 !important;
+    }
+
+    /* ==========================================
+    PILLS FINAS
+    ========================================== */
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.7rem;
+        line-height: 1;
+        padding: 0.25em 0.6em;
+        font-weight: 600;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: middle;
+        border-radius: 50px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        transition: all 0.2s ease-in-out;
+    }
+    .status-ordinaria { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
+    .status-extraordinaria { background-color: #fff9db; color: #f59f00; border: 1px solid #ffec99; }
+
+    /* ==========================================
+    ESTILO MODAL
+    ========================================== */
+    .modal-sheet .modal-content {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        overflow: hidden;
+    }
+    
+    .modal-body-gray {
+        background-color: #f8f9fa;
+        max-height: 75vh;
+        overflow-y: auto;
+    }
+
+    .form-label-custom {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #495057;
+        margin-bottom: 0.35rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .card-section {
+        border: 1px solid #e9ecef !important;
+        transition: all 0.2s ease;
+    }
+    .card-section:hover {
+        border-color: #00b8b9 !important;
+    }
+
+    .table.table-pro tbody tr:hover td {
+        background-color: #f1f3f5 !important;
+    }
+
+    /* Tabs Personalizados */
+    .nav-tabs-custom {
+        border-bottom: 1px solid #dee2e6 !important;
+        background-color: #ffffff;
+    }
+    .nav-tabs-custom .nav-link {
+        border: none !important;
+        color: #adb5bd !important;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 1rem 0.5rem;
+        border-bottom: 2px solid transparent !important;
+        transition: all 0.3s ease;
+        background: transparent !important;
+    }
+    .nav-tabs-custom .nav-link.active {
+        color: #00b8b9 !important;
+        border-bottom: 2px solid #00b8b9 !important;
+    }
+    /* ==========================================
+    ZONA DE IMPORTACIÓN (ESTILO CLIENTES)
+    ========================================== */
+    .import-zone {
+        border: 2px dashed #dee2e6;
+        border-radius: 12px;
+        padding: 40px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background-color: #f8f9fa;
+    }
+    .import-zone:hover {
+        border-color: #00b8b9;
+        background-color: #f0fdfa;
+    }
+    .import-zone i {
+        font-size: 3rem;
+        color: #00b8b9;
+        margin-bottom: 15px;
+        display: block;
+    }
+</style>
+
+<div class="container-fluid py-2 px-4">
+    <!-- HEADER -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+        <div>
+            <h4 class="section-title mb-0">Nóminas</h4>
+            <span class="section-subtitle">Módulo de Recursos Humanos</span>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <button class="btn btn-light text-secondary btn-pro shadow-sm border" data-bs-toggle="modal" data-bs-target="#modalImportarNomina">
+                <i class="bi bi-upload me-1"></i> Importador
+            </button>
+            <button class="btn btn-brand text-white btn-sm px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaNomina" onclick="prepararNuevaNomina()">
+                <i class="bi bi-plus-lg me-1"></i> Nueva Nómina
+            </button>
+        </div>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-2">
+            <form method="get" id="formFiltrosNomina" class="row gx-2 gy-0 align-items-end">
+                <div class="col">
+                    <label class="form-label-custom mb-1" style="font-size: 0.65rem;">Búsqueda General</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                        <input type="text" name="q" class="form-control border-start-0" placeholder="General..." value="{{ filtros.q|default:'' }}">
+                    </div>
+                </div>
+                <div class="col">
+                    <label class="form-label-custom mb-1" style="font-size: 0.65rem;">Folio</label>
+                    <input type="text" name="folio" class="form-control form-control-sm" placeholder="Folio" value="{{ filtros.folio|default:'' }}">
+                </div>
+                <div class="col">
+                    <label class="form-label-custom mb-1" style="font-size: 0.65rem;">UUID</label>
+                    <input type="text" name="uuid" class="form-control form-control-sm" placeholder="Fiscal" value="{{ filtros.uuid|default:'' }}">
+                </div>
+                <div class="col">
+                    <label class="form-label-custom mb-1" style="font-size: 0.65rem;">Colaborador</label>
+                    <input type="text" name="colaborador" class="form-control form-control-sm" placeholder="Nombre" value="{{ filtros.colaborador|default:'' }}">
+                </div>
+                <div class="col">
+                    <label class="form-label-custom mb-1" style="font-size: 0.65rem;">RFC Contratista</label>
+                    <input type="text" name="rfc_contratista" class="form-control form-control-sm" placeholder="RFC" value="{{ filtros.rfc_contratista|default:'' }}">
+                </div>
+                <div class="col">
+                    <label class="form-label-custom mb-1" style="font-size: 0.65rem;">Fecha Pago</label>
+                    <input type="date" name="fecha_pago" class="form-control form-control-sm" value="{{ filtros.fecha_pago|default:'' }}" onchange="this.form.submit()">
+                </div>
+                <div class="col">
+                    <label class="form-label-custom mb-1" style="font-size: 0.65rem;">Sucursal</label>
+                    <select name="sucursal" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Sucursales...</option>
+                        {% for s in sucursales %}
+                        <option value="{{ s.id }}" {% if filtros.sucursal == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TABLA -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-pro mb-0">
+                    <thead>
+                        <tr>
+                            <th class="text-center" style="width: 80px;">Acciones</th>
+                            <th class="text-center" style="width: 150px;">Folio / UUID</th>
+                            <th class="text-center" style="width: 200px;">Colaborador / RFC</th>
+                            <th class="text-center" style="width: 140px;">RFC / Contratista</th>
+                            <th class="text-center" style="width: 130px;">Periodo</th>
+                            <th class="text-center" style="width: 160px;">Fecha Inicial / Final</th>
+                            <th class="text-center" style="width: 100px;">Fecha Pago</th>
+                            <th class="text-center" style="width: 100px;">Tipo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for nom in page_obj %}
+                        <tr>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-1">
+                                    <span class="icon-action" title="Editar Nómina" onclick="editarNomina({{ nom.id }})">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </span>
+                                    <span class="icon-action icon-action-danger" title="Eliminar" onclick="eliminarNomina({{ nom.id }})">
+                                        <i class="bi bi-trash"></i>
+                                    </span>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <div class="text-dark small fw-bold">{{ nom.folio|default:"--" }}</div>
+                                <div class="text-muted" style="font-size: 0.6rem;">{{ nom.uuid|default:"--" }}</div>
+                            </td>
+                            <td class="text-center">
+                                <div class="text-dark small fw-bold">{{ nom.nombre }}</div>
+                                <div class="text-muted small" style="font-size: 0.7rem;">{{ nom.rfc }}</div>
+                            </td>
+                            <td class="text-center">
+                                <span class="text-muted small fw-bold">{{ nom.rfc_contratista|default:"--" }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="text-muted small">{{ nom.periodo }}</span>
+                            </td>
+                            <td class="text-center">
+                                <div class="text-dark" style="font-size: 0.7rem;">{{ nom.fecha_inicial_pago|date:"d/m/Y"|default:"--" }}</div>
+                                <div class="text-muted" style="font-size: 0.7rem;">{{ nom.fecha_final_pago|date:"d/m/Y"|default:"--" }}</div>
+                            </td>
+                            <td class="text-center">
+                                <span class="text-muted small">{{ nom.fecha_pago|date:"d/m/Y"|default:"--" }}</span>
+                            </td>
+                            <td class="text-center">
+                                {% if nom.tipo_nomina == 'O' %}
+                                    <span class="status-pill status-ordinaria">Ordinaria</span>
+                                {% else %}
+                                    <span class="status-pill status-extraordinaria">Extraordinaria</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5">
+                                <i class="bi bi-file-earmark-text display-6 text-muted mb-2 d-block"></i>
+                                <span class="text-muted fst-italic small">No hay nóminas registradas</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Footer Unificado con Paginación -->
+        <div class="card-footer bg-white border-0 py-2 px-4 d-flex justify-content-between align-items-center">
+            <span class="text-muted small" style="font-size: 0.75rem;">
+                Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }}
+            </span>
+            
+            <div class="d-flex gap-1">
+                {% if page_obj.has_previous %}
+                    <!-- Primero -->
+                    <a href="?page=1{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.folio %}&folio={{ filtros.folio }}{% endif %}{% if filtros.uuid %}&uuid={{ filtros.uuid }}{% endif %}{% if filtros.colaborador %}&colaborador={{ filtros.colaborador }}{% endif %}{% if filtros.rfc_contratista %}&rfc_contratista={{ filtros.rfc_contratista }}{% endif %}{% if filtros.fecha_pago %}&fecha_pago={{ filtros.fecha_pago }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Primera página">&laquo;&laquo;</a>
+                    
+                    <!-- Anterior -->
+                    <a href="?page={{ page_obj.previous_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.folio %}&folio={{ filtros.folio }}{% endif %}{% if filtros.uuid %}&uuid={{ filtros.uuid }}{% endif %}{% if filtros.colaborador %}&colaborador={{ filtros.colaborador }}{% endif %}{% if filtros.rfc_contratista %}&rfc_contratista={{ filtros.rfc_contratista }}{% endif %}{% if filtros.fecha_pago %}&fecha_pago={{ filtros.fecha_pago }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Anterior">&laquo;</a>
+                {% else %}
+                    <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;&laquo;</button>
+                    <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;</button>
+                {% endif %}
+                
+                <!-- Números de Página (Rango de 5) -->
+                {% for i in page_obj.paginator.page_range %}
+                    {% if i >= page_obj.number|add:"-2" and i <= page_obj.number|add:"2" %}
+                        {% if page_obj.number == i %}
+                            <button class="btn btn-sm btn-brand text-white fw-bold shadow-sm" style="min-width: 32px; background-color: #00b8b9; border: none;">{{ i }}</button>
+                        {% else %}
+                            <a href="?page={{ i }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.folio %}&folio={{ filtros.folio }}{% endif %}{% if filtros.uuid %}&uuid={{ filtros.uuid }}{% endif %}{% if filtros.colaborador %}&colaborador={{ filtros.colaborador }}{% endif %}{% if filtros.rfc_contratista %}&rfc_contratista={{ filtros.rfc_contratista }}{% endif %}{% if filtros.fecha_pago %}&fecha_pago={{ filtros.fecha_pago }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}" 
+                               class="btn btn-sm btn-light border-0 text-dark" style="min-width: 32px;">{{ i }}</a>
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                    <!-- Siguiente -->
+                    <a href="?page={{ page_obj.next_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.folio %}&folio={{ filtros.folio }}{% endif %}{% if filtros.uuid %}&uuid={{ filtros.uuid }}{% endif %}{% if filtros.colaborador %}&colaborador={{ filtros.colaborador }}{% endif %}{% if filtros.rfc_contratista %}&rfc_contratista={{ filtros.rfc_contratista }}{% endif %}{% if filtros.fecha_pago %}&fecha_pago={{ filtros.fecha_pago }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Siguiente">&raquo;</a>
+                    
+                    <!-- Último -->
+                    <a href="?page={{ page_obj.paginator.num_pages }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.folio %}&folio={{ filtros.folio }}{% endif %}{% if filtros.uuid %}&uuid={{ filtros.uuid }}{% endif %}{% if filtros.colaborador %}&colaborador={{ filtros.colaborador }}{% endif %}{% if filtros.rfc_contratista %}&rfc_contratista={{ filtros.rfc_contratista }}{% endif %}{% if filtros.fecha_pago %}&fecha_pago={{ filtros.fecha_pago }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Última página">&raquo;&raquo;</a>
+                {% else %}
+                    <button class="btn btn-sm btn-light border-0 text-muted" disabled>&raquo;</button>
+                    <button class="btn btn-sm btn-light border-0 text-muted" disabled>&raquo;&raquo;</button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: NUEVA/EDITAR NÓMINA -->
+<div class="modal fade" id="modalNuevaNomina" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-sheet modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-white border-bottom-0 py-3">
+                <div class="d-flex align-items-center">
+                    <div class="bg-primary bg-opacity-10 p-2 rounded me-3" style="color: #00b8b9;">
+                        <i class="bi bi-file-earmark-check-fill fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0" id="modalNominaLabel">Registro de Nómina</h5>
+                        <small class="text-muted">Gestión de timbrado y percepciones</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <!-- TABS -->
+            <ul class="nav nav-tabs nav-justified nav-tabs-custom" id="nominaTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="timbrado-tab" data-bs-toggle="tab" data-bs-target="#timbrado" type="button" role="tab">1. Datos de Timbrado</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="trabajador-tab" data-bs-toggle="tab" data-bs-target="#trabajador" type="button" role="tab">2. Datos del Trabajador</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="percepciones-tab" data-bs-toggle="tab" data-bs-target="#percepciones" type="button" role="tab">3. Percepciones</button>
+                </li>
+            </ul>
+
+            <form id="formNomina" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="nomina_id" id="nomina_id">
+                <div class="modal-body modal-body-gray p-4">
+                    <div class="tab-content" id="nominaTabsContent">
+                        
+                        <!-- TAB 1: DATOS DE TIMBRADO -->
+                        <div class="tab-pane fade show active" id="timbrado" role="tabpanel">
+                            <div class="card card-section border-0 shadow-sm mb-3">
+                                <div class="card-body p-3 bg-white rounded-3">
+                                    <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">Información del CFDI</h6>
+                                    <div class="row g-3">
+                                        <div class="col-md-4">
+                                            <label class="form-label-custom">Periodo <span class="text-danger">*</span></label>
+                                            <input type="text" name="periodo" class="form-control form-control-sm" required placeholder="Ej: Mayo 2024">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label-custom">Uso de CFDI</label>
+                                            <input type="text" name="uso_cfdi" class="form-control form-control-sm" value="CN01">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label-custom">UUID</label>
+                                            <input type="text" name="uuid" class="form-control form-control-sm" placeholder="Folio Fiscal">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label-custom">Tipo de Nómina</label>
+                                            <select name="tipo_nomina" class="form-select form-select-sm">
+                                                <option value="O">O - Nómina ordinaria</option>
+                                                <option value="E">E - Nómina extraordinaria</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label-custom">Serie</label>
+                                            <input type="text" name="serie" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label-custom">Folio</label>
+                                            <input type="text" name="folio" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label-custom">Días Pagados</label>
+                                            <input type="number" step="0.01" name="dias_pagados" class="form-control form-control-sm" value="0">
+                                        </div>
+                                    </div>
+                                    <div class="row g-3 mt-1">
+                                        <div class="col-md-4">
+                                            <label class="form-label-custom">Fecha de Emisión</label>
+                                            <input type="datetime-local" name="fecha_emision" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label-custom">Fecha Certificación</label>
+                                            <input type="datetime-local" name="fecha_certificacion" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label-custom">Fecha Pago</label>
+                                            <input type="date" name="fecha_pago" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label-custom">Fecha Inicial Pago</label>
+                                            <input type="date" name="fecha_inicial_pago" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label-custom">Fecha Final Pago</label>
+                                            <input type="date" name="fecha_final_pago" class="form-control form-control-sm">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAB 2: DATOS DEL TRABAJADOR -->
+                        <div class="tab-pane fade" id="trabajador" role="tabpanel">
+                            <div class="card card-section border-0 shadow-sm mb-3">
+                                <div class="card-body p-3 bg-white rounded-3">
+                                    <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">Identificación del Colaborador</h6>
+                                    <div class="row g-3">
+                                        <div class="col-md-12">
+                                            <label class="form-label-custom">Nombre de empleado</label>
+                                            <select name="empleado" id="select_empleado_nomina" class="form-select form-select-sm" onchange="cargarDatosEmpleado()">
+                                                <option value="">-- Seleccionar Empleado --</option>
+                                                {% for e in empleados %}
+                                                <option value="{{ e.id }}" data-rfc="{{ e.rfc }}" data-curp="{{ e.curp }}" data-nss="{{ e.nss }}" data-nombre="{{ e.nombre }} {{ e.apellido_paterno }} {{ e.apellido_materno }}" data-sdi="{{ e.sdi }}" data-sbc="{{ e.sbc }}">
+                                                    {{ e.apellido_paterno }} {{ e.apellido_materno }} {{ e.nombre }} ({{ e.num_empleado }})
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                            <input type="hidden" name="nombre" id="nom_nombre">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label-custom">RFC <span class="text-danger">*</span></label>
+                                            <input type="text" name="rfc" id="nom_rfc" class="form-control form-control-sm" required maxlength="13">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label-custom">CURP <span class="text-danger">*</span></label>
+                                            <input type="text" name="curp" id="nom_curp" class="form-control form-control-sm" required maxlength="18">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label-custom">NSS <span class="text-danger">*</span></label>
+                                            <input type="text" name="nss" id="nom_nss" class="form-control form-control-sm" required maxlength="11">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label-custom">RFC (Contratista)</label>
+                                            <input type="text" name="rfc_contratista" class="form-control form-control-sm" maxlength="13">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label-custom">SDI</label>
+                                            <input type="number" step="0.01" name="sdi" id="nom_sdi" class="form-control form-control-sm" value="0">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label-custom">SBC</label>
+                                            <input type="number" step="0.01" name="sbc" id="nom_sbc" class="form-control form-control-sm" value="0">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAB 3: PERCEPCIONES -->
+                        <div class="tab-pane fade" id="percepciones" role="tabpanel">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="card card-section border-0 shadow-sm h-100">
+                                        <div class="card-body p-3 bg-white rounded-3">
+                                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">Conceptos Exentos</h6>
+                                            <div class="row g-3">
+                                                <div class="col-12">
+                                                    <label class="form-label-custom">Vacaciones</label>
+                                                    <input type="number" step="0.01" name="vacaciones_exento" class="form-control form-control-sm" value="0">
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label-custom">Vacaciones Dignas</label>
+                                                    <input type="number" step="0.01" name="vacaciones_dignas_exento" class="form-control form-control-sm" value="0">
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label-custom">Aguinaldo</label>
+                                                    <input type="number" step="0.01" name="aguinaldo_exento" class="form-control form-control-sm" value="0">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card card-section border-0 shadow-sm h-100">
+                                        <div class="card-body p-3 bg-white rounded-3">
+                                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">Conceptos Gravados</h6>
+                                            <div class="row g-3">
+                                                <div class="col-12">
+                                                    <label class="form-label-custom">Sueldo</label>
+                                                    <input type="number" step="0.01" name="sueldo_gravado" class="form-control form-control-sm" value="0">
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label-custom">Vacaciones</label>
+                                                    <input type="number" step="0.01" name="vacaciones_gravado" class="form-control form-control-sm" value="0">
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label-custom">Vacaciones Dignas</label>
+                                                    <input type="number" step="0.01" name="vacaciones_dignas_gravado" class="form-control form-control-sm" value="0">
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label-custom">Aguinaldo</label>
+                                                    <input type="number" step="0.01" name="aguinaldo_gravado" class="form-control form-control-sm" value="0">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-white border-top-0 py-3">
+                    <button type="button" class="btn btn-light btn-sm px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-brand btn-sm text-white px-4 shadow-sm">Guardar Nómina</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: IMPORTAR NÓMINA -->
+<div class="modal fade" id="modalImportarNomina" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sheet">
+        <div class="modal-content border-0">
+            <div class="modal-header border-bottom bg-light">
+                <h5 class="modal-title fw-bold">Importar Nóminas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formImportarNomina" enctype="multipart/form-data">
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-4">Carga un archivo Excel (.xlsx) con la estructura del SAT para importar nóminas y actualizar empleados automáticamente.</p>
+                    
+                    <div class="import-zone" onclick="document.getElementById('archivo_nomina').click()">
+                        <i class="bi bi-file-earmark-excel"></i>
+                        <span class="fw-bold text-dark d-block">Haga clic para subir Excel</span>
+                        <span class="text-muted small" id="nominaFileNameDisplay">Solo archivos .xlsx</span>
+                        <input type="file" name="archivo" id="archivo_nomina" hidden accept=".xlsx" onchange="updateNominaFileName(this)">
+                    </div>
+
+                    <div id="importNominaProgress" class="mt-3" style="display: none;">
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-brand" role="progressbar" style="width: 100%"></div>
+                        </div>
+                        <p class="text-center small text-muted mt-2">Procesando registros, por favor espere...</p>
+                    </div>
+
+                    <div class="alert alert-info mt-3 py-2" style="font-size: 0.7rem;">
+                        <i class="bi bi-info-circle me-1"></i> El sistema buscará a los empleados por <strong>CURP</strong> y <strong>NSS</strong> para sincronizar sus datos.
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 bg-white">
+                    <button type="button" class="btn btn-light btn-sm text-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-brand btn-sm text-white px-4 fw-bold shadow-sm" id="btnConfirmarImportNomina" onclick="importarNomina()">Subir e Importar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    var csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    function updateNominaFileName(input) {
+        var display = document.getElementById('nominaFileNameDisplay');
+        if (input.files && input.files[0]) {
+            display.textContent = input.files[0].name;
+            display.classList.remove('text-muted');
+            display.classList.add('text-brand', 'fw-bold');
+        } else {
+            display.textContent = 'Solo archivos .xlsx';
+            display.classList.remove('text-brand', 'fw-bold');
+            display.classList.add('text-muted');
+        }
+    }
+
+    function getModalNomina() {
+        var el = document.getElementById('modalNuevaNomina');
+        return bootstrap.Modal.getOrCreateInstance(el);
+    }
+
+    function prepararNuevaNomina() {
+        document.getElementById('formNomina').reset();
+        document.getElementById('nomina_id').value = '';
+        document.getElementById('modalNominaLabel').innerText = 'Registro de Nómina';
+        
+        var firstTabEl = document.querySelector('#timbrado-tab');
+        if (firstTabEl) {
+            var firstTab = bootstrap.Tab.getOrCreateInstance(firstTabEl);
+            firstTab.show();
+        }
+    }
+
+    function cargarDatosEmpleado() {
+        var select = document.getElementById('select_empleado_nomina');
+        var opt = select.options[select.selectedIndex];
+        if (!opt || !opt.value) return;
+
+        document.getElementById('nom_nombre').value = opt.getAttribute('data-nombre') || '';
+        document.getElementById('nom_rfc').value = opt.getAttribute('data-rfc') || '';
+        document.getElementById('nom_curp').value = opt.getAttribute('data-curp') || '';
+        document.getElementById('nom_nss').value = opt.getAttribute('data-nss') || '';
+        document.getElementById('nom_sdi').value = opt.getAttribute('data-sdi') || '0';
+        document.getElementById('nom_sbc').value = opt.getAttribute('data-sbc') || '0';
+    }
+
+    async function editarNomina(id) {
+        try {
+            var response = await fetch('/recursos-humanos/nomina/obtener/' + id + '/');
+            if (!response.ok) {
+                var errText = await response.text();
+                throw new Error('Error ' + response.status + ': ' + errText);
+            }
+            var result = await response.json();
+            if (result.success) {
+                var d = result.data;
+                document.getElementById('nomina_id').value = d.id;
+                document.getElementById('modalNominaLabel').innerText = 'Editar Nómina #' + String(d.id).padStart(4, '0');
+                
+                var f = document.getElementById('formNomina');
+                var fields = [
+                    'periodo', 'uso_cfdi', 'uuid', 'tipo_nomina', 'serie', 'folio',
+                    'fecha_emision', 'fecha_certificacion', 'fecha_pago', 
+                    'fecha_inicial_pago', 'fecha_final_pago', 'dias_pagados',
+                    'empleado', 'nombre', 'rfc', 'curp', 'nss', 'rfc_contratista', 'sdi', 'sbc',
+                    'vacaciones_exento', 'vacaciones_dignas_exento', 'aguinaldo_exento',
+                    'sueldo_gravado', 'vacaciones_gravado', 'vacaciones_dignas_gravado', 'aguinaldo_gravado'
+                ];
+
+                fields.forEach(function(field) {
+                    if (f[field]) f[field].value = d[field] || (field.includes('fecha') ? '' : (field === 'tipo_nomina' ? 'O' : '0'));
+                });
+
+                getModalNomina().show();
+            } else {
+                alert("Error: " + result.error);
+            }
+        } catch (error) {
+            console.error("Error al obtener datos:", error);
+            alert("Ocurrió un error al cargar los datos: " + error.message);
+        }
+    }
+
+    document.getElementById('formNomina').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        var formData = new FormData(e.target);
+        var id = document.getElementById('nomina_id').value;
+        var url = id ? '/recursos-humanos/nomina/editar/' + id + '/' : '/recursos-humanos/nomina/crear/';
+
+        try {
+            var response = await fetch(url, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrftoken },
+                body: formData
+            });
+            var result = await response.json();
+            if (result.success) {
+                location.reload();
+            } else {
+                alert("Error: " + result.error);
+            }
+        } catch (error) {
+            alert("Error en el servidor");
+        }
+    });
+
+    async function eliminarNomina(id) {
+        if (!confirm("¿Está seguro de eliminar este registro de nómina?")) return;
+        try {
+            var response = await fetch('/recursos-humanos/nomina/eliminar/' + id + '/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrftoken }
+            });
+            var result = await response.json();
+            if (result.success) location.reload();
+            else alert(result.error);
+        } catch (error) {
+            alert("Error al procesar eliminación");
+        }
+    }
+
+    async function importarNomina() {
+        var form = document.getElementById('formImportarNomina');
+        var formData = new FormData(form);
+        var btn = document.getElementById('btnConfirmarImportNomina');
+        var progress = document.getElementById('importNominaProgress');
+
+        if (!document.getElementById('archivo_nomina').files.length) {
+            alert('Por favor seleccione un archivo Excel.');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Procesando...';
+        progress.style.display = 'block';
+
+        try {
+            var response = await fetch('/recursos-humanos/nomina/importar/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrftoken },
+                body: formData
+            });
+            var result = await response.json();
+            
+            progress.style.display = 'none';
+
+            if (result.success) {
+                alert(result.message);
+                location.reload();
+            } else {
+                alert("Error al importar: " + result.error);
+                btn.disabled = false;
+                btn.innerText = 'Subir e Importar';
+            }
+        } catch (error) {
+            progress.style.display = 'none';
+            alert("Error de conexión con el servidor");
+            btn.disabled = false;
+            btn.innerText = 'Subir e Importar';
+        }
+    }
+</script>
+{% endblock %}

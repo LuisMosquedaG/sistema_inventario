@@ -284,7 +284,7 @@
             {% if empresa.modulo_recursos_humanos %}
             <div>
                 <a href="#submenu-rrhh" data-bs-toggle="collapse" class="sidebar-link {% if '/recursos-humanos/' in request.path %}sidebar-active{% endif %}">
-                    <i class="bi bi-people-fill sidebar-icon"></i> Recurso Humanos
+                    <i class="bi bi-people-fill sidebar-icon"></i> Oblig. Patronales
                     <i class="bi bi-chevron-down small ms-auto" style="font-size: 0.7rem;"></i>
                 </a>
                 <div class="collapse {% if '/recursos-humanos/' in request.path %}show{% endif %}" id="submenu-rrhh">
@@ -294,6 +294,7 @@
                         <li><a href="/recursos-humanos/contratistas/" class="sidebar-link sidebar-level-2 {% if request.path == '/recursos-humanos/contratistas/' %}sidebar-sub-active{% endif %}"><i class="bi bi-briefcase me-2 small"></i> Contratistas</a></li>
                         <li><a href="/recursos-humanos/beneficiarios/" class="sidebar-link sidebar-level-2 {% if request.path == '/recursos-humanos/beneficiarios/' %}sidebar-sub-active{% endif %}"><i class="bi bi-heart me-2 small"></i> Beneficiarios</a></li>
                         <li><a href="/recursos-humanos/sua/" class="sidebar-link sidebar-level-2 {% if request.path == '/recursos-humanos/sua/' %}sidebar-sub-active{% endif %}"><i class="bi bi-file-earmark-diff me-2 small"></i> Integrador SUA</a></li>
+                        <li><a href="/recursos-humanos/nomina/" class="sidebar-link sidebar-level-2 {% if request.path == '/recursos-humanos/nomina/' %}sidebar-sub-active{% endif %}"><i class="bi bi-file-earmark-check me-2 small"></i> Nóminas</a></li>
                     </ul>
                 </div>
             </div>

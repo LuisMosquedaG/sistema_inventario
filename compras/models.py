@@ -25,6 +25,7 @@ class OrdenCompra(models.Model):
     # NUEVOS CAMPOS: MONEDA Y TIPO DE CAMBIO
     moneda = models.ForeignKey('preferencias.Moneda', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Moneda")
     tipo_cambio = models.DecimalField(max_digits=10, decimal_places=4, default=1.0000, verbose_name="Tipo de Cambio")
+    descuento = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Descuento")
 
     notas = models.TextField(blank=True, null=True)
     usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Creado por")
@@ -49,18 +50,36 @@ class OrdenCompra(models.Model):
 
     @property
     def calcular_iva(self):
-        total = Decimal('0')
+        """Calcula el IVA proporcional tras aplicar el descuento al subtotal"""
+        subtotal_original = self.calcular_subtotal
+        if subtotal_original <= 0:
+            return Decimal('0')
+        
+        # Suma de IVA de todas las partidas
+        iva_original = Decimal('0')
         for detalle in self.detalles.all():
-            total += detalle.iva_monto
-        return total
+            iva_original += detalle.iva_monto
+            
+        # Proporción tras el descuento
+        nuevo_subtotal = subtotal_original - self.descuento
+        factor = nuevo_subtotal / subtotal_original
+        
+        return (iva_original * factor).quantize(Decimal('0.01'))
 
     @property
     def calcular_total(self):
-        return self.calcular_subtotal + self.calcular_iva
+        """Total = (Subtotal - Descuento) + IVA Ajustado"""
+        nuevo_subtotal = self.calcular_subtotal - self.descuento
+        return nuevo_subtotal + self.calcular_iva
 
     @property
     def total(self):
         return self.calcular_total
+    
+    @property
+    def total_en_pesos(self):
+        """Devuelve el total convertido a MXN usando el TC de la OC"""
+        return self.total * self.tipo_cambio
     
     @property
     def total_pagado(self):

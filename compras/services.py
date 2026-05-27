@@ -17,6 +17,7 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
     almacen_id = data_post.get('almacen')
     moneda_id = data_post.get('moneda')
     tipo_cambio = data_post.get('tipo_cambio', '1.0000')
+    descuento = data_post.get('descuento', '0.00')
     fecha = data_post.get('fecha')
     notas = data_post.get('notas')
 
@@ -41,6 +42,7 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
         almacen_destino_id=almacen_id if almacen_id else None,
         moneda_id=moneda_id if moneda_id else None,
         tipo_cambio=tipo_cambio,
+        descuento=descuento,
         fecha=fecha,
         notas=notas,
         estado='borrador',

@@ -111,7 +111,7 @@
                                     <span class="icon-action" title="Editar Contratista" onclick="editarContratista({{ c.id }})">
                                         <i class="bi bi-pencil-square"></i>
                                     </span>
-                                    <span class="icon-action" title="Contratos (SISUB)" onclick="abrirModalSISUB({{ c.id }})">
+                                    <span class="icon-action" title="Contratos (SISUB)" onclick="abrirModalSISUBContratos({{ c.id }})">
                                         <div style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
                                             <i class="bi bi-file-earmark"></i>
                                             <span style="position: absolute; font-size: 0.55rem; font-weight: 900; top: 56%; left: 50%; transform: translate(-50%, -50%);">C</span>
@@ -121,6 +121,12 @@
                                         <div style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
                                             <i class="bi bi-file-earmark"></i>
                                             <span style="position: absolute; font-size: 0.55rem; font-weight: 900; top: 56%; left: 50%; transform: translate(-50%, -50%);">I</span>
+                                        </div>
+                                    </span>
+                                    <span class="icon-action" title="Trabajadores (SISUB)" onclick="abrirModalSISUBTrabajadores({{ c.id }})">
+                                        <div style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
+                                            <i class="bi bi-file-earmark"></i>
+                                            <span style="position: absolute; font-size: 0.55rem; font-weight: 900; top: 56%; left: 50%; transform: translate(-50%, -50%);">T</span>
                                         </div>
                                     </span>
                                 </div>
@@ -390,19 +396,19 @@
     </div>
 </div>
 
-<!-- MODAL: PERIODO SISUB -->
-<div class="modal fade" id="modalSISUB" tabindex="-1" aria-hidden="true">
+<!-- MODAL: PERIODO SISUB CONTRATOS -->
+<div class="modal fade" id="modalSISUBContratos" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-sm modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header border-bottom-0 pb-0">
-                <h6 class="modal-title fw-bold">Periodo Reporte SISUB</h6>
+                <h6 class="modal-title fw-bold">SISUB (Contratos)</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <input type="hidden" id="sisub_contratista_id">
+                <input type="hidden" id="sisub_c_contratista_id">
                 <div class="mb-3">
                     <label class="form-label small fw-bold">Cuatrimestre</label>
-                    <select id="sisub_cuatrimestre" class="form-select form-select-sm">
+                    <select id="sisub_c_cuatrimestre" class="form-select form-select-sm">
                         <option value="1">Primero (Ene-Abr)</option>
                         <option value="2">Segundo (May-Ago)</option>
                         <option value="3">Tercero (Sep-Dic)</option>
@@ -410,11 +416,43 @@
                 </div>
                 <div class="mb-2">
                     <label class="form-label small fw-bold">Año</label>
-                    <input type="number" id="sisub_anio" class="form-select form-select-sm" value="{% now 'Y' %}">
+                    <input type="number" id="sisub_c_anio" class="form-control form-control-sm" value="{% now 'Y' %}">
                 </div>
             </div>
             <div class="modal-footer border-top-0 pt-0">
-                <button type="button" class="btn btn-brand text-white btn-sm w-100 fw-bold" onclick="generarReporteSISUB()">
+                <button type="button" class="btn btn-brand text-white btn-sm w-100 fw-bold" onclick="generarReporteSISUBContratos()">
+                    <i class="bi bi-download me-1"></i> Descargar Excel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: PERIODO SISUB TRABAJADORES -->
+<div class="modal fade" id="modalSISUBTrabajadores" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h6 class="modal-title fw-bold">SISUB (Trabajadores)</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="sisub_t_contratista_id">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Cuatrimestre</label>
+                    <select id="sisub_t_cuatrimestre" class="form-select form-select-sm">
+                        <option value="1">Primero (Ene-Abr)</option>
+                        <option value="2">Segundo (May-Ago)</option>
+                        <option value="3">Tercero (Sep-Dic)</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small fw-bold">Año</label>
+                    <input type="number" id="sisub_t_anio" class="form-control form-control-sm" value="{% now 'Y' %}">
+                </div>
+            </div>
+            <div class="modal-footer border-top-0 pt-0">
+                <button type="button" class="btn btn-brand text-white btn-sm w-100 fw-bold" onclick="generarReporteSISUBTrabajadores()">
                     <i class="bi bi-download me-1"></i> Descargar Excel
                 </button>
             </div>
@@ -442,7 +480,7 @@
                 </div>
                 <div class="mb-2">
                     <label class="form-label small fw-bold">Año</label>
-                    <input type="number" id="icsoe_anio" class="form-select form-select-sm" value="{% now 'Y' %}">
+                    <input type="number" id="icsoe_anio" class="form-control form-control-sm" value="{% now 'Y' %}">
                 </div>
             </div>
             <div class="modal-footer border-top-0 pt-0">
@@ -455,25 +493,54 @@
 </div>
 
 <script>
-    function abrirModalSISUB(id) {
-        document.getElementById('sisub_contratista_id').value = id;
-        new bootstrap.Modal(document.getElementById('modalSISUB')).show();
+    function abrirModalSISUBContratos(id) {
+        const input = document.getElementById('sisub_c_contratista_id');
+        if (input) input.value = id;
+        const modalEl = document.getElementById('modalSISUBContratos');
+        if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
     }
 
-    function generarReporteSISUB() {
-        const id = document.getElementById('sisub_contratista_id').value;
-        const cuat = document.getElementById('sisub_cuatrimestre').value;
-        const anio = document.getElementById('sisub_anio').value;
+    function generarReporteSISUBContratos() {
+        const id = document.getElementById('sisub_c_contratista_id').value;
+        const cuat = document.getElementById('sisub_c_cuatrimestre').value;
+        const anio = document.getElementById('sisub_c_anio').value;
         
+        if(!id) { alert("ID de contratista no encontrado"); return; }
         if(!anio) { alert("Indique el año"); return; }
         
+        // Ocultar modal primero para evitar bloqueos visuales
+        const modalEl = document.getElementById('modalSISUBContratos');
+        bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+        
         window.location.href = `/recursos-humanos/contratistas/exportar-sisub/${id}/?cuatrimestre=${cuat}&anio=${anio}`;
-        bootstrap.Modal.getInstance(document.getElementById('modalSISUB')).hide();
+    }
+
+    function abrirModalSISUBTrabajadores(id) {
+        const input = document.getElementById('sisub_t_contratista_id');
+        if (input) input.value = id;
+        const modalEl = document.getElementById('modalSISUBTrabajadores');
+        if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+
+    function generarReporteSISUBTrabajadores() {
+        const id = document.getElementById('sisub_t_contratista_id').value;
+        const cuat = document.getElementById('sisub_t_cuatrimestre').value;
+        const anio = document.getElementById('sisub_t_anio').value;
+        
+        if(!id) { alert("ID de contratista no encontrado"); return; }
+        if(!anio) { alert("Indique el año"); return; }
+        
+        const modalEl = document.getElementById('modalSISUBTrabajadores');
+        bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+        
+        window.location.href = `/recursos-humanos/contratistas/exportar-sisub-trabajadores/${id}/?cuatrimestre=${cuat}&anio=${anio}`;
     }
 
     function abrirModalICSOE(id) {
-        document.getElementById('icsoe_contratista_id').value = id;
-        new bootstrap.Modal(document.getElementById('modalICSOE')).show();
+        const input = document.getElementById('icsoe_contratista_id');
+        if (input) input.value = id;
+        const modalEl = document.getElementById('modalICSOE');
+        if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
     }
 
     function generarReporteICSOE() {
@@ -481,10 +548,13 @@
         const cuat = document.getElementById('icsoe_cuatrimestre').value;
         const anio = document.getElementById('icsoe_anio').value;
         
+        if(!id) { alert("ID de contratista no encontrado"); return; }
         if(!anio) { alert("Indique el año"); return; }
         
+        const modalEl = document.getElementById('modalICSOE');
+        bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+        
         window.location.href = `/recursos-humanos/contratistas/exportar-icsoe/${id}/?cuatrimestre=${cuat}&anio=${anio}`;
-        bootstrap.Modal.getInstance(document.getElementById('modalICSOE')).hide();
     }
 
     function prepararNuevoContratista() {

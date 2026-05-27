@@ -231,35 +231,39 @@
                                         <span onclick="descargarCompraPDF({{ c.id }})" class="icon-action" title="Imprimir PDF"><i class="bi bi-printer"></i></span>
                                         {% endif %}
 
-                                        <!-- BOTÓN PAGAR -->
-                                        {% if c.estado == 'aprobada' or c.estado == 'parcial' or c.estado == 'recibida' %}
-                                            {% if granular_purchase_perms.ordenes_compra.registrar_pago %}
-                                            <span onclick="abrirModalPagoCompra({{ c.id }})" class="icon-action" title="Registrar Pago">
-                                                <i class="bi bi-cash-stack"></i>
-                                            </span>
-                                            {% endif %}
-                                        {% endif %}
-
                                         {% if c.estado == 'borrador' %}
-                                            {% if granular_purchase_perms.ordenes_compra.aprobar %}
-                                            <span onclick="cambiarEstadoCompra({{ c.id }}, 'aprobada')" class="icon-action" title="Aprobar Orden"><i class="bi bi-check2-circle"></i></span>
-                                            {% endif %}
                                             {% if granular_purchase_perms.ordenes_compra.editar %}
                                             <span onclick="cargarParaEdicionCompra({{ c.id }})" class="icon-action" title="Editar"><i class="bi bi-pencil-square"></i></span>
                                             {% endif %}
-                                        {% elif c.estado == 'aprobada' %}
-                                            {% if granular_purchase_perms.recepciones.crear %}
-                                            <a href="/recepciones/?oc_id={{ c.id }}" class="icon-action state-received" title="Recibir Mercancía"><i class="bi bi-box-seam"></i></a>
+                                            {% if granular_purchase_perms.ordenes_compra.aprobar %}
+                                            <span onclick="cambiarEstadoCompra({{ c.id }}, 'aprobada')" class="icon-action" title="Aprobar Orden"><i class="bi bi-check2-circle"></i></span>
                                             {% endif %}
-                                            {% if granular_purchase_perms.ordenes_compra.cancelar %}
-                                            <span onclick="cambiarEstadoCompra({{ c.id }}, 'cancelada')" class="icon-action state-cancelled" title="Cancelar Orden"><i class="bi bi-x-circle"></i></span>
+                                        {% else %}
+                                            <!-- BOTÓN PAGAR -->
+                                            {% if c.estado == 'aprobada' or c.estado == 'parcial' or c.estado == 'recibida' %}
+                                                {% if c.pago_estado != 'pagado' %}
+                                                    {% if granular_purchase_perms.ordenes_compra.registrar_pago %}
+                                                    <span onclick="abrirModalPagoCompra({{ c.id }})" class="icon-action" title="Registrar Pago">
+                                                        <i class="bi bi-cash-stack"></i>
+                                                    </span>
+                                                    {% endif %}
+                                                {% endif %}
                                             {% endif %}
-                                        {% elif c.estado == 'parcial' %}
-                                            {% if granular_purchase_perms.recepciones.crear %}
-                                            <a href="/recepciones/?oc_id={{ c.id }}" class="icon-action state-received" title="Recibir Resto"><i class="bi bi-box-seam"></i></a>
-                                            {% endif %}
-                                            {% if granular_purchase_perms.ordenes_compra.cancelar %}
-                                            <span onclick="cambiarEstadoCompra({{ c.id }}, 'cancelada')" class="icon-action state-cancelled" title="Cancelar Orden"><i class="bi bi-x-circle"></i></span>
+
+                                            {% if c.estado == 'aprobada' %}
+                                                {% if granular_purchase_perms.recepciones.crear %}
+                                                <a href="/recepciones/?oc_id={{ c.id }}" class="icon-action state-received" title="Recibir Mercancía"><i class="bi bi-box-seam"></i></a>
+                                                {% endif %}
+                                                {% if granular_purchase_perms.ordenes_compra.cancelar %}
+                                                <span onclick="cambiarEstadoCompra({{ c.id }}, 'cancelada')" class="icon-action state-cancelled" title="Cancelar Orden"><i class="bi bi-x-circle"></i></span>
+                                                {% endif %}
+                                            {% elif c.estado == 'parcial' %}
+                                                {% if granular_purchase_perms.recepciones.crear %}
+                                                <a href="/recepciones/?oc_id={{ c.id }}" class="icon-action state-received" title="Recibir Resto"><i class="bi bi-box-seam"></i></a>
+                                                {% endif %}
+                                                {% if granular_purchase_perms.ordenes_compra.cancelar %}
+                                                <span onclick="cambiarEstadoCompra({{ c.id }}, 'cancelada')" class="icon-action state-cancelled" title="Cancelar Orden"><i class="bi bi-x-circle"></i></span>
+                                                {% endif %}
                                             {% endif %}
                                         {% endif %}
                                     </div>
@@ -537,6 +541,13 @@
                                             <span class="text-muted small">Subtotal:</span>
                                             <span class="fw-semibold text-dark" id="ocSubtotal">$0.00</span>
                                         </div>
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <span class="text-muted small">Descuento:</span>
+                                            <div class="input-group input-group-sm" style="width: 120px;">
+                                                <span class="input-group-text">$</span>
+                                                <input type="number" name="descuento" id="inputDescuentoOC" class="form-control text-end" value="0.00" step="0.01" oninput="calcularGranTotalLista()">
+                                            </div>
+                                        </div>
                                         <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
                                             <span class="text-muted small">IVA:</span>
                                             <span class="fw-semibold text-dark" id="ocIvaTotal">$0.00</span>
@@ -544,6 +555,13 @@
                                         <div class="d-flex justify-content-between align-items-center">
                                             <span class="text-muted fw-bold small uppercase">Total OC:</span>
                                             <span class="fw-bold fs-5 text-brand" id="granTotalModal">$0.00</span>
+                                        </div>
+                                        <!-- TOTAL EN PESOS (SI ES USD/OTRA) -->
+                                        <div id="wrapper_total_pesos_modal" class="d-none border-top pt-2 mt-2">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span class="text-muted small">Total en Pesos (MXN):</span>
+                                                <span class="text-dark" id="total_pesos_modal">$0.00</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -934,8 +952,24 @@
                     });
 
                     document.getElementById('ver_compra_subtotal').innerText = '$' + parseFloat(data.subtotal_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+                    document.getElementById('ver_compra_descuento').innerText = '$' + parseFloat(data.descuento || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
                     document.getElementById('ver_compra_iva_total').innerText = '$' + parseFloat(data.iva_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
                     document.getElementById('ver_compra_gran_total').innerText = '$' + parseFloat(data.gran_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+
+                    // Lógica para Total en Pesos (Si la OC es en USD/Otra moneda)
+                    const pesosWrapper = document.getElementById('ver_compra_pesos_wrapper');
+                    const totalPesosSpan = document.getElementById('ver_compra_total_pesos');
+                    
+                    if (data.moneda_nombre !== 'MXN') {
+                        const totalDivisa = parseFloat(data.gran_total || 0);
+                        const tc = parseFloat(data.tipo_cambio || 1);
+                        const totalPesos = totalDivisa * tc;
+                        
+                        totalPesosSpan.innerText = '$' + totalPesos.toLocaleString('en-US', {minimumFractionDigits: 2});
+                        pesosWrapper.classList.remove('d-none');
+                    } else {
+                        pesosWrapper.classList.add('d-none');
+                    }
 
                     const modal = new bootstrap.Modal(document.getElementById('modalVerCompra'));
                     modal.show();
@@ -1038,6 +1072,7 @@
             if (selected) {
                 const factor = selected.getAttribute('data-factor');
                 if (factor) document.getElementById('inputTipoCambio').value = factor;
+                calcularGranTotalLista();
             }
         }
 
@@ -1166,22 +1201,51 @@
         function calcularGranTotalLista() {
             let subtotalAcum = 0;
             let ivaAcum = 0;
-            let totalAcum = 0;
 
             document.querySelectorAll('#tablaCuerpo tr').forEach(fila => {
                 subtotalAcum += parseFloat(fila.cells[3].innerText.replace('$', '').replace(',', '')) || 0;
                 ivaAcum += parseFloat(fila.cells[4].innerText.replace('$', '').replace(',', '')) || 0;
-                totalAcum += parseFloat(fila.cells[5].innerText.replace('$', '').replace(',', '')) || 0;
             });
 
+            const descuento = parseFloat(document.getElementById('inputDescuentoOC').value) || 0;
+            const nuevoSubtotal = subtotalAcum - descuento;
+            
+            // Recalcular IVA proporcional
+            let ivaAjustado = 0;
+            if (subtotalAcum > 0) {
+                const factor = nuevoSubtotal / subtotalAcum;
+                ivaAjustado = ivaAcum * factor;
+            }
+
+            const totalFinal = nuevoSubtotal + ivaAjustado;
+
             document.getElementById('ocSubtotal').innerText = '$' + subtotalAcum.toLocaleString('en-US', {minimumFractionDigits: 2});
-            document.getElementById('ocIvaTotal').innerText = '$' + ivaAcum.toLocaleString('en-US', {minimumFractionDigits: 2});
-            document.getElementById('granTotalModal').innerText = '$' + totalAcum.toLocaleString('en-US', {minimumFractionDigits: 2});
+            document.getElementById('ocIvaTotal').innerText = '$' + ivaAjustado.toLocaleString('en-US', {minimumFractionDigits: 2});
+            document.getElementById('granTotalModal').innerText = '$' + totalFinal.toLocaleString('en-US', {minimumFractionDigits: 2});
+
+            // --- CÁLCULO TOTAL EN PESOS ---
+            const selectMoneda = document.getElementById('selectMoneda');
+            const monedaSiglas = selectMoneda.options[selectMoneda.selectedIndex].text;
+            const tc = parseFloat(document.getElementById('inputTipoCambio').value) || 1;
+            const wrapper = document.getElementById('wrapper_total_pesos_modal');
+            const display = document.getElementById('total_pesos_modal');
+
+            if (monedaSiglas !== 'MXN') {
+                const totalPesos = totalFinal * tc;
+                display.innerText = '$' + totalPesos.toLocaleString('en-US', {minimumFractionDigits: 2});
+                wrapper.classList.remove('d-none');
+            } else {
+                wrapper.classList.add('d-none');
+            }
 
             if (document.querySelectorAll('#tablaCuerpo tr').length === 0) {
                 document.getElementById('mensajeVacio').style.display = 'block';
             }
         }
+
+        // Vincular cambio de TC al recalcular totales
+        document.getElementById('inputTipoCambio').addEventListener('input', calcularGranTotalLista);
+
 
         function cargarParaEdicionCompra(id) {
             fetch(`/compras/api/compras/${id}/`).then(r => r.json()).then(data => {
@@ -1204,6 +1268,7 @@
                 form.querySelector('[name="almacen"]').value = data.almacen_id || '';
                 form.querySelector('[name="moneda"]').value = data.moneda_id || '';
                 form.querySelector('[name="tipo_cambio"]').value = data.tipo_cambio || '1.0000';
+                form.querySelector('[name="descuento"]').value = data.descuento || '0.00';
                 form.querySelector('[name="fecha"]').value = data.fecha;
                 form.querySelector('[name="notas"]').value = data.notas || '';
                 

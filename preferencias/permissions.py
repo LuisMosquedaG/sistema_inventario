@@ -52,6 +52,7 @@ HR_PERMISSION_MATRIX = {
     'contratistas': ['ver', 'crear', 'editar', 'eliminar'],
     'beneficiarios': ['ver', 'crear', 'editar', 'eliminar'],
     'sua': ['ver', 'importar', 'eliminar'],
+    'nomina': ['ver', 'crear', 'editar', 'eliminar'],
 }
 
 
