@@ -96,9 +96,11 @@ class Inventario(models.Model):
             valor_compra_total = cantidad_nueva * costo_compra
             nuevo_promedio = (valor_anterior + valor_compra_total) / nuevo_total
 
-        # Guardamos cambios
+        # Guardamos cambios y aseguramos sucursal/empresa
         inventario.cantidad = nuevo_total
         inventario.costo_promedio = nuevo_promedio
+        inventario.empresa = almacen.empresa
+        inventario.sucursal = almacen.sucursal
         inventario.save()
 
         # REGISTRAR EN KARDEX

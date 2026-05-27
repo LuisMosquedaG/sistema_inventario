@@ -5,7 +5,7 @@ from django.http import JsonResponse, HttpResponse
 from django.db import transaction
 from django.utils import timezone
 from django.core.paginator import Paginator
-from django.db.models import F, Q
+from django.db.models import F, Q, Sum, Avg
 from decimal import Decimal
 import openpyxl
 from datetime import datetime
@@ -275,11 +275,18 @@ def dashboard_produccion(request):
         return render(request, 'error_sin_empresa.html', status=403)
 
     # --- LÓGICA DE FILTRADO ---
+    # Obtener sucursal de sesión para filtrar por defecto
+    sucursal_sesion_id = request.session.get('sucursal_id')
+    
     q = request.GET.get('q', '')
     folio_op = request.GET.get('folio_op', '')
     producto_id = request.GET.get('producto_id', '')
     estado = request.GET.get('estado', '')
-    sucursal_id = request.GET.get('sucursal', '')
+    
+    # Si no viene sucursal en el GET ni almacén, usamos la de la sesión por defecto
+    sucursal_id = request.GET.get('sucursal')
+    if sucursal_id is None and sucursal_sesion_id:
+        sucursal_id = str(sucursal_sesion_id)
 
     ordenes_qs = OrdenProduccion.objects.filter(empresa=empresa_actual).select_related(
         'producto', 'pedido_origen', 'almacen', 'responsable', 'solicitante', 'producto__test_calidad', 'sucursal'
@@ -325,7 +332,7 @@ def dashboard_produccion(request):
         'producto_id': producto_id,
         'producto_nombre': producto_nombre_display,
         'estado': estado,
-        'sucursal': sucursal_id
+        'sucursal': sucursal_id or ''
     }
     # --- FIN LÓGICA DE FILTRADO ---
 
@@ -359,18 +366,43 @@ def dashboard_produccion(request):
             
         o.faltantes_info = []
         if o.estado == 'borrador':
+            # --- LÓGICA FLEXIBLE DE VALIDACIÓN DE STOCK ---
+            # Si el usuario eligió un almacén de MP, validamos SOLO ese.
+            # Si no, validamos en toda la sucursal de la orden.
+            target_almacen = o.almacen_materia_prima
+            target_sucursal = o.sucursal
+            
             for det in o.detalles.all():
-                inv = Inventario.objects.filter(producto=det.producto, almacen=o.almacen).first()
-                disponible = (inv.cantidad - inv.reservado) if inv else 0
+                inv_qs = Inventario.objects.filter(producto=det.producto)
+                
+                if target_almacen:
+                    inv_qs = inv_qs.filter(almacen=target_almacen)
+                elif target_sucursal:
+                    inv_qs = inv_qs.filter(sucursal=target_sucursal)
+                else:
+                    inv_qs = inv_qs.filter(empresa=empresa_actual)
+                
+                # Sumar existencias disponibles
+                from django.db.models.functions import Coalesce
+                stock_data = inv_qs.aggregate(
+                    total_disp=Coalesce(Sum(F('cantidad') - Coalesce(F('reservado'), 0)), 0)
+                )
+                disponible = stock_data['total_disp']
+                
                 if disponible < det.cantidad:
                     o.faltantes_info.append({
                         'nombre': det.producto.nombre,
-                        'cantidad': det.cantidad - disponible
+                        'cantidad': float(det.cantidad - disponible)
                     })
 
     # PRODUCTOS QUE SE PUEDEN PRODUCIR
     productos_finales = Producto.objects.filter(empresa=empresa_actual, tipo_abastecimiento='produccion')
+    
+    # --- FILTRADO DE ALMACENES POR SUCURSAL ---
     almacenes = Almacen.objects.filter(empresa=empresa_actual)
+    if sucursal_id:
+        almacenes = almacenes.filter(sucursal_id=sucursal_id)
+    
     todos_productos_qs = Producto.objects.filter(empresa=empresa_actual)
     todos_productos_json = list(todos_productos_qs.values('id', 'nombre'))
     
@@ -743,7 +775,8 @@ def api_detalle_orden(request, orden_id):
         'cliente_nombre': orden.cliente.nombre_completo if orden.cliente else 'Sin cliente',
         'fecha_op': orden.fecha_creacion.strftime('%d/%m/%Y'),
         'almacen_entrada_id': orden.almacen.id,
-        'almacen_entrada': orden.almacen.nombre,
+        'almacen_entrada': orden.almacen.name if hasattr(orden.almacen, 'name') else orden.almacen.nombre,
+        'almacen_salida_id': orden.almacen_materia_prima.id if orden.almacen_materia_prima else '',
         'almacen_salida': orden.almacen_materia_prima.nombre if orden.almacen_materia_prima else 'No asignado',
         'pedido_id': orden.pedido_origen.id if orden.pedido_origen else 'Manual',
         'pedido_folio': f"PED-{orden.pedido_origen.id:04d}" if orden.pedido_origen else 'Manual',
@@ -842,13 +875,20 @@ def actualizar_orden_produccion(request, orden_id):
             if orden.estado != 'borrador':
                 return JsonResponse({'success': False, 'error': 'Solo se pueden editar órdenes en Borrador.'})
 
-            # 1. Actualizar Notas, Cantidad y Producto Principal
+            # 1. Actualizar Notas, Cantidad, Producto Principal y Almacenes
             data = json.loads(request.body)
             orden.notas = data.get('notas', '')
             if 'cantidad_padre' in data:
                 orden.cantidad = int(data['cantidad_padre'])
             if 'producto_id' in data:
                 orden.producto_id = int(data['producto_id'])
+            
+            # NUEVO: Actualizar Almacenes
+            if 'almacen_entrada' in data:
+                orden.almacen_id = data['almacen_entrada']
+            if 'almacen_salida' in data:
+                orden.almacen_materia_prima_id = data['almacen_salida'] or None
+            
             orden.save()
 
             # 2. Actualizar Componentes
@@ -887,29 +927,67 @@ def avanzar_estado_produccion(request, orden_id):
                 raise Exception("La orden no tiene componentes asignados.")
 
             # Bloqueamos y validamos stock
+            # Si no hay almacén de MP, validamos en toda la sucursal
+            almacen_especifico = orden.almacen_materia_prima
+            sucursal_orden = orden.sucursal
+            
             faltantes = []
             with transaction.atomic():
                 for d in detalles:
-                    inv = Inventario.objects.select_for_update().filter(producto=d.producto, almacen=orden.almacen).first()
-                    disponible = (inv.cantidad - inv.reservado) if inv else 0
+                    # 1. Definir QuerySet de búsqueda
+                    inv_qs = Inventario.objects.select_for_update().filter(producto=d.producto)
+                    if almacen_especifico:
+                        inv_qs = inv_qs.filter(almacen=almacen_especifico)
+                    elif sucursal_orden:
+                        inv_qs = inv_qs.filter(sucursal=sucursal_orden)
+                    else:
+                        inv_qs = inv_qs.filter(empresa=empresa_actual)
+
+                    # 2. Calcular disponibilidad
+                    from django.db.models.functions import Coalesce
+                    stock_data = inv_qs.aggregate(
+                        total_disp=Coalesce(Sum(F('cantidad') - Coalesce(F('reservado'), 0)), 0)
+                    )
+                    disponible = stock_data['total_disp']
                     
                     if disponible < d.cantidad:
                         faltante_cant = d.cantidad - disponible
                         faltantes.append(f"{d.producto.nombre} ({int(faltante_cant)} pz)")
                     
                 if faltantes:
-                    msg = f"Faltan piezas para la producción {orden.folio}: " + ", ".join(faltantes)
+                    ubicacion_nombre = almacen_especifico.nombre if almacen_especifico else (sucursal_orden.nombre if sucursal_orden else "la empresa")
+                    msg = f"Faltan piezas en {ubicacion_nombre} para la producción {orden.folio}: " + ", ".join(faltantes)
                     messages.error(request, msg)
                     return redirect('dashboard_produccion')
 
                 # Si no hay faltantes, procedemos a reservar
                 for d in detalles:
-                    inv = Inventario.objects.filter(producto=d.producto, almacen=orden.almacen).first()
-                    if not inv:
-                        inv = Inventario.objects.create(producto=d.producto, almacen=orden.almacen, cantidad=0, empresa=empresa_actual)
+                    # Si se especificó almacén, reservamos ahí. 
+                    # Si no, buscamos el primer almacén con stock en la sucursal para reservar
+                    if almacen_especifico:
+                        target_inv = Inventario.objects.filter(producto=d.producto, almacen=almacen_especifico).first()
+                        if not target_inv:
+                            target_inv = Inventario.objects.create(
+                                producto=d.producto, almacen=almacen_especifico, 
+                                cantidad=0, empresa=empresa_actual, sucursal=almacen_especifico.sucursal
+                            )
+                    else:
+                        # Buscamos en qué almacén de la sucursal hay stock para reservar
+                        # Priorizamos el almacén de PT si tiene stock, si no el primero que encontremos
+                        target_inv = Inventario.objects.filter(
+                            producto=d.producto, sucursal=sucursal_orden, cantidad__gt=0
+                        ).first() or Inventario.objects.filter(
+                            producto=d.producto, almacen=orden.almacen
+                        ).first()
+                        
+                        if not target_inv:
+                             target_inv = Inventario.objects.create(
+                                producto=d.producto, almacen=orden.almacen, 
+                                cantidad=0, empresa=empresa_actual, sucursal=orden.almacen.sucursal
+                            )
                     
-                    inv.reservado = F('reservado') + d.cantidad
-                    inv.save()
+                    target_inv.reservado = F('reservado') + d.cantidad
+                    target_inv.save()
 
             # Si todo bien, iniciamos
             orden.estado = 'en_proceso'
@@ -969,7 +1047,8 @@ def finalizar_produccion_logica(request, orden):
     """Función interna para cerrar la orden, descontar físico y reserva, y sumar producto terminado"""
     try:
         producto = orden.producto
-        almacen = orden.almacen
+        almacen_destino = orden.almacen  # PT
+        almacen_origen = orden.almacen_materia_prima or orden.almacen # MP
         cantidad_producir = orden.cantidad
 
         detalles_orden = orden.detalles.all()
@@ -978,19 +1057,19 @@ def finalizar_produccion_logica(request, orden):
         for det in detalles_orden:
             # Usamos el método centralizado para que se registre en el Kardex
             Inventario.registrar_salida(
-                almacen=almacen,
+                almacen=almacen_origen,
                 producto=det.producto,
                 cantidad_salida=det.cantidad,
                 referencia=f"OP-{orden.id:04d} (Consumo)"
             )
             # Limpiamos la reserva manualmente ya que registrar_salida no toca 'reservado'
-            Inventario.objects.filter(producto=det.producto, almacen=almacen).update(
+            Inventario.objects.filter(producto=det.producto, almacen=almacen_origen).update(
                 reservado=F('reservado') - det.cantidad
             )
 
         # 2. Sumar Producto Terminado
         Inventario.registrar_ingreso(
-            almacen=almacen,
+            almacen=almacen_destino,
             producto=producto,
             cantidad_ingreso=cantidad_producir,
             costo_unitario=producto.precio_costo, # O el costo calculado de la receta
@@ -1020,10 +1099,20 @@ def finalizar_produccion_logica(request, orden):
 def cancelar_produccion(request, orden_id):
     empresa_actual = get_empresa_actual(request)
     orden = get_object_or_404(OrdenProduccion, id=orden_id, empresa=empresa_actual)
-    if orden.estado != 'terminado':
+    
+    if orden.estado != 'terminado' and orden.estado != 'cancelada':
+        # Si la orden ya estaba en proceso o testeo, tenía materiales reservados
+        if orden.estado in ['en_proceso', 'testeo']:
+            almacen_origen = orden.almacen_materia_prima or orden.almacen
+            for det in orden.detalles.all():
+                Inventario.objects.filter(
+                    producto=det.producto, 
+                    almacen=almacen_origen
+                ).update(reservado=F('reservado') - det.cantidad)
+
         orden.estado = 'cancelada'
         orden.save()
-        messages.success(request, f'Orden {orden.folio} cancelada.')
+        messages.success(request, f'Orden {orden.folio} cancelada y reservas liberadas.')
     return redirect('dashboard_produccion')
 
 @login_required

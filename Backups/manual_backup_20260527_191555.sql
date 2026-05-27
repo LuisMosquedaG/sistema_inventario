@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict YV7W1Kk9gbfqAmrSIEvO1aJ1iQz0wgNN9VEYQS4PMSa2gZWFGJaPDm90TwKZNVz
+\restrict cQmddURvgrX2OCyknSsI99C0O8s4O5sRNJ2cpCoqd2c2ZCkbqPmKHlIafhRl05s
 
 -- Dumped from database version 16.14 (Ubuntu 16.14-0ubuntu0.24.04.1)
 -- Dumped by pg_dump version 16.14 (Ubuntu 16.14-0ubuntu0.24.04.1)
@@ -63,6 +63,9 @@ ALTER TABLE IF EXISTS ONLY public.solicitudcompras_detallesolicitudcompra DROP C
 ALTER TABLE IF EXISTS ONLY public.solicitudcompras_detallesolicitudcompra DROP CONSTRAINT IF EXISTS solicitudcompras_det_detalle_pedido_orige_1aa6dac5_fk_pedidos_d;
 ALTER TABLE IF EXISTS ONLY public.solicitudcompras_detallesolicitudcompra DROP CONSTRAINT IF EXISTS solicitudcompras_det_almacen_id_9bfc7009_fk_almacenes;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_trabajadorsua DROP CONSTRAINT IF EXISTS recursos_humanos_tra_importacion_id_28691274_fk_recursos_;
+ALTER TABLE IF EXISTS ONLY public.recursos_humanos_nomina DROP CONSTRAINT IF EXISTS recursos_humanos_nomina_empresa_id_521c2f36_fk_panel_empresa_id;
+ALTER TABLE IF EXISTS ONLY public.recursos_humanos_nomina DROP CONSTRAINT IF EXISTS recursos_humanos_nom_sucursal_id_41c7dcdd_fk_preferenc;
+ALTER TABLE IF EXISTS ONLY public.recursos_humanos_nomina DROP CONSTRAINT IF EXISTS recursos_humanos_nom_empleado_id_d3e6646f_fk_recursos_;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_importacionsua DROP CONSTRAINT IF EXISTS recursos_humanos_imp_sucursal_id_7fce5a70_fk_preferenc;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_importacionsua DROP CONSTRAINT IF EXISTS recursos_humanos_imp_empresa_id_76189fbb_fk_panel_emp;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_empleado DROP CONSTRAINT IF EXISTS recursos_humanos_emp_sucursal_id_917b2c81_fk_preferenc;
@@ -246,6 +249,9 @@ DROP INDEX IF EXISTS public.solicitudcompras_detallesolicitudcompra_lista_id_4de
 DROP INDEX IF EXISTS public.solicitudcompras_detallesolicitudcompra_almacen_id_9bfc7009;
 DROP INDEX IF EXISTS public.solicitudcompras_detalleso_detalle_pedido_origen_id_1aa6dac5;
 DROP INDEX IF EXISTS public.recursos_humanos_trabajadorsua_importacion_id_28691274;
+DROP INDEX IF EXISTS public.recursos_humanos_nomina_sucursal_id_41c7dcdd;
+DROP INDEX IF EXISTS public.recursos_humanos_nomina_empresa_id_521c2f36;
+DROP INDEX IF EXISTS public.recursos_humanos_nomina_empleado_id_d3e6646f;
 DROP INDEX IF EXISTS public.recursos_humanos_importacionsua_sucursal_id_7fce5a70;
 DROP INDEX IF EXISTS public.recursos_humanos_importacionsua_empresa_id_76189fbb;
 DROP INDEX IF EXISTS public.recursos_humanos_empleado_sucursal_id_917b2c81;
@@ -404,6 +410,7 @@ ALTER TABLE IF EXISTS ONLY public.tesoreria_cajabanco DROP CONSTRAINT IF EXISTS 
 ALTER TABLE IF EXISTS ONLY public.solicitudcompras_solicitudcompra DROP CONSTRAINT IF EXISTS solicitudcompras_solicitudcompra_pkey;
 ALTER TABLE IF EXISTS ONLY public.solicitudcompras_detallesolicitudcompra DROP CONSTRAINT IF EXISTS solicitudcompras_detallesolicitudcompra_pkey;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_trabajadorsua DROP CONSTRAINT IF EXISTS recursos_humanos_trabajadorsua_pkey;
+ALTER TABLE IF EXISTS ONLY public.recursos_humanos_nomina DROP CONSTRAINT IF EXISTS recursos_humanos_nomina_pkey;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_importacionsua DROP CONSTRAINT IF EXISTS recursos_humanos_importacionsua_pkey;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_empleado DROP CONSTRAINT IF EXISTS recursos_humanos_empleado_pkey;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_contrato DROP CONSTRAINT IF EXISTS recursos_humanos_contrato_pkey;
@@ -491,6 +498,7 @@ DROP TABLE IF EXISTS public.tesoreria_cajabanco;
 DROP TABLE IF EXISTS public.solicitudcompras_solicitudcompra;
 DROP TABLE IF EXISTS public.solicitudcompras_detallesolicitudcompra;
 DROP TABLE IF EXISTS public.recursos_humanos_trabajadorsua;
+DROP TABLE IF EXISTS public.recursos_humanos_nomina;
 DROP TABLE IF EXISTS public.recursos_humanos_importacionsua;
 DROP TABLE IF EXISTS public.recursos_humanos_empleado;
 DROP TABLE IF EXISTS public.recursos_humanos_contrato_empleados;
@@ -553,18 +561,20 @@ DROP TABLE IF EXISTS public.almacenes_almacen;
 DROP TABLE IF EXISTS public.actividades_actividad;
 -- *not* dropping schema, since initdb creates it
 --
--- Name: public; Type: SCHEMA; Schema: -; Owner: -
+-- Name: public; Type: SCHEMA; Schema: -; Owner: madmin
 --
 
 -- *not* creating schema, since initdb creates it
 
+
+ALTER SCHEMA public OWNER TO madmin;
 
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
 --
--- Name: actividades_actividad; Type: TABLE; Schema: public; Owner: -
+-- Name: actividades_actividad; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.actividades_actividad (
@@ -589,8 +599,10 @@ CREATE TABLE public.actividades_actividad (
 );
 
 
+ALTER TABLE public.actividades_actividad OWNER TO madmin;
+
 --
--- Name: actividades_actividad_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: actividades_actividad_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.actividades_actividad ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -604,7 +616,7 @@ ALTER TABLE public.actividades_actividad ALTER COLUMN id ADD GENERATED BY DEFAUL
 
 
 --
--- Name: almacenes_almacen; Type: TABLE; Schema: public; Owner: -
+-- Name: almacenes_almacen; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.almacenes_almacen (
@@ -624,8 +636,10 @@ CREATE TABLE public.almacenes_almacen (
 );
 
 
+ALTER TABLE public.almacenes_almacen OWNER TO madmin;
+
 --
--- Name: almacenes_almacen_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: almacenes_almacen_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.almacenes_almacen ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -639,7 +653,7 @@ ALTER TABLE public.almacenes_almacen ALTER COLUMN id ADD GENERATED BY DEFAULT AS
 
 
 --
--- Name: almacenes_inventario; Type: TABLE; Schema: public; Owner: -
+-- Name: almacenes_inventario; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.almacenes_inventario (
@@ -656,8 +670,10 @@ CREATE TABLE public.almacenes_inventario (
 );
 
 
+ALTER TABLE public.almacenes_inventario OWNER TO madmin;
+
 --
--- Name: almacenes_inventario_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: almacenes_inventario_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.almacenes_inventario ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -671,7 +687,7 @@ ALTER TABLE public.almacenes_inventario ALTER COLUMN id ADD GENERATED BY DEFAULT
 
 
 --
--- Name: almacenes_kardex; Type: TABLE; Schema: public; Owner: -
+-- Name: almacenes_kardex; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.almacenes_kardex (
@@ -692,8 +708,10 @@ CREATE TABLE public.almacenes_kardex (
 );
 
 
+ALTER TABLE public.almacenes_kardex OWNER TO madmin;
+
 --
--- Name: almacenes_kardex_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: almacenes_kardex_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.almacenes_kardex ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -707,7 +725,7 @@ ALTER TABLE public.almacenes_kardex ALTER COLUMN id ADD GENERATED BY DEFAULT AS 
 
 
 --
--- Name: auth_group; Type: TABLE; Schema: public; Owner: -
+-- Name: auth_group; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.auth_group (
@@ -716,8 +734,10 @@ CREATE TABLE public.auth_group (
 );
 
 
+ALTER TABLE public.auth_group OWNER TO madmin;
+
 --
--- Name: auth_group_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: auth_group_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.auth_group ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -731,7 +751,7 @@ ALTER TABLE public.auth_group ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTI
 
 
 --
--- Name: auth_group_permissions; Type: TABLE; Schema: public; Owner: -
+-- Name: auth_group_permissions; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.auth_group_permissions (
@@ -741,8 +761,10 @@ CREATE TABLE public.auth_group_permissions (
 );
 
 
+ALTER TABLE public.auth_group_permissions OWNER TO madmin;
+
 --
--- Name: auth_group_permissions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: auth_group_permissions_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.auth_group_permissions ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -756,7 +778,7 @@ ALTER TABLE public.auth_group_permissions ALTER COLUMN id ADD GENERATED BY DEFAU
 
 
 --
--- Name: auth_permission; Type: TABLE; Schema: public; Owner: -
+-- Name: auth_permission; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.auth_permission (
@@ -767,8 +789,10 @@ CREATE TABLE public.auth_permission (
 );
 
 
+ALTER TABLE public.auth_permission OWNER TO madmin;
+
 --
--- Name: auth_permission_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: auth_permission_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.auth_permission ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -782,7 +806,7 @@ ALTER TABLE public.auth_permission ALTER COLUMN id ADD GENERATED BY DEFAULT AS I
 
 
 --
--- Name: auth_user; Type: TABLE; Schema: public; Owner: -
+-- Name: auth_user; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.auth_user (
@@ -800,8 +824,10 @@ CREATE TABLE public.auth_user (
 );
 
 
+ALTER TABLE public.auth_user OWNER TO madmin;
+
 --
--- Name: auth_user_groups; Type: TABLE; Schema: public; Owner: -
+-- Name: auth_user_groups; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.auth_user_groups (
@@ -811,8 +837,10 @@ CREATE TABLE public.auth_user_groups (
 );
 
 
+ALTER TABLE public.auth_user_groups OWNER TO madmin;
+
 --
--- Name: auth_user_groups_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: auth_user_groups_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.auth_user_groups ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -826,7 +854,7 @@ ALTER TABLE public.auth_user_groups ALTER COLUMN id ADD GENERATED BY DEFAULT AS 
 
 
 --
--- Name: auth_user_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: auth_user_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.auth_user ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -840,7 +868,7 @@ ALTER TABLE public.auth_user ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTIT
 
 
 --
--- Name: auth_user_user_permissions; Type: TABLE; Schema: public; Owner: -
+-- Name: auth_user_user_permissions; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.auth_user_user_permissions (
@@ -850,8 +878,10 @@ CREATE TABLE public.auth_user_user_permissions (
 );
 
 
+ALTER TABLE public.auth_user_user_permissions OWNER TO madmin;
+
 --
--- Name: auth_user_user_permissions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: auth_user_user_permissions_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.auth_user_user_permissions ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -865,7 +895,7 @@ ALTER TABLE public.auth_user_user_permissions ALTER COLUMN id ADD GENERATED BY D
 
 
 --
--- Name: categorias_categoria; Type: TABLE; Schema: public; Owner: -
+-- Name: categorias_categoria; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.categorias_categoria (
@@ -875,8 +905,10 @@ CREATE TABLE public.categorias_categoria (
 );
 
 
+ALTER TABLE public.categorias_categoria OWNER TO madmin;
+
 --
--- Name: categorias_categoria_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: categorias_categoria_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.categorias_categoria ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -890,7 +922,7 @@ ALTER TABLE public.categorias_categoria ALTER COLUMN id ADD GENERATED BY DEFAULT
 
 
 --
--- Name: categorias_listapreciocosto; Type: TABLE; Schema: public; Owner: -
+-- Name: categorias_listapreciocosto; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.categorias_listapreciocosto (
@@ -904,8 +936,10 @@ CREATE TABLE public.categorias_listapreciocosto (
 );
 
 
+ALTER TABLE public.categorias_listapreciocosto OWNER TO madmin;
+
 --
--- Name: categorias_listapreciocosto_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: categorias_listapreciocosto_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.categorias_listapreciocosto ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -919,7 +953,7 @@ ALTER TABLE public.categorias_listapreciocosto ALTER COLUMN id ADD GENERATED BY 
 
 
 --
--- Name: categorias_subcategoria; Type: TABLE; Schema: public; Owner: -
+-- Name: categorias_subcategoria; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.categorias_subcategoria (
@@ -930,8 +964,10 @@ CREATE TABLE public.categorias_subcategoria (
 );
 
 
+ALTER TABLE public.categorias_subcategoria OWNER TO madmin;
+
 --
--- Name: categorias_subcategoria_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: categorias_subcategoria_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.categorias_subcategoria ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -945,7 +981,7 @@ ALTER TABLE public.categorias_subcategoria ALTER COLUMN id ADD GENERATED BY DEFA
 
 
 --
--- Name: clientes_cliente; Type: TABLE; Schema: public; Owner: -
+-- Name: clientes_cliente; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.clientes_cliente (
@@ -980,8 +1016,10 @@ CREATE TABLE public.clientes_cliente (
 );
 
 
+ALTER TABLE public.clientes_cliente OWNER TO madmin;
+
 --
--- Name: clientes_cliente_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: clientes_cliente_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.clientes_cliente ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -995,7 +1033,7 @@ ALTER TABLE public.clientes_cliente ALTER COLUMN id ADD GENERATED BY DEFAULT AS 
 
 
 --
--- Name: clientes_contactocliente; Type: TABLE; Schema: public; Owner: -
+-- Name: clientes_contactocliente; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.clientes_contactocliente (
@@ -1011,8 +1049,10 @@ CREATE TABLE public.clientes_contactocliente (
 );
 
 
+ALTER TABLE public.clientes_contactocliente OWNER TO madmin;
+
 --
--- Name: clientes_contactocliente_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: clientes_contactocliente_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.clientes_contactocliente ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1026,7 +1066,7 @@ ALTER TABLE public.clientes_contactocliente ALTER COLUMN id ADD GENERATED BY DEF
 
 
 --
--- Name: compras_detallecompra; Type: TABLE; Schema: public; Owner: -
+-- Name: compras_detallecompra; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.compras_detallecompra (
@@ -1040,8 +1080,10 @@ CREATE TABLE public.compras_detallecompra (
 );
 
 
+ALTER TABLE public.compras_detallecompra OWNER TO madmin;
+
 --
--- Name: compras_detallecompra_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: compras_detallecompra_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.compras_detallecompra ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1055,7 +1097,7 @@ ALTER TABLE public.compras_detallecompra ALTER COLUMN id ADD GENERATED BY DEFAUL
 
 
 --
--- Name: compras_ordencompra; Type: TABLE; Schema: public; Owner: -
+-- Name: compras_ordencompra; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.compras_ordencompra (
@@ -1071,12 +1113,15 @@ CREATE TABLE public.compras_ordencompra (
     moneda_id bigint,
     tipo_cambio numeric(10,4) NOT NULL,
     sucursal_id bigint,
-    sucursal_empresa_id bigint
+    sucursal_empresa_id bigint,
+    descuento numeric(12,2) NOT NULL
 );
 
 
+ALTER TABLE public.compras_ordencompra OWNER TO madmin;
+
 --
--- Name: compras_ordencompra_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: compras_ordencompra_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.compras_ordencompra ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1090,7 +1135,7 @@ ALTER TABLE public.compras_ordencompra ALTER COLUMN id ADD GENERATED BY DEFAULT 
 
 
 --
--- Name: core_categoria; Type: TABLE; Schema: public; Owner: -
+-- Name: core_categoria; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.core_categoria (
@@ -1100,8 +1145,10 @@ CREATE TABLE public.core_categoria (
 );
 
 
+ALTER TABLE public.core_categoria OWNER TO madmin;
+
 --
--- Name: core_categoria_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: core_categoria_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.core_categoria ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1115,7 +1162,7 @@ ALTER TABLE public.core_categoria ALTER COLUMN id ADD GENERATED BY DEFAULT AS ID
 
 
 --
--- Name: core_detallereceta; Type: TABLE; Schema: public; Owner: -
+-- Name: core_detallereceta; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.core_detallereceta (
@@ -1127,8 +1174,10 @@ CREATE TABLE public.core_detallereceta (
 );
 
 
+ALTER TABLE public.core_detallereceta OWNER TO madmin;
+
 --
--- Name: core_detallereceta_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: core_detallereceta_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.core_detallereceta ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1142,7 +1191,7 @@ ALTER TABLE public.core_detallereceta ALTER COLUMN id ADD GENERATED BY DEFAULT A
 
 
 --
--- Name: core_producto; Type: TABLE; Schema: public; Owner: -
+-- Name: core_producto; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.core_producto (
@@ -1176,8 +1225,10 @@ CREATE TABLE public.core_producto (
 );
 
 
+ALTER TABLE public.core_producto OWNER TO madmin;
+
 --
--- Name: core_producto_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: core_producto_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.core_producto ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1191,7 +1242,7 @@ ALTER TABLE public.core_producto ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDE
 
 
 --
--- Name: core_transaccion; Type: TABLE; Schema: public; Owner: -
+-- Name: core_transaccion; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.core_transaccion (
@@ -1208,8 +1259,10 @@ CREATE TABLE public.core_transaccion (
 );
 
 
+ALTER TABLE public.core_transaccion OWNER TO madmin;
+
 --
--- Name: core_transaccion_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: core_transaccion_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.core_transaccion ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1223,7 +1276,7 @@ ALTER TABLE public.core_transaccion ALTER COLUMN id ADD GENERATED BY DEFAULT AS 
 
 
 --
--- Name: costeos_comercioadquisicion; Type: TABLE; Schema: public; Owner: -
+-- Name: costeos_comercioadquisicion; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.costeos_comercioadquisicion (
@@ -1235,8 +1288,10 @@ CREATE TABLE public.costeos_comercioadquisicion (
 );
 
 
+ALTER TABLE public.costeos_comercioadquisicion OWNER TO madmin;
+
 --
--- Name: costeos_comercioadquisicion_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: costeos_comercioadquisicion_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.costeos_comercioadquisicion ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1250,7 +1305,7 @@ ALTER TABLE public.costeos_comercioadquisicion ALTER COLUMN id ADD GENERATED BY 
 
 
 --
--- Name: costeos_costeo; Type: TABLE; Schema: public; Owner: -
+-- Name: costeos_costeo; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.costeos_costeo (
@@ -1272,8 +1327,10 @@ CREATE TABLE public.costeos_costeo (
 );
 
 
+ALTER TABLE public.costeos_costeo OWNER TO madmin;
+
 --
--- Name: costeos_costeo_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: costeos_costeo_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.costeos_costeo ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1287,7 +1344,7 @@ ALTER TABLE public.costeos_costeo ALTER COLUMN id ADD GENERATED BY DEFAULT AS ID
 
 
 --
--- Name: costeos_manufacturagastoindirecto; Type: TABLE; Schema: public; Owner: -
+-- Name: costeos_manufacturagastoindirecto; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.costeos_manufacturagastoindirecto (
@@ -1299,8 +1356,10 @@ CREATE TABLE public.costeos_manufacturagastoindirecto (
 );
 
 
+ALTER TABLE public.costeos_manufacturagastoindirecto OWNER TO madmin;
+
 --
--- Name: costeos_manufacturagastoindirecto_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: costeos_manufacturagastoindirecto_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.costeos_manufacturagastoindirecto ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1314,7 +1373,7 @@ ALTER TABLE public.costeos_manufacturagastoindirecto ALTER COLUMN id ADD GENERAT
 
 
 --
--- Name: costeos_manufacturamanoobra; Type: TABLE; Schema: public; Owner: -
+-- Name: costeos_manufacturamanoobra; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.costeos_manufacturamanoobra (
@@ -1327,8 +1386,10 @@ CREATE TABLE public.costeos_manufacturamanoobra (
 );
 
 
+ALTER TABLE public.costeos_manufacturamanoobra OWNER TO madmin;
+
 --
--- Name: costeos_manufacturamanoobra_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: costeos_manufacturamanoobra_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.costeos_manufacturamanoobra ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1342,7 +1403,7 @@ ALTER TABLE public.costeos_manufacturamanoobra ALTER COLUMN id ADD GENERATED BY 
 
 
 --
--- Name: costeos_manufacturamateriaprima; Type: TABLE; Schema: public; Owner: -
+-- Name: costeos_manufacturamateriaprima; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.costeos_manufacturamateriaprima (
@@ -1355,8 +1416,10 @@ CREATE TABLE public.costeos_manufacturamateriaprima (
 );
 
 
+ALTER TABLE public.costeos_manufacturamateriaprima OWNER TO madmin;
+
 --
--- Name: costeos_manufacturamateriaprima_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: costeos_manufacturamateriaprima_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.costeos_manufacturamateriaprima ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1370,7 +1433,7 @@ ALTER TABLE public.costeos_manufacturamateriaprima ALTER COLUMN id ADD GENERATED
 
 
 --
--- Name: costeos_serviciomaterial; Type: TABLE; Schema: public; Owner: -
+-- Name: costeos_serviciomaterial; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.costeos_serviciomaterial (
@@ -1383,8 +1446,10 @@ CREATE TABLE public.costeos_serviciomaterial (
 );
 
 
+ALTER TABLE public.costeos_serviciomaterial OWNER TO madmin;
+
 --
--- Name: costeos_serviciomaterial_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: costeos_serviciomaterial_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.costeos_serviciomaterial ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1398,7 +1463,7 @@ ALTER TABLE public.costeos_serviciomaterial ALTER COLUMN id ADD GENERATED BY DEF
 
 
 --
--- Name: costeos_serviciopersonal; Type: TABLE; Schema: public; Owner: -
+-- Name: costeos_serviciopersonal; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.costeos_serviciopersonal (
@@ -1411,8 +1476,10 @@ CREATE TABLE public.costeos_serviciopersonal (
 );
 
 
+ALTER TABLE public.costeos_serviciopersonal OWNER TO madmin;
+
 --
--- Name: costeos_serviciopersonal_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: costeos_serviciopersonal_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.costeos_serviciopersonal ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1426,7 +1493,7 @@ ALTER TABLE public.costeos_serviciopersonal ALTER COLUMN id ADD GENERATED BY DEF
 
 
 --
--- Name: cotizaciones_cotizacion; Type: TABLE; Schema: public; Owner: -
+-- Name: cotizaciones_cotizacion; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.cotizaciones_cotizacion (
@@ -1447,8 +1514,10 @@ CREATE TABLE public.cotizaciones_cotizacion (
 );
 
 
+ALTER TABLE public.cotizaciones_cotizacion OWNER TO madmin;
+
 --
--- Name: cotizaciones_cotizacion_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: cotizaciones_cotizacion_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.cotizaciones_cotizacion ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1462,7 +1531,7 @@ ALTER TABLE public.cotizaciones_cotizacion ALTER COLUMN id ADD GENERATED BY DEFA
 
 
 --
--- Name: cotizaciones_detallecotizacion; Type: TABLE; Schema: public; Owner: -
+-- Name: cotizaciones_detallecotizacion; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.cotizaciones_detallecotizacion (
@@ -1475,8 +1544,10 @@ CREATE TABLE public.cotizaciones_detallecotizacion (
 );
 
 
+ALTER TABLE public.cotizaciones_detallecotizacion OWNER TO madmin;
+
 --
--- Name: cotizaciones_detallecotizacion_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: cotizaciones_detallecotizacion_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.cotizaciones_detallecotizacion ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1490,7 +1561,7 @@ ALTER TABLE public.cotizaciones_detallecotizacion ALTER COLUMN id ADD GENERATED 
 
 
 --
--- Name: django_admin_log; Type: TABLE; Schema: public; Owner: -
+-- Name: django_admin_log; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.django_admin_log (
@@ -1506,8 +1577,10 @@ CREATE TABLE public.django_admin_log (
 );
 
 
+ALTER TABLE public.django_admin_log OWNER TO madmin;
+
 --
--- Name: django_admin_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: django_admin_log_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.django_admin_log ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1521,7 +1594,7 @@ ALTER TABLE public.django_admin_log ALTER COLUMN id ADD GENERATED BY DEFAULT AS 
 
 
 --
--- Name: django_content_type; Type: TABLE; Schema: public; Owner: -
+-- Name: django_content_type; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.django_content_type (
@@ -1531,8 +1604,10 @@ CREATE TABLE public.django_content_type (
 );
 
 
+ALTER TABLE public.django_content_type OWNER TO madmin;
+
 --
--- Name: django_content_type_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: django_content_type_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.django_content_type ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1546,7 +1621,7 @@ ALTER TABLE public.django_content_type ALTER COLUMN id ADD GENERATED BY DEFAULT 
 
 
 --
--- Name: django_migrations; Type: TABLE; Schema: public; Owner: -
+-- Name: django_migrations; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.django_migrations (
@@ -1557,8 +1632,10 @@ CREATE TABLE public.django_migrations (
 );
 
 
+ALTER TABLE public.django_migrations OWNER TO madmin;
+
 --
--- Name: django_migrations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: django_migrations_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.django_migrations ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1572,7 +1649,7 @@ ALTER TABLE public.django_migrations ALTER COLUMN id ADD GENERATED BY DEFAULT AS
 
 
 --
--- Name: django_session; Type: TABLE; Schema: public; Owner: -
+-- Name: django_session; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.django_session (
@@ -1582,8 +1659,10 @@ CREATE TABLE public.django_session (
 );
 
 
+ALTER TABLE public.django_session OWNER TO madmin;
+
 --
--- Name: notificaciones_notificacion; Type: TABLE; Schema: public; Owner: -
+-- Name: notificaciones_notificacion; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.notificaciones_notificacion (
@@ -1598,8 +1677,10 @@ CREATE TABLE public.notificaciones_notificacion (
 );
 
 
+ALTER TABLE public.notificaciones_notificacion OWNER TO madmin;
+
 --
--- Name: notificaciones_notificacion_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: notificaciones_notificacion_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.notificaciones_notificacion ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1613,7 +1694,7 @@ ALTER TABLE public.notificaciones_notificacion ALTER COLUMN id ADD GENERATED BY 
 
 
 --
--- Name: panel_empresa; Type: TABLE; Schema: public; Owner: -
+-- Name: panel_empresa; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.panel_empresa (
@@ -1644,8 +1725,10 @@ CREATE TABLE public.panel_empresa (
 );
 
 
+ALTER TABLE public.panel_empresa OWNER TO madmin;
+
 --
--- Name: panel_empresa_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: panel_empresa_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.panel_empresa ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1659,7 +1742,7 @@ ALTER TABLE public.panel_empresa ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDE
 
 
 --
--- Name: pedidos_detallepedido; Type: TABLE; Schema: public; Owner: -
+-- Name: pedidos_detallepedido; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.pedidos_detallepedido (
@@ -1676,8 +1759,10 @@ CREATE TABLE public.pedidos_detallepedido (
 );
 
 
+ALTER TABLE public.pedidos_detallepedido OWNER TO madmin;
+
 --
--- Name: pedidos_detallepedido_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: pedidos_detallepedido_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.pedidos_detallepedido ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1691,7 +1776,7 @@ ALTER TABLE public.pedidos_detallepedido ALTER COLUMN id ADD GENERATED BY DEFAUL
 
 
 --
--- Name: pedidos_pedido; Type: TABLE; Schema: public; Owner: -
+-- Name: pedidos_pedido; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.pedidos_pedido (
@@ -1710,8 +1795,10 @@ CREATE TABLE public.pedidos_pedido (
 );
 
 
+ALTER TABLE public.pedidos_pedido OWNER TO madmin;
+
 --
--- Name: pedidos_pedido_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: pedidos_pedido_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.pedidos_pedido ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1725,7 +1812,7 @@ ALTER TABLE public.pedidos_pedido ALTER COLUMN id ADD GENERATED BY DEFAULT AS ID
 
 
 --
--- Name: preferencias_asignacionrolusuario; Type: TABLE; Schema: public; Owner: -
+-- Name: preferencias_asignacionrolusuario; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.preferencias_asignacionrolusuario (
@@ -1737,8 +1824,10 @@ CREATE TABLE public.preferencias_asignacionrolusuario (
 );
 
 
+ALTER TABLE public.preferencias_asignacionrolusuario OWNER TO madmin;
+
 --
--- Name: preferencias_asignacionrolusuario_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: preferencias_asignacionrolusuario_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.preferencias_asignacionrolusuario ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1752,7 +1841,7 @@ ALTER TABLE public.preferencias_asignacionrolusuario ALTER COLUMN id ADD GENERAT
 
 
 --
--- Name: preferencias_moneda; Type: TABLE; Schema: public; Owner: -
+-- Name: preferencias_moneda; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.preferencias_moneda (
@@ -1767,8 +1856,10 @@ CREATE TABLE public.preferencias_moneda (
 );
 
 
+ALTER TABLE public.preferencias_moneda OWNER TO madmin;
+
 --
--- Name: preferencias_moneda_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: preferencias_moneda_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.preferencias_moneda ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1782,7 +1873,7 @@ ALTER TABLE public.preferencias_moneda ALTER COLUMN id ADD GENERATED BY DEFAULT 
 
 
 --
--- Name: preferencias_permisorolaccion; Type: TABLE; Schema: public; Owner: -
+-- Name: preferencias_permisorolaccion; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.preferencias_permisorolaccion (
@@ -1795,8 +1886,10 @@ CREATE TABLE public.preferencias_permisorolaccion (
 );
 
 
+ALTER TABLE public.preferencias_permisorolaccion OWNER TO madmin;
+
 --
--- Name: preferencias_permisorolaccion_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: preferencias_permisorolaccion_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.preferencias_permisorolaccion ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1810,7 +1903,7 @@ ALTER TABLE public.preferencias_permisorolaccion ALTER COLUMN id ADD GENERATED B
 
 
 --
--- Name: preferencias_permisorolmodulo; Type: TABLE; Schema: public; Owner: -
+-- Name: preferencias_permisorolmodulo; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.preferencias_permisorolmodulo (
@@ -1826,8 +1919,10 @@ CREATE TABLE public.preferencias_permisorolmodulo (
 );
 
 
+ALTER TABLE public.preferencias_permisorolmodulo OWNER TO madmin;
+
 --
--- Name: preferencias_permisorolmodulo_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: preferencias_permisorolmodulo_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.preferencias_permisorolmodulo ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1841,7 +1936,7 @@ ALTER TABLE public.preferencias_permisorolmodulo ALTER COLUMN id ADD GENERATED B
 
 
 --
--- Name: preferencias_rol; Type: TABLE; Schema: public; Owner: -
+-- Name: preferencias_rol; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.preferencias_rol (
@@ -1854,8 +1949,10 @@ CREATE TABLE public.preferencias_rol (
 );
 
 
+ALTER TABLE public.preferencias_rol OWNER TO madmin;
+
 --
--- Name: preferencias_rol_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: preferencias_rol_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.preferencias_rol ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1869,7 +1966,7 @@ ALTER TABLE public.preferencias_rol ALTER COLUMN id ADD GENERATED BY DEFAULT AS 
 
 
 --
--- Name: preferencias_sucursal; Type: TABLE; Schema: public; Owner: -
+-- Name: preferencias_sucursal; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.preferencias_sucursal (
@@ -1888,8 +1985,10 @@ CREATE TABLE public.preferencias_sucursal (
 );
 
 
+ALTER TABLE public.preferencias_sucursal OWNER TO madmin;
+
 --
--- Name: preferencias_sucursal_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: preferencias_sucursal_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.preferencias_sucursal ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1903,7 +2002,7 @@ ALTER TABLE public.preferencias_sucursal ALTER COLUMN id ADD GENERATED BY DEFAUL
 
 
 --
--- Name: produccion_detalleordenproduccion; Type: TABLE; Schema: public; Owner: -
+-- Name: produccion_detalleordenproduccion; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.produccion_detalleordenproduccion (
@@ -1915,8 +2014,10 @@ CREATE TABLE public.produccion_detalleordenproduccion (
 );
 
 
+ALTER TABLE public.produccion_detalleordenproduccion OWNER TO madmin;
+
 --
--- Name: produccion_detalleordenproduccion_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: produccion_detalleordenproduccion_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.produccion_detalleordenproduccion ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1930,7 +2031,7 @@ ALTER TABLE public.produccion_detalleordenproduccion ALTER COLUMN id ADD GENERAT
 
 
 --
--- Name: produccion_itemtest; Type: TABLE; Schema: public; Owner: -
+-- Name: produccion_itemtest; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.produccion_itemtest (
@@ -1942,8 +2043,10 @@ CREATE TABLE public.produccion_itemtest (
 );
 
 
+ALTER TABLE public.produccion_itemtest OWNER TO madmin;
+
 --
--- Name: produccion_itemtest_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: produccion_itemtest_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.produccion_itemtest ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1957,7 +2060,7 @@ ALTER TABLE public.produccion_itemtest ALTER COLUMN id ADD GENERATED BY DEFAULT 
 
 
 --
--- Name: produccion_ordenproduccion; Type: TABLE; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.produccion_ordenproduccion (
@@ -1981,8 +2084,10 @@ CREATE TABLE public.produccion_ordenproduccion (
 );
 
 
+ALTER TABLE public.produccion_ordenproduccion OWNER TO madmin;
+
 --
--- Name: produccion_ordenproduccion_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.produccion_ordenproduccion ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1996,7 +2101,7 @@ ALTER TABLE public.produccion_ordenproduccion ALTER COLUMN id ADD GENERATED BY D
 
 
 --
--- Name: produccion_resultadotestop; Type: TABLE; Schema: public; Owner: -
+-- Name: produccion_resultadotestop; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.produccion_resultadotestop (
@@ -2009,8 +2114,10 @@ CREATE TABLE public.produccion_resultadotestop (
 );
 
 
+ALTER TABLE public.produccion_resultadotestop OWNER TO madmin;
+
 --
--- Name: produccion_resultadotestop_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: produccion_resultadotestop_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.produccion_resultadotestop ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2024,7 +2131,7 @@ ALTER TABLE public.produccion_resultadotestop ALTER COLUMN id ADD GENERATED BY D
 
 
 --
--- Name: produccion_test; Type: TABLE; Schema: public; Owner: -
+-- Name: produccion_test; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.produccion_test (
@@ -2036,8 +2143,10 @@ CREATE TABLE public.produccion_test (
 );
 
 
+ALTER TABLE public.produccion_test OWNER TO madmin;
+
 --
--- Name: produccion_test_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: produccion_test_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.produccion_test ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2051,7 +2160,7 @@ ALTER TABLE public.produccion_test ALTER COLUMN id ADD GENERATED BY DEFAULT AS I
 
 
 --
--- Name: proveedores_proveedor; Type: TABLE; Schema: public; Owner: -
+-- Name: proveedores_proveedor; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.proveedores_proveedor (
@@ -2070,8 +2179,10 @@ CREATE TABLE public.proveedores_proveedor (
 );
 
 
+ALTER TABLE public.proveedores_proveedor OWNER TO madmin;
+
 --
--- Name: proveedores_proveedor_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: proveedores_proveedor_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.proveedores_proveedor ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2085,7 +2196,7 @@ ALTER TABLE public.proveedores_proveedor ALTER COLUMN id ADD GENERATED BY DEFAUL
 
 
 --
--- Name: proveedores_sucursalproveedor; Type: TABLE; Schema: public; Owner: -
+-- Name: proveedores_sucursalproveedor; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.proveedores_sucursalproveedor (
@@ -2096,8 +2207,10 @@ CREATE TABLE public.proveedores_sucursalproveedor (
 );
 
 
+ALTER TABLE public.proveedores_sucursalproveedor OWNER TO madmin;
+
 --
--- Name: proveedores_sucursalproveedor_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: proveedores_sucursalproveedor_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.proveedores_sucursalproveedor ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2111,7 +2224,7 @@ ALTER TABLE public.proveedores_sucursalproveedor ALTER COLUMN id ADD GENERATED B
 
 
 --
--- Name: recepciones_detallerecepcion; Type: TABLE; Schema: public; Owner: -
+-- Name: recepciones_detallerecepcion; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.recepciones_detallerecepcion (
@@ -2125,8 +2238,10 @@ CREATE TABLE public.recepciones_detallerecepcion (
 );
 
 
+ALTER TABLE public.recepciones_detallerecepcion OWNER TO madmin;
+
 --
--- Name: recepciones_detallerecepcion_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: recepciones_detallerecepcion_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.recepciones_detallerecepcion ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2140,7 +2255,7 @@ ALTER TABLE public.recepciones_detallerecepcion ALTER COLUMN id ADD GENERATED BY
 
 
 --
--- Name: recepciones_detallerecepcionextra; Type: TABLE; Schema: public; Owner: -
+-- Name: recepciones_detallerecepcionextra; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.recepciones_detallerecepcionextra (
@@ -2157,8 +2272,10 @@ CREATE TABLE public.recepciones_detallerecepcionextra (
 );
 
 
+ALTER TABLE public.recepciones_detallerecepcionextra OWNER TO madmin;
+
 --
--- Name: recepciones_detallerecepcionextra_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: recepciones_detallerecepcionextra_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.recepciones_detallerecepcionextra ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2172,7 +2289,7 @@ ALTER TABLE public.recepciones_detallerecepcionextra ALTER COLUMN id ADD GENERAT
 
 
 --
--- Name: recepciones_recepcion; Type: TABLE; Schema: public; Owner: -
+-- Name: recepciones_recepcion; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.recepciones_recepcion (
@@ -2195,8 +2312,10 @@ CREATE TABLE public.recepciones_recepcion (
 );
 
 
+ALTER TABLE public.recepciones_recepcion OWNER TO madmin;
+
 --
--- Name: recepciones_recepcion_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: recepciones_recepcion_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.recepciones_recepcion ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2210,7 +2329,7 @@ ALTER TABLE public.recepciones_recepcion ALTER COLUMN id ADD GENERATED BY DEFAUL
 
 
 --
--- Name: recursos_humanos_beneficiario; Type: TABLE; Schema: public; Owner: -
+-- Name: recursos_humanos_beneficiario; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.recursos_humanos_beneficiario (
@@ -2236,8 +2355,10 @@ CREATE TABLE public.recursos_humanos_beneficiario (
 );
 
 
+ALTER TABLE public.recursos_humanos_beneficiario OWNER TO madmin;
+
 --
--- Name: recursos_humanos_beneficiario_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: recursos_humanos_beneficiario_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.recursos_humanos_beneficiario ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2251,7 +2372,7 @@ ALTER TABLE public.recursos_humanos_beneficiario ALTER COLUMN id ADD GENERATED B
 
 
 --
--- Name: recursos_humanos_contratista; Type: TABLE; Schema: public; Owner: -
+-- Name: recursos_humanos_contratista; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.recursos_humanos_contratista (
@@ -2286,8 +2407,10 @@ CREATE TABLE public.recursos_humanos_contratista (
 );
 
 
+ALTER TABLE public.recursos_humanos_contratista OWNER TO madmin;
+
 --
--- Name: recursos_humanos_contratista_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: recursos_humanos_contratista_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.recursos_humanos_contratista ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2301,7 +2424,7 @@ ALTER TABLE public.recursos_humanos_contratista ALTER COLUMN id ADD GENERATED BY
 
 
 --
--- Name: recursos_humanos_contrato; Type: TABLE; Schema: public; Owner: -
+-- Name: recursos_humanos_contrato; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.recursos_humanos_contrato (
@@ -2324,8 +2447,10 @@ CREATE TABLE public.recursos_humanos_contrato (
 );
 
 
+ALTER TABLE public.recursos_humanos_contrato OWNER TO madmin;
+
 --
--- Name: recursos_humanos_contrato_empleados; Type: TABLE; Schema: public; Owner: -
+-- Name: recursos_humanos_contrato_empleados; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.recursos_humanos_contrato_empleados (
@@ -2335,8 +2460,10 @@ CREATE TABLE public.recursos_humanos_contrato_empleados (
 );
 
 
+ALTER TABLE public.recursos_humanos_contrato_empleados OWNER TO madmin;
+
 --
--- Name: recursos_humanos_contrato_empleados_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: recursos_humanos_contrato_empleados_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.recursos_humanos_contrato_empleados ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2350,7 +2477,7 @@ ALTER TABLE public.recursos_humanos_contrato_empleados ALTER COLUMN id ADD GENER
 
 
 --
--- Name: recursos_humanos_contrato_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: recursos_humanos_contrato_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.recursos_humanos_contrato ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2364,7 +2491,7 @@ ALTER TABLE public.recursos_humanos_contrato ALTER COLUMN id ADD GENERATED BY DE
 
 
 --
--- Name: recursos_humanos_empleado; Type: TABLE; Schema: public; Owner: -
+-- Name: recursos_humanos_empleado; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.recursos_humanos_empleado (
@@ -2383,7 +2510,7 @@ CREATE TABLE public.recursos_humanos_empleado (
     clave_percepcion_sat character varying(100) NOT NULL,
     colonia character varying(150),
     correo_personal character varying(254) NOT NULL,
-    cp character varying(10),
+    cp character varying(255),
     curp character varying(18) NOT NULL,
     departamento character varying(100) NOT NULL,
     estado character varying(20) NOT NULL,
@@ -2429,12 +2556,18 @@ CREATE TABLE public.recursos_humanos_empleado (
     beneficiario_id bigint,
     contratista_id bigint,
     clave_ubicacion character varying(100),
-    notas text
+    notas text,
+    antiguedad_sat character varying(50),
+    periodicidad_pago_sat character varying(50),
+    tipo_regimen_sat character varying(50),
+    jornada_sat character varying(50)
 );
 
 
+ALTER TABLE public.recursos_humanos_empleado OWNER TO madmin;
+
 --
--- Name: recursos_humanos_empleado_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: recursos_humanos_empleado_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.recursos_humanos_empleado ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2448,7 +2581,7 @@ ALTER TABLE public.recursos_humanos_empleado ALTER COLUMN id ADD GENERATED BY DE
 
 
 --
--- Name: recursos_humanos_importacionsua; Type: TABLE; Schema: public; Owner: -
+-- Name: recursos_humanos_importacionsua; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.recursos_humanos_importacionsua (
@@ -2473,8 +2606,10 @@ CREATE TABLE public.recursos_humanos_importacionsua (
 );
 
 
+ALTER TABLE public.recursos_humanos_importacionsua OWNER TO madmin;
+
 --
--- Name: recursos_humanos_importacionsua_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: recursos_humanos_importacionsua_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.recursos_humanos_importacionsua ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2488,7 +2623,61 @@ ALTER TABLE public.recursos_humanos_importacionsua ALTER COLUMN id ADD GENERATED
 
 
 --
--- Name: recursos_humanos_trabajadorsua; Type: TABLE; Schema: public; Owner: -
+-- Name: recursos_humanos_nomina; Type: TABLE; Schema: public; Owner: madmin
+--
+
+CREATE TABLE public.recursos_humanos_nomina (
+    id bigint NOT NULL,
+    periodo character varying(100) NOT NULL,
+    uso_cfdi character varying(255) NOT NULL,
+    uuid character varying(36),
+    tipo_nomina character varying(1) NOT NULL,
+    serie character varying(20),
+    folio character varying(20),
+    fecha_emision timestamp with time zone,
+    fecha_certificacion timestamp with time zone,
+    fecha_pago date,
+    fecha_inicial_pago date,
+    fecha_final_pago date,
+    dias_pagados numeric(10,2) NOT NULL,
+    rfc character varying(13) NOT NULL,
+    curp character varying(18) NOT NULL,
+    nss character varying(11) NOT NULL,
+    nombre character varying(255) NOT NULL,
+    rfc_contratista character varying(13),
+    sdi numeric(12,2) NOT NULL,
+    sbc numeric(12,2) NOT NULL,
+    vacaciones_exento numeric(12,2) NOT NULL,
+    vacaciones_dignas_exento numeric(12,2) NOT NULL,
+    aguinaldo_exento numeric(12,2) NOT NULL,
+    sueldo_gravado numeric(12,2) NOT NULL,
+    vacaciones_gravado numeric(12,2) NOT NULL,
+    vacaciones_dignas_gravado numeric(12,2) NOT NULL,
+    aguinaldo_gravado numeric(12,2) NOT NULL,
+    empleado_id bigint,
+    empresa_id bigint NOT NULL,
+    sucursal_id bigint
+);
+
+
+ALTER TABLE public.recursos_humanos_nomina OWNER TO madmin;
+
+--
+-- Name: recursos_humanos_nomina_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
+--
+
+ALTER TABLE public.recursos_humanos_nomina ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.recursos_humanos_nomina_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: recursos_humanos_trabajadorsua; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.recursos_humanos_trabajadorsua (
@@ -2536,8 +2725,10 @@ CREATE TABLE public.recursos_humanos_trabajadorsua (
 );
 
 
+ALTER TABLE public.recursos_humanos_trabajadorsua OWNER TO madmin;
+
 --
--- Name: recursos_humanos_trabajadorsua_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: recursos_humanos_trabajadorsua_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.recursos_humanos_trabajadorsua ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2551,7 +2742,7 @@ ALTER TABLE public.recursos_humanos_trabajadorsua ALTER COLUMN id ADD GENERATED 
 
 
 --
--- Name: solicitudcompras_detallesolicitudcompra; Type: TABLE; Schema: public; Owner: -
+-- Name: solicitudcompras_detallesolicitudcompra; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.solicitudcompras_detallesolicitudcompra (
@@ -2570,8 +2761,10 @@ CREATE TABLE public.solicitudcompras_detallesolicitudcompra (
 );
 
 
+ALTER TABLE public.solicitudcompras_detallesolicitudcompra OWNER TO madmin;
+
 --
--- Name: solicitudcompras_detallesolicitudcompra_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: solicitudcompras_detallesolicitudcompra_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.solicitudcompras_detallesolicitudcompra ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2585,7 +2778,7 @@ ALTER TABLE public.solicitudcompras_detallesolicitudcompra ALTER COLUMN id ADD G
 
 
 --
--- Name: solicitudcompras_solicitudcompra; Type: TABLE; Schema: public; Owner: -
+-- Name: solicitudcompras_solicitudcompra; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.solicitudcompras_solicitudcompra (
@@ -2601,8 +2794,10 @@ CREATE TABLE public.solicitudcompras_solicitudcompra (
 );
 
 
+ALTER TABLE public.solicitudcompras_solicitudcompra OWNER TO madmin;
+
 --
--- Name: solicitudcompras_solicitudcompra_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: solicitudcompras_solicitudcompra_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.solicitudcompras_solicitudcompra ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2616,7 +2811,7 @@ ALTER TABLE public.solicitudcompras_solicitudcompra ALTER COLUMN id ADD GENERATE
 
 
 --
--- Name: tesoreria_cajabanco; Type: TABLE; Schema: public; Owner: -
+-- Name: tesoreria_cajabanco; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.tesoreria_cajabanco (
@@ -2634,8 +2829,10 @@ CREATE TABLE public.tesoreria_cajabanco (
 );
 
 
+ALTER TABLE public.tesoreria_cajabanco OWNER TO madmin;
+
 --
--- Name: tesoreria_cajabanco_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: tesoreria_cajabanco_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.tesoreria_cajabanco ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2649,7 +2846,7 @@ ALTER TABLE public.tesoreria_cajabanco ALTER COLUMN id ADD GENERATED BY DEFAULT 
 
 
 --
--- Name: tesoreria_egreso; Type: TABLE; Schema: public; Owner: -
+-- Name: tesoreria_egreso; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.tesoreria_egreso (
@@ -2672,8 +2869,10 @@ CREATE TABLE public.tesoreria_egreso (
 );
 
 
+ALTER TABLE public.tesoreria_egreso OWNER TO madmin;
+
 --
--- Name: tesoreria_egreso_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: tesoreria_egreso_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.tesoreria_egreso ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2687,7 +2886,7 @@ ALTER TABLE public.tesoreria_egreso ALTER COLUMN id ADD GENERATED BY DEFAULT AS 
 
 
 --
--- Name: tesoreria_ingreso; Type: TABLE; Schema: public; Owner: -
+-- Name: tesoreria_ingreso; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.tesoreria_ingreso (
@@ -2710,8 +2909,10 @@ CREATE TABLE public.tesoreria_ingreso (
 );
 
 
+ALTER TABLE public.tesoreria_ingreso OWNER TO madmin;
+
 --
--- Name: tesoreria_ingreso_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: tesoreria_ingreso_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.tesoreria_ingreso ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2725,7 +2926,7 @@ ALTER TABLE public.tesoreria_ingreso ALTER COLUMN id ADD GENERATED BY DEFAULT AS
 
 
 --
--- Name: tesoreria_pagocompra; Type: TABLE; Schema: public; Owner: -
+-- Name: tesoreria_pagocompra; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.tesoreria_pagocompra (
@@ -2747,8 +2948,10 @@ CREATE TABLE public.tesoreria_pagocompra (
 );
 
 
+ALTER TABLE public.tesoreria_pagocompra OWNER TO madmin;
+
 --
--- Name: tesoreria_pagocompra_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: tesoreria_pagocompra_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.tesoreria_pagocompra ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2762,7 +2965,7 @@ ALTER TABLE public.tesoreria_pagocompra ALTER COLUMN id ADD GENERATED BY DEFAULT
 
 
 --
--- Name: tesoreria_pagopedido; Type: TABLE; Schema: public; Owner: -
+-- Name: tesoreria_pagopedido; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.tesoreria_pagopedido (
@@ -2784,8 +2987,10 @@ CREATE TABLE public.tesoreria_pagopedido (
 );
 
 
+ALTER TABLE public.tesoreria_pagopedido OWNER TO madmin;
+
 --
--- Name: tesoreria_pagopedido_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: tesoreria_pagopedido_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.tesoreria_pagopedido ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2799,7 +3004,7 @@ ALTER TABLE public.tesoreria_pagopedido ALTER COLUMN id ADD GENERATED BY DEFAULT
 
 
 --
--- Name: ventas_detalleordenventa; Type: TABLE; Schema: public; Owner: -
+-- Name: ventas_detalleordenventa; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.ventas_detalleordenventa (
@@ -2812,8 +3017,10 @@ CREATE TABLE public.ventas_detalleordenventa (
 );
 
 
+ALTER TABLE public.ventas_detalleordenventa OWNER TO madmin;
+
 --
--- Name: ventas_detalleordenventa_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: ventas_detalleordenventa_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.ventas_detalleordenventa ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2827,7 +3034,7 @@ ALTER TABLE public.ventas_detalleordenventa ALTER COLUMN id ADD GENERATED BY DEF
 
 
 --
--- Name: ventas_ordenventa; Type: TABLE; Schema: public; Owner: -
+-- Name: ventas_ordenventa; Type: TABLE; Schema: public; Owner: madmin
 --
 
 CREATE TABLE public.ventas_ordenventa (
@@ -2854,8 +3061,10 @@ CREATE TABLE public.ventas_ordenventa (
 );
 
 
+ALTER TABLE public.ventas_ordenventa OWNER TO madmin;
+
 --
--- Name: ventas_ordenventa_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: ventas_ordenventa_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
 --
 
 ALTER TABLE public.ventas_ordenventa ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -2869,7 +3078,7 @@ ALTER TABLE public.ventas_ordenventa ALTER COLUMN id ADD GENERATED BY DEFAULT AS
 
 
 --
--- Data for Name: actividades_actividad; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: actividades_actividad; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.actividades_actividad (id, nombre, fecha, hora_inicio, hora_fin, tipo, prioridad, correo, direccion, descripcion, creado_en, estado, motivo_cancelacion, cliente_id, contacto_id, cotizacion_id, empresa_id, sucursal_id) FROM stdin;
@@ -2877,7 +3086,7 @@ COPY public.actividades_actividad (id, nombre, fecha, hora_inicio, hora_fin, tip
 
 
 --
--- Data for Name: almacenes_almacen; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: almacenes_almacen; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.almacenes_almacen (id, nombre, responsable, calle, numero_ext, numero_int, colonia, estado, cp, telefono, fecha_creacion, empresa_id, sucursal_id) FROM stdin;
@@ -2889,23 +3098,98 @@ COPY public.almacenes_almacen (id, nombre, responsable, calle, numero_ext, numer
 
 
 --
--- Data for Name: almacenes_inventario; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: almacenes_inventario; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.almacenes_inventario (id, cantidad, costo_promedio, fecha_actualizacion, almacen_id, empresa_id, producto_id, reservado, sucursal_id) FROM stdin;
+15	0	2428.79	2026-05-27 12:33:46.174058-06	2	1	161	0	1
+16	1	2428.79	2026-05-27 12:33:46.17717-06	3	1	161	0	\N
+14	0	6386.51	2026-05-27 12:33:46.184074-06	2	1	176	0	1
+17	1	6386.51	2026-05-27 12:33:46.186374-06	3	1	176	0	\N
+13	0	930.67	2026-05-27 12:33:46.191097-06	2	1	175	0	1
+18	1	930.67	2026-05-27 12:33:46.193457-06	3	1	175	0	\N
+12	0	2224.89	2026-05-27 12:33:46.198448-06	2	1	172	0	1
+19	1	2224.89	2026-05-27 12:33:46.200802-06	3	1	172	0	\N
+11	0	1842.92	2026-05-27 12:33:46.205646-06	2	1	3	0	1
+20	1	1842.92	2026-05-27 12:33:46.208189-06	3	1	3	0	\N
+10	0	1806.46	2026-05-27 12:33:46.213505-06	2	1	68	0	1
+21	1	1806.46	2026-05-27 12:33:46.215992-06	3	1	68	0	\N
+9	0	1089.26	2026-05-27 12:33:46.222138-06	2	1	171	0	1
+22	1	1089.26	2026-05-27 12:33:46.224945-06	3	1	171	0	\N
+8	0	4941.49	2026-05-27 12:33:46.230218-06	2	1	170	0	1
+23	1	4941.49	2026-05-27 12:33:46.232756-06	3	1	170	0	\N
+7	0	10547.08	2026-05-27 12:33:46.237878-06	2	1	169	0	1
+24	1	10547.08	2026-05-27 12:33:46.240349-06	3	1	169	0	\N
+6	0	2827.58	2026-05-27 12:33:46.245404-06	2	1	57	0	1
+25	1	2827.58	2026-05-27 12:33:46.247893-06	3	1	57	0	\N
+5	0	5346.46	2026-05-27 12:33:46.253156-06	2	1	54	0	1
+26	1	5346.46	2026-05-27 12:33:46.255538-06	3	1	54	0	\N
+4	0	799.00	2026-05-27 12:33:46.260546-06	2	1	8	0	1
+27	1	799.00	2026-05-27 12:33:46.262977-06	3	1	8	0	\N
+3	0	18900.00	2026-05-27 12:33:46.268087-06	2	1	117	0	1
+28	1	18900.00	2026-05-27 12:33:46.270648-06	3	1	117	0	\N
+2	0	1200.00	2026-05-27 12:33:46.276323-06	2	1	52	0	1
+29	1	1200.00	2026-05-27 12:33:46.278911-06	3	1	52	0	\N
+1	0	813.92	2026-05-27 12:33:46.284555-06	2	1	174	0	1
+30	1	813.92	2026-05-27 12:33:46.287109-06	3	1	174	0	\N
 \.
 
 
 --
--- Data for Name: almacenes_kardex; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: almacenes_kardex; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.almacenes_kardex (id, fecha, tipo_movimiento, cantidad, stock_anterior, stock_nuevo, referencia, almacen_id, empresa_id, producto_id, lote, serie, usuario_id, sucursal_id) FROM stdin;
+1	2026-05-27 12:26:19.560325-06	entrada	1.00	0.00	1.00	REC-0001	2	1	174	\N		3	1
+2	2026-05-27 12:26:49.790283-06	entrada	1.00	0.00	1.00	REC-0002	2	1	52	\N		3	1
+3	2026-05-27 12:26:49.795092-06	entrada	1.00	0.00	1.00	REC-0002	2	1	117	\N		3	1
+4	2026-05-27 12:26:49.799444-06	entrada	1.00	0.00	1.00	REC-0002	2	1	8	\N		3	1
+5	2026-05-27 12:27:02.648756-06	entrada	1.00	0.00	1.00	REC-0003	2	1	54	\N		3	1
+6	2026-05-27 12:27:02.654158-06	entrada	1.00	0.00	1.00	REC-0003	2	1	57	\N		3	1
+7	2026-05-27 12:27:02.65884-06	entrada	1.00	0.00	1.00	REC-0003	2	1	169	\N		3	1
+8	2026-05-27 12:27:02.663224-06	entrada	1.00	0.00	1.00	REC-0003	2	1	170	\N		3	1
+9	2026-05-27 12:27:02.668266-06	entrada	1.00	0.00	1.00	REC-0003	2	1	171	\N		3	1
+10	2026-05-27 12:27:02.6729-06	entrada	1.00	0.00	1.00	REC-0003	2	1	68	\N		3	1
+11	2026-05-27 12:27:02.67768-06	entrada	1.00	0.00	1.00	REC-0003	2	1	3	\N		3	1
+12	2026-05-27 12:27:02.681697-06	entrada	1.00	0.00	1.00	REC-0003	2	1	172	\N		3	1
+13	2026-05-27 12:27:02.686114-06	entrada	1.00	0.00	1.00	REC-0003	2	1	175	\N		3	1
+14	2026-05-27 12:27:02.689803-06	entrada	1.00	0.00	1.00	REC-0003	2	1	176	\N		3	1
+15	2026-05-27 12:27:02.693126-06	entrada	1.00	0.00	1.00	REC-0003	2	1	161	\N	\N	3	1
+16	2026-05-27 12:33:46.180507-06	salida	1.00	1.00	0.00	TRASLADO	2	1	161	\N	\N	3	1
+17	2026-05-27 12:33:46.182072-06	entrada	1.00	0.00	1.00	TRASLADO	3	1	161	\N	\N	3	1
+18	2026-05-27 12:33:46.188414-06	salida	1.00	1.00	0.00	TRASLADO	2	1	176	\N	\N	3	1
+19	2026-05-27 12:33:46.189036-06	entrada	1.00	0.00	1.00	TRASLADO	3	1	176	\N	\N	3	1
+20	2026-05-27 12:33:46.195701-06	salida	1.00	1.00	0.00	TRASLADO	2	1	175	\N	\N	3	1
+21	2026-05-27 12:33:46.196343-06	entrada	1.00	0.00	1.00	TRASLADO	3	1	175	\N	\N	3	1
+22	2026-05-27 12:33:46.202882-06	salida	1.00	1.00	0.00	TRASLADO	2	1	172	\N	\N	3	1
+23	2026-05-27 12:33:46.203478-06	entrada	1.00	0.00	1.00	TRASLADO	3	1	172	\N	\N	3	1
+24	2026-05-27 12:33:46.210338-06	salida	1.00	1.00	0.00	TRASLADO	2	1	3	\N	\N	3	1
+25	2026-05-27 12:33:46.211206-06	entrada	1.00	0.00	1.00	TRASLADO	3	1	3	\N	\N	3	1
+26	2026-05-27 12:33:46.218581-06	salida	1.00	1.00	0.00	TRASLADO	2	1	68	\N	\N	3	1
+27	2026-05-27 12:33:46.219365-06	entrada	1.00	0.00	1.00	TRASLADO	3	1	68	\N	\N	3	1
+28	2026-05-27 12:33:46.227338-06	salida	1.00	1.00	0.00	TRASLADO	2	1	171	\N	\N	3	1
+29	2026-05-27 12:33:46.228011-06	entrada	1.00	0.00	1.00	TRASLADO	3	1	171	\N	\N	3	1
+30	2026-05-27 12:33:46.235091-06	salida	1.00	1.00	0.00	TRASLADO	2	1	170	\N	\N	3	1
+31	2026-05-27 12:33:46.235645-06	entrada	1.00	0.00	1.00	TRASLADO	3	1	170	\N	\N	3	1
+32	2026-05-27 12:33:46.242688-06	salida	1.00	1.00	0.00	TRASLADO	2	1	169	\N	\N	3	1
+33	2026-05-27 12:33:46.24329-06	entrada	1.00	0.00	1.00	TRASLADO	3	1	169	\N	\N	3	1
+34	2026-05-27 12:33:46.25027-06	salida	1.00	1.00	0.00	TRASLADO	2	1	57	\N	\N	3	1
+35	2026-05-27 12:33:46.25091-06	entrada	1.00	0.00	1.00	TRASLADO	3	1	57	\N	\N	3	1
+36	2026-05-27 12:33:46.257757-06	salida	1.00	1.00	0.00	TRASLADO	2	1	54	\N	\N	3	1
+37	2026-05-27 12:33:46.258357-06	entrada	1.00	0.00	1.00	TRASLADO	3	1	54	\N	\N	3	1
+38	2026-05-27 12:33:46.265219-06	salida	1.00	1.00	0.00	TRASLADO	2	1	8	\N	\N	3	1
+39	2026-05-27 12:33:46.26582-06	entrada	1.00	0.00	1.00	TRASLADO	3	1	8	\N	\N	3	1
+40	2026-05-27 12:33:46.273151-06	salida	1.00	1.00	0.00	TRASLADO	2	1	117	\N	\N	3	1
+41	2026-05-27 12:33:46.274061-06	entrada	1.00	0.00	1.00	TRASLADO	3	1	117	\N	\N	3	1
+42	2026-05-27 12:33:46.281278-06	salida	1.00	1.00	0.00	TRASLADO	2	1	52	\N	\N	3	1
+43	2026-05-27 12:33:46.282113-06	entrada	1.00	0.00	1.00	TRASLADO	3	1	52	\N	\N	3	1
+44	2026-05-27 12:33:46.289466-06	salida	1.00	1.00	0.00	TRASLADO	2	1	174	\N	\N	3	1
+45	2026-05-27 12:33:46.290121-06	entrada	1.00	0.00	1.00	TRASLADO	3	1	174	\N	\N	3	1
 \.
 
 
 --
--- Data for Name: auth_group; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: auth_group; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.auth_group (id, name) FROM stdin;
@@ -2913,7 +3197,7 @@ COPY public.auth_group (id, name) FROM stdin;
 
 
 --
--- Data for Name: auth_group_permissions; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: auth_group_permissions; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.auth_group_permissions (id, group_id, permission_id) FROM stdin;
@@ -2921,7 +3205,7 @@ COPY public.auth_group_permissions (id, group_id, permission_id) FROM stdin;
 
 
 --
--- Data for Name: auth_permission; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: auth_permission; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.auth_permission (id, name, content_type_id, codename) FROM stdin;
@@ -3189,11 +3473,15 @@ COPY public.auth_permission (id, name, content_type_id, codename) FROM stdin;
 262	Can change servicio personal	66	change_serviciopersonal
 263	Can delete servicio personal	66	delete_serviciopersonal
 264	Can view servicio personal	66	view_serviciopersonal
+265	Can add Nómina	67	add_nomina
+266	Can change Nómina	67	change_nomina
+267	Can delete Nómina	67	delete_nomina
+268	Can view Nómina	67	view_nomina
 \.
 
 
 --
--- Data for Name: auth_user; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: auth_user; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.auth_user (id, password, last_login, is_superuser, username, first_name, last_name, email, is_staff, is_active, date_joined) FROM stdin;
@@ -3201,9 +3489,9 @@ COPY public.auth_user (id, password, last_login, is_superuser, username, first_n
 6	pbkdf2_sha256$1200000$7JHJ2ILtPY8ONnhKqcsCh2$yMqd/qLiuQIaMnGF0ecgq7/EVfzZW/6sGPGdRfdzwaI=	2026-05-20 12:03:12.023338-06	t	rmendez@highpro			contacto@protohardware.com	t	t	2026-05-20 10:52:59-06
 5	pbkdf2_sha256$1200000$Df2G00GcFy9qayh5V8OEOc$QA475bZmth/cEFwx9zh4rouUzeQWdIB70+smSg/9VwQ=	2026-05-20 12:25:25.179202-06	t	admin@demo				t	t	2026-05-13 10:35:54.36316-06
 3	pbkdf2_sha256$1200000$YcuX3lyZhTE3kkT7kZ5Jnt$COMcqAeK8hKJXaMvF8L1r4fYbAiHcVtPhuVrx2kEngQ=	2026-05-22 22:56:17.828053-06	t	admin@highpro				t	t	2026-05-13 10:35:17.075067-06
-4	pbkdf2_sha256$1200000$D56WTkSgiesz6VSa0OxPZq$DovSHeTeefZj7Oej6GmujcWE9Lp6I0EqtxsnOxkwFf4=	2026-05-25 16:45:06.647676-06	t	sadmin@demo			luism@crossovermx.com.mx	t	t	2026-05-13 10:35:53.868697-06
-2	pbkdf2_sha256$1200000$pyoiPCe8gM53Ftyw4jIrBU$CeF81y3QvV77DQGBQ6A9T/jH2eJ2N9MCqWc9kE5rksQ=	2026-05-25 17:13:47.649173-06	t	sadmin@highpro			highpro.gerencia1@gmail.com	t	t	2026-05-13 10:35:16.661671-06
+4	pbkdf2_sha256$1200000$D56WTkSgiesz6VSa0OxPZq$DovSHeTeefZj7Oej6GmujcWE9Lp6I0EqtxsnOxkwFf4=	2026-05-27 09:59:16.300051-06	t	sadmin@demo			luism@crossovermx.com.mx	t	t	2026-05-13 10:35:53.868697-06
 11	pbkdf2_sha256$1200000$ZKFxZP1Bc21v5joq25s6K0$fMcCJFmPR3BlFpjNp92uk1LajGRlNXLgx98LJM811OQ=	2026-05-20 13:27:52.957062-06	f	usuario@demo				f	t	2026-05-20 12:25:50.240795-06
+2	pbkdf2_sha256$1200000$pyoiPCe8gM53Ftyw4jIrBU$CeF81y3QvV77DQGBQ6A9T/jH2eJ2N9MCqWc9kE5rksQ=	2026-05-27 13:03:31.32818-06	t	sadmin@highpro			highpro.gerencia1@gmail.com	t	t	2026-05-13 10:35:16.661671-06
 7	pbkdf2_sha256$1200000$y3nBe2AaIjGzlDFJuMpzcB$5Sc6abpERR9/bsBP+DNUlvATrabEYJNTPgerhCGhRpA=	\N	f	lgonzalez@highpro			facturacion@highpro.com.mx	f	t	2026-05-20 10:55:44.524213-06
 9	pbkdf2_sha256$1200000$oqhJ0HqEpJ56fa3rONFoz6$05EpvSxYcnCKDxi3P2dvTAaQkgxHC8PxPug0V07UbNo=	\N	t	eornelas@highpro			contacto@highpro.com.mx	t	t	2026-05-20 10:56:28.84377-06
 10	pbkdf2_sha256$1200000$XMunL5Z0hxb556thLrSiYd$qe1qEqEE2NofhjPezIogG1ARuANlYbD4DKWMWxD5PeA=	\N	f	etorres@highpro			protohw@highpro.com.mx	f	t	2026-05-20 10:56:54.505771-06
@@ -3212,7 +3500,7 @@ COPY public.auth_user (id, password, last_login, is_superuser, username, first_n
 
 
 --
--- Data for Name: auth_user_groups; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: auth_user_groups; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.auth_user_groups (id, user_id, group_id) FROM stdin;
@@ -3220,7 +3508,7 @@ COPY public.auth_user_groups (id, user_id, group_id) FROM stdin;
 
 
 --
--- Data for Name: auth_user_user_permissions; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: auth_user_user_permissions; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.auth_user_user_permissions (id, user_id, permission_id) FROM stdin;
@@ -3228,7 +3516,7 @@ COPY public.auth_user_user_permissions (id, user_id, permission_id) FROM stdin;
 
 
 --
--- Data for Name: categorias_categoria; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: categorias_categoria; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.categorias_categoria (id, nombre, empresa_id) FROM stdin;
@@ -3247,7 +3535,7 @@ COPY public.categorias_categoria (id, nombre, empresa_id) FROM stdin;
 
 
 --
--- Data for Name: categorias_listapreciocosto; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: categorias_listapreciocosto; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.categorias_listapreciocosto (id, nombre, porcentaje_extra, monto_extra, tipo, fecha_creacion, empresa_id) FROM stdin;
@@ -3255,7 +3543,7 @@ COPY public.categorias_listapreciocosto (id, nombre, porcentaje_extra, monto_ext
 
 
 --
--- Data for Name: categorias_subcategoria; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: categorias_subcategoria; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.categorias_subcategoria (id, nombre, categoria_id, empresa_id) FROM stdin;
@@ -3263,7 +3551,7 @@ COPY public.categorias_subcategoria (id, nombre, categoria_id, empresa_id) FROM 
 
 
 --
--- Data for Name: clientes_cliente; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: clientes_cliente; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.clientes_cliente (id, nombre, apellidos, razon_social, rfc, email, telefono, calle, numero_ext, numero_int, colonia, estado_dir, cp, estado, tipo, relacion, creado_en, empresa_id, envio_calle, envio_colonia, envio_correo, envio_cp, envio_estado, envio_notas, envio_numero_ext, envio_numero_int, envio_quien_recibe, envio_telefono) FROM stdin;
@@ -3278,7 +3566,7 @@ COPY public.clientes_cliente (id, nombre, apellidos, razon_social, rfc, email, t
 
 
 --
--- Data for Name: clientes_contactocliente; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: clientes_contactocliente; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.clientes_contactocliente (id, nombre_completo, telefono_1, telefono_2, correo_1, correo_2, notas, creado_en, cliente_id) FROM stdin;
@@ -3286,23 +3574,61 @@ COPY public.clientes_contactocliente (id, nombre_completo, telefono_1, telefono_
 
 
 --
--- Data for Name: compras_detallecompra; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: compras_detallecompra; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.compras_detallecompra (id, cantidad, precio_costo, producto_id, orden_compra_id, detalle_pedido_origen_id) FROM stdin;
+1	1	302.06	54	1	\N
+2	1	159.75	57	1	\N
+3	1	595.88	169	1	\N
+4	1	279.18	170	1	\N
+5	1	61.54	171	1	\N
+6	1	102.06	68	1	\N
+7	1	1200.00	52	2	\N
+8	1	18900.00	117	2	\N
+9	1	104.12	3	3	\N
+10	1	125.70	172	3	\N
+11	1	52.58	175	3	\N
+12	1	360.82	176	3	\N
+13	1	137.22	161	3	\N
+14	1	799.00	8	4	\N
+15	1	813.92	174	5	\N
+89	1	813.92	174	8	\N
+74	1	302.06	54	6	\N
+75	1	159.75	57	6	\N
+76	1	595.88	169	6	\N
+77	1	279.18	170	6	\N
+78	1	61.54	171	6	\N
+79	1	102.06	68	6	\N
+80	1	104.12	3	6	\N
+81	1	125.70	172	6	\N
+82	1	52.58	175	6	\N
+83	1	360.82	176	6	\N
+84	1	137.22	161	6	\N
+85	1	1200.00	52	7	\N
+86	1	18900.00	117	7	\N
+87	1	799.00	8	7	\N
 \.
 
 
 --
--- Data for Name: compras_ordencompra; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: compras_ordencompra; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
-COPY public.compras_ordencompra (id, proveedor_id, fecha, estado, notas, almacen_destino_id, empresa_id, usuario_id, solicitud_origen_id, moneda_id, tipo_cambio, sucursal_id, sucursal_empresa_id) FROM stdin;
+COPY public.compras_ordencompra (id, proveedor_id, fecha, estado, notas, almacen_destino_id, empresa_id, usuario_id, solicitud_origen_id, moneda_id, tipo_cambio, sucursal_id, sucursal_empresa_id, descuento) FROM stdin;
+1	1	2026-05-26 16:55:56.741325-06	cancelada	Generada desde Solicitud #6. [CONSOLIDADA EN OC-0006]	2	1	3	6	2	18.0000	2	1	0.00
+3	1	2026-05-26 16:56:02.924006-06	cancelada	Generada desde Solicitud #5. [CONSOLIDADA EN OC-0006]	2	1	3	5	2	18.0000	2	1	0.00
+2	1	2026-05-26 16:55:56.753011-06	cancelada	Generada desde Solicitud #6. [CONSOLIDADA EN OC-0007]	2	1	3	6	1	1.0000	2	1	0.00
+4	1	2026-05-26 16:56:02.934741-06	cancelada	Generada desde Solicitud #5. [CONSOLIDADA EN OC-0007]	2	1	3	5	1	1.0000	2	1	0.00
+5	1	2026-05-26 16:56:02.936888-06	cancelada	Generada desde Solicitud #5.	2	1	3	5	1	1.0000	3	1	0.00
+8	1	2026-05-27 00:00:00-06	recibida	Generada desde Solicitud #7.	2	1	3	7	1	1.0000	3	1	48.43
+7	1	2026-05-26 00:00:00-06	recibida	Orden de compra creada de los folios OC-0002, OC-0004	2	1	3	\N	1	1.0000	2	1	200.00
+6	1	2026-05-26 00:00:00-06	recibida	Orden de compra creada de los folios OC-0001, OC-0003	2	1	3	\N	2	17.7000	2	1	0.00
 \.
 
 
 --
--- Data for Name: core_categoria; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: core_categoria; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.core_categoria (id, nombre, empresa_id) FROM stdin;
@@ -3310,7 +3636,7 @@ COPY public.core_categoria (id, nombre, empresa_id) FROM stdin;
 
 
 --
--- Data for Name: core_detallereceta; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: core_detallereceta; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.core_detallereceta (id, cantidad, componente_id, producto_padre_id) FROM stdin;
@@ -3347,191 +3673,191 @@ COPY public.core_detallereceta (id, cantidad, componente_id, producto_padre_id) 
 
 
 --
--- Data for Name: core_producto; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: core_producto; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.core_producto (id, nombre, descripcion, tipo, estado, categoria, subcategoria, marca, modelo, linea, unidad_medida, precio_costo, precio_venta, stock_minimo, stock_maximo, maneja_lote, maneja_serie, fecha_creacion, empresa_id, tipo_abastecimiento, costos_lista, precios_lista, ieps, iva, test_calidad_id, clave, tiene_iva) FROM stdin;
 1	Articulo nuevo		producto	activo	\N	\N	\N	\N	\N	PZA	800.00	1000.00	0	1000	f	f	2026-05-20 12:24:17.026503-06	2	compra	[]	[]	0.00	16.00	\N	\N	t
-8	FUENTE DE PODER MSI (MAG A650BN) 650W,80 PLUS BRONZE	\N	producto	activo	FUENTE DE PODER		MSI	MAG A650BN	\N	UNIDAD	805.00	950.00	0	3	f	t	2026-05-21 16:56:41.720256-06	1	compra	[]	[]	0.00	16.00	\N	MAG A650BN	t
-19	TARJETA DE VIDEO ZOTAC (ZT-B50700J-10P) RTX 5070 SOLID OC 12GB GDDR7	\N	producto	activo	TARJETA DE VIDEO		ZOTAC	ZT-B50700J-10P	\N	UNIDAD	12388.00	14200.00	0	3	f	t	2026-05-21 16:56:41.762211-06	1	compra	[]	[]	0.00	16.00	\N	ZT-B50700J-10P	t
-15	TARJETA DE VIDEO XFX (RX-96TSW8GWQ) SWIFT RX9060XT OC,8GB GDDR6,1900MHZ,2*DP,HDMI,2*FAN,BLANCA	\N	producto	activo	TARJETA DE VIDEO		XFX	RX-96TSW8GWQ	\N	UNIDAD	6900.00	8400.00	0	3	f	t	2026-05-21 16:56:41.746946-06	1	compra	[]	[]	0.00	16.00	\N	RX-96TSW8GWQ	t
-3	MEMORIA RAM DDR4 KINGSTON (KF432C16BB2A/16) (1X16GB) 3200MHZ FURY BEAST BLACK RGB	\N	producto	activo	RAM		KINGSTON	KF432C16BB2A/16	\N	UNIDAD	1800.00	2200.00	0	3	f	t	2026-05-21 16:56:41.698305-06	1	compra	[]	[]	0.00	16.00	\N	KF432C16BB2A/16	t
-4	TARJETA DE VIDEO ZOTAC (ZT-B50600H-10M) RTX 5060 TWIN EDGE OC 8GB	\N	producto	activo	TARJETA DE VIDEO		ZOTAC	ZT-B50600H-10M	\N	UNIDAD	6610.00	7300.00	0	3	f	t	2026-05-21 16:56:41.704386-06	1	compra	[]	[]	0.00	16.00	\N	ZT-B50600H-10M	t
-5	TARJETA DE VIDEO ASUS (DUAL-RTX5060-O8G) 8GB GDDR7	\N	producto	activo	TARJETA DE VIDEO		ASUS	DUAL-RTX5060-O8G	\N	UNIDAD	6610.00	7300.00	0	3	f	t	2026-05-21 16:56:41.707946-06	1	compra	[]	[]	0.00	16.00	\N	DUAL-RTX5060-O8G	t
-16	TARJETA DE VIDEO XFX (RX-96TSW8GBQ) SWIFT RX9060XT OC,8GB GDDR6,1900MHZ,2*DP,HDMI,2*FAN,NEGRO	\N	producto	activo	TARJETA DE VIDEO		XFX	RX-96TSW8GBQ	\N	UNIDAD	6900.00	8400.00	0	3	f	t	2026-05-21 16:56:41.750811-06	1	compra	[]	[]	0.00	16.00	\N	RX-96TSW8GBQ	t
-17	TARJETA DE VIDEO MSI (RTX 5060 TI 8G VENTUS 2X OC WHITE PLUS)8GB	\N	producto	activo	TARJETA DE VIDEO		MSI	RTX 5060 TI 8G VENTUS 2X OC WHITE PLUS	\N	UNIDAD	7721.00	8800.00	0	3	f	t	2026-05-21 16:56:41.754278-06	1	compra	[]	[]	0.00	16.00	\N	RTX 5060 TI 8G VENTUS 2X OC WHITE PLUS	t
-9	FUENTE DE PODER GIGABYTE (GP-P650G PG5) 650W,PCI-E GEN5,80 PLUS GOLD,NEGRO	\N	producto	activo	FUENTE DE PODER		GIGABYTE	GP-P650G PG5	\N	UNIDAD	805.00	950.00	0	3	f	t	2026-05-21 16:56:41.72415-06	1	compra	[]	[]	0.00	16.00	\N	GP-P650G PG5	t
-11	GABINETE BALAM RUSH(BR-935968)DRAGONFLY PERFORM AIRCOOL GM590AB,MAX ATX	\N	producto	activo	GABINETE		BALAM RUSH	BR-935968	\N	UNIDAD	804.00	980.00	0	3	f	t	2026-05-21 16:56:41.73214-06	1	compra	[]	[]	0.00	16.00	\N	BR-935968	t
-12	MEMORIA DIMM DDR4 CORSAIR (CMW32GX4M2E3200C16) 32GB 3200MHZ (2X16GB) VENGEANCE RGB PRO, NEGRO	\N	producto	activo	RAM		CORSAIR	CMW32GX4M2E3200C16	\N	UNIDAD	4920.00	5590.00	0	3	f	t	2026-05-21 16:56:41.735907-06	1	compra	[]	[]	0.00	16.00	\N	CMW32GX4M2E3200C16	t
-13	UNIDAD SSD M.2 CRUCIAL 2TB (CT2000E100SSD8) E100, PCIE GEN4, NVME	\N	producto	activo	ALMACENAMIENTO		CRUCIAL	CT2000E100SSD8	\N	UNIDAD	4917.00	5500.00	0	3	f	t	2026-05-21 16:56:41.739076-06	1	compra	[]	[]	0.00	16.00	\N	CT2000E100SSD8	t
-14	GABINETE ANTEC (CX600M ARGB_B) MINI TOWER MICRO-ATX,CRISTAL	\N	producto	activo	GABINETE		ANTEC	CX600M ARGB_B	\N	UNIDAD	1120.00	1350.00	0	3	f	t	2026-05-21 16:56:41.743207-06	1	compra	[]	[]	0.00	16.00	\N	CX600M ARGB_B	t
-2	PROCESADOR INTEL (BX8071514100F) CORE I3-14100F S-1700 4CORES 4.70GHZ 65W S/GRAFICOS	\N	producto	activo	PROCESADORES		INTEL	BX8071514100F	\N	UNIDAD	1620.00	1940.00	0	3	f	t	2026-05-21 16:56:41.681067-06	1	stock	[]	[]	0.00	16.00	\N	BX8071514100F	t
-20	TARJETA DE VIDEO ASUS (DUAL-RTX5070-O12G) 192BIT, PCI-E 5.0	\N	producto	activo	TARJETA DE VIDEO		ASUS	DUAL-RTX5070-O12G	\N	UNIDAD	10970.00	12350.00	0	3	f	t	2026-05-21 16:56:41.765718-06	1	compra	[]	[]	0.00	16.00	\N	DUAL-RTX5070-O12G	t
-21	FUENTE DE PODER COOLER MASTER (MPX-8503-AFAG-2EBUS) MWE GOLD 850W V3 ATX 3.1,PCI-E 5, FULL MODULAR	\N	producto	activo	FUENTE DE PODER		COOLER MASTER	MPX-8503-AFAG-2EBUS	\N	UNIDAD	1375.00	1650.00	0	3	f	t	2026-05-21 16:56:41.769079-06	1	compra	[]	[]	0.00	16.00	\N	MPX-8503-AFAG-2EBUS	t
-22	FUENTE DE PODER GIGABYTE (GP-UD850GM PG5 V2) 850W,MODULAR,PCI-E GEN5,16PINS,80 PLUS GOLD	\N	producto	activo	FUENTE DE PODER		GIGABYTE	GP-UD850GM PG5 V2	\N	UNIDAD	1375.00	1650.00	0	3	f	t	2026-05-21 16:56:41.77285-06	1	compra	[]	[]	0.00	16.00	\N	GP-UD850GM PG5 V2	t
-23	GABINETE NZXT (CC-H31FB-01) H3 FLOW, MID TOWER, MICRO ITX, MICRO ATX, 1 FAN, SIN FUENTE, NEGRO	\N	producto	activo	GABINETE		NZXT	CC-H31FB-01	\N	UNIDAD	1185.00	1650.00	0	3	f	t	2026-05-21 16:56:41.775861-06	1	compra	[]	[]	0.00	16.00	\N	CC-H31FB-01	t
-24	GABINETE NZXT (CC-H31FW-01) H3 FLOW MID TOWER, MICRO ITX, MICRO ATX, 1 FAN, SIN FUENTE, BLANCO	\N	producto	activo	GABINETE		NZXT	CC-H31FW-01	\N	UNIDAD	1185.00	1650.00	0	3	f	t	2026-05-21 16:56:41.779301-06	1	compra	[]	[]	0.00	16.00	\N	CC-H31FW-01	t
-25	PROCESADOR AMD (100-100001591BOX) RYZEN 5 8400F S-AM5	\N	producto	activo	PROCESADORES		AMD	100-100001591BOX	\N	UNIDAD	2915.00	2999.00	0	3	f	t	2026-05-21 16:56:41.782613-06	1	compra	[]	[]	0.00	16.00	\N	100-100001591BOX	t
-26	GABINETE COOLER MASTER (MB520-WGNN-S01) MASTERBOX MB520	\N	producto	activo	GABINETE		COOLER MASTER	MB520-WGNN-S01	\N	UNIDAD	1761.00	1999.00	0	3	f	t	2026-05-21 16:56:41.785705-06	1	compra	[]	[]	0.00	16.00	\N	MB520-WGNN-S01	t
-27	GABINETE COOLER MASTER (MB600-KGNN-S00) MASTERBOX 600	\N	producto	activo	GABINETE		COOLER MASTER	MB600-KGNN-S00	\N	UNIDAD	1761.00	1999.00	0	3	f	t	2026-05-21 16:56:41.789368-06	1	compra	[]	[]	0.00	16.00	\N	MB600-KGNN-S00	t
-28	LEGA ONE	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE	\N	UNIDAD	16472.93	25263.15	0	3	f	t	2026-05-21 16:56:41.794396-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE	t
-29	LEGA ONE CUSTOM	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE CUSTOM	\N	UNIDAD	16472.93	25263.15	0	3	f	t	2026-05-21 16:56:41.798272-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE CUSTOM	t
-30	LEGA ONE PRODUCCION	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE PRODUCCION	\N	UNIDAD	16472.93	25263.15	0	3	f	t	2026-05-21 16:56:41.801563-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE PRODUCCION	t
-31	LEGA ONE PLUS	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE PLUS	\N	UNIDAD	21886.07	33397.50	0	3	f	t	2026-05-21 16:56:41.804689-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE PLUS	t
-32	LEGA ONE PLUS CUSTOM	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE PLUS CUSTOM	\N	UNIDAD	21886.07	33397.50	0	3	f	t	2026-05-21 16:56:41.807947-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE PLUS CUSTOM	t
-6	SSD KINGSTON SNV3S NVME, 1TB, M.2, SNV3S/1000G, 6000 MB/S LECTURA, PCI EXPRESS 4.0	\N	producto	activo	ALMACENAMIENTO		KINGSTON	SNV3S/1000G	\N	UNIDAD	2686.00	3050.00	0	3	f	t	2026-05-21 16:56:41.712094-06	1	compra	[]	[]	0.00	16.00	\N	SNV3S/1000G	t
-7	UNIDAD SSD M.2 ACER 1TB (BL.9BWWA.120) FA100, PCIE GEN3X4, 2280, 3300MB/S	\N	producto	activo	ALMACENAMIENTO		ACER	BL.9BWWA.120	\N	UNIDAD	2655.00	2800.00	0	3	f	t	2026-05-21 16:56:41.715561-06	1	compra	[]	[]	0.00	16.00	\N	BL.9BWWA.120	t
-42	LEGA ONE 5070 PRODUCCION	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE 5070 PRODUCCION	\N	UNIDAD	28105.87	43188.00	0	3	f	t	2026-05-21 16:56:41.84056-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE 5070 PRODUCCION	t
-49	GABINETE CORSAIR (CC-9011256-WW) 3000D RGB AIRFLOW,BLANCO	\N	producto	activo	GABINETE		CORSAIR	CC-9011256-WW	\N	UNIDAD	1722.00	2050.00	0	3	f	t	2026-05-21 16:56:41.872098-06	1	compra	[]	[]	0.00	16.00	\N	CC-9011256-WW	t
-34	LEGA ONE RADEON 9060	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE RADEON 9060	\N	UNIDAD	19444.85	29993.70	0	3	f	t	2026-05-21 16:56:41.815308-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE RADEON 9060	t
-35	LEGA ONE RADEON 9060 CUSTOM	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE RADEON 9060 CUSTOM	\N	UNIDAD	19444.85	29993.70	0	3	f	t	2026-05-21 16:56:41.818387-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE RADEON 9060 CUSTOM	t
-36	LEGA ONE RADEON 9060 PRODUCCION	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE RADEON 9060 PRODUCCION	\N	UNIDAD	19444.85	29993.70	0	3	f	t	2026-05-21 16:56:41.821927-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE RADEON 9060 PRODUCCION	t
-38	LEGA ONE 5060TI CUSTOM	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE 5060TI CUSTOM	\N	UNIDAD	18808.01	28987.20	0	3	f	t	2026-05-21 16:56:41.827918-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE 5060TI CUSTOM	t
-39	LEGA ONE 5060TI PRODUCCION	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE 5060TI PRODUCCION	\N	UNIDAD	18808.01	28987.20	0	3	f	t	2026-05-21 16:56:41.83124-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE 5060TI PRODUCCION	t
-40	LEGA ONE 5070		producto	activo	COMPUTADORA		LEGA	LEGA ONE 5070	\N	UNIDAD	28105.87	43188.00	0	3	f	t	2026-05-21 16:56:41.834203-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE 5070	t
-41	LEGA ONE 5070 CUSTOM	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE 5070 CUSTOM	\N	UNIDAD	28105.87	43188.00	0	3	f	t	2026-05-21 16:56:41.837514-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE 5070 CUSTOM	t
-43	LEGA ONE AM5	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE AM5	\N	UNIDAD	18850.46	27999.00	0	3	f	t	2026-05-21 16:56:41.844203-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE AM5	t
-44	LEGA ONE AM5 CUSTOM	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE AM5 CUSTOM	\N	UNIDAD	18850.46	27999.00	0	3	f	t	2026-05-21 16:56:41.847583-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE AM5 CUSTOM	t
-45	LEGA ONE AM5 PRODUCCION	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE AM5 PRODUCCION	\N	UNIDAD	18850.46	27999.00	0	3	f	t	2026-05-21 16:56:41.851034-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE AM5 PRODUCCION	t
-46	PROCESADOR INTEL CORE I5-12600KF S-1700 12A GEN BX8071512600KF	\N	producto	activo	PROCESADORES		INTEL	BX8071512600KF	\N	UNIDAD	3300.00	3800.00	0	3	f	t	2026-05-21 16:56:41.854183-06	1	compra	[]	[]	0.00	16.00	\N	BX8071512600KF	t
-47	VENTILADOR P/CPU COOLER MASTER (RR-S4NA-17PA-R1) HYPER 212 SPECTRUM V3 ARGB, 4PWM,LGA1700/AM5	\N	producto	activo	ENFRIAMIENTO		COOLER MASTER	RR-S4NA-17PA-R1	\N	UNIDAD	210.00	590.00	0	3	f	t	2026-05-21 16:56:41.858237-06	1	compra	[]	[]	0.00	16.00	\N	RR-S4NA-17PA-R1	t
-18	MOTHERBOARD ASUS (PRIME B760M-A D4) SOCKET 1700 13A,4*DDR4	\N	producto	activo	MOTHERBOARD		ASUS	PRIME B760M-A D4	\N	UNIDAD	1722.00	2100.00	0	3	f	t	2026-05-21 16:56:41.758738-06	1	compra	[]	[]	0.00	16.00	\N	PRIME B760M-A D4	t
-33	LEGA ONE PLUS PRODUCCION	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE PLUS PRODUCCION	\N	UNIDAD	21886.07	33397.50	0	3	f	t	2026-05-21 16:56:41.811384-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE PLUS PRODUCCION	t
-51	VENTILADOR P/CPU MSI (MAG CORELIQUID A13 360) ARGB,ENFRIAMIENTO LIQUIDO, 3 FAN, 360MM, NEGRO	\N	producto	activo	ENFRIAMIENTO		MSI	MAG CORELIQUID A13 360	\N	UNIDAD	1185.00	2189.00	0	3	f	t	2026-05-21 16:56:41.879143-06	1	compra	[]	[]	0.00	16.00	\N	MAG CORELIQUID A13 360	t
-52	VENTILADOR P/CPU MSI (MAG CORELIQUID A13 360 WHITE) ARGB,ENFRIAMIENTO LIQUIDO, 3 FAN, 360MM, BLANCO	\N	producto	activo	ENFRIAMIENTO		MSI	MAG CORELIQUID A13 360 WHITE	\N	UNIDAD	1185.00	2189.00	0	3	f	t	2026-05-21 16:56:41.882221-06	1	compra	[]	[]	0.00	16.00	\N	MAG CORELIQUID A13 360 WHITE	t
-53	GABINETE NZXT (CC-H52FB-R1) H5 FLOW RGB COMPACT MID-TOWER ATX CASE WITH RGB FANS - NEGRO	\N	producto	activo	GABINETE		NZXT	CC-H52FB-R1	\N	UNIDAD	1873.00	2100.00	0	3	f	t	2026-05-21 16:56:41.885309-06	1	compra	[]	[]	0.00	16.00	\N	CC-H52FB-R1	t
-54	PROCESADOR INTEL (BX80768265K) CORE ULTRA 7 265K, IA, SOCKET-1851	\N	producto	activo	PROCESADORES		INTEL	BX80768265K	\N	UNIDAD	6310.00	7100.00	0	3	f	t	2026-05-21 16:56:41.888856-06	1	compra	[]	[]	0.00	16.00	\N	BX80768265K	t
-55	PROCESADOR INTEL (BX80768265) CORE ULTRA 7 265, IA, SOCKET-1851, 20CORES CON GRAFICOS	\N	producto	activo	PROCESADORES		INTEL	BX80768265	\N	UNIDAD	6716.00	7900.00	0	3	f	t	2026-05-21 16:56:41.892448-06	1	compra	[]	[]	0.00	16.00	\N	BX80768265	t
-56	PROCESADOR INTEL (BX80768265KF) CORE ULTRA 7 265KF, IA, SOCKET-1851	\N	producto	activo	PROCESADORES		INTEL	BX80768265KF	\N	UNIDAD	6310.00	7100.00	0	3	f	t	2026-05-21 16:56:41.895848-06	1	compra	[]	[]	0.00	16.00	\N	BX80768265KF	t
-57	MOTHERBOARD ASUS (TUF GAMING B860M-PLUS WIFI) SOCKET 1851 15A,4*DDR5	\N	producto	activo	MOTHERBOARD		ASUS	TUF GAMING B860M-PLUS WIFI	\N	UNIDAD	3338.00	3960.00	0	3	f	t	2026-05-21 16:56:41.899534-06	1	compra	[]	[]	0.00	16.00	\N	TUF GAMING B860M-PLUS WIFI	t
-58	MOTHERBOARD ASUS (ROG STRIX B860-A GAMING WIFI) SOCKET 1851, 4*DDR5	\N	producto	activo	MOTHERBOARD		ASUS	ROG STRIX B860-A GAMING WIFI	\N	UNIDAD	4331.00	4800.00	0	3	f	t	2026-05-21 16:56:41.903217-06	1	compra	[]	[]	0.00	16.00	\N	ROG STRIX B860-A GAMING WIFI	t
-59	MEMORIA DIMM DDR5 KINGSTON (KF560C36BBE2-16) (1X16GB) 6000MHZ, CL36, FURY BEAST, XMP/EXPO	\N	producto	activo	RAM		KINGSTON	KF560C36BBE2-16	\N	UNIDAD	3151.00	3500.00	0	3	f	t	2026-05-21 16:56:41.906799-06	1	compra	[]	[]	0.00	16.00	\N	KF560C36BBE2-16	t
-60	SSD WD GREEN SN350 NVME, 2TB, M.2, 3000 MB/S ESCRITURA, 3200 MB/S WDS200T3G0C, PCI EXPRESS 3.0	\N	producto	activo	ALMACENAMIENTO		WD	WDS200T3G0C	\N	UNIDAD	4100.00	4500.00	0	3	f	t	2026-05-21 16:56:41.910233-06	1	compra	[]	[]	0.00	16.00	\N	WDS200T3G0C	t
-61	GABINETE NZXT (CC-H61FB-01) H6 FLOW EDITION COMPACT DUAL-CHAMBER, ATX, NEGRO	\N	producto	activo	GABINETE		NZXT	CC-H61FB-01	\N	UNIDAD	2195.00	2650.00	0	3	f	t	2026-05-21 16:56:41.917194-06	1	compra	[]	[]	0.00	16.00	\N	CC-H61FB-01	t
-62	MOTHERBOARD MSI B860 GAMING PLUS WIFI, ATX, LGA 1851	\N	producto	activo	MOTHERBOARD		MSI	B860 GAMING PLUS WIFI	\N	UNIDAD	3700.00	4300.00	0	3	f	t	2026-05-21 16:56:41.920183-06	1	compra	[]	[]	0.00	16.00	\N	B860 GAMING PLUS WIFI	t
-63	LEGA BRONCE	\N	producto	activo	COMPUTADORA		LEGA	LEGA BRONCE	\N	UNIDAD	20719.00	30541.97	0	3	f	t	2026-05-21 16:56:41.923902-06	1	compra	[]	[]	0.00	16.00	\N	LEGA BRONCE	t
-48	MOTHERBOARD MSI (PRO B760M-P DDR4) SOCKET 1700, 4*DDR4	\N	producto	activo	MOTHERBOARD		MSI	PRO B760M-P DDR4	\N	UNIDAD	1722.00	2100.00	0	3	f	t	2026-05-21 16:56:41.869055-06	1	compra	[]	[]	0.00	16.00	\N	PRO B760M-P DDR4	t
-66	GABINETE NZXT (CC-H52FW-01) H5 FLOW, COMPACT MID-TOWER ATX CASE 1 FAN, SIN FUENTE, BLANCO	\N	producto	activo	GABINETE		NZXT	CC-H52FW-01	\N	UNIDAD	1978.00	2150.00	0	3	f	t	2026-05-21 16:56:41.933836-06	1	compra	[]	[]	0.00	16.00	\N	CC-H52FW-01	t
-67	LEGA BRONCE PLUS	\N	producto	activo	COMPUTADORA		LEGA	LEGA BRONCE PLUS	\N	UNIDAD	31353.76	39692.70	0	3	f	t	2026-05-21 16:56:41.937075-06	1	compra	[]	[]	0.00	16.00	\N	LEGA BRONCE PLUS	t
-68	GABINETE NZXT (CM-H72FW-R1) H7 FLOW RGB, MID-TOWER 3 FANS RGB, ATX, BLANCO	\N	producto	activo	GABINETE		NZXT	CM-H72FW-R1	\N	UNIDAD	1790.00	2400.00	0	3	f	t	2026-05-21 16:56:41.940115-06	1	compra	[]	[]	0.00	16.00	\N	CM-H72FW-R1	t
-69	GABINETE NZXT (CM-H72FW-01) H7 FLOW MID-TOWER ATX CASE - BLANCO	\N	producto	activo	GABINETE		NZXT	CM-H72FW-01	\N	UNIDAD	2250.00	2400.00	0	3	f	t	2026-05-21 16:56:41.944081-06	1	compra	[]	[]	0.00	16.00	\N	CM-H72FW-01	t
-71	PROCESADOR AMD (100-100001590BOX) RYZEN 7 8700F S-AM5, 8 CORE 4.1 GHZ, 65W, S/GRAFICOS	\N	producto	activo	PROCESADORES		LEGA	100-100001590BOX	\N	UNIDAD	3900.00	4700.00	0	3	f	t	2026-05-21 16:56:41.950912-06	1	compra	[]	[]	0.00	16.00	\N	100-100001590BOX	t
-72	MOTHERBOARD ASUS (PRIME B650M-A AX II) SOCKET AM5,4*DDR5	\N	producto	activo	MOTHERBOARD		LEGA	PRIME B650M-A AX II	\N	UNIDAD	3090.00	3650.00	0	3	f	t	2026-05-21 16:56:41.955814-06	1	compra	[]	[]	0.00	16.00	\N	PRIME B650M-A AX II	t
-73	MOTHERBOARD ASUS (TUF GAMING B650E-E WIFI) SOCKET AM5,4*DDR5	\N	producto	activo	MOTHERBOARD		LEGA	TUF GAMING B650E-E WIFI	\N	UNIDAD	3090.00	3650.00	0	3	f	t	2026-05-21 16:56:41.960034-06	1	compra	[]	[]	0.00	16.00	\N	TUF GAMING B650E-E WIFI	t
-74	GABINETE ANTEC (C7 ARGB WHITE) CONSTELLATION C7 ARGB,CRISTAL,BLANCO	\N	producto	activo	GABINETE		ANTEC	C7 ARGB WHITE	\N	UNIDAD	2212.00	2400.00	0	3	f	t	2026-05-21 16:56:41.963883-06	1	compra	[]	[]	0.00	16.00	\N	C7 ARGB WHITE	t
-75	GABINETE COOLER MASTER (E681-KHNN-S00) ELITE 681,VIDRIO TEMP,M-ATX,3*FAN	\N	producto	activo	GABINETE		COOLER MASTER	E681-KHNN-S00	\N	UNIDAD	1445.00	1800.00	0	3	f	t	2026-05-21 16:56:41.967942-06	1	compra	[]	[]	0.00	16.00	\N	E681-KHNN-S00	t
-76	LEGA BRONCE PRO AMD	\N	producto	activo	COMPUTADORA		LEGA	LEGA BRONCE PRO AMD	\N	UNIDAD	38231.63	51331.50	0	3	f	t	2026-05-21 16:56:41.971859-06	1	compra	[]	[]	0.00	16.00	\N	LEGA BRONCE PRO AMD	t
-77	PROCESADOR AMD (100-100001405WOF) RYZEN 5 9600X S-AM5, 6 CORE, 3.9 GHZ, 65W, C/GRAFICOS	\N	producto	activo	PROCESADORES		AMD	100-100001405WOF	\N	UNIDAD	3999.00	5200.00	0	3	f	t	2026-05-21 16:56:41.976258-06	1	compra	[]	[]	0.00	16.00	\N	100-100001405WOF	t
-78	PROCESADOR AMD (100-100001404WOF) RYZEN 7 9700X S-AM5, 8CORE, 3.8 GHZ, 65W, C/GRAFICOS, S/FAN	\N	producto	activo	PROCESADORES		AMD	100-100001404WOF	\N	UNIDAD	5800.00	7100.00	0	3	f	t	2026-05-21 16:56:41.987378-06	1	compra	[]	[]	0.00	16.00	\N	100-100001404WOF	t
-79	MEMORIA DIMM DDR5 CORSAIR (CMK32GX5M2B5600Z36) 32GB (2X16GB) 5600MHZ VENGEANCE AMD EXPO	\N	producto	activo	RAM		CORSAIR	CMK32GX5M2B5600Z36	\N	UNIDAD	7900.00	9890.00	0	3	f	t	2026-05-21 16:56:41.990804-06	1	compra	[]	[]	0.00	16.00	\N	CMK32GX5M2B5600Z36	t
-80	MEMORIA DIMM DDR5 KINGSTON (KF560C36BBE-32) (1X32GB) 6000MHZ, CL36, FURY BEAST, XMP/EXPO	\N	producto	activo	RAM		KINGSTON	KF560C36BBE-32	\N	UNIDAD	6500.00	9890.00	0	3	f	t	2026-05-21 16:56:41.994078-06	1	compra	[]	[]	0.00	16.00	\N	KF560C36BBE-32	t
-81	MEMORIA DIMM DDR5 CORSAIR (CMH32GX5M2B5600Z36K) 32GB (2X16GB) 5600MHZ VENGEANCE RGB AMD EXPO	\N	producto	activo	RAM		CORSAIR	CMH32GX5M2B5600Z36K	\N	UNIDAD	8100.00	9890.00	0	3	f	t	2026-05-21 16:56:41.997297-06	1	compra	[]	[]	0.00	16.00	\N	CMH32GX5M2B5600Z36K	t
-82	TARJETA DE VIDEO ASUS (PRIME-RX9070XT-O16G) 16G GDDR6, 256BIT, PCI-E 5.0,HDMI,3*DP,TRI FAN	\N	producto	activo	TARJETA DE VIDEO		ASUS	PRIME-RX9070XT-O16G	\N	UNIDAD	12230.00	15500.00	0	3	f	t	2026-05-21 16:56:42.00032-06	1	compra	[]	[]	0.00	16.00	\N	PRIME-RX9070XT-O16G	t
-83	TARJETA DE VIDEO XFX (RX-97TSWF3B9) SWIFT RADEON RX9070XT, 16GB, 2400MHZ, 3*DP, HDMI, 3*FAN, NEGRO	\N	producto	activo	TARJETA DE VIDEO		XFX	RX-97TSWF3B9	\N	UNIDAD	13400.00	15500.00	0	3	f	t	2026-05-21 16:56:42.003959-06	1	compra	[]	[]	0.00	16.00	\N	RX-97TSWF3B9	t
-84	PROCESADOR INTEL (BX80768245KF) CORE ULTRA 5 245KF, IA, SOCKET-1851, 14CORES S/GRAFICOS	\N	producto	activo	PROCESADORES		INTEL	BX80768245KF	\N	UNIDAD	3690.00	4050.00	0	3	f	t	2026-05-21 16:56:42.007219-06	1	compra	[]	[]	0.00	16.00	\N	BX80768245KF	t
-85	TARJETA DE VIDEO GIGABYTE NVIDIA GEFORCE RTX 5070 TI EAGLE OC SFF 16GB	\N	producto	activo	TARJETA DE VIDEO		GIGABYTE	GV-N507TEAGLEOC-16GB	\N	UNIDAD	22900.00	24999.00	0	3	f	t	2026-05-21 16:56:42.009996-06	1	compra	[]	[]	0.00	16.00	\N	GV-N507TEAGLEOC-16GB	t
-86	GABINETE BALAM RUSH (BR-941471) TANK POLAR 7900,ATX,1*USB-C,1*USB 3.0,CRISTAL TEMP,2 FAN,NEGRO	\N	producto	activo	GABINETE		BALAM RUSH	BR-941471	\N	UNIDAD	1750.00	1700.00	0	3	f	t	2026-05-21 16:56:42.013317-06	1	compra	[]	[]	0.00	16.00	\N	BR-941471	t
-87	GABINETE CORSAIR (CC-9011277-WW) 3500X,BLANCO,CRISTAL	\N	producto	activo	GABINETE		CORSAIR	CC-9011277-WW	\N	UNIDAD	1330.00	1700.00	0	3	f	t	2026-05-21 16:56:42.016377-06	1	compra	[]	[]	0.00	16.00	\N	CC-9011277-WW	t
-88	PROCESADOR AMD (100-100001015BOX) RYZEN 5 7600 S-AM5, 6 CORE 3.8 GHZ, 65W, C/GRAFICOS	\N	producto	activo	PROCESADORES		AMD	100-100001015BOX	\N	UNIDAD	3390.00	3900.00	0	3	f	t	2026-05-21 16:56:42.019567-06	1	compra	[]	[]	0.00	16.00	\N	100-100001015BOX	t
-89	LEGA SILVER	\N	producto	activo	COMPUTADORA		LEGA	LEGA SILVER	\N	UNIDAD	28127.10	34751.70	0	3	f	t	2026-05-21 16:56:42.02254-06	1	compra	[]	[]	0.00	16.00	\N	LEGA SILVER	t
-90	LEGA SILVER PLUS	\N	producto	activo	COMPUTADORA		LEGA	LEGA SILVER PLUS	\N	UNIDAD	45173.18	56730.00	0	3	f	t	2026-05-21 16:56:42.026034-06	1	compra	[]	[]	0.00	16.00	\N	LEGA SILVER PLUS	t
-91	LEGA GOLD	\N	producto	activo	COMPUTADORA		LEGA	LEGA GOLD	\N	UNIDAD	37170.23	48861.00	0	3	f	t	2026-05-21 16:56:42.029248-06	1	compra	[]	[]	0.00	16.00	\N	LEGA GOLD	t
-92	LEGA GOLD PLUS	\N	producto	activo	COMPUTADORA		LEGA	LEGA GOLD PLUS	\N	UNIDAD	50565.10	63592.50	0	3	f	t	2026-05-21 16:56:42.033039-06	1	compra	[]	[]	0.00	16.00	\N	LEGA GOLD PLUS	t
-93	LEGA GOLD AMD	\N	producto	activo	COMPUTADORA		LEGA	LEGA GOLD AMD	\N	UNIDAD	36745.67	48129.00	0	3	f	t	2026-05-21 16:56:42.036729-06	1	compra	[]	[]	0.00	16.00	\N	LEGA GOLD AMD	t
-94	PROCESADOR AMD (100-100000589WOF) RYZEN 9 7900X S-AM5 12 CORE 4.7 GHZ, 170W, C/GRAF	\N	producto	activo	PROCESADORES		AMD	100-100000589WOF	\N	UNIDAD	7476.00	7900.00	0	3	f	t	2026-05-21 16:56:42.040591-06	1	compra	[]	[]	0.00	16.00	\N	100-100000589WOF	t
-95	MOTHERBOARD MSI (X870 GAMING PLUS WIFI) SOCKET AM5, 4*DDR5 8200,	\N	producto	activo	MOTHERBOARD		MSI	X870 GAMING PLUS WIFI	\N	UNIDAD	4465.00	4800.00	0	3	f	t	2026-05-21 16:56:42.044402-06	1	compra	[]	[]	0.00	16.00	\N	X870 GAMING PLUS WIFI	t
-65	GABINETE NZXT (CC-H52FW-R1) H5 FLOW RGB COMPACT MID-TOWER ATX CASE WITH RGB FANS - BLANCO	\N	producto	activo	GABINETE		NZXT	CC-H52FW-R1	\N	UNIDAD	1978.00	2150.00	0	3	f	t	2026-05-21 16:56:41.930778-06	1	compra	[]	[]	0.00	16.00	\N	CC-H52FW-R1	t
-98	LEGA PLATINUM	\N	producto	activo	COMPUTADORA		LEGA	LEGA PLATINUM	\N	UNIDAD	55829.64	82350.00	0	3	f	t	2026-05-21 16:56:42.057164-06	1	compra	[]	[]	0.00	16.00	\N	LEGA PLATINUM	t
-99	MOTHERBOARD GIGABYTE (Z890 AORUS PRO ICE) SOCKET 1851	\N	producto	activo	MOTHERBOARD		GIGABYTE	Z890 AORUS PRO ICE	\N	UNIDAD	3900.00	4500.00	0	3	f	t	2026-05-21 16:56:42.061325-06	1	compra	[]	[]	0.00	16.00	\N	Z890 AORUS PRO ICE	t
-100	MOTHERBOARD GIGABYTE (Z890 A ELITE WF7 ICE) SOCKET 1851, 4*DDR5 8800MHZ, DP, ATX, WIFI7/BT	\N	producto	activo	MOTHERBOARD		GIGABYTE	Z890 A ELITE WF7 ICE	\N	UNIDAD	3900.00	4500.00	0	3	f	t	2026-05-21 16:56:42.064497-06	1	compra	[]	[]	0.00	16.00	\N	Z890 A ELITE WF7 ICE	t
-101	LEGA PLATINUM ULTRA	\N	producto	activo	COMPUTADORA		LEGA	LEGA PLATINUM ULTRA	\N	UNIDAD	54025.26	66831.60	0	3	f	t	2026-05-21 16:56:42.068104-06	1	compra	[]	[]	0.00	16.00	\N	LEGA PLATINUM ULTRA	t
-102	LEGA PLATINUM PLUS AMD	\N	producto	activo	COMPUTADORA		LEGA	LEGA PLATINUM PLUS AMD	\N	UNIDAD	99735.00	68332.93	0	3	f	t	2026-05-21 16:56:42.071368-06	1	compra	[]	[]	0.00	16.00	\N	LEGA PLATINUM PLUS AMD	t
-103	TARJETA DE VIDEO GIGABYTE (GV-N5080GAMING OC-16GD) RTX 5080, 16GB GDDR7	\N	producto	activo	TARJETA DE VIDEO		GIGABYTE	GV-N5080GAMING OC-16GD	\N	UNIDAD	27922.30	33000.00	0	3	f	t	2026-05-21 16:56:42.074458-06	1	compra	[]	[]	0.00	16.00	\N	GV-N5080GAMING OC-16GD	t
-104	TARJETA DE VIDEO ASUS NVIDIA PRIME RTX5080 16G PCI5 DRR7 256BIT 850W PRIME RTX5080 16G	\N	producto	activo	TARJETA DE VIDEO		ASUS	PRIME RTX5080 16G	\N	UNIDAD	25640.00	31000.00	0	3	f	t	2026-05-21 16:56:42.079862-06	1	compra	[]	[]	0.00	16.00	\N	PRIME RTX5080 16G	t
-105	FUENTE DE PODER CORSAIR (CP-9020259-NA) HX1000I,1000W,FULL MODULAR,80 PLUS PLATINUM,NEGRO	\N	producto	activo	FUENTE DE PODER		CORSAIR	CP-9020259-NA	\N	UNIDAD	3977.00	4459.00	0	3	f	t	2026-05-21 16:56:42.082822-06	1	compra	[]	[]	0.00	16.00	\N	CP-9020259-NA	t
-106	FUENTE DE PODER ASUS (TUF-GAMING-1000G) 1000W,MODULAR, 80 PLUS GOLD	\N	producto	activo	FUENTE DE PODER		ASUS	TUF-GAMING-1000G	\N	UNIDAD	3977.00	4459.00	0	3	f	t	2026-05-21 16:56:42.085816-06	1	compra	[]	[]	0.00	16.00	\N	TUF-GAMING-1000G	t
-107	GABINETE CORSAIR (CC-9011315-WW) 4500X FRAME,BLANCO CRISTAL TEMPLADO MED-TORRE SIN FUENTE	\N	producto	activo	GABINETE		CORSAIR	CC-9011315-WW	\N	UNIDAD	3019.00	3400.00	0	3	f	t	2026-05-21 16:56:42.088784-06	1	compra	[]	[]	0.00	16.00	\N	CC-9011315-WW	t
-108	LEGA PLATINUM RADEON 9070XT	\N	producto	activo	COMPUTADORA		LEGA	LEGA PLATINUM RADEON 9070XT	\N	UNIDAD	46637.92	58011.00	0	3	f	t	2026-05-21 16:56:42.091939-06	1	compra	[]	[]	0.00	16.00	\N	LEGA PLATINUM RADEON 9070XT	t
-109	LEGA TITANIUM	\N	producto	activo	COMPUTADORA		LEGA	LEGA TITANIUM	\N	UNIDAD	100047.56	124440.00	0	3	f	t	2026-05-21 16:56:42.095046-06	1	compra	[]	[]	0.00	16.00	\N	LEGA TITANIUM	t
-110	FUENTE DE PODER ASUS (TUF-GAMING-1200G) 1200W,MODULAR, 80 PLUS GOLD	\N	producto	activo	FUENTE DE PODER		ASUS	TUF-GAMING-1200G	\N	UNIDAD	4000.00	5000.00	0	3	f	t	2026-05-21 16:56:42.098115-06	1	compra	[]	[]	0.00	16.00	\N	TUF-GAMING-1200G	t
-112	GABINETE MSI MAG PANO 120R PZ, MIDI-TOWER, MICRO-ATX	\N	producto	activo	GABINETE		MSI	MAG PANO 120R PZ	\N	UNIDAD	4164.00	4800.00	0	3	f	t	2026-05-21 16:56:42.104426-06	1	compra	[]	[]	0.00	16.00	\N	MAG PANO 120R PZ	t
-113	PROCESADOR INTEL (BX80768285) CORE ULTRA 9 285, IA, SOCKET-1851, 24CORES CON GRAFICOS	\N	producto	activo	PROCESADORES		INTEL	BX80768285	\N	UNIDAD	10500.00	11900.00	0	3	f	t	2026-05-21 16:56:42.107346-06	1	compra	[]	[]	0.00	16.00	\N	BX80768285	t
-114	GABINETE THERMALTAKE VIEW 51 TG ARGB, MIDI-TOWER, ATX	\N	producto	activo	GABINETE		Thermaltake	CA-1Q6-00M1WN-00	\N	UNIDAD	4170.00	4600.00	0	3	f	t	2026-05-21 16:56:42.110636-06	1	compra	[]	[]	0.00	16.00	\N	CA-1Q6-00M1WN-00	t
-115	PROCESADOR AMD (100-100000662WOF) RYZEN 9 9900X S-AM5, 12 CORE 4.4 GHZ, 120W, C/GRAFICOS, S/FAN	\N	producto	activo	PROCESADORES		AMD	100-100000662WOF	\N	UNIDAD	11484.00	12600.00	0	3	f	t	2026-05-21 16:56:42.113953-06	1	compra	[]	[]	0.00	16.00	\N	100-100000662WOF	t
-116	PROCESADOR AMD (100-100001368WOF) RYZEN 9 9900X3D S-AM5, 12 CORE 4.4 GHZ, 120W, C/GRAFICOS, S/FAN	\N	producto	activo	PROCESADORES		AMD	100-100001368WOF	\N	UNIDAD	11484.00	12600.00	0	3	f	t	2026-05-21 16:56:42.116997-06	1	compra	[]	[]	0.00	16.00	\N	100-100001368WOF	t
-117	MEMORIA DIMM DDR5 CORSAIR (CMK64GX5M2B5600Z40) 64GB (2X32GB) 5600MHZ VENGEANCE AMD EXPO	\N	producto	activo	RAM		CORSAIR	CMK64GX5M2B5600Z40	\N	UNIDAD	18900.00	20700.00	0	3	f	t	2026-05-21 16:56:42.120188-06	1	compra	[]	[]	0.00	16.00	\N	CMK64GX5M2B5600Z40	t
-118	LEGA TITANIUM AMD	\N	producto	activo	PROCESADORES		AMD	LEGA TITANIUM AMD	\N	UNIDAD	113230.15	149145.00	0	3	f	t	2026-05-21 16:56:42.123513-06	1	compra	[]	[]	0.00	16.00	\N	LEGA TITANIUM AMD	t
-119	MEMORIA DIMM DDR5 ACER (BL.9BWWA.420) UD200, 16GB 1X16GB 4800MHZ	\N	producto	activo	RAM		ACER	BL.9BWWA.420	\N	UNIDAD	2996.72	3350.00	0	3	f	t	2026-05-21 16:56:42.126757-06	1	compra	[]	[]	0.00	16.00	\N	BL.9BWWA.420	t
-120	MOTHERBOARD ASUS (PRIME B860M-A WIFI), 4*DDR5, WIFI6E, MICRO ATX	\N	producto	activo	MOTHERBOARD		ASUS	PRIME B860M-A WIFI	\N	UNIDAD	2997.44	3600.00	0	3	f	t	2026-05-21 16:56:42.129705-06	1	compra	[]	[]	0.00	16.00	\N	PRIME B860M-A WIFI	t
-121	SSD M.2 KINGSTON 500GB (SNV3S/500G) NV3, PCIE 4.0, NVME, 2280	\N	producto	activo	ALMACENAMIENTO		KINGSTON	SNV3S/500G	\N	UNIDAD	1761.12	1999.00	0	3	f	t	2026-05-21 16:56:42.133934-06	1	compra	[]	[]	0.00	16.00	\N	SNV3S/500G	t
-122	MONITOR LED 27" ACTECK (AC-935845) SP270,1080,75HZ	\N	producto	activo	MONITOR		ACTECK	AC-935845	\N	UNIDAD	1812.95	1850.00	0	3	f	t	2026-05-21 16:56:42.140085-06	1	compra	[]	[]	0.00	16.00	\N	AC-935845	t
-123	KIT 2 EN 1 NACEB (NA-426) TECLADO Y MOUSE, INALAMBRICOS RF	\N	producto	activo	ACCESORIOS		ACTECK	NA-426	\N	UNIDAD	215.76	290.00	0	3	f	t	2026-05-21 16:56:42.144865-06	1	compra	[]	[]	0.00	16.00	\N	NA-426	t
-124	COMPUTADORA PERSONALIZADA CON PERIFÉRICOS PARA SERVICIO AUTOMOTRIZ GDL SA DE CV	\N	producto	activo	COMPUTADORA		PERSONALIZADO	COMPUTADORA PERSONALIZADA CON PERIFÉRICOS PARA SERVICIO AUTOMOTRIZ GDL SA DE CV	\N	UNIDAD	19572.22	21600.00	0	3	f	t	2026-05-21 16:56:42.148574-06	1	compra	[]	[]	0.00	16.00	\N	COMPUTADORA PERSONALIZADA CON PERIFÉRICOS PARA SERVICIO AUTOMOTRIZ GDL SA DE CV	t
-125	PROCESADOR AMD (100-100000457BOX) RYZEN 5 5500 S-AM4 6 CORE 3.6 GHZ 65W S/GRAFICOS C/FAN	\N	producto	activo	PROCESADORES		AMD	100-100000457BOX	\N	UNIDAD	1650.00	2100.00	0	3	f	t	2026-05-21 16:56:42.151722-06	1	compra	[]	[]	0.00	16.00	\N	100-100000457BOX	t
-126	MOTHERBOARD ASUS (PRIME A520M-K) SOCKET AM4,2*DDR4, HDMI, D-SUB, PCIE-3.0, MICRO ATX	\N	producto	activo	MOTHERBOARD		ASUS	PRIME A520M-K	\N	UNIDAD	1018.94	1200.00	0	3	f	t	2026-05-21 16:56:42.15478-06	1	compra	[]	[]	0.00	16.00	\N	PRIME A520M-K	t
-97	GABINETE NZXT (CM-H92FB-R1) H9 FLOW RGB, ATX, TIPO C	\N	producto	activo	GABINETE		NZXT	CM-H92FB-R1	\N	UNIDAD	3177.00	3950.00	0	3	f	t	2026-05-21 16:56:42.052157-06	1	compra	[]	[]	0.00	16.00	\N	CM-H92FB-R1	t
-159	BACK TO SCHOOL MID	\N	producto	revision	COMPUTADORA		\N	\N	\N	PZA	0.00	0.00	0	1000	f	f	2026-05-22 11:53:34.382813-06	1	stock	[]	[]	0.00	16.00	\N	\N	t
-37	LEGA ONE 5060TI		producto	activo	COMPUTADORA	\N	LEGA	LEGA ONE 5060TI	\N	UNIDAD	18808.01	28987.20	0	3	f	t	2026-05-21 16:56:41.824932-06	1	produccion	[]	[]	0.00	16.00	\N	LEGA ONE 5060TI	t
+19	TARJETA DE VIDEO ZOTAC (ZT-B50700J-10P) RTX 5070 SOLID OC 12GB GDDR7	\N	producto	activo	TARJETA DE VIDEO		ZOTAC	ZT-B50700J-10P	\N	H87	12388.00	14200.00	0	3	f	t	2026-05-21 16:56:41.762211-06	1	compra	[]	[]	0.00	16.00	\N	ZT-B50700J-10P	t
+15	TARJETA DE VIDEO XFX (RX-96TSW8GWQ) SWIFT RX9060XT OC,8GB GDDR6,1900MHZ,2*DP,HDMI,2*FAN,BLANCA	\N	producto	activo	TARJETA DE VIDEO		XFX	RX-96TSW8GWQ	\N	H87	6900.00	8400.00	0	3	f	t	2026-05-21 16:56:41.746946-06	1	compra	[]	[]	0.00	16.00	\N	RX-96TSW8GWQ	t
+3	MEMORIA RAM DDR4 KINGSTON (KF432C16BB2A/16) (1X16GB) 3200MHZ FURY BEAST BLACK RGB	\N	producto	activo	RAM		KINGSTON	KF432C16BB2A/16	\N	H87	1800.00	2200.00	0	3	f	t	2026-05-21 16:56:41.698305-06	1	compra	[]	[]	0.00	16.00	\N	KF432C16BB2A/16	t
+4	TARJETA DE VIDEO ZOTAC (ZT-B50600H-10M) RTX 5060 TWIN EDGE OC 8GB	\N	producto	activo	TARJETA DE VIDEO		ZOTAC	ZT-B50600H-10M	\N	H87	6610.00	7300.00	0	3	f	t	2026-05-21 16:56:41.704386-06	1	compra	[]	[]	0.00	16.00	\N	ZT-B50600H-10M	t
+5	TARJETA DE VIDEO ASUS (DUAL-RTX5060-O8G) 8GB GDDR7	\N	producto	activo	TARJETA DE VIDEO		ASUS	DUAL-RTX5060-O8G	\N	H87	6610.00	7300.00	0	3	f	t	2026-05-21 16:56:41.707946-06	1	compra	[]	[]	0.00	16.00	\N	DUAL-RTX5060-O8G	t
+16	TARJETA DE VIDEO XFX (RX-96TSW8GBQ) SWIFT RX9060XT OC,8GB GDDR6,1900MHZ,2*DP,HDMI,2*FAN,NEGRO	\N	producto	activo	TARJETA DE VIDEO		XFX	RX-96TSW8GBQ	\N	H87	6900.00	8400.00	0	3	f	t	2026-05-21 16:56:41.750811-06	1	compra	[]	[]	0.00	16.00	\N	RX-96TSW8GBQ	t
+17	TARJETA DE VIDEO MSI (RTX 5060 TI 8G VENTUS 2X OC WHITE PLUS)8GB	\N	producto	activo	TARJETA DE VIDEO		MSI	RTX 5060 TI 8G VENTUS 2X OC WHITE PLUS	\N	H87	7721.00	8800.00	0	3	f	t	2026-05-21 16:56:41.754278-06	1	compra	[]	[]	0.00	16.00	\N	RTX 5060 TI 8G VENTUS 2X OC WHITE PLUS	t
+9	FUENTE DE PODER GIGABYTE (GP-P650G PG5) 650W,PCI-E GEN5,80 PLUS GOLD,NEGRO	\N	producto	activo	FUENTE DE PODER		GIGABYTE	GP-P650G PG5	\N	H87	805.00	950.00	0	3	f	t	2026-05-21 16:56:41.72415-06	1	compra	[]	[]	0.00	16.00	\N	GP-P650G PG5	t
+11	GABINETE BALAM RUSH(BR-935968)DRAGONFLY PERFORM AIRCOOL GM590AB,MAX ATX	\N	producto	activo	GABINETE		BALAM RUSH	BR-935968	\N	H87	804.00	980.00	0	3	f	t	2026-05-21 16:56:41.73214-06	1	compra	[]	[]	0.00	16.00	\N	BR-935968	t
+12	MEMORIA DIMM DDR4 CORSAIR (CMW32GX4M2E3200C16) 32GB 3200MHZ (2X16GB) VENGEANCE RGB PRO, NEGRO	\N	producto	activo	RAM		CORSAIR	CMW32GX4M2E3200C16	\N	H87	4920.00	5590.00	0	3	f	t	2026-05-21 16:56:41.735907-06	1	compra	[]	[]	0.00	16.00	\N	CMW32GX4M2E3200C16	t
+13	UNIDAD SSD M.2 CRUCIAL 2TB (CT2000E100SSD8) E100, PCIE GEN4, NVME	\N	producto	activo	ALMACENAMIENTO		CRUCIAL	CT2000E100SSD8	\N	H87	4917.00	5500.00	0	3	f	t	2026-05-21 16:56:41.739076-06	1	compra	[]	[]	0.00	16.00	\N	CT2000E100SSD8	t
+14	GABINETE ANTEC (CX600M ARGB_B) MINI TOWER MICRO-ATX,CRISTAL	\N	producto	activo	GABINETE		ANTEC	CX600M ARGB_B	\N	H87	1120.00	1350.00	0	3	f	t	2026-05-21 16:56:41.743207-06	1	compra	[]	[]	0.00	16.00	\N	CX600M ARGB_B	t
+2	PROCESADOR INTEL (BX8071514100F) CORE I3-14100F S-1700 4CORES 4.70GHZ 65W S/GRAFICOS	\N	producto	activo	PROCESADORES		INTEL	BX8071514100F	\N	H87	1620.00	1940.00	0	3	f	t	2026-05-21 16:56:41.681067-06	1	stock	[]	[]	0.00	16.00	\N	BX8071514100F	t
+8	FUENTE DE PODER MSI (MAG A650BN) 650W,80 PLUS BRONZE	\N	producto	activo	FUENTE DE PODER		MSI	MAG A650BN	\N	H87	805.00	950.00	0	3	f	t	2026-05-21 16:56:41.720256-06	1	compra	[]	[]	0.00	16.00	\N	MAG A650BN	t
+20	TARJETA DE VIDEO ASUS (DUAL-RTX5070-O12G) 192BIT, PCI-E 5.0	\N	producto	activo	TARJETA DE VIDEO		ASUS	DUAL-RTX5070-O12G	\N	H87	10970.00	12350.00	0	3	f	t	2026-05-21 16:56:41.765718-06	1	compra	[]	[]	0.00	16.00	\N	DUAL-RTX5070-O12G	t
+21	FUENTE DE PODER COOLER MASTER (MPX-8503-AFAG-2EBUS) MWE GOLD 850W V3 ATX 3.1,PCI-E 5, FULL MODULAR	\N	producto	activo	FUENTE DE PODER		COOLER MASTER	MPX-8503-AFAG-2EBUS	\N	H87	1375.00	1650.00	0	3	f	t	2026-05-21 16:56:41.769079-06	1	compra	[]	[]	0.00	16.00	\N	MPX-8503-AFAG-2EBUS	t
+22	FUENTE DE PODER GIGABYTE (GP-UD850GM PG5 V2) 850W,MODULAR,PCI-E GEN5,16PINS,80 PLUS GOLD	\N	producto	activo	FUENTE DE PODER		GIGABYTE	GP-UD850GM PG5 V2	\N	H87	1375.00	1650.00	0	3	f	t	2026-05-21 16:56:41.77285-06	1	compra	[]	[]	0.00	16.00	\N	GP-UD850GM PG5 V2	t
+23	GABINETE NZXT (CC-H31FB-01) H3 FLOW, MID TOWER, MICRO ITX, MICRO ATX, 1 FAN, SIN FUENTE, NEGRO	\N	producto	activo	GABINETE		NZXT	CC-H31FB-01	\N	H87	1185.00	1650.00	0	3	f	t	2026-05-21 16:56:41.775861-06	1	compra	[]	[]	0.00	16.00	\N	CC-H31FB-01	t
+24	GABINETE NZXT (CC-H31FW-01) H3 FLOW MID TOWER, MICRO ITX, MICRO ATX, 1 FAN, SIN FUENTE, BLANCO	\N	producto	activo	GABINETE		NZXT	CC-H31FW-01	\N	H87	1185.00	1650.00	0	3	f	t	2026-05-21 16:56:41.779301-06	1	compra	[]	[]	0.00	16.00	\N	CC-H31FW-01	t
+25	PROCESADOR AMD (100-100001591BOX) RYZEN 5 8400F S-AM5	\N	producto	activo	PROCESADORES		AMD	100-100001591BOX	\N	H87	2915.00	2999.00	0	3	f	t	2026-05-21 16:56:41.782613-06	1	compra	[]	[]	0.00	16.00	\N	100-100001591BOX	t
+26	GABINETE COOLER MASTER (MB520-WGNN-S01) MASTERBOX MB520	\N	producto	activo	GABINETE		COOLER MASTER	MB520-WGNN-S01	\N	H87	1761.00	1999.00	0	3	f	t	2026-05-21 16:56:41.785705-06	1	compra	[]	[]	0.00	16.00	\N	MB520-WGNN-S01	t
+27	GABINETE COOLER MASTER (MB600-KGNN-S00) MASTERBOX 600	\N	producto	activo	GABINETE		COOLER MASTER	MB600-KGNN-S00	\N	H87	1761.00	1999.00	0	3	f	t	2026-05-21 16:56:41.789368-06	1	compra	[]	[]	0.00	16.00	\N	MB600-KGNN-S00	t
+28	LEGA ONE	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE	\N	H87	16472.93	25263.15	0	3	f	t	2026-05-21 16:56:41.794396-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE	t
+29	LEGA ONE CUSTOM	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE CUSTOM	\N	H87	16472.93	25263.15	0	3	f	t	2026-05-21 16:56:41.798272-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE CUSTOM	t
+30	LEGA ONE PRODUCCION	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE PRODUCCION	\N	H87	16472.93	25263.15	0	3	f	t	2026-05-21 16:56:41.801563-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE PRODUCCION	t
+31	LEGA ONE PLUS	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE PLUS	\N	H87	21886.07	33397.50	0	3	f	t	2026-05-21 16:56:41.804689-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE PLUS	t
+32	LEGA ONE PLUS CUSTOM	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE PLUS CUSTOM	\N	H87	21886.07	33397.50	0	3	f	t	2026-05-21 16:56:41.807947-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE PLUS CUSTOM	t
+6	SSD KINGSTON SNV3S NVME, 1TB, M.2, SNV3S/1000G, 6000 MB/S LECTURA, PCI EXPRESS 4.0	\N	producto	activo	ALMACENAMIENTO		KINGSTON	SNV3S/1000G	\N	H87	2686.00	3050.00	0	3	f	t	2026-05-21 16:56:41.712094-06	1	compra	[]	[]	0.00	16.00	\N	SNV3S/1000G	t
+7	UNIDAD SSD M.2 ACER 1TB (BL.9BWWA.120) FA100, PCIE GEN3X4, 2280, 3300MB/S	\N	producto	activo	ALMACENAMIENTO		ACER	BL.9BWWA.120	\N	H87	2655.00	2800.00	0	3	f	t	2026-05-21 16:56:41.715561-06	1	compra	[]	[]	0.00	16.00	\N	BL.9BWWA.120	t
+49	GABINETE CORSAIR (CC-9011256-WW) 3000D RGB AIRFLOW,BLANCO	\N	producto	activo	GABINETE		CORSAIR	CC-9011256-WW	\N	H87	1722.00	2050.00	0	3	f	t	2026-05-21 16:56:41.872098-06	1	compra	[]	[]	0.00	16.00	\N	CC-9011256-WW	t
+34	LEGA ONE RADEON 9060	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE RADEON 9060	\N	H87	19444.85	29993.70	0	3	f	t	2026-05-21 16:56:41.815308-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE RADEON 9060	t
+35	LEGA ONE RADEON 9060 CUSTOM	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE RADEON 9060 CUSTOM	\N	H87	19444.85	29993.70	0	3	f	t	2026-05-21 16:56:41.818387-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE RADEON 9060 CUSTOM	t
+36	LEGA ONE RADEON 9060 PRODUCCION	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE RADEON 9060 PRODUCCION	\N	H87	19444.85	29993.70	0	3	f	t	2026-05-21 16:56:41.821927-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE RADEON 9060 PRODUCCION	t
+38	LEGA ONE 5060TI CUSTOM	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE 5060TI CUSTOM	\N	H87	18808.01	28987.20	0	3	f	t	2026-05-21 16:56:41.827918-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE 5060TI CUSTOM	t
+39	LEGA ONE 5060TI PRODUCCION	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE 5060TI PRODUCCION	\N	H87	18808.01	28987.20	0	3	f	t	2026-05-21 16:56:41.83124-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE 5060TI PRODUCCION	t
+40	LEGA ONE 5070		producto	activo	COMPUTADORA	\N	LEGA	LEGA ONE 5070	\N	H87	28105.87	43188.00	0	3	f	t	2026-05-21 16:56:41.834203-06	1	produccion	[]	[]	0.00	16.00	\N	LEGA ONE 5070	t
+41	LEGA ONE 5070 CUSTOM	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE 5070 CUSTOM	\N	H87	28105.87	43188.00	0	3	f	t	2026-05-21 16:56:41.837514-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE 5070 CUSTOM	t
+43	LEGA ONE AM5	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE AM5	\N	H87	18850.46	27999.00	0	3	f	t	2026-05-21 16:56:41.844203-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE AM5	t
+44	LEGA ONE AM5 CUSTOM	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE AM5 CUSTOM	\N	H87	18850.46	27999.00	0	3	f	t	2026-05-21 16:56:41.847583-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE AM5 CUSTOM	t
+45	LEGA ONE AM5 PRODUCCION	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE AM5 PRODUCCION	\N	H87	18850.46	27999.00	0	3	f	t	2026-05-21 16:56:41.851034-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE AM5 PRODUCCION	t
+46	PROCESADOR INTEL CORE I5-12600KF S-1700 12A GEN BX8071512600KF	\N	producto	activo	PROCESADORES		INTEL	BX8071512600KF	\N	H87	3300.00	3800.00	0	3	f	t	2026-05-21 16:56:41.854183-06	1	compra	[]	[]	0.00	16.00	\N	BX8071512600KF	t
+47	VENTILADOR P/CPU COOLER MASTER (RR-S4NA-17PA-R1) HYPER 212 SPECTRUM V3 ARGB, 4PWM,LGA1700/AM5	\N	producto	activo	ENFRIAMIENTO		COOLER MASTER	RR-S4NA-17PA-R1	\N	H87	210.00	590.00	0	3	f	t	2026-05-21 16:56:41.858237-06	1	compra	[]	[]	0.00	16.00	\N	RR-S4NA-17PA-R1	t
+18	MOTHERBOARD ASUS (PRIME B760M-A D4) SOCKET 1700 13A,4*DDR4	\N	producto	activo	MOTHERBOARD		ASUS	PRIME B760M-A D4	\N	H87	1722.00	2100.00	0	3	f	t	2026-05-21 16:56:41.758738-06	1	compra	[]	[]	0.00	16.00	\N	PRIME B760M-A D4	t
+33	LEGA ONE PLUS PRODUCCION	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE PLUS PRODUCCION	\N	H87	21886.07	33397.50	0	3	f	t	2026-05-21 16:56:41.811384-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE PLUS PRODUCCION	t
+51	VENTILADOR P/CPU MSI (MAG CORELIQUID A13 360) ARGB,ENFRIAMIENTO LIQUIDO, 3 FAN, 360MM, NEGRO	\N	producto	activo	ENFRIAMIENTO		MSI	MAG CORELIQUID A13 360	\N	H87	1185.00	2189.00	0	3	f	t	2026-05-21 16:56:41.879143-06	1	compra	[]	[]	0.00	16.00	\N	MAG CORELIQUID A13 360	t
+52	VENTILADOR P/CPU MSI (MAG CORELIQUID A13 360 WHITE) ARGB,ENFRIAMIENTO LIQUIDO, 3 FAN, 360MM, BLANCO	\N	producto	activo	ENFRIAMIENTO		MSI	MAG CORELIQUID A13 360 WHITE	\N	H87	1185.00	2189.00	0	3	f	t	2026-05-21 16:56:41.882221-06	1	compra	[]	[]	0.00	16.00	\N	MAG CORELIQUID A13 360 WHITE	t
+53	GABINETE NZXT (CC-H52FB-R1) H5 FLOW RGB COMPACT MID-TOWER ATX CASE WITH RGB FANS - NEGRO	\N	producto	activo	GABINETE		NZXT	CC-H52FB-R1	\N	H87	1873.00	2100.00	0	3	f	t	2026-05-21 16:56:41.885309-06	1	compra	[]	[]	0.00	16.00	\N	CC-H52FB-R1	t
+54	PROCESADOR INTEL (BX80768265K) CORE ULTRA 7 265K, IA, SOCKET-1851	\N	producto	activo	PROCESADORES		INTEL	BX80768265K	\N	H87	6310.00	7100.00	0	3	f	t	2026-05-21 16:56:41.888856-06	1	compra	[]	[]	0.00	16.00	\N	BX80768265K	t
+55	PROCESADOR INTEL (BX80768265) CORE ULTRA 7 265, IA, SOCKET-1851, 20CORES CON GRAFICOS	\N	producto	activo	PROCESADORES		INTEL	BX80768265	\N	H87	6716.00	7900.00	0	3	f	t	2026-05-21 16:56:41.892448-06	1	compra	[]	[]	0.00	16.00	\N	BX80768265	t
+56	PROCESADOR INTEL (BX80768265KF) CORE ULTRA 7 265KF, IA, SOCKET-1851	\N	producto	activo	PROCESADORES		INTEL	BX80768265KF	\N	H87	6310.00	7100.00	0	3	f	t	2026-05-21 16:56:41.895848-06	1	compra	[]	[]	0.00	16.00	\N	BX80768265KF	t
+57	MOTHERBOARD ASUS (TUF GAMING B860M-PLUS WIFI) SOCKET 1851 15A,4*DDR5	\N	producto	activo	MOTHERBOARD		ASUS	TUF GAMING B860M-PLUS WIFI	\N	H87	3338.00	3960.00	0	3	f	t	2026-05-21 16:56:41.899534-06	1	compra	[]	[]	0.00	16.00	\N	TUF GAMING B860M-PLUS WIFI	t
+58	MOTHERBOARD ASUS (ROG STRIX B860-A GAMING WIFI) SOCKET 1851, 4*DDR5	\N	producto	activo	MOTHERBOARD		ASUS	ROG STRIX B860-A GAMING WIFI	\N	H87	4331.00	4800.00	0	3	f	t	2026-05-21 16:56:41.903217-06	1	compra	[]	[]	0.00	16.00	\N	ROG STRIX B860-A GAMING WIFI	t
+59	MEMORIA DIMM DDR5 KINGSTON (KF560C36BBE2-16) (1X16GB) 6000MHZ, CL36, FURY BEAST, XMP/EXPO	\N	producto	activo	RAM		KINGSTON	KF560C36BBE2-16	\N	H87	3151.00	3500.00	0	3	f	t	2026-05-21 16:56:41.906799-06	1	compra	[]	[]	0.00	16.00	\N	KF560C36BBE2-16	t
+60	SSD WD GREEN SN350 NVME, 2TB, M.2, 3000 MB/S ESCRITURA, 3200 MB/S WDS200T3G0C, PCI EXPRESS 3.0	\N	producto	activo	ALMACENAMIENTO		WD	WDS200T3G0C	\N	H87	4100.00	4500.00	0	3	f	t	2026-05-21 16:56:41.910233-06	1	compra	[]	[]	0.00	16.00	\N	WDS200T3G0C	t
+61	GABINETE NZXT (CC-H61FB-01) H6 FLOW EDITION COMPACT DUAL-CHAMBER, ATX, NEGRO	\N	producto	activo	GABINETE		NZXT	CC-H61FB-01	\N	H87	2195.00	2650.00	0	3	f	t	2026-05-21 16:56:41.917194-06	1	compra	[]	[]	0.00	16.00	\N	CC-H61FB-01	t
+62	MOTHERBOARD MSI B860 GAMING PLUS WIFI, ATX, LGA 1851	\N	producto	activo	MOTHERBOARD		MSI	B860 GAMING PLUS WIFI	\N	H87	3700.00	4300.00	0	3	f	t	2026-05-21 16:56:41.920183-06	1	compra	[]	[]	0.00	16.00	\N	B860 GAMING PLUS WIFI	t
+63	LEGA BRONCE	\N	producto	activo	COMPUTADORA		LEGA	LEGA BRONCE	\N	H87	20719.00	30541.97	0	3	f	t	2026-05-21 16:56:41.923902-06	1	compra	[]	[]	0.00	16.00	\N	LEGA BRONCE	t
+48	MOTHERBOARD MSI (PRO B760M-P DDR4) SOCKET 1700, 4*DDR4	\N	producto	activo	MOTHERBOARD		MSI	PRO B760M-P DDR4	\N	H87	1722.00	2100.00	0	3	f	t	2026-05-21 16:56:41.869055-06	1	compra	[]	[]	0.00	16.00	\N	PRO B760M-P DDR4	t
+42	LEGA ONE 5070 PRODUCCION	\N	producto	activo	COMPUTADORA		LEGA	LEGA ONE 5070 PRODUCCION	\N	H87	28105.87	43188.00	0	3	f	t	2026-05-21 16:56:41.84056-06	1	compra	[]	[]	0.00	16.00	\N	LEGA ONE 5070 PRODUCCION	t
+67	LEGA BRONCE PLUS	\N	producto	activo	COMPUTADORA		LEGA	LEGA BRONCE PLUS	\N	H87	31353.76	39692.70	0	3	f	t	2026-05-21 16:56:41.937075-06	1	compra	[]	[]	0.00	16.00	\N	LEGA BRONCE PLUS	t
+68	GABINETE NZXT (CM-H72FW-R1) H7 FLOW RGB, MID-TOWER 3 FANS RGB, ATX, BLANCO	\N	producto	activo	GABINETE		NZXT	CM-H72FW-R1	\N	H87	1790.00	2400.00	0	3	f	t	2026-05-21 16:56:41.940115-06	1	compra	[]	[]	0.00	16.00	\N	CM-H72FW-R1	t
+69	GABINETE NZXT (CM-H72FW-01) H7 FLOW MID-TOWER ATX CASE - BLANCO	\N	producto	activo	GABINETE		NZXT	CM-H72FW-01	\N	H87	2250.00	2400.00	0	3	f	t	2026-05-21 16:56:41.944081-06	1	compra	[]	[]	0.00	16.00	\N	CM-H72FW-01	t
+71	PROCESADOR AMD (100-100001590BOX) RYZEN 7 8700F S-AM5, 8 CORE 4.1 GHZ, 65W, S/GRAFICOS	\N	producto	activo	PROCESADORES		LEGA	100-100001590BOX	\N	H87	3900.00	4700.00	0	3	f	t	2026-05-21 16:56:41.950912-06	1	compra	[]	[]	0.00	16.00	\N	100-100001590BOX	t
+72	MOTHERBOARD ASUS (PRIME B650M-A AX II) SOCKET AM5,4*DDR5	\N	producto	activo	MOTHERBOARD		LEGA	PRIME B650M-A AX II	\N	H87	3090.00	3650.00	0	3	f	t	2026-05-21 16:56:41.955814-06	1	compra	[]	[]	0.00	16.00	\N	PRIME B650M-A AX II	t
+73	MOTHERBOARD ASUS (TUF GAMING B650E-E WIFI) SOCKET AM5,4*DDR5	\N	producto	activo	MOTHERBOARD		LEGA	TUF GAMING B650E-E WIFI	\N	H87	3090.00	3650.00	0	3	f	t	2026-05-21 16:56:41.960034-06	1	compra	[]	[]	0.00	16.00	\N	TUF GAMING B650E-E WIFI	t
+74	GABINETE ANTEC (C7 ARGB WHITE) CONSTELLATION C7 ARGB,CRISTAL,BLANCO	\N	producto	activo	GABINETE		ANTEC	C7 ARGB WHITE	\N	H87	2212.00	2400.00	0	3	f	t	2026-05-21 16:56:41.963883-06	1	compra	[]	[]	0.00	16.00	\N	C7 ARGB WHITE	t
+75	GABINETE COOLER MASTER (E681-KHNN-S00) ELITE 681,VIDRIO TEMP,M-ATX,3*FAN	\N	producto	activo	GABINETE		COOLER MASTER	E681-KHNN-S00	\N	H87	1445.00	1800.00	0	3	f	t	2026-05-21 16:56:41.967942-06	1	compra	[]	[]	0.00	16.00	\N	E681-KHNN-S00	t
+76	LEGA BRONCE PRO AMD	\N	producto	activo	COMPUTADORA		LEGA	LEGA BRONCE PRO AMD	\N	H87	38231.63	51331.50	0	3	f	t	2026-05-21 16:56:41.971859-06	1	compra	[]	[]	0.00	16.00	\N	LEGA BRONCE PRO AMD	t
+77	PROCESADOR AMD (100-100001405WOF) RYZEN 5 9600X S-AM5, 6 CORE, 3.9 GHZ, 65W, C/GRAFICOS	\N	producto	activo	PROCESADORES		AMD	100-100001405WOF	\N	H87	3999.00	5200.00	0	3	f	t	2026-05-21 16:56:41.976258-06	1	compra	[]	[]	0.00	16.00	\N	100-100001405WOF	t
+78	PROCESADOR AMD (100-100001404WOF) RYZEN 7 9700X S-AM5, 8CORE, 3.8 GHZ, 65W, C/GRAFICOS, S/FAN	\N	producto	activo	PROCESADORES		AMD	100-100001404WOF	\N	H87	5800.00	7100.00	0	3	f	t	2026-05-21 16:56:41.987378-06	1	compra	[]	[]	0.00	16.00	\N	100-100001404WOF	t
+79	MEMORIA DIMM DDR5 CORSAIR (CMK32GX5M2B5600Z36) 32GB (2X16GB) 5600MHZ VENGEANCE AMD EXPO	\N	producto	activo	RAM		CORSAIR	CMK32GX5M2B5600Z36	\N	H87	7900.00	9890.00	0	3	f	t	2026-05-21 16:56:41.990804-06	1	compra	[]	[]	0.00	16.00	\N	CMK32GX5M2B5600Z36	t
+80	MEMORIA DIMM DDR5 KINGSTON (KF560C36BBE-32) (1X32GB) 6000MHZ, CL36, FURY BEAST, XMP/EXPO	\N	producto	activo	RAM		KINGSTON	KF560C36BBE-32	\N	H87	6500.00	9890.00	0	3	f	t	2026-05-21 16:56:41.994078-06	1	compra	[]	[]	0.00	16.00	\N	KF560C36BBE-32	t
+81	MEMORIA DIMM DDR5 CORSAIR (CMH32GX5M2B5600Z36K) 32GB (2X16GB) 5600MHZ VENGEANCE RGB AMD EXPO	\N	producto	activo	RAM		CORSAIR	CMH32GX5M2B5600Z36K	\N	H87	8100.00	9890.00	0	3	f	t	2026-05-21 16:56:41.997297-06	1	compra	[]	[]	0.00	16.00	\N	CMH32GX5M2B5600Z36K	t
+82	TARJETA DE VIDEO ASUS (PRIME-RX9070XT-O16G) 16G GDDR6, 256BIT, PCI-E 5.0,HDMI,3*DP,TRI FAN	\N	producto	activo	TARJETA DE VIDEO		ASUS	PRIME-RX9070XT-O16G	\N	H87	12230.00	15500.00	0	3	f	t	2026-05-21 16:56:42.00032-06	1	compra	[]	[]	0.00	16.00	\N	PRIME-RX9070XT-O16G	t
+83	TARJETA DE VIDEO XFX (RX-97TSWF3B9) SWIFT RADEON RX9070XT, 16GB, 2400MHZ, 3*DP, HDMI, 3*FAN, NEGRO	\N	producto	activo	TARJETA DE VIDEO		XFX	RX-97TSWF3B9	\N	H87	13400.00	15500.00	0	3	f	t	2026-05-21 16:56:42.003959-06	1	compra	[]	[]	0.00	16.00	\N	RX-97TSWF3B9	t
+84	PROCESADOR INTEL (BX80768245KF) CORE ULTRA 5 245KF, IA, SOCKET-1851, 14CORES S/GRAFICOS	\N	producto	activo	PROCESADORES		INTEL	BX80768245KF	\N	H87	3690.00	4050.00	0	3	f	t	2026-05-21 16:56:42.007219-06	1	compra	[]	[]	0.00	16.00	\N	BX80768245KF	t
+85	TARJETA DE VIDEO GIGABYTE NVIDIA GEFORCE RTX 5070 TI EAGLE OC SFF 16GB	\N	producto	activo	TARJETA DE VIDEO		GIGABYTE	GV-N507TEAGLEOC-16GB	\N	H87	22900.00	24999.00	0	3	f	t	2026-05-21 16:56:42.009996-06	1	compra	[]	[]	0.00	16.00	\N	GV-N507TEAGLEOC-16GB	t
+86	GABINETE BALAM RUSH (BR-941471) TANK POLAR 7900,ATX,1*USB-C,1*USB 3.0,CRISTAL TEMP,2 FAN,NEGRO	\N	producto	activo	GABINETE		BALAM RUSH	BR-941471	\N	H87	1750.00	1700.00	0	3	f	t	2026-05-21 16:56:42.013317-06	1	compra	[]	[]	0.00	16.00	\N	BR-941471	t
+87	GABINETE CORSAIR (CC-9011277-WW) 3500X,BLANCO,CRISTAL	\N	producto	activo	GABINETE		CORSAIR	CC-9011277-WW	\N	H87	1330.00	1700.00	0	3	f	t	2026-05-21 16:56:42.016377-06	1	compra	[]	[]	0.00	16.00	\N	CC-9011277-WW	t
+88	PROCESADOR AMD (100-100001015BOX) RYZEN 5 7600 S-AM5, 6 CORE 3.8 GHZ, 65W, C/GRAFICOS	\N	producto	activo	PROCESADORES		AMD	100-100001015BOX	\N	H87	3390.00	3900.00	0	3	f	t	2026-05-21 16:56:42.019567-06	1	compra	[]	[]	0.00	16.00	\N	100-100001015BOX	t
+89	LEGA SILVER	\N	producto	activo	COMPUTADORA		LEGA	LEGA SILVER	\N	H87	28127.10	34751.70	0	3	f	t	2026-05-21 16:56:42.02254-06	1	compra	[]	[]	0.00	16.00	\N	LEGA SILVER	t
+90	LEGA SILVER PLUS	\N	producto	activo	COMPUTADORA		LEGA	LEGA SILVER PLUS	\N	H87	45173.18	56730.00	0	3	f	t	2026-05-21 16:56:42.026034-06	1	compra	[]	[]	0.00	16.00	\N	LEGA SILVER PLUS	t
+91	LEGA GOLD	\N	producto	activo	COMPUTADORA		LEGA	LEGA GOLD	\N	H87	37170.23	48861.00	0	3	f	t	2026-05-21 16:56:42.029248-06	1	compra	[]	[]	0.00	16.00	\N	LEGA GOLD	t
+92	LEGA GOLD PLUS	\N	producto	activo	COMPUTADORA		LEGA	LEGA GOLD PLUS	\N	H87	50565.10	63592.50	0	3	f	t	2026-05-21 16:56:42.033039-06	1	compra	[]	[]	0.00	16.00	\N	LEGA GOLD PLUS	t
+93	LEGA GOLD AMD	\N	producto	activo	COMPUTADORA		LEGA	LEGA GOLD AMD	\N	H87	36745.67	48129.00	0	3	f	t	2026-05-21 16:56:42.036729-06	1	compra	[]	[]	0.00	16.00	\N	LEGA GOLD AMD	t
+94	PROCESADOR AMD (100-100000589WOF) RYZEN 9 7900X S-AM5 12 CORE 4.7 GHZ, 170W, C/GRAF	\N	producto	activo	PROCESADORES		AMD	100-100000589WOF	\N	H87	7476.00	7900.00	0	3	f	t	2026-05-21 16:56:42.040591-06	1	compra	[]	[]	0.00	16.00	\N	100-100000589WOF	t
+95	MOTHERBOARD MSI (X870 GAMING PLUS WIFI) SOCKET AM5, 4*DDR5 8200,	\N	producto	activo	MOTHERBOARD		MSI	X870 GAMING PLUS WIFI	\N	H87	4465.00	4800.00	0	3	f	t	2026-05-21 16:56:42.044402-06	1	compra	[]	[]	0.00	16.00	\N	X870 GAMING PLUS WIFI	t
+65	GABINETE NZXT (CC-H52FW-R1) H5 FLOW RGB COMPACT MID-TOWER ATX CASE WITH RGB FANS - BLANCO	\N	producto	activo	GABINETE		NZXT	CC-H52FW-R1	\N	H87	1978.00	2150.00	0	3	f	t	2026-05-21 16:56:41.930778-06	1	compra	[]	[]	0.00	16.00	\N	CC-H52FW-R1	t
+66	GABINETE NZXT (CC-H52FW-01) H5 FLOW, COMPACT MID-TOWER ATX CASE 1 FAN, SIN FUENTE, BLANCO	\N	producto	activo	GABINETE		NZXT	CC-H52FW-01	\N	H87	1978.00	2150.00	0	3	f	t	2026-05-21 16:56:41.933836-06	1	compra	[]	[]	0.00	16.00	\N	CC-H52FW-01	t
+99	MOTHERBOARD GIGABYTE (Z890 AORUS PRO ICE) SOCKET 1851	\N	producto	activo	MOTHERBOARD		GIGABYTE	Z890 AORUS PRO ICE	\N	H87	3900.00	4500.00	0	3	f	t	2026-05-21 16:56:42.061325-06	1	compra	[]	[]	0.00	16.00	\N	Z890 AORUS PRO ICE	t
+100	MOTHERBOARD GIGABYTE (Z890 A ELITE WF7 ICE) SOCKET 1851, 4*DDR5 8800MHZ, DP, ATX, WIFI7/BT	\N	producto	activo	MOTHERBOARD		GIGABYTE	Z890 A ELITE WF7 ICE	\N	H87	3900.00	4500.00	0	3	f	t	2026-05-21 16:56:42.064497-06	1	compra	[]	[]	0.00	16.00	\N	Z890 A ELITE WF7 ICE	t
+101	LEGA PLATINUM ULTRA	\N	producto	activo	COMPUTADORA		LEGA	LEGA PLATINUM ULTRA	\N	H87	54025.26	66831.60	0	3	f	t	2026-05-21 16:56:42.068104-06	1	compra	[]	[]	0.00	16.00	\N	LEGA PLATINUM ULTRA	t
+102	LEGA PLATINUM PLUS AMD	\N	producto	activo	COMPUTADORA		LEGA	LEGA PLATINUM PLUS AMD	\N	H87	99735.00	68332.93	0	3	f	t	2026-05-21 16:56:42.071368-06	1	compra	[]	[]	0.00	16.00	\N	LEGA PLATINUM PLUS AMD	t
+103	TARJETA DE VIDEO GIGABYTE (GV-N5080GAMING OC-16GD) RTX 5080, 16GB GDDR7	\N	producto	activo	TARJETA DE VIDEO		GIGABYTE	GV-N5080GAMING OC-16GD	\N	H87	27922.30	33000.00	0	3	f	t	2026-05-21 16:56:42.074458-06	1	compra	[]	[]	0.00	16.00	\N	GV-N5080GAMING OC-16GD	t
+104	TARJETA DE VIDEO ASUS NVIDIA PRIME RTX5080 16G PCI5 DRR7 256BIT 850W PRIME RTX5080 16G	\N	producto	activo	TARJETA DE VIDEO		ASUS	PRIME RTX5080 16G	\N	H87	25640.00	31000.00	0	3	f	t	2026-05-21 16:56:42.079862-06	1	compra	[]	[]	0.00	16.00	\N	PRIME RTX5080 16G	t
+105	FUENTE DE PODER CORSAIR (CP-9020259-NA) HX1000I,1000W,FULL MODULAR,80 PLUS PLATINUM,NEGRO	\N	producto	activo	FUENTE DE PODER		CORSAIR	CP-9020259-NA	\N	H87	3977.00	4459.00	0	3	f	t	2026-05-21 16:56:42.082822-06	1	compra	[]	[]	0.00	16.00	\N	CP-9020259-NA	t
+106	FUENTE DE PODER ASUS (TUF-GAMING-1000G) 1000W,MODULAR, 80 PLUS GOLD	\N	producto	activo	FUENTE DE PODER		ASUS	TUF-GAMING-1000G	\N	H87	3977.00	4459.00	0	3	f	t	2026-05-21 16:56:42.085816-06	1	compra	[]	[]	0.00	16.00	\N	TUF-GAMING-1000G	t
+107	GABINETE CORSAIR (CC-9011315-WW) 4500X FRAME,BLANCO CRISTAL TEMPLADO MED-TORRE SIN FUENTE	\N	producto	activo	GABINETE		CORSAIR	CC-9011315-WW	\N	H87	3019.00	3400.00	0	3	f	t	2026-05-21 16:56:42.088784-06	1	compra	[]	[]	0.00	16.00	\N	CC-9011315-WW	t
+108	LEGA PLATINUM RADEON 9070XT	\N	producto	activo	COMPUTADORA		LEGA	LEGA PLATINUM RADEON 9070XT	\N	H87	46637.92	58011.00	0	3	f	t	2026-05-21 16:56:42.091939-06	1	compra	[]	[]	0.00	16.00	\N	LEGA PLATINUM RADEON 9070XT	t
+109	LEGA TITANIUM	\N	producto	activo	COMPUTADORA		LEGA	LEGA TITANIUM	\N	H87	100047.56	124440.00	0	3	f	t	2026-05-21 16:56:42.095046-06	1	compra	[]	[]	0.00	16.00	\N	LEGA TITANIUM	t
+110	FUENTE DE PODER ASUS (TUF-GAMING-1200G) 1200W,MODULAR, 80 PLUS GOLD	\N	producto	activo	FUENTE DE PODER		ASUS	TUF-GAMING-1200G	\N	H87	4000.00	5000.00	0	3	f	t	2026-05-21 16:56:42.098115-06	1	compra	[]	[]	0.00	16.00	\N	TUF-GAMING-1200G	t
+112	GABINETE MSI MAG PANO 120R PZ, MIDI-TOWER, MICRO-ATX	\N	producto	activo	GABINETE		MSI	MAG PANO 120R PZ	\N	H87	4164.00	4800.00	0	3	f	t	2026-05-21 16:56:42.104426-06	1	compra	[]	[]	0.00	16.00	\N	MAG PANO 120R PZ	t
+113	PROCESADOR INTEL (BX80768285) CORE ULTRA 9 285, IA, SOCKET-1851, 24CORES CON GRAFICOS	\N	producto	activo	PROCESADORES		INTEL	BX80768285	\N	H87	10500.00	11900.00	0	3	f	t	2026-05-21 16:56:42.107346-06	1	compra	[]	[]	0.00	16.00	\N	BX80768285	t
+114	GABINETE THERMALTAKE VIEW 51 TG ARGB, MIDI-TOWER, ATX	\N	producto	activo	GABINETE		Thermaltake	CA-1Q6-00M1WN-00	\N	H87	4170.00	4600.00	0	3	f	t	2026-05-21 16:56:42.110636-06	1	compra	[]	[]	0.00	16.00	\N	CA-1Q6-00M1WN-00	t
+115	PROCESADOR AMD (100-100000662WOF) RYZEN 9 9900X S-AM5, 12 CORE 4.4 GHZ, 120W, C/GRAFICOS, S/FAN	\N	producto	activo	PROCESADORES		AMD	100-100000662WOF	\N	H87	11484.00	12600.00	0	3	f	t	2026-05-21 16:56:42.113953-06	1	compra	[]	[]	0.00	16.00	\N	100-100000662WOF	t
+116	PROCESADOR AMD (100-100001368WOF) RYZEN 9 9900X3D S-AM5, 12 CORE 4.4 GHZ, 120W, C/GRAFICOS, S/FAN	\N	producto	activo	PROCESADORES		AMD	100-100001368WOF	\N	H87	11484.00	12600.00	0	3	f	t	2026-05-21 16:56:42.116997-06	1	compra	[]	[]	0.00	16.00	\N	100-100001368WOF	t
+117	MEMORIA DIMM DDR5 CORSAIR (CMK64GX5M2B5600Z40) 64GB (2X32GB) 5600MHZ VENGEANCE AMD EXPO	\N	producto	activo	RAM		CORSAIR	CMK64GX5M2B5600Z40	\N	H87	18900.00	20700.00	0	3	f	t	2026-05-21 16:56:42.120188-06	1	compra	[]	[]	0.00	16.00	\N	CMK64GX5M2B5600Z40	t
+118	LEGA TITANIUM AMD	\N	producto	activo	PROCESADORES		AMD	LEGA TITANIUM AMD	\N	H87	113230.15	149145.00	0	3	f	t	2026-05-21 16:56:42.123513-06	1	compra	[]	[]	0.00	16.00	\N	LEGA TITANIUM AMD	t
+119	MEMORIA DIMM DDR5 ACER (BL.9BWWA.420) UD200, 16GB 1X16GB 4800MHZ	\N	producto	activo	RAM		ACER	BL.9BWWA.420	\N	H87	2996.72	3350.00	0	3	f	t	2026-05-21 16:56:42.126757-06	1	compra	[]	[]	0.00	16.00	\N	BL.9BWWA.420	t
+120	MOTHERBOARD ASUS (PRIME B860M-A WIFI), 4*DDR5, WIFI6E, MICRO ATX	\N	producto	activo	MOTHERBOARD		ASUS	PRIME B860M-A WIFI	\N	H87	2997.44	3600.00	0	3	f	t	2026-05-21 16:56:42.129705-06	1	compra	[]	[]	0.00	16.00	\N	PRIME B860M-A WIFI	t
+121	SSD M.2 KINGSTON 500GB (SNV3S/500G) NV3, PCIE 4.0, NVME, 2280	\N	producto	activo	ALMACENAMIENTO		KINGSTON	SNV3S/500G	\N	H87	1761.12	1999.00	0	3	f	t	2026-05-21 16:56:42.133934-06	1	compra	[]	[]	0.00	16.00	\N	SNV3S/500G	t
+122	MONITOR LED 27" ACTECK (AC-935845) SP270,1080,75HZ	\N	producto	activo	MONITOR		ACTECK	AC-935845	\N	H87	1812.95	1850.00	0	3	f	t	2026-05-21 16:56:42.140085-06	1	compra	[]	[]	0.00	16.00	\N	AC-935845	t
+123	KIT 2 EN 1 NACEB (NA-426) TECLADO Y MOUSE, INALAMBRICOS RF	\N	producto	activo	ACCESORIOS		ACTECK	NA-426	\N	H87	215.76	290.00	0	3	f	t	2026-05-21 16:56:42.144865-06	1	compra	[]	[]	0.00	16.00	\N	NA-426	t
+124	COMPUTADORA PERSONALIZADA CON PERIFÉRICOS PARA SERVICIO AUTOMOTRIZ GDL SA DE CV	\N	producto	activo	COMPUTADORA		PERSONALIZADO	COMPUTADORA PERSONALIZADA CON PERIFÉRICOS PARA SERVICIO AUTOMOTRIZ GDL SA DE CV	\N	H87	19572.22	21600.00	0	3	f	t	2026-05-21 16:56:42.148574-06	1	compra	[]	[]	0.00	16.00	\N	COMPUTADORA PERSONALIZADA CON PERIFÉRICOS PARA SERVICIO AUTOMOTRIZ GDL SA DE CV	t
+125	PROCESADOR AMD (100-100000457BOX) RYZEN 5 5500 S-AM4 6 CORE 3.6 GHZ 65W S/GRAFICOS C/FAN	\N	producto	activo	PROCESADORES		AMD	100-100000457BOX	\N	H87	1650.00	2100.00	0	3	f	t	2026-05-21 16:56:42.151722-06	1	compra	[]	[]	0.00	16.00	\N	100-100000457BOX	t
+126	MOTHERBOARD ASUS (PRIME A520M-K) SOCKET AM4,2*DDR4, HDMI, D-SUB, PCIE-3.0, MICRO ATX	\N	producto	activo	MOTHERBOARD		ASUS	PRIME A520M-K	\N	H87	1018.94	1200.00	0	3	f	t	2026-05-21 16:56:42.15478-06	1	compra	[]	[]	0.00	16.00	\N	PRIME A520M-K	t
+97	GABINETE NZXT (CM-H92FB-R1) H9 FLOW RGB, ATX, TIPO C	\N	producto	activo	GABINETE		NZXT	CM-H92FB-R1	\N	H87	3177.00	3950.00	0	3	f	t	2026-05-21 16:56:42.052157-06	1	compra	[]	[]	0.00	16.00	\N	CM-H92FB-R1	t
+98	LEGA PLATINUM	\N	producto	activo	COMPUTADORA		LEGA	LEGA PLATINUM	\N	H87	55829.64	82350.00	0	3	f	t	2026-05-21 16:56:42.057164-06	1	compra	[]	[]	0.00	16.00	\N	LEGA PLATINUM	t
+153	Monitor Gamer Curvo Samsung Odyssey G9 G93SC OLED 49", 5120x1440, G-Sync/FreeSync, 240Hz, HDMI/DisplayPort, Bocinas Integradas, Plata		producto	activo	MONITOR	\N	\N	\N	\N	H87	10000.00	20258.62	0	1000	f	f	2026-05-21 18:29:44.729787-06	1	stock	[]	[]	0.00	16.00	\N	\N	t
 160	producto nuevo pro		producto	activo	\N	\N	\N	\N	\N	PZA	0.00	0.00	0	1000	f	f	2026-05-22 12:38:50.941478-06	2	compra	[]	[]	0.00	0.00	\N	\N	f
-153	Monitor Gamer Curvo Samsung Odyssey G9 G93SC OLED 49", 5120x1440, G-Sync/FreeSync, 240Hz, HDMI/DisplayPort, Bocinas Integradas, Plata		producto	activo	MONITOR	\N	\N	\N	\N	PZA	10000.00	20258.62	0	1000	f	f	2026-05-21 18:29:44.729787-06	1	stock	[]	[]	0.00	16.00	\N	\N	t
-155	SERVICIO DIGNOSTICO Y MANTENIMINETO		servicio	activo	\N	\N	\N	\N	\N	PZA	200.00	1724.13	0	1000	f	f	2026-05-21 18:38:41.555025-06	1	stock	[]	[]	0.00	16.00	\N	\N	t
-154	NO BREAK Y AUDIFONOS		producto	activo	ACCESORIOS	\N	\N	\N	\N	PZA	13000.00	18017.24	0	1000	f	f	2026-05-21 18:36:10.016852-06	1	compra	[]	[]	0.00	16.00	\N	\N	t
-156	MANTENIMINETO 1000		servicio	activo	\N	\N	\N	\N	\N	PZA	100.00	862.07	0	1000	f	f	2026-05-21 18:40:01.51414-06	1	compra	[]	[]	0.00	16.00	\N	\N	t
-157	MANTENIMINETO Y DIAGNOSTICO		servicio	activo	\N	\N	\N	\N	\N	PZA	240.00	2068.97	0	1000	f	f	2026-05-21 18:41:45.477682-06	1	stock	[]	[]	0.00	16.00	\N	\N	t
-158	FEDEX		servicio	activo	\N	\N	\N	\N	\N	PZA	215.00	1853.44	0	1000	f	f	2026-05-21 18:43:39.809492-06	1	compra	[]	[]	0.00	16.00	\N	\N	t
-152	PC BACK TO SCHOOL BASIC		producto	activo	COMPUTADORA	\N	\N	\N	\N	PZA	5950.00	8327.59	0	1000	f	f	2026-05-21 17:45:30.00922-06	1	produccion	[]	[]	0.00	16.00	\N	\N	t
-128	GABINETE BALAM RUSH(BR-935999)DRAGONFLY PERFORM AIRCOOL GM590AW,ATX,S/FUENTE,1 USB 3.0 A,3FAN,P/CRISTAL ,BLANCO	\N	producto	activo	GABINETE		BALAM RUSH	BR-935999	\N	UNIDAD	827.89	960.00	0	3	f	t	2026-05-21 16:56:42.160844-06	1	compra	[]	[]	0.00	16.00	\N	BR-935999	t
-129	LEGA STARTER	\N	producto	activo	COMPUTADORA		LEGA	LEGA STARTER	\N	UNIDAD	12885.40	20130.00	0	3	f	t	2026-05-21 16:56:42.163828-06	1	compra	[]	[]	0.00	16.00	\N	LEGA STARTER	t
-130	LEGA FLEX	\N	producto	activo	COMPUTADORA		LEGA	LEGA FLEX	\N	UNIDAD	11144.70	17019.00	0	3	f	t	2026-05-21 16:56:42.166845-06	1	compra	[]	[]	0.00	16.00	\N	LEGA FLEX	t
-131	PROCESADOR AMD (100-100000931BOX) RYZEN 5 8500G S-AM5, 6 CORE, 3.5 GHZ, 65W, C/GRAFICOS, C/FAN	\N	producto	activo	PROCESADORES		AMD	100-100000931BOX	\N	UNIDAD	2547.36	2950.00	0	3	f	t	2026-05-21 16:56:42.169867-06	1	compra	[]	[]	0.00	16.00	\N	100-100000931BOX	t
-132	MOTHERBOARD ASUS (PRIME A620M-K) SOCKET AM5,2*DDR5,HDMI,VGA,PCIE-4.0,M.2,MICRO ATX	\N	producto	activo	MOTHERBOARD		ASUS	PRIME A620M-K	\N	UNIDAD	1750.00	1700.00	0	3	f	t	2026-05-21 16:56:42.17328-06	1	compra	[]	[]	0.00	16.00	\N	PRIME A620M-K	t
-133	MOTHERBOARD MSI (PRO A620AM-B EVO) SOCKET AM5, 2*DDR5 6800, HDMI,VGA, M-ATX	\N	producto	activo	MOTHERBOARD		MSI	PRO A620AM-B EVO	\N	UNIDAD	1330.00	1700.00	0	3	f	t	2026-05-21 16:56:42.17641-06	1	compra	[]	[]	0.00	16.00	\N	PRO A620AM-B EVO	t
-134	GABINETE ANTEC (NX416L WHITE) MEDIA TORRE ATX,CRISTAL,S/FUENTE,3*FAN,2*USB 3.0,BLANCO	\N	producto	activo	GABINETE		ANTEC	NX416L WHITE	\N	UNIDAD	3390.00	3900.00	0	3	f	t	2026-05-21 16:56:42.179517-06	1	compra	[]	[]	0.00	16.00	\N	NX416L WHITE	t
-135	LEGA GAMING STARTER	\N	producto	activo	COMPUTADORA		LEGA	LEGA GAMING STARTER	\N	UNIDAD	14557.19	22131.00	0	3	f	t	2026-05-21 16:56:42.182337-06	1	compra	[]	[]	0.00	16.00	\N	LEGA GAMING STARTER	t
-136	LEGA GAMING ENTRY	\N	producto	activo	COMPUTADORA		LEGA	LEGA GAMING ENTRY	\N	UNIDAD	16199.75	24628.15	0	3	f	t	2026-05-21 16:56:42.185142-06	1	compra	[]	[]	0.00	16.00	\N	LEGA GAMING ENTRY	t
-137	LEGA GAMING MID	\N	producto	activo	COMPUTADORA		LEGA	LEGA GAMING MID	\N	UNIDAD	24515.21	37269.98	0	3	f	t	2026-05-21 16:56:42.188008-06	1	compra	[]	[]	0.00	16.00	\N	LEGA GAMING MID	t
-138	LEGA GAMING HIGH	\N	producto	activo	COMPUTADORA		LEGA	LEGA GAMING HIGH	\N	UNIDAD	31783.54	48319.87	0	3	f	t	2026-05-21 16:56:42.190923-06	1	compra	[]	[]	0.00	16.00	\N	LEGA GAMING HIGH	t
-139	LEGA GAMING PRO	\N	producto	activo	COMPUTADORA		LEGA	LEGA GAMING PRO	\N	UNIDAD	58536.73	88992.22	0	3	f	t	2026-05-21 16:56:42.194045-06	1	compra	[]	[]	0.00	16.00	\N	LEGA GAMING PRO	t
-140	LEGA PROFESSIONAL ONE	\N	producto	activo	COMPUTADORA		LEGA	LEGA PROFESSIONAL ONE	\N	UNIDAD	18396.67	27968.09	0	3	f	t	2026-05-21 16:56:42.196896-06	1	compra	[]	[]	0.00	16.00	\N	LEGA PROFESSIONAL ONE	t
-141	LEGA PROFESSIONAL ENTRY	\N	producto	activo	COMPUTADORA		LEGA	LEGA PROFESSIONAL ENTRY	\N	UNIDAD	26958.52	40984.49	0	3	f	t	2026-05-21 16:56:42.199683-06	1	compra	[]	[]	0.00	16.00	\N	LEGA PROFESSIONAL ENTRY	t
-142	LEGA PROFESSIONAL MID	\N	producto	activo	COMPUTADORA		LEGA	LEGA PROFESSIONAL MID	\N	UNIDAD	43733.16	66486.65	0	3	f	t	2026-05-21 16:56:42.202601-06	1	compra	[]	[]	0.00	16.00	\N	LEGA PROFESSIONAL MID	t
-143	LEGA PROFESSIONAL HIGH	\N	producto	activo	COMPUTADORA		LEGA	LEGA PROFESSIONAL HIGH	\N	UNIDAD	68166.24	103631.77	0	3	f	t	2026-05-21 16:56:42.205378-06	1	compra	[]	[]	0.00	16.00	\N	LEGA PROFESSIONAL HIGH	t
-144	LEGA HOME	\N	producto	activo	COMPUTADORA		LEGA	LEGA HOME	\N	UNIDAD	6385.45	9707.67	0	3	f	t	2026-05-21 16:56:42.208273-06	1	compra	[]	[]	0.00	16.00	\N	LEGA HOME	t
-145	LEGA OFFICE BASIC	\N	producto	activo	COMPUTADORA		LEGA	LEGA OFFICE BASIC	\N	UNIDAD	7945.88	12079.97	0	3	f	t	2026-05-21 16:56:42.211195-06	1	compra	[]	[]	0.00	16.00	\N	LEGA OFFICE BASIC	t
-146	LEGA OFFICE MID	\N	producto	activo	COMPUTADORA		LEGA	LEGA OFFICE MID	\N	UNIDAD	11354.20	17261.56	0	3	f	t	2026-05-21 16:56:42.214127-06	1	compra	[]	[]	0.00	16.00	\N	LEGA OFFICE MID	t
-147	LEGA OFFICE HIGH	\N	producto	activo	COMPUTADORA		LEGA	LEGA OFFICE HIGH	\N	UNIDAD	14187.61	21569.14	0	3	f	t	2026-05-21 16:56:42.217174-06	1	compra	[]	[]	0.00	16.00	\N	LEGA OFFICE HIGH	t
-148	LEGA IA CHAT GTP 13 TOPS	\N	producto	activo	COMPUTADORA		LEGA	LEGA IA CHAT GTP 13 TOPS	\N	UNIDAD	12196.01	18541.35	0	3	f	t	2026-05-21 16:56:42.220121-06	1	compra	[]	[]	0.00	16.00	\N	LEGA IA CHAT GTP 13 TOPS	t
-149	LEGA IA JARVIS 627 TOPS	\N	producto	activo	COMPUTADORA		LEGA	LEGA IA JARVIS 627 TOPS	\N	UNIDAD	25110.64	38175.20	0	3	f	t	2026-05-21 16:56:42.223211-06	1	compra	[]	[]	0.00	16.00	\N	LEGA IA JARVIS 627 TOPS	t
-150	LEGA IA ULTRON 1439 TOPS	\N	producto	activo	COMPUTADORA		LEGA	LEGA IA ULTRON 1439 TOPS	\N	UNIDAD	50714.04	77099.54	0	3	f	t	2026-05-21 16:56:42.22625-06	1	compra	[]	[]	0.00	16.00	\N	LEGA IA ULTRON 1439 TOPS	t
-151	LEGA SKYNET 3388 TOPS	\N	producto	activo	COMPUTADORA		LEGA	LEGA SKYNET 3388 TOPS	\N	UNIDAD	127811.70	194309.57	0	3	f	t	2026-05-21 16:56:42.229215-06	1	compra	[]	[]	0.00	16.00	\N	LEGA SKYNET 3388 TOPS	t
-70	LEGA BRONCE ULTRA		producto	activo	COMPUTADORA	\N	LEGA	LEGA BRONCE ULTRA	\N	UNIDAD	43878.28	54351.00	0	3	f	t	2026-05-21 16:56:41.947139-06	1	produccion	[]	[]	0.00	16.00	\N	LEGA BRONCE ULTRA	t
-161	PROCESADOR INTEL (BX8071512400F) CORE I5-12400F S-1700 6CORES 4.40GHZ 65W	PROCESADOR INTEL (BX8071512400F) CORE I5-12400F S-1700 6CORES 4.40GHZ 65W	producto	activo	PROCESADORES	\N	\N	BX8071512400F	\N	PZA	2430.00	2916.01	0	1000	f	f	2026-05-22 18:21:53.099789-06	1	stock	[]	[]	0.00	16.00	\N	BX8071512400F	t
-162	MOTHERBOARD ASUS (PRIME H610M-K D4) SOCKET 1700 12A,2*DDR4,HDMI,VGA,PCIE-4.0,MICRO ATX	MOTHERBOARD ASUS (PRIME H610M-K D4) SOCKET 1700 12A,2*DDR4,HDMI,VGA,PCIE-4.0,MICRO ATX	producto	activo	\N	\N	ASUS	PRIME H610M-K D4	PRIME	PZA	1008.00	1210.00	0	1000	f	f	2026-05-22 18:25:43.769769-06	1	stock	[]	[]	0.00	16.00	\N	PRIME H610M-K D4	t
-163	GABINETE ACTECK (AC-933070) KIOTO GC460,MICRO ATX,FUENTE 500W,2*USB 2.0,1*USB 3.0,RGB,PANEL ACRILIC	GABINETE ACTECK (AC-933070) KIOTO GC460,MICRO\r\nATX,FUENTE 500W,2*USB 2.0,1*USB 3.0,RGB,PANEL ACRILIC	producto	activo	GABINETE	\N	\N	AC-933070	\N	PZA	531.96	680.00	0	1000	f	f	2026-05-22 18:38:07.416417-06	1	stock	[]	[]	0.00	16.00	\N	AC-933070	t
-164	PROCESADOR AMD RYZEN 3 3200G CON AMD RADEON GRAPHICS, SOCKET AM4	PROCESADOR AMD RYZEN 3 3200G CON AMD RADEON GRAPHICS, SOCKET AM4	producto	activo	PROCESADORES	\N	AMD	\N	\N	PZA	1616.00	1950.00	0	1000	f	f	2026-05-22 18:44:54.39787-06	1	stock	[]	[]	0.00	16.00	\N	\N	t
-165	MEMORIA DIMM DDR4 PATRIOT (PSP48G2666H1) SIGNATURE 8GB 2666MHZ, CL19	MEMORIA DIMM DDR4 PATRIOT (PSP48G2666H1) SIGNATURE 8GB\r\n2666MHZ, CL19	producto	activo	RAM	\N	PATRIOT	PSP48G2666H1	\N	PZA	1132.39	1360.00	0	1000	f	f	2026-05-22 18:52:30.652311-06	1	stock	[]	[]	0.00	16.00	\N	PSP48G2666H1	t
-166	UNIDAD SSD 2.5" ACER 240GB (BL.9BWWA.102) SATA 3, SA100	UNIDAD SSD 2.5" ACER 240GB (BL.9BWWA.102) SATA 3,\r\nSA100	producto	activo	ALMACENAMIENTO	\N	ACER	BL.9BWWA.102	\N	PZA	658.68	790.41	0	1000	f	f	2026-05-22 18:54:25.885929-06	1	compra	[]	[]	0.00	16.00	\N	BL.9BWWA.102	t
-167	MONITOR 19.5" ACTECK (AC-939409) CAPTIVE BRITE CB195,1440*900,75HZ,	MONITOR 19.5" ACTECK (AC-939409) CAPTIVE BRITE\r\nCB195,1440*900,75HZ,	producto	activo	ACCESORIOS	\N	\N	\N	\N	PZA	587.63	706.00	0	1000	f	f	2026-05-22 18:56:20.627113-06	1	stock	[]	[]	0.00	16.00	\N	AC-939409	t
-168	KIT TECLADO Y MOUSE ALAMBRICO ACTECK (AC-928984) MK210,USB	KIT TECLADO Y MOUSE ALAMBRICO ACTECK (AC-928984)\r\nMK210,USB	producto	activo	ACCESORIOS	\N	\N	AC-928984	\N	PZA	124.85	150.00	0	1000	f	f	2026-05-22 18:57:29.59605-06	1	compra	[]	[]	0.00	16.00	\N	AC-928984	t
-10	GABINETE COOLER MASTER (E302-KGNN65-SA0) CASE ELITE 302 (MICRO ATX) + HYPER 212 SPECTRUM V3 + MWE GOLD 650 V3 NM	\N	producto	activo	GABINETE		COOLER MASTER	E302-KGNN65-SA0	\N	UNIDAD	1740.00	1999.00	0	3	f	t	2026-05-21 16:56:41.728919-06	1	compra	[]	[]	0.00	16.00	\N	E302-KGNN65-SA0	t
-50	VENTILADOR P/CPU MSI (MAG CORELIQUID A13 240 WHITE) ARGB, ENFRIAMIENTO LIQUIDO, 2 FAN, 240MM, BLANCO	\N	producto	activo	ENFRIAMIENTO		MSI	MAG CORELIQUID A13 240 WHITE	\N	UNIDAD	1185.00	2189.00	0	3	f	t	2026-05-21 16:56:41.875839-06	1	compra	[]	[]	0.00	16.00	\N	MAG CORELIQUID A13 240 WHITE	t
-64	LEGA PROFESSIONAL BUSINESS MEDIUM PERFORMANCE	\N	producto	activo	COMPUTADORA		LEGA	LEGA PROFESSIONAL BUSINESS MEDIUM PERFORMANCE	\N	UNIDAD	43305.00	67358.46	0	3	f	t	2026-05-21 16:56:41.927193-06	1	compra	[]	[]	0.00	16.00	\N	LEGA PROFESSIONAL BUSINESS MEDIUM PERFORMANCE	t
-96	MOTHERBOARD ASUS (TUF GAMING X870-PLUS WIFI)SOCKET AM5,4*DDR5,HDMI,2 USB4,PCI-E 5.0,WIFI7,ATX	\N	producto	activo	MOTHERBOARD		ASUS	TUF GAMING X870-PLUS WIFI	\N	UNIDAD	4465.00	4800.00	0	3	f	t	2026-05-21 16:56:42.048204-06	1	compra	[]	[]	0.00	16.00	\N	TUF GAMING X870-PLUS WIFI	t
-111	FUENTE DE PODER CORSAIR (CP-9020276-NA) RM1200X SHIFT,1200W,FULL MODULAR,80 PLUS GOLD,BLANCO	\N	producto	activo	FUENTE DE PODER		CORSAIR	CP-9020276-NA	\N	UNIDAD	4000.00	5000.00	0	3	f	t	2026-05-21 16:56:42.101304-06	1	compra	[]	[]	0.00	16.00	\N	CP-9020276-NA	t
-127	TARJETA DE VIDEO XFX (RX-76PSWFTFY) SWFT 210 RADEON RX7600, 8GB, 2250MHZ, 3*DP, HDMI, NEGRO	\N	producto	activo	TARJETA DE VIDEO		XFX	RX-76PSWFTFY	\N	UNIDAD	4967.35	5600.00	0	3	f	t	2026-05-21 16:56:42.157839-06	1	compra	[]	[]	0.00	16.00	\N	RX-76PSWFTFY	t
-169	TARJETA DE VIDEO ASUS (PRIME-RTX5070-12G) 12GB GDDR7,192BIT, PCI-E 5.0,HDMI,3*DP1.4A,TRI FAN	\N	producto	activo	TARJETA DE VIDEO		ASUS	PRIME-RTX5070-12G	\N	UNIDAD	10404.06	12700.00	0	3	f	t	2026-05-23 11:29:30.706407-06	1	compra	[]	[]	0.00	16.00	\N	PRIME-RTX5070-12G	t
-170	UNIDAD SSD M.2 KINGSTON 2TB (SNV3S/2000G) NV3, PCIE NVME, 2280	\N	producto	activo	ALMACENAMIENTO		KINGSTON	SNV3S/2000G	\N	UNIDAD	4874.48	5950.00	0	3	f	t	2026-05-23 11:29:30.712435-06	1	compra	[]	[]	0.00	16.00	\N	SNV3S/2000G	t
-171	FUENTE DE PODER MSI (MAG A850GL PCIE5) 850W, PCI 5, FULL MODULAR, 80 PLUS GOLD, PFC ACTIVO, ATX 3.0	\N	producto	activo	FUENTE DE PODER		MSI	MAG A850GL PCIE5	\N	UNIDAD	1187.98	1430.00	0	3	f	t	2026-05-23 11:29:30.715637-06	1	compra	[]	[]	0.00	16.00	\N	MAG A850GL PCIE5	t
-172	UNIDAD SSD M.2 2280 PREDATOR 1TB (BL.9BWWR.118) GM7-1TB, PCIE GEN 4, 7200/6300 MB/S	\N	producto	activo	ALMACENAMIENTO		ACER	BL.9BWWR.118	\N	UNIDAD	2194.72	2678.00	0	3	f	t	2026-05-23 11:29:30.71866-06	1	compra	[]	[]	0.00	16.00	\N	BL.9BWWR.118	t
-173	DDR5 CORSAIR (CMP64GX5M2B6400C32W) 64GB 6400MHZ (2X32GB) DOMINATOR TITANIUM,BLANCO	\N	producto	activo	RAM		CORSAIR	CMP64GX5M2B6400C32W	\N	UNIDAD	4410.00	14655.00	0	3	f	t	2026-05-23 11:29:30.7216-06	1	compra	[]	[]	0.00	16.00	\N	CMP64GX5M2B6400C32W	t
-174	GABINETE BALAM RUSH(BR-943840)TANK CORE PRO GI925,MAX, M-ATX,S/FUENTE,1*USB A 3.0+3FAN 120MM ARGB	\N	producto	activo	GABINETE		BALAM RUSH	BR-943840	\N	UNIDAD	814.00	993.00	0	3	f	t	2026-05-23 11:48:52.820729-06	1	compra	[]	[]	0.00	16.00	\N	BR-943840	t
-175	MOTHERBOARD MSI (PRO H610M-G DDR4) SOCKET 1700, 2*DDR4 3200MHZ, 1*HDMI, 1*VGA, MICRO ATX	\N	producto	activo	MOTHERBOARD		MSI	PRO H610M-G DDR4	\N	UNIDAD	908.00	1110.00	0	3	f	t	2026-05-23 11:48:52.826162-06	1	compra	[]	[]	0.00	16.00	\N	PRO H610M-G DDR4	t
-176	TARJETA DE VIDEO MSI (RTX 5060 TI 8G SHADOW 2X OC PLUS) 8GB GDDR7, 2617 MHZ, 1*HDMI, 3*DP, 2 FAN	\N	producto	activo	TARJETA DE VIDEO		MSI	RTX 5060 TI 8G SHADOW 2X OC PLUS	\N	PZA	6232.00	7603.00	0	3	f	t	2026-05-23 11:48:52.829082-06	1	compra	[]	[]	0.00	16.00	\N	RTX 5060 TI 8G SHADOW 2X OC PLUS	t
+155	SERVICIO DIGNOSTICO Y MANTENIMINETO		servicio	activo	\N	\N	\N	\N	\N	H87	200.00	1724.13	0	1000	f	f	2026-05-21 18:38:41.555025-06	1	stock	[]	[]	0.00	16.00	\N	\N	t
+154	NO BREAK Y AUDIFONOS		producto	activo	ACCESORIOS	\N	\N	\N	\N	H87	13000.00	18017.24	0	1000	f	f	2026-05-21 18:36:10.016852-06	1	compra	[]	[]	0.00	16.00	\N	\N	t
+156	MANTENIMINETO 1000		servicio	activo	\N	\N	\N	\N	\N	H87	100.00	862.07	0	1000	f	f	2026-05-21 18:40:01.51414-06	1	compra	[]	[]	0.00	16.00	\N	\N	t
+157	MANTENIMINETO Y DIAGNOSTICO		servicio	activo	\N	\N	\N	\N	\N	H87	240.00	2068.97	0	1000	f	f	2026-05-21 18:41:45.477682-06	1	stock	[]	[]	0.00	16.00	\N	\N	t
+158	FEDEX		servicio	activo	\N	\N	\N	\N	\N	H87	215.00	1853.44	0	1000	f	f	2026-05-21 18:43:39.809492-06	1	compra	[]	[]	0.00	16.00	\N	\N	t
+152	PC BACK TO SCHOOL BASIC		producto	activo	COMPUTADORA	\N	\N	\N	\N	H87	5950.00	8327.59	0	1000	f	f	2026-05-21 17:45:30.00922-06	1	produccion	[]	[]	0.00	16.00	\N	\N	t
+128	GABINETE BALAM RUSH(BR-935999)DRAGONFLY PERFORM AIRCOOL GM590AW,ATX,S/FUENTE,1 USB 3.0 A,3FAN,P/CRISTAL ,BLANCO	\N	producto	activo	GABINETE		BALAM RUSH	BR-935999	\N	H87	827.89	960.00	0	3	f	t	2026-05-21 16:56:42.160844-06	1	compra	[]	[]	0.00	16.00	\N	BR-935999	t
+129	LEGA STARTER	\N	producto	activo	COMPUTADORA		LEGA	LEGA STARTER	\N	H87	12885.40	20130.00	0	3	f	t	2026-05-21 16:56:42.163828-06	1	compra	[]	[]	0.00	16.00	\N	LEGA STARTER	t
+130	LEGA FLEX	\N	producto	activo	COMPUTADORA		LEGA	LEGA FLEX	\N	H87	11144.70	17019.00	0	3	f	t	2026-05-21 16:56:42.166845-06	1	compra	[]	[]	0.00	16.00	\N	LEGA FLEX	t
+131	PROCESADOR AMD (100-100000931BOX) RYZEN 5 8500G S-AM5, 6 CORE, 3.5 GHZ, 65W, C/GRAFICOS, C/FAN	\N	producto	activo	PROCESADORES		AMD	100-100000931BOX	\N	H87	2547.36	2950.00	0	3	f	t	2026-05-21 16:56:42.169867-06	1	compra	[]	[]	0.00	16.00	\N	100-100000931BOX	t
+132	MOTHERBOARD ASUS (PRIME A620M-K) SOCKET AM5,2*DDR5,HDMI,VGA,PCIE-4.0,M.2,MICRO ATX	\N	producto	activo	MOTHERBOARD		ASUS	PRIME A620M-K	\N	H87	1750.00	1700.00	0	3	f	t	2026-05-21 16:56:42.17328-06	1	compra	[]	[]	0.00	16.00	\N	PRIME A620M-K	t
+133	MOTHERBOARD MSI (PRO A620AM-B EVO) SOCKET AM5, 2*DDR5 6800, HDMI,VGA, M-ATX	\N	producto	activo	MOTHERBOARD		MSI	PRO A620AM-B EVO	\N	H87	1330.00	1700.00	0	3	f	t	2026-05-21 16:56:42.17641-06	1	compra	[]	[]	0.00	16.00	\N	PRO A620AM-B EVO	t
+134	GABINETE ANTEC (NX416L WHITE) MEDIA TORRE ATX,CRISTAL,S/FUENTE,3*FAN,2*USB 3.0,BLANCO	\N	producto	activo	GABINETE		ANTEC	NX416L WHITE	\N	H87	3390.00	3900.00	0	3	f	t	2026-05-21 16:56:42.179517-06	1	compra	[]	[]	0.00	16.00	\N	NX416L WHITE	t
+135	LEGA GAMING STARTER	\N	producto	activo	COMPUTADORA		LEGA	LEGA GAMING STARTER	\N	H87	14557.19	22131.00	0	3	f	t	2026-05-21 16:56:42.182337-06	1	compra	[]	[]	0.00	16.00	\N	LEGA GAMING STARTER	t
+136	LEGA GAMING ENTRY	\N	producto	activo	COMPUTADORA		LEGA	LEGA GAMING ENTRY	\N	H87	16199.75	24628.15	0	3	f	t	2026-05-21 16:56:42.185142-06	1	compra	[]	[]	0.00	16.00	\N	LEGA GAMING ENTRY	t
+137	LEGA GAMING MID	\N	producto	activo	COMPUTADORA		LEGA	LEGA GAMING MID	\N	H87	24515.21	37269.98	0	3	f	t	2026-05-21 16:56:42.188008-06	1	compra	[]	[]	0.00	16.00	\N	LEGA GAMING MID	t
+138	LEGA GAMING HIGH	\N	producto	activo	COMPUTADORA		LEGA	LEGA GAMING HIGH	\N	H87	31783.54	48319.87	0	3	f	t	2026-05-21 16:56:42.190923-06	1	compra	[]	[]	0.00	16.00	\N	LEGA GAMING HIGH	t
+139	LEGA GAMING PRO	\N	producto	activo	COMPUTADORA		LEGA	LEGA GAMING PRO	\N	H87	58536.73	88992.22	0	3	f	t	2026-05-21 16:56:42.194045-06	1	compra	[]	[]	0.00	16.00	\N	LEGA GAMING PRO	t
+140	LEGA PROFESSIONAL ONE	\N	producto	activo	COMPUTADORA		LEGA	LEGA PROFESSIONAL ONE	\N	H87	18396.67	27968.09	0	3	f	t	2026-05-21 16:56:42.196896-06	1	compra	[]	[]	0.00	16.00	\N	LEGA PROFESSIONAL ONE	t
+141	LEGA PROFESSIONAL ENTRY	\N	producto	activo	COMPUTADORA		LEGA	LEGA PROFESSIONAL ENTRY	\N	H87	26958.52	40984.49	0	3	f	t	2026-05-21 16:56:42.199683-06	1	compra	[]	[]	0.00	16.00	\N	LEGA PROFESSIONAL ENTRY	t
+142	LEGA PROFESSIONAL MID	\N	producto	activo	COMPUTADORA		LEGA	LEGA PROFESSIONAL MID	\N	H87	43733.16	66486.65	0	3	f	t	2026-05-21 16:56:42.202601-06	1	compra	[]	[]	0.00	16.00	\N	LEGA PROFESSIONAL MID	t
+143	LEGA PROFESSIONAL HIGH	\N	producto	activo	COMPUTADORA		LEGA	LEGA PROFESSIONAL HIGH	\N	H87	68166.24	103631.77	0	3	f	t	2026-05-21 16:56:42.205378-06	1	compra	[]	[]	0.00	16.00	\N	LEGA PROFESSIONAL HIGH	t
+144	LEGA HOME	\N	producto	activo	COMPUTADORA		LEGA	LEGA HOME	\N	H87	6385.45	9707.67	0	3	f	t	2026-05-21 16:56:42.208273-06	1	compra	[]	[]	0.00	16.00	\N	LEGA HOME	t
+145	LEGA OFFICE BASIC	\N	producto	activo	COMPUTADORA		LEGA	LEGA OFFICE BASIC	\N	H87	7945.88	12079.97	0	3	f	t	2026-05-21 16:56:42.211195-06	1	compra	[]	[]	0.00	16.00	\N	LEGA OFFICE BASIC	t
+146	LEGA OFFICE MID	\N	producto	activo	COMPUTADORA		LEGA	LEGA OFFICE MID	\N	H87	11354.20	17261.56	0	3	f	t	2026-05-21 16:56:42.214127-06	1	compra	[]	[]	0.00	16.00	\N	LEGA OFFICE MID	t
+147	LEGA OFFICE HIGH	\N	producto	activo	COMPUTADORA		LEGA	LEGA OFFICE HIGH	\N	H87	14187.61	21569.14	0	3	f	t	2026-05-21 16:56:42.217174-06	1	compra	[]	[]	0.00	16.00	\N	LEGA OFFICE HIGH	t
+148	LEGA IA CHAT GTP 13 TOPS	\N	producto	activo	COMPUTADORA		LEGA	LEGA IA CHAT GTP 13 TOPS	\N	H87	12196.01	18541.35	0	3	f	t	2026-05-21 16:56:42.220121-06	1	compra	[]	[]	0.00	16.00	\N	LEGA IA CHAT GTP 13 TOPS	t
+149	LEGA IA JARVIS 627 TOPS	\N	producto	activo	COMPUTADORA		LEGA	LEGA IA JARVIS 627 TOPS	\N	H87	25110.64	38175.20	0	3	f	t	2026-05-21 16:56:42.223211-06	1	compra	[]	[]	0.00	16.00	\N	LEGA IA JARVIS 627 TOPS	t
+150	LEGA IA ULTRON 1439 TOPS	\N	producto	activo	COMPUTADORA		LEGA	LEGA IA ULTRON 1439 TOPS	\N	H87	50714.04	77099.54	0	3	f	t	2026-05-21 16:56:42.22625-06	1	compra	[]	[]	0.00	16.00	\N	LEGA IA ULTRON 1439 TOPS	t
+151	LEGA SKYNET 3388 TOPS	\N	producto	activo	COMPUTADORA		LEGA	LEGA SKYNET 3388 TOPS	\N	H87	127811.70	194309.57	0	3	f	t	2026-05-21 16:56:42.229215-06	1	compra	[]	[]	0.00	16.00	\N	LEGA SKYNET 3388 TOPS	t
+70	LEGA BRONCE ULTRA		producto	activo	COMPUTADORA	\N	LEGA	LEGA BRONCE ULTRA	\N	H87	43878.28	54351.00	0	3	f	t	2026-05-21 16:56:41.947139-06	1	produccion	[]	[]	0.00	16.00	\N	LEGA BRONCE ULTRA	t
+159	BACK TO SCHOOL MID	\N	producto	revision	COMPUTADORA		\N	\N	\N	H87	0.00	0.00	0	1000	f	f	2026-05-22 11:53:34.382813-06	1	stock	[]	[]	0.00	16.00	\N	\N	t
+37	LEGA ONE 5060TI		producto	activo	COMPUTADORA	\N	LEGA	LEGA ONE 5060TI	\N	H87	18808.01	28987.20	0	3	f	t	2026-05-21 16:56:41.824932-06	1	produccion	[]	[]	0.00	16.00	\N	LEGA ONE 5060TI	t
+50	VENTILADOR P/CPU MSI (MAG CORELIQUID A13 240 WHITE) ARGB, ENFRIAMIENTO LIQUIDO, 2 FAN, 240MM, BLANCO	\N	producto	activo	ENFRIAMIENTO		MSI	MAG CORELIQUID A13 240 WHITE	\N	H87	1185.00	2189.00	0	3	f	t	2026-05-21 16:56:41.875839-06	1	compra	[]	[]	0.00	16.00	\N	MAG CORELIQUID A13 240 WHITE	t
+111	FUENTE DE PODER CORSAIR (CP-9020276-NA) RM1200X SHIFT,1200W,FULL MODULAR,80 PLUS GOLD,BLANCO	\N	producto	activo	FUENTE DE PODER		CORSAIR	CP-9020276-NA	\N	H87	4000.00	5000.00	0	3	f	t	2026-05-21 16:56:42.101304-06	1	compra	[]	[]	0.00	16.00	\N	CP-9020276-NA	t
+127	TARJETA DE VIDEO XFX (RX-76PSWFTFY) SWFT 210 RADEON RX7600, 8GB, 2250MHZ, 3*DP, HDMI, NEGRO	\N	producto	activo	TARJETA DE VIDEO		XFX	RX-76PSWFTFY	\N	H87	4967.35	5600.00	0	3	f	t	2026-05-21 16:56:42.157839-06	1	compra	[]	[]	0.00	16.00	\N	RX-76PSWFTFY	t
+169	TARJETA DE VIDEO ASUS (PRIME-RTX5070-12G) 12GB GDDR7,192BIT, PCI-E 5.0,HDMI,3*DP1.4A,TRI FAN	\N	producto	activo	TARJETA DE VIDEO		ASUS	PRIME-RTX5070-12G	\N	H87	10404.06	12700.00	0	3	f	t	2026-05-23 11:29:30.706407-06	1	compra	[]	[]	0.00	16.00	\N	PRIME-RTX5070-12G	t
+170	UNIDAD SSD M.2 KINGSTON 2TB (SNV3S/2000G) NV3, PCIE NVME, 2280	\N	producto	activo	ALMACENAMIENTO		KINGSTON	SNV3S/2000G	\N	H87	4874.48	5950.00	0	3	f	t	2026-05-23 11:29:30.712435-06	1	compra	[]	[]	0.00	16.00	\N	SNV3S/2000G	t
+171	FUENTE DE PODER MSI (MAG A850GL PCIE5) 850W, PCI 5, FULL MODULAR, 80 PLUS GOLD, PFC ACTIVO, ATX 3.0	\N	producto	activo	FUENTE DE PODER		MSI	MAG A850GL PCIE5	\N	H87	1187.98	1430.00	0	3	f	t	2026-05-23 11:29:30.715637-06	1	compra	[]	[]	0.00	16.00	\N	MAG A850GL PCIE5	t
+172	UNIDAD SSD M.2 2280 PREDATOR 1TB (BL.9BWWR.118) GM7-1TB, PCIE GEN 4, 7200/6300 MB/S	\N	producto	activo	ALMACENAMIENTO		ACER	BL.9BWWR.118	\N	H87	2194.72	2678.00	0	3	f	t	2026-05-23 11:29:30.71866-06	1	compra	[]	[]	0.00	16.00	\N	BL.9BWWR.118	t
+173	DDR5 CORSAIR (CMP64GX5M2B6400C32W) 64GB 6400MHZ (2X32GB) DOMINATOR TITANIUM,BLANCO	\N	producto	activo	RAM		CORSAIR	CMP64GX5M2B6400C32W	\N	H87	4410.00	14655.00	0	3	f	t	2026-05-23 11:29:30.7216-06	1	compra	[]	[]	0.00	16.00	\N	CMP64GX5M2B6400C32W	t
+174	GABINETE BALAM RUSH(BR-943840)TANK CORE PRO GI925,MAX, M-ATX,S/FUENTE,1*USB A 3.0+3FAN 120MM ARGB	\N	producto	activo	GABINETE		BALAM RUSH	BR-943840	\N	H87	814.00	993.00	0	3	f	t	2026-05-23 11:48:52.820729-06	1	compra	[]	[]	0.00	16.00	\N	BR-943840	t
+175	MOTHERBOARD MSI (PRO H610M-G DDR4) SOCKET 1700, 2*DDR4 3200MHZ, 1*HDMI, 1*VGA, MICRO ATX	\N	producto	activo	MOTHERBOARD		MSI	PRO H610M-G DDR4	\N	H87	908.00	1110.00	0	3	f	t	2026-05-23 11:48:52.826162-06	1	compra	[]	[]	0.00	16.00	\N	PRO H610M-G DDR4	t
+176	TARJETA DE VIDEO MSI (RTX 5060 TI 8G SHADOW 2X OC PLUS) 8GB GDDR7, 2617 MHZ, 1*HDMI, 3*DP, 2 FAN	\N	producto	activo	TARJETA DE VIDEO		MSI	RTX 5060 TI 8G SHADOW 2X OC PLUS	\N	H87	6232.00	7603.00	0	3	f	t	2026-05-23 11:48:52.829082-06	1	compra	[]	[]	0.00	16.00	\N	RTX 5060 TI 8G SHADOW 2X OC PLUS	t
+161	PROCESADOR INTEL (BX8071512400F) CORE I5-12400F S-1700 6CORES 4.40GHZ 65W	PROCESADOR INTEL (BX8071512400F) CORE I5-12400F S-1700 6CORES 4.40GHZ 65W	producto	activo	PROCESADORES	\N	\N	BX8071512400F	\N	H87	2430.00	2916.01	0	1000	f	f	2026-05-22 18:21:53.099789-06	1	stock	[]	[]	0.00	16.00	\N	BX8071512400F	t
+162	MOTHERBOARD ASUS (PRIME H610M-K D4) SOCKET 1700 12A,2*DDR4,HDMI,VGA,PCIE-4.0,MICRO ATX	MOTHERBOARD ASUS (PRIME H610M-K D4) SOCKET 1700 12A,2*DDR4,HDMI,VGA,PCIE-4.0,MICRO ATX	producto	activo	\N	\N	ASUS	PRIME H610M-K D4	PRIME	H87	1008.00	1210.00	0	1000	f	f	2026-05-22 18:25:43.769769-06	1	stock	[]	[]	0.00	16.00	\N	PRIME H610M-K D4	t
+163	GABINETE ACTECK (AC-933070) KIOTO GC460,MICRO ATX,FUENTE 500W,2*USB 2.0,1*USB 3.0,RGB,PANEL ACRILIC	GABINETE ACTECK (AC-933070) KIOTO GC460,MICRO\r\nATX,FUENTE 500W,2*USB 2.0,1*USB 3.0,RGB,PANEL ACRILIC	producto	activo	GABINETE	\N	\N	AC-933070	\N	H87	531.96	680.00	0	1000	f	f	2026-05-22 18:38:07.416417-06	1	stock	[]	[]	0.00	16.00	\N	AC-933070	t
+164	PROCESADOR AMD RYZEN 3 3200G CON AMD RADEON GRAPHICS, SOCKET AM4	PROCESADOR AMD RYZEN 3 3200G CON AMD RADEON GRAPHICS, SOCKET AM4	producto	activo	PROCESADORES	\N	AMD	\N	\N	H87	1616.00	1950.00	0	1000	f	f	2026-05-22 18:44:54.39787-06	1	stock	[]	[]	0.00	16.00	\N	\N	t
+165	MEMORIA DIMM DDR4 PATRIOT (PSP48G2666H1) SIGNATURE 8GB 2666MHZ, CL19	MEMORIA DIMM DDR4 PATRIOT (PSP48G2666H1) SIGNATURE 8GB\r\n2666MHZ, CL19	producto	activo	RAM	\N	PATRIOT	PSP48G2666H1	\N	H87	1132.39	1360.00	0	1000	f	f	2026-05-22 18:52:30.652311-06	1	stock	[]	[]	0.00	16.00	\N	PSP48G2666H1	t
+166	UNIDAD SSD 2.5" ACER 240GB (BL.9BWWA.102) SATA 3, SA100	UNIDAD SSD 2.5" ACER 240GB (BL.9BWWA.102) SATA 3,\r\nSA100	producto	activo	ALMACENAMIENTO	\N	ACER	BL.9BWWA.102	\N	H87	658.68	790.41	0	1000	f	f	2026-05-22 18:54:25.885929-06	1	compra	[]	[]	0.00	16.00	\N	BL.9BWWA.102	t
+167	MONITOR 19.5" ACTECK (AC-939409) CAPTIVE BRITE CB195,1440*900,75HZ,	MONITOR 19.5" ACTECK (AC-939409) CAPTIVE BRITE\r\nCB195,1440*900,75HZ,	producto	activo	ACCESORIOS	\N	\N	\N	\N	H87	587.63	706.00	0	1000	f	f	2026-05-22 18:56:20.627113-06	1	stock	[]	[]	0.00	16.00	\N	AC-939409	t
+168	KIT TECLADO Y MOUSE ALAMBRICO ACTECK (AC-928984) MK210,USB	KIT TECLADO Y MOUSE ALAMBRICO ACTECK (AC-928984)\r\nMK210,USB	producto	activo	ACCESORIOS	\N	\N	AC-928984	\N	H87	124.85	150.00	0	1000	f	f	2026-05-22 18:57:29.59605-06	1	compra	[]	[]	0.00	16.00	\N	AC-928984	t
+10	GABINETE COOLER MASTER (E302-KGNN65-SA0) CASE ELITE 302 (MICRO ATX) + HYPER 212 SPECTRUM V3 + MWE GOLD 650 V3 NM	\N	producto	activo	GABINETE		COOLER MASTER	E302-KGNN65-SA0	\N	H87	1740.00	1999.00	0	3	f	t	2026-05-21 16:56:41.728919-06	1	compra	[]	[]	0.00	16.00	\N	E302-KGNN65-SA0	t
+64	LEGA PROFESSIONAL BUSINESS MEDIUM PERFORMANCE	\N	producto	activo	COMPUTADORA		LEGA	LEGA PROFESSIONAL BUSINESS MEDIUM PERFORMANCE	\N	H87	43305.00	67358.46	0	3	f	t	2026-05-21 16:56:41.927193-06	1	compra	[]	[]	0.00	16.00	\N	LEGA PROFESSIONAL BUSINESS MEDIUM PERFORMANCE	t
+96	MOTHERBOARD ASUS (TUF GAMING X870-PLUS WIFI)SOCKET AM5,4*DDR5,HDMI,2 USB4,PCI-E 5.0,WIFI7,ATX	\N	producto	activo	MOTHERBOARD		ASUS	TUF GAMING X870-PLUS WIFI	\N	H87	4465.00	4800.00	0	3	f	t	2026-05-21 16:56:42.048204-06	1	compra	[]	[]	0.00	16.00	\N	TUF GAMING X870-PLUS WIFI	t
 \.
 
 
 --
--- Data for Name: core_transaccion; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: core_transaccion; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.core_transaccion (id, tipo, cantidad, total, fecha, estado, almacen_id, empresa_id, producto_id, proveedor_id) FROM stdin;
@@ -3539,7 +3865,7 @@ COPY public.core_transaccion (id, tipo, cantidad, total, fecha, estado, almacen_
 
 
 --
--- Data for Name: costeos_comercioadquisicion; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: costeos_comercioadquisicion; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.costeos_comercioadquisicion (id, concepto, monto, moneda_id, costeo_id) FROM stdin;
@@ -3547,7 +3873,7 @@ COPY public.costeos_comercioadquisicion (id, concepto, monto, moneda_id, costeo_
 
 
 --
--- Data for Name: costeos_costeo; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: costeos_costeo; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.costeos_costeo (id, nombre_identificador, es_manufactura, es_comercio, es_servicio, margen_porcentaje, precio_venta_fijo, utiliza_porcentaje, iva_porcentaje, fecha_creacion, empresa_id, sucursal_id, vendedor_id, estado, duplicado_de_id) FROM stdin;
@@ -3555,7 +3881,7 @@ COPY public.costeos_costeo (id, nombre_identificador, es_manufactura, es_comerci
 
 
 --
--- Data for Name: costeos_manufacturagastoindirecto; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: costeos_manufacturagastoindirecto; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.costeos_manufacturagastoindirecto (id, concepto, monto, costeo_id, moneda_id) FROM stdin;
@@ -3563,7 +3889,7 @@ COPY public.costeos_manufacturagastoindirecto (id, concepto, monto, costeo_id, m
 
 
 --
--- Data for Name: costeos_manufacturamanoobra; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: costeos_manufacturamanoobra; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.costeos_manufacturamanoobra (id, concepto, horas, costo_hora, costeo_id, moneda_id) FROM stdin;
@@ -3571,7 +3897,7 @@ COPY public.costeos_manufacturamanoobra (id, concepto, horas, costo_hora, costeo
 
 
 --
--- Data for Name: costeos_manufacturamateriaprima; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: costeos_manufacturamateriaprima; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.costeos_manufacturamateriaprima (id, nombre, cantidad, costo_unitario, costeo_id, moneda_id) FROM stdin;
@@ -3579,7 +3905,7 @@ COPY public.costeos_manufacturamateriaprima (id, nombre, cantidad, costo_unitari
 
 
 --
--- Data for Name: costeos_serviciomaterial; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: costeos_serviciomaterial; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.costeos_serviciomaterial (id, concepto, cantidad, costo, costeo_id, moneda_id) FROM stdin;
@@ -3587,7 +3913,7 @@ COPY public.costeos_serviciomaterial (id, concepto, cantidad, costo, costeo_id, 
 
 
 --
--- Data for Name: costeos_serviciopersonal; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: costeos_serviciopersonal; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.costeos_serviciopersonal (id, rol, horas, tarifa_hora, costeo_id, moneda_id) FROM stdin;
@@ -3595,7 +3921,7 @@ COPY public.costeos_serviciopersonal (id, rol, horas, tarifa_hora, costeo_id, mo
 
 
 --
--- Data for Name: cotizaciones_cotizacion; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: cotizaciones_cotizacion; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.cotizaciones_cotizacion (id, fecha_inicio, fecha_fin, origen, direccion_entrega, estado, creado_en, cliente_id, contacto_id, empresa_id, parent_quote_id, vendedor_id, resultado, sucursal_id) FROM stdin;
@@ -3611,11 +3937,14 @@ COPY public.cotizaciones_cotizacion (id, fecha_inicio, fecha_fin, origen, direcc
 9	2026-05-21	2026-05-21			ganada	2026-05-21 18:38:57.382015-06	21	\N	1	\N	3	ganada	1
 11	2026-05-21	2026-05-21			ganada	2026-05-21 18:42:00.430486-06	21	\N	1	\N	3	ganada	1
 12	2026-05-21	2026-05-22	SUCURSAL		ganada	2026-05-21 18:43:54.984279-06	22	\N	1	\N	3	ganada	1
+13	2026-05-26	2026-05-26	WHATS APP ERNESTO		ganada	2026-05-26 10:56:40.421047-06	17	\N	1	\N	3	ganada	1
+14	2026-05-26	2026-05-26	WHATS APP ERNESTO		ganada	2026-05-26 10:58:30.18279-06	18	\N	1	\N	3	ganada	1
+15	2026-05-26	2026-05-26			ganada	2026-05-26 13:06:41.651033-06	16	\N	2	\N	4	ganada	3
 \.
 
 
 --
--- Data for Name: cotizaciones_detallecotizacion; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: cotizaciones_detallecotizacion; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.cotizaciones_detallecotizacion (id, cantidad, precio_unitario, cotizacion_id, producto_id) FROM stdin;
@@ -3632,20 +3961,25 @@ COPY public.cotizaciones_detallecotizacion (id, cantidad, precio_unitario, cotiz
 22	1	1724.14	9	155
 23	1	862.07	10	156
 24	1	2068.97	11	157
+25	1	54351.00	13	70
+26	1	28987.20	14	37
+27	1	1000.00	15	1
 \.
 
 
 --
--- Data for Name: django_admin_log; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: django_admin_log; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.django_admin_log (id, action_time, object_id, object_repr, action_flag, change_message, content_type_id, user_id) FROM stdin;
 1	2026-05-20 10:54:03.901686-06	6	rmendez@highpro	2	[{"changed": {"fields": ["Username"]}}]	4	2
+2	2026-05-26 13:42:31.367873-06	3	Pedido #3 - Carlos Dueñas	2	[{"changed": {"fields": ["Estado"]}}]	39	2
+3	2026-05-26 13:42:43.869733-06	2	Pedido #2 - Armando Gonzalez García	2	[{"changed": {"fields": ["Estado"]}}]	39	2
 \.
 
 
 --
--- Data for Name: django_content_type; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: django_content_type; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.django_content_type (id, app_label, model) FROM stdin;
@@ -3715,11 +4049,12 @@ COPY public.django_content_type (id, app_label, model) FROM stdin;
 64	costeos	manufacturamateriaprima
 65	costeos	serviciomaterial
 66	costeos	serviciopersonal
+67	recursos_humanos	nomina
 \.
 
 
 --
--- Data for Name: django_migrations; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: django_migrations; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.django_migrations (id, app, name, applied) FROM stdin;
@@ -3880,23 +4215,29 @@ COPY public.django_migrations (id, app, name, applied) FROM stdin;
 155	costeos	0003_costeo_duplicado_de	2026-05-21 20:36:53.699123-06
 156	panel	0007_empresa_modulo_costeos	2026-05-21 20:36:53.74491-06
 157	recursos_humanos	0027_contratista_regimen_alter_contrato_tipo_contrato_and_more	2026-05-25 16:42:00.561208-06
+158	core	0013_alter_producto_unidad_medida	2026-05-25 18:11:45.631302-06
+159	compras	0010_ordencompra_descuento	2026-05-27 09:57:29.616132-06
+160	recursos_humanos	0028_nomina	2026-05-27 09:57:29.839387-06
+161	recursos_humanos	0029_empleado_antiguedad_sat_and_more	2026-05-27 09:57:30.0035-06
+162	recursos_humanos	0030_empleado_jornada_sat	2026-05-27 09:57:30.086694-06
+163	recursos_humanos	0031_alter_empleado_cp_alter_nomina_uso_cfdi	2026-05-27 09:57:30.299825-06
 \.
 
 
 --
--- Data for Name: django_session; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: django_session; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.django_session (session_key, session_data, expire_date) FROM stdin;
 lpcfh409hyvxzm1ixusg02g6pki7yu7c	.eJxVjjsOgzAQRO_iOrLwl3XK9JwB7XpNTIJAwriKcvdARJG082ae5iV6rFvua0lrP7K4Ci0uvxlhfKb5APzA-b7IuMzbOpI8KvKkRXYLp-l2dv8EGUve1-TBJm8YHCFwcG1CJjSaGgCEwOg0tS2xgqFpfNTJKAvOgLU-BB2HXVpqrGvB6ftTvT-ZfT0w:1wQeJk:M_NHW3XfjZk0ZhZ0LAgZkXskK5vPvaBcPgdW3IySbZQ	2026-06-05 22:50:32.703967-06
 6aaojjfx5enxv6nl11dmesceoolr7k76	.eJxVjsEOgjAYg99lZ7OwYcbw6N1nWLr1R1ACCWMn47sLhoOemrRfm75UQFn7ULIsYaC6qFqdfr2I9JRpD_jAdJ91mqd1GaLeEX2kWd9myng92L-BHrnf2jGShBg0gOloLehr8azIFOErVm3XWp9cl8Q1zsOyRXM2bhNK3F_lksqSMX5_mvcHClo_Vg:1wQePK:Gr5f_TOAErJa2HdLdCYmECq45PbSi56DKasrqoNYUus	2026-06-05 22:56:18.220883-06
 y9z4pmrhpg0r381n50r11zef9yx6bt25	.eJxVjsEOgjAYg99lZ7OwYcbw6N1nWLr1R1ACCWMn47sLhoOemrRfm75UQFn7ULIsYaC6qFqdfr2I9JRpD_jAdJ91mqd1GaLeEX2kWd9myng92L-BHrnf2jGShBg0gOloLehr8azIFOErVm3XWp9cl8Q1zsOyRXM2bhNK3F_lksqSMX5_mvcHClo_Vg:1wPn77:cRJurZThksZjRC1OzvyEdXGkG-xicqJz_Ai09svl73s	2026-06-03 14:01:57.064985-06
-gh29pk4k6h6mqvx78s0l7kqq7ckyqsbq	.eJxVjjsOgzAQRO_iOrLwl3XK9JwB7XpNTIJAwriKcvdARJG082ae5iV6rFvua0lrP7K4Ci0uvxlhfKb5APzA-b7IuMzbOpI8KvKkRXYLp-l2dv8EGUve1-TBJm8YHCFwcG1CJjSaGgCEwOg0tS2xgqFpfNTJKAvOgLU-BB2HXVpqrGvB6ftTvT-ZfT0w:1wReUW:8o4EAZTvvcLkjCu-sMREqPniGXGHjWJOTySuGpDQ6jI	2026-06-08 17:13:48.010798-06
+itdn953pize9rzyfdlgp76wv0h9zh1wg	.eJxVjjsOgzAQRO_iOrLwl3XK9JwB7XpNTIJAwriKcvdARJG082ae5iV6rFvua0lrP7K4Ci0uvxlhfKb5APzA-b7IuMzbOpI8KvKkRXYLp-l2dv8EGUve1-TBJm8YHCFwcG1CJjSaGgCEwOg0tS2xgqFpfNTJKAvOgLU-BB2HXVpqrGvB6ftTvT-ZfT0w:1wSJXP:cUDJB4eb-o2lvCxE67Aw2vbJZAAhVQnAXIiF9SfPDi4	2026-06-10 13:03:31.629587-06
 \.
 
 
 --
--- Data for Name: notificaciones_notificacion; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: notificaciones_notificacion; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.notificaciones_notificacion (id, mensaje, link, fecha, visto_en_toast, actor_id, empresa_id, propietario_recurso_id) FROM stdin;
@@ -3937,11 +4278,41 @@ COPY public.notificaciones_notificacion (id, mensaje, link, fecha, visto_en_toas
 24	aprobó la cotización COT-0007	\N	2026-05-22 14:43:04.008185-06	t	3	1	3
 36	creó el pedido manual #0012	\N	2026-05-22 22:44:51.448451-06	f	4	2	4
 37	Se ha generado una Solicitud de Compra Global desde el Pedido #3	\N	2026-05-23 11:55:15.061584-06	t	3	1	3
+46	editó el pedido #0013	\N	2026-05-26 11:02:14.359216-06	t	3	1	3
+45	generó el pedido #0014 desde COT-0014	\N	2026-05-26 10:59:02.708145-06	t	3	1	3
+44	aprobó la cotización COT-0014	\N	2026-05-26 10:58:53.971603-06	t	3	1	3
+43	creó la cotización COT-0014	\N	2026-05-26 10:58:30.189455-06	t	3	1	3
+42	generó el pedido #0013 desde COT-0013	\N	2026-05-26 10:57:03.200057-06	t	3	1	3
+41	aprobó la cotización COT-0013	\N	2026-05-26 10:56:54.495769-06	t	3	1	3
+40	creó la cotización COT-0013	\N	2026-05-26 10:56:40.439159-06	t	3	1	3
+39	La Solicitud #2 ha sido CANCELADA y las partidas del pedido liberadas.	\N	2026-05-26 10:53:42.41133-06	t	3	1	3
+38	La Solicitud #3 ha sido CANCELADA y las partidas del pedido liberadas.	\N	2026-05-26 10:53:35.786388-06	t	3	1	3
+47	creó la cotización COT-0015	\N	2026-05-26 13:06:41.659526-06	f	4	2	4
+48	aprobó la cotización COT-0015	\N	2026-05-26 13:06:44.608015-06	f	4	2	4
+49	generó el pedido #0015 desde COT-0015	\N	2026-05-26 13:06:45.847324-06	f	4	2	4
+50	Se ha generado una Solicitud de Compra Global desde el Pedido #15	\N	2026-05-26 13:06:50.313707-06	f	4	2	4
+51	La Solicitud #4 ha sido CANCELADA y las partidas del pedido liberadas.	\N	2026-05-26 13:06:56.324402-06	f	4	2	4
+55	La Solicitud #5 ha sido autorizada y se generaron 3 órdenes de compra.	\N	2026-05-26 16:56:02.940796-06	t	3	1	3
+54	La Solicitud #6 ha sido autorizada y se generaron 2 órdenes de compra.	\N	2026-05-26 16:55:56.757862-06	t	3	1	3
+53	Se ha generado una Solicitud de Compra Global desde el Pedido #2	\N	2026-05-26 14:43:06.893737-06	t	3	1	3
+52	Se ha generado una Solicitud de Compra Global desde el Pedido #3	\N	2026-05-26 14:42:47.840798-06	t	3	1	3
+67	procesó recepción REC-0003 para OC-0006	\N	2026-05-27 12:27:02.708158-06	t	3	1	3
+66	procesó recepción REC-0002 para OC-0007	\N	2026-05-27 12:26:49.807341-06	t	3	1	3
+65	procesó recepción REC-0001 para OC-0008	\N	2026-05-27 12:26:19.566731-06	t	3	1	3
+64	Se registró un pago de $887.97 MXN para la Orden de Compra OC-0008.	\N	2026-05-27 11:36:20.178313-06	t	3	1	3
+63	cambió estado de OC-0008 a aprobada	\N	2026-05-27 11:35:49.680752-06	t	3	1	3
+62	La Solicitud #7 ha sido autorizada y se generaron 1 órdenes de compra.	\N	2026-05-27 11:34:30.209727-06	t	3	1	3
+61	cambió estado de OC-0005 a cancelada	\N	2026-05-27 11:29:25.615078-06	t	3	1	3
+60	Se registró un pago de $24,010.84 MXN para la Orden de Compra OC-0007.	\N	2026-05-27 11:29:13.452374-06	t	3	1	3
+59	Se registró un pago de $2,645.86 MXN para la Orden de Compra OC-0006.	\N	2026-05-27 11:28:34.433434-06	t	3	1	3
+58	cambió estado de OC-0005 a aprobada	\N	2026-05-27 11:25:41.376525-06	t	3	1	3
+57	cambió estado de OC-0007 a aprobada	\N	2026-05-27 11:25:35.807272-06	t	3	1	3
+56	cambió estado de OC-0006 a aprobada	\N	2026-05-27 11:25:30.979067-06	t	3	1	3
 \.
 
 
 --
--- Data for Name: panel_empresa; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: panel_empresa; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.panel_empresa (id, nombre, subdominio, usuario_admin, correo_contacto, fecha_alta, activa, logo, nombre_contacto, telefono_contacto, calle, colonia, cp, estado, numero, modulo_compras, modulo_inventarios, modulo_produccion, modulo_tesoreria, modulo_ventas, fecha_inicio_licencia, fecha_vencimiento_licencia, modulo_recursos_humanos, modulo_costeos) FROM stdin;
@@ -3951,7 +4322,7 @@ COPY public.panel_empresa (id, nombre, subdominio, usuario_admin, correo_contact
 
 
 --
--- Data for Name: pedidos_detallepedido; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: pedidos_detallepedido; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.pedidos_detallepedido (id, cantidad_solicitada, cantidad_entregada, precio_unitario, estado_linea, producto_id, pedido_id, parent_line_id) FROM stdin;
@@ -3964,14 +4335,17 @@ COPY public.pedidos_detallepedido (id, cantidad_solicitada, cantidad_entregada, 
 9	1	0	1724.14	pendiente	155	9	\N
 10	1	0	2068.97	pendiente	157	10	\N
 11	1	0	1853.45	pendiente	158	11	\N
-2	1	0	53448.28	en_proceso	70	2	\N
 12	1	0	1000.00	compra	1	12	\N
+14	1	0	28987.20	compra	37	14	\N
+15	1	0	54351.00	pendiente	70	13	\N
+16	1	0	1000.00	compra	1	15	\N
 3	1	0	22068.97	en_proceso	37	3	\N
+2	1	0	53448.28	en_proceso	70	2	\N
 \.
 
 
 --
--- Data for Name: pedidos_pedido; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: pedidos_pedido; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.pedidos_pedido (id, cotizacion_origen_id, fecha_creacion, fecha_confirmacion, estado, notas, cliente_id, empresa_id, vendedor_id, contacto_id, sucursal_id) FROM stdin;
@@ -3984,14 +4358,17 @@ COPY public.pedidos_pedido (id, cotizacion_origen_id, fecha_creacion, fecha_conf
 9	9	2026-05-22 16:34:56.557545-06	\N	borrador		21	1	3	\N	1
 10	11	2026-05-22 16:42:58.853147-06	\N	borrador		21	1	3	\N	1
 11	12	2026-05-22 16:44:44.509593-06	\N	borrador		22	1	3	\N	1
-2	3	2026-05-21 18:47:10.919096-06	\N	revision		17	1	3	\N	1
 12	\N	2026-05-22 22:44:51.438976-06	\N	revision		16	2	4	\N	3
+14	14	2026-05-26 10:59:02.699288-06	\N	revision		18	1	3	\N	1
+13	13	2026-05-26 10:57:03.186718-06	\N	revision		17	1	3	\N	1
+15	15	2026-05-26 13:06:45.837463-06	\N	revision		16	2	4	\N	3
 3	4	2026-05-21 18:47:50.013379-06	\N	revision		18	1	3	\N	1
+2	3	2026-05-21 18:47:10.919096-06	\N	revision		17	1	3	\N	1
 \.
 
 
 --
--- Data for Name: preferencias_asignacionrolusuario; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: preferencias_asignacionrolusuario; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.preferencias_asignacionrolusuario (id, fecha_asignacion, empresa_id, rol_id, usuario_id) FROM stdin;
@@ -4000,7 +4377,7 @@ COPY public.preferencias_asignacionrolusuario (id, fecha_asignacion, empresa_id,
 
 
 --
--- Data for Name: preferencias_moneda; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: preferencias_moneda; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.preferencias_moneda (id, nombre, siglas, simbolo, factor, fecha_creacion, empresa_id, responsable_id) FROM stdin;
@@ -4010,7 +4387,7 @@ COPY public.preferencias_moneda (id, nombre, siglas, simbolo, factor, fecha_crea
 
 
 --
--- Data for Name: preferencias_permisorolaccion; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: preferencias_permisorolaccion; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.preferencias_permisorolaccion (id, area, submodulo, accion, permitido, rol_id) FROM stdin;
@@ -4116,7 +4493,7 @@ COPY public.preferencias_permisorolaccion (id, area, submodulo, accion, permitid
 
 
 --
--- Data for Name: preferencias_permisorolmodulo; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: preferencias_permisorolmodulo; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.preferencias_permisorolmodulo (id, modulo, puede_ver, puede_crear, puede_editar, puede_eliminar, puede_aprobar, puede_imprimir, rol_id) FROM stdin;
@@ -4125,7 +4502,7 @@ COPY public.preferencias_permisorolmodulo (id, modulo, puede_ver, puede_crear, p
 
 
 --
--- Data for Name: preferencias_rol; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: preferencias_rol; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.preferencias_rol (id, nombre, descripcion, activo, fecha_creacion, empresa_id) FROM stdin;
@@ -4134,7 +4511,7 @@ COPY public.preferencias_rol (id, nombre, descripcion, activo, fecha_creacion, e
 
 
 --
--- Data for Name: preferencias_sucursal; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: preferencias_sucursal; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.preferencias_sucursal (id, nombre, calle, numero_exterior, numero_interior, colonia, ciudad, estado, pais, cp, fecha_creacion, empresa_id) FROM stdin;
@@ -4145,15 +4522,30 @@ COPY public.preferencias_sucursal (id, nombre, calle, numero_exterior, numero_in
 
 
 --
--- Data for Name: produccion_detalleordenproduccion; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: produccion_detalleordenproduccion; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.produccion_detalleordenproduccion (id, cantidad, orden_produccion_id, producto_id) FROM stdin;
+1	1	1	161
+2	1	1	162
+3	1	1	3
+4	1	1	17
+5	1	1	6
+6	1	1	8
+7	1	1	14
+8	1	2	55
+9	1	2	51
+10	1	2	57
+11	1	2	117
+12	1	2	19
+13	1	2	60
+14	1	2	21
+15	1	2	69
 \.
 
 
 --
--- Data for Name: produccion_itemtest; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: produccion_itemtest; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.produccion_itemtest (id, tarea, orden, test_id) FROM stdin;
@@ -4161,15 +4553,17 @@ COPY public.produccion_itemtest (id, tarea, orden, test_id) FROM stdin;
 
 
 --
--- Data for Name: produccion_ordenproduccion; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: produccion_ordenproduccion; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.produccion_ordenproduccion (id, cantidad, estado, fecha_creacion, fecha_inicio, fecha_terminado, notas, almacen_id, empresa_id, pedido_origen_id, producto_id, responsable_id, solicitante_id, almacen_materia_prima_id, cliente_id, sucursal_id) FROM stdin;
+1	1	borrador	2026-05-26 14:42:47.792448-06	\N	\N	Generada automáticamente desde Pedido #3	2	1	3	37	\N	3	\N	\N	1
+2	1	borrador	2026-05-26 14:43:06.847263-06	\N	\N	Generada automáticamente desde Pedido #2	2	1	2	70	\N	3	\N	\N	1
 \.
 
 
 --
--- Data for Name: produccion_resultadotestop; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: produccion_resultadotestop; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.produccion_resultadotestop (id, completado, fecha_chequeo, item_test_id, orden_produccion_id, usuario_verifico_id) FROM stdin;
@@ -4177,7 +4571,7 @@ COPY public.produccion_resultadotestop (id, completado, fecha_chequeo, item_test
 
 
 --
--- Data for Name: produccion_test; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: produccion_test; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.produccion_test (id, nombre, descripcion, fecha_creacion, empresa_id) FROM stdin;
@@ -4185,7 +4579,7 @@ COPY public.produccion_test (id, nombre, descripcion, fecha_creacion, empresa_id
 
 
 --
--- Data for Name: proveedores_proveedor; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: proveedores_proveedor; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.proveedores_proveedor (id, razon_social, rfc, cp, domicilio, contacto_nombre, contacto_telefono, contacto_email, estado, creado_en, actualizado_en, empresa_id) FROM stdin;
@@ -4194,7 +4588,7 @@ COPY public.proveedores_proveedor (id, razon_social, rfc, cp, domicilio, contact
 
 
 --
--- Data for Name: proveedores_sucursalproveedor; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: proveedores_sucursalproveedor; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.proveedores_sucursalproveedor (id, nombre, direccion, proveedor_id) FROM stdin;
@@ -4204,31 +4598,63 @@ COPY public.proveedores_sucursalproveedor (id, nombre, direccion, proveedor_id) 
 
 
 --
--- Data for Name: recepciones_detallerecepcion; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: recepciones_detallerecepcion; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.recepciones_detallerecepcion (id, cantidad_recibida, costo_unitario, producto_id, recepcion_id, detalle_compra_id) FROM stdin;
+1	1	813.92	174	1	89
+2	1	1200.00	52	2	85
+3	1	18900.00	117	2	86
+4	1	799.00	8	2	87
+5	1	302.06	54	3	74
+6	1	159.75	57	3	75
+7	1	595.88	169	3	76
+8	1	279.18	170	3	77
+9	1	61.54	171	3	78
+10	1	102.06	68	3	79
+11	1	104.12	3	3	80
+12	1	125.70	172	3	81
+13	1	52.58	175	3	82
+14	1	360.82	176	3	83
+15	1	137.22	161	3	84
 \.
 
 
 --
--- Data for Name: recepciones_detallerecepcionextra; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: recepciones_detallerecepcionextra; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.recepciones_detallerecepcionextra (id, tipo, lote, cantidad_lote, serie, detalle_recepcion_id, almacen_id, producto_id, fecha_creacion) FROM stdin;
+1	serie	\N	0		1	2	174	2026-05-27 12:26:19.552241-06
+2	serie	\N	0		2	2	52	2026-05-27 12:26:49.78543-06
+3	serie	\N	0		3	2	117	2026-05-27 12:26:49.791835-06
+4	serie	\N	0		4	2	8	2026-05-27 12:26:49.796218-06
+5	serie	\N	0		5	2	54	2026-05-27 12:27:02.644439-06
+6	serie	\N	0		6	2	57	2026-05-27 12:27:02.650417-06
+7	serie	\N	0		7	2	169	2026-05-27 12:27:02.655495-06
+8	serie	\N	0		8	2	170	2026-05-27 12:27:02.660033-06
+9	serie	\N	0		9	2	171	2026-05-27 12:27:02.664769-06
+10	serie	\N	0		10	2	68	2026-05-27 12:27:02.669497-06
+11	serie	\N	0		11	2	3	2026-05-27 12:27:02.674067-06
+12	serie	\N	0		12	2	172	2026-05-27 12:27:02.678854-06
+13	serie	\N	0		13	2	175	2026-05-27 12:27:02.683061-06
+14	serie	\N	0		14	2	176	2026-05-27 12:27:02.687107-06
 \.
 
 
 --
--- Data for Name: recepciones_recepcion; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: recepciones_recepcion; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.recepciones_recepcion (id, fecha, factura, estado, creado_en, almacen_id, orden_compra_id, aduana, fecha_pedimento, pedimento, importe_aduana, empresa_id, moneda_id, tipo_cambio, sucursal_id, fecha_comprobante) FROM stdin;
+1	2026-05-27		completada	2026-05-27 12:26:19.542287-06	2	8	\N	\N	\N	0.00	1	1	1.0000	1	2026-05-27
+2	2026-05-27		completada	2026-05-27 12:26:49.76314-06	2	7	\N	\N	\N	0.00	1	1	1.0000	1	2026-05-27
+3	2026-05-27		completada	2026-05-27 12:27:02.604365-06	2	6	\N	\N	\N	0.00	1	2	17.7000	1	2026-05-27
 \.
 
 
 --
--- Data for Name: recursos_humanos_beneficiario; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: recursos_humanos_beneficiario; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.recursos_humanos_beneficiario (id, rfc, nombre_razon_social, registro_patronal, calle, num_ext, num_int, entre_calle, y_calle, colonia, cp, municipio_alcaldia, entidad_federativa, correo, telefono, fecha_registro, empresa_id, sucursal_id, clave) FROM stdin;
@@ -4236,7 +4662,7 @@ COPY public.recursos_humanos_beneficiario (id, rfc, nombre_razon_social, registr
 
 
 --
--- Data for Name: recursos_humanos_contratista; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: recursos_humanos_contratista; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.recursos_humanos_contratista (id, rfc, nombre_razon_social, correo, telefono, registro_patronal, calle, num_ext, num_int, entre_calle, y_calle, colonia, cp, municipio_alcaldia, entidad_federativa, representante_legal, administrador_unico, num_escritura, nombre_notario_publico, num_notario_publico, fecha_escritura_publica, folio_mercantil, numero_stps, fecha_registro, empresa_id, sucursal_id, clave, regimen) FROM stdin;
@@ -4244,7 +4670,7 @@ COPY public.recursos_humanos_contratista (id, rfc, nombre_razon_social, correo, 
 
 
 --
--- Data for Name: recursos_humanos_contrato; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: recursos_humanos_contrato; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.recursos_humanos_contrato (id, fecha_inicio, fecha_fin, tipo_contrato, estado, notas, fecha_registro, empresa_id, folio, monto_contrato, num_estimado_trabajadores, objeto_contrato, vigencia_contrato, contratista_id, beneficiario_id, sucursal_id) FROM stdin;
@@ -4252,7 +4678,7 @@ COPY public.recursos_humanos_contrato (id, fecha_inicio, fecha_fin, tipo_contrat
 
 
 --
--- Data for Name: recursos_humanos_contrato_empleados; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: recursos_humanos_contrato_empleados; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.recursos_humanos_contrato_empleados (id, contrato_id, empleado_id) FROM stdin;
@@ -4260,15 +4686,15 @@ COPY public.recursos_humanos_contrato_empleados (id, contrato_id, empleado_id) F
 
 
 --
--- Data for Name: recursos_humanos_empleado; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: recursos_humanos_empleado; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
-COPY public.recursos_humanos_empleado (id, nombre, puesto, fecha_ingreso, empresa_id, apellido_materno, apellido_paterno, banco_nombre, caja_ahorro, calle, ciudad, clabe, clave_percepcion_sat, colonia, correo_personal, cp, curp, departamento, estado, estado_civil, estado_dir, fecha_antiguedad, fecha_baja, fecha_expiracion, fecha_nacimiento, fecha_registro, fondo_ahorro, forma_pago, genero, id_oficial, jornada, motivo_baja, nacionalidad, nss, num_cuenta, num_empleado, num_ext, num_fonacot, num_infonavit, num_int, num_tarjeta, porcentaje_fondo, registro_patronal, rfc, riesgo_trabajo, salario_diario_ordinario, sbc, sdi, supervisor, tarjeta_nomina, telefono_fijo, telefono_movil, tipo_contrato, tipo_cuenta, tipo_salario, tipo_trabajador, unidad_monetaria, sucursal_id, beneficiario_id, contratista_id, clave_ubicacion, notas) FROM stdin;
+COPY public.recursos_humanos_empleado (id, nombre, puesto, fecha_ingreso, empresa_id, apellido_materno, apellido_paterno, banco_nombre, caja_ahorro, calle, ciudad, clabe, clave_percepcion_sat, colonia, correo_personal, cp, curp, departamento, estado, estado_civil, estado_dir, fecha_antiguedad, fecha_baja, fecha_expiracion, fecha_nacimiento, fecha_registro, fondo_ahorro, forma_pago, genero, id_oficial, jornada, motivo_baja, nacionalidad, nss, num_cuenta, num_empleado, num_ext, num_fonacot, num_infonavit, num_int, num_tarjeta, porcentaje_fondo, registro_patronal, rfc, riesgo_trabajo, salario_diario_ordinario, sbc, sdi, supervisor, tarjeta_nomina, telefono_fijo, telefono_movil, tipo_contrato, tipo_cuenta, tipo_salario, tipo_trabajador, unidad_monetaria, sucursal_id, beneficiario_id, contratista_id, clave_ubicacion, notas, antiguedad_sat, periodicidad_pago_sat, tipo_regimen_sat, jornada_sat) FROM stdin;
 \.
 
 
 --
--- Data for Name: recursos_humanos_importacionsua; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: recursos_humanos_importacionsua; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.recursos_humanos_importacionsua (id, registro_patronal, rfc_empresa, nombre_razon_social, actividad, domicilio, cp, entidad, area_geografica, delegacion_imss, subdelegacion_imss, municipio_alcaldia, prima_rt, periodo, fecha_importacion, empresa_id, sucursal_id, tipo) FROM stdin;
@@ -4276,7 +4702,15 @@ COPY public.recursos_humanos_importacionsua (id, registro_patronal, rfc_empresa,
 
 
 --
--- Data for Name: recursos_humanos_trabajadorsua; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: recursos_humanos_nomina; Type: TABLE DATA; Schema: public; Owner: madmin
+--
+
+COPY public.recursos_humanos_nomina (id, periodo, uso_cfdi, uuid, tipo_nomina, serie, folio, fecha_emision, fecha_certificacion, fecha_pago, fecha_inicial_pago, fecha_final_pago, dias_pagados, rfc, curp, nss, nombre, rfc_contratista, sdi, sbc, vacaciones_exento, vacaciones_dignas_exento, aguinaldo_exento, sueldo_gravado, vacaciones_gravado, vacaciones_dignas_gravado, aguinaldo_gravado, empleado_id, empresa_id, sucursal_id) FROM stdin;
+\.
+
+
+--
+-- Data for Name: recursos_humanos_trabajadorsua; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.recursos_humanos_trabajadorsua (id, nss, nombre, rfc_curp, clave_ubicacion, clave_mov, fecha_mov, dias, sdi, patronal, obrera, subtotal, baja_fecha, importacion_id, amortizacion, aportacion_patronal, ausentismos, baja_clave, cred_vivienda, fecha_mov_credito, incapacidades, licencias, retiro, suma_infonavit, tipo_mov_credito, total_general, tipo_valor_infonavit, cuota_fija, excedente_obrera, excedente_patronal, gastos_medicos_obrera, gastos_medicos_patronal, guarderias_ps, imss_obrera, imss_patronal, imss_subtotal, invalidez_vida_obrera, invalidez_vida_patronal, prestaciones_dinero_obrera, prestaciones_dinero_patronal, riesgo_trabajo_cuota) FROM stdin;
@@ -4284,29 +4718,50 @@ COPY public.recursos_humanos_trabajadorsua (id, nss, nombre, rfc_curp, clave_ubi
 
 
 --
--- Data for Name: solicitudcompras_detallesolicitudcompra; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: solicitudcompras_detallesolicitudcompra; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.solicitudcompras_detallesolicitudcompra (id, cantidad_solicitada, detalle_pedido_origen_id, producto_id, solicitud_id, almacen_id, costo_unitario, proveedor_id, moneda_id, sucursal_id, lista_id) FROM stdin;
 1	1	1	1	1	4	800.00	\N	\N	\N	\N
-7	1	3	37	3	2	18808.01	\N	1	\N	\N
-8	1	\N	70	2	\N	43878.28	\N	1	\N	\N
+9	1	\N	37	3	\N	18808.01	\N	1	\N	\N
+10	1	\N	70	2	\N	43878.28	\N	1	\N	\N
+11	1	16	1	4	4	800.00	\N	\N	\N	\N
+27	1	\N	54	6	2	302.06	1	2	2	\N
+28	1	\N	57	6	2	159.75	1	2	2	\N
+29	1	\N	169	6	2	595.88	1	2	2	\N
+30	1	\N	170	6	2	279.18	1	2	2	\N
+31	1	\N	171	6	2	61.54	1	2	2	\N
+32	1	\N	68	6	2	102.06	1	2	2	\N
+33	1	\N	52	6	2	1200.00	1	1	2	\N
+34	1	\N	117	6	2	18900.00	1	1	2	\N
+43	1	\N	3	5	2	104.12	1	2	2	\N
+44	1	\N	172	5	2	125.70	1	2	2	\N
+45	1	\N	175	5	2	52.58	1	2	2	\N
+46	1	\N	176	5	2	360.82	1	2	2	\N
+47	1	\N	161	5	2	137.22	1	2	2	\N
+48	1	\N	8	5	2	799.00	1	1	2	\N
+49	1	\N	174	5	2	813.92	1	1	3	\N
+50	1	\N	174	7	2	813.92	1	1	3	\N
 \.
 
 
 --
--- Data for Name: solicitudcompras_solicitudcompra; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: solicitudcompras_solicitudcompra; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.solicitudcompras_solicitudcompra (id, fecha_creacion, fecha_envio, estado, notas, empresa_id, pedido_origen_id, solicitante_id, sucursal_id) FROM stdin;
 1	2026-05-20 21:17:38.267353-06	\N	borrador	Solicitud Global Generada Automáticamente	2	1	4	3
-3	2026-05-23 11:55:15.044745-06	\N	borrador	Solicitud Global Generada Automáticamente	1	3	3	1
-2	2026-05-22 17:07:26.537316-06	\N	borrador		1	2	3	1
+3	2026-05-23 11:55:15.044745-06	\N	cancelada	Solicitud Global Generada Automáticamente	1	3	3	1
+2	2026-05-22 17:07:26.537316-06	\N	cancelada		1	2	3	1
+4	2026-05-26 13:06:50.299373-06	\N	cancelada	Solicitud Global Generada Automáticamente	2	15	4	3
+6	2026-05-26 14:43:06.83812-06	\N	atendida	Solicitud Global Generada Automáticamente	1	2	3	1
+5	2026-05-26 14:42:47.781864-06	\N	atendida	Solicitud Global Generada Automáticamente	1	3	3	1
+7	2026-05-27 11:34:17.124988-06	\N	atendida		1	\N	3	1
 \.
 
 
 --
--- Data for Name: tesoreria_cajabanco; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: tesoreria_cajabanco; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.tesoreria_cajabanco (id, tipo, nombre, banco_nombre, cuenta, clabe, fecha_creacion, activo, empresa_id, moneda_id, sucursal_id) FROM stdin;
@@ -4315,45 +4770,63 @@ COPY public.tesoreria_cajabanco (id, tipo, nombre, banco_nombre, cuenta, clabe, 
 
 
 --
--- Data for Name: tesoreria_egreso; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: tesoreria_egreso; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.tesoreria_egreso (id, fecha, concepto, monto, tipo_cambio, monto_mxn, forma_pago, referencia, estado, fecha_registro, caja_banco_id, empresa_id, moneda_id, pago_compra_id, motivo_cancelacion, sucursal_id) FROM stdin;
+1	2026-05-27	Pago de Orden de Compra OC-0006 - TECHSMART	2645.86	1.0000	2645.86	transferencia	TRANSFERENCIA	aplicado	2026-05-27 11:28:34.427698-06	1	1	1	1	\N	1
+2	2026-05-27	Pago de Orden de Compra OC-0007 - TECHSMART	24010.84	1.0000	24010.84	transferencia	TRANSFERENCIA	aplicado	2026-05-27 11:29:13.450736-06	1	1	1	2	\N	1
+3	2026-05-27	Pago de Orden de Compra OC-0008 - TECHSMART	887.97	1.0000	887.97	transferencia	TRANSFERENCIA	aplicado	2026-05-27 11:36:20.17683-06	1	1	1	3	\N	1
 \.
 
 
 --
--- Data for Name: tesoreria_ingreso; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: tesoreria_ingreso; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.tesoreria_ingreso (id, fecha, concepto, monto, tipo_cambio, monto_mxn, forma_pago, referencia, fecha_registro, caja_banco_id, empresa_id, moneda_id, pago_pedido_id, estado, motivo_cancelacion, sucursal_id) FROM stdin;
 1	2026-05-22	Pago de Pedido PED-0002 - Armando Gonzalez García	62000.00	1.0000	62000.00	tarjeta_credito	PAGO CLIP	2026-05-22 16:57:51.879782-06	1	1	1	1	aplicado	\N	1
 2	2026-05-22	Pago de Pedido PED-0002 - Armando Gonzalez García	0.01	1.0000	0.01	tarjeta_credito		2026-05-22 17:06:39.422732-06	1	1	1	2	aplicado	\N	1
 3	2026-05-23	Pago de Pedido PED-0003 - Carlos Dueñas	25600.01	1.0000	25600.01	transferencia	TRANSFERENCIA	2026-05-23 11:53:45.669499-06	1	1	1	3	aplicado	\N	1
+4	2026-05-26	Pago de Pedido PED-0014 - Carlos Dueñas	33625.15	1.0000	33625.15	transferencia	TRANSFERENCIA	2026-05-26 11:00:31.22295-06	1	1	1	4	aplicado	\N	1
+5	2026-05-26	Pago de Pedido PED-0014 - Carlos Dueñas	0.00	1.0000	0.00	transferencia		2026-05-26 11:01:09.268347-06	1	1	1	5	aplicado	\N	1
+6	2026-05-26	Pago de Pedido PED-0014 - Carlos Dueñas	0.00	1.0000	0.00	transferencia	TRANSFERENCIA	2026-05-26 11:01:27.381328-06	1	1	1	6	aplicado	\N	1
+7	2026-05-26	Pago de Pedido PED-0014 - Carlos Dueñas	0.00	1.0000	0.00	transferencia	TRANSFERENCIA	2026-05-26 11:01:58.37472-06	1	1	1	7	aplicado	\N	1
+8	2026-05-26	Pago de Pedido PED-0013 - Armando Gonzalez García	63047.16	1.0000	63047.16	transferencia	TRANSFERENCIA	2026-05-26 11:02:31.727445-06	1	1	1	8	aplicado	\N	1
+9	2026-05-26	Pago de Pedido PED-0014 - Carlos Dueñas	0.00	1.0000	0.00	tarjeta_credito	TRANSFERENCIA	2026-05-26 11:03:52.105913-06	1	1	1	9	aplicado	\N	1
 \.
 
 
 --
--- Data for Name: tesoreria_pagocompra; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: tesoreria_pagocompra; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.tesoreria_pagocompra (id, fecha_pago, forma_pago, referencia, tipo_cambio, monto, monto_mxn, fecha_registro, caja_banco_id, empresa_id, moneda_id, orden_compra_id, estado, motivo_cancelacion, sucursal_id) FROM stdin;
+1	2026-05-27	transferencia	TRANSFERENCIA	1.0000	2645.86	2645.86	2026-05-27 11:28:34.423296-06	1	1	1	6	aplicado	\N	1
+2	2026-05-27	transferencia	TRANSFERENCIA	1.0000	24010.84	24010.84	2026-05-27 11:29:13.448218-06	1	1	1	7	aplicado	\N	1
+3	2026-05-27	transferencia	TRANSFERENCIA	1.0000	887.97	887.97	2026-05-27 11:36:20.174839-06	1	1	1	8	aplicado	\N	1
 \.
 
 
 --
--- Data for Name: tesoreria_pagopedido; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: tesoreria_pagopedido; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.tesoreria_pagopedido (id, fecha_pago, forma_pago, referencia, tipo_cambio, monto, monto_mxn, fecha_registro, caja_banco_id, empresa_id, moneda_id, pedido_id, estado, motivo_cancelacion, sucursal_id) FROM stdin;
 1	2026-05-22	tarjeta_credito	PAGO CLIP	1.0000	62000.00	62000.00	2026-05-22 16:57:51.874939-06	1	1	1	2	aplicado	\N	1
 2	2026-05-22	tarjeta_credito		1.0000	0.01	0.01	2026-05-22 17:06:39.420431-06	1	1	1	2	aplicado	\N	1
 3	2026-05-23	transferencia	TRANSFERENCIA	1.0000	25600.01	25600.01	2026-05-23 11:53:45.660882-06	1	1	1	3	aplicado	\N	1
+4	2026-05-26	transferencia	TRANSFERENCIA	1.0000	33625.15	33625.15	2026-05-26 11:00:31.214307-06	1	1	1	14	aplicado	\N	1
+5	2026-05-26	transferencia		1.0000	0.00	0.00	2026-05-26 11:01:09.26551-06	1	1	1	14	aplicado	\N	1
+6	2026-05-26	transferencia	TRANSFERENCIA	1.0000	0.00	0.00	2026-05-26 11:01:27.377713-06	1	1	1	14	aplicado	\N	1
+7	2026-05-26	transferencia	TRANSFERENCIA	1.0000	0.00	0.00	2026-05-26 11:01:58.371521-06	1	1	1	14	aplicado	\N	1
+8	2026-05-26	transferencia	TRANSFERENCIA	1.0000	63047.16	63047.16	2026-05-26 11:02:31.72393-06	1	1	1	13	aplicado	\N	1
+9	2026-05-26	tarjeta_credito	TRANSFERENCIA	1.0000	0.00	0.00	2026-05-26 11:03:52.101334-06	1	1	1	14	aplicado	\N	1
 \.
 
 
 --
--- Data for Name: ventas_detalleordenventa; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: ventas_detalleordenventa; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.ventas_detalleordenventa (id, cantidad, precio_unitario, producto_id, orden_venta_id) FROM stdin;
@@ -4361,7 +4834,7 @@ COPY public.ventas_detalleordenventa (id, cantidad, precio_unitario, producto_id
 
 
 --
--- Data for Name: ventas_ordenventa; Type: TABLE DATA; Schema: public; Owner: -
+-- Data for Name: ventas_ordenventa; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
 COPY public.ventas_ordenventa (id, fecha_creacion, fecha_surtido, estado, direccion_envio, contacto_envio, notas_envio, cliente_id, empresa_id, pedido_origen_id, vendedor_id, guia, quien_recibe, telefono_recibe, almacen_id, estado_entrega, parent_orden_id, secuencia, sucursal_id) FROM stdin;
@@ -4369,490 +4842,497 @@ COPY public.ventas_ordenventa (id, fecha_creacion, fecha_surtido, estado, direcc
 
 
 --
--- Name: actividades_actividad_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: actividades_actividad_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.actividades_actividad_id_seq', 1, false);
 
 
 --
--- Name: almacenes_almacen_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: almacenes_almacen_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.almacenes_almacen_id_seq', 4, true);
 
 
 --
--- Name: almacenes_inventario_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: almacenes_inventario_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
-SELECT pg_catalog.setval('public.almacenes_inventario_id_seq', 1, false);
-
-
---
--- Name: almacenes_kardex_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.almacenes_kardex_id_seq', 1, false);
+SELECT pg_catalog.setval('public.almacenes_inventario_id_seq', 30, true);
 
 
 --
--- Name: auth_group_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: almacenes_kardex_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
+--
+
+SELECT pg_catalog.setval('public.almacenes_kardex_id_seq', 45, true);
+
+
+--
+-- Name: auth_group_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.auth_group_id_seq', 1, false);
 
 
 --
--- Name: auth_group_permissions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: auth_group_permissions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.auth_group_permissions_id_seq', 1, false);
 
 
 --
--- Name: auth_permission_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: auth_permission_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
-SELECT pg_catalog.setval('public.auth_permission_id_seq', 264, true);
+SELECT pg_catalog.setval('public.auth_permission_id_seq', 268, true);
 
 
 --
--- Name: auth_user_groups_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: auth_user_groups_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.auth_user_groups_id_seq', 1, false);
 
 
 --
--- Name: auth_user_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: auth_user_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.auth_user_id_seq', 11, true);
 
 
 --
--- Name: auth_user_user_permissions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: auth_user_user_permissions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.auth_user_user_permissions_id_seq', 1, false);
 
 
 --
--- Name: categorias_categoria_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: categorias_categoria_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.categorias_categoria_id_seq', 11, true);
 
 
 --
--- Name: categorias_listapreciocosto_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: categorias_listapreciocosto_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.categorias_listapreciocosto_id_seq', 1, false);
 
 
 --
--- Name: categorias_subcategoria_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: categorias_subcategoria_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.categorias_subcategoria_id_seq', 1, false);
 
 
 --
--- Name: clientes_cliente_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: clientes_cliente_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.clientes_cliente_id_seq', 22, true);
 
 
 --
--- Name: clientes_contactocliente_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: clientes_contactocliente_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.clientes_contactocliente_id_seq', 1, false);
 
 
 --
--- Name: compras_detallecompra_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: compras_detallecompra_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
-SELECT pg_catalog.setval('public.compras_detallecompra_id_seq', 1, false);
-
-
---
--- Name: compras_ordencompra_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.compras_ordencompra_id_seq', 1, false);
+SELECT pg_catalog.setval('public.compras_detallecompra_id_seq', 89, true);
 
 
 --
--- Name: core_categoria_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: compras_ordencompra_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
+--
+
+SELECT pg_catalog.setval('public.compras_ordencompra_id_seq', 8, true);
+
+
+--
+-- Name: core_categoria_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.core_categoria_id_seq', 1, false);
 
 
 --
--- Name: core_detallereceta_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: core_detallereceta_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.core_detallereceta_id_seq', 29, true);
 
 
 --
--- Name: core_producto_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: core_producto_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.core_producto_id_seq', 176, true);
 
 
 --
--- Name: core_transaccion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: core_transaccion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.core_transaccion_id_seq', 1, false);
 
 
 --
--- Name: costeos_comercioadquisicion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: costeos_comercioadquisicion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.costeos_comercioadquisicion_id_seq', 1, false);
 
 
 --
--- Name: costeos_costeo_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: costeos_costeo_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.costeos_costeo_id_seq', 1, false);
 
 
 --
--- Name: costeos_manufacturagastoindirecto_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: costeos_manufacturagastoindirecto_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.costeos_manufacturagastoindirecto_id_seq', 1, false);
 
 
 --
--- Name: costeos_manufacturamanoobra_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: costeos_manufacturamanoobra_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.costeos_manufacturamanoobra_id_seq', 1, false);
 
 
 --
--- Name: costeos_manufacturamateriaprima_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: costeos_manufacturamateriaprima_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.costeos_manufacturamateriaprima_id_seq', 1, false);
 
 
 --
--- Name: costeos_serviciomaterial_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: costeos_serviciomaterial_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.costeos_serviciomaterial_id_seq', 1, false);
 
 
 --
--- Name: costeos_serviciopersonal_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: costeos_serviciopersonal_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.costeos_serviciopersonal_id_seq', 1, false);
 
 
 --
--- Name: cotizaciones_cotizacion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: cotizaciones_cotizacion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
-SELECT pg_catalog.setval('public.cotizaciones_cotizacion_id_seq', 12, true);
-
-
---
--- Name: cotizaciones_detallecotizacion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.cotizaciones_detallecotizacion_id_seq', 24, true);
+SELECT pg_catalog.setval('public.cotizaciones_cotizacion_id_seq', 15, true);
 
 
 --
--- Name: django_admin_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: cotizaciones_detallecotizacion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
-SELECT pg_catalog.setval('public.django_admin_log_id_seq', 1, true);
-
-
---
--- Name: django_content_type_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.django_content_type_id_seq', 66, true);
+SELECT pg_catalog.setval('public.cotizaciones_detallecotizacion_id_seq', 27, true);
 
 
 --
--- Name: django_migrations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: django_admin_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
-SELECT pg_catalog.setval('public.django_migrations_id_seq', 157, true);
-
-
---
--- Name: notificaciones_notificacion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.notificaciones_notificacion_id_seq', 37, true);
+SELECT pg_catalog.setval('public.django_admin_log_id_seq', 3, true);
 
 
 --
--- Name: panel_empresa_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: django_content_type_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
+--
+
+SELECT pg_catalog.setval('public.django_content_type_id_seq', 67, true);
+
+
+--
+-- Name: django_migrations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
+--
+
+SELECT pg_catalog.setval('public.django_migrations_id_seq', 163, true);
+
+
+--
+-- Name: notificaciones_notificacion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
+--
+
+SELECT pg_catalog.setval('public.notificaciones_notificacion_id_seq', 67, true);
+
+
+--
+-- Name: panel_empresa_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.panel_empresa_id_seq', 2, true);
 
 
 --
--- Name: pedidos_detallepedido_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: pedidos_detallepedido_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
-SELECT pg_catalog.setval('public.pedidos_detallepedido_id_seq', 12, true);
-
-
---
--- Name: pedidos_pedido_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.pedidos_pedido_id_seq', 12, true);
+SELECT pg_catalog.setval('public.pedidos_detallepedido_id_seq', 16, true);
 
 
 --
--- Name: preferencias_asignacionrolusuario_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: pedidos_pedido_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
+--
+
+SELECT pg_catalog.setval('public.pedidos_pedido_id_seq', 15, true);
+
+
+--
+-- Name: preferencias_asignacionrolusuario_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.preferencias_asignacionrolusuario_id_seq', 1, true);
 
 
 --
--- Name: preferencias_moneda_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: preferencias_moneda_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.preferencias_moneda_id_seq', 2, true);
 
 
 --
--- Name: preferencias_permisorolaccion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: preferencias_permisorolaccion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.preferencias_permisorolaccion_id_seq', 98, true);
 
 
 --
--- Name: preferencias_permisorolmodulo_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: preferencias_permisorolmodulo_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.preferencias_permisorolmodulo_id_seq', 1, true);
 
 
 --
--- Name: preferencias_rol_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: preferencias_rol_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.preferencias_rol_id_seq', 1, true);
 
 
 --
--- Name: preferencias_sucursal_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: preferencias_sucursal_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.preferencias_sucursal_id_seq', 3, true);
 
 
 --
--- Name: produccion_detalleordenproduccion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: produccion_detalleordenproduccion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
-SELECT pg_catalog.setval('public.produccion_detalleordenproduccion_id_seq', 1, false);
+SELECT pg_catalog.setval('public.produccion_detalleordenproduccion_id_seq', 15, true);
 
 
 --
--- Name: produccion_itemtest_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: produccion_itemtest_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.produccion_itemtest_id_seq', 1, false);
 
 
 --
--- Name: produccion_ordenproduccion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
-SELECT pg_catalog.setval('public.produccion_ordenproduccion_id_seq', 1, false);
+SELECT pg_catalog.setval('public.produccion_ordenproduccion_id_seq', 2, true);
 
 
 --
--- Name: produccion_resultadotestop_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: produccion_resultadotestop_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.produccion_resultadotestop_id_seq', 1, false);
 
 
 --
--- Name: produccion_test_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: produccion_test_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.produccion_test_id_seq', 1, false);
 
 
 --
--- Name: proveedores_proveedor_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: proveedores_proveedor_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.proveedores_proveedor_id_seq', 1, true);
 
 
 --
--- Name: proveedores_sucursalproveedor_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: proveedores_sucursalproveedor_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.proveedores_sucursalproveedor_id_seq', 3, true);
 
 
 --
--- Name: recepciones_detallerecepcion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: recepciones_detallerecepcion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
-SELECT pg_catalog.setval('public.recepciones_detallerecepcion_id_seq', 1, false);
-
-
---
--- Name: recepciones_detallerecepcionextra_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.recepciones_detallerecepcionextra_id_seq', 1, false);
+SELECT pg_catalog.setval('public.recepciones_detallerecepcion_id_seq', 15, true);
 
 
 --
--- Name: recepciones_recepcion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: recepciones_detallerecepcionextra_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
-SELECT pg_catalog.setval('public.recepciones_recepcion_id_seq', 1, false);
+SELECT pg_catalog.setval('public.recepciones_detallerecepcionextra_id_seq', 14, true);
 
 
 --
--- Name: recursos_humanos_beneficiario_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: recepciones_recepcion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
+--
+
+SELECT pg_catalog.setval('public.recepciones_recepcion_id_seq', 3, true);
+
+
+--
+-- Name: recursos_humanos_beneficiario_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.recursos_humanos_beneficiario_id_seq', 1, false);
 
 
 --
--- Name: recursos_humanos_contratista_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: recursos_humanos_contratista_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.recursos_humanos_contratista_id_seq', 1, true);
 
 
 --
--- Name: recursos_humanos_contrato_empleados_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: recursos_humanos_contrato_empleados_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.recursos_humanos_contrato_empleados_id_seq', 1, false);
 
 
 --
--- Name: recursos_humanos_contrato_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: recursos_humanos_contrato_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.recursos_humanos_contrato_id_seq', 1, false);
 
 
 --
--- Name: recursos_humanos_empleado_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: recursos_humanos_empleado_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.recursos_humanos_empleado_id_seq', 54, true);
 
 
 --
--- Name: recursos_humanos_importacionsua_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: recursos_humanos_importacionsua_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.recursos_humanos_importacionsua_id_seq', 24, true);
 
 
 --
--- Name: recursos_humanos_trabajadorsua_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: recursos_humanos_nomina_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
+--
+
+SELECT pg_catalog.setval('public.recursos_humanos_nomina_id_seq', 1, false);
+
+
+--
+-- Name: recursos_humanos_trabajadorsua_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.recursos_humanos_trabajadorsua_id_seq', 1082, true);
 
 
 --
--- Name: solicitudcompras_detallesolicitudcompra_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: solicitudcompras_detallesolicitudcompra_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
-SELECT pg_catalog.setval('public.solicitudcompras_detallesolicitudcompra_id_seq', 8, true);
-
-
---
--- Name: solicitudcompras_solicitudcompra_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.solicitudcompras_solicitudcompra_id_seq', 3, true);
+SELECT pg_catalog.setval('public.solicitudcompras_detallesolicitudcompra_id_seq', 50, true);
 
 
 --
--- Name: tesoreria_cajabanco_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: solicitudcompras_solicitudcompra_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
+--
+
+SELECT pg_catalog.setval('public.solicitudcompras_solicitudcompra_id_seq', 7, true);
+
+
+--
+-- Name: tesoreria_cajabanco_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.tesoreria_cajabanco_id_seq', 1, true);
 
 
 --
--- Name: tesoreria_egreso_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: tesoreria_egreso_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
-SELECT pg_catalog.setval('public.tesoreria_egreso_id_seq', 1, false);
-
-
---
--- Name: tesoreria_ingreso_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.tesoreria_ingreso_id_seq', 3, true);
+SELECT pg_catalog.setval('public.tesoreria_egreso_id_seq', 3, true);
 
 
 --
--- Name: tesoreria_pagocompra_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: tesoreria_ingreso_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
-SELECT pg_catalog.setval('public.tesoreria_pagocompra_id_seq', 1, false);
-
-
---
--- Name: tesoreria_pagopedido_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.tesoreria_pagopedido_id_seq', 3, true);
+SELECT pg_catalog.setval('public.tesoreria_ingreso_id_seq', 9, true);
 
 
 --
--- Name: ventas_detalleordenventa_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: tesoreria_pagocompra_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
+--
+
+SELECT pg_catalog.setval('public.tesoreria_pagocompra_id_seq', 3, true);
+
+
+--
+-- Name: tesoreria_pagopedido_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
+--
+
+SELECT pg_catalog.setval('public.tesoreria_pagopedido_id_seq', 9, true);
+
+
+--
+-- Name: ventas_detalleordenventa_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.ventas_detalleordenventa_id_seq', 1, false);
 
 
 --
--- Name: ventas_ordenventa_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+-- Name: ventas_ordenventa_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
 SELECT pg_catalog.setval('public.ventas_ordenventa_id_seq', 1, false);
 
 
 --
--- Name: actividades_actividad actividades_actividad_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: actividades_actividad actividades_actividad_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.actividades_actividad
@@ -4860,7 +5340,7 @@ ALTER TABLE ONLY public.actividades_actividad
 
 
 --
--- Name: almacenes_almacen almacenes_almacen_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: almacenes_almacen almacenes_almacen_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.almacenes_almacen
@@ -4868,7 +5348,7 @@ ALTER TABLE ONLY public.almacenes_almacen
 
 
 --
--- Name: almacenes_inventario almacenes_inventario_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: almacenes_inventario almacenes_inventario_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.almacenes_inventario
@@ -4876,7 +5356,7 @@ ALTER TABLE ONLY public.almacenes_inventario
 
 
 --
--- Name: almacenes_inventario almacenes_inventario_producto_id_almacen_id_e56defa1_uniq; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: almacenes_inventario almacenes_inventario_producto_id_almacen_id_e56defa1_uniq; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.almacenes_inventario
@@ -4884,7 +5364,7 @@ ALTER TABLE ONLY public.almacenes_inventario
 
 
 --
--- Name: almacenes_kardex almacenes_kardex_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: almacenes_kardex almacenes_kardex_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.almacenes_kardex
@@ -4892,7 +5372,7 @@ ALTER TABLE ONLY public.almacenes_kardex
 
 
 --
--- Name: auth_group auth_group_name_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: auth_group auth_group_name_key; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.auth_group
@@ -4900,7 +5380,7 @@ ALTER TABLE ONLY public.auth_group
 
 
 --
--- Name: auth_group_permissions auth_group_permissions_group_id_permission_id_0cd325b0_uniq; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: auth_group_permissions auth_group_permissions_group_id_permission_id_0cd325b0_uniq; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.auth_group_permissions
@@ -4908,7 +5388,7 @@ ALTER TABLE ONLY public.auth_group_permissions
 
 
 --
--- Name: auth_group_permissions auth_group_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: auth_group_permissions auth_group_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.auth_group_permissions
@@ -4916,7 +5396,7 @@ ALTER TABLE ONLY public.auth_group_permissions
 
 
 --
--- Name: auth_group auth_group_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: auth_group auth_group_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.auth_group
@@ -4924,7 +5404,7 @@ ALTER TABLE ONLY public.auth_group
 
 
 --
--- Name: auth_permission auth_permission_content_type_id_codename_01ab375a_uniq; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: auth_permission auth_permission_content_type_id_codename_01ab375a_uniq; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.auth_permission
@@ -4932,7 +5412,7 @@ ALTER TABLE ONLY public.auth_permission
 
 
 --
--- Name: auth_permission auth_permission_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: auth_permission auth_permission_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.auth_permission
@@ -4940,7 +5420,7 @@ ALTER TABLE ONLY public.auth_permission
 
 
 --
--- Name: auth_user_groups auth_user_groups_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: auth_user_groups auth_user_groups_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.auth_user_groups
@@ -4948,7 +5428,7 @@ ALTER TABLE ONLY public.auth_user_groups
 
 
 --
--- Name: auth_user_groups auth_user_groups_user_id_group_id_94350c0c_uniq; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: auth_user_groups auth_user_groups_user_id_group_id_94350c0c_uniq; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.auth_user_groups
@@ -4956,7 +5436,7 @@ ALTER TABLE ONLY public.auth_user_groups
 
 
 --
--- Name: auth_user auth_user_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: auth_user auth_user_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.auth_user
@@ -4964,7 +5444,7 @@ ALTER TABLE ONLY public.auth_user
 
 
 --
--- Name: auth_user_user_permissions auth_user_user_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: auth_user_user_permissions auth_user_user_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.auth_user_user_permissions
@@ -4972,7 +5452,7 @@ ALTER TABLE ONLY public.auth_user_user_permissions
 
 
 --
--- Name: auth_user_user_permissions auth_user_user_permissions_user_id_permission_id_14a6b632_uniq; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: auth_user_user_permissions auth_user_user_permissions_user_id_permission_id_14a6b632_uniq; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.auth_user_user_permissions
@@ -4980,7 +5460,7 @@ ALTER TABLE ONLY public.auth_user_user_permissions
 
 
 --
--- Name: auth_user auth_user_username_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: auth_user auth_user_username_key; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.auth_user
@@ -4988,7 +5468,7 @@ ALTER TABLE ONLY public.auth_user
 
 
 --
--- Name: categorias_categoria categorias_categoria_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: categorias_categoria categorias_categoria_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.categorias_categoria
@@ -4996,7 +5476,7 @@ ALTER TABLE ONLY public.categorias_categoria
 
 
 --
--- Name: categorias_listapreciocosto categorias_listapreciocosto_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: categorias_listapreciocosto categorias_listapreciocosto_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.categorias_listapreciocosto
@@ -5004,7 +5484,7 @@ ALTER TABLE ONLY public.categorias_listapreciocosto
 
 
 --
--- Name: categorias_subcategoria categorias_subcategoria_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: categorias_subcategoria categorias_subcategoria_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.categorias_subcategoria
@@ -5012,7 +5492,7 @@ ALTER TABLE ONLY public.categorias_subcategoria
 
 
 --
--- Name: clientes_cliente clientes_cliente_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: clientes_cliente clientes_cliente_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.clientes_cliente
@@ -5020,7 +5500,7 @@ ALTER TABLE ONLY public.clientes_cliente
 
 
 --
--- Name: clientes_contactocliente clientes_contactocliente_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: clientes_contactocliente clientes_contactocliente_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.clientes_contactocliente
@@ -5028,7 +5508,7 @@ ALTER TABLE ONLY public.clientes_contactocliente
 
 
 --
--- Name: compras_detallecompra compras_detallecompra_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: compras_detallecompra compras_detallecompra_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.compras_detallecompra
@@ -5036,7 +5516,7 @@ ALTER TABLE ONLY public.compras_detallecompra
 
 
 --
--- Name: compras_ordencompra compras_ordencompra_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: compras_ordencompra compras_ordencompra_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.compras_ordencompra
@@ -5044,7 +5524,7 @@ ALTER TABLE ONLY public.compras_ordencompra
 
 
 --
--- Name: core_categoria core_categoria_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: core_categoria core_categoria_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.core_categoria
@@ -5052,7 +5532,7 @@ ALTER TABLE ONLY public.core_categoria
 
 
 --
--- Name: core_detallereceta core_detallereceta_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: core_detallereceta core_detallereceta_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.core_detallereceta
@@ -5060,7 +5540,7 @@ ALTER TABLE ONLY public.core_detallereceta
 
 
 --
--- Name: core_detallereceta core_detallereceta_producto_padre_id_compon_5dc325bf_uniq; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: core_detallereceta core_detallereceta_producto_padre_id_compon_5dc325bf_uniq; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.core_detallereceta
@@ -5068,7 +5548,7 @@ ALTER TABLE ONLY public.core_detallereceta
 
 
 --
--- Name: core_producto core_producto_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: core_producto core_producto_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.core_producto
@@ -5076,7 +5556,7 @@ ALTER TABLE ONLY public.core_producto
 
 
 --
--- Name: core_transaccion core_transaccion_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: core_transaccion core_transaccion_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.core_transaccion
@@ -5084,7 +5564,7 @@ ALTER TABLE ONLY public.core_transaccion
 
 
 --
--- Name: costeos_comercioadquisicion costeos_comercioadquisicion_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_comercioadquisicion costeos_comercioadquisicion_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_comercioadquisicion
@@ -5092,7 +5572,7 @@ ALTER TABLE ONLY public.costeos_comercioadquisicion
 
 
 --
--- Name: costeos_costeo costeos_costeo_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_costeo costeos_costeo_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_costeo
@@ -5100,7 +5580,7 @@ ALTER TABLE ONLY public.costeos_costeo
 
 
 --
--- Name: costeos_manufacturagastoindirecto costeos_manufacturagastoindirecto_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_manufacturagastoindirecto costeos_manufacturagastoindirecto_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_manufacturagastoindirecto
@@ -5108,7 +5588,7 @@ ALTER TABLE ONLY public.costeos_manufacturagastoindirecto
 
 
 --
--- Name: costeos_manufacturamanoobra costeos_manufacturamanoobra_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_manufacturamanoobra costeos_manufacturamanoobra_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_manufacturamanoobra
@@ -5116,7 +5596,7 @@ ALTER TABLE ONLY public.costeos_manufacturamanoobra
 
 
 --
--- Name: costeos_manufacturamateriaprima costeos_manufacturamateriaprima_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_manufacturamateriaprima costeos_manufacturamateriaprima_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_manufacturamateriaprima
@@ -5124,7 +5604,7 @@ ALTER TABLE ONLY public.costeos_manufacturamateriaprima
 
 
 --
--- Name: costeos_serviciomaterial costeos_serviciomaterial_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_serviciomaterial costeos_serviciomaterial_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_serviciomaterial
@@ -5132,7 +5612,7 @@ ALTER TABLE ONLY public.costeos_serviciomaterial
 
 
 --
--- Name: costeos_serviciopersonal costeos_serviciopersonal_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_serviciopersonal costeos_serviciopersonal_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_serviciopersonal
@@ -5140,7 +5620,7 @@ ALTER TABLE ONLY public.costeos_serviciopersonal
 
 
 --
--- Name: cotizaciones_cotizacion cotizaciones_cotizacion_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: cotizaciones_cotizacion cotizaciones_cotizacion_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.cotizaciones_cotizacion
@@ -5148,7 +5628,7 @@ ALTER TABLE ONLY public.cotizaciones_cotizacion
 
 
 --
--- Name: cotizaciones_detallecotizacion cotizaciones_detallecotizacion_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: cotizaciones_detallecotizacion cotizaciones_detallecotizacion_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.cotizaciones_detallecotizacion
@@ -5156,7 +5636,7 @@ ALTER TABLE ONLY public.cotizaciones_detallecotizacion
 
 
 --
--- Name: django_admin_log django_admin_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: django_admin_log django_admin_log_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.django_admin_log
@@ -5164,7 +5644,7 @@ ALTER TABLE ONLY public.django_admin_log
 
 
 --
--- Name: django_content_type django_content_type_app_label_model_76bd3d3b_uniq; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: django_content_type django_content_type_app_label_model_76bd3d3b_uniq; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.django_content_type
@@ -5172,7 +5652,7 @@ ALTER TABLE ONLY public.django_content_type
 
 
 --
--- Name: django_content_type django_content_type_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: django_content_type django_content_type_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.django_content_type
@@ -5180,7 +5660,7 @@ ALTER TABLE ONLY public.django_content_type
 
 
 --
--- Name: django_migrations django_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: django_migrations django_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.django_migrations
@@ -5188,7 +5668,7 @@ ALTER TABLE ONLY public.django_migrations
 
 
 --
--- Name: django_session django_session_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: django_session django_session_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.django_session
@@ -5196,7 +5676,7 @@ ALTER TABLE ONLY public.django_session
 
 
 --
--- Name: notificaciones_notificacion notificaciones_notificacion_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: notificaciones_notificacion notificaciones_notificacion_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.notificaciones_notificacion
@@ -5204,7 +5684,7 @@ ALTER TABLE ONLY public.notificaciones_notificacion
 
 
 --
--- Name: panel_empresa panel_empresa_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: panel_empresa panel_empresa_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.panel_empresa
@@ -5212,7 +5692,7 @@ ALTER TABLE ONLY public.panel_empresa
 
 
 --
--- Name: panel_empresa panel_empresa_subdominio_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: panel_empresa panel_empresa_subdominio_key; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.panel_empresa
@@ -5220,7 +5700,7 @@ ALTER TABLE ONLY public.panel_empresa
 
 
 --
--- Name: pedidos_detallepedido pedidos_detallepedido_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: pedidos_detallepedido pedidos_detallepedido_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.pedidos_detallepedido
@@ -5228,7 +5708,7 @@ ALTER TABLE ONLY public.pedidos_detallepedido
 
 
 --
--- Name: pedidos_pedido pedidos_pedido_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: pedidos_pedido pedidos_pedido_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.pedidos_pedido
@@ -5236,7 +5716,7 @@ ALTER TABLE ONLY public.pedidos_pedido
 
 
 --
--- Name: preferencias_asignacionrolusuario preferencias_asignacionr_usuario_id_empresa_id_0b622f37_uniq; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: preferencias_asignacionrolusuario preferencias_asignacionr_usuario_id_empresa_id_0b622f37_uniq; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.preferencias_asignacionrolusuario
@@ -5244,7 +5724,7 @@ ALTER TABLE ONLY public.preferencias_asignacionrolusuario
 
 
 --
--- Name: preferencias_asignacionrolusuario preferencias_asignacionrolusuario_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: preferencias_asignacionrolusuario preferencias_asignacionrolusuario_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.preferencias_asignacionrolusuario
@@ -5252,7 +5732,7 @@ ALTER TABLE ONLY public.preferencias_asignacionrolusuario
 
 
 --
--- Name: preferencias_moneda preferencias_moneda_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: preferencias_moneda preferencias_moneda_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.preferencias_moneda
@@ -5260,7 +5740,7 @@ ALTER TABLE ONLY public.preferencias_moneda
 
 
 --
--- Name: preferencias_permisorolaccion preferencias_permisorola_rol_id_area_submodulo_ac_c6500df2_uniq; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: preferencias_permisorolaccion preferencias_permisorola_rol_id_area_submodulo_ac_c6500df2_uniq; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.preferencias_permisorolaccion
@@ -5268,7 +5748,7 @@ ALTER TABLE ONLY public.preferencias_permisorolaccion
 
 
 --
--- Name: preferencias_permisorolaccion preferencias_permisorolaccion_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: preferencias_permisorolaccion preferencias_permisorolaccion_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.preferencias_permisorolaccion
@@ -5276,7 +5756,7 @@ ALTER TABLE ONLY public.preferencias_permisorolaccion
 
 
 --
--- Name: preferencias_permisorolmodulo preferencias_permisorolmodulo_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: preferencias_permisorolmodulo preferencias_permisorolmodulo_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.preferencias_permisorolmodulo
@@ -5284,7 +5764,7 @@ ALTER TABLE ONLY public.preferencias_permisorolmodulo
 
 
 --
--- Name: preferencias_permisorolmodulo preferencias_permisorolmodulo_rol_id_modulo_9e139082_uniq; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: preferencias_permisorolmodulo preferencias_permisorolmodulo_rol_id_modulo_9e139082_uniq; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.preferencias_permisorolmodulo
@@ -5292,7 +5772,7 @@ ALTER TABLE ONLY public.preferencias_permisorolmodulo
 
 
 --
--- Name: preferencias_rol preferencias_rol_empresa_id_nombre_8f615756_uniq; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: preferencias_rol preferencias_rol_empresa_id_nombre_8f615756_uniq; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.preferencias_rol
@@ -5300,7 +5780,7 @@ ALTER TABLE ONLY public.preferencias_rol
 
 
 --
--- Name: preferencias_rol preferencias_rol_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: preferencias_rol preferencias_rol_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.preferencias_rol
@@ -5308,7 +5788,7 @@ ALTER TABLE ONLY public.preferencias_rol
 
 
 --
--- Name: preferencias_sucursal preferencias_sucursal_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: preferencias_sucursal preferencias_sucursal_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.preferencias_sucursal
@@ -5316,7 +5796,7 @@ ALTER TABLE ONLY public.preferencias_sucursal
 
 
 --
--- Name: produccion_detalleordenproduccion produccion_detalleordenproduccion_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_detalleordenproduccion produccion_detalleordenproduccion_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_detalleordenproduccion
@@ -5324,7 +5804,7 @@ ALTER TABLE ONLY public.produccion_detalleordenproduccion
 
 
 --
--- Name: produccion_itemtest produccion_itemtest_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_itemtest produccion_itemtest_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_itemtest
@@ -5332,7 +5812,7 @@ ALTER TABLE ONLY public.produccion_itemtest
 
 
 --
--- Name: produccion_ordenproduccion produccion_ordenproduccion_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion produccion_ordenproduccion_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_ordenproduccion
@@ -5340,7 +5820,7 @@ ALTER TABLE ONLY public.produccion_ordenproduccion
 
 
 --
--- Name: produccion_resultadotestop produccion_resultadotest_orden_produccion_id_item_ea555aa8_uniq; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_resultadotestop produccion_resultadotest_orden_produccion_id_item_ea555aa8_uniq; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_resultadotestop
@@ -5348,7 +5828,7 @@ ALTER TABLE ONLY public.produccion_resultadotestop
 
 
 --
--- Name: produccion_resultadotestop produccion_resultadotestop_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_resultadotestop produccion_resultadotestop_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_resultadotestop
@@ -5356,7 +5836,7 @@ ALTER TABLE ONLY public.produccion_resultadotestop
 
 
 --
--- Name: produccion_test produccion_test_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_test produccion_test_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_test
@@ -5364,7 +5844,7 @@ ALTER TABLE ONLY public.produccion_test
 
 
 --
--- Name: proveedores_proveedor proveedores_proveedor_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: proveedores_proveedor proveedores_proveedor_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.proveedores_proveedor
@@ -5372,7 +5852,7 @@ ALTER TABLE ONLY public.proveedores_proveedor
 
 
 --
--- Name: proveedores_proveedor proveedores_proveedor_rfc_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: proveedores_proveedor proveedores_proveedor_rfc_key; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.proveedores_proveedor
@@ -5380,7 +5860,7 @@ ALTER TABLE ONLY public.proveedores_proveedor
 
 
 --
--- Name: proveedores_sucursalproveedor proveedores_sucursalproveedor_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: proveedores_sucursalproveedor proveedores_sucursalproveedor_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.proveedores_sucursalproveedor
@@ -5388,7 +5868,7 @@ ALTER TABLE ONLY public.proveedores_sucursalproveedor
 
 
 --
--- Name: recepciones_detallerecepcion recepciones_detallerecepcion_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: recepciones_detallerecepcion recepciones_detallerecepcion_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recepciones_detallerecepcion
@@ -5396,7 +5876,7 @@ ALTER TABLE ONLY public.recepciones_detallerecepcion
 
 
 --
--- Name: recepciones_detallerecepcionextra recepciones_detallerecepcionextra_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: recepciones_detallerecepcionextra recepciones_detallerecepcionextra_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recepciones_detallerecepcionextra
@@ -5404,7 +5884,7 @@ ALTER TABLE ONLY public.recepciones_detallerecepcionextra
 
 
 --
--- Name: recepciones_recepcion recepciones_recepcion_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: recepciones_recepcion recepciones_recepcion_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recepciones_recepcion
@@ -5412,7 +5892,7 @@ ALTER TABLE ONLY public.recepciones_recepcion
 
 
 --
--- Name: recursos_humanos_beneficiario recursos_humanos_beneficiario_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_beneficiario recursos_humanos_beneficiario_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_beneficiario
@@ -5420,7 +5900,7 @@ ALTER TABLE ONLY public.recursos_humanos_beneficiario
 
 
 --
--- Name: recursos_humanos_contrato_empleados recursos_humanos_contrat_contrato_id_empleado_id_67407afc_uniq; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_contrato_empleados recursos_humanos_contrat_contrato_id_empleado_id_67407afc_uniq; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_contrato_empleados
@@ -5428,7 +5908,7 @@ ALTER TABLE ONLY public.recursos_humanos_contrato_empleados
 
 
 --
--- Name: recursos_humanos_contratista recursos_humanos_contratista_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_contratista recursos_humanos_contratista_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_contratista
@@ -5436,7 +5916,7 @@ ALTER TABLE ONLY public.recursos_humanos_contratista
 
 
 --
--- Name: recursos_humanos_contrato_empleados recursos_humanos_contrato_empleados_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_contrato_empleados recursos_humanos_contrato_empleados_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_contrato_empleados
@@ -5444,7 +5924,7 @@ ALTER TABLE ONLY public.recursos_humanos_contrato_empleados
 
 
 --
--- Name: recursos_humanos_contrato recursos_humanos_contrato_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_contrato recursos_humanos_contrato_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_contrato
@@ -5452,7 +5932,7 @@ ALTER TABLE ONLY public.recursos_humanos_contrato
 
 
 --
--- Name: recursos_humanos_empleado recursos_humanos_empleado_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_empleado recursos_humanos_empleado_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_empleado
@@ -5460,7 +5940,7 @@ ALTER TABLE ONLY public.recursos_humanos_empleado
 
 
 --
--- Name: recursos_humanos_importacionsua recursos_humanos_importacionsua_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_importacionsua recursos_humanos_importacionsua_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_importacionsua
@@ -5468,7 +5948,15 @@ ALTER TABLE ONLY public.recursos_humanos_importacionsua
 
 
 --
--- Name: recursos_humanos_trabajadorsua recursos_humanos_trabajadorsua_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_nomina recursos_humanos_nomina_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
+--
+
+ALTER TABLE ONLY public.recursos_humanos_nomina
+    ADD CONSTRAINT recursos_humanos_nomina_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: recursos_humanos_trabajadorsua recursos_humanos_trabajadorsua_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_trabajadorsua
@@ -5476,7 +5964,7 @@ ALTER TABLE ONLY public.recursos_humanos_trabajadorsua
 
 
 --
--- Name: solicitudcompras_detallesolicitudcompra solicitudcompras_detallesolicitudcompra_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: solicitudcompras_detallesolicitudcompra solicitudcompras_detallesolicitudcompra_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.solicitudcompras_detallesolicitudcompra
@@ -5484,7 +5972,7 @@ ALTER TABLE ONLY public.solicitudcompras_detallesolicitudcompra
 
 
 --
--- Name: solicitudcompras_solicitudcompra solicitudcompras_solicitudcompra_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: solicitudcompras_solicitudcompra solicitudcompras_solicitudcompra_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.solicitudcompras_solicitudcompra
@@ -5492,7 +5980,7 @@ ALTER TABLE ONLY public.solicitudcompras_solicitudcompra
 
 
 --
--- Name: tesoreria_cajabanco tesoreria_cajabanco_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_cajabanco tesoreria_cajabanco_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_cajabanco
@@ -5500,7 +5988,7 @@ ALTER TABLE ONLY public.tesoreria_cajabanco
 
 
 --
--- Name: tesoreria_egreso tesoreria_egreso_pago_compra_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_egreso tesoreria_egreso_pago_compra_id_key; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_egreso
@@ -5508,7 +5996,7 @@ ALTER TABLE ONLY public.tesoreria_egreso
 
 
 --
--- Name: tesoreria_egreso tesoreria_egreso_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_egreso tesoreria_egreso_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_egreso
@@ -5516,7 +6004,7 @@ ALTER TABLE ONLY public.tesoreria_egreso
 
 
 --
--- Name: tesoreria_ingreso tesoreria_ingreso_pago_pedido_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_ingreso tesoreria_ingreso_pago_pedido_id_key; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_ingreso
@@ -5524,7 +6012,7 @@ ALTER TABLE ONLY public.tesoreria_ingreso
 
 
 --
--- Name: tesoreria_ingreso tesoreria_ingreso_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_ingreso tesoreria_ingreso_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_ingreso
@@ -5532,7 +6020,7 @@ ALTER TABLE ONLY public.tesoreria_ingreso
 
 
 --
--- Name: tesoreria_pagocompra tesoreria_pagocompra_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_pagocompra tesoreria_pagocompra_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_pagocompra
@@ -5540,7 +6028,7 @@ ALTER TABLE ONLY public.tesoreria_pagocompra
 
 
 --
--- Name: tesoreria_pagopedido tesoreria_pagopedido_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_pagopedido tesoreria_pagopedido_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_pagopedido
@@ -5548,7 +6036,7 @@ ALTER TABLE ONLY public.tesoreria_pagopedido
 
 
 --
--- Name: ventas_detalleordenventa ventas_detalleordenventa_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: ventas_detalleordenventa ventas_detalleordenventa_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.ventas_detalleordenventa
@@ -5556,7 +6044,7 @@ ALTER TABLE ONLY public.ventas_detalleordenventa
 
 
 --
--- Name: ventas_ordenventa ventas_ordenventa_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: ventas_ordenventa ventas_ordenventa_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.ventas_ordenventa
@@ -5564,1330 +6052,1351 @@ ALTER TABLE ONLY public.ventas_ordenventa
 
 
 --
--- Name: actividades_actividad_cliente_id_31dd4638; Type: INDEX; Schema: public; Owner: -
+-- Name: actividades_actividad_cliente_id_31dd4638; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX actividades_actividad_cliente_id_31dd4638 ON public.actividades_actividad USING btree (cliente_id);
 
 
 --
--- Name: actividades_actividad_contacto_id_d0291271; Type: INDEX; Schema: public; Owner: -
+-- Name: actividades_actividad_contacto_id_d0291271; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX actividades_actividad_contacto_id_d0291271 ON public.actividades_actividad USING btree (contacto_id);
 
 
 --
--- Name: actividades_actividad_cotizacion_id_f6475c97; Type: INDEX; Schema: public; Owner: -
+-- Name: actividades_actividad_cotizacion_id_f6475c97; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX actividades_actividad_cotizacion_id_f6475c97 ON public.actividades_actividad USING btree (cotizacion_id);
 
 
 --
--- Name: actividades_actividad_empresa_id_d6c1b71a; Type: INDEX; Schema: public; Owner: -
+-- Name: actividades_actividad_empresa_id_d6c1b71a; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX actividades_actividad_empresa_id_d6c1b71a ON public.actividades_actividad USING btree (empresa_id);
 
 
 --
--- Name: actividades_actividad_sucursal_id_514349f7; Type: INDEX; Schema: public; Owner: -
+-- Name: actividades_actividad_sucursal_id_514349f7; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX actividades_actividad_sucursal_id_514349f7 ON public.actividades_actividad USING btree (sucursal_id);
 
 
 --
--- Name: almacenes_almacen_empresa_id_5b652cc0; Type: INDEX; Schema: public; Owner: -
+-- Name: almacenes_almacen_empresa_id_5b652cc0; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX almacenes_almacen_empresa_id_5b652cc0 ON public.almacenes_almacen USING btree (empresa_id);
 
 
 --
--- Name: almacenes_almacen_sucursal_id_93d395bc; Type: INDEX; Schema: public; Owner: -
+-- Name: almacenes_almacen_sucursal_id_93d395bc; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX almacenes_almacen_sucursal_id_93d395bc ON public.almacenes_almacen USING btree (sucursal_id);
 
 
 --
--- Name: almacenes_inventario_almacen_id_c69f237c; Type: INDEX; Schema: public; Owner: -
+-- Name: almacenes_inventario_almacen_id_c69f237c; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX almacenes_inventario_almacen_id_c69f237c ON public.almacenes_inventario USING btree (almacen_id);
 
 
 --
--- Name: almacenes_inventario_empresa_id_06242eac; Type: INDEX; Schema: public; Owner: -
+-- Name: almacenes_inventario_empresa_id_06242eac; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX almacenes_inventario_empresa_id_06242eac ON public.almacenes_inventario USING btree (empresa_id);
 
 
 --
--- Name: almacenes_inventario_producto_id_c2b420e0; Type: INDEX; Schema: public; Owner: -
+-- Name: almacenes_inventario_producto_id_c2b420e0; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX almacenes_inventario_producto_id_c2b420e0 ON public.almacenes_inventario USING btree (producto_id);
 
 
 --
--- Name: almacenes_inventario_sucursal_id_ced5111b; Type: INDEX; Schema: public; Owner: -
+-- Name: almacenes_inventario_sucursal_id_ced5111b; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX almacenes_inventario_sucursal_id_ced5111b ON public.almacenes_inventario USING btree (sucursal_id);
 
 
 --
--- Name: almacenes_kardex_almacen_id_7d839ce9; Type: INDEX; Schema: public; Owner: -
+-- Name: almacenes_kardex_almacen_id_7d839ce9; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX almacenes_kardex_almacen_id_7d839ce9 ON public.almacenes_kardex USING btree (almacen_id);
 
 
 --
--- Name: almacenes_kardex_empresa_id_8a87d26f; Type: INDEX; Schema: public; Owner: -
+-- Name: almacenes_kardex_empresa_id_8a87d26f; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX almacenes_kardex_empresa_id_8a87d26f ON public.almacenes_kardex USING btree (empresa_id);
 
 
 --
--- Name: almacenes_kardex_producto_id_df4332ce; Type: INDEX; Schema: public; Owner: -
+-- Name: almacenes_kardex_producto_id_df4332ce; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX almacenes_kardex_producto_id_df4332ce ON public.almacenes_kardex USING btree (producto_id);
 
 
 --
--- Name: almacenes_kardex_sucursal_id_bcea0fc6; Type: INDEX; Schema: public; Owner: -
+-- Name: almacenes_kardex_sucursal_id_bcea0fc6; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX almacenes_kardex_sucursal_id_bcea0fc6 ON public.almacenes_kardex USING btree (sucursal_id);
 
 
 --
--- Name: almacenes_kardex_usuario_id_9c0bc3a1; Type: INDEX; Schema: public; Owner: -
+-- Name: almacenes_kardex_usuario_id_9c0bc3a1; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX almacenes_kardex_usuario_id_9c0bc3a1 ON public.almacenes_kardex USING btree (usuario_id);
 
 
 --
--- Name: auth_group_name_a6ea08ec_like; Type: INDEX; Schema: public; Owner: -
+-- Name: auth_group_name_a6ea08ec_like; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX auth_group_name_a6ea08ec_like ON public.auth_group USING btree (name varchar_pattern_ops);
 
 
 --
--- Name: auth_group_permissions_group_id_b120cbf9; Type: INDEX; Schema: public; Owner: -
+-- Name: auth_group_permissions_group_id_b120cbf9; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX auth_group_permissions_group_id_b120cbf9 ON public.auth_group_permissions USING btree (group_id);
 
 
 --
--- Name: auth_group_permissions_permission_id_84c5c92e; Type: INDEX; Schema: public; Owner: -
+-- Name: auth_group_permissions_permission_id_84c5c92e; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX auth_group_permissions_permission_id_84c5c92e ON public.auth_group_permissions USING btree (permission_id);
 
 
 --
--- Name: auth_permission_content_type_id_2f476e4b; Type: INDEX; Schema: public; Owner: -
+-- Name: auth_permission_content_type_id_2f476e4b; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX auth_permission_content_type_id_2f476e4b ON public.auth_permission USING btree (content_type_id);
 
 
 --
--- Name: auth_user_groups_group_id_97559544; Type: INDEX; Schema: public; Owner: -
+-- Name: auth_user_groups_group_id_97559544; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX auth_user_groups_group_id_97559544 ON public.auth_user_groups USING btree (group_id);
 
 
 --
--- Name: auth_user_groups_user_id_6a12ed8b; Type: INDEX; Schema: public; Owner: -
+-- Name: auth_user_groups_user_id_6a12ed8b; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX auth_user_groups_user_id_6a12ed8b ON public.auth_user_groups USING btree (user_id);
 
 
 --
--- Name: auth_user_user_permissions_permission_id_1fbb5f2c; Type: INDEX; Schema: public; Owner: -
+-- Name: auth_user_user_permissions_permission_id_1fbb5f2c; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX auth_user_user_permissions_permission_id_1fbb5f2c ON public.auth_user_user_permissions USING btree (permission_id);
 
 
 --
--- Name: auth_user_user_permissions_user_id_a95ead1b; Type: INDEX; Schema: public; Owner: -
+-- Name: auth_user_user_permissions_user_id_a95ead1b; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX auth_user_user_permissions_user_id_a95ead1b ON public.auth_user_user_permissions USING btree (user_id);
 
 
 --
--- Name: auth_user_username_6821ab7c_like; Type: INDEX; Schema: public; Owner: -
+-- Name: auth_user_username_6821ab7c_like; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX auth_user_username_6821ab7c_like ON public.auth_user USING btree (username varchar_pattern_ops);
 
 
 --
--- Name: categorias_categoria_empresa_id_f67784ba; Type: INDEX; Schema: public; Owner: -
+-- Name: categorias_categoria_empresa_id_f67784ba; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX categorias_categoria_empresa_id_f67784ba ON public.categorias_categoria USING btree (empresa_id);
 
 
 --
--- Name: categorias_listapreciocosto_empresa_id_be6b0b37; Type: INDEX; Schema: public; Owner: -
+-- Name: categorias_listapreciocosto_empresa_id_be6b0b37; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX categorias_listapreciocosto_empresa_id_be6b0b37 ON public.categorias_listapreciocosto USING btree (empresa_id);
 
 
 --
--- Name: categorias_subcategoria_categoria_id_ff5e0ea4; Type: INDEX; Schema: public; Owner: -
+-- Name: categorias_subcategoria_categoria_id_ff5e0ea4; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX categorias_subcategoria_categoria_id_ff5e0ea4 ON public.categorias_subcategoria USING btree (categoria_id);
 
 
 --
--- Name: categorias_subcategoria_empresa_id_10304328; Type: INDEX; Schema: public; Owner: -
+-- Name: categorias_subcategoria_empresa_id_10304328; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX categorias_subcategoria_empresa_id_10304328 ON public.categorias_subcategoria USING btree (empresa_id);
 
 
 --
--- Name: clientes_cliente_empresa_id_6e2597e2; Type: INDEX; Schema: public; Owner: -
+-- Name: clientes_cliente_empresa_id_6e2597e2; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX clientes_cliente_empresa_id_6e2597e2 ON public.clientes_cliente USING btree (empresa_id);
 
 
 --
--- Name: clientes_contactocliente_cliente_id_3e846666; Type: INDEX; Schema: public; Owner: -
+-- Name: clientes_contactocliente_cliente_id_3e846666; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX clientes_contactocliente_cliente_id_3e846666 ON public.clientes_contactocliente USING btree (cliente_id);
 
 
 --
--- Name: compras_detallecompra_detalle_pedido_origen_id_1c1ae1bb; Type: INDEX; Schema: public; Owner: -
+-- Name: compras_detallecompra_detalle_pedido_origen_id_1c1ae1bb; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX compras_detallecompra_detalle_pedido_origen_id_1c1ae1bb ON public.compras_detallecompra USING btree (detalle_pedido_origen_id);
 
 
 --
--- Name: compras_detallecompra_orden_compra_id_c71cd0a9; Type: INDEX; Schema: public; Owner: -
+-- Name: compras_detallecompra_orden_compra_id_c71cd0a9; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX compras_detallecompra_orden_compra_id_c71cd0a9 ON public.compras_detallecompra USING btree (orden_compra_id);
 
 
 --
--- Name: compras_detallecompra_producto_id_38c7f9c4; Type: INDEX; Schema: public; Owner: -
+-- Name: compras_detallecompra_producto_id_38c7f9c4; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX compras_detallecompra_producto_id_38c7f9c4 ON public.compras_detallecompra USING btree (producto_id);
 
 
 --
--- Name: compras_ordencompra_almacen_destino_id_af61e399; Type: INDEX; Schema: public; Owner: -
+-- Name: compras_ordencompra_almacen_destino_id_af61e399; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX compras_ordencompra_almacen_destino_id_af61e399 ON public.compras_ordencompra USING btree (almacen_destino_id);
 
 
 --
--- Name: compras_ordencompra_empresa_id_5c4630d8; Type: INDEX; Schema: public; Owner: -
+-- Name: compras_ordencompra_empresa_id_5c4630d8; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX compras_ordencompra_empresa_id_5c4630d8 ON public.compras_ordencompra USING btree (empresa_id);
 
 
 --
--- Name: compras_ordencompra_moneda_id_30388668; Type: INDEX; Schema: public; Owner: -
+-- Name: compras_ordencompra_moneda_id_30388668; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX compras_ordencompra_moneda_id_30388668 ON public.compras_ordencompra USING btree (moneda_id);
 
 
 --
--- Name: compras_ordencompra_proveedor_id_c42e35e1; Type: INDEX; Schema: public; Owner: -
+-- Name: compras_ordencompra_proveedor_id_c42e35e1; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX compras_ordencompra_proveedor_id_c42e35e1 ON public.compras_ordencompra USING btree (proveedor_id);
 
 
 --
--- Name: compras_ordencompra_solicitud_origen_id_d32bb95e; Type: INDEX; Schema: public; Owner: -
+-- Name: compras_ordencompra_solicitud_origen_id_d32bb95e; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX compras_ordencompra_solicitud_origen_id_d32bb95e ON public.compras_ordencompra USING btree (solicitud_origen_id);
 
 
 --
--- Name: compras_ordencompra_sucursal_empresa_id_4299d49a; Type: INDEX; Schema: public; Owner: -
+-- Name: compras_ordencompra_sucursal_empresa_id_4299d49a; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX compras_ordencompra_sucursal_empresa_id_4299d49a ON public.compras_ordencompra USING btree (sucursal_empresa_id);
 
 
 --
--- Name: compras_ordencompra_sucursal_id_06005950; Type: INDEX; Schema: public; Owner: -
+-- Name: compras_ordencompra_sucursal_id_06005950; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX compras_ordencompra_sucursal_id_06005950 ON public.compras_ordencompra USING btree (sucursal_id);
 
 
 --
--- Name: compras_ordencompra_usuario_id_a2084c63; Type: INDEX; Schema: public; Owner: -
+-- Name: compras_ordencompra_usuario_id_a2084c63; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX compras_ordencompra_usuario_id_a2084c63 ON public.compras_ordencompra USING btree (usuario_id);
 
 
 --
--- Name: core_categoria_empresa_id_44437a59; Type: INDEX; Schema: public; Owner: -
+-- Name: core_categoria_empresa_id_44437a59; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX core_categoria_empresa_id_44437a59 ON public.core_categoria USING btree (empresa_id);
 
 
 --
--- Name: core_detallereceta_componente_id_ba974177; Type: INDEX; Schema: public; Owner: -
+-- Name: core_detallereceta_componente_id_ba974177; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX core_detallereceta_componente_id_ba974177 ON public.core_detallereceta USING btree (componente_id);
 
 
 --
--- Name: core_detallereceta_producto_padre_id_3a9c3cfd; Type: INDEX; Schema: public; Owner: -
+-- Name: core_detallereceta_producto_padre_id_3a9c3cfd; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX core_detallereceta_producto_padre_id_3a9c3cfd ON public.core_detallereceta USING btree (producto_padre_id);
 
 
 --
--- Name: core_producto_empresa_id_efa7546e; Type: INDEX; Schema: public; Owner: -
+-- Name: core_producto_empresa_id_efa7546e; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX core_producto_empresa_id_efa7546e ON public.core_producto USING btree (empresa_id);
 
 
 --
--- Name: core_producto_test_calidad_id_29569fed; Type: INDEX; Schema: public; Owner: -
+-- Name: core_producto_test_calidad_id_29569fed; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX core_producto_test_calidad_id_29569fed ON public.core_producto USING btree (test_calidad_id);
 
 
 --
--- Name: core_transaccion_almacen_id_0ccca5c8; Type: INDEX; Schema: public; Owner: -
+-- Name: core_transaccion_almacen_id_0ccca5c8; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX core_transaccion_almacen_id_0ccca5c8 ON public.core_transaccion USING btree (almacen_id);
 
 
 --
--- Name: core_transaccion_empresa_id_fdeef44c; Type: INDEX; Schema: public; Owner: -
+-- Name: core_transaccion_empresa_id_fdeef44c; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX core_transaccion_empresa_id_fdeef44c ON public.core_transaccion USING btree (empresa_id);
 
 
 --
--- Name: core_transaccion_producto_id_3c4d4be3; Type: INDEX; Schema: public; Owner: -
+-- Name: core_transaccion_producto_id_3c4d4be3; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX core_transaccion_producto_id_3c4d4be3 ON public.core_transaccion USING btree (producto_id);
 
 
 --
--- Name: core_transaccion_proveedor_id_6c6254bb; Type: INDEX; Schema: public; Owner: -
+-- Name: core_transaccion_proveedor_id_6c6254bb; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX core_transaccion_proveedor_id_6c6254bb ON public.core_transaccion USING btree (proveedor_id);
 
 
 --
--- Name: costeos_comercioadquisicion_costeo_id_95b4726f; Type: INDEX; Schema: public; Owner: -
+-- Name: costeos_comercioadquisicion_costeo_id_95b4726f; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX costeos_comercioadquisicion_costeo_id_95b4726f ON public.costeos_comercioadquisicion USING btree (costeo_id);
 
 
 --
--- Name: costeos_comercioadquisicion_moneda_id_f34384eb; Type: INDEX; Schema: public; Owner: -
+-- Name: costeos_comercioadquisicion_moneda_id_f34384eb; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX costeos_comercioadquisicion_moneda_id_f34384eb ON public.costeos_comercioadquisicion USING btree (moneda_id);
 
 
 --
--- Name: costeos_costeo_duplicado_de_id_9a997f85; Type: INDEX; Schema: public; Owner: -
+-- Name: costeos_costeo_duplicado_de_id_9a997f85; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX costeos_costeo_duplicado_de_id_9a997f85 ON public.costeos_costeo USING btree (duplicado_de_id);
 
 
 --
--- Name: costeos_costeo_empresa_id_1e438914; Type: INDEX; Schema: public; Owner: -
+-- Name: costeos_costeo_empresa_id_1e438914; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX costeos_costeo_empresa_id_1e438914 ON public.costeos_costeo USING btree (empresa_id);
 
 
 --
--- Name: costeos_costeo_sucursal_id_b7dd6c96; Type: INDEX; Schema: public; Owner: -
+-- Name: costeos_costeo_sucursal_id_b7dd6c96; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX costeos_costeo_sucursal_id_b7dd6c96 ON public.costeos_costeo USING btree (sucursal_id);
 
 
 --
--- Name: costeos_costeo_vendedor_id_7f898050; Type: INDEX; Schema: public; Owner: -
+-- Name: costeos_costeo_vendedor_id_7f898050; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX costeos_costeo_vendedor_id_7f898050 ON public.costeos_costeo USING btree (vendedor_id);
 
 
 --
--- Name: costeos_manufacturagastoindirecto_costeo_id_6e8f5bd1; Type: INDEX; Schema: public; Owner: -
+-- Name: costeos_manufacturagastoindirecto_costeo_id_6e8f5bd1; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX costeos_manufacturagastoindirecto_costeo_id_6e8f5bd1 ON public.costeos_manufacturagastoindirecto USING btree (costeo_id);
 
 
 --
--- Name: costeos_manufacturagastoindirecto_moneda_id_3b62953e; Type: INDEX; Schema: public; Owner: -
+-- Name: costeos_manufacturagastoindirecto_moneda_id_3b62953e; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX costeos_manufacturagastoindirecto_moneda_id_3b62953e ON public.costeos_manufacturagastoindirecto USING btree (moneda_id);
 
 
 --
--- Name: costeos_manufacturamanoobra_costeo_id_430ced81; Type: INDEX; Schema: public; Owner: -
+-- Name: costeos_manufacturamanoobra_costeo_id_430ced81; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX costeos_manufacturamanoobra_costeo_id_430ced81 ON public.costeos_manufacturamanoobra USING btree (costeo_id);
 
 
 --
--- Name: costeos_manufacturamanoobra_moneda_id_8737b8e0; Type: INDEX; Schema: public; Owner: -
+-- Name: costeos_manufacturamanoobra_moneda_id_8737b8e0; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX costeos_manufacturamanoobra_moneda_id_8737b8e0 ON public.costeos_manufacturamanoobra USING btree (moneda_id);
 
 
 --
--- Name: costeos_manufacturamateriaprima_costeo_id_f832c0c2; Type: INDEX; Schema: public; Owner: -
+-- Name: costeos_manufacturamateriaprima_costeo_id_f832c0c2; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX costeos_manufacturamateriaprima_costeo_id_f832c0c2 ON public.costeos_manufacturamateriaprima USING btree (costeo_id);
 
 
 --
--- Name: costeos_manufacturamateriaprima_moneda_id_a87d8b0e; Type: INDEX; Schema: public; Owner: -
+-- Name: costeos_manufacturamateriaprima_moneda_id_a87d8b0e; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX costeos_manufacturamateriaprima_moneda_id_a87d8b0e ON public.costeos_manufacturamateriaprima USING btree (moneda_id);
 
 
 --
--- Name: costeos_serviciomaterial_costeo_id_e283311f; Type: INDEX; Schema: public; Owner: -
+-- Name: costeos_serviciomaterial_costeo_id_e283311f; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX costeos_serviciomaterial_costeo_id_e283311f ON public.costeos_serviciomaterial USING btree (costeo_id);
 
 
 --
--- Name: costeos_serviciomaterial_moneda_id_7d8796c9; Type: INDEX; Schema: public; Owner: -
+-- Name: costeos_serviciomaterial_moneda_id_7d8796c9; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX costeos_serviciomaterial_moneda_id_7d8796c9 ON public.costeos_serviciomaterial USING btree (moneda_id);
 
 
 --
--- Name: costeos_serviciopersonal_costeo_id_1d3b42c9; Type: INDEX; Schema: public; Owner: -
+-- Name: costeos_serviciopersonal_costeo_id_1d3b42c9; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX costeos_serviciopersonal_costeo_id_1d3b42c9 ON public.costeos_serviciopersonal USING btree (costeo_id);
 
 
 --
--- Name: costeos_serviciopersonal_moneda_id_d9ce650a; Type: INDEX; Schema: public; Owner: -
+-- Name: costeos_serviciopersonal_moneda_id_d9ce650a; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX costeos_serviciopersonal_moneda_id_d9ce650a ON public.costeos_serviciopersonal USING btree (moneda_id);
 
 
 --
--- Name: cotizaciones_cotizacion_cliente_id_c6e3d6c6; Type: INDEX; Schema: public; Owner: -
+-- Name: cotizaciones_cotizacion_cliente_id_c6e3d6c6; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX cotizaciones_cotizacion_cliente_id_c6e3d6c6 ON public.cotizaciones_cotizacion USING btree (cliente_id);
 
 
 --
--- Name: cotizaciones_cotizacion_contacto_id_1bca6174; Type: INDEX; Schema: public; Owner: -
+-- Name: cotizaciones_cotizacion_contacto_id_1bca6174; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX cotizaciones_cotizacion_contacto_id_1bca6174 ON public.cotizaciones_cotizacion USING btree (contacto_id);
 
 
 --
--- Name: cotizaciones_cotizacion_empresa_id_1c525708; Type: INDEX; Schema: public; Owner: -
+-- Name: cotizaciones_cotizacion_empresa_id_1c525708; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX cotizaciones_cotizacion_empresa_id_1c525708 ON public.cotizaciones_cotizacion USING btree (empresa_id);
 
 
 --
--- Name: cotizaciones_cotizacion_parent_quote_id_701a433a; Type: INDEX; Schema: public; Owner: -
+-- Name: cotizaciones_cotizacion_parent_quote_id_701a433a; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX cotizaciones_cotizacion_parent_quote_id_701a433a ON public.cotizaciones_cotizacion USING btree (parent_quote_id);
 
 
 --
--- Name: cotizaciones_cotizacion_sucursal_id_d9e37007; Type: INDEX; Schema: public; Owner: -
+-- Name: cotizaciones_cotizacion_sucursal_id_d9e37007; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX cotizaciones_cotizacion_sucursal_id_d9e37007 ON public.cotizaciones_cotizacion USING btree (sucursal_id);
 
 
 --
--- Name: cotizaciones_cotizacion_vendedor_id_3685810f; Type: INDEX; Schema: public; Owner: -
+-- Name: cotizaciones_cotizacion_vendedor_id_3685810f; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX cotizaciones_cotizacion_vendedor_id_3685810f ON public.cotizaciones_cotizacion USING btree (vendedor_id);
 
 
 --
--- Name: cotizaciones_detallecotizacion_cotizacion_id_f5669320; Type: INDEX; Schema: public; Owner: -
+-- Name: cotizaciones_detallecotizacion_cotizacion_id_f5669320; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX cotizaciones_detallecotizacion_cotizacion_id_f5669320 ON public.cotizaciones_detallecotizacion USING btree (cotizacion_id);
 
 
 --
--- Name: cotizaciones_detallecotizacion_producto_id_3b92b18b; Type: INDEX; Schema: public; Owner: -
+-- Name: cotizaciones_detallecotizacion_producto_id_3b92b18b; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX cotizaciones_detallecotizacion_producto_id_3b92b18b ON public.cotizaciones_detallecotizacion USING btree (producto_id);
 
 
 --
--- Name: django_admin_log_content_type_id_c4bce8eb; Type: INDEX; Schema: public; Owner: -
+-- Name: django_admin_log_content_type_id_c4bce8eb; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX django_admin_log_content_type_id_c4bce8eb ON public.django_admin_log USING btree (content_type_id);
 
 
 --
--- Name: django_admin_log_user_id_c564eba6; Type: INDEX; Schema: public; Owner: -
+-- Name: django_admin_log_user_id_c564eba6; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX django_admin_log_user_id_c564eba6 ON public.django_admin_log USING btree (user_id);
 
 
 --
--- Name: django_session_expire_date_a5c62663; Type: INDEX; Schema: public; Owner: -
+-- Name: django_session_expire_date_a5c62663; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX django_session_expire_date_a5c62663 ON public.django_session USING btree (expire_date);
 
 
 --
--- Name: django_session_session_key_c0390e0f_like; Type: INDEX; Schema: public; Owner: -
+-- Name: django_session_session_key_c0390e0f_like; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX django_session_session_key_c0390e0f_like ON public.django_session USING btree (session_key varchar_pattern_ops);
 
 
 --
--- Name: notificaciones_notificacion_actor_id_abf217ac; Type: INDEX; Schema: public; Owner: -
+-- Name: notificaciones_notificacion_actor_id_abf217ac; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX notificaciones_notificacion_actor_id_abf217ac ON public.notificaciones_notificacion USING btree (actor_id);
 
 
 --
--- Name: notificaciones_notificacion_empresa_id_b40213dd; Type: INDEX; Schema: public; Owner: -
+-- Name: notificaciones_notificacion_empresa_id_b40213dd; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX notificaciones_notificacion_empresa_id_b40213dd ON public.notificaciones_notificacion USING btree (empresa_id);
 
 
 --
--- Name: notificaciones_notificacion_propietario_recurso_id_6a494a51; Type: INDEX; Schema: public; Owner: -
+-- Name: notificaciones_notificacion_propietario_recurso_id_6a494a51; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX notificaciones_notificacion_propietario_recurso_id_6a494a51 ON public.notificaciones_notificacion USING btree (propietario_recurso_id);
 
 
 --
--- Name: panel_empresa_subdominio_110b5b55_like; Type: INDEX; Schema: public; Owner: -
+-- Name: panel_empresa_subdominio_110b5b55_like; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX panel_empresa_subdominio_110b5b55_like ON public.panel_empresa USING btree (subdominio varchar_pattern_ops);
 
 
 --
--- Name: pedidos_detallepedido_parent_line_id_469a0736; Type: INDEX; Schema: public; Owner: -
+-- Name: pedidos_detallepedido_parent_line_id_469a0736; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX pedidos_detallepedido_parent_line_id_469a0736 ON public.pedidos_detallepedido USING btree (parent_line_id);
 
 
 --
--- Name: pedidos_detallepedido_pedido_id_37ae55c6; Type: INDEX; Schema: public; Owner: -
+-- Name: pedidos_detallepedido_pedido_id_37ae55c6; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX pedidos_detallepedido_pedido_id_37ae55c6 ON public.pedidos_detallepedido USING btree (pedido_id);
 
 
 --
--- Name: pedidos_detallepedido_producto_id_fb78018a; Type: INDEX; Schema: public; Owner: -
+-- Name: pedidos_detallepedido_producto_id_fb78018a; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX pedidos_detallepedido_producto_id_fb78018a ON public.pedidos_detallepedido USING btree (producto_id);
 
 
 --
--- Name: pedidos_pedido_cliente_id_84f4fc73; Type: INDEX; Schema: public; Owner: -
+-- Name: pedidos_pedido_cliente_id_84f4fc73; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX pedidos_pedido_cliente_id_84f4fc73 ON public.pedidos_pedido USING btree (cliente_id);
 
 
 --
--- Name: pedidos_pedido_contacto_id_2bf2a836; Type: INDEX; Schema: public; Owner: -
+-- Name: pedidos_pedido_contacto_id_2bf2a836; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX pedidos_pedido_contacto_id_2bf2a836 ON public.pedidos_pedido USING btree (contacto_id);
 
 
 --
--- Name: pedidos_pedido_empresa_id_88ea251a; Type: INDEX; Schema: public; Owner: -
+-- Name: pedidos_pedido_empresa_id_88ea251a; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX pedidos_pedido_empresa_id_88ea251a ON public.pedidos_pedido USING btree (empresa_id);
 
 
 --
--- Name: pedidos_pedido_sucursal_id_83721f54; Type: INDEX; Schema: public; Owner: -
+-- Name: pedidos_pedido_sucursal_id_83721f54; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX pedidos_pedido_sucursal_id_83721f54 ON public.pedidos_pedido USING btree (sucursal_id);
 
 
 --
--- Name: pedidos_pedido_vendedor_id_1ab7404e; Type: INDEX; Schema: public; Owner: -
+-- Name: pedidos_pedido_vendedor_id_1ab7404e; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX pedidos_pedido_vendedor_id_1ab7404e ON public.pedidos_pedido USING btree (vendedor_id);
 
 
 --
--- Name: preferencias_asignacionrolusuario_empresa_id_903c4207; Type: INDEX; Schema: public; Owner: -
+-- Name: preferencias_asignacionrolusuario_empresa_id_903c4207; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX preferencias_asignacionrolusuario_empresa_id_903c4207 ON public.preferencias_asignacionrolusuario USING btree (empresa_id);
 
 
 --
--- Name: preferencias_asignacionrolusuario_rol_id_37360050; Type: INDEX; Schema: public; Owner: -
+-- Name: preferencias_asignacionrolusuario_rol_id_37360050; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX preferencias_asignacionrolusuario_rol_id_37360050 ON public.preferencias_asignacionrolusuario USING btree (rol_id);
 
 
 --
--- Name: preferencias_asignacionrolusuario_usuario_id_179e878b; Type: INDEX; Schema: public; Owner: -
+-- Name: preferencias_asignacionrolusuario_usuario_id_179e878b; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX preferencias_asignacionrolusuario_usuario_id_179e878b ON public.preferencias_asignacionrolusuario USING btree (usuario_id);
 
 
 --
--- Name: preferencias_moneda_empresa_id_c30b6373; Type: INDEX; Schema: public; Owner: -
+-- Name: preferencias_moneda_empresa_id_c30b6373; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX preferencias_moneda_empresa_id_c30b6373 ON public.preferencias_moneda USING btree (empresa_id);
 
 
 --
--- Name: preferencias_moneda_responsable_id_4769389d; Type: INDEX; Schema: public; Owner: -
+-- Name: preferencias_moneda_responsable_id_4769389d; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX preferencias_moneda_responsable_id_4769389d ON public.preferencias_moneda USING btree (responsable_id);
 
 
 --
--- Name: preferencias_permisorolaccion_rol_id_b14b8335; Type: INDEX; Schema: public; Owner: -
+-- Name: preferencias_permisorolaccion_rol_id_b14b8335; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX preferencias_permisorolaccion_rol_id_b14b8335 ON public.preferencias_permisorolaccion USING btree (rol_id);
 
 
 --
--- Name: preferencias_permisorolmodulo_rol_id_581817ed; Type: INDEX; Schema: public; Owner: -
+-- Name: preferencias_permisorolmodulo_rol_id_581817ed; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX preferencias_permisorolmodulo_rol_id_581817ed ON public.preferencias_permisorolmodulo USING btree (rol_id);
 
 
 --
--- Name: preferencias_rol_empresa_id_8c18f71d; Type: INDEX; Schema: public; Owner: -
+-- Name: preferencias_rol_empresa_id_8c18f71d; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX preferencias_rol_empresa_id_8c18f71d ON public.preferencias_rol USING btree (empresa_id);
 
 
 --
--- Name: preferencias_sucursal_empresa_id_ea1ff3e6; Type: INDEX; Schema: public; Owner: -
+-- Name: preferencias_sucursal_empresa_id_ea1ff3e6; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX preferencias_sucursal_empresa_id_ea1ff3e6 ON public.preferencias_sucursal USING btree (empresa_id);
 
 
 --
--- Name: produccion_detalleordenproduccion_orden_produccion_id_4d4b1050; Type: INDEX; Schema: public; Owner: -
+-- Name: produccion_detalleordenproduccion_orden_produccion_id_4d4b1050; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX produccion_detalleordenproduccion_orden_produccion_id_4d4b1050 ON public.produccion_detalleordenproduccion USING btree (orden_produccion_id);
 
 
 --
--- Name: produccion_detalleordenproduccion_producto_id_8e507fa7; Type: INDEX; Schema: public; Owner: -
+-- Name: produccion_detalleordenproduccion_producto_id_8e507fa7; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX produccion_detalleordenproduccion_producto_id_8e507fa7 ON public.produccion_detalleordenproduccion USING btree (producto_id);
 
 
 --
--- Name: produccion_itemtest_test_id_022b2c4b; Type: INDEX; Schema: public; Owner: -
+-- Name: produccion_itemtest_test_id_022b2c4b; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX produccion_itemtest_test_id_022b2c4b ON public.produccion_itemtest USING btree (test_id);
 
 
 --
--- Name: produccion_ordenproduccion_almacen_id_b0ba0f18; Type: INDEX; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion_almacen_id_b0ba0f18; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX produccion_ordenproduccion_almacen_id_b0ba0f18 ON public.produccion_ordenproduccion USING btree (almacen_id);
 
 
 --
--- Name: produccion_ordenproduccion_almacen_materia_prima_id_9877dad2; Type: INDEX; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion_almacen_materia_prima_id_9877dad2; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX produccion_ordenproduccion_almacen_materia_prima_id_9877dad2 ON public.produccion_ordenproduccion USING btree (almacen_materia_prima_id);
 
 
 --
--- Name: produccion_ordenproduccion_cliente_id_8e2275d5; Type: INDEX; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion_cliente_id_8e2275d5; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX produccion_ordenproduccion_cliente_id_8e2275d5 ON public.produccion_ordenproduccion USING btree (cliente_id);
 
 
 --
--- Name: produccion_ordenproduccion_empresa_id_1b09322c; Type: INDEX; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion_empresa_id_1b09322c; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX produccion_ordenproduccion_empresa_id_1b09322c ON public.produccion_ordenproduccion USING btree (empresa_id);
 
 
 --
--- Name: produccion_ordenproduccion_pedido_origen_id_a0f9a632; Type: INDEX; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion_pedido_origen_id_a0f9a632; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX produccion_ordenproduccion_pedido_origen_id_a0f9a632 ON public.produccion_ordenproduccion USING btree (pedido_origen_id);
 
 
 --
--- Name: produccion_ordenproduccion_producto_id_70da30a8; Type: INDEX; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion_producto_id_70da30a8; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX produccion_ordenproduccion_producto_id_70da30a8 ON public.produccion_ordenproduccion USING btree (producto_id);
 
 
 --
--- Name: produccion_ordenproduccion_responsable_id_b3dcbd3c; Type: INDEX; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion_responsable_id_b3dcbd3c; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX produccion_ordenproduccion_responsable_id_b3dcbd3c ON public.produccion_ordenproduccion USING btree (responsable_id);
 
 
 --
--- Name: produccion_ordenproduccion_solicitante_id_d8f9f349; Type: INDEX; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion_solicitante_id_d8f9f349; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX produccion_ordenproduccion_solicitante_id_d8f9f349 ON public.produccion_ordenproduccion USING btree (solicitante_id);
 
 
 --
--- Name: produccion_ordenproduccion_sucursal_id_22e7c2b1; Type: INDEX; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion_sucursal_id_22e7c2b1; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX produccion_ordenproduccion_sucursal_id_22e7c2b1 ON public.produccion_ordenproduccion USING btree (sucursal_id);
 
 
 --
--- Name: produccion_resultadotestop_item_test_id_2a99e7ac; Type: INDEX; Schema: public; Owner: -
+-- Name: produccion_resultadotestop_item_test_id_2a99e7ac; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX produccion_resultadotestop_item_test_id_2a99e7ac ON public.produccion_resultadotestop USING btree (item_test_id);
 
 
 --
--- Name: produccion_resultadotestop_orden_produccion_id_6a55d2fe; Type: INDEX; Schema: public; Owner: -
+-- Name: produccion_resultadotestop_orden_produccion_id_6a55d2fe; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX produccion_resultadotestop_orden_produccion_id_6a55d2fe ON public.produccion_resultadotestop USING btree (orden_produccion_id);
 
 
 --
--- Name: produccion_resultadotestop_usuario_verifico_id_6931f481; Type: INDEX; Schema: public; Owner: -
+-- Name: produccion_resultadotestop_usuario_verifico_id_6931f481; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX produccion_resultadotestop_usuario_verifico_id_6931f481 ON public.produccion_resultadotestop USING btree (usuario_verifico_id);
 
 
 --
--- Name: produccion_test_empresa_id_8e75f775; Type: INDEX; Schema: public; Owner: -
+-- Name: produccion_test_empresa_id_8e75f775; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX produccion_test_empresa_id_8e75f775 ON public.produccion_test USING btree (empresa_id);
 
 
 --
--- Name: proveedores_proveedor_empresa_id_f8402474; Type: INDEX; Schema: public; Owner: -
+-- Name: proveedores_proveedor_empresa_id_f8402474; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX proveedores_proveedor_empresa_id_f8402474 ON public.proveedores_proveedor USING btree (empresa_id);
 
 
 --
--- Name: proveedores_proveedor_rfc_6f6fdfaf_like; Type: INDEX; Schema: public; Owner: -
+-- Name: proveedores_proveedor_rfc_6f6fdfaf_like; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX proveedores_proveedor_rfc_6f6fdfaf_like ON public.proveedores_proveedor USING btree (rfc varchar_pattern_ops);
 
 
 --
--- Name: proveedores_sucursalproveedor_proveedor_id_83a644e4; Type: INDEX; Schema: public; Owner: -
+-- Name: proveedores_sucursalproveedor_proveedor_id_83a644e4; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX proveedores_sucursalproveedor_proveedor_id_83a644e4 ON public.proveedores_sucursalproveedor USING btree (proveedor_id);
 
 
 --
--- Name: recepciones_detallerecepcion_detalle_compra_id_5f0d3b82; Type: INDEX; Schema: public; Owner: -
+-- Name: recepciones_detallerecepcion_detalle_compra_id_5f0d3b82; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recepciones_detallerecepcion_detalle_compra_id_5f0d3b82 ON public.recepciones_detallerecepcion USING btree (detalle_compra_id);
 
 
 --
--- Name: recepciones_detallerecepcion_producto_id_a30887f4; Type: INDEX; Schema: public; Owner: -
+-- Name: recepciones_detallerecepcion_producto_id_a30887f4; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recepciones_detallerecepcion_producto_id_a30887f4 ON public.recepciones_detallerecepcion USING btree (producto_id);
 
 
 --
--- Name: recepciones_detallerecepcion_recepcion_id_f1911239; Type: INDEX; Schema: public; Owner: -
+-- Name: recepciones_detallerecepcion_recepcion_id_f1911239; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recepciones_detallerecepcion_recepcion_id_f1911239 ON public.recepciones_detallerecepcion USING btree (recepcion_id);
 
 
 --
--- Name: recepciones_detallerecepcionextra_almacen_id_ee42ded1; Type: INDEX; Schema: public; Owner: -
+-- Name: recepciones_detallerecepcionextra_almacen_id_ee42ded1; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recepciones_detallerecepcionextra_almacen_id_ee42ded1 ON public.recepciones_detallerecepcionextra USING btree (almacen_id);
 
 
 --
--- Name: recepciones_detallerecepcionextra_detalle_recepcion_id_b821e96a; Type: INDEX; Schema: public; Owner: -
+-- Name: recepciones_detallerecepcionextra_detalle_recepcion_id_b821e96a; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recepciones_detallerecepcionextra_detalle_recepcion_id_b821e96a ON public.recepciones_detallerecepcionextra USING btree (detalle_recepcion_id);
 
 
 --
--- Name: recepciones_detallerecepcionextra_producto_id_35fdcbf8; Type: INDEX; Schema: public; Owner: -
+-- Name: recepciones_detallerecepcionextra_producto_id_35fdcbf8; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recepciones_detallerecepcionextra_producto_id_35fdcbf8 ON public.recepciones_detallerecepcionextra USING btree (producto_id);
 
 
 --
--- Name: recepciones_recepcion_almacen_id_44991b19; Type: INDEX; Schema: public; Owner: -
+-- Name: recepciones_recepcion_almacen_id_44991b19; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recepciones_recepcion_almacen_id_44991b19 ON public.recepciones_recepcion USING btree (almacen_id);
 
 
 --
--- Name: recepciones_recepcion_empresa_id_26608cc9; Type: INDEX; Schema: public; Owner: -
+-- Name: recepciones_recepcion_empresa_id_26608cc9; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recepciones_recepcion_empresa_id_26608cc9 ON public.recepciones_recepcion USING btree (empresa_id);
 
 
 --
--- Name: recepciones_recepcion_moneda_id_fa7eecf8; Type: INDEX; Schema: public; Owner: -
+-- Name: recepciones_recepcion_moneda_id_fa7eecf8; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recepciones_recepcion_moneda_id_fa7eecf8 ON public.recepciones_recepcion USING btree (moneda_id);
 
 
 --
--- Name: recepciones_recepcion_orden_compra_id_d361724c; Type: INDEX; Schema: public; Owner: -
+-- Name: recepciones_recepcion_orden_compra_id_d361724c; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recepciones_recepcion_orden_compra_id_d361724c ON public.recepciones_recepcion USING btree (orden_compra_id);
 
 
 --
--- Name: recepciones_recepcion_sucursal_id_f571c37c; Type: INDEX; Schema: public; Owner: -
+-- Name: recepciones_recepcion_sucursal_id_f571c37c; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recepciones_recepcion_sucursal_id_f571c37c ON public.recepciones_recepcion USING btree (sucursal_id);
 
 
 --
--- Name: recursos_humanos_beneficiario_empresa_id_a3e2e461; Type: INDEX; Schema: public; Owner: -
+-- Name: recursos_humanos_beneficiario_empresa_id_a3e2e461; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recursos_humanos_beneficiario_empresa_id_a3e2e461 ON public.recursos_humanos_beneficiario USING btree (empresa_id);
 
 
 --
--- Name: recursos_humanos_beneficiario_sucursal_id_c1713656; Type: INDEX; Schema: public; Owner: -
+-- Name: recursos_humanos_beneficiario_sucursal_id_c1713656; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recursos_humanos_beneficiario_sucursal_id_c1713656 ON public.recursos_humanos_beneficiario USING btree (sucursal_id);
 
 
 --
--- Name: recursos_humanos_contratista_empresa_id_51f1e60d; Type: INDEX; Schema: public; Owner: -
+-- Name: recursos_humanos_contratista_empresa_id_51f1e60d; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recursos_humanos_contratista_empresa_id_51f1e60d ON public.recursos_humanos_contratista USING btree (empresa_id);
 
 
 --
--- Name: recursos_humanos_contratista_sucursal_id_8e963931; Type: INDEX; Schema: public; Owner: -
+-- Name: recursos_humanos_contratista_sucursal_id_8e963931; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recursos_humanos_contratista_sucursal_id_8e963931 ON public.recursos_humanos_contratista USING btree (sucursal_id);
 
 
 --
--- Name: recursos_humanos_contrato_beneficiario_id_85fed8bc; Type: INDEX; Schema: public; Owner: -
+-- Name: recursos_humanos_contrato_beneficiario_id_85fed8bc; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recursos_humanos_contrato_beneficiario_id_85fed8bc ON public.recursos_humanos_contrato USING btree (beneficiario_id);
 
 
 --
--- Name: recursos_humanos_contrato_contratista_id_e028a5d8; Type: INDEX; Schema: public; Owner: -
+-- Name: recursos_humanos_contrato_contratista_id_e028a5d8; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recursos_humanos_contrato_contratista_id_e028a5d8 ON public.recursos_humanos_contrato USING btree (contratista_id);
 
 
 --
--- Name: recursos_humanos_contrato_empleados_contrato_id_e3bfb733; Type: INDEX; Schema: public; Owner: -
+-- Name: recursos_humanos_contrato_empleados_contrato_id_e3bfb733; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recursos_humanos_contrato_empleados_contrato_id_e3bfb733 ON public.recursos_humanos_contrato_empleados USING btree (contrato_id);
 
 
 --
--- Name: recursos_humanos_contrato_empleados_empleado_id_410d1806; Type: INDEX; Schema: public; Owner: -
+-- Name: recursos_humanos_contrato_empleados_empleado_id_410d1806; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recursos_humanos_contrato_empleados_empleado_id_410d1806 ON public.recursos_humanos_contrato_empleados USING btree (empleado_id);
 
 
 --
--- Name: recursos_humanos_contrato_empresa_id_e2bee0b6; Type: INDEX; Schema: public; Owner: -
+-- Name: recursos_humanos_contrato_empresa_id_e2bee0b6; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recursos_humanos_contrato_empresa_id_e2bee0b6 ON public.recursos_humanos_contrato USING btree (empresa_id);
 
 
 --
--- Name: recursos_humanos_contrato_sucursal_id_d22d7cac; Type: INDEX; Schema: public; Owner: -
+-- Name: recursos_humanos_contrato_sucursal_id_d22d7cac; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recursos_humanos_contrato_sucursal_id_d22d7cac ON public.recursos_humanos_contrato USING btree (sucursal_id);
 
 
 --
--- Name: recursos_humanos_empleado_beneficiario_id_18222efd; Type: INDEX; Schema: public; Owner: -
+-- Name: recursos_humanos_empleado_beneficiario_id_18222efd; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recursos_humanos_empleado_beneficiario_id_18222efd ON public.recursos_humanos_empleado USING btree (beneficiario_id);
 
 
 --
--- Name: recursos_humanos_empleado_contratista_id_f703e65c; Type: INDEX; Schema: public; Owner: -
+-- Name: recursos_humanos_empleado_contratista_id_f703e65c; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recursos_humanos_empleado_contratista_id_f703e65c ON public.recursos_humanos_empleado USING btree (contratista_id);
 
 
 --
--- Name: recursos_humanos_empleado_empresa_id_16fd396e; Type: INDEX; Schema: public; Owner: -
+-- Name: recursos_humanos_empleado_empresa_id_16fd396e; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recursos_humanos_empleado_empresa_id_16fd396e ON public.recursos_humanos_empleado USING btree (empresa_id);
 
 
 --
--- Name: recursos_humanos_empleado_sucursal_id_917b2c81; Type: INDEX; Schema: public; Owner: -
+-- Name: recursos_humanos_empleado_sucursal_id_917b2c81; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recursos_humanos_empleado_sucursal_id_917b2c81 ON public.recursos_humanos_empleado USING btree (sucursal_id);
 
 
 --
--- Name: recursos_humanos_importacionsua_empresa_id_76189fbb; Type: INDEX; Schema: public; Owner: -
+-- Name: recursos_humanos_importacionsua_empresa_id_76189fbb; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recursos_humanos_importacionsua_empresa_id_76189fbb ON public.recursos_humanos_importacionsua USING btree (empresa_id);
 
 
 --
--- Name: recursos_humanos_importacionsua_sucursal_id_7fce5a70; Type: INDEX; Schema: public; Owner: -
+-- Name: recursos_humanos_importacionsua_sucursal_id_7fce5a70; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recursos_humanos_importacionsua_sucursal_id_7fce5a70 ON public.recursos_humanos_importacionsua USING btree (sucursal_id);
 
 
 --
--- Name: recursos_humanos_trabajadorsua_importacion_id_28691274; Type: INDEX; Schema: public; Owner: -
+-- Name: recursos_humanos_nomina_empleado_id_d3e6646f; Type: INDEX; Schema: public; Owner: madmin
+--
+
+CREATE INDEX recursos_humanos_nomina_empleado_id_d3e6646f ON public.recursos_humanos_nomina USING btree (empleado_id);
+
+
+--
+-- Name: recursos_humanos_nomina_empresa_id_521c2f36; Type: INDEX; Schema: public; Owner: madmin
+--
+
+CREATE INDEX recursos_humanos_nomina_empresa_id_521c2f36 ON public.recursos_humanos_nomina USING btree (empresa_id);
+
+
+--
+-- Name: recursos_humanos_nomina_sucursal_id_41c7dcdd; Type: INDEX; Schema: public; Owner: madmin
+--
+
+CREATE INDEX recursos_humanos_nomina_sucursal_id_41c7dcdd ON public.recursos_humanos_nomina USING btree (sucursal_id);
+
+
+--
+-- Name: recursos_humanos_trabajadorsua_importacion_id_28691274; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX recursos_humanos_trabajadorsua_importacion_id_28691274 ON public.recursos_humanos_trabajadorsua USING btree (importacion_id);
 
 
 --
--- Name: solicitudcompras_detalleso_detalle_pedido_origen_id_1aa6dac5; Type: INDEX; Schema: public; Owner: -
+-- Name: solicitudcompras_detalleso_detalle_pedido_origen_id_1aa6dac5; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX solicitudcompras_detalleso_detalle_pedido_origen_id_1aa6dac5 ON public.solicitudcompras_detallesolicitudcompra USING btree (detalle_pedido_origen_id);
 
 
 --
--- Name: solicitudcompras_detallesolicitudcompra_almacen_id_9bfc7009; Type: INDEX; Schema: public; Owner: -
+-- Name: solicitudcompras_detallesolicitudcompra_almacen_id_9bfc7009; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX solicitudcompras_detallesolicitudcompra_almacen_id_9bfc7009 ON public.solicitudcompras_detallesolicitudcompra USING btree (almacen_id);
 
 
 --
--- Name: solicitudcompras_detallesolicitudcompra_lista_id_4dee9864; Type: INDEX; Schema: public; Owner: -
+-- Name: solicitudcompras_detallesolicitudcompra_lista_id_4dee9864; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX solicitudcompras_detallesolicitudcompra_lista_id_4dee9864 ON public.solicitudcompras_detallesolicitudcompra USING btree (lista_id);
 
 
 --
--- Name: solicitudcompras_detallesolicitudcompra_moneda_id_4afc8a32; Type: INDEX; Schema: public; Owner: -
+-- Name: solicitudcompras_detallesolicitudcompra_moneda_id_4afc8a32; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX solicitudcompras_detallesolicitudcompra_moneda_id_4afc8a32 ON public.solicitudcompras_detallesolicitudcompra USING btree (moneda_id);
 
 
 --
--- Name: solicitudcompras_detallesolicitudcompra_producto_id_da45d513; Type: INDEX; Schema: public; Owner: -
+-- Name: solicitudcompras_detallesolicitudcompra_producto_id_da45d513; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX solicitudcompras_detallesolicitudcompra_producto_id_da45d513 ON public.solicitudcompras_detallesolicitudcompra USING btree (producto_id);
 
 
 --
--- Name: solicitudcompras_detallesolicitudcompra_proveedor_id_486012fa; Type: INDEX; Schema: public; Owner: -
+-- Name: solicitudcompras_detallesolicitudcompra_proveedor_id_486012fa; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX solicitudcompras_detallesolicitudcompra_proveedor_id_486012fa ON public.solicitudcompras_detallesolicitudcompra USING btree (proveedor_id);
 
 
 --
--- Name: solicitudcompras_detallesolicitudcompra_solicitud_id_d5ebb2ca; Type: INDEX; Schema: public; Owner: -
+-- Name: solicitudcompras_detallesolicitudcompra_solicitud_id_d5ebb2ca; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX solicitudcompras_detallesolicitudcompra_solicitud_id_d5ebb2ca ON public.solicitudcompras_detallesolicitudcompra USING btree (solicitud_id);
 
 
 --
--- Name: solicitudcompras_detallesolicitudcompra_sucursal_id_0db7d68f; Type: INDEX; Schema: public; Owner: -
+-- Name: solicitudcompras_detallesolicitudcompra_sucursal_id_0db7d68f; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX solicitudcompras_detallesolicitudcompra_sucursal_id_0db7d68f ON public.solicitudcompras_detallesolicitudcompra USING btree (sucursal_id);
 
 
 --
--- Name: solicitudcompras_solicitudcompra_empresa_id_1a2e52ef; Type: INDEX; Schema: public; Owner: -
+-- Name: solicitudcompras_solicitudcompra_empresa_id_1a2e52ef; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX solicitudcompras_solicitudcompra_empresa_id_1a2e52ef ON public.solicitudcompras_solicitudcompra USING btree (empresa_id);
 
 
 --
--- Name: solicitudcompras_solicitudcompra_pedido_origen_id_1a25cbb1; Type: INDEX; Schema: public; Owner: -
+-- Name: solicitudcompras_solicitudcompra_pedido_origen_id_1a25cbb1; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX solicitudcompras_solicitudcompra_pedido_origen_id_1a25cbb1 ON public.solicitudcompras_solicitudcompra USING btree (pedido_origen_id);
 
 
 --
--- Name: solicitudcompras_solicitudcompra_solicitante_id_b0c98987; Type: INDEX; Schema: public; Owner: -
+-- Name: solicitudcompras_solicitudcompra_solicitante_id_b0c98987; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX solicitudcompras_solicitudcompra_solicitante_id_b0c98987 ON public.solicitudcompras_solicitudcompra USING btree (solicitante_id);
 
 
 --
--- Name: solicitudcompras_solicitudcompra_sucursal_id_6ffc068e; Type: INDEX; Schema: public; Owner: -
+-- Name: solicitudcompras_solicitudcompra_sucursal_id_6ffc068e; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX solicitudcompras_solicitudcompra_sucursal_id_6ffc068e ON public.solicitudcompras_solicitudcompra USING btree (sucursal_id);
 
 
 --
--- Name: tesoreria_cajabanco_empresa_id_2011dc82; Type: INDEX; Schema: public; Owner: -
+-- Name: tesoreria_cajabanco_empresa_id_2011dc82; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX tesoreria_cajabanco_empresa_id_2011dc82 ON public.tesoreria_cajabanco USING btree (empresa_id);
 
 
 --
--- Name: tesoreria_cajabanco_moneda_id_68e091d7; Type: INDEX; Schema: public; Owner: -
+-- Name: tesoreria_cajabanco_moneda_id_68e091d7; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX tesoreria_cajabanco_moneda_id_68e091d7 ON public.tesoreria_cajabanco USING btree (moneda_id);
 
 
 --
--- Name: tesoreria_cajabanco_sucursal_id_5c31a139; Type: INDEX; Schema: public; Owner: -
+-- Name: tesoreria_cajabanco_sucursal_id_5c31a139; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX tesoreria_cajabanco_sucursal_id_5c31a139 ON public.tesoreria_cajabanco USING btree (sucursal_id);
 
 
 --
--- Name: tesoreria_egreso_caja_banco_id_badd26d0; Type: INDEX; Schema: public; Owner: -
+-- Name: tesoreria_egreso_caja_banco_id_badd26d0; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX tesoreria_egreso_caja_banco_id_badd26d0 ON public.tesoreria_egreso USING btree (caja_banco_id);
 
 
 --
--- Name: tesoreria_egreso_empresa_id_bce47c13; Type: INDEX; Schema: public; Owner: -
+-- Name: tesoreria_egreso_empresa_id_bce47c13; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX tesoreria_egreso_empresa_id_bce47c13 ON public.tesoreria_egreso USING btree (empresa_id);
 
 
 --
--- Name: tesoreria_egreso_moneda_id_83bdbfdf; Type: INDEX; Schema: public; Owner: -
+-- Name: tesoreria_egreso_moneda_id_83bdbfdf; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX tesoreria_egreso_moneda_id_83bdbfdf ON public.tesoreria_egreso USING btree (moneda_id);
 
 
 --
--- Name: tesoreria_egreso_sucursal_id_604e67d1; Type: INDEX; Schema: public; Owner: -
+-- Name: tesoreria_egreso_sucursal_id_604e67d1; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX tesoreria_egreso_sucursal_id_604e67d1 ON public.tesoreria_egreso USING btree (sucursal_id);
 
 
 --
--- Name: tesoreria_ingreso_caja_banco_id_ca7e9018; Type: INDEX; Schema: public; Owner: -
+-- Name: tesoreria_ingreso_caja_banco_id_ca7e9018; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX tesoreria_ingreso_caja_banco_id_ca7e9018 ON public.tesoreria_ingreso USING btree (caja_banco_id);
 
 
 --
--- Name: tesoreria_ingreso_empresa_id_9dad1036; Type: INDEX; Schema: public; Owner: -
+-- Name: tesoreria_ingreso_empresa_id_9dad1036; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX tesoreria_ingreso_empresa_id_9dad1036 ON public.tesoreria_ingreso USING btree (empresa_id);
 
 
 --
--- Name: tesoreria_ingreso_moneda_id_ed2389c9; Type: INDEX; Schema: public; Owner: -
+-- Name: tesoreria_ingreso_moneda_id_ed2389c9; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX tesoreria_ingreso_moneda_id_ed2389c9 ON public.tesoreria_ingreso USING btree (moneda_id);
 
 
 --
--- Name: tesoreria_ingreso_sucursal_id_6b893572; Type: INDEX; Schema: public; Owner: -
+-- Name: tesoreria_ingreso_sucursal_id_6b893572; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX tesoreria_ingreso_sucursal_id_6b893572 ON public.tesoreria_ingreso USING btree (sucursal_id);
 
 
 --
--- Name: tesoreria_pagocompra_caja_banco_id_bbea5526; Type: INDEX; Schema: public; Owner: -
+-- Name: tesoreria_pagocompra_caja_banco_id_bbea5526; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX tesoreria_pagocompra_caja_banco_id_bbea5526 ON public.tesoreria_pagocompra USING btree (caja_banco_id);
 
 
 --
--- Name: tesoreria_pagocompra_empresa_id_67829c90; Type: INDEX; Schema: public; Owner: -
+-- Name: tesoreria_pagocompra_empresa_id_67829c90; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX tesoreria_pagocompra_empresa_id_67829c90 ON public.tesoreria_pagocompra USING btree (empresa_id);
 
 
 --
--- Name: tesoreria_pagocompra_moneda_id_5a46a304; Type: INDEX; Schema: public; Owner: -
+-- Name: tesoreria_pagocompra_moneda_id_5a46a304; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX tesoreria_pagocompra_moneda_id_5a46a304 ON public.tesoreria_pagocompra USING btree (moneda_id);
 
 
 --
--- Name: tesoreria_pagocompra_orden_compra_id_4e10451f; Type: INDEX; Schema: public; Owner: -
+-- Name: tesoreria_pagocompra_orden_compra_id_4e10451f; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX tesoreria_pagocompra_orden_compra_id_4e10451f ON public.tesoreria_pagocompra USING btree (orden_compra_id);
 
 
 --
--- Name: tesoreria_pagocompra_sucursal_id_88c2b429; Type: INDEX; Schema: public; Owner: -
+-- Name: tesoreria_pagocompra_sucursal_id_88c2b429; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX tesoreria_pagocompra_sucursal_id_88c2b429 ON public.tesoreria_pagocompra USING btree (sucursal_id);
 
 
 --
--- Name: tesoreria_pagopedido_caja_banco_id_df36876e; Type: INDEX; Schema: public; Owner: -
+-- Name: tesoreria_pagopedido_caja_banco_id_df36876e; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX tesoreria_pagopedido_caja_banco_id_df36876e ON public.tesoreria_pagopedido USING btree (caja_banco_id);
 
 
 --
--- Name: tesoreria_pagopedido_empresa_id_97b48e5f; Type: INDEX; Schema: public; Owner: -
+-- Name: tesoreria_pagopedido_empresa_id_97b48e5f; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX tesoreria_pagopedido_empresa_id_97b48e5f ON public.tesoreria_pagopedido USING btree (empresa_id);
 
 
 --
--- Name: tesoreria_pagopedido_moneda_id_72f8b340; Type: INDEX; Schema: public; Owner: -
+-- Name: tesoreria_pagopedido_moneda_id_72f8b340; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX tesoreria_pagopedido_moneda_id_72f8b340 ON public.tesoreria_pagopedido USING btree (moneda_id);
 
 
 --
--- Name: tesoreria_pagopedido_pedido_id_828dccf5; Type: INDEX; Schema: public; Owner: -
+-- Name: tesoreria_pagopedido_pedido_id_828dccf5; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX tesoreria_pagopedido_pedido_id_828dccf5 ON public.tesoreria_pagopedido USING btree (pedido_id);
 
 
 --
--- Name: tesoreria_pagopedido_sucursal_id_24d3256a; Type: INDEX; Schema: public; Owner: -
+-- Name: tesoreria_pagopedido_sucursal_id_24d3256a; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX tesoreria_pagopedido_sucursal_id_24d3256a ON public.tesoreria_pagopedido USING btree (sucursal_id);
 
 
 --
--- Name: ventas_detalleordenventa_orden_venta_id_28f11661; Type: INDEX; Schema: public; Owner: -
+-- Name: ventas_detalleordenventa_orden_venta_id_28f11661; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX ventas_detalleordenventa_orden_venta_id_28f11661 ON public.ventas_detalleordenventa USING btree (orden_venta_id);
 
 
 --
--- Name: ventas_detalleordenventa_producto_id_ef240449; Type: INDEX; Schema: public; Owner: -
+-- Name: ventas_detalleordenventa_producto_id_ef240449; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX ventas_detalleordenventa_producto_id_ef240449 ON public.ventas_detalleordenventa USING btree (producto_id);
 
 
 --
--- Name: ventas_ordenventa_almacen_id_a3c31ad1; Type: INDEX; Schema: public; Owner: -
+-- Name: ventas_ordenventa_almacen_id_a3c31ad1; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX ventas_ordenventa_almacen_id_a3c31ad1 ON public.ventas_ordenventa USING btree (almacen_id);
 
 
 --
--- Name: ventas_ordenventa_cliente_id_fc8eed4a; Type: INDEX; Schema: public; Owner: -
+-- Name: ventas_ordenventa_cliente_id_fc8eed4a; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX ventas_ordenventa_cliente_id_fc8eed4a ON public.ventas_ordenventa USING btree (cliente_id);
 
 
 --
--- Name: ventas_ordenventa_empresa_id_cccf5f3d; Type: INDEX; Schema: public; Owner: -
+-- Name: ventas_ordenventa_empresa_id_cccf5f3d; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX ventas_ordenventa_empresa_id_cccf5f3d ON public.ventas_ordenventa USING btree (empresa_id);
 
 
 --
--- Name: ventas_ordenventa_parent_orden_id_06f86c7f; Type: INDEX; Schema: public; Owner: -
+-- Name: ventas_ordenventa_parent_orden_id_06f86c7f; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX ventas_ordenventa_parent_orden_id_06f86c7f ON public.ventas_ordenventa USING btree (parent_orden_id);
 
 
 --
--- Name: ventas_ordenventa_pedido_origen_id_12fc79cd; Type: INDEX; Schema: public; Owner: -
+-- Name: ventas_ordenventa_pedido_origen_id_12fc79cd; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX ventas_ordenventa_pedido_origen_id_12fc79cd ON public.ventas_ordenventa USING btree (pedido_origen_id);
 
 
 --
--- Name: ventas_ordenventa_sucursal_id_59ae853d; Type: INDEX; Schema: public; Owner: -
+-- Name: ventas_ordenventa_sucursal_id_59ae853d; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX ventas_ordenventa_sucursal_id_59ae853d ON public.ventas_ordenventa USING btree (sucursal_id);
 
 
 --
--- Name: ventas_ordenventa_vendedor_id_058de01d; Type: INDEX; Schema: public; Owner: -
+-- Name: ventas_ordenventa_vendedor_id_058de01d; Type: INDEX; Schema: public; Owner: madmin
 --
 
 CREATE INDEX ventas_ordenventa_vendedor_id_058de01d ON public.ventas_ordenventa USING btree (vendedor_id);
 
 
 --
--- Name: actividades_actividad actividades_activida_cliente_id_31dd4638_fk_clientes_; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: actividades_actividad actividades_activida_cliente_id_31dd4638_fk_clientes_; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.actividades_actividad
@@ -6895,7 +7404,7 @@ ALTER TABLE ONLY public.actividades_actividad
 
 
 --
--- Name: actividades_actividad actividades_activida_contacto_id_d0291271_fk_clientes_; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: actividades_actividad actividades_activida_contacto_id_d0291271_fk_clientes_; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.actividades_actividad
@@ -6903,7 +7412,7 @@ ALTER TABLE ONLY public.actividades_actividad
 
 
 --
--- Name: actividades_actividad actividades_activida_cotizacion_id_f6475c97_fk_cotizacio; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: actividades_actividad actividades_activida_cotizacion_id_f6475c97_fk_cotizacio; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.actividades_actividad
@@ -6911,7 +7420,7 @@ ALTER TABLE ONLY public.actividades_actividad
 
 
 --
--- Name: actividades_actividad actividades_activida_sucursal_id_514349f7_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: actividades_actividad actividades_activida_sucursal_id_514349f7_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.actividades_actividad
@@ -6919,7 +7428,7 @@ ALTER TABLE ONLY public.actividades_actividad
 
 
 --
--- Name: actividades_actividad actividades_actividad_empresa_id_d6c1b71a_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: actividades_actividad actividades_actividad_empresa_id_d6c1b71a_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.actividades_actividad
@@ -6927,7 +7436,7 @@ ALTER TABLE ONLY public.actividades_actividad
 
 
 --
--- Name: almacenes_almacen almacenes_almacen_empresa_id_5b652cc0_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: almacenes_almacen almacenes_almacen_empresa_id_5b652cc0_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.almacenes_almacen
@@ -6935,7 +7444,7 @@ ALTER TABLE ONLY public.almacenes_almacen
 
 
 --
--- Name: almacenes_almacen almacenes_almacen_sucursal_id_93d395bc_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: almacenes_almacen almacenes_almacen_sucursal_id_93d395bc_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.almacenes_almacen
@@ -6943,7 +7452,7 @@ ALTER TABLE ONLY public.almacenes_almacen
 
 
 --
--- Name: almacenes_inventario almacenes_inventario_almacen_id_c69f237c_fk_almacenes; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: almacenes_inventario almacenes_inventario_almacen_id_c69f237c_fk_almacenes; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.almacenes_inventario
@@ -6951,7 +7460,7 @@ ALTER TABLE ONLY public.almacenes_inventario
 
 
 --
--- Name: almacenes_inventario almacenes_inventario_empresa_id_06242eac_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: almacenes_inventario almacenes_inventario_empresa_id_06242eac_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.almacenes_inventario
@@ -6959,7 +7468,7 @@ ALTER TABLE ONLY public.almacenes_inventario
 
 
 --
--- Name: almacenes_inventario almacenes_inventario_producto_id_c2b420e0_fk_core_producto_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: almacenes_inventario almacenes_inventario_producto_id_c2b420e0_fk_core_producto_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.almacenes_inventario
@@ -6967,7 +7476,7 @@ ALTER TABLE ONLY public.almacenes_inventario
 
 
 --
--- Name: almacenes_inventario almacenes_inventario_sucursal_id_ced5111b_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: almacenes_inventario almacenes_inventario_sucursal_id_ced5111b_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.almacenes_inventario
@@ -6975,7 +7484,7 @@ ALTER TABLE ONLY public.almacenes_inventario
 
 
 --
--- Name: almacenes_kardex almacenes_kardex_almacen_id_7d839ce9_fk_almacenes_almacen_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: almacenes_kardex almacenes_kardex_almacen_id_7d839ce9_fk_almacenes_almacen_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.almacenes_kardex
@@ -6983,7 +7492,7 @@ ALTER TABLE ONLY public.almacenes_kardex
 
 
 --
--- Name: almacenes_kardex almacenes_kardex_empresa_id_8a87d26f_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: almacenes_kardex almacenes_kardex_empresa_id_8a87d26f_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.almacenes_kardex
@@ -6991,7 +7500,7 @@ ALTER TABLE ONLY public.almacenes_kardex
 
 
 --
--- Name: almacenes_kardex almacenes_kardex_producto_id_df4332ce_fk_core_producto_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: almacenes_kardex almacenes_kardex_producto_id_df4332ce_fk_core_producto_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.almacenes_kardex
@@ -6999,7 +7508,7 @@ ALTER TABLE ONLY public.almacenes_kardex
 
 
 --
--- Name: almacenes_kardex almacenes_kardex_sucursal_id_bcea0fc6_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: almacenes_kardex almacenes_kardex_sucursal_id_bcea0fc6_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.almacenes_kardex
@@ -7007,7 +7516,7 @@ ALTER TABLE ONLY public.almacenes_kardex
 
 
 --
--- Name: almacenes_kardex almacenes_kardex_usuario_id_9c0bc3a1_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: almacenes_kardex almacenes_kardex_usuario_id_9c0bc3a1_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.almacenes_kardex
@@ -7015,7 +7524,7 @@ ALTER TABLE ONLY public.almacenes_kardex
 
 
 --
--- Name: auth_group_permissions auth_group_permissio_permission_id_84c5c92e_fk_auth_perm; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: auth_group_permissions auth_group_permissio_permission_id_84c5c92e_fk_auth_perm; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.auth_group_permissions
@@ -7023,7 +7532,7 @@ ALTER TABLE ONLY public.auth_group_permissions
 
 
 --
--- Name: auth_group_permissions auth_group_permissions_group_id_b120cbf9_fk_auth_group_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: auth_group_permissions auth_group_permissions_group_id_b120cbf9_fk_auth_group_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.auth_group_permissions
@@ -7031,7 +7540,7 @@ ALTER TABLE ONLY public.auth_group_permissions
 
 
 --
--- Name: auth_permission auth_permission_content_type_id_2f476e4b_fk_django_co; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: auth_permission auth_permission_content_type_id_2f476e4b_fk_django_co; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.auth_permission
@@ -7039,7 +7548,7 @@ ALTER TABLE ONLY public.auth_permission
 
 
 --
--- Name: auth_user_groups auth_user_groups_group_id_97559544_fk_auth_group_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: auth_user_groups auth_user_groups_group_id_97559544_fk_auth_group_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.auth_user_groups
@@ -7047,7 +7556,7 @@ ALTER TABLE ONLY public.auth_user_groups
 
 
 --
--- Name: auth_user_groups auth_user_groups_user_id_6a12ed8b_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: auth_user_groups auth_user_groups_user_id_6a12ed8b_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.auth_user_groups
@@ -7055,7 +7564,7 @@ ALTER TABLE ONLY public.auth_user_groups
 
 
 --
--- Name: auth_user_user_permissions auth_user_user_permi_permission_id_1fbb5f2c_fk_auth_perm; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: auth_user_user_permissions auth_user_user_permi_permission_id_1fbb5f2c_fk_auth_perm; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.auth_user_user_permissions
@@ -7063,7 +7572,7 @@ ALTER TABLE ONLY public.auth_user_user_permissions
 
 
 --
--- Name: auth_user_user_permissions auth_user_user_permissions_user_id_a95ead1b_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: auth_user_user_permissions auth_user_user_permissions_user_id_a95ead1b_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.auth_user_user_permissions
@@ -7071,7 +7580,7 @@ ALTER TABLE ONLY public.auth_user_user_permissions
 
 
 --
--- Name: categorias_categoria categorias_categoria_empresa_id_f67784ba_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: categorias_categoria categorias_categoria_empresa_id_f67784ba_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.categorias_categoria
@@ -7079,7 +7588,7 @@ ALTER TABLE ONLY public.categorias_categoria
 
 
 --
--- Name: categorias_listapreciocosto categorias_listaprec_empresa_id_be6b0b37_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: categorias_listapreciocosto categorias_listaprec_empresa_id_be6b0b37_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.categorias_listapreciocosto
@@ -7087,7 +7596,7 @@ ALTER TABLE ONLY public.categorias_listapreciocosto
 
 
 --
--- Name: categorias_subcategoria categorias_subcatego_categoria_id_ff5e0ea4_fk_categoria; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: categorias_subcategoria categorias_subcatego_categoria_id_ff5e0ea4_fk_categoria; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.categorias_subcategoria
@@ -7095,7 +7604,7 @@ ALTER TABLE ONLY public.categorias_subcategoria
 
 
 --
--- Name: categorias_subcategoria categorias_subcategoria_empresa_id_10304328_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: categorias_subcategoria categorias_subcategoria_empresa_id_10304328_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.categorias_subcategoria
@@ -7103,7 +7612,7 @@ ALTER TABLE ONLY public.categorias_subcategoria
 
 
 --
--- Name: clientes_cliente clientes_cliente_empresa_id_6e2597e2_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: clientes_cliente clientes_cliente_empresa_id_6e2597e2_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.clientes_cliente
@@ -7111,7 +7620,7 @@ ALTER TABLE ONLY public.clientes_cliente
 
 
 --
--- Name: clientes_contactocliente clientes_contactocli_cliente_id_3e846666_fk_clientes_; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: clientes_contactocliente clientes_contactocli_cliente_id_3e846666_fk_clientes_; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.clientes_contactocliente
@@ -7119,7 +7628,7 @@ ALTER TABLE ONLY public.clientes_contactocliente
 
 
 --
--- Name: compras_detallecompra compras_detallecompr_detalle_pedido_orige_1c1ae1bb_fk_pedidos_d; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: compras_detallecompra compras_detallecompr_detalle_pedido_orige_1c1ae1bb_fk_pedidos_d; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.compras_detallecompra
@@ -7127,7 +7636,7 @@ ALTER TABLE ONLY public.compras_detallecompra
 
 
 --
--- Name: compras_detallecompra compras_detallecompr_orden_compra_id_c71cd0a9_fk_compras_o; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: compras_detallecompra compras_detallecompr_orden_compra_id_c71cd0a9_fk_compras_o; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.compras_detallecompra
@@ -7135,7 +7644,7 @@ ALTER TABLE ONLY public.compras_detallecompra
 
 
 --
--- Name: compras_detallecompra compras_detallecompra_producto_id_38c7f9c4_fk_core_producto_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: compras_detallecompra compras_detallecompra_producto_id_38c7f9c4_fk_core_producto_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.compras_detallecompra
@@ -7143,7 +7652,7 @@ ALTER TABLE ONLY public.compras_detallecompra
 
 
 --
--- Name: compras_ordencompra compras_ordencompra_almacen_destino_id_af61e399_fk_almacenes; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: compras_ordencompra compras_ordencompra_almacen_destino_id_af61e399_fk_almacenes; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.compras_ordencompra
@@ -7151,7 +7660,7 @@ ALTER TABLE ONLY public.compras_ordencompra
 
 
 --
--- Name: compras_ordencompra compras_ordencompra_empresa_id_5c4630d8_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: compras_ordencompra compras_ordencompra_empresa_id_5c4630d8_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.compras_ordencompra
@@ -7159,7 +7668,7 @@ ALTER TABLE ONLY public.compras_ordencompra
 
 
 --
--- Name: compras_ordencompra compras_ordencompra_moneda_id_30388668_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: compras_ordencompra compras_ordencompra_moneda_id_30388668_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.compras_ordencompra
@@ -7167,7 +7676,7 @@ ALTER TABLE ONLY public.compras_ordencompra
 
 
 --
--- Name: compras_ordencompra compras_ordencompra_proveedor_id_c42e35e1_fk_proveedor; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: compras_ordencompra compras_ordencompra_proveedor_id_c42e35e1_fk_proveedor; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.compras_ordencompra
@@ -7175,7 +7684,7 @@ ALTER TABLE ONLY public.compras_ordencompra
 
 
 --
--- Name: compras_ordencompra compras_ordencompra_solicitud_origen_id_d32bb95e_fk_solicitud; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: compras_ordencompra compras_ordencompra_solicitud_origen_id_d32bb95e_fk_solicitud; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.compras_ordencompra
@@ -7183,7 +7692,7 @@ ALTER TABLE ONLY public.compras_ordencompra
 
 
 --
--- Name: compras_ordencompra compras_ordencompra_sucursal_empresa_id_4299d49a_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: compras_ordencompra compras_ordencompra_sucursal_empresa_id_4299d49a_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.compras_ordencompra
@@ -7191,7 +7700,7 @@ ALTER TABLE ONLY public.compras_ordencompra
 
 
 --
--- Name: compras_ordencompra compras_ordencompra_sucursal_id_06005950_fk_proveedor; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: compras_ordencompra compras_ordencompra_sucursal_id_06005950_fk_proveedor; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.compras_ordencompra
@@ -7199,7 +7708,7 @@ ALTER TABLE ONLY public.compras_ordencompra
 
 
 --
--- Name: compras_ordencompra compras_ordencompra_usuario_id_a2084c63_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: compras_ordencompra compras_ordencompra_usuario_id_a2084c63_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.compras_ordencompra
@@ -7207,7 +7716,7 @@ ALTER TABLE ONLY public.compras_ordencompra
 
 
 --
--- Name: core_categoria core_categoria_empresa_id_44437a59_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: core_categoria core_categoria_empresa_id_44437a59_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.core_categoria
@@ -7215,7 +7724,7 @@ ALTER TABLE ONLY public.core_categoria
 
 
 --
--- Name: core_detallereceta core_detallereceta_componente_id_ba974177_fk_core_producto_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: core_detallereceta core_detallereceta_componente_id_ba974177_fk_core_producto_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.core_detallereceta
@@ -7223,7 +7732,7 @@ ALTER TABLE ONLY public.core_detallereceta
 
 
 --
--- Name: core_detallereceta core_detallereceta_producto_padre_id_3a9c3cfd_fk_core_prod; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: core_detallereceta core_detallereceta_producto_padre_id_3a9c3cfd_fk_core_prod; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.core_detallereceta
@@ -7231,7 +7740,7 @@ ALTER TABLE ONLY public.core_detallereceta
 
 
 --
--- Name: core_producto core_producto_empresa_id_efa7546e_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: core_producto core_producto_empresa_id_efa7546e_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.core_producto
@@ -7239,7 +7748,7 @@ ALTER TABLE ONLY public.core_producto
 
 
 --
--- Name: core_producto core_producto_test_calidad_id_29569fed_fk_produccion_test_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: core_producto core_producto_test_calidad_id_29569fed_fk_produccion_test_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.core_producto
@@ -7247,7 +7756,7 @@ ALTER TABLE ONLY public.core_producto
 
 
 --
--- Name: core_transaccion core_transaccion_almacen_id_0ccca5c8_fk_almacenes_almacen_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: core_transaccion core_transaccion_almacen_id_0ccca5c8_fk_almacenes_almacen_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.core_transaccion
@@ -7255,7 +7764,7 @@ ALTER TABLE ONLY public.core_transaccion
 
 
 --
--- Name: core_transaccion core_transaccion_empresa_id_fdeef44c_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: core_transaccion core_transaccion_empresa_id_fdeef44c_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.core_transaccion
@@ -7263,7 +7772,7 @@ ALTER TABLE ONLY public.core_transaccion
 
 
 --
--- Name: core_transaccion core_transaccion_producto_id_3c4d4be3_fk_core_producto_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: core_transaccion core_transaccion_producto_id_3c4d4be3_fk_core_producto_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.core_transaccion
@@ -7271,7 +7780,7 @@ ALTER TABLE ONLY public.core_transaccion
 
 
 --
--- Name: core_transaccion core_transaccion_proveedor_id_6c6254bb_fk_proveedor; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: core_transaccion core_transaccion_proveedor_id_6c6254bb_fk_proveedor; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.core_transaccion
@@ -7279,7 +7788,7 @@ ALTER TABLE ONLY public.core_transaccion
 
 
 --
--- Name: costeos_comercioadquisicion costeos_comercioadqu_costeo_id_95b4726f_fk_costeos_c; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_comercioadquisicion costeos_comercioadqu_costeo_id_95b4726f_fk_costeos_c; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_comercioadquisicion
@@ -7287,7 +7796,7 @@ ALTER TABLE ONLY public.costeos_comercioadquisicion
 
 
 --
--- Name: costeos_comercioadquisicion costeos_comercioadqu_moneda_id_f34384eb_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_comercioadquisicion costeos_comercioadqu_moneda_id_f34384eb_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_comercioadquisicion
@@ -7295,7 +7804,7 @@ ALTER TABLE ONLY public.costeos_comercioadquisicion
 
 
 --
--- Name: costeos_costeo costeos_costeo_duplicado_de_id_9a997f85_fk_costeos_costeo_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_costeo costeos_costeo_duplicado_de_id_9a997f85_fk_costeos_costeo_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_costeo
@@ -7303,7 +7812,7 @@ ALTER TABLE ONLY public.costeos_costeo
 
 
 --
--- Name: costeos_costeo costeos_costeo_empresa_id_1e438914_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_costeo costeos_costeo_empresa_id_1e438914_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_costeo
@@ -7311,7 +7820,7 @@ ALTER TABLE ONLY public.costeos_costeo
 
 
 --
--- Name: costeos_costeo costeos_costeo_sucursal_id_b7dd6c96_fk_preferencias_sucursal_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_costeo costeos_costeo_sucursal_id_b7dd6c96_fk_preferencias_sucursal_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_costeo
@@ -7319,7 +7828,7 @@ ALTER TABLE ONLY public.costeos_costeo
 
 
 --
--- Name: costeos_costeo costeos_costeo_vendedor_id_7f898050_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_costeo costeos_costeo_vendedor_id_7f898050_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_costeo
@@ -7327,7 +7836,7 @@ ALTER TABLE ONLY public.costeos_costeo
 
 
 --
--- Name: costeos_manufacturagastoindirecto costeos_manufacturag_costeo_id_6e8f5bd1_fk_costeos_c; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_manufacturagastoindirecto costeos_manufacturag_costeo_id_6e8f5bd1_fk_costeos_c; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_manufacturagastoindirecto
@@ -7335,7 +7844,7 @@ ALTER TABLE ONLY public.costeos_manufacturagastoindirecto
 
 
 --
--- Name: costeos_manufacturagastoindirecto costeos_manufacturag_moneda_id_3b62953e_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_manufacturagastoindirecto costeos_manufacturag_moneda_id_3b62953e_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_manufacturagastoindirecto
@@ -7343,7 +7852,7 @@ ALTER TABLE ONLY public.costeos_manufacturagastoindirecto
 
 
 --
--- Name: costeos_manufacturamanoobra costeos_manufacturam_costeo_id_430ced81_fk_costeos_c; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_manufacturamanoobra costeos_manufacturam_costeo_id_430ced81_fk_costeos_c; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_manufacturamanoobra
@@ -7351,7 +7860,7 @@ ALTER TABLE ONLY public.costeos_manufacturamanoobra
 
 
 --
--- Name: costeos_manufacturamateriaprima costeos_manufacturam_costeo_id_f832c0c2_fk_costeos_c; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_manufacturamateriaprima costeos_manufacturam_costeo_id_f832c0c2_fk_costeos_c; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_manufacturamateriaprima
@@ -7359,7 +7868,7 @@ ALTER TABLE ONLY public.costeos_manufacturamateriaprima
 
 
 --
--- Name: costeos_manufacturamanoobra costeos_manufacturam_moneda_id_8737b8e0_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_manufacturamanoobra costeos_manufacturam_moneda_id_8737b8e0_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_manufacturamanoobra
@@ -7367,7 +7876,7 @@ ALTER TABLE ONLY public.costeos_manufacturamanoobra
 
 
 --
--- Name: costeos_manufacturamateriaprima costeos_manufacturam_moneda_id_a87d8b0e_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_manufacturamateriaprima costeos_manufacturam_moneda_id_a87d8b0e_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_manufacturamateriaprima
@@ -7375,7 +7884,7 @@ ALTER TABLE ONLY public.costeos_manufacturamateriaprima
 
 
 --
--- Name: costeos_serviciomaterial costeos_serviciomate_costeo_id_e283311f_fk_costeos_c; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_serviciomaterial costeos_serviciomate_costeo_id_e283311f_fk_costeos_c; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_serviciomaterial
@@ -7383,7 +7892,7 @@ ALTER TABLE ONLY public.costeos_serviciomaterial
 
 
 --
--- Name: costeos_serviciomaterial costeos_serviciomate_moneda_id_7d8796c9_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_serviciomaterial costeos_serviciomate_moneda_id_7d8796c9_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_serviciomaterial
@@ -7391,7 +7900,7 @@ ALTER TABLE ONLY public.costeos_serviciomaterial
 
 
 --
--- Name: costeos_serviciopersonal costeos_serviciopers_costeo_id_1d3b42c9_fk_costeos_c; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_serviciopersonal costeos_serviciopers_costeo_id_1d3b42c9_fk_costeos_c; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_serviciopersonal
@@ -7399,7 +7908,7 @@ ALTER TABLE ONLY public.costeos_serviciopersonal
 
 
 --
--- Name: costeos_serviciopersonal costeos_serviciopers_moneda_id_d9ce650a_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: costeos_serviciopersonal costeos_serviciopers_moneda_id_d9ce650a_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.costeos_serviciopersonal
@@ -7407,7 +7916,7 @@ ALTER TABLE ONLY public.costeos_serviciopersonal
 
 
 --
--- Name: cotizaciones_cotizacion cotizaciones_cotizac_cliente_id_c6e3d6c6_fk_clientes_; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: cotizaciones_cotizacion cotizaciones_cotizac_cliente_id_c6e3d6c6_fk_clientes_; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.cotizaciones_cotizacion
@@ -7415,7 +7924,7 @@ ALTER TABLE ONLY public.cotizaciones_cotizacion
 
 
 --
--- Name: cotizaciones_cotizacion cotizaciones_cotizac_contacto_id_1bca6174_fk_clientes_; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: cotizaciones_cotizacion cotizaciones_cotizac_contacto_id_1bca6174_fk_clientes_; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.cotizaciones_cotizacion
@@ -7423,7 +7932,7 @@ ALTER TABLE ONLY public.cotizaciones_cotizacion
 
 
 --
--- Name: cotizaciones_cotizacion cotizaciones_cotizac_parent_quote_id_701a433a_fk_cotizacio; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: cotizaciones_cotizacion cotizaciones_cotizac_parent_quote_id_701a433a_fk_cotizacio; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.cotizaciones_cotizacion
@@ -7431,7 +7940,7 @@ ALTER TABLE ONLY public.cotizaciones_cotizacion
 
 
 --
--- Name: cotizaciones_cotizacion cotizaciones_cotizac_sucursal_id_d9e37007_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: cotizaciones_cotizacion cotizaciones_cotizac_sucursal_id_d9e37007_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.cotizaciones_cotizacion
@@ -7439,7 +7948,7 @@ ALTER TABLE ONLY public.cotizaciones_cotizacion
 
 
 --
--- Name: cotizaciones_cotizacion cotizaciones_cotizacion_empresa_id_1c525708_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: cotizaciones_cotizacion cotizaciones_cotizacion_empresa_id_1c525708_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.cotizaciones_cotizacion
@@ -7447,7 +7956,7 @@ ALTER TABLE ONLY public.cotizaciones_cotizacion
 
 
 --
--- Name: cotizaciones_cotizacion cotizaciones_cotizacion_vendedor_id_3685810f_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: cotizaciones_cotizacion cotizaciones_cotizacion_vendedor_id_3685810f_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.cotizaciones_cotizacion
@@ -7455,7 +7964,7 @@ ALTER TABLE ONLY public.cotizaciones_cotizacion
 
 
 --
--- Name: cotizaciones_detallecotizacion cotizaciones_detalle_cotizacion_id_f5669320_fk_cotizacio; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: cotizaciones_detallecotizacion cotizaciones_detalle_cotizacion_id_f5669320_fk_cotizacio; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.cotizaciones_detallecotizacion
@@ -7463,7 +7972,7 @@ ALTER TABLE ONLY public.cotizaciones_detallecotizacion
 
 
 --
--- Name: cotizaciones_detallecotizacion cotizaciones_detalle_producto_id_3b92b18b_fk_core_prod; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: cotizaciones_detallecotizacion cotizaciones_detalle_producto_id_3b92b18b_fk_core_prod; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.cotizaciones_detallecotizacion
@@ -7471,7 +7980,7 @@ ALTER TABLE ONLY public.cotizaciones_detallecotizacion
 
 
 --
--- Name: django_admin_log django_admin_log_content_type_id_c4bce8eb_fk_django_co; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: django_admin_log django_admin_log_content_type_id_c4bce8eb_fk_django_co; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.django_admin_log
@@ -7479,7 +7988,7 @@ ALTER TABLE ONLY public.django_admin_log
 
 
 --
--- Name: django_admin_log django_admin_log_user_id_c564eba6_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: django_admin_log django_admin_log_user_id_c564eba6_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.django_admin_log
@@ -7487,7 +7996,7 @@ ALTER TABLE ONLY public.django_admin_log
 
 
 --
--- Name: notificaciones_notificacion notificaciones_notif_empresa_id_b40213dd_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: notificaciones_notificacion notificaciones_notif_empresa_id_b40213dd_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.notificaciones_notificacion
@@ -7495,7 +8004,7 @@ ALTER TABLE ONLY public.notificaciones_notificacion
 
 
 --
--- Name: notificaciones_notificacion notificaciones_notif_propietario_recurso__6a494a51_fk_auth_user; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: notificaciones_notificacion notificaciones_notif_propietario_recurso__6a494a51_fk_auth_user; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.notificaciones_notificacion
@@ -7503,7 +8012,7 @@ ALTER TABLE ONLY public.notificaciones_notificacion
 
 
 --
--- Name: notificaciones_notificacion notificaciones_notificacion_actor_id_abf217ac_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: notificaciones_notificacion notificaciones_notificacion_actor_id_abf217ac_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.notificaciones_notificacion
@@ -7511,7 +8020,7 @@ ALTER TABLE ONLY public.notificaciones_notificacion
 
 
 --
--- Name: pedidos_detallepedido pedidos_detallepedid_parent_line_id_469a0736_fk_pedidos_d; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: pedidos_detallepedido pedidos_detallepedid_parent_line_id_469a0736_fk_pedidos_d; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.pedidos_detallepedido
@@ -7519,7 +8028,7 @@ ALTER TABLE ONLY public.pedidos_detallepedido
 
 
 --
--- Name: pedidos_detallepedido pedidos_detallepedido_pedido_id_37ae55c6_fk_pedidos_pedido_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: pedidos_detallepedido pedidos_detallepedido_pedido_id_37ae55c6_fk_pedidos_pedido_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.pedidos_detallepedido
@@ -7527,7 +8036,7 @@ ALTER TABLE ONLY public.pedidos_detallepedido
 
 
 --
--- Name: pedidos_detallepedido pedidos_detallepedido_producto_id_fb78018a_fk_core_producto_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: pedidos_detallepedido pedidos_detallepedido_producto_id_fb78018a_fk_core_producto_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.pedidos_detallepedido
@@ -7535,7 +8044,7 @@ ALTER TABLE ONLY public.pedidos_detallepedido
 
 
 --
--- Name: pedidos_pedido pedidos_pedido_cliente_id_84f4fc73_fk_clientes_cliente_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: pedidos_pedido pedidos_pedido_cliente_id_84f4fc73_fk_clientes_cliente_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.pedidos_pedido
@@ -7543,7 +8052,7 @@ ALTER TABLE ONLY public.pedidos_pedido
 
 
 --
--- Name: pedidos_pedido pedidos_pedido_contacto_id_2bf2a836_fk_clientes_; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: pedidos_pedido pedidos_pedido_contacto_id_2bf2a836_fk_clientes_; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.pedidos_pedido
@@ -7551,7 +8060,7 @@ ALTER TABLE ONLY public.pedidos_pedido
 
 
 --
--- Name: pedidos_pedido pedidos_pedido_empresa_id_88ea251a_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: pedidos_pedido pedidos_pedido_empresa_id_88ea251a_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.pedidos_pedido
@@ -7559,7 +8068,7 @@ ALTER TABLE ONLY public.pedidos_pedido
 
 
 --
--- Name: pedidos_pedido pedidos_pedido_sucursal_id_83721f54_fk_preferencias_sucursal_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: pedidos_pedido pedidos_pedido_sucursal_id_83721f54_fk_preferencias_sucursal_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.pedidos_pedido
@@ -7567,7 +8076,7 @@ ALTER TABLE ONLY public.pedidos_pedido
 
 
 --
--- Name: pedidos_pedido pedidos_pedido_vendedor_id_1ab7404e_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: pedidos_pedido pedidos_pedido_vendedor_id_1ab7404e_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.pedidos_pedido
@@ -7575,7 +8084,7 @@ ALTER TABLE ONLY public.pedidos_pedido
 
 
 --
--- Name: preferencias_asignacionrolusuario preferencias_asignac_empresa_id_903c4207_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: preferencias_asignacionrolusuario preferencias_asignac_empresa_id_903c4207_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.preferencias_asignacionrolusuario
@@ -7583,7 +8092,7 @@ ALTER TABLE ONLY public.preferencias_asignacionrolusuario
 
 
 --
--- Name: preferencias_asignacionrolusuario preferencias_asignac_rol_id_37360050_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: preferencias_asignacionrolusuario preferencias_asignac_rol_id_37360050_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.preferencias_asignacionrolusuario
@@ -7591,7 +8100,7 @@ ALTER TABLE ONLY public.preferencias_asignacionrolusuario
 
 
 --
--- Name: preferencias_asignacionrolusuario preferencias_asignac_usuario_id_179e878b_fk_auth_user; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: preferencias_asignacionrolusuario preferencias_asignac_usuario_id_179e878b_fk_auth_user; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.preferencias_asignacionrolusuario
@@ -7599,7 +8108,7 @@ ALTER TABLE ONLY public.preferencias_asignacionrolusuario
 
 
 --
--- Name: preferencias_moneda preferencias_moneda_empresa_id_c30b6373_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: preferencias_moneda preferencias_moneda_empresa_id_c30b6373_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.preferencias_moneda
@@ -7607,7 +8116,7 @@ ALTER TABLE ONLY public.preferencias_moneda
 
 
 --
--- Name: preferencias_moneda preferencias_moneda_responsable_id_4769389d_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: preferencias_moneda preferencias_moneda_responsable_id_4769389d_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.preferencias_moneda
@@ -7615,7 +8124,7 @@ ALTER TABLE ONLY public.preferencias_moneda
 
 
 --
--- Name: preferencias_permisorolmodulo preferencias_permiso_rol_id_581817ed_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: preferencias_permisorolmodulo preferencias_permiso_rol_id_581817ed_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.preferencias_permisorolmodulo
@@ -7623,7 +8132,7 @@ ALTER TABLE ONLY public.preferencias_permisorolmodulo
 
 
 --
--- Name: preferencias_permisorolaccion preferencias_permiso_rol_id_b14b8335_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: preferencias_permisorolaccion preferencias_permiso_rol_id_b14b8335_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.preferencias_permisorolaccion
@@ -7631,7 +8140,7 @@ ALTER TABLE ONLY public.preferencias_permisorolaccion
 
 
 --
--- Name: preferencias_rol preferencias_rol_empresa_id_8c18f71d_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: preferencias_rol preferencias_rol_empresa_id_8c18f71d_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.preferencias_rol
@@ -7639,7 +8148,7 @@ ALTER TABLE ONLY public.preferencias_rol
 
 
 --
--- Name: preferencias_sucursal preferencias_sucursal_empresa_id_ea1ff3e6_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: preferencias_sucursal preferencias_sucursal_empresa_id_ea1ff3e6_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.preferencias_sucursal
@@ -7647,7 +8156,7 @@ ALTER TABLE ONLY public.preferencias_sucursal
 
 
 --
--- Name: produccion_detalleordenproduccion produccion_detalleor_orden_produccion_id_4d4b1050_fk_produccio; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_detalleordenproduccion produccion_detalleor_orden_produccion_id_4d4b1050_fk_produccio; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_detalleordenproduccion
@@ -7655,7 +8164,7 @@ ALTER TABLE ONLY public.produccion_detalleordenproduccion
 
 
 --
--- Name: produccion_detalleordenproduccion produccion_detalleor_producto_id_8e507fa7_fk_core_prod; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_detalleordenproduccion produccion_detalleor_producto_id_8e507fa7_fk_core_prod; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_detalleordenproduccion
@@ -7663,7 +8172,7 @@ ALTER TABLE ONLY public.produccion_detalleordenproduccion
 
 
 --
--- Name: produccion_itemtest produccion_itemtest_test_id_022b2c4b_fk_produccion_test_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_itemtest produccion_itemtest_test_id_022b2c4b_fk_produccion_test_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_itemtest
@@ -7671,7 +8180,7 @@ ALTER TABLE ONLY public.produccion_itemtest
 
 
 --
--- Name: produccion_ordenproduccion produccion_ordenprod_almacen_id_b0ba0f18_fk_almacenes; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion produccion_ordenprod_almacen_id_b0ba0f18_fk_almacenes; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_ordenproduccion
@@ -7679,7 +8188,7 @@ ALTER TABLE ONLY public.produccion_ordenproduccion
 
 
 --
--- Name: produccion_ordenproduccion produccion_ordenprod_almacen_materia_prim_9877dad2_fk_almacenes; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion produccion_ordenprod_almacen_materia_prim_9877dad2_fk_almacenes; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_ordenproduccion
@@ -7687,7 +8196,7 @@ ALTER TABLE ONLY public.produccion_ordenproduccion
 
 
 --
--- Name: produccion_ordenproduccion produccion_ordenprod_cliente_id_8e2275d5_fk_clientes_; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion produccion_ordenprod_cliente_id_8e2275d5_fk_clientes_; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_ordenproduccion
@@ -7695,7 +8204,7 @@ ALTER TABLE ONLY public.produccion_ordenproduccion
 
 
 --
--- Name: produccion_ordenproduccion produccion_ordenprod_empresa_id_1b09322c_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion produccion_ordenprod_empresa_id_1b09322c_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_ordenproduccion
@@ -7703,7 +8212,7 @@ ALTER TABLE ONLY public.produccion_ordenproduccion
 
 
 --
--- Name: produccion_ordenproduccion produccion_ordenprod_pedido_origen_id_a0f9a632_fk_pedidos_p; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion produccion_ordenprod_pedido_origen_id_a0f9a632_fk_pedidos_p; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_ordenproduccion
@@ -7711,7 +8220,7 @@ ALTER TABLE ONLY public.produccion_ordenproduccion
 
 
 --
--- Name: produccion_ordenproduccion produccion_ordenprod_producto_id_70da30a8_fk_core_prod; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion produccion_ordenprod_producto_id_70da30a8_fk_core_prod; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_ordenproduccion
@@ -7719,7 +8228,7 @@ ALTER TABLE ONLY public.produccion_ordenproduccion
 
 
 --
--- Name: produccion_ordenproduccion produccion_ordenprod_responsable_id_b3dcbd3c_fk_auth_user; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion produccion_ordenprod_responsable_id_b3dcbd3c_fk_auth_user; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_ordenproduccion
@@ -7727,7 +8236,7 @@ ALTER TABLE ONLY public.produccion_ordenproduccion
 
 
 --
--- Name: produccion_ordenproduccion produccion_ordenprod_solicitante_id_d8f9f349_fk_auth_user; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion produccion_ordenprod_solicitante_id_d8f9f349_fk_auth_user; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_ordenproduccion
@@ -7735,7 +8244,7 @@ ALTER TABLE ONLY public.produccion_ordenproduccion
 
 
 --
--- Name: produccion_ordenproduccion produccion_ordenprod_sucursal_id_22e7c2b1_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_ordenproduccion produccion_ordenprod_sucursal_id_22e7c2b1_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_ordenproduccion
@@ -7743,7 +8252,7 @@ ALTER TABLE ONLY public.produccion_ordenproduccion
 
 
 --
--- Name: produccion_resultadotestop produccion_resultado_item_test_id_2a99e7ac_fk_produccio; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_resultadotestop produccion_resultado_item_test_id_2a99e7ac_fk_produccio; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_resultadotestop
@@ -7751,7 +8260,7 @@ ALTER TABLE ONLY public.produccion_resultadotestop
 
 
 --
--- Name: produccion_resultadotestop produccion_resultado_orden_produccion_id_6a55d2fe_fk_produccio; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_resultadotestop produccion_resultado_orden_produccion_id_6a55d2fe_fk_produccio; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_resultadotestop
@@ -7759,7 +8268,7 @@ ALTER TABLE ONLY public.produccion_resultadotestop
 
 
 --
--- Name: produccion_resultadotestop produccion_resultado_usuario_verifico_id_6931f481_fk_auth_user; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_resultadotestop produccion_resultado_usuario_verifico_id_6931f481_fk_auth_user; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_resultadotestop
@@ -7767,7 +8276,7 @@ ALTER TABLE ONLY public.produccion_resultadotestop
 
 
 --
--- Name: produccion_test produccion_test_empresa_id_8e75f775_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: produccion_test produccion_test_empresa_id_8e75f775_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.produccion_test
@@ -7775,7 +8284,7 @@ ALTER TABLE ONLY public.produccion_test
 
 
 --
--- Name: proveedores_proveedor proveedores_proveedor_empresa_id_f8402474_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: proveedores_proveedor proveedores_proveedor_empresa_id_f8402474_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.proveedores_proveedor
@@ -7783,7 +8292,7 @@ ALTER TABLE ONLY public.proveedores_proveedor
 
 
 --
--- Name: proveedores_sucursalproveedor proveedores_sucursal_proveedor_id_83a644e4_fk_proveedor; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: proveedores_sucursalproveedor proveedores_sucursal_proveedor_id_83a644e4_fk_proveedor; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.proveedores_sucursalproveedor
@@ -7791,7 +8300,7 @@ ALTER TABLE ONLY public.proveedores_sucursalproveedor
 
 
 --
--- Name: recepciones_detallerecepcionextra recepciones_detaller_almacen_id_ee42ded1_fk_almacenes; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recepciones_detallerecepcionextra recepciones_detaller_almacen_id_ee42ded1_fk_almacenes; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recepciones_detallerecepcionextra
@@ -7799,7 +8308,7 @@ ALTER TABLE ONLY public.recepciones_detallerecepcionextra
 
 
 --
--- Name: recepciones_detallerecepcion recepciones_detaller_detalle_compra_id_5f0d3b82_fk_compras_d; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recepciones_detallerecepcion recepciones_detaller_detalle_compra_id_5f0d3b82_fk_compras_d; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recepciones_detallerecepcion
@@ -7807,7 +8316,7 @@ ALTER TABLE ONLY public.recepciones_detallerecepcion
 
 
 --
--- Name: recepciones_detallerecepcionextra recepciones_detaller_detalle_recepcion_id_b821e96a_fk_recepcion; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recepciones_detallerecepcionextra recepciones_detaller_detalle_recepcion_id_b821e96a_fk_recepcion; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recepciones_detallerecepcionextra
@@ -7815,7 +8324,7 @@ ALTER TABLE ONLY public.recepciones_detallerecepcionextra
 
 
 --
--- Name: recepciones_detallerecepcionextra recepciones_detaller_producto_id_35fdcbf8_fk_core_prod; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recepciones_detallerecepcionextra recepciones_detaller_producto_id_35fdcbf8_fk_core_prod; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recepciones_detallerecepcionextra
@@ -7823,7 +8332,7 @@ ALTER TABLE ONLY public.recepciones_detallerecepcionextra
 
 
 --
--- Name: recepciones_detallerecepcion recepciones_detaller_producto_id_a30887f4_fk_core_prod; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recepciones_detallerecepcion recepciones_detaller_producto_id_a30887f4_fk_core_prod; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recepciones_detallerecepcion
@@ -7831,7 +8340,7 @@ ALTER TABLE ONLY public.recepciones_detallerecepcion
 
 
 --
--- Name: recepciones_detallerecepcion recepciones_detaller_recepcion_id_f1911239_fk_recepcion; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recepciones_detallerecepcion recepciones_detaller_recepcion_id_f1911239_fk_recepcion; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recepciones_detallerecepcion
@@ -7839,7 +8348,7 @@ ALTER TABLE ONLY public.recepciones_detallerecepcion
 
 
 --
--- Name: recepciones_recepcion recepciones_recepcio_almacen_id_44991b19_fk_almacenes; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recepciones_recepcion recepciones_recepcio_almacen_id_44991b19_fk_almacenes; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recepciones_recepcion
@@ -7847,7 +8356,7 @@ ALTER TABLE ONLY public.recepciones_recepcion
 
 
 --
--- Name: recepciones_recepcion recepciones_recepcio_moneda_id_fa7eecf8_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recepciones_recepcion recepciones_recepcio_moneda_id_fa7eecf8_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recepciones_recepcion
@@ -7855,7 +8364,7 @@ ALTER TABLE ONLY public.recepciones_recepcion
 
 
 --
--- Name: recepciones_recepcion recepciones_recepcio_orden_compra_id_d361724c_fk_compras_o; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recepciones_recepcion recepciones_recepcio_orden_compra_id_d361724c_fk_compras_o; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recepciones_recepcion
@@ -7863,7 +8372,7 @@ ALTER TABLE ONLY public.recepciones_recepcion
 
 
 --
--- Name: recepciones_recepcion recepciones_recepcio_sucursal_id_f571c37c_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recepciones_recepcion recepciones_recepcio_sucursal_id_f571c37c_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recepciones_recepcion
@@ -7871,7 +8380,7 @@ ALTER TABLE ONLY public.recepciones_recepcion
 
 
 --
--- Name: recepciones_recepcion recepciones_recepcion_empresa_id_26608cc9_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recepciones_recepcion recepciones_recepcion_empresa_id_26608cc9_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recepciones_recepcion
@@ -7879,7 +8388,7 @@ ALTER TABLE ONLY public.recepciones_recepcion
 
 
 --
--- Name: recursos_humanos_beneficiario recursos_humanos_ben_empresa_id_a3e2e461_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_beneficiario recursos_humanos_ben_empresa_id_a3e2e461_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_beneficiario
@@ -7887,7 +8396,7 @@ ALTER TABLE ONLY public.recursos_humanos_beneficiario
 
 
 --
--- Name: recursos_humanos_beneficiario recursos_humanos_ben_sucursal_id_c1713656_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_beneficiario recursos_humanos_ben_sucursal_id_c1713656_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_beneficiario
@@ -7895,7 +8404,7 @@ ALTER TABLE ONLY public.recursos_humanos_beneficiario
 
 
 --
--- Name: recursos_humanos_contrato recursos_humanos_con_beneficiario_id_85fed8bc_fk_recursos_; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_contrato recursos_humanos_con_beneficiario_id_85fed8bc_fk_recursos_; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_contrato
@@ -7903,7 +8412,7 @@ ALTER TABLE ONLY public.recursos_humanos_contrato
 
 
 --
--- Name: recursos_humanos_contrato recursos_humanos_con_contratista_id_e028a5d8_fk_recursos_; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_contrato recursos_humanos_con_contratista_id_e028a5d8_fk_recursos_; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_contrato
@@ -7911,7 +8420,7 @@ ALTER TABLE ONLY public.recursos_humanos_contrato
 
 
 --
--- Name: recursos_humanos_contrato_empleados recursos_humanos_con_contrato_id_e3bfb733_fk_recursos_; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_contrato_empleados recursos_humanos_con_contrato_id_e3bfb733_fk_recursos_; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_contrato_empleados
@@ -7919,7 +8428,7 @@ ALTER TABLE ONLY public.recursos_humanos_contrato_empleados
 
 
 --
--- Name: recursos_humanos_contrato_empleados recursos_humanos_con_empleado_id_410d1806_fk_recursos_; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_contrato_empleados recursos_humanos_con_empleado_id_410d1806_fk_recursos_; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_contrato_empleados
@@ -7927,7 +8436,7 @@ ALTER TABLE ONLY public.recursos_humanos_contrato_empleados
 
 
 --
--- Name: recursos_humanos_contratista recursos_humanos_con_empresa_id_51f1e60d_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_contratista recursos_humanos_con_empresa_id_51f1e60d_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_contratista
@@ -7935,7 +8444,7 @@ ALTER TABLE ONLY public.recursos_humanos_contratista
 
 
 --
--- Name: recursos_humanos_contrato recursos_humanos_con_empresa_id_e2bee0b6_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_contrato recursos_humanos_con_empresa_id_e2bee0b6_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_contrato
@@ -7943,7 +8452,7 @@ ALTER TABLE ONLY public.recursos_humanos_contrato
 
 
 --
--- Name: recursos_humanos_contratista recursos_humanos_con_sucursal_id_8e963931_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_contratista recursos_humanos_con_sucursal_id_8e963931_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_contratista
@@ -7951,7 +8460,7 @@ ALTER TABLE ONLY public.recursos_humanos_contratista
 
 
 --
--- Name: recursos_humanos_contrato recursos_humanos_con_sucursal_id_d22d7cac_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_contrato recursos_humanos_con_sucursal_id_d22d7cac_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_contrato
@@ -7959,7 +8468,7 @@ ALTER TABLE ONLY public.recursos_humanos_contrato
 
 
 --
--- Name: recursos_humanos_empleado recursos_humanos_emp_beneficiario_id_18222efd_fk_recursos_; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_empleado recursos_humanos_emp_beneficiario_id_18222efd_fk_recursos_; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_empleado
@@ -7967,7 +8476,7 @@ ALTER TABLE ONLY public.recursos_humanos_empleado
 
 
 --
--- Name: recursos_humanos_empleado recursos_humanos_emp_contratista_id_f703e65c_fk_recursos_; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_empleado recursos_humanos_emp_contratista_id_f703e65c_fk_recursos_; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_empleado
@@ -7975,7 +8484,7 @@ ALTER TABLE ONLY public.recursos_humanos_empleado
 
 
 --
--- Name: recursos_humanos_empleado recursos_humanos_emp_empresa_id_16fd396e_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_empleado recursos_humanos_emp_empresa_id_16fd396e_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_empleado
@@ -7983,7 +8492,7 @@ ALTER TABLE ONLY public.recursos_humanos_empleado
 
 
 --
--- Name: recursos_humanos_empleado recursos_humanos_emp_sucursal_id_917b2c81_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_empleado recursos_humanos_emp_sucursal_id_917b2c81_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_empleado
@@ -7991,7 +8500,7 @@ ALTER TABLE ONLY public.recursos_humanos_empleado
 
 
 --
--- Name: recursos_humanos_importacionsua recursos_humanos_imp_empresa_id_76189fbb_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_importacionsua recursos_humanos_imp_empresa_id_76189fbb_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_importacionsua
@@ -7999,7 +8508,7 @@ ALTER TABLE ONLY public.recursos_humanos_importacionsua
 
 
 --
--- Name: recursos_humanos_importacionsua recursos_humanos_imp_sucursal_id_7fce5a70_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_importacionsua recursos_humanos_imp_sucursal_id_7fce5a70_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_importacionsua
@@ -8007,7 +8516,31 @@ ALTER TABLE ONLY public.recursos_humanos_importacionsua
 
 
 --
--- Name: recursos_humanos_trabajadorsua recursos_humanos_tra_importacion_id_28691274_fk_recursos_; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: recursos_humanos_nomina recursos_humanos_nom_empleado_id_d3e6646f_fk_recursos_; Type: FK CONSTRAINT; Schema: public; Owner: madmin
+--
+
+ALTER TABLE ONLY public.recursos_humanos_nomina
+    ADD CONSTRAINT recursos_humanos_nom_empleado_id_d3e6646f_fk_recursos_ FOREIGN KEY (empleado_id) REFERENCES public.recursos_humanos_empleado(id) DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: recursos_humanos_nomina recursos_humanos_nom_sucursal_id_41c7dcdd_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
+--
+
+ALTER TABLE ONLY public.recursos_humanos_nomina
+    ADD CONSTRAINT recursos_humanos_nom_sucursal_id_41c7dcdd_fk_preferenc FOREIGN KEY (sucursal_id) REFERENCES public.preferencias_sucursal(id) DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: recursos_humanos_nomina recursos_humanos_nomina_empresa_id_521c2f36_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
+--
+
+ALTER TABLE ONLY public.recursos_humanos_nomina
+    ADD CONSTRAINT recursos_humanos_nomina_empresa_id_521c2f36_fk_panel_empresa_id FOREIGN KEY (empresa_id) REFERENCES public.panel_empresa(id) DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: recursos_humanos_trabajadorsua recursos_humanos_tra_importacion_id_28691274_fk_recursos_; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.recursos_humanos_trabajadorsua
@@ -8015,7 +8548,7 @@ ALTER TABLE ONLY public.recursos_humanos_trabajadorsua
 
 
 --
--- Name: solicitudcompras_detallesolicitudcompra solicitudcompras_det_almacen_id_9bfc7009_fk_almacenes; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: solicitudcompras_detallesolicitudcompra solicitudcompras_det_almacen_id_9bfc7009_fk_almacenes; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.solicitudcompras_detallesolicitudcompra
@@ -8023,7 +8556,7 @@ ALTER TABLE ONLY public.solicitudcompras_detallesolicitudcompra
 
 
 --
--- Name: solicitudcompras_detallesolicitudcompra solicitudcompras_det_detalle_pedido_orige_1aa6dac5_fk_pedidos_d; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: solicitudcompras_detallesolicitudcompra solicitudcompras_det_detalle_pedido_orige_1aa6dac5_fk_pedidos_d; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.solicitudcompras_detallesolicitudcompra
@@ -8031,7 +8564,7 @@ ALTER TABLE ONLY public.solicitudcompras_detallesolicitudcompra
 
 
 --
--- Name: solicitudcompras_detallesolicitudcompra solicitudcompras_det_lista_id_4dee9864_fk_categoria; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: solicitudcompras_detallesolicitudcompra solicitudcompras_det_lista_id_4dee9864_fk_categoria; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.solicitudcompras_detallesolicitudcompra
@@ -8039,7 +8572,7 @@ ALTER TABLE ONLY public.solicitudcompras_detallesolicitudcompra
 
 
 --
--- Name: solicitudcompras_detallesolicitudcompra solicitudcompras_det_moneda_id_4afc8a32_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: solicitudcompras_detallesolicitudcompra solicitudcompras_det_moneda_id_4afc8a32_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.solicitudcompras_detallesolicitudcompra
@@ -8047,7 +8580,7 @@ ALTER TABLE ONLY public.solicitudcompras_detallesolicitudcompra
 
 
 --
--- Name: solicitudcompras_detallesolicitudcompra solicitudcompras_det_producto_id_da45d513_fk_core_prod; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: solicitudcompras_detallesolicitudcompra solicitudcompras_det_producto_id_da45d513_fk_core_prod; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.solicitudcompras_detallesolicitudcompra
@@ -8055,7 +8588,7 @@ ALTER TABLE ONLY public.solicitudcompras_detallesolicitudcompra
 
 
 --
--- Name: solicitudcompras_detallesolicitudcompra solicitudcompras_det_proveedor_id_486012fa_fk_proveedor; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: solicitudcompras_detallesolicitudcompra solicitudcompras_det_proveedor_id_486012fa_fk_proveedor; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.solicitudcompras_detallesolicitudcompra
@@ -8063,7 +8596,7 @@ ALTER TABLE ONLY public.solicitudcompras_detallesolicitudcompra
 
 
 --
--- Name: solicitudcompras_detallesolicitudcompra solicitudcompras_det_solicitud_id_d5ebb2ca_fk_solicitud; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: solicitudcompras_detallesolicitudcompra solicitudcompras_det_solicitud_id_d5ebb2ca_fk_solicitud; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.solicitudcompras_detallesolicitudcompra
@@ -8071,7 +8604,7 @@ ALTER TABLE ONLY public.solicitudcompras_detallesolicitudcompra
 
 
 --
--- Name: solicitudcompras_detallesolicitudcompra solicitudcompras_det_sucursal_id_0db7d68f_fk_proveedor; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: solicitudcompras_detallesolicitudcompra solicitudcompras_det_sucursal_id_0db7d68f_fk_proveedor; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.solicitudcompras_detallesolicitudcompra
@@ -8079,7 +8612,7 @@ ALTER TABLE ONLY public.solicitudcompras_detallesolicitudcompra
 
 
 --
--- Name: solicitudcompras_solicitudcompra solicitudcompras_sol_empresa_id_1a2e52ef_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: solicitudcompras_solicitudcompra solicitudcompras_sol_empresa_id_1a2e52ef_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.solicitudcompras_solicitudcompra
@@ -8087,7 +8620,7 @@ ALTER TABLE ONLY public.solicitudcompras_solicitudcompra
 
 
 --
--- Name: solicitudcompras_solicitudcompra solicitudcompras_sol_pedido_origen_id_1a25cbb1_fk_pedidos_p; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: solicitudcompras_solicitudcompra solicitudcompras_sol_pedido_origen_id_1a25cbb1_fk_pedidos_p; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.solicitudcompras_solicitudcompra
@@ -8095,7 +8628,7 @@ ALTER TABLE ONLY public.solicitudcompras_solicitudcompra
 
 
 --
--- Name: solicitudcompras_solicitudcompra solicitudcompras_sol_solicitante_id_b0c98987_fk_auth_user; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: solicitudcompras_solicitudcompra solicitudcompras_sol_solicitante_id_b0c98987_fk_auth_user; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.solicitudcompras_solicitudcompra
@@ -8103,7 +8636,7 @@ ALTER TABLE ONLY public.solicitudcompras_solicitudcompra
 
 
 --
--- Name: solicitudcompras_solicitudcompra solicitudcompras_sol_sucursal_id_6ffc068e_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: solicitudcompras_solicitudcompra solicitudcompras_sol_sucursal_id_6ffc068e_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.solicitudcompras_solicitudcompra
@@ -8111,7 +8644,7 @@ ALTER TABLE ONLY public.solicitudcompras_solicitudcompra
 
 
 --
--- Name: tesoreria_cajabanco tesoreria_cajabanco_empresa_id_2011dc82_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_cajabanco tesoreria_cajabanco_empresa_id_2011dc82_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_cajabanco
@@ -8119,7 +8652,7 @@ ALTER TABLE ONLY public.tesoreria_cajabanco
 
 
 --
--- Name: tesoreria_cajabanco tesoreria_cajabanco_moneda_id_68e091d7_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_cajabanco tesoreria_cajabanco_moneda_id_68e091d7_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_cajabanco
@@ -8127,7 +8660,7 @@ ALTER TABLE ONLY public.tesoreria_cajabanco
 
 
 --
--- Name: tesoreria_cajabanco tesoreria_cajabanco_sucursal_id_5c31a139_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_cajabanco tesoreria_cajabanco_sucursal_id_5c31a139_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_cajabanco
@@ -8135,7 +8668,7 @@ ALTER TABLE ONLY public.tesoreria_cajabanco
 
 
 --
--- Name: tesoreria_egreso tesoreria_egreso_caja_banco_id_badd26d0_fk_tesoreria; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_egreso tesoreria_egreso_caja_banco_id_badd26d0_fk_tesoreria; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_egreso
@@ -8143,7 +8676,7 @@ ALTER TABLE ONLY public.tesoreria_egreso
 
 
 --
--- Name: tesoreria_egreso tesoreria_egreso_empresa_id_bce47c13_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_egreso tesoreria_egreso_empresa_id_bce47c13_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_egreso
@@ -8151,7 +8684,7 @@ ALTER TABLE ONLY public.tesoreria_egreso
 
 
 --
--- Name: tesoreria_egreso tesoreria_egreso_moneda_id_83bdbfdf_fk_preferencias_moneda_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_egreso tesoreria_egreso_moneda_id_83bdbfdf_fk_preferencias_moneda_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_egreso
@@ -8159,7 +8692,7 @@ ALTER TABLE ONLY public.tesoreria_egreso
 
 
 --
--- Name: tesoreria_egreso tesoreria_egreso_pago_compra_id_dc1ae9eb_fk_tesoreria; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_egreso tesoreria_egreso_pago_compra_id_dc1ae9eb_fk_tesoreria; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_egreso
@@ -8167,7 +8700,7 @@ ALTER TABLE ONLY public.tesoreria_egreso
 
 
 --
--- Name: tesoreria_egreso tesoreria_egreso_sucursal_id_604e67d1_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_egreso tesoreria_egreso_sucursal_id_604e67d1_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_egreso
@@ -8175,7 +8708,7 @@ ALTER TABLE ONLY public.tesoreria_egreso
 
 
 --
--- Name: tesoreria_ingreso tesoreria_ingreso_caja_banco_id_ca7e9018_fk_tesoreria; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_ingreso tesoreria_ingreso_caja_banco_id_ca7e9018_fk_tesoreria; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_ingreso
@@ -8183,7 +8716,7 @@ ALTER TABLE ONLY public.tesoreria_ingreso
 
 
 --
--- Name: tesoreria_ingreso tesoreria_ingreso_empresa_id_9dad1036_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_ingreso tesoreria_ingreso_empresa_id_9dad1036_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_ingreso
@@ -8191,7 +8724,7 @@ ALTER TABLE ONLY public.tesoreria_ingreso
 
 
 --
--- Name: tesoreria_ingreso tesoreria_ingreso_moneda_id_ed2389c9_fk_preferencias_moneda_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_ingreso tesoreria_ingreso_moneda_id_ed2389c9_fk_preferencias_moneda_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_ingreso
@@ -8199,7 +8732,7 @@ ALTER TABLE ONLY public.tesoreria_ingreso
 
 
 --
--- Name: tesoreria_ingreso tesoreria_ingreso_pago_pedido_id_cd41cad8_fk_tesoreria; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_ingreso tesoreria_ingreso_pago_pedido_id_cd41cad8_fk_tesoreria; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_ingreso
@@ -8207,7 +8740,7 @@ ALTER TABLE ONLY public.tesoreria_ingreso
 
 
 --
--- Name: tesoreria_ingreso tesoreria_ingreso_sucursal_id_6b893572_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_ingreso tesoreria_ingreso_sucursal_id_6b893572_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_ingreso
@@ -8215,7 +8748,7 @@ ALTER TABLE ONLY public.tesoreria_ingreso
 
 
 --
--- Name: tesoreria_pagocompra tesoreria_pagocompra_caja_banco_id_bbea5526_fk_tesoreria; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_pagocompra tesoreria_pagocompra_caja_banco_id_bbea5526_fk_tesoreria; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_pagocompra
@@ -8223,7 +8756,7 @@ ALTER TABLE ONLY public.tesoreria_pagocompra
 
 
 --
--- Name: tesoreria_pagocompra tesoreria_pagocompra_empresa_id_67829c90_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_pagocompra tesoreria_pagocompra_empresa_id_67829c90_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_pagocompra
@@ -8231,7 +8764,7 @@ ALTER TABLE ONLY public.tesoreria_pagocompra
 
 
 --
--- Name: tesoreria_pagocompra tesoreria_pagocompra_moneda_id_5a46a304_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_pagocompra tesoreria_pagocompra_moneda_id_5a46a304_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_pagocompra
@@ -8239,7 +8772,7 @@ ALTER TABLE ONLY public.tesoreria_pagocompra
 
 
 --
--- Name: tesoreria_pagocompra tesoreria_pagocompra_orden_compra_id_4e10451f_fk_compras_o; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_pagocompra tesoreria_pagocompra_orden_compra_id_4e10451f_fk_compras_o; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_pagocompra
@@ -8247,7 +8780,7 @@ ALTER TABLE ONLY public.tesoreria_pagocompra
 
 
 --
--- Name: tesoreria_pagocompra tesoreria_pagocompra_sucursal_id_88c2b429_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_pagocompra tesoreria_pagocompra_sucursal_id_88c2b429_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_pagocompra
@@ -8255,7 +8788,7 @@ ALTER TABLE ONLY public.tesoreria_pagocompra
 
 
 --
--- Name: tesoreria_pagopedido tesoreria_pagopedido_caja_banco_id_df36876e_fk_tesoreria; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_pagopedido tesoreria_pagopedido_caja_banco_id_df36876e_fk_tesoreria; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_pagopedido
@@ -8263,7 +8796,7 @@ ALTER TABLE ONLY public.tesoreria_pagopedido
 
 
 --
--- Name: tesoreria_pagopedido tesoreria_pagopedido_empresa_id_97b48e5f_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_pagopedido tesoreria_pagopedido_empresa_id_97b48e5f_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_pagopedido
@@ -8271,7 +8804,7 @@ ALTER TABLE ONLY public.tesoreria_pagopedido
 
 
 --
--- Name: tesoreria_pagopedido tesoreria_pagopedido_moneda_id_72f8b340_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_pagopedido tesoreria_pagopedido_moneda_id_72f8b340_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_pagopedido
@@ -8279,7 +8812,7 @@ ALTER TABLE ONLY public.tesoreria_pagopedido
 
 
 --
--- Name: tesoreria_pagopedido tesoreria_pagopedido_pedido_id_828dccf5_fk_pedidos_pedido_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_pagopedido tesoreria_pagopedido_pedido_id_828dccf5_fk_pedidos_pedido_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_pagopedido
@@ -8287,7 +8820,7 @@ ALTER TABLE ONLY public.tesoreria_pagopedido
 
 
 --
--- Name: tesoreria_pagopedido tesoreria_pagopedido_sucursal_id_24d3256a_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: tesoreria_pagopedido tesoreria_pagopedido_sucursal_id_24d3256a_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.tesoreria_pagopedido
@@ -8295,7 +8828,7 @@ ALTER TABLE ONLY public.tesoreria_pagopedido
 
 
 --
--- Name: ventas_detalleordenventa ventas_detalleordenv_orden_venta_id_28f11661_fk_ventas_or; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: ventas_detalleordenventa ventas_detalleordenv_orden_venta_id_28f11661_fk_ventas_or; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.ventas_detalleordenventa
@@ -8303,7 +8836,7 @@ ALTER TABLE ONLY public.ventas_detalleordenventa
 
 
 --
--- Name: ventas_detalleordenventa ventas_detalleordenv_producto_id_ef240449_fk_core_prod; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: ventas_detalleordenventa ventas_detalleordenv_producto_id_ef240449_fk_core_prod; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.ventas_detalleordenventa
@@ -8311,7 +8844,7 @@ ALTER TABLE ONLY public.ventas_detalleordenventa
 
 
 --
--- Name: ventas_ordenventa ventas_ordenventa_almacen_id_a3c31ad1_fk_almacenes_almacen_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: ventas_ordenventa ventas_ordenventa_almacen_id_a3c31ad1_fk_almacenes_almacen_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.ventas_ordenventa
@@ -8319,7 +8852,7 @@ ALTER TABLE ONLY public.ventas_ordenventa
 
 
 --
--- Name: ventas_ordenventa ventas_ordenventa_cliente_id_fc8eed4a_fk_clientes_cliente_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: ventas_ordenventa ventas_ordenventa_cliente_id_fc8eed4a_fk_clientes_cliente_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.ventas_ordenventa
@@ -8327,7 +8860,7 @@ ALTER TABLE ONLY public.ventas_ordenventa
 
 
 --
--- Name: ventas_ordenventa ventas_ordenventa_empresa_id_cccf5f3d_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: ventas_ordenventa ventas_ordenventa_empresa_id_cccf5f3d_fk_panel_empresa_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.ventas_ordenventa
@@ -8335,7 +8868,7 @@ ALTER TABLE ONLY public.ventas_ordenventa
 
 
 --
--- Name: ventas_ordenventa ventas_ordenventa_parent_orden_id_06f86c7f_fk_ventas_or; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: ventas_ordenventa ventas_ordenventa_parent_orden_id_06f86c7f_fk_ventas_or; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.ventas_ordenventa
@@ -8343,7 +8876,7 @@ ALTER TABLE ONLY public.ventas_ordenventa
 
 
 --
--- Name: ventas_ordenventa ventas_ordenventa_pedido_origen_id_12fc79cd_fk_pedidos_p; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: ventas_ordenventa ventas_ordenventa_pedido_origen_id_12fc79cd_fk_pedidos_p; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.ventas_ordenventa
@@ -8351,7 +8884,7 @@ ALTER TABLE ONLY public.ventas_ordenventa
 
 
 --
--- Name: ventas_ordenventa ventas_ordenventa_sucursal_id_59ae853d_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: ventas_ordenventa ventas_ordenventa_sucursal_id_59ae853d_fk_preferenc; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.ventas_ordenventa
@@ -8359,7 +8892,7 @@ ALTER TABLE ONLY public.ventas_ordenventa
 
 
 --
--- Name: ventas_ordenventa ventas_ordenventa_vendedor_id_058de01d_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: ventas_ordenventa ventas_ordenventa_vendedor_id_058de01d_fk_auth_user_id; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
 ALTER TABLE ONLY public.ventas_ordenventa
@@ -8370,5 +8903,5 @@ ALTER TABLE ONLY public.ventas_ordenventa
 -- PostgreSQL database dump complete
 --
 
-\unrestrict YV7W1Kk9gbfqAmrSIEvO1aJ1iQz0wgNN9VEYQS4PMSa2gZWFGJaPDm90TwKZNVz
+\unrestrict cQmddURvgrX2OCyknSsI99C0O8s4O5sRNJ2cpCoqd2c2ZCkbqPmKHlIafhRl05s
 

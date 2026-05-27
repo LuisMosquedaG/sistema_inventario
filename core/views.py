@@ -526,8 +526,15 @@ def dashboard_inventario(request):
         return render(request, 'error_sin_empresa.html', status=403)
     
     # --- FILTROS ---
+    sucursal_sesion_id = request.session.get('sucursal_id')
     sucursal_id = request.GET.get('sucursal')
     almacen_id = request.GET.get('almacen')
+    
+    # Solo aplicamos la sucursal de sesión si NO hay filtros explícitos de sucursal o almacén
+    # Y si el usuario no ha pedido explícitamente "ver todo" (sucursal='')
+    if sucursal_id is None and almacen_id is None and sucursal_sesion_id:
+        sucursal_id = str(sucursal_sesion_id)
+        
     q = request.GET.get('q')
     estado = request.GET.get('estado')
     vista = request.GET.get('vista', 'existencias')
@@ -535,10 +542,11 @@ def dashboard_inventario(request):
     categoria_id = request.GET.get('categoria')
 
     productos_qs = Producto.objects.filter(empresa=empresa_actual)
-    # ELIMINADO: El catálogo de productos es general, no se filtra por sucursal
-    # if sucursal_id:
-    #     productos_qs = productos_qs.filter(sucursal_id=sucursal_id)
-        
+
+    # NOTA: El filtrado por sucursal/almacén NO debe reducir el catálogo de productos.
+    # Solo debe afectar a las cantidades que se muestran en las columnas de Stock.
+    # El filtrado de la lista (QuerySet) solo se aplica para búsqueda, estado o categoría.
+
     if q:
         productos_qs = productos_qs.filter(
             Q(nombre__icontains=q) | Q(marca__icontains=q) | Q(modelo__icontains=q) |
@@ -546,7 +554,7 @@ def dashboard_inventario(request):
         )
     if estado:
         productos_qs = productos_qs.filter(estado=estado)
-    
+
     if categoria_id:
         productos_qs = productos_qs.filter(categoria=categoria_id)
 
@@ -631,7 +639,7 @@ def dashboard_inventario(request):
         'productos_componentes_receta': productos_componentes_receta,
         'filtros': {
             'sucursal': sucursal_id or '',
-            'almacen': int(almacen_id) if almacen_id else '', 
+            'almacen': almacen_id or '', 
             'q': q or '',
             'estado': estado or '',
             'vista': vista,

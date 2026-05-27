@@ -148,23 +148,22 @@
             </div>
             <div class="col-12" style="width: 14%;">
                 <label class="form-label small fw-bold text-secondary">Sucursal</label>
-        ...
-                    <select name="sucursal" class="form-select form-select-sm" onchange="this.form.submit()">
-                        <option value="">Todas...</option>
-                        {% for s in sucursales %}
-                        <option value="{{ s.id }}" {% if filtros.sucursal == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-12" style="width: 14%;">
-                    <label class="form-label small fw-bold text-secondary">Almacén</label>
-                    <select name="almacen" class="form-select form-select-sm" onchange="this.form.submit()">
-                        <option value="">Todos...</option>
-                        {% for a in almacenes %}
-                        <option value="{{ a.id }}" {% if filtros.almacen == a.id|stringformat:"s" %}selected{% endif %}>{{ a.nombre }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+                <select name="sucursal" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">Todas...</option>
+                    {% for s in sucursales %}
+                    <option value="{{ s.id }}" {% if filtros.sucursal == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12" style="width: 14%;">
+                <label class="form-label small fw-bold text-secondary">Almacén</label>
+                <select name="almacen" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">Todos...</option>
+                    {% for a in almacenes %}
+                    <option value="{{ a.id }}" {% if filtros.almacen == a.id|stringformat:"s" %}selected{% endif %}>{{ a.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
                 <div class="col-12" style="width: 14%;">
                     <label class="form-label small fw-bold text-secondary">Categoría</label>
                     <select name="categoria" class="form-select form-select-sm" onchange="this.form.submit()">
