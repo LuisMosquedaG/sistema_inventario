@@ -888,8 +888,9 @@
                     
                     // Cargar stock inmediatamente para el almacén seleccionado
                     if (almSalidaId) {
-                        actualizarStockDropdown(almSalidaId, 'selMaterialNuevo');
+                        actualizarStockDropdown(almSalidaId, 'optionsMaterialNuevo', 'selMaterialNuevo', 'material_display_fake');
                     }
+
                     
                     currentProductoPadre = data.producto_nombre;
                     currentProductoPadreId = data.producto_id;
@@ -1322,7 +1323,19 @@
             const hiddenInput = document.getElementById(hiddenInputId);
             const fakeDisplay = document.getElementById(fakeDisplayId);
             
-            if (!almacenId || !optionsContainer) return;
+            if (!optionsContainer) return;
+
+            // Si no hay almacén, mostramos todo sin stock
+            if (!almacenId) {
+                const options = optionsContainer.querySelectorAll('.custom-option');
+                options.forEach(opt => {
+                    const nombreLimpio = opt.getAttribute('data-name') || opt.innerText.split(' (Stock:')[0].trim();
+                    opt.innerText = nombreLimpio;
+                    opt.hidden = false;
+                    opt.style.display = 'flex';
+                });
+                return;
+            }
 
             fetch(`/produccion/api/stock-almacen/${almacenId}/`)
                 .then(r => r.json())

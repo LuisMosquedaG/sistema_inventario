@@ -156,6 +156,9 @@
             <button class="btn btn-light text-secondary btn-pro shadow-sm border" data-bs-toggle="modal" data-bs-target="#modalImportarNomina">
                 <i class="bi bi-upload me-1"></i> Importador
             </button>
+            <button class="btn btn-light text-secondary btn-pro shadow-sm border" data-bs-toggle="modal" data-bs-target="#modalDescargaXML">
+                <i class="bi bi-file-earmark-code me-1"></i> XML (SAT)
+            </button>
             <button class="btn btn-brand text-white btn-sm px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaNomina" onclick="prepararNuevaNomina()">
                 <i class="bi bi-plus-lg me-1"></i> Nueva Nómina
             </button>
@@ -732,6 +735,336 @@
             btn.disabled = false;
             btn.innerText = 'Subir e Importar';
         }
+    }
+</script>
+
+<!-- MODAL: DESCARGA XML (SAT) -->
+<div class="modal fade" id="modalDescargaXML" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-sheet">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 12px;">
+            <div class="modal-header border-bottom bg-light py-3">
+                <div class="d-flex align-items-center">
+                    <div class="bg-success bg-opacity-10 p-2 rounded me-3" style="color: #198754;">
+                        <i class="bi bi-cloud-download fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0">Descarga Masiva SAT</h5>
+                        <small class="text-muted">Conexión directa vía Web Service</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <form id="formDescargaSAT">
+                {% csrf_token %}
+                <div class="modal-body p-0">
+                    <!-- TABS UNIFICADOS CON NÓMINA -->
+                    <ul class="nav nav-tabs nav-justified nav-tabs-custom" id="satTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="solicitud-tab" data-bs-toggle="tab" data-bs-target="#tabSolicitud" type="button" role="tab">1. Solicitar Descarga</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="fiel-tab" data-bs-toggle="tab" data-bs-target="#tabFiel" type="button" role="tab">2. Configurar FIEL</button>
+                        </li>
+                    </ul>
+
+                    <div class="p-4">
+                        <div class="tab-content" id="satTabsContent">
+                            <!-- TAB: FORMULARIO DE SOLICITUD -->
+                            <div class="tab-pane fade show active" id="tabSolicitud" role="tabpanel">
+                                <div class="row g-3">
+                                    <div class="col-md-12">
+                                        <label class="form-label small fw-bold text-secondary">Seleccionar Contratista (Sujeto Obligado)</label>
+                                        <select name="contratista_id" id="selectContratistaSAT" class="form-select form-select-sm" required onchange="checkFielStatus(this.value)">
+                                            <option value="">Seleccione un contratista...</option>
+                                            {% for c in contratistas %}
+                                                <option value="{{ c.id }}">{{ c.nombre_razon_social }} ({{ c.rfc }})</option>
+                                            {% endfor %}
+                                        </select>
+                                        <div id="fielBadgeStatus" class="mt-1"></div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Fecha Inicio</label>
+                                        <input type="date" name="fecha_inicio" class="form-control form-control-sm" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Fecha Fin</label>
+                                        <input type="date" name="fecha_fin" class="form-control form-control-sm" required>
+                                    </div>
+                                    <div class="col-md-12">
+                                        <div class="card border-0 shadow-sm p-3" style="background-color: #f0fdfa; border-left: 4px solid #00b8b9 !important;">
+                                            <label class="form-label small fw-bold text-brand mb-2">Contraseña de la FIEL <span class="text-danger">*</span></label>
+                                            <div class="input-group input-group-sm">
+                                                <span class="input-group-text bg-white border-end-0"><i class="bi bi-key-fill text-muted"></i></span>
+                                                <input type="password" name="password_fiel" class="form-control border-start-0" placeholder="Escriba la clave privada" required>
+                                            </div>
+                                            <div class="text-muted mt-2" style="font-size: 0.65rem;">
+                                                <i class="bi bi-shield-check me-1"></i> Esta contraseña se usa solo para esta sesión y <strong>no se almacena</strong>.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mt-4 border-top pt-3">
+                                    <h6 class="fw-bold small text-secondary mb-3 d-flex align-items-center">
+                                        <i class="bi bi-clock-history me-2"></i> Solicitudes Recientes
+                                    </h6>
+                                    <div class="table-responsive rounded border" style="max-height: 180px;">
+                                        <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
+                                            <thead class="bg-light">
+                                                <tr>
+                                                    <th class="ps-3">ID Solicitud</th>
+                                                    <th>Periodo</th>
+                                                    <th class="text-center">Estado</th>
+                                                    <th class="text-center">Acción</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="listaSolicitudesSAT">
+                                                <tr>
+                                                    <td colspan="4" class="text-center py-3 text-muted">No hay solicitudes previas</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- TAB: CONFIGURACIÓN DE ARCHIVOS FIEL -->
+                            <div class="tab-pane fade" id="tabFiel" role="tabpanel">
+                                <div class="alert alert-info border-0 py-3 mb-4 d-flex align-items-center" style="font-size: 0.75rem; border-radius: 10px;">
+                                    <i class="bi bi-info-circle-fill fs-5 me-3"></i>
+                                    <div>
+                                        <strong>Resguardo Seguro:</strong> Sus archivos se cifran con <strong>AES-256-GCM</strong>. 
+                                        Solo se requieren una vez por contratista.
+                                    </div>
+                                </div>
+                                <div class="row g-4">
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Certificado (.cer)</label>
+                                        <div class="input-group input-group-sm">
+                                            <input type="file" name="archivo_cer" class="form-control" accept=".cer">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Llave Privada (.key)</label>
+                                        <div class="input-group input-group-sm">
+                                            <input type="file" name="archivo_key" class="form-control" accept=".key">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-12">
+                                        <label class="form-label small fw-bold text-secondary">RFC (Opcional si es distinto al contratista)</label>
+                                        <input type="text" name="rfc_fiel" id="inputRfcFielSAT" class="form-control form-control-sm" placeholder="RFC de la Razón Social">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="satProgress" class="mx-4 mb-4" style="display: none;">
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" style="width: 100%"></div>
+                        </div>
+                        <p class="text-center small text-muted mt-2 mb-0">Conectando con el SAT...</p>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top py-3">
+                    <button type="button" class="btn btn-light btn-sm fw-bold text-secondary px-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary btn-sm text-white px-4 fw-bold shadow-sm" id="btnProcesarSAT">
+                        Enviar Solicitud
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Al abrir el modal, cargamos las solicitudes
+    document.getElementById('modalDescargaXML').addEventListener('show.bs.modal', function () {
+        cargarSolicitudesSAT();
+    });
+
+    function checkFielStatus(contratistaId) {
+        const badge = document.getElementById('fielBadgeStatus');
+        const rfcInput = document.getElementById('inputRfcFielSAT');
+        if (!contratistaId) {
+            badge.innerHTML = '';
+            return;
+        }
+
+        fetch(`/recursos-humanos/sat/verificar-fiel/${contratistaId}/`)
+        .then(r => r.json())
+        .then(res => {
+            if (res.tiene_fiel) {
+                badge.innerHTML = `<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill py-1 px-2" style="font-size: 0.65rem;">
+                    <i class="bi bi-check-circle-fill me-1"></i> FIEL configurada para ${res.rfc}</span>`;
+                rfcInput.value = res.rfc;
+            } else {
+                badge.innerHTML = `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill py-1 px-2" style="font-size: 0.65rem;">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i> Requiere configuración de archivos en la pestaña 2</span>`;
+                rfcInput.value = res.rfc;
+            }
+        });
+    }
+
+    function cargarSolicitudesSAT() {
+        fetch('/recursos-humanos/sat/solicitudes/lista/')
+        .then(r => r.json())
+        .then(data => {
+            const tbody = document.getElementById('listaSolicitudesSAT');
+            tbody.innerHTML = '';
+            if (!data.solicitudes || data.solicitudes.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3 text-muted">No hay solicitudes previas</td></tr>';
+                return;
+            }
+            data.solicitudes.forEach(s => {
+                let badge = 'bg-secondary';
+                if (s.estado === 'terminada') badge = 'bg-info';
+                if (s.estado === 'procesada') badge = 'bg-success';
+                if (s.estado === 'error') badge = 'bg-danger';
+                if (s.estado === 'en_proceso' || s.estado === 'solicitada') badge = 'bg-warning text-dark';
+
+                let accionHtml = '--';
+                if (s.estado === 'terminada') {
+                    accionHtml = `<button class="btn btn-xs btn-brand py-0 px-2 fw-bold" style="font-size: 0.6rem;" onclick="integrarXML(${s.id})">Integrar</button>`;
+                } else if (s.estado === 'solicitada' || s.estado === 'en_proceso') {
+                    accionHtml = `<button class="btn btn-xs btn-outline-primary py-0 px-2 fw-bold" style="font-size: 0.6rem;" onclick="verificarEstadoSAT(${s.id})">Verificar</button>`;
+                }
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="text-muted ps-3" style="font-size: 0.6rem;">${s.id_solicitud}</td>
+                        <td>${s.periodo}</td>
+                        <td class="text-center"><span class="badge ${badge} rounded-pill" style="font-size: 0.6rem;">${s.estado.replace('_', ' ')}</span></td>
+                        <td class="text-center">${accionHtml}</td>
+                    </tr>
+                `;
+            });
+        });
+    }
+
+
+    document.getElementById('formDescargaSAT').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('btnProcesarSAT');
+        const progress = document.getElementById('satProgress');
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Enviando...';
+        progress.style.display = 'block';
+        
+        const formData = new FormData(this);
+        
+        fetch("/recursos-humanos/sat/solicitar/", {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            progress.style.display = 'none';
+            if (data.status === 'success') {
+                alert(data.message);
+                cargarSolicitudesSAT();
+                // Limpiar contraseña
+                document.querySelector('input[name="password_fiel"]').value = '';
+                btn.disabled = false;
+                btn.innerHTML = 'Enviar Solicitud';
+            } else {
+                alert('Error: ' + data.message);
+                btn.disabled = false;
+                btn.innerHTML = 'Enviar Solicitud';
+            }
+        })
+        .catch(err => {
+            progress.style.display = 'none';
+            console.error(err);
+            alert("Ocurrió un error al procesar la solicitud.");
+            btn.disabled = false;
+            btn.innerHTML = 'Enviar Solicitud';
+        });
+    });
+
+    function integrarXML(solicitudId) {
+        const passwordInput = document.querySelector('input[name="password_fiel"]');
+        if (!passwordInput.value) {
+            alert("Para integrar, primero escriba la contraseña de la FIEL en el campo correspondiente arriba.");
+            document.getElementById('solicitud-tab').click();
+            passwordInput.focus();
+            return;
+        }
+
+        if (!confirm("Se procesarán los archivos descargados y se integrarán a la lista de nóminas. ¿Continuar?")) return;
+        
+        const btn = event.target;
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '...';
+
+        const formData = new FormData();
+        formData.append('password_fiel', passwordInput.value);
+
+        fetch(`/recursos-humanos/sat/integrar/${solicitudId}/`, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Error de conexión");
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        });
+    }
+
+    function verificarEstadoSAT(solicitudId) {
+        const passwordInput = document.querySelector('input[name="password_fiel"]');
+        if (!passwordInput.value) {
+            alert("Para verificar el estado, escriba la contraseña de la FIEL arriba.");
+            document.getElementById('solicitud-tab').click();
+            passwordInput.focus();
+            return;
+        }
+
+        const btn = event.target;
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        const formData = new FormData();
+        formData.append('password_fiel', passwordInput.value);
+
+        fetch(`/recursos-humanos/sat/verificar-estatus/${solicitudId}/`, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                cargarSolicitudesSAT();
+            } else {
+                alert('Error: ' + data.message);
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        });
     }
 </script>
 {% endblock %}

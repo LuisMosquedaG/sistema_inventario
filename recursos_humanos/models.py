@@ -462,3 +462,59 @@ class Nomina(models.Model):
         ordering = ['-fecha_pago', 'nombre']
 
 
+class FielContratista(models.Model):
+    """Almacena los archivos de la FIEL de un contratista de forma cifrada."""
+    contratista = models.OneToOneField(Contratista, on_delete=models.CASCADE, related_name="fiel")
+    
+    # Contenido cifrado (Base64)
+    certificado_cifrado = models.TextField(verbose_name="Certificado (.cer) Cifrado")
+    llave_privada_cifrada = models.TextField(verbose_name="Llave Privada (.key) Cifrada")
+    
+    # RFC que ampara esta FIEL (para validación)
+    rfc_fiel = models.CharField(max_length=13, verbose_name="RFC de la FIEL")
+    
+    # Llave de datos cifrada con Master Key (Envelope Encryption)
+    data_key_cifrada = models.TextField(verbose_name="Data Key Cifrada")
+    
+    fecha_alta = models.DateTimeField(auto_now_add=True)
+    ultima_actualizacion = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"FIEL - {self.rfc_fiel} ({self.contratista.nombre_razon_social})"
+
+    class Meta:
+        verbose_name = "FIEL Contratista"
+        verbose_name_plural = "FIELs de Contratistas"
+
+
+class SolicitudDescargaSAT(models.Model):
+    """Rastreo de solicitudes de descarga masiva ante el SAT."""
+    ESTADO_CHOICES = [
+        ('solicitada', 'Solicitada'),
+        ('en_proceso', 'En Proceso'),
+        ('terminada', 'Terminada'),
+        ('error', 'Error'),
+        ('procesada', 'Procesada / Integrada'),
+    ]
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
+    contratista = models.ForeignKey(Contratista, on_delete=models.CASCADE, null=True, blank=True)
+    id_solicitud = models.CharField(max_length=100, verbose_name="ID de Solicitud SAT")
+    fecha_inicio = models.DateField()
+    fecha_fin = models.DateField()
+    tipo_comprobante = models.CharField(max_length=20, default="Nomina")
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='solicitada')
+    mensaje_error = models.TextField(blank=True, null=True)
+    
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Solicitud {self.id_solicitud} - {self.estado}"
+
+    class Meta:
+        verbose_name = "Solicitud SAT"
+        verbose_name_plural = "Solicitudes SAT"
+        ordering = ['-fecha_creacion']
+
+

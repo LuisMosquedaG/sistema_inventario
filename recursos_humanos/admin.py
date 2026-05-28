@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import Empleado, Contrato, Contratista, Beneficiario, Nomina
+from .models import (
+    Empleado, Contrato, Contratista, Beneficiario, Nomina,
+    FielContratista, SolicitudDescargaSAT
+)
 
 @admin.register(Empleado)
 class EmpleadoAdmin(admin.ModelAdmin):
@@ -30,3 +33,14 @@ class NominaAdmin(admin.ModelAdmin):
     list_display = ('folio', 'nombre', 'periodo', 'tipo_nomina', 'fecha_pago', 'sueldo_gravado')
     list_filter = ('tipo_nomina', 'empresa', 'fecha_pago')
     search_fields = ('folio', 'nombre', 'rfc', 'uuid')
+
+@admin.register(FielContratista)
+class FielContratistaAdmin(admin.ModelAdmin):
+    list_display = ('contratista', 'rfc_fiel', 'ultima_actualizacion')
+    search_fields = ('rfc_fiel', 'contratista__nombre_razon_social')
+
+@admin.register(SolicitudDescargaSAT)
+class SolicitudDescargaSATAdmin(admin.ModelAdmin):
+    list_display = ('id_solicitud', 'contratista', 'estado', 'fecha_creacion')
+    list_filter = ('estado', 'empresa')
+    search_fields = ('id_solicitud', 'contratista__nombre_razon_social')
