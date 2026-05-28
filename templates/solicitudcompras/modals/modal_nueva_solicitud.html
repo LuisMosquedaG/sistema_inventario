@@ -95,12 +95,30 @@
                             <div class="row g-2 align-items-end">
                                 <div class="col-md-5">
                                     <label class="form-label small fw-bold text-secondary">Producto</label>
-                                    <select id="add_producto" class="form-select form-select-sm" onchange="actualizarCostoDefault(this)">
-                                        <option value="">Buscar producto...</option>
-                                        {% for p in productos %}
-                                        <option value="{{ p.id }}" data-precio="{{ p.precio_costo }}" data-iva="{{ p.iva|default:0 }}">{{ p.nombre }}</option>
-                                        {% endfor %}
-                                    </select>
+                                    <div class="custom-select-wrapper" id="wrapperAddProducto">
+                                        <div class="custom-select" id="selectAddProductoWrapper">
+                                            <div class="custom-select__trigger">
+                                                <div id="add_producto_display_fake" class="fake-input-layer">
+                                                    <span class="text-muted" style="font-weight:400;">Buscar producto...</span>
+                                                </div>
+                                                <input type="text" id="add_producto_busqueda" autocomplete="off" class="real-input-layer">
+                                                <input type="hidden" id="add_producto" value="">
+                                            </div>
+                                            <div class="custom-options" id="optionsAddProducto">
+                                                {% for p in productos %}
+                                                <span class="custom-option" 
+                                                      data-value="{{ p.id }}" 
+                                                      data-name="{{ p.nombre }}"
+                                                      data-precio="{{ p.precio_costo }}" 
+                                                      data-iva="{{ p.iva|default:0 }}"
+                                                      data-search="{{ p.nombre }}" 
+                                                      title="{{ p.nombre }}">
+                                                    {{ p.nombre }}
+                                                </span>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small fw-bold text-secondary">Lista de Costo</label>

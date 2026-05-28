@@ -1,5 +1,81 @@
 // SOLICITUDCOMPRAS.JS — Lógica para Gestión de Requisiciones
 
+// --- UTILERÍAS ---
+function initCustomSelect(wrapperId, hiddenInputId, fakeDisplayId, searchInputId, optionsContainerId) {
+    const wrapper = document.getElementById(wrapperId);
+    if (!wrapper) return;
+    const hiddenInput = document.getElementById(hiddenInputId);
+    const fakeDisplay = document.getElementById(fakeDisplayId);
+    const searchInput = document.getElementById(searchInputId);
+    const optionsContainer = document.getElementById(optionsContainerId);
+    const selectDiv = wrapper.querySelector('.custom-select');
+
+    const placeholderText = fakeDisplay.innerText.trim();
+
+    function toggleOptions(show) {
+        if (show) selectDiv.classList.add('open');
+        else selectDiv.classList.remove('open');
+    }
+
+    function updateDisplay() {
+        if (document.activeElement === searchInput) {
+            fakeDisplay.style.visibility = "hidden";
+        } else {
+            fakeDisplay.style.visibility = "visible";
+            if (!hiddenInput.value || hiddenInput.value === "") {
+                fakeDisplay.innerHTML = `<span class="placeholder-text">${placeholderText}</span>`;
+            }
+        }
+    }
+
+    searchInput.addEventListener('focus', () => {
+        toggleOptions(true);
+        updateDisplay();
+    });
+
+    searchInput.addEventListener('blur', () => {
+        setTimeout(() => {
+            toggleOptions(false);
+            updateDisplay();
+        }, 150);
+    });
+    
+    searchInput.addEventListener('input', function() {
+        updateDisplay();
+        const term = this.value.toLowerCase().trim();
+        const options = optionsContainer.querySelectorAll('.custom-option');
+        
+        options.forEach(opt => {
+            const searchText = (opt.getAttribute('data-search') || '').toLowerCase();
+            opt.style.display = searchText.includes(term) ? 'flex' : 'none';
+        });
+        toggleOptions(true);
+    });
+
+    optionsContainer.addEventListener('click', (e) => {
+        const option = e.target.closest('.custom-option');
+        if (!option || option.classList.contains('disabled')) return;
+
+        const valId = option.getAttribute('data-value');
+        const valText = (option.getAttribute('data-name') || option.textContent).trim();
+
+        hiddenInput.value = valId;
+        fakeDisplay.innerText = valText;
+        searchInput.value = ''; 
+        updateDisplay();
+        
+        toggleOptions(false);
+        hiddenInput.dispatchEvent(new Event('change'));
+    });
+
+    window.addEventListener('click', (e) => {
+        if (!wrapper.contains(e.target)) {
+            toggleOptions(false);
+            updateDisplay();
+        }
+    });
+}
+
 function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
@@ -19,13 +95,26 @@ const csrftoken = getCookie('csrftoken');
 
 // --- INICIALIZACIÓN ---
 function prepararNuevaSolicitud() {
-    document.getElementById('formNuevaSolicitud').reset();
+    const form = document.getElementById('formNuevaSolicitud');
+    if (form) form.reset();
+    
     document.getElementById('solicitud_id_edit').value = '';
     document.getElementById('item_indice_edicion').value = '-1';
     document.getElementById('tituloModalSolicitud').innerText = 'Nueva Solicitud de Compra';
     document.getElementById('cuerpoTablaSolicitud').innerHTML = '';
     document.getElementById('mensajeVacioSolicitud').style.display = 'block';
     
+    // Resetear Custom Select de Producto
+    const pInput = document.getElementById('add_producto');
+    if (pInput) pInput.value = '';
+    const pFake = document.getElementById('add_producto_display_fake');
+    if (pFake) {
+        pFake.innerHTML = '<span class="placeholder-text">Buscar producto...</span>';
+        pFake.style.visibility = "visible";
+    }
+    const sInput = document.getElementById('add_producto_busqueda');
+    if (sInput) sInput.value = '';
+
     // Resetear totales
     document.getElementById('solicitudSubtotal').innerText = '$0.00';
     document.getElementById('solicitudIvaTotal').innerText = '$0.00';
@@ -44,8 +133,10 @@ function prepararNuevaSolicitud() {
     
     // Resetear sucursales general
     const genSuc = document.getElementById('gen_sucursal');
-    genSuc.innerHTML = '<option value="">Seleccione proveedor primero...</option>';
-    genSuc.disabled = true;
+    if (genSuc) {
+        genSuc.innerHTML = '<option value="">Seleccione proveedor primero...</option>';
+        genSuc.disabled = true;
+    }
 }
 
 // --- LOGICA DE SUCURSALES ---
@@ -76,18 +167,25 @@ async function cargarSucursalesProveedor(proveedorId, targetSelectId, selectedSu
 
 // --- AGREGAR / ACTUALIZAR ARTÍCULO ---
 function agregarArticuloManual() {
-    const selectP = document.getElementById('add_producto');
-    const prodId = selectP.value;
-    const prodNombre = selectP.options[selectP.selectedIndex].text;
-    const ivaPorc = parseFloat(selectP.options[selectP.selectedIndex].getAttribute('data-iva')) || 0;
+    const pInput = document.getElementById('add_producto');
+    const prodId = pInput.value;
+    
+    if (!prodId) {
+        alert("Selecciona un producto.");
+        return;
+    }
+
+    const opt = document.querySelector(`#optionsAddProducto .custom-option[data-value="${prodId}"]`);
+    const prodNombre = opt ? opt.getAttribute('data-name') : "Producto";
+    const ivaPorc = parseFloat(opt ? opt.getAttribute('data-iva') : 0) || 0;
     
     const listaId = document.getElementById('add_lista').value;
     const listaNombre = document.getElementById('add_lista').options[document.getElementById('add_lista').selectedIndex].text;
     const cantidad = parseFloat(document.getElementById('add_cantidad').value) || 0;
     const costo = parseFloat(document.getElementById('add_costo').value) || 0;
 
-    if (!prodId || cantidad <= 0) {
-        alert("Selecciona un producto y cantidad válida.");
+    if (cantidad <= 0) {
+        alert("Selecciona una cantidad válida.");
         return;
     }
 
@@ -150,7 +248,9 @@ function agregarArticuloManual() {
         agregarFilaProducto(datos);
     }
 
-    document.getElementById('add_producto').value = '';
+    // Resetear selección
+    pInput.value = '';
+    document.getElementById('add_producto_display_fake').innerHTML = '<span class="text-muted" style="font-weight:400;">Buscar producto...</span>';
     document.getElementById('add_lista').value = '';
     document.getElementById('add_cantidad').value = 1;
     document.getElementById('add_costo').value = '0.00';
@@ -249,6 +349,7 @@ function cargarItemParaEdicion(btn) {
     const index = row.rowIndex - 1; 
     
     const prodId = row.querySelector('[name="producto_id[]"]').value;
+    const prodNombre = row.querySelector('.fw-bold.text-dark').innerText;
     const pedDetId = row.querySelector('[name="pedido_det_id[]"]')?.value || '';
     const listaId = row.querySelector('[name="lista_id[]"]').value;
     const monId = row.querySelector('[name="moneda_id[]"]').value;
@@ -259,6 +360,7 @@ function cargarItemParaEdicion(btn) {
     const costo = row.querySelector('[name="costo_unitario[]"]').value;
 
     document.getElementById('add_producto').value = prodId;
+    document.getElementById('add_producto_display_fake').innerHTML = `<span>${prodNombre}</span>`;
     document.getElementById('add_lista').value = listaId;
     document.getElementById('add_cantidad').value = cant;
     document.getElementById('add_costo').value = costo;
@@ -273,6 +375,8 @@ function cargarItemParaEdicion(btn) {
     document.getElementById('item_indice_edicion').value = index;
     const btnAdd = document.getElementById('btnAddItem');
     btnAdd.innerHTML = '<i class="bi bi-check-lg"></i>';
+    btnAdd.classList.remove('btn-brand');
+    btnAdd.classList.add('btn-success');
     
     document.querySelector('.modal-body').scrollTop = 0;
 }
@@ -346,30 +450,35 @@ function eliminarFila(btn) {
     calcularTotalSolicitud();
 }
 
-function actualizarCostoDefault(select) {
-    const option = select.options[select.selectedIndex];
-    const precio = option.getAttribute('data-precio') || '0.00';
+function actualizarCostoDefault() {
+    const prodId = document.getElementById('add_producto').value;
+    if (!prodId) return;
+
+    const opt = document.querySelector(`#optionsAddProducto .custom-option[data-value="${prodId}"]`);
+    const precio = opt ? opt.getAttribute('data-precio') : '0.00';
+    
     document.getElementById('add_costo').value = precio;
     document.getElementById('add_lista').value = '';
 }
 
 function aplicarListaCosto() {
-    const selectProd = document.getElementById('add_producto');
+    const prodId = document.getElementById('add_producto').value;
     const selectLista = document.getElementById('add_lista');
     const inputCosto = document.getElementById('add_costo');
 
-    if (!selectProd.value) return;
+    if (!prodId) return;
 
-    const base = parseFloat(selectProd.options[selectProd.selectedIndex].getAttribute('data-precio')) || 0;
-    const opt = selectLista.options[selectLista.selectedIndex];
+    const optProd = document.querySelector(`#optionsAddProducto .custom-option[data-value="${prodId}"]`);
+    const base = parseFloat(optProd ? optProd.getAttribute('data-precio') : 0) || 0;
+    const optLista = selectLista.options[selectLista.selectedIndex];
 
     if (!selectLista.value) {
         inputCosto.value = base.toFixed(2);
         return;
     }
 
-    const p = parseFloat(opt.getAttribute('data-porc')) || 0;
-    const m = parseFloat(opt.getAttribute('data-monto')) || 0;
+    const p = parseFloat(optLista.getAttribute('data-porc')) || 0;
+    const m = parseFloat(optLista.getAttribute('data-monto')) || 0;
 
     let final = base;
     if (p !== 0) final = base + (base * (p / 100));
@@ -604,29 +713,13 @@ async function previsualizarAutorizacion(id) {
     }
 }
 
-async function cancelarSolicitud(id) {
-    if (!confirm(`¿Está seguro de CANCELAR la Solicitud SOL-${String(id).padStart(4, '0')}?\n\nEsta acción liberará las partidas del pedido original.`)) {
-        return;
+// Al final del archivo o en un block ready
+document.addEventListener('DOMContentLoaded', function() {
+    initCustomSelect('wrapperAddProducto', 'add_producto', 'add_producto_display_fake', 'add_producto_busqueda', 'optionsAddProducto');
+    
+    // Listener para actualizar costo al cambiar producto
+    const pInput = document.getElementById('add_producto');
+    if (pInput) {
+        pInput.addEventListener('change', actualizarCostoDefault);
     }
-
-    try {
-        const response = await fetch(`/solicitudes-compras/cancelar/${id}/`, {
-            method: 'POST',
-            headers: { 
-                'X-CSRFToken': csrftoken,
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        });
-        const result = await response.json();
-        
-        if (result.success) {
-            alert(result.message);
-            location.reload();
-        } else {
-            alert("Error al cancelar: " + (result.error || result.message));
-        }
-    } catch (error) {
-        console.error("Error:", error);
-        alert("Ocurrió un error en el servidor.");
-    }
-}
+});

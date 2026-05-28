@@ -138,7 +138,7 @@
                         data-bs-target="#modalImportarProduccion">
                     <i class="bi bi-upload me-1"></i> Importador
                 </button>
-                <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaOrdenManual">
+                <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaOrdenManual" onclick="prepararNuevaOrden()">
                     <i class="bi bi-plus-lg me-1"></i> Nueva Orden
                 </button>
                 {% endif %}
@@ -1221,24 +1221,46 @@
             const optionsContainer = document.getElementById(optionsContainerId);
             const selectDiv = wrapper.querySelector('.custom-select');
 
+            const placeholderText = fakeDisplay.innerText.trim();
+
             function toggleOptions(show) {
                 if (show) selectDiv.classList.add('open');
                 else selectDiv.classList.remove('open');
             }
 
-            searchInput.addEventListener('focus', () => toggleOptions(true));
+            function updateDisplay() {
+                // Si el input tiene foco, ocultamos la capa fake SIEMPRE para que no se encime nada
+                if (document.activeElement === searchInput) {
+                    fakeDisplay.style.visibility = "hidden";
+                } else {
+                    fakeDisplay.style.visibility = "visible";
+                    if (!hiddenInput.value || hiddenInput.value === "") {
+                        fakeDisplay.innerHTML = `<span class="placeholder-text">${placeholderText}</span>`;
+                    }
+                }
+            }
+
+            searchInput.addEventListener('focus', () => {
+                toggleOptions(true);
+                updateDisplay();
+            });
+
+            searchInput.addEventListener('blur', () => {
+                setTimeout(() => {
+                    toggleOptions(false);
+                    updateDisplay();
+                }, 150);
+            });
             
             searchInput.addEventListener('input', function() {
-                const term = this.value.toLowerCase();
+                updateDisplay();
+                const term = this.value.toLowerCase().trim();
                 const options = optionsContainer.querySelectorAll('.custom-option');
-                let hasResults = false;
                 
                 options.forEach(opt => {
                     const searchText = (opt.getAttribute('data-search') || '').toLowerCase();
-                    // Solo mostramos si coincide con la búsqueda Y no está oculto por stock (si aplica)
                     if (searchText.includes(term) && !opt.hidden) {
                         opt.style.display = 'flex';
-                        hasResults = true;
                     } else {
                         opt.style.display = 'none';
                     }
@@ -1251,23 +1273,44 @@
                 if (!option || option.classList.contains('disabled')) return;
 
                 const valId = option.getAttribute('data-value');
-                // Usamos el nombre limpio del atributo data-name
-                const valText = option.getAttribute('data-name') || option.innerText.split(' (Stock:')[0].trim();
+                const valText = (option.getAttribute('data-name') || option.textContent.split('(Stock:')[0]).trim();
 
                 hiddenInput.value = valId;
-                fakeDisplay.innerHTML = `<span>${valText}</span>`;
-                searchInput.value = ''; // Limpiar búsqueda al seleccionar
+                fakeDisplay.innerText = valText;
                 
+                searchInput.value = ''; 
                 toggleOptions(false);
-                
-                // Disparar evento change manual si es necesario
+                updateDisplay();
                 hiddenInput.dispatchEvent(new Event('change'));
             });
 
-            // Cerrar al hacer clic fuera
             window.addEventListener('click', (e) => {
-                if (!wrapper.contains(e.target)) toggleOptions(false);
+                if (!wrapper.contains(e.target)) {
+                    toggleOptions(false);
+                    updateDisplay();
+                }
             });
+        }
+
+        function prepararNuevaOrden() {
+            const form = document.getElementById('formNuevaOrden');
+            if (form) form.reset();
+            
+            itemsProduccion = [];
+            renderizarTablaNuevaOrden();
+            
+            // Reset Custom Select
+            const pInput = document.getElementById('selProductoNuevo');
+            if (pInput) pInput.value = '';
+            const pFake = document.getElementById('producto_display_fake');
+            if (pFake) {
+                pFake.innerHTML = '<span class="placeholder-text">Buscar producto...</span>';
+                pFake.style.visibility = "visible";
+            }
+            const sInput = document.getElementById('producto_busqueda');
+            if (sInput) sInput.value = '';
+
+            document.getElementById('btnGuardarOrden').disabled = true;
         }
 
         // ==========================================

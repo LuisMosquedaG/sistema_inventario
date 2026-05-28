@@ -480,12 +480,30 @@
                                 <div class="row g-2 align-items-end">
                                     <div class="col-md-4">
                                         <label class="form-label small text-muted">Producto</label>
-                                        <select id="selectProductoAgregar" class="form-select form-select-sm">
-                                            <option value="">Seleccionar...</option>
-                                            {% for p in productos %}
-                                            <option value="{{ p.id }}" data-precio="{{ p.precio_costo }}" data-iva="{{ p.iva|default:0 }}">{{ p.nombre }}</option>
-                                            {% endfor %}
-                                        </select>
+                                        <div class="custom-select-wrapper" id="wrapperProductoAgregar">
+                                            <div class="custom-select" id="selectProductoAgregarWrapper">
+                                                <div class="custom-select__trigger">
+                                                    <div id="producto_display_fake" class="fake-input-layer">
+                                                        <span class="placeholder-text">Buscar producto...</span>
+                                                    </div>
+                                                    <input type="text" id="producto_busqueda" autocomplete="off" class="real-input-layer">
+                                                    <input type="hidden" id="selectProductoAgregar" value="">
+                                                </div>
+                                                <div class="custom-options" id="optionsProductoAgregar">
+                                                    {% for p in productos %}
+                                                    <span class="custom-option" 
+                                                          data-value="{{ p.id }}" 
+                                                          data-name="{{ p.nombre }}"
+                                                          data-precio="{{ p.precio_costo }}" 
+                                                          data-iva="{{ p.iva|default:0 }}"
+                                                          data-search="{{ p.nombre }}" 
+                                                          title="{{ p.nombre }}">
+                                                        {{ p.nombre }}
+                                                    </span>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label small text-muted">Lista</label>
@@ -979,6 +997,85 @@
                     alert('No se pudo cargar la información de la compra.');
                 });
         }
+        // ==========================================
+        // LÓGICA DE CUSTOM SELECT (TIPO BUSCADOR)
+        // ==========================================
+        function initCustomSelect(wrapperId, hiddenInputId, fakeDisplayId, searchInputId, optionsContainerId) {
+            const wrapper = document.getElementById(wrapperId);
+            if (!wrapper) return;
+            const hiddenInput = document.getElementById(hiddenInputId);
+            const fakeDisplay = document.getElementById(fakeDisplayId);
+            const searchInput = document.getElementById(searchInputId);
+            const optionsContainer = document.getElementById(optionsContainerId);
+            const selectDiv = wrapper.querySelector('.custom-select');
+
+            const placeholderText = fakeDisplay.innerText.trim();
+
+            function toggleOptions(show) {
+                if (show) selectDiv.classList.add('open');
+                else selectDiv.classList.remove('open');
+            }
+
+            function updateDisplay() {
+                // Si el input tiene foco, ocultamos la capa fake para evitar encimar texto
+                if (document.activeElement === searchInput) {
+                    fakeDisplay.style.visibility = "hidden";
+                } else {
+                    fakeDisplay.style.visibility = "visible";
+                    if (!hiddenInput.value || hiddenInput.value === "") {
+                        fakeDisplay.innerHTML = `<span class="placeholder-text">${placeholderText}</span>`;
+                    }
+                }
+            }
+
+            searchInput.addEventListener('focus', () => {
+                toggleOptions(true);
+                updateDisplay();
+            });
+
+            searchInput.addEventListener('blur', () => {
+                setTimeout(() => {
+                    toggleOptions(false);
+                    updateDisplay();
+                }, 150);
+            });
+            
+            searchInput.addEventListener('input', function() {
+                updateDisplay();
+                const term = this.value.toLowerCase().trim();
+                const options = optionsContainer.querySelectorAll('.custom-option');
+                
+                options.forEach(opt => {
+                    const searchText = (opt.getAttribute('data-search') || '').toLowerCase();
+                    opt.style.display = searchText.includes(term) ? 'flex' : 'none';
+                });
+                toggleOptions(true);
+            });
+
+            optionsContainer.addEventListener('click', (e) => {
+                const option = e.target.closest('.custom-option');
+                if (!option || option.classList.contains('disabled')) return;
+
+                const valId = option.getAttribute('data-value');
+                const valText = (option.getAttribute('data-name') || option.textContent).trim();
+
+                hiddenInput.value = valId;
+                fakeDisplay.innerText = valText;
+                searchInput.value = ''; 
+                updateDisplay();
+                
+                toggleOptions(false);
+                hiddenInput.dispatchEvent(new Event('change'));
+            });
+
+            window.addEventListener('click', (e) => {
+                if (!wrapper.contains(e.target)) {
+                    toggleOptions(false);
+                    updateDisplay();
+                }
+            });
+        }
+
         function prepararNuevaCompra() {
             const form = document.getElementById('formCompra');
             form.reset();
@@ -986,6 +1083,17 @@
             document.getElementById('tablaCuerpo').innerHTML = '';
             document.getElementById('granTotalModal').innerText = '$0.00';
             document.getElementById('mensajeVacio').style.display = 'block';
+
+            // Reset Custom Select
+            const pInput = document.getElementById('selectProductoAgregar');
+            if (pInput) pInput.value = '';
+            const pFake = document.getElementById('producto_display_fake');
+            if (pFake) {
+                pFake.innerHTML = '<span class="placeholder-text">Buscar producto...</span>';
+                pFake.style.visibility = "visible";
+            }
+            const sInput = document.getElementById('producto_busqueda');
+            if (sInput) sInput.value = '';
 
             const modalTitle = document.querySelector('#modalNuevaCompra .modal-title');
             if (modalTitle) modalTitle.innerHTML = `<i class="bi bi-cart-plus me-2" style="color: #00b8b9;"></i>Registrar Compra`;
@@ -1077,8 +1185,10 @@
         }
 
         document.getElementById('selectProductoAgregar').addEventListener('change', function() {
-            const opt = this.options[this.selectedIndex];
-            if (!opt || !opt.value) return;
+            const pId = this.value;
+            if (!pId) return;
+            const opt = document.querySelector(`#optionsProductoAgregar .custom-option[data-value="${pId}"]`);
+            if (!opt) return;
             const base = parseFloat(opt.dataset.precio) || 0;
             
             const listaSelect = document.getElementById('selectListaPrecioAgregar');
@@ -1094,9 +1204,10 @@
         });
 
         document.getElementById('selectListaPrecioAgregar').addEventListener('change', function() {
-            const prodSelect = document.getElementById('selectProductoAgregar');
-            const opt = prodSelect.options[prodSelect.selectedIndex];
-            if (!opt || !opt.value) return;
+            const pId = document.getElementById('selectProductoAgregar').value;
+            if (!pId) return;
+            const opt = document.querySelector(`#optionsProductoAgregar .custom-option[data-value="${pId}"]`);
+            if (!opt) return;
             
             const base = parseFloat(opt.dataset.precio) || 0;
             const listaOpt = this.options[this.selectedIndex];
@@ -1111,10 +1222,12 @@
         });
 
         function agregarALista() {
-            const select = document.getElementById('selectProductoAgregar');
-            const productId = select.value;
-            const productName = select.options[select.selectedIndex].text;
-            const ivaPorc = parseFloat(select.options[select.selectedIndex].getAttribute('data-iva')) || 0;
+            const pInput = document.getElementById('selectProductoAgregar');
+            const productId = pInput.value;
+            const opt = document.querySelector(`#optionsProductoAgregar .custom-option[data-value="${productId}"]`);
+            const productName = opt ? opt.getAttribute('data-name') : "Producto";
+            const ivaPorc = parseFloat(opt ? opt.getAttribute('data-iva') : 0) || 0;
+
             const cantidad = parseFloat(document.getElementById('inputCantidadAgregar').value) || 0;
             const precio = parseFloat(document.getElementById('inputPrecioAgregar').value) || 0;
             const editIndex = document.getElementById('edit_index_compra').value;
@@ -1172,7 +1285,8 @@
             }
 
             // Limpiar campos
-            select.value = "";
+            pInput.value = "";
+            document.getElementById('producto_display_fake').innerHTML = '<span class="placeholder-text">Buscar producto...</span>';
             document.getElementById('inputCantidadAgregar').value = 1;
             document.getElementById('inputPrecioAgregar').value = "0.00";
             document.getElementById('selectListaPrecioAgregar').value = "";
@@ -1186,16 +1300,21 @@
             const index = Array.from(tbody.rows).indexOf(row);
             
             const pId = row.querySelector('[name="producto_id[]"]').value;
+            const productName = row.querySelector('.fw-semibold.small.text-dark').innerText.trim();
             const cant = row.querySelector('[name="cantidad[]"]').value;
             const prec = row.querySelector('[name="precio_unitario[]"]').value;
 
             document.getElementById('selectProductoAgregar').value = pId;
+            document.getElementById('producto_display_fake').innerText = productName;
             document.getElementById('inputCantidadAgregar').value = cant;
             document.getElementById('inputPrecioAgregar').value = prec;
             document.getElementById('edit_index_compra').value = index;
 
             const btnAdd = document.querySelector('button[onclick="agregarALista()"]');
             if (btnAdd) btnAdd.innerHTML = '<i class="bi bi-check-lg"></i>';
+            
+            // Scroll al inicio del modal para ver la edición
+            document.querySelector('#modalNuevaCompra .modal-body').scrollTop = 0;
         }
 
         function calcularGranTotalLista() {
@@ -1434,6 +1553,9 @@
         // ==========================================
         let isSubmittingCompra = false;
         document.addEventListener('DOMContentLoaded', function() {
+            // Inicializar Custom Select de Producto
+            initCustomSelect('wrapperProductoAgregar', 'selectProductoAgregar', 'producto_display_fake', 'producto_busqueda', 'optionsProductoAgregar');
+
             const modalNC = document.getElementById('modalNuevaCompra');
             if (modalNC) {
                 modalNC.addEventListener('hide.bs.modal', function (e) {
