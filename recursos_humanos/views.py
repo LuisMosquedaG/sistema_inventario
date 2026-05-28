@@ -289,6 +289,21 @@ def editar_empleado_ajax(request, id):
 
 @login_required(login_url='/login/')
 @require_POST
+@require_hr_permission('empleados', 'eliminar', json_response=True)
+def eliminar_empleado_ajax(request, id):
+    """Eliminar un empleado."""
+    empresa_actual = get_empresa_actual(request)
+    try:
+        emp = Empleado.objects.get(id=id, empresa=empresa_actual)
+        emp.delete()
+        return JsonResponse({'success': True, 'message': 'Empleado eliminado correctamente.'})
+    except Empleado.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Empleado no encontrado.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required(login_url='/login/')
+@require_POST
 @require_hr_permission('empleados', 'crear', json_response=True)
 def crear_empleado_ajax(request):
     empresa_actual = get_empresa_actual(request)
@@ -683,6 +698,21 @@ def editar_contratista_ajax(request, id):
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required(login_url='/login/')
+@require_POST
+@require_hr_permission('contratistas', 'eliminar', json_response=True)
+def eliminar_contratista_ajax(request, id):
+    """Eliminar un contratista."""
+    empresa_actual = get_empresa_actual(request)
+    try:
+        cont = Contratista.objects.get(id=id, empresa=empresa_actual)
+        cont.delete()
+        return JsonResponse({'success': True, 'message': 'Contratista eliminado correctamente.'})
+    except Contratista.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Contratista no encontrado.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required(login_url='/login/')
 @require_hr_permission('beneficiarios', 'ver')
 def lista_beneficiarios(request):
     empresa_actual = get_empresa_actual(request)
@@ -798,6 +828,21 @@ def editar_beneficiario_ajax(request, id):
         return JsonResponse({'success': True, 'message': 'Beneficiario actualizado correctamente.'})
     except Beneficiario.DoesNotExist: return JsonResponse({'success': False, 'error': 'Beneficiario no encontrado.'})
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required(login_url='/login/')
+@require_POST
+@require_hr_permission('beneficiarios', 'eliminar', json_response=True)
+def eliminar_beneficiario_ajax(request, id):
+    """Eliminar un beneficiario."""
+    empresa_actual = get_empresa_actual(request)
+    try:
+        ben = Beneficiario.objects.get(id=id, empresa=empresa_actual)
+        ben.delete()
+        return JsonResponse({'success': True, 'message': 'Beneficiario eliminado correctamente.'})
+    except Beneficiario.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Beneficiario no encontrado.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required(login_url='/login/')
 @require_hr_permission('sua', 'ver')
@@ -2102,3 +2147,217 @@ def exportar_sisub_trabajadores(request, id):
     response['Content-Disposition'] = f'attachment; filename="SISUB_TRABAJADORES_{contratista.rfc}_{anio}_C{cuat}.xlsx"'
     wb.save(response)
     return response
+
+@login_required(login_url='/login/')
+@require_POST
+@transaction.atomic
+def importar_contratos_ajax(request):
+    """Cargador de contratos y beneficiarios desde Excel."""
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'status': 'error', 'message': 'Empresa no encontrada.'})
+    
+    file = request.FILES.get('archivo')
+    if not file:
+        return JsonResponse({'status': 'error', 'message': 'No se proporcionó ningún archivo.'})
+    
+    try:
+        wb = openpyxl.load_workbook(file, data_only=True)
+        sheet = wb.active
+        # Obtener encabezados y limpiar espacios
+        headers = [str(cell.value).strip() if cell.value else "" for cell in sheet[1]]
+        
+        def get_val(row, header_name, default=None):
+            try:
+                idx = headers.index(header_name)
+                val = row[idx].value
+                return val if val is not None else default
+            except (ValueError, IndexError):
+                return default
+
+        def to_decimal(val):
+            if val is None: return Decimal('0')
+            try:
+                v = str(val).replace(',', '').replace('$', '').strip()
+                return Decimal(v) if v else Decimal('0')
+            except: return Decimal('0')
+
+        def to_date(val):
+            if isinstance(val, datetime): return val.date()
+            if isinstance(val, str):
+                # Intentar varios formatos comunes
+                for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%Y-%m-%dT%H:%M:%S'):
+                    try: return datetime.strptime(val.strip(), fmt).date()
+                    except: pass
+            return None
+
+        TIPO_CONTRATO_MAP = {
+            '01': '01', 'tiempo indeterminado': '01', 'indeterminado': '01',
+            '02': '02', 'obra determinada': '02',
+            '03': '03', 'tiempo determinado': '03', 'determinado': '03',
+            '05': '05', 'prueba': '05',
+            '06': '06', 'capacitacion': '06', 'capacitación': '06',
+        }
+
+        sucursal_id = request.session.get('sucursal_id')
+        count = 0
+        
+        for row in sheet.iter_rows(min_row=2):
+            rfc_beneficiario = str(get_val(row, 'Registro Federal de Contribuyentes', '')).strip().upper()
+            if not rfc_beneficiario:
+                continue
+
+            # 1. Buscar contratista por RFC (Sujeto Obligado)
+            rfc_sujeto_obligado = str(get_val(row, 'Registro Federal de Contribuyente del sujeto obligado', '')).strip().upper()
+            contratista = None
+            if rfc_sujeto_obligado:
+                contratista = Contratista.objects.filter(empresa=empresa_actual, rfc=rfc_sujeto_obligado).first()
+
+            # 2. Buscar o crear Beneficiario
+            beneficiario, created = Beneficiario.objects.get_or_create(
+                empresa=empresa_actual,
+                rfc=rfc_beneficiario,
+                defaults={
+                    'sucursal_id': sucursal_id,
+                    'nombre_razon_social': str(get_val(row, 'Nombre denominacion o razon social', '')).strip(),
+                    'registro_patronal': str(get_val(row, 'Registro Patronal ante el IMSS', '')).strip(),
+                    'calle': str(get_val(row, 'Calle', '')).strip(),
+                    'num_ext': str(get_val(row, 'Numero exterior', '')).strip(),
+                    'num_int': str(get_val(row, 'Numero interior', '')).strip(),
+                    'entre_calle': str(get_val(row, 'Entre calle', '')).strip(),
+                    'y_calle': str(get_val(row, 'Y calle', '')).strip(),
+                    'colonia': str(get_val(row, 'Colonia', '')).strip(),
+                    'cp': str(get_val(row, 'Codigo Postal', '')).strip(),
+                    'municipio_alcaldia': str(get_val(row, 'Municipio o Alcaldia', '')).strip(),
+                    'entidad_federativa': str(get_val(row, 'Entidad Federativa', '')).strip(),
+                    'correo': str(get_val(row, 'Correo electronico', '')).strip(),
+                    'telefono': str(get_val(row, 'telefono (numero extension)', '')).strip(),
+                }
+            )
+
+            # 3. Extraer datos de Contrato
+            folio = str(get_val(row, 'Numero de contrato', '')).strip()
+            tipo_raw = str(get_val(row, 'Tipo de contrato', '01')).strip().lower()
+            tipo_contrato = '01'
+            for key, code in TIPO_CONTRATO_MAP.items():
+                if key in tipo_raw:
+                    tipo_contrato = code
+                    break
+            
+            objeto = str(get_val(row, 'Objeto del contrato', '')).strip()
+            monto = to_decimal(get_val(row, 'Monto del contrato'))
+            vigencia = to_date(get_val(row, 'Vigencia (del contrato)'))
+            f_inicio = to_date(get_val(row, 'Fecha de inicio (del contrato)'))
+            f_fin = to_date(get_val(row, 'Fecha de termino (del contrato)'))
+            num_trabajadores_raw = get_val(row, 'Numero estimado mensual de trabajadores que se pondran a disposicion (del contrato)', 0)
+            try:
+                num_trabajadores = int(num_trabajadores_raw) if num_trabajadores_raw else 0
+            except:
+                num_trabajadores = 0
+
+            # 4. Crear el Contrato
+            Contrato.objects.create(
+                empresa=empresa_actual,
+                sucursal_id=sucursal_id,
+                beneficiario=beneficiario,
+                contratista=contratista,
+                folio=folio,
+                tipo_contrato=tipo_contrato,
+                objeto_contrato=objeto,
+                monto_contrato=monto,
+                vigencia_contrato=vigencia,
+                fecha_inicio=f_inicio or datetime.now().date(),
+                fecha_fin=f_fin,
+                num_estimado_trabajadores=num_trabajadores,
+                estado='vigente'
+            )
+            count += 1
+
+        return JsonResponse({
+            'status': 'success', 
+            'message': f'Proceso completado. Se registraron {count} contratos.'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': f'Error al procesar el archivo: {str(e)}'})
+
+@login_required(login_url='/login/')
+@require_POST
+@transaction.atomic
+def importar_contratistas_ajax(request):
+    """Cargador de contratistas desde Excel."""
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'status': 'error', 'message': 'Empresa no encontrada.'})
+    
+    file = request.FILES.get('archivo')
+    if not file:
+        return JsonResponse({'status': 'error', 'message': 'No se proporcionó ningún archivo.'})
+    
+    try:
+        wb = openpyxl.load_workbook(file, data_only=True)
+        sheet = wb.active
+        headers = [str(cell.value).strip() if cell.value else "" for cell in sheet[1]]
+        
+        def get_val(row, header_name, default=None):
+            try:
+                idx = headers.index(header_name)
+                val = row[idx].value
+                return val if val is not None else default
+            except (ValueError, IndexError):
+                return default
+
+        def to_date(val):
+            if isinstance(val, datetime): return val.date()
+            if isinstance(val, str):
+                for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%Y-%m-%dT%H:%M:%S'):
+                    try: return datetime.strptime(val.strip(), fmt).date()
+                    except: pass
+            return None
+
+        sucursal_id = request.session.get('sucursal_id')
+        count = 0
+        
+        for row in sheet.iter_rows(min_row=2):
+            rfc = str(get_val(row, 'Registro Federal de Contribuyente', '')).strip().upper()
+            if not rfc:
+                continue
+
+            # Buscar o crear Contratista
+            contratista, created = Contratista.objects.update_or_create(
+                empresa=empresa_actual,
+                rfc=rfc,
+                defaults={
+                    'sucursal_id': sucursal_id,
+                    'nombre_razon_social': str(get_val(row, 'Nombre denominacion o razon social', '')).strip(),
+                    'correo': str(get_val(row, 'Correo electronico', '')).strip(),
+                    'telefono': str(get_val(row, 'Telefono (numero extension)', '')).strip(),
+                    'registro_patronal': str(get_val(row, 'Registro patronal', '')).strip(),
+                    'calle': str(get_val(row, 'Calle', '')).strip(),
+                    'num_ext': str(get_val(row, 'Numero exterior', '')).strip(),
+                    'num_int': str(get_val(row, 'Numero interior', '')).strip(),
+                    'entre_calle': str(get_val(row, 'Entre calle', '')).strip(),
+                    'y_calle': str(get_val(row, 'Y calle', '')).strip(),
+                    'colonia': str(get_val(row, 'Colonia', '')).strip(),
+                    'cp': str(get_val(row, 'Codigo Postal', '')).strip(),
+                    'municipio_alcaldia': str(get_val(row, 'Municipio o Alcaldia', '')).strip(),
+                    'entidad_federativa': str(get_val(row, 'Entidad Federativa', '')).strip(),
+                    'representante_legal': str(get_val(row, 'Representante legal', '')).strip(),
+                    'administrador_unico': str(get_val(row, 'Administrador Unico', '')).strip(),
+                    'num_escritura': str(get_val(row, 'Numero de escritura', '')).strip(),
+                    'nombre_notario_publico': str(get_val(row, 'Nombre del Notario Publico', '')).strip(),
+                    'num_notario_publico': str(get_val(row, 'Numero de Notario Publico', '')).strip(),
+                    'fecha_escritura_publica': to_date(get_val(row, 'Fecha de escritura publica')),
+                    'folio_mercantil': str(get_val(row, 'Folio mercantil', '')).strip(),
+                    'numero_stps': str(get_val(row, 'Numero de registro ante la Secretaria de Trabajo y Prevision Social', '')).strip(),
+                }
+            )
+            count += 1
+
+        return JsonResponse({
+            'status': 'success', 
+            'message': f'Proceso completado. Se registraron/actualizaron {count} contratistas.'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': f'Error al procesar el archivo: {str(e)}'})

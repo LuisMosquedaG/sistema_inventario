@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Empleado, Contrato, Contratista, Beneficiario
+from .models import Empleado, Contrato, Contratista, Beneficiario, Nomina
 
 @admin.register(Empleado)
 class EmpleadoAdmin(admin.ModelAdmin):
@@ -24,3 +24,9 @@ class BeneficiarioAdmin(admin.ModelAdmin):
     list_display = ('rfc', 'nombre_razon_social', 'correo', 'telefono')
     list_filter = ('empresa', 'entidad_federativa')
     search_fields = ('rfc', 'nombre_razon_social')
+
+@admin.register(Nomina)
+class NominaAdmin(admin.ModelAdmin):
+    list_display = ('folio', 'nombre', 'periodo', 'tipo_nomina', 'fecha_pago', 'sueldo_gravado')
+    list_filter = ('tipo_nomina', 'empresa', 'fecha_pago')
+    search_fields = ('folio', 'nombre', 'rfc', 'uuid')

@@ -38,6 +38,9 @@
     .icon-action:active {
         transform: scale(0.95);
     }
+    .icon-action-danger:hover {
+        color: #dc3545 !important;
+    }
 
     /* ==========================================
     PILLS FINAS (ESTADO, TIPO, RELACIÓN)
@@ -251,6 +254,9 @@
                                     </span>
                                     <span class="icon-action" title="Ver Expediente">
                                         <i class="bi bi-eye"></i>
+                                    </span>
+                                    <span class="icon-action icon-action-danger" title="Eliminar Empleado" onclick="eliminarEmpleado({{ empleado.id }})">
+                                        <i class="bi bi-x-circle"></i>
                                     </span>
                                 </div>
                             </td>
@@ -815,6 +821,28 @@
             console.error('Error:', error);
             alert('Error al conectar con el servidor.');
         });
+    }
+
+    function eliminarEmpleado(id) {
+        if (confirm("¿Está seguro de que desea eliminar este empleado? Esta acción no se puede deshacer.")) {
+            fetch(`/recursos-humanos/empleados/eliminar/${id}/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Ocurrió un error al intentar eliminar el empleado.");
+            });
+        }
     }
 
     function guardarEmpleado() {

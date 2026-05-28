@@ -20,6 +20,7 @@
         width: 32px; height: 32px; text-decoration: none !important;
     }
     .icon-action:hover { color: #00b8b9; transform: scale(1.15); background-color: transparent !important; }
+    .icon-action-danger:hover { color: #dc3545 !important; }
 
     .modal-sheet .modal-content { border-radius: 12px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.15); overflow: hidden; }
     .modal-body-gray { background-color: #f8f9fa; max-height: 70vh; overflow-y: auto; }
@@ -120,6 +121,9 @@
                                 <div class="d-flex justify-content-center gap-1">
                                     <span class="icon-action" title="Editar Beneficiario" onclick="editarBeneficiario({{ b.id }})">
                                         <i class="bi bi-pencil-square"></i>
+                                    </span>
+                                    <span class="icon-action icon-action-danger" title="Eliminar Beneficiario" onclick="eliminarBeneficiario({{ b.id }})">
+                                        <i class="bi bi-x-circle"></i>
                                     </span>
                                 </div>
                             </td>
@@ -348,6 +352,28 @@
                 new bootstrap.Modal(document.getElementById('modalNuevoBeneficiario')).show();
             }
         });
+    }
+
+    function eliminarBeneficiario(id) {
+        if (confirm("¿Está seguro de que desea eliminar este beneficiario? Esta acción no se puede deshacer.")) {
+            fetch(`/recursos-humanos/beneficiarios/eliminar/${id}/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Ocurrió un error al intentar eliminar el beneficiario.");
+            });
+        }
     }
 
     document.getElementById('formBeneficiario').addEventListener('submit', function(e) {

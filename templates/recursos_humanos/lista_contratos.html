@@ -90,6 +90,29 @@
         font-weight: bold;
         box-shadow: 0 2px 4px rgba(0, 184, 185, 0.2);
     }
+
+    /* ==========================================
+    ZONA DE IMPORTACIÓN (ESTILO NÓMINAS)
+    ========================================== */
+    .import-zone {
+        border: 2px dashed #dee2e6;
+        border-radius: 12px;
+        padding: 40px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background-color: #f8f9fa;
+    }
+    .import-zone:hover {
+        border-color: #00b8b9;
+        background-color: #f0fdfa;
+    }
+    .import-zone i {
+        font-size: 3rem;
+        color: #00b8b9;
+        margin-bottom: 15px;
+        display: block;
+    }
 </style>
 
 <div class="container-fluid py-2 px-4">
@@ -100,6 +123,9 @@
             <span class="section-subtitle">Gestión de contratos laborales</span>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
+            <button class="btn btn-light text-secondary btn-pro shadow-sm border" data-bs-toggle="modal" data-bs-target="#modalImportarContratos">
+                <i class="bi bi-upload me-1"></i> Importador
+            </button>
             <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoContrato" onclick="prepararNuevoContrato()">
                 <i class="bi bi-plus-lg me-1"></i> Nuevo Contrato
             </button>
@@ -330,7 +356,7 @@
                                         <input type="text" class="form-control form-control-sm search-extra" placeholder="Buscar colaborador por nombre..." oninput="filtrarColaboradores(this)">
                                         <div class="extra-selection-container" id="containerColaboradores">
                                             {% for emp in empleados %}
-                                            <div class="extra-item" data-id="{{ emp.id }}" data-beneficiario-id="{{ emp.beneficiario_id|default:'' }}" onclick="toggleColaboradorSelection(this)">
+                                            <div class="extra-item" data-id="{{ emp.id }}" data-beneficiario-id="{{ emp.beneficiario_id|default:'' }}" data-clave="{{ emp.clave_ubicacion|default:'' }}" onclick="toggleColaboradorSelection(this)">
                                                 <span>{{ emp.nombre }} {{ emp.apellido_paterno }}</span>
                                             </div>
                                             {% endfor %}
@@ -473,27 +499,56 @@
     /**
      * Selecciona automáticamente a todos los empleados vinculados al beneficiario elegido
      * y desmarca a los que no pertenecen a dicha selección.
+     * Se utiliza AJAX para obtener la 'clave' más reciente del beneficiario.
      */
     function seleccionarEmpleadosPorBeneficiario(beneficiarioId) {
         const items = document.querySelectorAll('#containerColaboradores .extra-item');
         const hiddenSelect = document.getElementById('inputEmpleadosHidden');
 
-        items.forEach(item => {
-            const itemBeneficiarioId = item.dataset.beneficiarioId;
-            const option = hiddenSelect.querySelector(`option[value="${item.dataset.id}"]`);
-
-            // Si hay un beneficiario seleccionado y coincide, lo marcamos
-            if (beneficiarioId && itemBeneficiarioId === beneficiarioId) {
-                item.classList.add('selected');
-                if (option) option.selected = true;
-            } else {
-                // Si no hay beneficiario o no coincide, y el empleado tiene un beneficiario asignado, lo desmarcamos
-                // Esto cumple con "al desmarcar beneficiario... se deben desmarcar"
-                if (itemBeneficiarioId) {
+        if (!beneficiarioId) {
+            // Si se quita la selección, desmarcamos todo lo que tenga relación
+            items.forEach(item => {
+                if (item.dataset.beneficiarioId || item.dataset.clave) {
                     item.classList.remove('selected');
+                    const option = hiddenSelect.querySelector(`option[value="${item.dataset.id}"]`);
                     if (option) option.selected = false;
                 }
+            });
+            return;
+        }
+
+        // Consultamos al servidor para obtener los datos más recientes (incluyendo la Clave)
+        fetch(`/recursos-humanos/beneficiarios/obtener/${beneficiarioId}/`)
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                const ben = res.data;
+                const claveBen = ben.clave ? ben.clave.trim().toUpperCase() : '';
+                
+                items.forEach(item => {
+                    const itemBenId = item.dataset.beneficiarioId;
+                    const itemClave = item.dataset.clave ? item.dataset.clave.trim().toUpperCase() : '';
+                    const option = hiddenSelect.querySelector(`option[value="${item.dataset.id}"]`);
+
+                    // Coincidencia por ID directo o por Clave (siempre que la clave no sea vacía)
+                    const matchId = itemBenId == beneficiarioId;
+                    const matchClave = claveBen && itemClave && itemClave === claveBen;
+
+                    if (matchId || matchClave) {
+                        item.classList.add('selected');
+                        if (option) option.selected = true;
+                    } else {
+                        // Desmarcamos solo si tenía alguna relación con beneficiarios para no afectar selecciones manuales ajenas
+                        if (itemBenId || itemClave) {
+                            item.classList.remove('selected');
+                            if (option) option.selected = false;
+                        }
+                    }
+                });
             }
+        })
+        .catch(err => {
+            console.error("Error al sincronizar empleados:", err);
         });
     }
 
@@ -617,5 +672,102 @@
             });
         }
     }
+</script>
+
+<!-- MODAL: IMPORTAR CONTRATOS -->
+<div class="modal fade" id="modalImportarContratos" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sheet">
+        <div class="modal-content border-0">
+            <div class="modal-header border-bottom bg-light">
+                <h5 class="modal-title fw-bold">Importar Contratos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formImportarContratos" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-4">Carga un archivo Excel (.xlsx) con el formato cuatrimestral para importar contratos y beneficiarios automáticamente.</p>
+                    
+                    <div class="import-zone" onclick="document.getElementById('archivo_contratos').click()">
+                        <i class="bi bi-file-earmark-excel"></i>
+                        <span class="fw-bold text-dark d-block">Haga clic para subir Excel</span>
+                        <span class="text-muted small" id="contratosFileNameDisplay">Solo archivos .xlsx</span>
+                        <input type="file" name="archivo" id="archivo_contratos" hidden accept=".xlsx" onchange="updateContratosFileName(this)">
+                    </div>
+
+                    <div id="importContratosProgress" class="mt-3" style="display: none;">
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-brand" role="progressbar" style="width: 100%"></div>
+                        </div>
+                        <p class="text-center small text-muted mt-2">Procesando registros, por favor espere...</p>
+                    </div>
+
+                    <div class="alert alert-info mt-3 py-2" style="font-size: 0.7rem;">
+                        <i class="bi bi-info-circle me-1"></i> El sistema buscará a los beneficiarios por <strong>RFC</strong> para vincular o crear sus registros.
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 bg-white">
+                    <button type="button" class="btn btn-light btn-sm text-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-brand btn-sm text-white px-4 fw-bold shadow-sm" id="btnConfirmarImportContratos">Subir e Importar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function updateContratosFileName(input) {
+        var display = document.getElementById('contratosFileNameDisplay');
+        if (input.files && input.files[0]) {
+            display.textContent = input.files[0].name;
+            display.classList.remove('text-muted');
+            display.classList.add('text-brand', 'fw-bold');
+        } else {
+            display.textContent = 'Solo archivos .xlsx';
+            display.classList.remove('text-brand', 'fw-bold');
+            display.classList.add('text-muted');
+        }
+    }
+
+    document.getElementById('formImportarContratos').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('btnConfirmarImportContratos');
+        const progress = document.getElementById('importContratosProgress');
+        
+        if (!document.getElementById('archivo_contratos').files.length) {
+            alert('Por favor seleccione un archivo Excel.');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Procesando...';
+        progress.style.display = 'block';
+        
+        const formData = new FormData(this);
+        
+        fetch("{% url 'importar_contratos_ajax' %}", {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            progress.style.display = 'none';
+            if (data.status === 'success') {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+                btn.disabled = false;
+                btn.innerHTML = 'Subir e Importar';
+            }
+        })
+        .catch(err => {
+            progress.style.display = 'none';
+            console.error(err);
+            alert("Ocurrió un error al procesar la solicitud.");
+            btn.disabled = false;
+            btn.innerHTML = 'Subir e Importar';
+        });
+    });
 </script>
 {% endblock %}
