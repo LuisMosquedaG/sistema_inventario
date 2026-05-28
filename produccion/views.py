@@ -1139,3 +1139,25 @@ def imprimir_orden_produccion(request, pk):
         'responsable_nombre': responsable_nombre,
     }
     return render(request, 'produccion/imprimir_op.html', context)
+@login_required
+def api_stock_almacen(request, almacen_id):
+    """Retorna el stock disponible de todos los productos en un almacén específico"""
+    empresa_actual = get_empresa_actual(request)
+    almacen = get_object_or_404(Almacen, id=almacen_id, empresa=empresa_actual)
+    
+    # Obtenemos todos los productos de la empresa
+    productos = Producto.objects.filter(empresa=empresa_actual)
+    
+    # Obtenemos los inventarios para este almacén
+    inventarios = Inventario.objects.filter(almacen=almacen).values('producto_id', 'cantidad', 'reservado')
+    stock_dict = {i['producto_id']: i['cantidad'] - (i['reservado'] or 0) for i in inventarios}
+    
+    data = []
+    for p in productos:
+        data.append({
+            'id': p.id,
+            'nombre': p.nombre,
+            'stock': stock_dict.get(p.id, 0)
+        })
+        
+    return JsonResponse(data, safe=False)

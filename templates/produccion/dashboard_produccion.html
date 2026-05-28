@@ -469,23 +469,36 @@
                         <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
                             <div class="card-body p-3">
                                 <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Agregar Artículo</h6>
+                                <input type="hidden" id="edit_index_nueva" value="-1">
                                 <div class="row g-2 align-items-end">
                                     <div class="col-md-8">
                                         <label class="form-label small fw-bold text-secondary">Artículo a Producir</label>
-                                        <select id="selProductoNuevo" class="form-select form-select-sm">
-                                            <option value="">Seleccionar producto...</option>
-                                            {% for p in productos_finales %}
-                                            <option value="{{ p.id }}">{{ p.nombre }}</option>
-                                            {% endfor %}
-                                        </select>
+                                        <div class="custom-select-wrapper" id="wrapperProductoNuevo">
+                                            <div class="custom-select" id="selectProductoNuevoWrapper">
+                                                <div class="custom-select__trigger">
+                                                    <div id="producto_display_fake" class="fake-input-layer">
+                                                        <span class="text-muted" style="font-weight:400;">Buscar producto...</span>
+                                                    </div>
+                                                    <input type="text" id="producto_busqueda" autocomplete="off" class="real-input-layer">
+                                                    <input type="hidden" id="selProductoNuevo" value="">
+                                                </div>
+                                                <div class="custom-options" id="optionsProductoNuevo">
+                                                    {% for p in productos_finales %}
+                                                    <span class="custom-option" data-value="{{ p.id }}" data-name="{{ p.nombre }}" data-search="{{ p.nombre }}" title="{{ p.nombre }}">
+                                                        {{ p.nombre }}
+                                                    </span>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="col-md-2">
                                         <label class="form-label small fw-bold text-secondary">Cantidad</label>
                                         <input type="number" id="cantProductoNuevo" class="form-control form-control-sm text-center" value="1" min="1">
                                     </div>
                                     <div class="col-md-2">
-                                        <button type="button" class="btn btn-brand btn-sm w-100" onclick="agregarArticuloALista()">
-                                            <i class="bi bi-plus-lg"></i> Agregar
+                                        <button type="button" class="btn btn-brand btn-sm w-100" id="btnAgregarNueva" onclick="agregarArticuloALista()" title="Agregar">
+                                            <i class="bi bi-plus-lg"></i>
                                         </button>
                                     </div>
                                 </div>
@@ -502,7 +515,7 @@
                                             <tr>
                                                 <th class="ps-3">Artículo / Componente</th>
                                                 <th class="text-center" style="width: 100px;">Cantidad</th>
-                                                <th style="width: 50px;"></th>
+                                                <th style="width: 80px;"></th>
                                             </tr>
                                         </thead>
                                         <tbody id="tbodyNuevaOrden">
@@ -580,23 +593,36 @@
                     <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
                         <div class="card-body p-3">
                             <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Agregar Material a la Receta</h6>
+                            <input type="hidden" id="edit_index_edicion" value="-1">
                             <div class="row g-2 align-items-end">
                                 <div class="col-md-8">
                                     <label class="form-label small fw-bold text-secondary">Seleccionar Componente</label>
-                                    <select id="selMaterialNuevo" class="form-select form-select-sm">
-                                        <option value="">Seleccionar...</option>
-                                        {% for p in todos_productos_qs %}
-                                        <option value="{{ p.id }}">{{ p.nombre }}</option>
-                                        {% endfor %}
-                                    </select>
+                                    <div class="custom-select-wrapper" id="wrapperMaterialNuevo">
+                                        <div class="custom-select" id="selectMaterialNuevoWrapper">
+                                            <div class="custom-select__trigger">
+                                                <div id="material_display_fake" class="fake-input-layer">
+                                                    <span class="text-muted" style="font-weight:400;">Buscar componente...</span>
+                                                </div>
+                                                <input type="text" id="material_busqueda" autocomplete="off" class="real-input-layer">
+                                                <input type="hidden" id="selMaterialNuevo" value="">
+                                            </div>
+                                            <div class="custom-options" id="optionsMaterialNuevo">
+                                                {% for p in todos_productos_qs %}
+                                                <span class="custom-option" data-value="{{ p.id }}" data-name="{{ p.nombre }}" data-search="{{ p.nombre }}" title="{{ p.nombre }}">
+                                                    {{ p.nombre }}
+                                                </span>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="col-md-2">
                                     <label class="form-label small fw-bold text-secondary">Cantidad</label>
                                     <input type="number" id="cantMaterialNuevo" class="form-control form-control-sm text-center" value="1" min="1">
                                 </div>
                                 <div class="col-md-2">
-                                    <button type="button" class="btn btn-brand btn-sm w-100" onclick="agregarMaterialEdicion()">
-                                        <i class="bi bi-plus-lg"></i> Agregar
+                                    <button type="button" class="btn btn-brand btn-sm w-100" id="btnAgregarEdicion" onclick="agregarMaterialEdicion()" title="Agregar">
+                                        <i class="bi bi-plus-lg"></i>
                                     </button>
                                 </div>
                             </div>
@@ -613,7 +639,7 @@
                                         <tr>
                                             <th class="ps-3">Componente</th>
                                             <th class="text-center" style="width: 120px;">Cantidad</th>
-                                            <th style="width: 50px;"></th>
+                                            <th style="width: 80px;"></th>
                                         </tr>
                                     </thead>
                                     <tbody id="tbodyMateriales">
@@ -732,14 +758,13 @@
             const cantInput = document.getElementById('cantProductoNuevo');
             const pId = sel.value;
             const qty = parseInt(cantInput.value);
+            const editIndex = document.getElementById('edit_index_nueva').value;
 
             if (!pId || qty <= 0) {
                 alert("Selecciona un producto y una cantidad válida.");
                 return;
             }
 
-            // Evitar duplicados (opcional, aquí permitiremos varios si se desea)
-            
             fetch(`/produccion/api/receta/${pId}/`)
                 .then(r => r.json())
                 .then(data => {
@@ -752,13 +777,30 @@
                         componentes: data.items
                     };
                     
-                    itemsProduccion.push(item);
+                    if (editIndex !== "-1") {
+                        itemsProduccion[parseInt(editIndex)] = item;
+                        document.getElementById('edit_index_nueva').value = "-1";
+                        document.getElementById('btnAgregarNueva').innerHTML = '<i class="bi bi-plus-lg"></i>';
+                    } else {
+                        itemsProduccion.push(item);
+                    }
+                    
                     renderizarTablaNuevaOrden();
                     
-                    // Limpiar selección
+                    // Limpiar selección (Custom Select)
                     sel.value = '';
+                    document.getElementById('producto_display_fake').innerHTML = '<span class="text-muted" style="font-weight:400;">Buscar producto...</span>';
                     cantInput.value = 1;
                 });
+        }
+
+        function editarArticuloNueva(index) {
+            const item = itemsProduccion[index];
+            document.getElementById('selProductoNuevo').value = item.id;
+            document.getElementById('producto_display_fake').innerHTML = `<span>${item.nombre}</span>`;
+            document.getElementById('cantProductoNuevo').value = item.cantidad;
+            document.getElementById('edit_index_nueva').value = index;
+            document.getElementById('btnAgregarNueva').innerHTML = '<i class="bi bi-check-lg"></i>';
         }
 
         function quitarArticulo(index) {
@@ -793,7 +835,14 @@
                         </td>
                         <td class="text-center align-middle fw-bold" style="background-color: #e6f8f9 !important;">${item.cantidad} pz</td>
                         <td class="text-center align-middle" style="background-color: #e6f8f9 !important;">
-                            <i class="bi bi-trash text-danger" style="cursor:pointer;" onclick="quitarArticulo(${index})"></i>
+                            <div class="d-flex justify-content-center gap-1">
+                                <button type="button" class="icon-action" onclick="editarArticuloNueva(${index})" title="Editar Partida">
+                                    <i class="bi bi-pencil-square"></i>
+                                </button>
+                                <button type="button" class="icon-action" onclick="quitarArticulo(${index})" title="Eliminar">
+                                    <i class="bi bi-x-circle"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -833,8 +882,14 @@
                     document.getElementById('inputNotas').value = data.notas;
 
                     // Asignar Almacenes
-                    document.getElementById('editAlmacenSalida').value = data.almacen_salida_id || '';
+                    const almSalidaId = data.almacen_salida_id || '';
+                    document.getElementById('editAlmacenSalida').value = almSalidaId;
                     document.getElementById('editAlmacenEntrada').value = data.almacen_entrada_id || '';
+                    
+                    // Cargar stock inmediatamente para el almacén seleccionado
+                    if (almSalidaId) {
+                        actualizarStockDropdown(almSalidaId, 'selMaterialNuevo');
+                    }
                     
                     currentProductoPadre = data.producto_nombre;
                     currentProductoPadreId = data.producto_id;
@@ -845,6 +900,14 @@
                         nombre: d.producto_nombre,
                         cantidad: d.cantidad
                     }));
+
+                    // Reset edit index and button
+                    document.getElementById('edit_index_edicion').value = "-1";
+                    document.getElementById('btnAgregarEdicion').innerHTML = '<i class="bi bi-plus-lg"></i>';
+
+                    // Reset custom select
+                    document.getElementById('selMaterialNuevo').value = "";
+                    document.getElementById('material_display_fake').innerHTML = '<span class="text-muted" style="font-weight:400;">Buscar componente...</span>';
 
                     renderizarTablaEdicion();
                     new bootstrap.Modal(document.getElementById('modalEditarOrden')).show();
@@ -858,22 +921,45 @@
         }
 
         function agregarMaterialEdicion() {
-            const sel = document.getElementById('selMaterialNuevo');
+            const selInput = document.getElementById('selMaterialNuevo');
+            const pId = selInput.value;
             const cantInput = document.getElementById('cantMaterialNuevo');
-            const pId = sel.value;
             const qty = parseFloat(cantInput.value);
+            const editIndex = document.getElementById('edit_index_edicion').value;
 
             if (!pId || qty <= 0) {
                 alert("Selecciona un material y cantidad válida.");
                 return;
             }
 
-            const nombre = sel.options[sel.selectedIndex].text;
-            materialesEdicion.push({ producto_id: pId, nombre: nombre, cantidad: qty });
+            // Obtener el nombre del atributo data-name de la opción seleccionada
+            const opt = document.querySelector(`#optionsMaterialNuevo .custom-option[data-value="${pId}"]`);
+            const nombre = opt ? opt.getAttribute('data-name') : "Producto";
+            const mat = { producto_id: pId, nombre: nombre, cantidad: qty };
+            
+            if (editIndex !== "-1") {
+                materialesEdicion[parseInt(editIndex)] = mat;
+                document.getElementById('edit_index_edicion').value = "-1";
+                document.getElementById('btnAgregarEdicion').innerHTML = '<i class="bi bi-plus-lg"></i>';
+            } else {
+                materialesEdicion.push(mat);
+            }
             
             renderizarTablaEdicion();
-            sel.value = '';
+            
+            // Limpiar selección (Custom Select)
+            selInput.value = '';
+            document.getElementById('material_display_fake').innerHTML = '<span class="text-muted" style="font-weight:400;">Buscar componente...</span>';
             cantInput.value = 1;
+        }
+
+        function editarMaterialEdicion(index) {
+            const mat = materialesEdicion[index];
+            document.getElementById('selMaterialNuevo').value = mat.producto_id;
+            document.getElementById('material_display_fake').innerHTML = `<span>${mat.nombre}</span>`;
+            document.getElementById('cantMaterialNuevo').value = mat.cantidad;
+            document.getElementById('edit_index_edicion').value = index;
+            document.getElementById('btnAgregarEdicion').innerHTML = '<i class="bi bi-check-lg"></i>';
         }
 
         function quitarMaterialEdicion(index) {
@@ -938,9 +1024,14 @@
                                    onchange="materialesEdicion[${index}].cantidad = this.value">
                         </td>
                         <td class="text-center align-middle">
-                            <span class="icon-action" title="Quitar Material" onclick="quitarMaterialEdicion(${index})">
-                                <i class="bi bi-x-lg" style="font-size: 0.9rem;"></i>
-                            </span>
+                            <div class="d-flex justify-content-center gap-1">
+                                <button type="button" class="icon-action" onclick="editarMaterialEdicion(${index})" title="Editar Partida">
+                                    <i class="bi bi-pencil-square"></i>
+                                </button>
+                                <button type="button" class="icon-action" onclick="quitarMaterialEdicion(${index})" title="Eliminar">
+                                    <i class="bi bi-x-circle"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -1119,11 +1210,139 @@
         }
 
         // ==========================================
-        // ALERTA AL CERRAR MODALES DE PRODUCCIÓN
+        // LÓGICA DE CUSTOM SELECT (TIPO BUSCADOR)
         // ==========================================
-        let isSubmittingProduccion = false;
+        
+        function initCustomSelect(wrapperId, hiddenInputId, fakeDisplayId, searchInputId, optionsContainerId) {
+            const wrapper = document.getElementById(wrapperId);
+            const hiddenInput = document.getElementById(hiddenInputId);
+            const fakeDisplay = document.getElementById(fakeDisplayId);
+            const searchInput = document.getElementById(searchInputId);
+            const optionsContainer = document.getElementById(optionsContainerId);
+            const selectDiv = wrapper.querySelector('.custom-select');
+
+            function toggleOptions(show) {
+                if (show) selectDiv.classList.add('open');
+                else selectDiv.classList.remove('open');
+            }
+
+            searchInput.addEventListener('focus', () => toggleOptions(true));
+            
+            searchInput.addEventListener('input', function() {
+                const term = this.value.toLowerCase();
+                const options = optionsContainer.querySelectorAll('.custom-option');
+                let hasResults = false;
+                
+                options.forEach(opt => {
+                    const searchText = (opt.getAttribute('data-search') || '').toLowerCase();
+                    // Solo mostramos si coincide con la búsqueda Y no está oculto por stock (si aplica)
+                    if (searchText.includes(term) && !opt.hidden) {
+                        opt.style.display = 'flex';
+                        hasResults = true;
+                    } else {
+                        opt.style.display = 'none';
+                    }
+                });
+                toggleOptions(true);
+            });
+
+            optionsContainer.addEventListener('click', (e) => {
+                const option = e.target.closest('.custom-option');
+                if (!option || option.classList.contains('disabled')) return;
+
+                const valId = option.getAttribute('data-value');
+                // Usamos el nombre limpio del atributo data-name
+                const valText = option.getAttribute('data-name') || option.innerText.split(' (Stock:')[0].trim();
+
+                hiddenInput.value = valId;
+                fakeDisplay.innerHTML = `<span>${valText}</span>`;
+                searchInput.value = ''; // Limpiar búsqueda al seleccionar
+                
+                toggleOptions(false);
+                
+                // Disparar evento change manual si es necesario
+                hiddenInput.dispatchEvent(new Event('change'));
+            });
+
+            // Cerrar al hacer clic fuera
+            window.addEventListener('click', (e) => {
+                if (!wrapper.contains(e.target)) toggleOptions(false);
+            });
+        }
+
+        // ==========================================
+        // DINÁMICA DE STOCK POR ALMACÉN
+        // ==========================================
+        
+        function actualizarStockDropdown(almacenId, optionsContainerId, hiddenInputId, fakeDisplayId) {
+            const optionsContainer = document.getElementById(optionsContainerId);
+            const hiddenInput = document.getElementById(hiddenInputId);
+            const fakeDisplay = document.getElementById(fakeDisplayId);
+            
+            if (!almacenId || !optionsContainer) return;
+
+            fetch(`/produccion/api/stock-almacen/${almacenId}/`)
+                .then(r => r.json())
+                .then(data => {
+                    const stockMap = {};
+                    data.forEach(item => stockMap[item.id] = item.stock);
+
+                    const options = optionsContainer.querySelectorAll('.custom-option');
+                    options.forEach(opt => {
+                        const pId = opt.getAttribute('data-value');
+                        const stock = stockMap[pId] || 0;
+                        // Usamos data-name para obtener el nombre base sin Stock:
+                        const nombreLimpio = opt.getAttribute('data-name') || opt.innerText.split(' (Stock:')[0].trim();
+                        
+                        opt.innerText = `${nombreLimpio} (Stock: ${stock})`;
+
+                        if (stock > 0) {
+                            opt.hidden = false;
+                            opt.style.display = 'flex';
+                        } else {
+                            opt.hidden = true;
+                            opt.style.display = 'none';
+                        }
+                    });
+                    
+                    // Si el valor actual se ocultó, resetear
+                    if (hiddenInput.value) {
+                        const currentOpt = optionsContainer.querySelector(`.custom-option[data-value="${hiddenInput.value}"]`);
+                        if (currentOpt && currentOpt.hidden) {
+                            hiddenInput.value = '';
+                            const placeholder = optionsContainerId === 'optionsProductoNuevo' ? 'Buscar producto...' : 'Buscar componente...';
+                            fakeDisplay.innerHTML = `<span class="text-muted" style="font-weight:400;">${placeholder}</span>`;
+                        }
+                    }
+                })
+                .catch(err => console.error("Error al cargar stock:", err));
+        }
 
         document.addEventListener('DOMContentLoaded', function() {
+            // Inicializar Custom Selects
+            if (document.getElementById('wrapperProductoNuevo')) {
+                initCustomSelect('wrapperProductoNuevo', 'selProductoNuevo', 'producto_display_fake', 'producto_busqueda', 'optionsProductoNuevo');
+            }
+            if (document.getElementById('wrapperMaterialNuevo')) {
+                initCustomSelect('wrapperMaterialNuevo', 'selMaterialNuevo', 'material_display_fake', 'material_busqueda', 'optionsMaterialNuevo');
+            }
+
+            // 1. Nueva Orden (Modal)
+            const selAlmSalidaNueva = document.querySelector('select[name="almacen_salida"]');
+            if (selAlmSalidaNueva) {
+                selAlmSalidaNueva.addEventListener('change', function() {
+                    actualizarStockDropdown(this.value, 'optionsProductoNuevo', 'selProductoNuevo', 'producto_display_fake');
+                });
+            }
+
+            // 2. Editar Orden (Modal)
+            const selAlmSalidaEdicion = document.getElementById('editAlmacenSalida');
+            if (selAlmSalidaEdicion) {
+                selAlmSalidaEdicion.addEventListener('change', function() {
+                    actualizarStockDropdown(this.value, 'optionsMaterialNuevo', 'selMaterialNuevo', 'material_display_fake');
+                });
+            }
+
             // Formulario Nueva Orden
             const formNueva = document.getElementById('formNuevaOrden');
             if (formNueva) {
