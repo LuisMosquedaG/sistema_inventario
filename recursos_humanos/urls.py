@@ -42,6 +42,7 @@ urlpatterns = [
     
     # Rutas para integración SAT XML
     path('sat/solicitar/', views.solicitar_descarga_sat_ajax, name='solicitar_descarga_sat_ajax'),
+    path('sat/diagnostico/', views.diagnostico_fiel_ajax, name='diagnostico_fiel_ajax'),
     path('sat/verificar-fiel/<int:contratista_id>/', views.verificar_fiel_contratista_ajax, name='verificar_fiel_contratista_ajax'),
     path('sat/verificar-estatus/<int:solicitud_id>/', views.verificar_estatus_sat_ajax, name='verificar_estatus_sat_ajax'),
     path('sat/solicitudes/lista/', views.listar_solicitudes_sat_ajax, name='listar_solicitudes_sat_ajax'),

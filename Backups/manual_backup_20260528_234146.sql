@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict cQmddURvgrX2OCyknSsI99C0O8s4O5sRNJ2cpCoqd2c2ZCkbqPmKHlIafhRl05s
+\restrict frgSRJZBMc5vFbFt4IsyN8PIN5NeDK55RugbKYl2gbDyEpeRY9Hedy4gDEfMb49
 
 -- Dumped from database version 16.14 (Ubuntu 16.14-0ubuntu0.24.04.1)
 -- Dumped by pg_dump version 16.14 (Ubuntu 16.14-0ubuntu0.24.04.1)
@@ -63,11 +63,14 @@ ALTER TABLE IF EXISTS ONLY public.solicitudcompras_detallesolicitudcompra DROP C
 ALTER TABLE IF EXISTS ONLY public.solicitudcompras_detallesolicitudcompra DROP CONSTRAINT IF EXISTS solicitudcompras_det_detalle_pedido_orige_1aa6dac5_fk_pedidos_d;
 ALTER TABLE IF EXISTS ONLY public.solicitudcompras_detallesolicitudcompra DROP CONSTRAINT IF EXISTS solicitudcompras_det_almacen_id_9bfc7009_fk_almacenes;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_trabajadorsua DROP CONSTRAINT IF EXISTS recursos_humanos_tra_importacion_id_28691274_fk_recursos_;
+ALTER TABLE IF EXISTS ONLY public.recursos_humanos_solicituddescargasat DROP CONSTRAINT IF EXISTS recursos_humanos_sol_empresa_id_e5c6f322_fk_panel_emp;
+ALTER TABLE IF EXISTS ONLY public.recursos_humanos_solicituddescargasat DROP CONSTRAINT IF EXISTS recursos_humanos_sol_contratista_id_90d8c668_fk_recursos_;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_nomina DROP CONSTRAINT IF EXISTS recursos_humanos_nomina_empresa_id_521c2f36_fk_panel_empresa_id;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_nomina DROP CONSTRAINT IF EXISTS recursos_humanos_nom_sucursal_id_41c7dcdd_fk_preferenc;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_nomina DROP CONSTRAINT IF EXISTS recursos_humanos_nom_empleado_id_d3e6646f_fk_recursos_;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_importacionsua DROP CONSTRAINT IF EXISTS recursos_humanos_imp_sucursal_id_7fce5a70_fk_preferenc;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_importacionsua DROP CONSTRAINT IF EXISTS recursos_humanos_imp_empresa_id_76189fbb_fk_panel_emp;
+ALTER TABLE IF EXISTS ONLY public.recursos_humanos_fielcontratista DROP CONSTRAINT IF EXISTS recursos_humanos_fie_contratista_id_4e48916c_fk_recursos_;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_empleado DROP CONSTRAINT IF EXISTS recursos_humanos_emp_sucursal_id_917b2c81_fk_preferenc;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_empleado DROP CONSTRAINT IF EXISTS recursos_humanos_emp_empresa_id_16fd396e_fk_panel_emp;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_empleado DROP CONSTRAINT IF EXISTS recursos_humanos_emp_contratista_id_f703e65c_fk_recursos_;
@@ -249,6 +252,8 @@ DROP INDEX IF EXISTS public.solicitudcompras_detallesolicitudcompra_lista_id_4de
 DROP INDEX IF EXISTS public.solicitudcompras_detallesolicitudcompra_almacen_id_9bfc7009;
 DROP INDEX IF EXISTS public.solicitudcompras_detalleso_detalle_pedido_origen_id_1aa6dac5;
 DROP INDEX IF EXISTS public.recursos_humanos_trabajadorsua_importacion_id_28691274;
+DROP INDEX IF EXISTS public.recursos_humanos_solicituddescargasat_empresa_id_e5c6f322;
+DROP INDEX IF EXISTS public.recursos_humanos_solicituddescargasat_contratista_id_90d8c668;
 DROP INDEX IF EXISTS public.recursos_humanos_nomina_sucursal_id_41c7dcdd;
 DROP INDEX IF EXISTS public.recursos_humanos_nomina_empresa_id_521c2f36;
 DROP INDEX IF EXISTS public.recursos_humanos_nomina_empleado_id_d3e6646f;
@@ -410,8 +415,11 @@ ALTER TABLE IF EXISTS ONLY public.tesoreria_cajabanco DROP CONSTRAINT IF EXISTS 
 ALTER TABLE IF EXISTS ONLY public.solicitudcompras_solicitudcompra DROP CONSTRAINT IF EXISTS solicitudcompras_solicitudcompra_pkey;
 ALTER TABLE IF EXISTS ONLY public.solicitudcompras_detallesolicitudcompra DROP CONSTRAINT IF EXISTS solicitudcompras_detallesolicitudcompra_pkey;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_trabajadorsua DROP CONSTRAINT IF EXISTS recursos_humanos_trabajadorsua_pkey;
+ALTER TABLE IF EXISTS ONLY public.recursos_humanos_solicituddescargasat DROP CONSTRAINT IF EXISTS recursos_humanos_solicituddescargasat_pkey;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_nomina DROP CONSTRAINT IF EXISTS recursos_humanos_nomina_pkey;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_importacionsua DROP CONSTRAINT IF EXISTS recursos_humanos_importacionsua_pkey;
+ALTER TABLE IF EXISTS ONLY public.recursos_humanos_fielcontratista DROP CONSTRAINT IF EXISTS recursos_humanos_fielcontratista_pkey;
+ALTER TABLE IF EXISTS ONLY public.recursos_humanos_fielcontratista DROP CONSTRAINT IF EXISTS recursos_humanos_fielcontratista_contratista_id_key;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_empleado DROP CONSTRAINT IF EXISTS recursos_humanos_empleado_pkey;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_contrato DROP CONSTRAINT IF EXISTS recursos_humanos_contrato_pkey;
 ALTER TABLE IF EXISTS ONLY public.recursos_humanos_contrato_empleados DROP CONSTRAINT IF EXISTS recursos_humanos_contrato_empleados_pkey;
@@ -498,8 +506,10 @@ DROP TABLE IF EXISTS public.tesoreria_cajabanco;
 DROP TABLE IF EXISTS public.solicitudcompras_solicitudcompra;
 DROP TABLE IF EXISTS public.solicitudcompras_detallesolicitudcompra;
 DROP TABLE IF EXISTS public.recursos_humanos_trabajadorsua;
+DROP TABLE IF EXISTS public.recursos_humanos_solicituddescargasat;
 DROP TABLE IF EXISTS public.recursos_humanos_nomina;
 DROP TABLE IF EXISTS public.recursos_humanos_importacionsua;
+DROP TABLE IF EXISTS public.recursos_humanos_fielcontratista;
 DROP TABLE IF EXISTS public.recursos_humanos_empleado;
 DROP TABLE IF EXISTS public.recursos_humanos_contrato_empleados;
 DROP TABLE IF EXISTS public.recursos_humanos_contrato;
@@ -2581,6 +2591,38 @@ ALTER TABLE public.recursos_humanos_empleado ALTER COLUMN id ADD GENERATED BY DE
 
 
 --
+-- Name: recursos_humanos_fielcontratista; Type: TABLE; Schema: public; Owner: madmin
+--
+
+CREATE TABLE public.recursos_humanos_fielcontratista (
+    id bigint NOT NULL,
+    certificado_cifrado text NOT NULL,
+    llave_privada_cifrada text NOT NULL,
+    rfc_fiel character varying(13) NOT NULL,
+    data_key_cifrada text NOT NULL,
+    fecha_alta timestamp with time zone NOT NULL,
+    ultima_actualizacion timestamp with time zone NOT NULL,
+    contratista_id bigint NOT NULL
+);
+
+
+ALTER TABLE public.recursos_humanos_fielcontratista OWNER TO madmin;
+
+--
+-- Name: recursos_humanos_fielcontratista_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
+--
+
+ALTER TABLE public.recursos_humanos_fielcontratista ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.recursos_humanos_fielcontratista_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: recursos_humanos_importacionsua; Type: TABLE; Schema: public; Owner: madmin
 --
 
@@ -2668,6 +2710,41 @@ ALTER TABLE public.recursos_humanos_nomina OWNER TO madmin;
 
 ALTER TABLE public.recursos_humanos_nomina ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
     SEQUENCE NAME public.recursos_humanos_nomina_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: recursos_humanos_solicituddescargasat; Type: TABLE; Schema: public; Owner: madmin
+--
+
+CREATE TABLE public.recursos_humanos_solicituddescargasat (
+    id bigint NOT NULL,
+    id_solicitud character varying(100) NOT NULL,
+    fecha_inicio date NOT NULL,
+    fecha_fin date NOT NULL,
+    tipo_comprobante character varying(20) NOT NULL,
+    estado character varying(20) NOT NULL,
+    mensaje_error text,
+    fecha_creacion timestamp with time zone NOT NULL,
+    fecha_actualizacion timestamp with time zone NOT NULL,
+    contratista_id bigint,
+    empresa_id bigint NOT NULL
+);
+
+
+ALTER TABLE public.recursos_humanos_solicituddescargasat OWNER TO madmin;
+
+--
+-- Name: recursos_humanos_solicituddescargasat_id_seq; Type: SEQUENCE; Schema: public; Owner: madmin
+--
+
+ALTER TABLE public.recursos_humanos_solicituddescargasat ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.recursos_humanos_solicituddescargasat_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -3102,36 +3179,36 @@ COPY public.almacenes_almacen (id, nombre, responsable, calle, numero_ext, numer
 --
 
 COPY public.almacenes_inventario (id, cantidad, costo_promedio, fecha_actualizacion, almacen_id, empresa_id, producto_id, reservado, sucursal_id) FROM stdin;
+26	1	5346.46	2026-05-28 17:39:52.626903-06	3	1	54	1	1
+29	1	1200.00	2026-05-28 17:39:52.630334-06	3	1	52	1	1
+25	1	2827.58	2026-05-28 17:39:52.632721-06	3	1	57	1	1
+28	1	18900.00	2026-05-28 17:39:52.634652-06	3	1	117	1	1
+24	1	10547.08	2026-05-28 17:39:52.636358-06	3	1	169	1	1
+23	1	4941.49	2026-05-28 17:39:52.638115-06	3	1	170	1	1
+22	1	1089.26	2026-05-28 17:39:52.639646-06	3	1	171	1	1
+21	1	1806.46	2026-05-28 17:39:52.641438-06	3	1	68	1	1
+16	1	2428.79	2026-05-28 17:39:55.388823-06	3	1	161	1	1
+18	1	930.67	2026-05-28 17:39:55.391554-06	3	1	175	1	1
+20	1	1842.92	2026-05-28 17:39:55.393538-06	3	1	3	1	1
 15	0	2428.79	2026-05-27 12:33:46.174058-06	2	1	161	0	1
-16	1	2428.79	2026-05-27 12:33:46.17717-06	3	1	161	0	\N
 14	0	6386.51	2026-05-27 12:33:46.184074-06	2	1	176	0	1
-17	1	6386.51	2026-05-27 12:33:46.186374-06	3	1	176	0	\N
 13	0	930.67	2026-05-27 12:33:46.191097-06	2	1	175	0	1
-18	1	930.67	2026-05-27 12:33:46.193457-06	3	1	175	0	\N
 12	0	2224.89	2026-05-27 12:33:46.198448-06	2	1	172	0	1
-19	1	2224.89	2026-05-27 12:33:46.200802-06	3	1	172	0	\N
 11	0	1842.92	2026-05-27 12:33:46.205646-06	2	1	3	0	1
-20	1	1842.92	2026-05-27 12:33:46.208189-06	3	1	3	0	\N
+17	1	6386.51	2026-05-28 17:39:55.395693-06	3	1	176	1	1
 10	0	1806.46	2026-05-27 12:33:46.213505-06	2	1	68	0	1
-21	1	1806.46	2026-05-27 12:33:46.215992-06	3	1	68	0	\N
+19	1	2224.89	2026-05-28 17:39:55.397365-06	3	1	172	1	1
 9	0	1089.26	2026-05-27 12:33:46.222138-06	2	1	171	0	1
-22	1	1089.26	2026-05-27 12:33:46.224945-06	3	1	171	0	\N
+27	1	799.00	2026-05-28 17:39:55.39904-06	3	1	8	1	1
 8	0	4941.49	2026-05-27 12:33:46.230218-06	2	1	170	0	1
-23	1	4941.49	2026-05-27 12:33:46.232756-06	3	1	170	0	\N
+30	1	813.92	2026-05-28 17:39:55.400753-06	3	1	174	1	1
 7	0	10547.08	2026-05-27 12:33:46.237878-06	2	1	169	0	1
-24	1	10547.08	2026-05-27 12:33:46.240349-06	3	1	169	0	\N
 6	0	2827.58	2026-05-27 12:33:46.245404-06	2	1	57	0	1
-25	1	2827.58	2026-05-27 12:33:46.247893-06	3	1	57	0	\N
 5	0	5346.46	2026-05-27 12:33:46.253156-06	2	1	54	0	1
-26	1	5346.46	2026-05-27 12:33:46.255538-06	3	1	54	0	\N
 4	0	799.00	2026-05-27 12:33:46.260546-06	2	1	8	0	1
-27	1	799.00	2026-05-27 12:33:46.262977-06	3	1	8	0	\N
 3	0	18900.00	2026-05-27 12:33:46.268087-06	2	1	117	0	1
-28	1	18900.00	2026-05-27 12:33:46.270648-06	3	1	117	0	\N
 2	0	1200.00	2026-05-27 12:33:46.276323-06	2	1	52	0	1
-29	1	1200.00	2026-05-27 12:33:46.278911-06	3	1	52	0	\N
 1	0	813.92	2026-05-27 12:33:46.284555-06	2	1	174	0	1
-30	1	813.92	2026-05-27 12:33:46.287109-06	3	1	174	0	\N
 \.
 
 
@@ -3477,6 +3554,14 @@ COPY public.auth_permission (id, name, content_type_id, codename) FROM stdin;
 266	Can change Nómina	67	change_nomina
 267	Can delete Nómina	67	delete_nomina
 268	Can view Nómina	67	view_nomina
+269	Can add FIEL Contratista	68	add_fielcontratista
+270	Can change FIEL Contratista	68	change_fielcontratista
+271	Can delete FIEL Contratista	68	delete_fielcontratista
+272	Can view FIEL Contratista	68	view_fielcontratista
+273	Can add Solicitud SAT	69	add_solicituddescargasat
+274	Can change Solicitud SAT	69	change_solicituddescargasat
+275	Can delete Solicitud SAT	69	delete_solicituddescargasat
+276	Can view Solicitud SAT	69	view_solicituddescargasat
 \.
 
 
@@ -3489,9 +3574,9 @@ COPY public.auth_user (id, password, last_login, is_superuser, username, first_n
 6	pbkdf2_sha256$1200000$7JHJ2ILtPY8ONnhKqcsCh2$yMqd/qLiuQIaMnGF0ecgq7/EVfzZW/6sGPGdRfdzwaI=	2026-05-20 12:03:12.023338-06	t	rmendez@highpro			contacto@protohardware.com	t	t	2026-05-20 10:52:59-06
 5	pbkdf2_sha256$1200000$Df2G00GcFy9qayh5V8OEOc$QA475bZmth/cEFwx9zh4rouUzeQWdIB70+smSg/9VwQ=	2026-05-20 12:25:25.179202-06	t	admin@demo				t	t	2026-05-13 10:35:54.36316-06
 3	pbkdf2_sha256$1200000$YcuX3lyZhTE3kkT7kZ5Jnt$COMcqAeK8hKJXaMvF8L1r4fYbAiHcVtPhuVrx2kEngQ=	2026-05-22 22:56:17.828053-06	t	admin@highpro				t	t	2026-05-13 10:35:17.075067-06
-4	pbkdf2_sha256$1200000$D56WTkSgiesz6VSa0OxPZq$DovSHeTeefZj7Oej6GmujcWE9Lp6I0EqtxsnOxkwFf4=	2026-05-27 09:59:16.300051-06	t	sadmin@demo			luism@crossovermx.com.mx	t	t	2026-05-13 10:35:53.868697-06
 11	pbkdf2_sha256$1200000$ZKFxZP1Bc21v5joq25s6K0$fMcCJFmPR3BlFpjNp92uk1LajGRlNXLgx98LJM811OQ=	2026-05-20 13:27:52.957062-06	f	usuario@demo				f	t	2026-05-20 12:25:50.240795-06
-2	pbkdf2_sha256$1200000$pyoiPCe8gM53Ftyw4jIrBU$CeF81y3QvV77DQGBQ6A9T/jH2eJ2N9MCqWc9kE5rksQ=	2026-05-27 13:03:31.32818-06	t	sadmin@highpro			highpro.gerencia1@gmail.com	t	t	2026-05-13 10:35:16.661671-06
+4	pbkdf2_sha256$1200000$D56WTkSgiesz6VSa0OxPZq$DovSHeTeefZj7Oej6GmujcWE9Lp6I0EqtxsnOxkwFf4=	2026-05-28 17:31:40.525497-06	t	sadmin@demo			luism@crossovermx.com.mx	t	t	2026-05-13 10:35:53.868697-06
+2	pbkdf2_sha256$1200000$pyoiPCe8gM53Ftyw4jIrBU$CeF81y3QvV77DQGBQ6A9T/jH2eJ2N9MCqWc9kE5rksQ=	2026-05-28 17:32:03.821504-06	t	sadmin@highpro			highpro.gerencia1@gmail.com	t	t	2026-05-13 10:35:16.661671-06
 7	pbkdf2_sha256$1200000$y3nBe2AaIjGzlDFJuMpzcB$5Sc6abpERR9/bsBP+DNUlvATrabEYJNTPgerhCGhRpA=	\N	f	lgonzalez@highpro			facturacion@highpro.com.mx	f	t	2026-05-20 10:55:44.524213-06
 9	pbkdf2_sha256$1200000$oqhJ0HqEpJ56fa3rONFoz6$05EpvSxYcnCKDxi3P2dvTAaQkgxHC8PxPug0V07UbNo=	\N	t	eornelas@highpro			contacto@highpro.com.mx	t	t	2026-05-20 10:56:28.84377-06
 10	pbkdf2_sha256$1200000$XMunL5Z0hxb556thLrSiYd$qe1qEqEE2NofhjPezIogG1ARuANlYbD4DKWMWxD5PeA=	\N	f	etorres@highpro			protohw@highpro.com.mx	f	t	2026-05-20 10:56:54.505771-06
@@ -3975,6 +4060,23 @@ COPY public.django_admin_log (id, action_time, object_id, object_repr, action_fl
 1	2026-05-20 10:54:03.901686-06	6	rmendez@highpro	2	[{"changed": {"fields": ["Username"]}}]	4	2
 2	2026-05-26 13:42:31.367873-06	3	Pedido #3 - Carlos Dueñas	2	[{"changed": {"fields": ["Estado"]}}]	39	2
 3	2026-05-26 13:42:43.869733-06	2	Pedido #2 - Armando Gonzalez García	2	[{"changed": {"fields": ["Estado"]}}]	39	2
+4	2026-05-27 15:45:12.031362-06	30	GABINETE BALAM RUSH(BR-943840)TANK CORE PRO GI925,MAX, M-ATX,S/FUENTE,1*USB A 3.0+3FAN 120MM ARGB en Ensamblaje: 1	2	[{"changed": {"fields": ["Sucursal"]}}]	28	2
+5	2026-05-27 15:45:17.427016-06	29	VENTILADOR P/CPU MSI (MAG CORELIQUID A13 360 WHITE) ARGB,ENFRIAMIENTO LIQUIDO, 3 FAN, 360MM, BLANCO en Ensamblaje: 1	2	[{"changed": {"fields": ["Sucursal"]}}]	28	2
+6	2026-05-27 15:45:21.20671-06	28	MEMORIA DIMM DDR5 CORSAIR (CMK64GX5M2B5600Z40) 64GB (2X32GB) 5600MHZ VENGEANCE AMD EXPO en Ensamblaje: 1	2	[{"changed": {"fields": ["Sucursal"]}}]	28	2
+7	2026-05-27 15:45:24.869298-06	27	FUENTE DE PODER MSI (MAG A650BN) 650W,80 PLUS BRONZE en Ensamblaje: 1	2	[{"changed": {"fields": ["Sucursal"]}}]	28	2
+8	2026-05-27 15:45:28.489105-06	26	PROCESADOR INTEL (BX80768265K) CORE ULTRA 7 265K, IA, SOCKET-1851 en Ensamblaje: 1	2	[{"changed": {"fields": ["Sucursal"]}}]	28	2
+9	2026-05-27 15:45:33.030576-06	25	MOTHERBOARD ASUS (TUF GAMING B860M-PLUS WIFI) SOCKET 1851 15A,4*DDR5 en Ensamblaje: 1	2	[{"changed": {"fields": ["Sucursal"]}}]	28	2
+10	2026-05-27 15:45:36.162484-06	24	TARJETA DE VIDEO ASUS (PRIME-RTX5070-12G) 12GB GDDR7,192BIT, PCI-E 5.0,HDMI,3*DP1.4A,TRI FAN en Ensamblaje: 1	2	[{"changed": {"fields": ["Sucursal"]}}]	28	2
+11	2026-05-27 15:45:39.53988-06	23	UNIDAD SSD M.2 KINGSTON 2TB (SNV3S/2000G) NV3, PCIE NVME, 2280 en Ensamblaje: 1	2	[{"changed": {"fields": ["Sucursal"]}}]	28	2
+12	2026-05-27 15:45:42.696423-06	22	FUENTE DE PODER MSI (MAG A850GL PCIE5) 850W, PCI 5, FULL MODULAR, 80 PLUS GOLD, PFC ACTIVO, ATX 3.0 en Ensamblaje: 1	2	[{"changed": {"fields": ["Sucursal"]}}]	28	2
+13	2026-05-27 15:45:45.460145-06	23	UNIDAD SSD M.2 KINGSTON 2TB (SNV3S/2000G) NV3, PCIE NVME, 2280 en Ensamblaje: 1	2	[]	28	2
+14	2026-05-27 15:45:47.775069-06	22	FUENTE DE PODER MSI (MAG A850GL PCIE5) 850W, PCI 5, FULL MODULAR, 80 PLUS GOLD, PFC ACTIVO, ATX 3.0 en Ensamblaje: 1	2	[]	28	2
+15	2026-05-27 15:45:51.000074-06	21	GABINETE NZXT (CM-H72FW-R1) H7 FLOW RGB, MID-TOWER 3 FANS RGB, ATX, BLANCO en Ensamblaje: 1	2	[{"changed": {"fields": ["Sucursal"]}}]	28	2
+16	2026-05-27 15:45:54.455181-06	20	MEMORIA RAM DDR4 KINGSTON (KF432C16BB2A/16) (1X16GB) 3200MHZ FURY BEAST BLACK RGB en Ensamblaje: 1	2	[{"changed": {"fields": ["Sucursal"]}}]	28	2
+17	2026-05-27 15:46:00.888229-06	19	UNIDAD SSD M.2 2280 PREDATOR 1TB (BL.9BWWR.118) GM7-1TB, PCIE GEN 4, 7200/6300 MB/S en Ensamblaje: 1	2	[{"changed": {"fields": ["Sucursal"]}}]	28	2
+18	2026-05-27 15:46:04.606672-06	18	MOTHERBOARD MSI (PRO H610M-G DDR4) SOCKET 1700, 2*DDR4 3200MHZ, 1*HDMI, 1*VGA, MICRO ATX en Ensamblaje: 1	2	[{"changed": {"fields": ["Sucursal"]}}]	28	2
+19	2026-05-27 15:46:08.219817-06	17	TARJETA DE VIDEO MSI (RTX 5060 TI 8G SHADOW 2X OC PLUS) 8GB GDDR7, 2617 MHZ, 1*HDMI, 3*DP, 2 FAN en Ensamblaje: 1	2	[{"changed": {"fields": ["Sucursal"]}}]	28	2
+20	2026-05-27 15:46:12.065881-06	16	PROCESADOR INTEL (BX8071512400F) CORE I5-12400F S-1700 6CORES 4.40GHZ 65W en Ensamblaje: 1	2	[{"changed": {"fields": ["Sucursal"]}}]	28	2
 \.
 
 
@@ -4050,6 +4152,8 @@ COPY public.django_content_type (id, app_label, model) FROM stdin;
 65	costeos	serviciomaterial
 66	costeos	serviciopersonal
 67	recursos_humanos	nomina
+68	recursos_humanos	fielcontratista
+69	recursos_humanos	solicituddescargasat
 \.
 
 
@@ -4221,6 +4325,7 @@ COPY public.django_migrations (id, app, name, applied) FROM stdin;
 161	recursos_humanos	0029_empleado_antiguedad_sat_and_more	2026-05-27 09:57:30.0035-06
 162	recursos_humanos	0030_empleado_jornada_sat	2026-05-27 09:57:30.086694-06
 163	recursos_humanos	0031_alter_empleado_cp_alter_nomina_uso_cfdi	2026-05-27 09:57:30.299825-06
+164	recursos_humanos	0032_fielcontratista_solicituddescargasat	2026-05-28 17:30:31.771151-06
 \.
 
 
@@ -4232,7 +4337,7 @@ COPY public.django_session (session_key, session_data, expire_date) FROM stdin;
 lpcfh409hyvxzm1ixusg02g6pki7yu7c	.eJxVjjsOgzAQRO_iOrLwl3XK9JwB7XpNTIJAwriKcvdARJG082ae5iV6rFvua0lrP7K4Ci0uvxlhfKb5APzA-b7IuMzbOpI8KvKkRXYLp-l2dv8EGUve1-TBJm8YHCFwcG1CJjSaGgCEwOg0tS2xgqFpfNTJKAvOgLU-BB2HXVpqrGvB6ftTvT-ZfT0w:1wQeJk:M_NHW3XfjZk0ZhZ0LAgZkXskK5vPvaBcPgdW3IySbZQ	2026-06-05 22:50:32.703967-06
 6aaojjfx5enxv6nl11dmesceoolr7k76	.eJxVjsEOgjAYg99lZ7OwYcbw6N1nWLr1R1ACCWMn47sLhoOemrRfm75UQFn7ULIsYaC6qFqdfr2I9JRpD_jAdJ91mqd1GaLeEX2kWd9myng92L-BHrnf2jGShBg0gOloLehr8azIFOErVm3XWp9cl8Q1zsOyRXM2bhNK3F_lksqSMX5_mvcHClo_Vg:1wQePK:Gr5f_TOAErJa2HdLdCYmECq45PbSi56DKasrqoNYUus	2026-06-05 22:56:18.220883-06
 y9z4pmrhpg0r381n50r11zef9yx6bt25	.eJxVjsEOgjAYg99lZ7OwYcbw6N1nWLr1R1ACCWMn47sLhoOemrRfm75UQFn7ULIsYaC6qFqdfr2I9JRpD_jAdJ91mqd1GaLeEX2kWd9myng92L-BHrnf2jGShBg0gOloLehr8azIFOErVm3XWp9cl8Q1zsOyRXM2bhNK3F_lksqSMX5_mvcHClo_Vg:1wPn77:cRJurZThksZjRC1OzvyEdXGkG-xicqJz_Ai09svl73s	2026-06-03 14:01:57.064985-06
-itdn953pize9rzyfdlgp76wv0h9zh1wg	.eJxVjjsOgzAQRO_iOrLwl3XK9JwB7XpNTIJAwriKcvdARJG082ae5iV6rFvua0lrP7K4Ci0uvxlhfKb5APzA-b7IuMzbOpI8KvKkRXYLp-l2dv8EGUve1-TBJm8YHCFwcG1CJjSaGgCEwOg0tS2xgqFpfNTJKAvOgLU-BB2HXVpqrGvB6ftTvT-ZfT0w:1wSJXP:cUDJB4eb-o2lvCxE67Aw2vbJZAAhVQnAXIiF9SfPDi4	2026-06-10 13:03:31.629587-06
+jtam7pau4zgrhzvbsymlcpq6nxh45zt6	.eJxVjjsOgzAQRO_iOrLwl3XK9JwB7XpNTIJAwriKcvdARJG082ae5iV6rFvua0lrP7K4Ci0uvxlhfKb5APzA-b7IuMzbOpI8KvKkRXYLp-l2dv8EGUve1-TBJm8YHCFwcG1CJjSaGgCEwOg0tS2xgqFpfNTJKAvOgLU-BB2HXVpqrGvB6ftTvT-ZfT0w:1wSkCq:2sqr007QosJ0SC5sC3AMJMoFWvhg3YW51yK1Ze-Q0UM	2026-06-11 17:32:04.153173-06
 \.
 
 
@@ -4308,6 +4413,8 @@ COPY public.notificaciones_notificacion (id, mensaje, link, fecha, visto_en_toas
 58	cambió estado de OC-0005 a aprobada	\N	2026-05-27 11:25:41.376525-06	t	3	1	3
 57	cambió estado de OC-0007 a aprobada	\N	2026-05-27 11:25:35.807272-06	t	3	1	3
 56	cambió estado de OC-0006 a aprobada	\N	2026-05-27 11:25:30.979067-06	t	3	1	3
+68	inició la producción de OP-0002 (LEGA BRONCE ULTRA)	\N	2026-05-28 17:39:52.645596-06	t	3	1	3
+69	inició la producción de OP-0001 (LEGA ONE 5060TI)	\N	2026-05-28 17:39:55.404789-06	t	3	1	3
 \.
 
 
@@ -4526,21 +4633,21 @@ COPY public.preferencias_sucursal (id, nombre, calle, numero_exterior, numero_in
 --
 
 COPY public.produccion_detalleordenproduccion (id, cantidad, orden_produccion_id, producto_id) FROM stdin;
-1	1	1	161
-2	1	1	162
-3	1	1	3
-4	1	1	17
-5	1	1	6
-6	1	1	8
-7	1	1	14
-8	1	2	55
-9	1	2	51
-10	1	2	57
-11	1	2	117
-12	1	2	19
-13	1	2	60
-14	1	2	21
-15	1	2	69
+39	1	2	54
+40	1	2	52
+41	1	2	57
+42	1	2	117
+43	1	2	169
+44	1	2	170
+45	1	2	171
+46	1	2	68
+47	1	1	161
+48	1	1	175
+49	1	1	3
+50	1	1	176
+51	1	1	172
+52	1	1	8
+53	1	1	174
 \.
 
 
@@ -4557,8 +4664,8 @@ COPY public.produccion_itemtest (id, tarea, orden, test_id) FROM stdin;
 --
 
 COPY public.produccion_ordenproduccion (id, cantidad, estado, fecha_creacion, fecha_inicio, fecha_terminado, notas, almacen_id, empresa_id, pedido_origen_id, producto_id, responsable_id, solicitante_id, almacen_materia_prima_id, cliente_id, sucursal_id) FROM stdin;
-1	1	borrador	2026-05-26 14:42:47.792448-06	\N	\N	Generada automáticamente desde Pedido #3	2	1	3	37	\N	3	\N	\N	1
-2	1	borrador	2026-05-26 14:43:06.847263-06	\N	\N	Generada automáticamente desde Pedido #2	2	1	2	70	\N	3	\N	\N	1
+2	1	en_proceso	2026-05-26 14:43:06.847263-06	2026-05-28 17:39:52.642852-06	\N	Generada automáticamente desde Pedido #2	3	1	2	70	3	3	3	\N	1
+1	1	en_proceso	2026-05-26 14:42:47.792448-06	2026-05-28 17:39:55.401679-06	\N	Generada automáticamente desde Pedido #3	3	1	3	37	3	3	3	\N	1
 \.
 
 
@@ -4694,6 +4801,14 @@ COPY public.recursos_humanos_empleado (id, nombre, puesto, fecha_ingreso, empres
 
 
 --
+-- Data for Name: recursos_humanos_fielcontratista; Type: TABLE DATA; Schema: public; Owner: madmin
+--
+
+COPY public.recursos_humanos_fielcontratista (id, certificado_cifrado, llave_privada_cifrada, rfc_fiel, data_key_cifrada, fecha_alta, ultima_actualizacion, contratista_id) FROM stdin;
+\.
+
+
+--
 -- Data for Name: recursos_humanos_importacionsua; Type: TABLE DATA; Schema: public; Owner: madmin
 --
 
@@ -4706,6 +4821,14 @@ COPY public.recursos_humanos_importacionsua (id, registro_patronal, rfc_empresa,
 --
 
 COPY public.recursos_humanos_nomina (id, periodo, uso_cfdi, uuid, tipo_nomina, serie, folio, fecha_emision, fecha_certificacion, fecha_pago, fecha_inicial_pago, fecha_final_pago, dias_pagados, rfc, curp, nss, nombre, rfc_contratista, sdi, sbc, vacaciones_exento, vacaciones_dignas_exento, aguinaldo_exento, sueldo_gravado, vacaciones_gravado, vacaciones_dignas_gravado, aguinaldo_gravado, empleado_id, empresa_id, sucursal_id) FROM stdin;
+\.
+
+
+--
+-- Data for Name: recursos_humanos_solicituddescargasat; Type: TABLE DATA; Schema: public; Owner: madmin
+--
+
+COPY public.recursos_humanos_solicituddescargasat (id, id_solicitud, fecha_inicio, fecha_fin, tipo_comprobante, estado, mensaje_error, fecha_creacion, fecha_actualizacion, contratista_id, empresa_id) FROM stdin;
 \.
 
 
@@ -4887,7 +5010,7 @@ SELECT pg_catalog.setval('public.auth_group_permissions_id_seq', 1, false);
 -- Name: auth_permission_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
-SELECT pg_catalog.setval('public.auth_permission_id_seq', 268, true);
+SELECT pg_catalog.setval('public.auth_permission_id_seq', 276, true);
 
 
 --
@@ -5055,28 +5178,28 @@ SELECT pg_catalog.setval('public.cotizaciones_detallecotizacion_id_seq', 27, tru
 -- Name: django_admin_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
-SELECT pg_catalog.setval('public.django_admin_log_id_seq', 3, true);
+SELECT pg_catalog.setval('public.django_admin_log_id_seq', 20, true);
 
 
 --
 -- Name: django_content_type_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
-SELECT pg_catalog.setval('public.django_content_type_id_seq', 67, true);
+SELECT pg_catalog.setval('public.django_content_type_id_seq', 69, true);
 
 
 --
 -- Name: django_migrations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
-SELECT pg_catalog.setval('public.django_migrations_id_seq', 163, true);
+SELECT pg_catalog.setval('public.django_migrations_id_seq', 164, true);
 
 
 --
 -- Name: notificaciones_notificacion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
-SELECT pg_catalog.setval('public.notificaciones_notificacion_id_seq', 67, true);
+SELECT pg_catalog.setval('public.notificaciones_notificacion_id_seq', 69, true);
 
 
 --
@@ -5146,7 +5269,7 @@ SELECT pg_catalog.setval('public.preferencias_sucursal_id_seq', 3, true);
 -- Name: produccion_detalleordenproduccion_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
-SELECT pg_catalog.setval('public.produccion_detalleordenproduccion_id_seq', 15, true);
+SELECT pg_catalog.setval('public.produccion_detalleordenproduccion_id_seq', 53, true);
 
 
 --
@@ -5248,6 +5371,13 @@ SELECT pg_catalog.setval('public.recursos_humanos_empleado_id_seq', 54, true);
 
 
 --
+-- Name: recursos_humanos_fielcontratista_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
+--
+
+SELECT pg_catalog.setval('public.recursos_humanos_fielcontratista_id_seq', 1, false);
+
+
+--
 -- Name: recursos_humanos_importacionsua_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
 --
 
@@ -5259,6 +5389,13 @@ SELECT pg_catalog.setval('public.recursos_humanos_importacionsua_id_seq', 24, tr
 --
 
 SELECT pg_catalog.setval('public.recursos_humanos_nomina_id_seq', 1, false);
+
+
+--
+-- Name: recursos_humanos_solicituddescargasat_id_seq; Type: SEQUENCE SET; Schema: public; Owner: madmin
+--
+
+SELECT pg_catalog.setval('public.recursos_humanos_solicituddescargasat_id_seq', 1, false);
 
 
 --
@@ -5940,6 +6077,22 @@ ALTER TABLE ONLY public.recursos_humanos_empleado
 
 
 --
+-- Name: recursos_humanos_fielcontratista recursos_humanos_fielcontratista_contratista_id_key; Type: CONSTRAINT; Schema: public; Owner: madmin
+--
+
+ALTER TABLE ONLY public.recursos_humanos_fielcontratista
+    ADD CONSTRAINT recursos_humanos_fielcontratista_contratista_id_key UNIQUE (contratista_id);
+
+
+--
+-- Name: recursos_humanos_fielcontratista recursos_humanos_fielcontratista_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
+--
+
+ALTER TABLE ONLY public.recursos_humanos_fielcontratista
+    ADD CONSTRAINT recursos_humanos_fielcontratista_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: recursos_humanos_importacionsua recursos_humanos_importacionsua_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
 --
 
@@ -5953,6 +6106,14 @@ ALTER TABLE ONLY public.recursos_humanos_importacionsua
 
 ALTER TABLE ONLY public.recursos_humanos_nomina
     ADD CONSTRAINT recursos_humanos_nomina_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: recursos_humanos_solicituddescargasat recursos_humanos_solicituddescargasat_pkey; Type: CONSTRAINT; Schema: public; Owner: madmin
+--
+
+ALTER TABLE ONLY public.recursos_humanos_solicituddescargasat
+    ADD CONSTRAINT recursos_humanos_solicituddescargasat_pkey PRIMARY KEY (id);
 
 
 --
@@ -7092,6 +7253,20 @@ CREATE INDEX recursos_humanos_nomina_empresa_id_521c2f36 ON public.recursos_huma
 --
 
 CREATE INDEX recursos_humanos_nomina_sucursal_id_41c7dcdd ON public.recursos_humanos_nomina USING btree (sucursal_id);
+
+
+--
+-- Name: recursos_humanos_solicituddescargasat_contratista_id_90d8c668; Type: INDEX; Schema: public; Owner: madmin
+--
+
+CREATE INDEX recursos_humanos_solicituddescargasat_contratista_id_90d8c668 ON public.recursos_humanos_solicituddescargasat USING btree (contratista_id);
+
+
+--
+-- Name: recursos_humanos_solicituddescargasat_empresa_id_e5c6f322; Type: INDEX; Schema: public; Owner: madmin
+--
+
+CREATE INDEX recursos_humanos_solicituddescargasat_empresa_id_e5c6f322 ON public.recursos_humanos_solicituddescargasat USING btree (empresa_id);
 
 
 --
@@ -8500,6 +8675,14 @@ ALTER TABLE ONLY public.recursos_humanos_empleado
 
 
 --
+-- Name: recursos_humanos_fielcontratista recursos_humanos_fie_contratista_id_4e48916c_fk_recursos_; Type: FK CONSTRAINT; Schema: public; Owner: madmin
+--
+
+ALTER TABLE ONLY public.recursos_humanos_fielcontratista
+    ADD CONSTRAINT recursos_humanos_fie_contratista_id_4e48916c_fk_recursos_ FOREIGN KEY (contratista_id) REFERENCES public.recursos_humanos_contratista(id) DEFERRABLE INITIALLY DEFERRED;
+
+
+--
 -- Name: recursos_humanos_importacionsua recursos_humanos_imp_empresa_id_76189fbb_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: madmin
 --
 
@@ -8537,6 +8720,22 @@ ALTER TABLE ONLY public.recursos_humanos_nomina
 
 ALTER TABLE ONLY public.recursos_humanos_nomina
     ADD CONSTRAINT recursos_humanos_nomina_empresa_id_521c2f36_fk_panel_empresa_id FOREIGN KEY (empresa_id) REFERENCES public.panel_empresa(id) DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: recursos_humanos_solicituddescargasat recursos_humanos_sol_contratista_id_90d8c668_fk_recursos_; Type: FK CONSTRAINT; Schema: public; Owner: madmin
+--
+
+ALTER TABLE ONLY public.recursos_humanos_solicituddescargasat
+    ADD CONSTRAINT recursos_humanos_sol_contratista_id_90d8c668_fk_recursos_ FOREIGN KEY (contratista_id) REFERENCES public.recursos_humanos_contratista(id) DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: recursos_humanos_solicituddescargasat recursos_humanos_sol_empresa_id_e5c6f322_fk_panel_emp; Type: FK CONSTRAINT; Schema: public; Owner: madmin
+--
+
+ALTER TABLE ONLY public.recursos_humanos_solicituddescargasat
+    ADD CONSTRAINT recursos_humanos_sol_empresa_id_e5c6f322_fk_panel_emp FOREIGN KEY (empresa_id) REFERENCES public.panel_empresa(id) DEFERRABLE INITIALLY DEFERRED;
 
 
 --
@@ -8903,5 +9102,5 @@ ALTER TABLE ONLY public.ventas_ordenventa
 -- PostgreSQL database dump complete
 --
 
-\unrestrict cQmddURvgrX2OCyknSsI99C0O8s4O5sRNJ2cpCoqd2c2ZCkbqPmKHlIafhRl05s
+\unrestrict frgSRJZBMc5vFbFt4IsyN8PIN5NeDK55RugbKYl2gbDyEpeRY9Hedy4gDEfMb49
 

@@ -1242,6 +1242,14 @@
             }
 
             searchInput.addEventListener('focus', () => {
+                // LIMPIEZA AUTOMÁTICA AL HACER CLICK
+                searchInput.value = '';
+                // Restauramos visibilidad de todas las opciones no ocultas por stock
+                const options = optionsContainer.querySelectorAll('.custom-option');
+                options.forEach(opt => {
+                    if (!opt.hidden) opt.style.display = 'flex';
+                });
+
                 toggleOptions(true);
                 updateDisplay();
             });

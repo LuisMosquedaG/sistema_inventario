@@ -591,6 +591,33 @@
         }
     }
 
+    // LISTENER PARA DIAGNÓSTICO DE FIEL
+    document.querySelector('input[name="archivo_cer"]').addEventListener('change', function() {
+        if (!this.files || !this.files[0]) return;
+        
+        const formData = new FormData();
+        formData.append('archivo_cer', this.files[0]);
+        
+        fetch("{% url 'diagnostico_fiel_ajax' %}", {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(r => r.json())
+        .then(res => {
+            const container = document.getElementById('diagFielContainer');
+            if (res.success) {
+                container.style.display = 'block';
+                document.getElementById('diagRFC').innerText = res.rfc;
+                document.getElementById('diagVence').innerText = new Date(res.valido_hasta).toLocaleDateString();
+                document.getElementById('diagTipo').innerText = res.es_fiel ? 'FIEL (Correcto)' : 'SELLOS (Incorrecto)';
+                document.getElementById('diagTipo').className = res.es_fiel ? 'col-6 fw-bold text-success' : 'col-6 fw-bold text-danger';
+            } else {
+                container.style.display = 'none';
+            }
+        });
+    });
+
     function getModalNomina() {
         var el = document.getElementById('modalNuevaNomina');
         return bootstrap.Modal.getOrCreateInstance(el);
@@ -855,9 +882,22 @@
                                         <label class="form-label small fw-bold text-secondary">RFC (Opcional si es distinto al contratista)</label>
                                         <input type="text" name="rfc_fiel" id="inputRfcFielSAT" class="form-control form-control-sm" placeholder="RFC de la Razón Social">
                                     </div>
-                                </div>
-                            </div>
-                        </div>
+                                    </div>
+
+                                    <div id="diagFielContainer" class="mt-4 p-3 rounded border bg-light" style="display: none;">
+                                    <h6 class="fw-bold small mb-2 text-dark"><i class="bi bi-search me-2"></i>Información detectada en el Certificado:</h6>
+                                    <div class="row g-2" style="font-size: 0.7rem;">
+                                        <div class="col-6 text-muted">RFC:</div>
+                                        <div class="col-6 fw-bold" id="diagRFC">--</div>
+                                        <div class="col-6 text-muted">Vencimiento:</div>
+                                        <div class="col-6 fw-bold" id="diagVence">--</div>
+                                        <div class="col-6 text-muted">Tipo:</div>
+                                        <div class="col-6 fw-bold" id="diagTipo">--</div>
+                                    </div>
+                                    </div>
+                                    </div>
+                                    </div>
+
                     </div>
                     
                     <div id="satProgress" class="mx-4 mb-4" style="display: none;">

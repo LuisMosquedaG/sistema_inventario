@@ -2381,6 +2381,17 @@ from .sat_service import SATService
 
 @login_required(login_url='/login/')
 @require_POST
+def diagnostico_fiel_ajax(request):
+    """Extrae información de un certificado .cer para diagnóstico."""
+    archivo_cer = request.FILES.get('archivo_cer')
+    if not archivo_cer:
+        return JsonResponse({'success': False, 'error': 'No se proporcionó el archivo .cer'})
+    
+    res = SATService.obtener_info_certificado(archivo_cer.read())
+    return JsonResponse(res)
+
+@login_required(login_url='/login/')
+@require_POST
 @transaction.atomic
 def solicitar_descarga_sat_ajax(request):
     """Envía una solicitud real al Web Service del SAT."""
@@ -2404,8 +2415,26 @@ def solicitar_descarga_sat_ajax(request):
     
     if archivo_cer and archivo_key:
         try:
+            cer_content = archivo_cer.read()
+            # Validación Local previa
+            info_cert = SATService.obtener_info_certificado(cer_content)
+            if not info_cert['success']:
+                return JsonResponse({'status': 'error', 'message': f"El archivo .cer no es válido: {info_cert['error']}"})
+            
+            if not info_cert['es_fiel']:
+                return JsonResponse({'status': 'error', 'message': "El certificado subido es de SELLOS (CSD). Para este trámite se requiere la e.firma (FIEL)."})
+
+            # VALIDACIÓN DE RFC CRUZADA
+            rfc_cert = info_cert['rfc'].upper().strip()
+            rfc_cont = contratista.rfc.upper().strip()
+            if rfc_cert != rfc_cont:
+                return JsonResponse({
+                    'status': 'error', 
+                    'message': f"El RFC del certificado ({rfc_cert}) no coincide con el RFC del contratista seleccionado ({rfc_cont})."
+                })
+
             cer_cifrado, key_cifrado, data_key_cifrada = cifrar_archivos_fiel(
-                archivo_cer.read(), 
+                cer_content, 
                 archivo_key.read(), 
                 master_key
             )
@@ -2415,11 +2444,11 @@ def solicitar_descarga_sat_ajax(request):
                     'certificado_cifrado': cer_cifrado,
                     'llave_privada_cifrada': key_cifrado,
                     'data_key_cifrada': data_key_cifrada,
-                    'rfc_fiel': data.get('rfc_fiel') or contratista.rfc
+                    'rfc_fiel': info_cert['rfc'] # Usamos el RFC real del certificado
                 }
             )
         except Exception as e:
-            return JsonResponse({'status': 'error', 'message': f'Error al cifrar archivos FIEL: {str(e)}'})
+            return JsonResponse({'status': 'error', 'message': f'Error al procesar archivos FIEL: {str(e)}'})
 
     try:
         sat_service = SATService(contratista)
@@ -2523,25 +2552,29 @@ def integrar_xml_sat_ajax(request, solicitud_id):
     
     try:
         sat_service = SATService(solicitud.contratista)
-        # 1. Volvemos a verificar para obtener los IDs de paquetes
         res = sat_service.verificar_estatus(solicitud.id_solicitud, password)
         paquetes = res.get('paquetes', [])
         
         if not paquetes:
             return JsonResponse({'status': 'error', 'message': 'No se encontraron paquetes para descargar.'})
             
-        # 2. Descargar y Procesar
-        count = sat_service.descargar_e_integrar(
+        count, archivos_encontrados = sat_service.descargar_e_integrar(
             solicitud.id_solicitud, paquetes, password, 
             empresa_actual, request.session.get('sucursal_id')
         )
         
-        solicitud.estado = 'procesada'
-        solicitud.save()
-        
-        return JsonResponse({
-            'status': 'success',
-            'message': f'Integración exitosa. Se procesaron {count} XMLs de nómina reales.'
-        })
+        if count > 0:
+            solicitud.estado = 'procesada'
+            solicitud.save()
+            return JsonResponse({
+                'status': 'success',
+                'message': f'Integración exitosa. Se procesaron {count} XMLs de nómina reales.'
+            })
+        else:
+            lista_archivos = ", ".join(archivos_encontrados[:5]) + ("..." if len(archivos_encontrados) > 5 else "")
+            return JsonResponse({
+                'status': 'success',
+                'message': f'Se procesaron 0 XMLs de nómina. Archivos encontrados en el paquete: {lista_archivos or "Ninguno"}. Verifique que el periodo solicitado contenga CFDI de Nómina.'
+            })
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)})
