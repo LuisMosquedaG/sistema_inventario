@@ -269,7 +269,9 @@
                                             <span onclick="abrirModalEdicion({{ o.id }})" class="icon-action" title="Editar Materiales"><i class="bi bi-pencil-square"></i></span>
                                             {% endif %}
                                             {% if granular_production_perms.tablero_control.iniciar_trabajo %}
-                                            <a href="{% url 'avanzar_estado_produccion' o.id %}?estado=en_proceso" class="icon-action" title="Iniciar Trabajo" onclick="return confirm('¿Comenzar fabricación?')"><i class="bi bi-play-fill"></i></a>
+                                               {% if o.almacen_materia_prima %}
+                                                   <a href="{% url 'avanzar_estado_produccion' o.id %}?estado=en_proceso" class="icon-action" title="Iniciar Trabajo" onclick="return confirm('¿Comenzar fabricación?')"><i class="bi bi-play-fill"></i></a>
+                                               {% endif %}
                                             {% endif %}
                                         {% elif o.estado == 'en_proceso' %}
                                             {% if granular_production_perms.tablero_control.enviar_testeo %}

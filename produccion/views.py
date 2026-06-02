@@ -921,6 +921,11 @@ def avanzar_estado_produccion(request, orden_id):
         if not user_has_production_permission(request, 'tablero_control', 'iniciar_trabajo'):
              messages.error(request, "No cuentas con permiso para iniciar trabajos.")
              return redirect('dashboard_produccion')
+        
+        if not orden.almacen_materia_prima:
+             messages.error(request, "No se puede iniciar el trabajo: Debes seleccionar primero un Almacén de Salida (MP) editando la orden.")
+             return redirect('dashboard_produccion')
+
         try:
             detalles = orden.detalles.all()
             if not detalles.exists():
