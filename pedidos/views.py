@@ -210,7 +210,7 @@ def exportar_pedidos_excel(request):
 
     headers = [
         'ID', 'Cliente', 'Vendedor', 'Sucursal', 'Cotización Origen', 
-        'Fecha Creación', 'Estado', 'Total', 'Saldo Pendiente', 'Notas'
+        'Fecha Creación', 'Estado', 'Estado Envío', 'Total', 'Saldo Pendiente', 'Notas'
     ]
     ws.append(headers)
 
@@ -222,6 +222,7 @@ def exportar_pedidos_excel(request):
             p.cotizacion_origen_id or "N/A",
             p.fecha_creacion.strftime('%Y-%m-%d %H:%M'),
             p.get_estado_display(),
+            p.envio_status or "N/A",
             p.total_pedido,
             p.saldo_pendiente,
             p.notas
@@ -743,7 +744,14 @@ def ejecutar_reserva(request, detalle_id):
     stock_libre = detalle.producto.stock_disponible
     
     if stock_libre < detalle.cantidad_solicitada:
-        return JsonResponse({'success': False, 'error': 'Ya no hay stock suficiente para reservar.'})
+        # SI YA NO HAY STOCK: Regresamos el estado a 'compra' para que el usuario pueda solicitarlo
+        detalle.estado_linea = 'compra'
+        detalle.save()
+        return JsonResponse({
+            'success': False, 
+            'error': 'Ya no hay stock suficiente para reservar. La partida ha sido marcada como falta de stock.',
+            'reverted': True
+        })
 
     # 2. Realizar la Reserva Física
     faltante_por_reservar = detalle.cantidad_solicitada

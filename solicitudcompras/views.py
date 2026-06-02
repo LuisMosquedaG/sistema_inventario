@@ -12,7 +12,7 @@ from panel.models import Empresa
 from pedidos.models import Pedido, DetallePedido
 from .models import SolicitudCompra, DetalleSolicitudCompra
 from core.models import Producto, DetalleReceta
-from categorias.models import ListaPrecioCosto
+from categorias.models import ListaPrecioCosto, Categoria as CategoriaCatalogo
 from produccion.models import OrdenProduccion
 from proveedores.models import Proveedor
 from almacenes.models import Almacen
@@ -323,6 +323,7 @@ def dashboard_solicitudcompras(request):
     lista_monedas = Moneda.objects.filter(empresa=empresa_actual).values('id', 'siglas', 'simbolo')
     lista_productos = Producto.objects.filter(empresa=empresa_actual).values('id', 'nombre', 'precio_costo')
     listas_costos = ListaPrecioCosto.objects.filter(empresa=empresa_actual, tipo='costo')
+    todas_categorias = CategoriaCatalogo.objects.filter(empresa=empresa_actual)
     
     contexto = {
         'page_obj': page_obj,
@@ -331,6 +332,7 @@ def dashboard_solicitudcompras(request):
         'almacenes': list(lista_almacenes),
         'monedas': list(lista_monedas),
         'productos': list(lista_productos),
+        'categorias_catalogo': todas_categorias,
         'listas_costos': listas_costos,
         'sucursales': sucursales_lista,
         'filtros': filtros,

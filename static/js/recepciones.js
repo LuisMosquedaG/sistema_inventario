@@ -113,7 +113,9 @@ function cargarItemsOrdenCompra() {
                 const filaHtml = `
                     <tr data-detalle-id="${item.id}" data-costo="${item.costo}" data-iva-porc="${item.iva_porcentaje}" data-tipo="${item.maneja_serie ? 'serie' : (item.maneja_lote ? 'lote' : 'normal')}">
                         <td class="ps-3">
-                            <div class="fw-semibold small text-dark">${item.nombre}</div>
+                            <div class="fw-semibold small text-dark text-truncate" style="max-width: 100%;" title="${item.nombre}">
+                                ${item.nombre}
+                            </div>
                             <input type="hidden" name="detalle_compra_id[]" value="${item.id}">
                         </td>
                         <td class="text-center small">${item.cant_ordenada}</td>
@@ -296,7 +298,9 @@ function verRecepcion(id) {
                     const fila = `
                         <tr>
                             <td class="ps-3">
-                                <div class="fw-semibold small text-dark">${det.producto}</div>
+                                <div class="fw-semibold small text-dark text-truncate" style="max-width: 100%;" title="${det.producto}">
+                                    ${det.producto}
+                                </div>
                             </td>
                             <td class="text-center small">${det.cant}</td>
                             <td class="text-end small text-muted">$${parseFloat(det.precio).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>

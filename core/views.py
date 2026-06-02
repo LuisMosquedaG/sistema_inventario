@@ -14,6 +14,7 @@ from collections import defaultdict
 from categorias.models import Categoria, Subcategoria
 from almacenes.models import Almacen, Inventario
 from proveedores.models import Proveedor
+from preferencias.models import Moneda
 from django.core.paginator import Paginator
 from recepciones.models import Recepcion, DetalleRecepcion, DetalleRecepcionExtra
 from compras.models import OrdenCompra
@@ -442,13 +443,15 @@ def crear_producto_rapido(request):
         if not nombre:
             return JsonResponse({'success': False, 'error': 'El nombre es obligatorio'}, status=400)
             
+        estado = request.POST.get('estado', 'activo')
+
         producto = Producto.objects.create(
             nombre=nombre,
             tipo=tipo,
             tipo_abastecimiento=tipo_abastecimiento,
             categoria=categoria_nombre,
             subcategoria=subcategoria,
-            estado='revision',
+            estado=estado,
             precio_costo=0.00,
             precio_venta=0.00,
             iva=16.00,
@@ -628,6 +631,9 @@ def dashboard_inventario(request):
         empresa=empresa_actual
     ).order_by('nombre')
 
+    # Monedas para conversión en modal
+    monedas = Moneda.objects.filter(empresa=empresa_actual)
+
     contexto = {
         'page_obj': page_obj,
         'almacenes': almacenes,
@@ -637,6 +643,7 @@ def dashboard_inventario(request):
         'tests_calidad': tests_calidad,
         'productos_padre_receta': productos_padre_receta,
         'productos_componentes_receta': productos_componentes_receta,
+        'monedas': monedas,
         'filtros': {
             'sucursal': sucursal_id or '',
             'almacen': almacen_id or '', 

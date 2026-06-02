@@ -117,6 +117,40 @@ class Pedido(models.Model):
         listos = self.detalles.filter(estado_linea__in=['completo', 'reservado']).count()
         return int((listos / total) * 100)
 
+    @property
+    def envio_status(self):
+        """Obtiene el estado de la orden de salida asociada"""
+        orden = self.ordenes_venta.order_by('-id').first()
+        if not orden:
+            return None
+        
+        if orden.estado == 'borrador':
+            return 'Borrador'
+        if orden.estado == 'aprobado' and orden.estado_entrega == 'pendiente':
+            return 'Aprobado'
+        
+        # Mapeo manual para asegurar que coincida exactamente con lo pedido
+        mapping = {
+            'listo': 'Listo p/enviar',
+            'transito': 'En tránsito',
+            'entregado': 'Entregado',
+        }
+        return mapping.get(orden.estado_entrega, orden.get_estado_entrega_display())
+
+    @property
+    def envio_status_color(self):
+        """Devuelve una clase CSS según el estado de envío"""
+        status = self.envio_status
+        if not status: return ""
+        
+        status = status.lower()
+        if 'borrador' in status: return "status-borrador"
+        if 'aprobado' in status: return "status-confirmado"
+        if 'listo' in status: return "status-revision"
+        if 'tránsito' in status: return "status-pendiente"
+        if 'entregado' in status: return "status-completo"
+        return "status-borrador"
+
 
 # ==========================================
 # 2. MODELO: DETALLE PEDIDO (PARTIDAS)

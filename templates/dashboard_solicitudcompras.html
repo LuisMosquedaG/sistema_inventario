@@ -357,6 +357,7 @@
 
     <!-- MODALES -->
     {% include "solicitudcompras/modals/modal_nueva_solicitud.html" %}
+    {% include "cotizaciones/modals/modal_crear_producto_rapido.html" %}
     {% include "solicitudcompras/modals/modal_ver_solicitud.html" %}
     {% include "pedidos/modals/modal_ver_pedido.html" %}
 
@@ -635,6 +636,12 @@
                     console.error("Error al cargar pedido:", error);
                     tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-3">Error al cargar datos.</td></tr>';
                 });
+        }
+
+        function abrirAltaRapidaDesdeSolicitud() {
+            // Abrimos el modal de alta rápida sin cerrar el de solicitudes
+            const modalRapido = new bootstrap.Modal(document.getElementById('modalCrearProductoRapido'));
+            modalRapido.show();
         }
     </script>
 {% endblock %}

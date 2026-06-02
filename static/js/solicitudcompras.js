@@ -272,7 +272,7 @@ function agregarFilaProducto(datos) {
 function actualizarFilaHtml(row, datos) {
     row.innerHTML = `
         <td class="ps-3">
-            <div class="fw-bold text-dark text-truncate" style="max-width: 200px;">${datos.producto_nombre}</div>
+            <div class="fw-bold text-dark text-truncate" style="max-width: 200px;" title="${datos.producto_nombre}">${datos.producto_nombre}</div>
             <input type="hidden" name="producto_id[]" value="${datos.producto_id}">
             <input type="hidden" name="pedido_det_id[]" value="${datos.detalle_pedido_origen_id || ''}">
         </td>
@@ -285,12 +285,12 @@ function actualizarFilaHtml(row, datos) {
             <input type="hidden" name="moneda_id[]" value="${datos.moneda_id}">
         </td>
         <td>
-            <div class="small text-truncate" style="max-width: 150px;">${datos.proveedor_nombre}</div>
+            <div class="small text-truncate" style="max-width: 150px;" title="${datos.proveedor_nombre}">${datos.proveedor_nombre}</div>
             <input type="hidden" name="proveedor_id[]" value="${datos.proveedor_id || ''}">
             <input type="hidden" name="sucursal_id[]" value="${datos.sucursal_id || ''}">
         </td>
         <td>
-            <div class="small text-truncate" style="max-width: 120px;">${datos.almacen_nombre}</div>
+            <div class="small text-truncate" style="max-width: 120px;" title="${datos.almacen_nombre}">${datos.almacen_nombre}</div>
             <input type="hidden" name="almacen_id[]" value="${datos.almacen_id || ''}">
         </td>
         <td class="text-center">
@@ -582,12 +582,12 @@ async function verSolicitud(id) {
                         <td class="ps-5">
                             <div class="d-flex align-items-center">
                                 <i class="bi bi-arrow-return-right text-muted me-2"></i>
-                                <span class="text-dark small">${d.producto_nombre}</span>
+                                <span class="text-dark small" title="${d.producto_nombre}">${d.producto_nombre}</span>
                             </div>
                         </td>
                         <td class="text-center small">${d.cantidad}</td>
-                        <td class="small text-muted text-truncate" style="max-width: 150px;">${d.proveedor_nombre}</td>
-                        <td class="small text-muted text-truncate" style="max-width: 120px;">${d.almacen_nombre}</td>
+                        <td class="small text-muted text-truncate" style="max-width: 150px;" title="${d.proveedor_nombre}">${d.proveedor_nombre}</td>
+                        <td class="small text-muted text-truncate" style="max-width: 120px;" title="${d.almacen_nombre}">${d.almacen_nombre}</td>
                         <td class="text-end small">$${parseFloat(d.costo_unitario).toLocaleString('en-US', {minimumFractionDigits:2})}</td>
                         <td class="text-center small text-muted">${d.tipo_cambio}</td>
                         <td class="text-end small text-dark">$${parseFloat(d.subtotal).toLocaleString('en-US', {minimumFractionDigits:2})}</td>

@@ -95,29 +95,37 @@
                             <div class="row g-2 align-items-end">
                                 <div class="col-md-5">
                                     <label class="form-label small fw-bold text-secondary">Producto</label>
-                                    <div class="custom-select-wrapper" id="wrapperAddProducto">
-                                        <div class="custom-select" id="selectAddProductoWrapper">
-                                            <div class="custom-select__trigger">
-                                                <div id="add_producto_display_fake" class="fake-input-layer">
-                                                    <span class="text-muted" style="font-weight:400;">Buscar producto...</span>
+                                    <div class="d-flex align-items-center">
+                                        <div class="custom-select-wrapper flex-grow-1" id="wrapperAddProducto">
+                                            <div class="custom-select" id="selectAddProductoWrapper">
+                                                <div class="custom-select__trigger" style="border-top-right-radius: 0; border-bottom-right-radius: 0;">
+                                                    <div id="add_producto_display_fake" class="fake-input-layer">
+                                                        <span class="text-muted" style="font-weight:400;">Buscar producto...</span>
+                                                    </div>
+                                                    <input type="text" id="add_producto_busqueda" autocomplete="off" class="real-input-layer">
+                                                    <input type="hidden" id="add_producto" value="">
                                                 </div>
-                                                <input type="text" id="add_producto_busqueda" autocomplete="off" class="real-input-layer">
-                                                <input type="hidden" id="add_producto" value="">
-                                            </div>
-                                            <div class="custom-options" id="optionsAddProducto">
-                                                {% for p in productos %}
-                                                <span class="custom-option" 
-                                                      data-value="{{ p.id }}" 
-                                                      data-name="{{ p.nombre }}"
-                                                      data-precio="{{ p.precio_costo }}" 
-                                                      data-iva="{{ p.iva|default:0 }}"
-                                                      data-search="{{ p.nombre }}" 
-                                                      title="{{ p.nombre }}">
-                                                    {{ p.nombre }}
-                                                </span>
-                                                {% endfor %}
+                                                <div class="custom-options" id="optionsAddProducto">
+                                                    {% for p in productos %}
+                                                    <span class="custom-option" 
+                                                          data-value="{{ p.id }}" 
+                                                          data-name="{{ p.nombre }}"
+                                                          data-precio="{{ p.precio_costo }}" 
+                                                          data-iva="{{ p.iva|default:0 }}"
+                                                          data-search="{{ p.nombre }}" 
+                                                          title="{{ p.nombre }}">
+                                                        {{ p.nombre }}
+                                                    </span>
+                                                    {% endfor %}
+                                                </div>
                                             </div>
                                         </div>
+                                        <button type="button" class="btn btn-brand btn-sm shadow-none" 
+                                                style="height: 31px; width: 31px; border-radius: 0 0.25rem 0.25rem 0; display: flex; align-items: center; justify-content: center; padding: 0; margin-left: -1px; border-left: none;" 
+                                                onclick="abrirAltaRapidaDesdeSolicitud()"
+                                                title="Nuevo Producto">
+                                            <i class="bi bi-plus-lg" style="font-size: 1rem;"></i>
+                                        </button>
                                     </div>
                                 </div>
                                 <div class="col-md-3">

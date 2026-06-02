@@ -282,13 +282,13 @@
                             <tr>
                                 <th class="text-center align-middle" style="width: 100px;">Acciones</th>
                                 <th class="text-center align-middle" style="width: 100px;">Sucursal</th>
-                                <th class="text-center align-middle" style="width: 120px;">Folio Ped.</th>
-                                <th class="text-center align-middle" style="width: 120px;">Folio Cot.</th>
+                                <th class="text-center align-middle" style="width: 150px;">Folio Ped. / Cot.</th>
                                 <th class="text-center align-middle" style="width: 130px;">Cliente / Contacto</th>
                                 <th class="text-center align-middle" style="width: 130px;">Fecha</th>
                                 <th class="text-center align-middle" style="width: 160px;">Avance</th>
                                 <th class="text-center align-middle" style="width: 120px;">Total</th>
                                 <th class="text-center align-middle" style="width: 140px;">Estado de pago</th>
+                                <th class="text-center align-middle" style="width: 130px;">Estado Envío</th>
                                 <th class="text-center align-middle" style="width: 120px;">Estado</th>
                             </tr>
                         </thead>
@@ -383,17 +383,11 @@
                                     <span class="badge bg-light text-secondary border small">{{ p.sucursal.nombre|default:"Principal" }}</span>
                                 </td>
 
-                                <!-- 2. FOLIO -->
+                                <!-- 2. FOLIO PEDIDO / COTIZACIÓN -->
                                 <td class="text-center align-middle">
-                                    <span class="fw-bold text-dark font-monospace" style="font-size: 0.9rem;">PED-{{ p.id|stringformat:"04d" }}</span>
-                                </td>
-
-                                <!-- 3. COTIZACIÓN -->
-                                <td class="text-center align-middle">
+                                    <div class="fw-bold text-dark font-monospace" style="font-size: 0.9rem;">PED-{{ p.id|stringformat:"04d" }}</div>
                                     {% if p.cotizacion_origen_id %}
-                                        <span class="text-secondary small font-monospace" style="font-size: 0.85rem;">COT-{{ p.cotizacion_origen_id|stringformat:"04d" }}</span>
-                                    {% else %}
-                                        <span class="text-muted small">--</span>
+                                        <div class="text-secondary small font-monospace" style="font-size: 0.75rem;">COT-{{ p.cotizacion_origen_id|stringformat:"04d" }}</div>
                                     {% endif %}
                                 </td>
                                 
@@ -449,6 +443,15 @@
                                         <span class="pay-pill pay-parcial">Pago parcial</span>
                                     {% elif p.pago_estado == 'pagado' %}
                                         <span class="pay-pill pay-pagado">Pagado</span>
+                                    {% endif %}
+                                </td>
+
+                                <!-- 7.5 ESTADO DE ENVÍO -->
+                                <td class="text-center align-middle">
+                                    {% if p.envio_status %}
+                                        <span class="status-pill {{ p.envio_status_color }}">{{ p.envio_status }}</span>
+                                    {% else %}
+                                        <span class="text-muted small">--</span>
                                     {% endif %}
                                 </td>
 

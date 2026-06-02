@@ -168,24 +168,44 @@
                             
                             <!-- LINEA 1: COSTO, VENTA Y CALCULADOS -->
                             <div class="row g-2 mb-2">
-                                <div class="col-md-2">
+                                <div class="col-md-3">
                                     <label class="form-label small fw-bold text-secondary mb-1">Costo <span class="text-danger">*</span></label>
-                                    <input type="number" step="0.01" name="precio_costo" id="inputPrecioCosto" class="form-control form-control-sm" required oninput="actualizarCalculosPrecios()">
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" step="0.01" name="precio_costo" id="inputPrecioCosto" class="form-control" required oninput="actualizarCalculosPrecios()">
+                                        <select class="form-select" id="selectMonedaCosto" onchange="actualizarCalculosPrecios()" style="max-width: 105px;">
+                                            <option value="1.0000" data-siglas="MXN">MXN</option>
+                                            {% for m in monedas %}
+                                                {% if m.siglas != 'MXN' %}
+                                                    <option value="{{ m.factor }}" data-siglas="{{ m.siglas }}">{{ m.siglas }}</option>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </select>
+                                    </div>
                                 </div>
-                                <div class="col-md-2">
+                                <div class="col-md-3">
                                     <label class="form-label small fw-bold text-secondary mb-1">Venta <span class="text-danger">*</span></label>
-                                    <input type="number" step="0.01" name="precio_venta" id="inputPrecioVenta" class="form-control form-control-sm" required oninput="actualizarCalculosPrecios()">
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" step="0.01" name="precio_venta" id="inputPrecioVenta" class="form-control" required oninput="actualizarCalculosPrecios()">
+                                        <select class="form-select" id="selectMonedaVenta" onchange="actualizarCalculosPrecios()" style="max-width: 105px;">
+                                            <option value="1.0000" data-siglas="MXN">MXN</option>
+                                            {% for m in monedas %}
+                                                {% if m.siglas != 'MXN' %}
+                                                    <option value="{{ m.factor }}" data-siglas="{{ m.siglas }}">{{ m.siglas }}</option>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </select>
+                                    </div>
                                 </div>
                                 <div class="col-md-2 text-center">
-                                    <label class="form-label small text-muted mb-1">IVA </label>
+                                    <label class="form-label small fw-bold text-secondary mb-1">IVA </label>
                                     <div class="py-1 text-dark" id="infoIVAMonto" style="font-size: 0.85rem;">$0.00</div>
                                 </div>
-                                <div class="col-md-3 text-center">
-                                    <label class="form-label small text-muted mb-1">Total (Venta+IVA)</label>
+                                <div class="col-md-2 text-center">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Total (Venta+IVA)</label>
                                     <div class="py-1 text-dark" id="infoTotalVenta" style="font-size: 0.85rem;">$0.00</div>
                                 </div>
-                                <div class="col-md-3 text-center">
-                                    <label class="form-label small text-muted mb-1">Margen %</label>
+                                <div class="col-md-2 text-center">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Margen %</label>
                                     <div class="py-1 text-dark" id="infoMargenPrec" style="font-size: 0.85rem;">0.0%</div>
                                 </div>
                             </div>

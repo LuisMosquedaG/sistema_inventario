@@ -59,6 +59,12 @@ window.abrirNuevoArticulo = function(sucursalId = '') {
         selTest.classList.add('bg-light');
     }
 
+    // Reset Monedas
+    const selMonedaC = document.getElementById('selectMonedaCosto');
+    const selMonedaV = document.getElementById('selectMonedaVenta');
+    if (selMonedaC) selMonedaC.value = "1.0000";
+    if (selMonedaV) selMonedaV.value = "1.0000";
+
     // Reset IVA
     const checkIVA = document.getElementById('checkIVA');
     if (checkIVA) {
@@ -105,6 +111,13 @@ window.cargarProductoEdicion = function(id) {
             form.querySelector('[name="ieps"]').value = data.ieps || '0.00';
             form.querySelector('[name="precio_costo"]').value = data.precio_costo || '0.00';
             form.querySelector('[name="precio_venta"]').value = data.precio_venta || '0.00';
+            
+            // Resetear selectores de moneda a MXN al cargar producto existente (ya está en pesos)
+            const selMonedaC = document.getElementById('selectMonedaCosto');
+            const selMonedaV = document.getElementById('selectMonedaVenta');
+            if (selMonedaC) selMonedaC.value = "1.0000";
+            if (selMonedaV) selMonedaV.value = "1.0000";
+
             form.querySelector('[name="stock_minimo"]').value = data.stock_minimo || 0;
             form.querySelector('[name="stock_maximo"]').value = data.stock_maximo || 1000;
             form.querySelector('[name="maneja_lote"]').checked = data.maneja_lote || false;
@@ -153,27 +166,58 @@ window.toggleIVA = function() {
 }
 
 window.actualizarCalculosPrecios = function() {
-    const costo = parseFloat(document.getElementById('inputPrecioCosto').value) || 0;
-    const venta = parseFloat(document.getElementById('inputPrecioVenta').value) || 0;
+    let costo = parseFloat(document.getElementById('inputPrecioCosto').value) || 0;
+    let venta = parseFloat(document.getElementById('inputPrecioVenta').value) || 0;
     const ivaPorc = parseFloat(document.getElementById('inputIVA').value) || 0;
     const tieneIva = document.getElementById('checkIVA').checked;
+    
+    // --- LÓGICA DE CONVERSIÓN INDEPENDIENTE A MXN ---
+    const selectMonedaCosto = document.getElementById('selectMonedaCosto');
+    const selectMonedaVenta = document.getElementById('selectMonedaVenta');
+    
+    let factorCosto = 1.0;
+    let factorVenta = 1.0;
+    
+    if (selectMonedaCosto) {
+        factorCosto = parseFloat(selectMonedaCosto.value) || 1.0;
+    }
+    if (selectMonedaVenta) {
+        factorVenta = parseFloat(selectMonedaVenta.value) || 1.0;
+    }
 
-    let ivaMonto = 0;
+    // Convertimos ambos valores a MXN de forma independiente
+    const costoMXN = costo * factorCosto;
+    const ventaMXN = venta * factorVenta;
+
+    let ivaMontoMXN = 0;
     if (tieneIva) {
-        ivaMonto = venta * (ivaPorc / 100);
+        ivaMontoMXN = ventaMXN * (ivaPorc / 100);
     }
 
-    const total = venta + ivaMonto;
+    const totalMXN = ventaMXN + ivaMontoMXN;
+    
     let margen = 0;
-    if (venta > 0) {
-        margen = ((venta - costo) / venta) * 100;
+    if (ventaMXN > 0) {
+        // El margen ahora sí variará si las monedas son diferentes
+        margen = ((ventaMXN - costoMXN) / ventaMXN) * 100;
     }
 
-    const fmt = (v) => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const fmt = (v) => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' MXN';
 
-    document.getElementById('infoIVAMonto').innerText = fmt(ivaMonto);
-    document.getElementById('infoTotalVenta').innerText = fmt(total);
+    // Mostramos resultados finales siempre en pesos
+    document.getElementById('infoIVAMonto').innerText = fmt(ivaMontoMXN);
+    document.getElementById('infoTotalVenta').innerText = fmt(totalMXN);
     document.getElementById('infoMargenPrec').innerText = margen.toFixed(1) + '%';
+    
+    // Cambiar color del margen según el valor
+    const elMargen = document.getElementById('infoMargenPrec');
+    if (margen < 0) {
+        elMargen.classList.remove('text-dark');
+        elMargen.classList.add('text-danger');
+    } else {
+        elMargen.classList.remove('text-danger');
+        elMargen.classList.add('text-dark');
+    }
 }
 
 window.guardarProducto = function() {
@@ -183,9 +227,21 @@ window.guardarProducto = function() {
     const id = document.getElementById('productoId').value;
     const url = id ? APP_URLS.api_actualizar_producto.replace('0', id) : APP_URLS.api_crear_producto;
     
+    const formData = new FormData(form);
+    
+    // --- CONVERSIÓN INDEPENDIENTE A MXN ANTES DE GUARDAR ---
+    const factorCosto = parseFloat(document.getElementById('selectMonedaCosto').value) || 1.0;
+    const factorVenta = parseFloat(document.getElementById('selectMonedaVenta').value) || 1.0;
+
+    const costoOrig = parseFloat(formData.get('precio_costo')) || 0;
+    const ventaOrig = parseFloat(formData.get('precio_venta')) || 0;
+    
+    formData.set('precio_costo', (costoOrig * factorCosto).toFixed(2));
+    formData.set('precio_venta', (ventaOrig * factorVenta).toFixed(2));
+    
     fetch(url, {
         method: 'POST',
-        body: new FormData(form),
+        body: formData,
         headers: { 
             'X-Requested-With': 'XMLHttpRequest', 
             'X-CSRFToken': getCookie('csrftoken') 
