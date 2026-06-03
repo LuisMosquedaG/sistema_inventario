@@ -52,7 +52,9 @@ class Pedido(models.Model):
     
     @property
     def total_pedido(self):
-        return self.calcular_total
+        """Calcula el total del pedido redondeando hacia arriba al centavo más cercano si hay milésimas"""
+        total = self.calcular_total
+        return total.quantize(Decimal('0.01'), rounding='ROUND_CEILING')
     
     @property
     def calcular_subtotal(self):
@@ -82,7 +84,10 @@ class Pedido(models.Model):
     @property
     def saldo_pendiente(self):
         """Diferencia entre el total del pedido y lo pagado"""
-        return self.total_pedido - self.total_pagado
+        saldo = self.total_pedido - self.total_pagado
+        if saldo < 0:
+            return Decimal('0.00')
+        return saldo.quantize(Decimal('0.01'), rounding='ROUND_CEILING')
 
     @property
     def pago_estado(self):
