@@ -846,12 +846,22 @@ def ejecutar_produccion(request):
             errs = [f"Falta {r.componente.nombre}" for r in receta if invs.get(r.componente_id, Inventario(cantidad=0)).cantidad < (r.cantidad * cant_prod)]
             if errs: return JsonResponse({'success': False, 'error': 'Stock insuficiente: ' + ', '.join(errs)})
             for r in receta:
-                inv = invs[r.componente_id]
-                inv.cantidad -= (r.cantidad * cant_prod)
-                inv.save()
-            inv_f, _ = Inventario.objects.get_or_create(producto=producto, almacen=almacen, defaults={'cantidad': 0, 'costo_promedio': Decimal('0.00')})
-            inv_f.cantidad += cant_prod
-            inv_f.save()
+                # Usamos el método centralizado para cada componente
+                Inventario.registrar_salida(
+                    almacen=almacen,
+                    producto=r.componente,
+                    cantidad_salida=(r.cantidad * cant_prod),
+                    referencia=f"PROD-MANUAL: {producto.nombre}"
+                )
+
+            # Usamos el método centralizado para la entrada del producto final
+            Inventario.registrar_ingreso(
+                almacen=almacen,
+                producto=producto,
+                cantidad_ingreso=cant_prod,
+                costo_unitario=producto.precio_costo,
+                referencia=f"PROD-MANUAL: Ensamble"
+            )
             return JsonResponse({'success': True, 'message': f'Producción exitosa: {cant_prod} {producto.nombre}.'})
         except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Método no permitido'})

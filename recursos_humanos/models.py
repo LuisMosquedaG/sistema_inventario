@@ -514,7 +514,7 @@ class SolicitudDescargaSAT(models.Model):
 
     class Meta:
         verbose_name = "Solicitud SAT"
-        verbose_name_plural = "Solicitudes SAT"
+        verbose_name_plural = "Solicitudes"
         ordering = ['-fecha_creacion']
 
 

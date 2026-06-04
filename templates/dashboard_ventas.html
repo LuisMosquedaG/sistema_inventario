@@ -46,12 +46,23 @@
             border-radius: 12px;
             border: none;
             box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-            overflow: visible !important;
+            max-height: 90vh; /* Límite de altura para que quepa en pantalla */
+            display: flex;
+            flex-direction: column;
         }
         
         .modal-sheet .modal-body {
-            max-height: 70vh;
-            overflow-y: visible !important;
+            flex: 1 1 auto;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 25px;
+            background-color: #f8f9fa;
+        }
+
+        .modal-sheet .modal-footer {
+            flex-shrink: 0; /* Asegurar que el footer no se encoja ni se oculte */
+            background-color: #ffffff;
+            border-top: 1px solid #dee2e6;
         }
 
         .table-pro tbody tr:hover td { background-color: #f8f9fa; }
@@ -305,8 +316,15 @@
 
                                     <!-- 2. FOLIO VENTA / FECHA (Replica Cliente) -->
                                     <td class="text-center">
-                                    <div class="fw-bold text-dark font-monospace" style="font-size: 0.9rem; line-height: 1.2;">{{ ov.folio_display }}</div>
-                                    <div class="text-secondary mt-1" style="font-size: 0.75rem; line-height: 1.4;">{{ ov.fecha_creacion|date:"d M Y" }}</div>
+                                        {% if ov.es_hija %}
+                                            <div class="d-flex align-items-center justify-content-center gap-1" title="Backorder de {{ ov.parent_orden.folio_display }}">
+                                                <i class="bi bi-arrow-return-right text-muted small"></i>
+                                                <div class="fw-bold text-dark font-monospace" style="font-size: 0.85rem; line-height: 1.2;">{{ ov.folio_display }}</div>
+                                            </div>
+                                        {% else %}
+                                            <div class="fw-bold text-dark font-monospace" style="font-size: 0.9rem; line-height: 1.2;">{{ ov.folio_display }}</div>
+                                        {% endif %}
+                                        <div class="text-secondary mt-1" style="font-size: 0.75rem; line-height: 1.4;">{{ ov.fecha_creacion|date:"d M Y" }}</div>
                                     </td>
 
 

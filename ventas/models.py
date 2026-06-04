@@ -72,6 +72,14 @@ class OrdenVenta(models.Model):
         return f"OS-{self.id:04d}"
 
     @property
+    def es_hija(self):
+        return self.parent_orden is not None
+
+    @property
+    def tiene_hijas(self):
+        return self.hijas.exists()
+
+    @property
     def total_orden(self):
         return self.calcular_total
 

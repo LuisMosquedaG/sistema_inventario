@@ -1060,16 +1060,13 @@ def finalizar_produccion_logica(request, orden):
 
         # 1. Ejecutar Movimientos de Salida (Limpiar Reserva y Quitar Físico)
         for det in detalles_orden:
-            # Usamos el método centralizado para que se registre en el Kardex
+            # Usamos el método centralizado que ahora maneja físico, reserva y Kardex
             Inventario.registrar_salida(
                 almacen=almacen_origen,
                 producto=det.producto,
                 cantidad_salida=det.cantidad,
-                referencia=f"OP-{orden.id:04d} (Consumo)"
-            )
-            # Limpiamos la reserva manualmente ya que registrar_salida no toca 'reservado'
-            Inventario.objects.filter(producto=det.producto, almacen=almacen_origen).update(
-                reservado=F('reservado') - det.cantidad
+                referencia=f"OP-{orden.id:04d} (Consumo)",
+                quitar_reserva=det.cantidad
             )
 
         # 2. Sumar Producto Terminado

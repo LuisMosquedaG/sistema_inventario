@@ -486,11 +486,26 @@ def cancelar_recepcion(request, recepcion_id):
         for det in recepcion.detalles.all():
             producto = det.producto
             if producto.tipo != 'servicio':
-                try:
-                    inventario = Inventario.objects.select_for_update().get(producto=producto, almacen=almacen)
-                    inventario.cantidad = F('cantidad') - det.cantidad_recibida
-                    inventario.save()
-                except Inventario.DoesNotExist: pass
+                # Preparar datos de extras para revertir (lotes/series)
+                extras_data = []
+                for extra in det.extras.all():
+                    # Si es serie, la sacamos de almacén de nuevo
+                    # Si es lote, restamos la cantidad que ingresó originalmente
+                    extras_data.append({
+                        'id': extra.id,
+                        'qty': 1 if extra.tipo == 'serie' else extra.cantidad_lote
+                    })
+
+                # Usamos el método centralizado para restar stock
+                # Al ser una cancelación de ingreso, es equivalente a una salida
+                Inventario.registrar_salida(
+                    almacen=almacen,
+                    producto=producto,
+                    cantidad_salida=det.cantidad_recibida,
+                    referencia=f"CANCELACIÓN: REC-{recepcion.id:04d}",
+                    extras_data=extras_data,
+                    usuario=request.user
+                )
 
         # Calcular nuevo estado de OC
         nuevo_estado_oc = 'aprobada'

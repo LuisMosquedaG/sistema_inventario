@@ -724,56 +724,54 @@ def ejecutar_surtido(request, ov_id):
                 # 2. Procesar Salida de Almacén (Solo si se entrega algo)
                 if cant_a_entregar > 0 and producto.tipo != 'servicio':
                     extra_ids = request.POST.getlist(f'extra_id_{det.id}[]')
-
-                    # Bloqueo de stock
-                    inv = Inventario.objects.select_for_update().get(almacen=almacen, producto=producto)
-                    if inv.cantidad < cant_a_entregar:
-                        raise ValueError(f"Stock insuficiente para {producto.nombre} en {almacen.nombre}. Disponible: {inv.cantidad}, Requerido: {cant_a_entregar}")
-
-                    # Restar stock y reserva
-                    quitar_reserva = min(cant_a_entregar, inv.reservado)
-                    inv.cantidad = F('cantidad') - cant_a_entregar
-                    inv.reservado = F('reservado') - quitar_reserva
-                    inv.save()
-
-                    # Procesar Lotes/Series si aplica
-                    lote_ref, serie_ref = None, None
+                    
+                    # Preparar datos de trazabilidad (Lotes/Series)
+                    extras_data = []
                     if extra_ids:
-                        piezas_por_asignar = cant_a_entregar
+                        piezas_pendientes = cant_a_entregar
                         for eid in extra_ids:
-                            if piezas_por_asignar <= 0: break
-                            extra = DetalleRecepcionExtra.objects.get(id=eid, almacen=almacen)
-                            if extra.tipo == 'serie':
-                                extra.almacen = None # Sale de almacén
-                                extra.save()
-                                serie_ref = extra.serie # Nota: Solo guarda el último para el Kardex general
-                                piezas_por_asignar -= 1
+                            if piezas_pendientes <= 0: break
+                            
+                            extra_obj = DetalleRecepcionExtra.objects.get(id=eid, almacen=almacen)
+                            qty_descontar = 0
+                            
+                            if extra_obj.tipo == 'serie':
+                                qty_descontar = 1
                             else:
-                                # Lote: Buscar cantidad manual enviada por el frontend
                                 qty_manual = request.POST.get(f'extra_qty_{det.id}_{eid}')
                                 if qty_manual:
-                                    a_quitar_de_lote = int(qty_manual)
+                                    qty_descontar = int(qty_manual)
                                 else:
-                                    # Fallback al comportamiento voraz (greedy) si no hay manual
-                                    cantidad_lote_disponible = extra.cantidad_lote
-                                    a_quitar_de_lote = min(piezas_por_asignar, cantidad_lote_disponible)
+                                    qty_descontar = min(piezas_pendientes, extra_obj.cantidad_lote)
+                            
+                            if qty_descontar > 0:
+                                extras_data.append({'id': eid, 'qty': qty_descontar})
+                                piezas_pendientes -= qty_descontar
 
-                                if a_quitar_de_lote > 0:
-                                    extra.cantidad_lote = F('cantidad_lote') - a_quitar_de_lote
-                                    extra.save()
-                                    lote_ref = extra.lote
-                                    piezas_por_asignar -= a_quitar_de_lote
-
-                    # Registrar en Kardex
-                    Kardex.objects.create(
-                        empresa=empresa_actual, producto=producto, almacen=almacen,
-                        tipo_movimiento='salida', cantidad=cant_a_entregar,
-                        stock_anterior=inv.cantidad + cant_a_entregar, # Refrescamos mentalmente
-                        stock_nuevo=inv.cantidad,
-                        referencia=f"{ov.folio_display}", 
-                        lote=lote_ref, serie=serie_ref,
+                    # USAR MÉTODO CENTRALIZADO
+                    Inventario.registrar_salida(
+                        almacen=almacen,
+                        producto=producto,
+                        cantidad_salida=cant_a_entregar,
+                        referencia=f"{ov.folio_display}",
+                        quitar_reserva=cant_a_entregar,
+                        extras_data=extras_data,
                         usuario=request.user
                     )
+
+                    # --- PUNTO B: Sincronización con Pedido Original ---
+                    if ov.pedido_origen:
+                        # Buscar la partida correspondiente en el pedido original
+                        # (Suponiendo que el producto es la llave, o se podría mejorar con un link directo)
+                        detalle_pedido = ov.pedido_origen.detalles.filter(producto=producto).first()
+                        if detalle_pedido:
+                            detalle_pedido.cantidad_entregada += cant_a_entregar
+                            # Actualizar estado de la línea
+                            if detalle_pedido.cantidad_entregada >= detalle_pedido.cantidad_solicitada:
+                                detalle_pedido.estado_linea = 'completo'
+                            else:
+                                detalle_pedido.estado_linea = 'parcial'
+                            detalle_pedido.save()
 
                 # Si se entregó 0 y no se ha creado hija, hay que forzar creación de hija para no perder la partida
                 elif cant_a_entregar == 0 and not orden_hija:
@@ -791,9 +789,23 @@ def ejecutar_surtido(request, ov_id):
                     )
                     det.delete() # Se movió completa a la hija
 
+            # --- FINALIZAR PROCESO DE SURTIDO ---
             ov.estado = 'surtido'
             ov.estado_entrega = 'listo'
             ov.save()
+
+            # Actualizar estado global del pedido si aplica
+            if ov.pedido_origen:
+                p_madre = ov.pedido_origen
+                total_solicitado = p_madre.detalles.aggregate(total=Sum('cantidad_solicitada'))['total'] or 0
+                total_entregado = p_madre.detalles.aggregate(total=Sum('cantidad_entregada'))['total'] or 0
+                
+                if total_entregado >= total_solicitado:
+                    p_madre.estado = 'completo'
+                else:
+                    # Si ya se entregó algo pero no todo, lo mantenemos en confirmado (o podrías usar un estado 'parcial')
+                    p_madre.estado = 'confirmado'
+                p_madre.save()
 
             crear_notificacion(
                 empresa=empresa_actual,

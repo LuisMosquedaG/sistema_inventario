@@ -35,6 +35,35 @@
     .custom-option:hover { background: #f8f9fa; color: #00b8b9; }
     .custom-option.selected { background: #e7f5ff; color: #00b8b9; }
 
+    /* ESTILOS DE MODAL TIPO SHEET (CON HEADER/FOOTER FIJOS) */
+    .modal-sheet .modal-content {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        max-height: 90vh; /* Para que quepa en la pantalla */
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .modal-sheet .modal-body {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        padding: 1.5rem;
+        background-color: #f8f9fa;
+    }
+
+    .modal-sheet .modal-footer {
+        flex-shrink: 0;
+        background-color: #ffffff;
+        border-top: 1px solid #dee2e6;
+    }
+
+    /* BARRA DE SCROLL ESTILIZADA */
+    .modal-sheet .modal-body::-webkit-scrollbar { width: 6px; }
+    .modal-sheet .modal-body::-webkit-scrollbar-thumb { background-color: #dee2e6; border-radius: 4px; }
+    .modal-sheet .modal-body::-webkit-scrollbar-thumb:hover { background-color: #adb5bd; }
+
     /* ==========================================
     ZONA DE IMPORTACIÓN
     ========================================== */
@@ -361,43 +390,41 @@
 
 <!-- MODAL: IMPORTAR RECEPCIONES -->
 <div class="modal fade" id="modalImportarRecepciones" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-sheet">
-        <div class="modal-content border-0">
+    <div class="modal-dialog modal-dialog-centered modal-sheet modal-dialog-scrollable">
+        <form id="formImportarRecepciones" enctype="multipart/form-data" class="modal-content">
+            {% csrf_token %}
             <div class="modal-header border-bottom bg-light">
                 <h5 class="modal-title fw-bold">Importar Recepciones</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form id="formImportarRecepciones" enctype="multipart/form-data">
-                {% csrf_token %}
-                <div class="modal-body p-4">
-                    <p class="text-muted small mb-4">Carga un archivo Excel (.xlsx) para importar recepciones masivamente. Los productos se agruparán por la columna 'Referencia'.</p>
-                    
-                    <div class="import-zone" onclick="document.getElementById('archivo_recepciones').click()">
-                        <i class="bi bi-upload"></i>
-                        <span class="fw-bold text-dark d-block">Haga clic para subir Excel</span>
-                        <span class="text-muted small" id="recFileNameDisplay">Solo archivos .xlsx</span>
-                        <input type="file" name="archivo_recepciones" id="archivo_recepciones" hidden accept=".xlsx" onchange="updateRecFileName(this)">
-                    </div>
-
-                    <div class="mt-3 d-flex justify-content-center">
-                        <a href="{% url 'descargar_plantilla_recepciones' %}" class="btn btn-light btn-sm text-secondary border shadow-sm px-3">
-                            <i class="bi bi-download me-1"></i> Descargar Plantilla
-                        </a>
-                    </div>
-
-                    <div id="importRecProgress" class="mt-3" style="display: none;">
-                        <div class="progress" style="height: 10px;">
-                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-brand" role="progressbar" style="width: 100%"></div>
-                        </div>
-                        <p class="text-center small text-muted mt-2">Procesando registros, por favor espere...</p>
-                    </div>
+            <div class="modal-body p-4">
+                <p class="text-muted small mb-4">Carga un archivo Excel (.xlsx) para importar recepciones masivamente. Los productos se agruparán por la columna 'Referencia'.</p>
+                
+                <div class="import-zone" onclick="document.getElementById('archivo_recepciones').click()">
+                    <i class="bi bi-upload"></i>
+                    <span class="fw-bold text-dark d-block">Haga clic para subir Excel</span>
+                    <span class="text-muted small" id="recFileNameDisplay">Solo archivos .xlsx</span>
+                    <input type="file" name="archivo_recepciones" id="archivo_recepciones" hidden accept=".xlsx" onchange="updateRecFileName(this)">
                 </div>
-                <div class="modal-footer border-top-0">
-                    <button type="button" class="btn btn-light btn-sm text-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-brand text-white btn-sm px-4 fw-bold shadow-sm" id="btnConfirmarImportRec">Subir</button>
+
+                <div class="mt-3 d-flex justify-content-center">
+                    <a href="{% url 'descargar_plantilla_recepciones' %}" class="btn btn-light btn-sm text-secondary border shadow-sm px-3">
+                        <i class="bi bi-download me-1"></i> Descargar Plantilla
+                    </a>
                 </div>
-            </form>
-        </div>
+
+                <div id="importRecProgress" class="mt-3" style="display: none;">
+                    <div class="progress" style="height: 10px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated bg-brand" role="progressbar" style="width: 100%"></div>
+                    </div>
+                    <p class="text-center small text-muted mt-2">Procesando registros, por favor espere...</p>
+                </div>
+            </div>
+            <div class="modal-footer border-top-0">
+                <button type="button" class="btn btn-light btn-sm text-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-brand text-white btn-sm px-4 fw-bold shadow-sm" id="btnConfirmarImportRec">Subir</button>
+            </div>
+        </form>
     </div>
 </div>
 

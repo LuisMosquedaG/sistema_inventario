@@ -122,52 +122,89 @@ class Inventario(models.Model):
         return inventario
 
     # -----------------------------------------------------------
-    # MÉTODO CENTRALIZADO PARA SALIDAS (VENTAS)
+    # MÉTODO CENTRALIZADO PARA SALIDAS (VENTAS/PRODUCCIÓN/AJUSTES)
     # -----------------------------------------------------------
     @classmethod
-    def registrar_salida(cls, almacen, producto, cantidad_salida, referencia="Salida", lote=None, serie=None, usuario=None):
+    def registrar_salida(cls, almacen, producto, cantidad_salida, referencia="Salida", quitar_reserva=0, extras_data=None, usuario=None):
         """
         Registra una salida de stock de forma atómica.
         Lanza IntegrityError si no hay stock suficiente.
+        
+        quitar_reserva: cantidad a descontar del campo 'reservado'.
+        extras_data: lista de dicts [{'id': ID_EXTRA, 'qty': CANTIDAD}, ...] 
         """
-        from django.db import IntegrityError
+        from django.db import IntegrityError, transaction
+        from django.db.models import F
+        from recepciones.models import DetalleRecepcionExtra
         
-        cantidad_a_restar = Decimal(cantidad_salida)
+        cantidad_a_restar = Decimal(str(cantidad_salida))
         
-        # Bloqueamos y buscamos
-        inventario = cls.objects.select_for_update().get(
-            producto=producto,
-            almacen=almacen
-        )
-
-        if inventario.cantidad < cantidad_a_restar:
-            raise IntegrityError(
-                f"Stock insuficiente en {almacen.nombre}. "
-                f"Disponible: {inventario.cantidad}, Solicitado: {cantidad_a_restar}"
+        with transaction.atomic():
+            # Bloqueamos y buscamos el registro de inventario
+            inventario = cls.objects.select_for_update().get(
+                producto=producto,
+                almacen=almacen
             )
-        
-        cantidad_anterior = Decimal(inventario.cantidad)
-        nuevo_total = cantidad_anterior - cantidad_a_restar
 
-        # Resta atómica
-        inventario.cantidad = nuevo_total
-        inventario.save()
+            if inventario.cantidad < cantidad_a_restar:
+                raise IntegrityError(
+                    f"Stock insuficiente para {producto.nombre} en {almacen.nombre}. "
+                    f"Disponible: {inventario.cantidad}, Solicitado: {cantidad_a_restar}"
+                )
+            
+            cantidad_anterior = Decimal(str(inventario.cantidad))
+            
+            # 1. Resta física de inventario
+            inventario.cantidad = F('cantidad') - cantidad_a_restar
+            
+            # 2. Manejo de Reservas (si aplica)
+            if quitar_reserva > 0:
+                # No permitir que la reserva sea negativa
+                monto_reserva = Decimal(str(quitar_reserva))
+                real_quitar = min(monto_reserva, Decimal(str(inventario.reservado)))
+                inventario.reservado = F('reservado') - real_quitar
+            
+            inventario.save()
+            inventario.refresh_from_db()
 
-        # REGISTRAR EN KARDEX
-        Kardex.objects.create(
-            empresa=almacen.empresa,
-            sucursal=almacen.sucursal,
-            producto=producto,
-            almacen=almacen,
-            tipo_movimiento='salida',
-            cantidad=cantidad_a_restar,
-            stock_anterior=cantidad_anterior,
-            stock_nuevo=nuevo_total,
-            referencia=referencia,
-            lote=lote,
-            serie=serie,
-            usuario=usuario
-        )
+            # 3. Procesar Trazabilidad (Lotes / Series)
+            lote_kardex, serie_kardex = None, None
+            if extras_data:
+                for item in extras_data:
+                    eid = item.get('id')
+                    qty = Decimal(str(item.get('qty', 1)))
+                    
+                    # Bloqueamos el registro del lote/serie
+                    extra = DetalleRecepcionExtra.objects.select_for_update().get(id=eid, almacen=almacen)
+                    
+                    if extra.tipo == 'serie':
+                        extra.almacen = None # El equipo sale del almacén
+                        extra.save()
+                        serie_kardex = extra.serie # Guardamos para el Kardex
+                    else:
+                        # Validación de stock en el lote
+                        if extra.cantidad_lote < qty:
+                            raise IntegrityError(f"Stock insuficiente en el lote {extra.lote}. Disponible: {extra.cantidad_lote}")
+                        
+                        extra.cantidad_lote = F('cantidad_lote') - qty
+                        extra.save()
+                        lote_kardex = extra.lote
+
+            # 4. REGISTRAR EN KARDEX
+            Kardex.objects.create(
+                empresa=almacen.empresa,
+                sucursal=almacen.sucursal,
+                producto=producto,
+                almacen=almacen,
+                tipo_movimiento='salida',
+                cantidad=cantidad_a_restar,
+                stock_anterior=cantidad_anterior,
+                stock_nuevo=inventario.cantidad,
+                referencia=referencia,
+                lote=lote_kardex,
+                serie=serie_kardex,
+                usuario=usuario
+            )
         
         return inventario
 
