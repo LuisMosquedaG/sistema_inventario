@@ -1192,8 +1192,15 @@ function actualizarGranTotal() {
 
 function confirmarTraslado() {
     const tbody = document.getElementById('tbodyTraslado');
+    const sucOrigen = document.getElementById('selectSucursalOrigen').value;
+    const sucDestino = document.getElementById('selectSucursalDestino').value;
     const almacenOrigenId = document.getElementById('selectAlmacenOrigen').value;
     const almacenDestinoId = document.getElementById('selectAlmacenDestino').value;
+
+    if (!sucOrigen || !sucDestino || !almacenOrigenId || !almacenDestinoId) {
+        alert("Por favor, selecciona las sucursales y almacenes de origen y destino.");
+        return;
+    }
 
     if (tbody.children.length === 0) {
         alert("Agrega al menos un artículo para trasladar.");

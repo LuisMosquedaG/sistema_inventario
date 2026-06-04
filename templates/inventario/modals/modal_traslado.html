@@ -22,8 +22,8 @@
                             <!-- SUCURSALES -->
                             <div class="row g-2 mb-2">
                                 <div class="col-md-5">
-                                    <label class="form-label small fw-bold text-secondary">Sucursal Origen</label>
-                                    <select id="selectSucursalOrigen" class="form-select form-select-sm" onchange="filtrarAlmacenesTraslado('origen')">
+                                    <label class="form-label small fw-bold text-secondary">Sucursal Origen <span class="text-danger">*</span></label>
+                                    <select id="selectSucursalOrigen" class="form-select form-select-sm" onchange="filtrarAlmacenesTraslado('origen')" required>
                                         <option value="">Seleccionar Sucursal...</option>
                                         {% for s in sucursales %}
                                         <option value="{{ s.id }}" {% if s.id|stringformat:"s" == filtros.sucursal %}selected{% endif %}>{{ s.nombre }}</option>
@@ -32,8 +32,8 @@
                                 </div>
                                 <div class="col-md-1"></div>
                                 <div class="col-md-5">
-                                    <label class="form-label small fw-bold text-secondary">Sucursal Destino</label>
-                                    <select id="selectSucursalDestino" class="form-select form-select-sm" onchange="filtrarAlmacenesTraslado('destino')">
+                                    <label class="form-label small fw-bold text-secondary">Sucursal Destino <span class="text-danger">*</span></label>
+                                    <select id="selectSucursalDestino" class="form-select form-select-sm" onchange="filtrarAlmacenesTraslado('destino')" required>
                                         <option value="">Seleccionar Sucursal...</option>
                                         {% for s in sucursales %}
                                         <option value="{{ s.id }}">{{ s.nombre }}</option>
@@ -45,7 +45,7 @@
                             <!-- ALMACENES -->
                             <div class="row g-2">
                                 <div class="col-md-5">
-                                    <label class="form-label small fw-bold text-secondary">Almacén Origen</label>
+                                    <label class="form-label small fw-bold text-secondary">Almacén Origen <span class="text-danger">*</span></label>
                                     <select name="almacen_origen" id="selectAlmacenOrigen" class="form-select form-select-sm" required disabled>
                                         <option value="">Selecciona sucursal primero...</option>
                                         {% for a in almacenes_todos %}
@@ -57,7 +57,7 @@
                                     <i class="bi bi-arrow-right fs-4 text-muted"></i>
                                 </div>
                                 <div class="col-md-5">
-                                    <label class="form-label small fw-bold text-secondary">Almacén Destino</label>
+                                    <label class="form-label small fw-bold text-secondary">Almacén Destino <span class="text-danger">*</span></label>
                                     <select name="almacen_destino" id="selectAlmacenDestino" class="form-select form-select-sm" required disabled>
                                         <option value="">Selecciona sucursal primero...</option>
                                         {% for a in almacenes_todos %}

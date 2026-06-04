@@ -293,11 +293,20 @@ def api_ejecutar_traslado(request):
             # 3. MOVIMIENTO DE ENTRADA (DESTINO)
             inv_destino, created = Inventario.objects.select_for_update().get_or_create(
                 almacen=destino, producto=producto,
-                defaults={'cantidad': 0, 'reservado': 0, 'costo_promedio': inv_origen.costo_promedio, 'empresa': empresa_actual}
+                defaults={
+                    'cantidad': 0, 
+                    'reservado': 0, 
+                    'costo_promedio': inv_origen.costo_promedio, 
+                    'empresa': empresa_actual,
+                    'sucursal': destino.sucursal # <--- ASIGNAR SUCURSAL DESTINO
+                }
             )
             inv_destino.cantidad = F('cantidad') + cantidad
             if piezas_reservadas_movidas > 0:
                 inv_destino.reservado = F('reservado') + piezas_reservadas_movidas
+            
+            # Aseguramos que la sucursal sea la del almacén destino incluso si ya existía
+            inv_destino.sucursal = destino.sucursal
             inv_destino.save()
 
             # 4. ACTUALIZAR LOTE/SERIE (SI APLICA)
@@ -331,13 +340,17 @@ def api_ejecutar_traslado(request):
             inv_destino.refresh_from_db()
 
             Kardex.objects.create(
-                empresa=empresa_actual, producto=producto, almacen=origen, tipo_movimiento='salida',
+                empresa=empresa_actual, 
+                sucursal=origen.sucursal, # <--- ASIGNAR SUCURSAL ORIGEN
+                producto=producto, almacen=origen, tipo_movimiento='salida',
                 cantidad=cantidad, stock_anterior=inv_origen.cantidad + cantidad, stock_nuevo=inv_origen.cantidad,
                 referencia=ref_folio, lote=lote_ref, serie=serie_ref,
                 usuario=request.user
             )
             Kardex.objects.create(
-                empresa=empresa_actual, producto=producto, almacen=destino, tipo_movimiento='entrada',
+                empresa=empresa_actual, 
+                sucursal=destino.sucursal, # <--- ASIGNAR SUCURSAL DESTINO
+                producto=producto, almacen=destino, tipo_movimiento='entrada',
                 cantidad=cantidad, stock_anterior=inv_destino.cantidad - cantidad, stock_nuevo=inv_destino.cantidad,
                 referencia=ref_folio, lote=lote_ref, serie=serie_ref,
                 usuario=request.user
