@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load humanize %}
 
 {% block content %}
 
@@ -432,7 +433,7 @@
 
                                 <!-- 6. TOTAL -->
                                 <td class="text-center align-middle">
-                                    <span class="text-dark" style="font-weight: 400;">${{ p.total_pedido }}</span>
+                                    <span class="text-dark" style="font-weight: 400;">${{ p.total_pedido|intcomma }}</span>
                                 </td>
 
                                 <!-- 7. ESTADO DE PAGO -->

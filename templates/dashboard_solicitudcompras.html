@@ -227,21 +227,22 @@
                     <table class="table table-pro mb-0 align-middle">
                         <thead>
                             <tr>
-                                <th class="text-center" style="width: 100px;">Acciones</th>
-                                <th class="text-center" style="width: 100px;">Sucursal</th>
-                                <th class="text-center" style="width: 100px;">Solicitud</th>
-                                <th class="text-center" style="width: 100px;">Cotización</th>
-                                <th class="text-center" style="width: 100px;">Pedido Origen</th>
-                                <th class="text-center" style="width: 100px;">Solicitante</th>
-                                <th class="text-center" style="width: 100px;">Fecha</th>
-                                <th class="text-center" style="width: 100px;">Items</th>
-                                <th class="text-center" style="width: 120px;">Estado</th>
+                                <th class="text-center align-middle" style="width: 100px;">Acciones</th>
+                                <th class="text-center align-middle" style="width: 100px;">Sucursal</th>
+                                <th class="text-center align-middle" style="width: 100px;">Folio Sol.</th>
+                                <th class="text-center align-middle" style="width: 100px;">Cotización</th>
+                                <th class="text-center align-middle" style="width: 100px;">Pedido Origen</th>
+                                <th class="text-center align-middle" style="width: 120px;">Orden Compra</th>
+                                <th class="text-center align-middle" style="width: 200px;">Proveedor</th>
+                                <th class="text-center align-middle" style="width: 100px;">Solicitante</th>
+                                <th class="text-center align-middle" style="width: 100px;">Fecha</th>
+                                <th class="text-center align-middle" style="width: 120px;">Estado</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for s in page_obj %}
                             <tr>
-                                <td class="text-center">
+                                <td class="text-center align-middle">
                                     <div class="d-flex justify-content-center">
                                         <span onclick="verSolicitud({{ s.id }})" class="icon-action" title="Ver Solicitud">
                                             <i class="bi bi-eye"></i>
@@ -271,39 +272,64 @@
                                     </div>
                                 </td>
                                 
-                                <!-- 1.5 SUCURSAL -->
-                                <td class="text-center small">
+                                <td class="text-center align-middle small">
                                     <span class="badge bg-light text-secondary border">{{ s.sucursal.nombre|default:"Principal" }}</span>
                                 </td>
 
-                                <td class="text-center font-monospace small"><span class="text-dark">SOL-{{ s.id|stringformat:"04d" }}</span></td>
-                                <td class="text-center">
+                                <td class="text-center align-middle font-monospace small text-dark">SOL-{{ s.id|stringformat:"04d" }}</td>
+                                <td class="text-center align-middle font-monospace small">
                                     {% if s.pedido_origen and s.pedido_origen.cotizacion_origen_id %}
-                                        <div class="font-monospace small text-secondary">COT-{{ s.pedido_origen.cotizacion_origen_id|stringformat:"04d" }}</div>
+                                        <div class="text-dark">COT-{{ s.pedido_origen.cotizacion_origen_id|stringformat:"04d" }}</div>
                                     {% else %}
                                         <span class="text-muted small">--</span>
                                     {% endif %}
                                 </td>
-                                <td class="text-center">
+                                <td class="text-center align-middle font-monospace small">
                                     {% if s.pedido_origen %}
-                                        <div class="font-monospace small text-secondary">PED-{{ s.pedido_origen.id|stringformat:"04d" }}</div>
+                                        <div class="text-dark">PED-{{ s.pedido_origen.id|stringformat:"04d" }}</div>
                                     {% else %}
                                         <span class="text-muted small">--</span>
                                     {% endif %}
                                 </td>
-                                <td class="text-center small">
+                                
+                                <!-- 6. ORDEN COMPRA (OC) -->
+                                <td class="text-center align-middle font-monospace small">
+                                    {% if s.oc_folios %}
+                                        <span class="text-dark">{{ s.oc_folios }}</span>
+                                    {% else %}
+                                        <span class="text-muted small">--</span>
+                                    {% endif %}
+                                </td>
+
+                                <td class="text-center align-middle">
+                                    <div class="fw-bold text-dark" style="line-height: 1.2;">
+                                        {% if s.proveedor_display %}
+                                            {{ s.proveedor_display.razon_social }}
+                                        {% else %}
+                                            --
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-secondary small mt-1" style="font-size: 0.75rem; line-height: 1.4;">
+                                        {% if s.proveedor_display and s.proveedor_display.contacto_nombre %}
+                                            {{ s.proveedor_display.contacto_nombre }}
+                                        {% else %}
+                                            <span class="text-muted fst-italic">-- Sin contacto --</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+
+                                <td class="text-center align-middle small">
                                     <div class="text-dark"><i class="bi bi-person-fill me-1 text-muted"></i>{{ s.solicitante_nombre_corto }}</div>
                                 </td>
-                                <td class="text-center small">
+                                <td class="text-center align-middle small">
                                     <div class="text-dark">{{ s.fecha_creacion|date:"d M Y" }}</div>
                                 </td>
-                                <td class="text-center fw-bold">{{ s.total_items }}</td>
-                                <td class="text-center">
+                                <td class="text-center align-middle">
                                     <span class="status-pill status-{{ s.estado }}">{{ s.get_estado_display }}</span>
                                 </td>
                             </tr>
                             {% empty %}
-                            <tr><td colspan="9" class="text-center py-5">No hay solicitudes registradas.</td></tr>
+                            <tr><td colspan="10" class="text-center py-5">No hay solicitudes registradas.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -642,6 +668,28 @@
             // Abrimos el modal de alta rápida sin cerrar el de solicitudes
             const modalRapido = new bootstrap.Modal(document.getElementById('modalCrearProductoRapido'));
             modalRapido.show();
+        }
+
+        function cancelarSolicitud(id) {
+            if(!confirm('¿Estás seguro de cancelar esta solicitud? Las partidas del pedido serán liberadas.')) return;
+            
+            fetch(`/solicitudes-compras/cancelar/${id}/`, {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert('Ocurrió un error al procesar la cancelación.');
+            });
         }
     </script>
 {% endblock %}

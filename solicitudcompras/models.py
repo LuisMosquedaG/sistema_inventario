@@ -30,6 +30,27 @@ class SolicitudCompra(models.Model):
         return f"Solicitud #{self.id} - {self.get_estado_display()}"
 
     @property
+    def proveedor_display(self):
+        """Devuelve el primer proveedor sugerido en los detalles si existe"""
+        # Si ya tiene una OC, usamos el proveedor de la OC
+        oc = self.ordenes_generadas.first()
+        if oc:
+            return oc.proveedor
+            
+        primer_detalle = self.detalles.exclude(proveedor__isnull=True).first()
+        if primer_detalle:
+            return primer_detalle.proveedor
+        return None
+
+    @property
+    def oc_folios(self):
+        """Devuelve los folios de las órdenes de compra generadas desde esta solicitud"""
+        ordenes = self.ordenes_generadas.all()
+        if not ordenes:
+            return None
+        return ", ".join([f"OC-{o.id:04d}" for o in ordenes])
+
+    @property
     def solicitante_nombre_corto(self):
         """Devuelve el nombre de usuario sin el dominio (todo antes del @)"""
         if self.solicitante and '@' in self.solicitante.username:
