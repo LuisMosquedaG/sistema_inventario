@@ -243,23 +243,28 @@
 
 
                             <!-- 3. ORDEN DE COMPRA -->
-                            <td class="text-center">
-                                <div class="text-dark small font-monospace">
-                                    {% if r.orden_compra %}
-                                        OC-{{ r.orden_compra.id|stringformat:"04d" }}
-                                    {% else %}
-                                        <span class="text-muted">Directa</span>
-                                    {% endif %}
-                                </div>
+                            <td class="text-center font-monospace small">
+                                {% if r.orden_compra %}
+                                    <span class="text-dark">OC-{{ r.orden_compra.id|stringformat:"04d" }}</span>
+                                {% else %}
+                                    <span class="text-muted">Directa</span>
+                                {% endif %}
                             </td>
 
                             <!-- 4. PROVEEDOR -->
                             <td class="text-center">
-                                <div class="text-dark">
+                                <div class="fw-bold text-dark" style="line-height: 1.2;">
                                     {% if r.orden_compra %}
-                                        {{ r.orden_compra.proveedor }}
+                                        {{ r.orden_compra.proveedor.razon_social }}
                                     {% else %}
-                                        -
+                                        --
+                                    {% endif %}
+                                </div>
+                                <div class="text-secondary small mt-1" style="font-size: 0.75rem; line-height: 1.4;">
+                                    {% if r.orden_compra and r.orden_compra.proveedor.contacto_nombre %}
+                                        {{ r.orden_compra.proveedor.contacto_nombre }}
+                                    {% else %}
+                                        <span class="text-muted fst-italic">-- Sin contacto --</span>
                                     {% endif %}
                                 </div>
                             </td>

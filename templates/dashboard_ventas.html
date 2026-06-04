@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static humanize %}
 
 {% block content %}
 
@@ -67,18 +67,19 @@
         /* ESTILOS DE ESTADOS (Pills) */
         .status-pill {
             display: inline-flex; align-items: center; font-size: 0.7rem; line-height: 1; padding: 0.25em 0.6em;
-            font-weight: 600; text-align: center; white-space: nowrap; border-radius: 50px; text-transform: capitalize; letter-spacing: 0.5px;
+            font-weight: 600; text-align: center; white-space: nowrap; vertical-align: middle; border-radius: 50px; 
+            text-transform: capitalize; letter-spacing: 0.3px; transition: all 0.2s ease-in-out;
         }
         
         .status-borrador { background-color: #f1f3f5; color: #495057; border: 1px solid #dee2e6; }
-        .status-aprobado { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; } 
-        .status-surtido { background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; }
-        .status-cancelado { background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; }
+        .status-aprobado { background-color: #e7f5ff; color: #1971c2; border: 1px solid #d0ebff; } /* Azul como confirmado */
+        .status-surtido { background-color: #fff3bf; color: #f08c00; border: 1px solid #ffec99; } /* Amarillo como revision */
+        .status-cancelado { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; } /* Rojo */
 
         /* NUEVOS ESTADOS DE ENTREGA */
-        .status-listo { background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
-        .status-transito { background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
-        .status-entregado { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .status-listo { background-color: #fff3bf; color: #f08c00; border: 1px solid #ffec99; } /* Amarillo */
+        .status-transito { background-color: #fff4e6; color: #d9480f; border: 1px solid #ffe8cc; } /* Naranja como pendiente */
+        .status-entregado { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; } /* Verde como completo */
         .status-pendiente-ent { background-color: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
 
         /* ==========================================
@@ -350,8 +351,8 @@
                                 </td>
 
                                 <!-- 6. TOTAL -->
-                                <td class="text-center">
-                                    <span class="fw-bold text-success" style="font-size: 0.9rem;">${{ ov.total_orden|floatformat:2 }}</span>
+                                <td class="text-center align-middle">
+                                    <span class="text-dark" style="font-weight: 400;">${{ ov.total_orden|intcomma }}</span>
                                 </td>
 
                                 <!-- 7. ESTADOS (ENTREGA) -->

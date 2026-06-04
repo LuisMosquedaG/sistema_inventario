@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load humanize %}
 
 {% block content %}
 
@@ -285,11 +286,11 @@
                                 <th class="text-center align-middle" style="width: 150px;">Folio Ped. / Cot.</th>
                                 <th class="text-center align-middle" style="width: 130px;">Cliente / Contacto</th>
                                 <th class="text-center align-middle" style="width: 130px;">Fecha</th>
-                                <th class="text-center align-middle" style="width: 160px;">Avance</th>
                                 <th class="text-center align-middle" style="width: 120px;">Total</th>
-                                <th class="text-center align-middle" style="width: 140px;">Estado de pago</th>
+                                <th class="text-center align-middle" style="width: 160px;">Avance</th>
+                                <th class="text-center align-middle" style="width: 140px;">Estado pago</th>
                                 <th class="text-center align-middle" style="width: 130px;">Estado Envío</th>
-                                <th class="text-center align-middle" style="width: 120px;">Estado</th>
+                                <th class="text-center align-middle" style="width: 130px;">Estado Pedido</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -384,10 +385,10 @@
                                 </td>
 
                                 <!-- 2. FOLIO PEDIDO / COTIZACIÓN -->
-                                <td class="text-center align-middle">
-                                    <div class="fw-bold text-dark font-monospace" style="font-size: 0.9rem;">PED-{{ p.id|stringformat:"04d" }}</div>
+                                <td class="text-center align-middle font-monospace small">
+                                    <div class="text-dark">PED-{{ p.id|stringformat:"04d" }}</div>
                                     {% if p.cotizacion_origen_id %}
-                                        <div class="text-secondary small font-monospace" style="font-size: 0.75rem;">COT-{{ p.cotizacion_origen_id|stringformat:"04d" }}</div>
+                                        <div class="text-secondary" style="font-size: 0.75rem;">COT-{{ p.cotizacion_origen_id|stringformat:"04d" }}</div>
                                     {% endif %}
                                 </td>
                                 
@@ -413,7 +414,12 @@
 
                                 <!-- 5. FECHA -->
                                 <td class="text-center align-middle">
-                                    <div class="text-dark fw-medium">{{ p.fecha_creacion|date:"d M Y" }}</div>
+                                    <div class="text-dark">{{ p.fecha_creacion|date:"d M Y" }}</div>
+                                </td>
+
+                                <!-- 6. TOTAL -->
+                                <td class="text-center align-middle">
+                                    <span class="text-dark" style="font-weight: 400;">${{ p.total_pedido|intcomma }}</span>
                                 </td>
 
                                 <!-- 5. AVANCE -->
@@ -428,11 +434,6 @@
                                                  style="width: {{ p.porcentaje_avance }}%"></div>
                                         </div>
                                     </div>
-                                </td>
-
-                                <!-- 6. TOTAL -->
-                                <td class="text-center align-middle">
-                                    <span class="text-dark" style="font-weight: 400;">${{ p.total_pedido }}</span>
                                 </td>
 
                                 <!-- 7. ESTADO DE PAGO -->

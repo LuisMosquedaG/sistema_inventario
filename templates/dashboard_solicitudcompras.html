@@ -234,7 +234,6 @@
                                 <th class="text-center" style="width: 100px;">Pedido Origen</th>
                                 <th class="text-center" style="width: 100px;">Solicitante</th>
                                 <th class="text-center" style="width: 100px;">Fecha</th>
-                                <th class="text-center" style="width: 100px;">Items</th>
                                 <th class="text-center" style="width: 120px;">Estado</th>
                             </tr>
                         </thead>
@@ -276,17 +275,17 @@
                                     <span class="badge bg-light text-secondary border">{{ s.sucursal.nombre|default:"Principal" }}</span>
                                 </td>
 
-                                <td class="text-center font-monospace small"><span class="text-dark">SOL-{{ s.id|stringformat:"04d" }}</span></td>
-                                <td class="text-center">
+                                <td class="text-center font-monospace small text-dark">SOL-{{ s.id|stringformat:"04d" }}</td>
+                                <td class="text-center font-monospace small">
                                     {% if s.pedido_origen and s.pedido_origen.cotizacion_origen_id %}
-                                        <div class="font-monospace small text-secondary">COT-{{ s.pedido_origen.cotizacion_origen_id|stringformat:"04d" }}</div>
+                                        <div class="text-dark">COT-{{ s.pedido_origen.cotizacion_origen_id|stringformat:"04d" }}</div>
                                     {% else %}
                                         <span class="text-muted small">--</span>
                                     {% endif %}
                                 </td>
-                                <td class="text-center">
+                                <td class="text-center font-monospace small">
                                     {% if s.pedido_origen %}
-                                        <div class="font-monospace small text-secondary">PED-{{ s.pedido_origen.id|stringformat:"04d" }}</div>
+                                        <div class="text-dark">PED-{{ s.pedido_origen.id|stringformat:"04d" }}</div>
                                     {% else %}
                                         <span class="text-muted small">--</span>
                                     {% endif %}
@@ -297,7 +296,6 @@
                                 <td class="text-center small">
                                     <div class="text-dark">{{ s.fecha_creacion|date:"d M Y" }}</div>
                                 </td>
-                                <td class="text-center fw-bold">{{ s.total_items }}</td>
                                 <td class="text-center">
                                     <span class="status-pill status-{{ s.estado }}">{{ s.get_estado_display }}</span>
                                 </td>
@@ -642,6 +640,28 @@
             // Abrimos el modal de alta rápida sin cerrar el de solicitudes
             const modalRapido = new bootstrap.Modal(document.getElementById('modalCrearProductoRapido'));
             modalRapido.show();
+        }
+
+        function cancelarSolicitud(id) {
+            if(!confirm('¿Estás seguro de cancelar esta solicitud? Las partidas del pedido serán liberadas.')) return;
+            
+            fetch(`/solicitudes-compras/cancelar/${id}/`, {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert('Ocurrió un error al procesar la cancelación.');
+            });
         }
     </script>
 {% endblock %}

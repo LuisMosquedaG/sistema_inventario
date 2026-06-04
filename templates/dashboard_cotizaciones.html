@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static humanize %}
 
 {% block content %}
     <!-- CARGAR CSS ESPECÍFICO -->
@@ -233,7 +233,7 @@
 
                                     <!-- 6. TOTAL -->
                                     <td class="text-center">
-                                        <span class="text-dark">${{ c.calcular_total }}</span>
+                                        <span class="text-dark" style="font-weight: 400;">${{ c.calcular_total|intcomma }}</span>
                                     </td>
 
                                     <!-- 7. ESTADO -->

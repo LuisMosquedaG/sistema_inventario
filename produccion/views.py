@@ -227,7 +227,10 @@ def exportar_produccion_excel(request):
     if producto_id and producto_id != 'all':
         ordenes = ordenes.filter(producto_id=producto_id)
     if estado:
-        ordenes = ordenes.filter(estado=estado)
+        if estado in ['cancelado', 'cancelada']:
+            ordenes = ordenes.filter(estado__in=['cancelado', 'cancelada'])
+        else:
+            ordenes = ordenes.filter(estado=estado)
     if sucursal_id_filtro:
         ordenes = ordenes.filter(sucursal_id=sucursal_id_filtro)
 
@@ -309,7 +312,10 @@ def dashboard_produccion(request):
         ordenes_qs = ordenes_qs.filter(producto_id=producto_id)
 
     if estado:
-        ordenes_qs = ordenes_qs.filter(estado=estado)
+        if estado in ['cancelado', 'cancelada']:
+            ordenes_qs = ordenes_qs.filter(estado__in=['cancelado', 'cancelada'])
+        else:
+            ordenes_qs = ordenes_qs.filter(estado=estado)
         
     if sucursal_id:
         ordenes_qs = ordenes_qs.filter(sucursal_id=sucursal_id)
@@ -347,6 +353,7 @@ def dashboard_produccion(request):
         'en_proceso': 33,
         'testeo': 66,
         'terminado': 100,
+        'cancelado': 0,
         'cancelada': 0
     }
 
@@ -756,6 +763,7 @@ def api_detalle_orden(request, orden_id):
         'en_proceso': 33,
         'testeo': 66,
         'terminado': 100,
+        'cancelado': 0,
         'cancelada': 0
     }
     porcentaje_estado = mapa_estados.get(orden.estado, 0)
@@ -1105,19 +1113,20 @@ def cancelar_produccion(request, orden_id):
     empresa_actual = get_empresa_actual(request)
     orden = get_object_or_404(OrdenProduccion, id=orden_id, empresa=empresa_actual)
     
-    if orden.estado != 'terminado' and orden.estado != 'cancelada':
+    if orden.estado != 'terminado' and orden.estado != 'cancelado' and orden.estado != 'cancelada':
         # Si la orden ya estaba en proceso o testeo, tenía materiales reservados
         if orden.estado in ['en_proceso', 'testeo']:
             almacen_origen = orden.almacen_materia_prima or orden.almacen
             for det in orden.detalles.all():
                 Inventario.objects.filter(
-                    producto=det.producto, 
+                    producto=det.producto,
                     almacen=almacen_origen
                 ).update(reservado=F('reservado') - det.cantidad)
 
-        orden.estado = 'cancelada'
+        orden.estado = 'cancelado'
         orden.save()
         messages.success(request, f'Orden {orden.folio} cancelada y reservas liberadas.')
+
     return redirect('dashboard_produccion')
 
 @login_required

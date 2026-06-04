@@ -217,7 +217,7 @@
                             <option value="en_proceso" {% if filtros.estado == 'en_proceso' %}selected{% endif %}>En Proceso</option>
                             <option value="testeo" {% if filtros.estado == 'testeo' %}selected{% endif %}>Testeo / Calidad</option>
                             <option value="terminado" {% if filtros.estado == 'terminado' %}selected{% endif %}>Terminado</option>
-                            <option value="cancelada" {% if filtros.estado == 'cancelada' %}selected{% endif %}>Cancelada</option>
+                            <option value="cancelada" {% if filtros.estado == 'cancelada' or filtros.estado == 'cancelado' %}selected{% endif %}>Cancelada</option>
                         </select>
                     </div>
                     <!-- 5. Sucursal -->
@@ -240,21 +240,21 @@
                     <table class="table table-pro mb-0 align-middle">
                         <thead>
                             <tr>
-                                <th class="text-center" >Acciones</th>
-                                <th class="text-center" style="width: 120px;">Sucursal</th>
-                                <th class="text-center" style="width: 120px;">Folio OP</th>
-                                <th class="text-center" style="width: 120px;">Folio Pedido</th>
-                                <th class="text-center">Producto</th>
-                                <th class="text-center">Iniciado</th>
-                                <th class="text-center">Cantidad</th>
-                                <th class="text-center" style="width: 180px;">Avance</th>
-                                <th class="text-center">Estado</th>
+                                <th class="text-center align-middle">Acciones</th>
+                                <th class="text-center align-middle" style="width: 120px;">Sucursal</th>
+                                <th class="text-center align-middle" style="width: 120px;">Folio OP</th>
+                                <th class="text-center align-middle" style="width: 120px;">Folio Pedido</th>
+                                <th class="text-center align-middle">Producto</th>
+                                <th class="text-center align-middle">Iniciado</th>
+                                <th class="text-center align-middle">Cantidad</th>
+                                <th class="text-center align-middle" style="width: 180px;">Avance</th>
+                                <th class="text-center align-middle">Estado</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for o in page_obj %}
                             <tr data-id-orden="{{ o.id }}">
-                                <td class="text-center">
+                                <td class="text-center align-middle">
                                     <div class="d-flex justify-content-center gap-1">
                                         {% if granular_production_perms.tablero_control.ver %}
                                         <span onclick="verOrdenProduccion({{ o.id }})" class="icon-action" title="Ver Detalle"><i class="bi bi-eye"></i></span>
@@ -283,11 +283,9 @@
                                                 <i class="bi bi-check-all" style="font-size: 1.4rem;"></i>
                                             </span>
                                             {% endif %}
-                                        {% elif o.estado == 'terminado' %}
-                                            <span class="icon-action" title="Completado" style="cursor: default;"><i class="bi bi-patch-check-fill"></i></span>
                                         {% endif %}
                                         
-                                        {% if o.estado != 'terminado' and o.estado != 'cancelado' %}
+                                        {% if o.estado != 'terminado' and o.estado != 'cancelado' and o.estado != 'cancelada' %}
                                             {% if granular_production_perms.tablero_control.cancelar_orden %}
                                             <a href="{% url 'cancelar_produccion' o.id %}" class="icon-action" title="Cancelar Orden" onclick="return confirm('¿Cancelar?')"><i class="bi bi-x-circle"></i></a>
                                             {% endif %}
@@ -295,17 +293,17 @@
                                     </div>
                                 </td>
                                 <!-- 1. SUCURSAL -->
-                                <td class="text-center">
+                                <td class="text-center align-middle">
                                     <span class="badge bg-light text-secondary border fw-normal">{{ o.sucursal.nombre|default:"--" }}</span>
                                 </td>
                                 <!-- 2. FOLIO OP -->
-                                <td class="text-center font-monospace small"><span class="fw-bold">{{ o.folio }}</span></td>
+                                <td class="text-center align-middle font-monospace small text-dark">{{ o.folio }}</td>
                                 
                                 <!-- 3. FOLIO PEDIDO -->
-                                <td class="text-center">
-                                    <div class="font-monospace small">
+                                <td class="text-center align-middle">
+                                    <div class="font-monospace small text-dark">
                                         {% if o.pedido_origen %}
-                                            <span class="text-brand fw-bold">PED-{{ o.pedido_origen.id|stringformat:"04d" }}</span>
+                                            PED-{{ o.pedido_origen.id|stringformat:"04d" }}
                                         {% else %}
                                             <span class="text-muted">Manual</span>
                                         {% endif %}
@@ -313,7 +311,7 @@
                                 </td>
 
                                 <!-- 4. PRODUCTO -->
-                                <td class="text-center">
+                                <td class="text-center align-middle">
                                     <div class="fw-bold text-dark" style="line-height: 1.2;">{{ o.producto.nombre }}</div>
                                     {% if o.faltantes_info %}
                                         <div class="mt-1">
@@ -327,7 +325,7 @@
                                 </td>
 
                                 <!-- 5. INICIADO -->
-                                <td class="text-center">
+                                <td class="text-center align-middle">
                                     {% if o.fecha_inicio %}
                                         <div class="fw-bold text-dark" style="line-height: 1.2;">{{ o.fecha_inicio|date:"d M Y" }}</div>
                                         <div class="text-muted small mt-1">{{ o.fecha_inicio|date:"H:i" }} hrs</div>
@@ -337,10 +335,10 @@
                                 </td>
 
                                 <!-- 6. CANTIDAD -->
-                                <td class="text-center"><span class="badge bg-light text-dark border">{{ o.cantidad }} pz</span></td>
+                                <td class="text-center align-middle"><span class="badge bg-light text-dark border">{{ o.cantidad }} pz</span></td>
                                 
                                 <!-- 7. AVANCE -->
-                                <td class="text-center px-3">
+                                <td class="text-center align-middle px-3">
                                     <div class="mb-2">
                                         <div class="d-flex justify-content-between align-items-center">
                                             <span class="progress-label">Proceso</span>
@@ -362,7 +360,7 @@
                                 </td>
 
                                 <!-- 8. ESTADO -->
-                                <td class="text-center"><span class="status-pill status-{{ o.estado }}">{{ o.get_estado_display }}</span></td>
+                                <td class="text-center align-middle"><span class="status-pill status-{{ o.estado }}">{{ o.get_estado_display }}</span></td>
                             </tr>
                             {% empty %}
                             <tr><td colspan="9" class="text-center py-5 text-muted">No hay trabajos en el taller que coincidan con los filtros.</td></tr>
