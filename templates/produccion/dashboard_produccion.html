@@ -241,7 +241,7 @@
                     <table class="table table-pro mb-0 align-middle" style="table-layout: fixed;">
                         <thead>
                             <tr>
-                                <th class="text-center align-middle" style="width: 110px;">Acciones</th>
+                                <th class="text-center align-middle" style="width: 165px;">Acciones</th>
                                 <th class="text-center align-middle" style="width: 110px;">Sucursal</th>
                                 <th class="text-center align-middle" style="width: 125px;">Folio OP</th>
                                 <th class="text-center align-middle" style="width: 125px;">Folio Pedido</th>
@@ -256,7 +256,7 @@
                             {% for o in page_obj %}
                             <tr data-id-orden="{{ o.id }}">
                                 <td class="text-center align-middle">
-                                    <div class="d-flex justify-content-center gap-1">
+                                    <div class="d-flex justify-content-center" style="gap: 10px;">
                                         {% if granular_production_perms.tablero_control.ver %}
                                         <span onclick="verOrdenProduccion({{ o.id }})" class="icon-action" title="Ver Detalle"><i class="bi bi-eye"></i></span>
                                         {% endif %}
