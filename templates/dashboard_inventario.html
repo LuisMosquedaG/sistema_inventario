@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-{% load static %}
+{% load static humanize %}
 <!-- ESTILOS ESPECÍFICOS -->
 <style>
 
@@ -237,10 +237,6 @@
                                     <span onclick="abrirModalPrecios({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action" title="Precios"><i class="bi bi-tags"></i></span>
                                     {% endif %}
 
-                                    {% if granular_inventory_perms.inventario.existencias %}
-                                    <span onclick="abrirModalExistencias({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action" title="Existencias"><i class="bi bi-layers"></i></span>
-                                    {% endif %}
-
                                     {% if p.tipo_abastecimiento == 'produccion' %}
                                         {% if granular_inventory_perms.inventario.recetas %}
                                         <span onclick="abrirModalReceta({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action" title="Receta"><i class="bi bi-diagram-3"></i></span>
@@ -279,17 +275,17 @@
                                     <div class="text-muted small">Dispo: <span class="text-success fw-bold">{{ p.stock_disponible_anotado|default:0 }}</span></div>
                                 </td>
                                 <td class="text-center small text-muted">
-                                    <div>Actual: ${{ p.precio_costo|floatformat:2|default:"-" }}</div>
-                                    <div>Prom: ${{ p.costo_promedio_anotado|floatformat:2|default:"-" }}</div>
-                                    <div>Max: ${{ p.costo_max_compra|floatformat:2|default:"-" }}</div>
+                                    <div>Actual: ${{ p.precio_costo|floatformat:2|intcomma|default:"-" }}</div>
+                                    <div>Prom: ${{ p.costo_promedio_anotado|floatformat:2|intcomma|default:"-" }}</div>
+                                    <div>Max: ${{ p.costo_max_compra|floatformat:2|intcomma|default:"-" }}</div>
                                 </td>
                                 <td class="text-center small text-muted">
-                                    <div>Actual: ${{ p.precio_venta|floatformat:2|default:"-" }}</div>
-                                    <div>Prom: ${{ p.precio_promedio_venta|floatformat:2|default:"-" }}</div>
-                                    <div>Max: ${{ p.precio_max_venta|floatformat:2|default:"-" }}</div>
+                                    <div>Actual: ${{ p.precio_venta|floatformat:2|intcomma|default:"-" }}</div>
+                                    <div>Prom: ${{ p.precio_promedio_venta|floatformat:2|intcomma|default:"-" }}</div>
+                                    <div>Max: ${{ p.precio_max_venta|floatformat:2|intcomma|default:"-" }}</div>
                                 </td>
                                 <td class="text-center">
-                                    <div class="text-muted small">${{ p.costo_inventario_anotado|floatformat:2|default:"0.00" }}</div>
+                                    <div class="text-muted small">${{ p.costo_inventario_anotado|floatformat:2|intcomma|default:"0.00" }}</div>
                                 </td>
                             {% else %}
                                 <td class="text-center">
@@ -362,7 +358,6 @@
 {% include "inventario/modals/modal_crear_articulo.html" %}
 {% include "inventario/modals/modal_crear_categoria_rapida.html" %}
 {% include "inventario/modals/modal_receta_editar.html" %}
-{% include "inventario/modals/modal_detalle_inventario.html" %}
 {% include "inventario/modals/modal_ver_receta.html" %}
 {% include "inventario/modals/modal_detalle_documento.html" %}
 {% include "inventario/modals/modal_lista_precios.html" %}

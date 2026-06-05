@@ -317,112 +317,6 @@ document.addEventListener('change', function(e) {
     }
 });
 
-// --- 2. EXISTENCIAS ---
-
-window.abrirModalExistencias = function(id, nombre) {
-    const t = document.getElementById('tituloModalDetalle');
-    if (t) t.innerText = `Existencias: ${nombre}`;
-    
-    const tbodyHist = document.getElementById('tablaBodyProveedor');
-    const tbodySeries = document.getElementById('tablaBodySeries');
-    const tbodyLotes = document.getElementById('tablaBodyLotes');
-    const tbodyPed = document.getElementById('tablaBodyPedimentos');
-
-    const spinner = '<tr><td colspan="10" class="text-center py-3"><span class="spinner-border spinner-border-sm"></span> Cargando...</td></tr>';
-    
-    if (tbodyHist) tbodyHist.innerHTML = spinner;
-    if (tbodySeries) tbodySeries.innerHTML = spinner;
-    if (tbodyLotes) tbodyLotes.innerHTML = spinner;
-    if (tbodyPed) tbodyPed.innerHTML = spinner;
-    
-    // Regresar a la primera pestaña
-    const firstTab = document.querySelector('#tabExistencias button[id="existencias-tab"]');
-    if (firstTab) {
-        const tabTrigger = new bootstrap.Tab(firstTab);
-        tabTrigger.show();
-    }
-
-    mostrarModal('modalDetalleInventario');
-
-    fetch(`${APP_URLS.api_detalle_producto}${id}/`)
-        .then(r => r.json())
-        .then(data => {
-            // 1. EXISTENCIAS / HISTORIAL
-            if (tbodyHist) {
-                tbodyHist.innerHTML = '';
-                if (data.historial && data.historial.length > 0) {
-                    data.historial.forEach(i => {
-                        tbodyHist.insertAdjacentHTML('beforeend', `
-                            <tr>
-                                <td class="text-center"><a href="#" onclick="verDetalleDoc('oc', ${i.oc_id}); return false;" class="text-decoration-none">${i.folio_oc}</a></td>
-                                <td class="text-center"><a href="#" onclick="verDetalleDoc('rec', ${i.rec_id}); return false;" class="text-decoration-none">${i.folio_rec}</a></td>
-                                <td class="text-center small">${i.proveedor}</td>
-                                <td class="text-center small">${i.fecha}</td>
-                                <td class="text-center fw-bold">${i.cantidad}</td>
-                                <td class="text-end small">$${parseFloat(i.costo).toFixed(2)}</td>
-                                <td class="text-end pe-3 fw-bold">$${parseFloat(i.total).toFixed(2)}</td>
-                            </tr>`);
-                    });
-                } else {
-                    tbodyHist.innerHTML = '<tr><td colspan="7" class="text-center py-3 text-muted italic">Sin movimientos registrados.</td></tr>';
-                }
-            }
-
-            // 2. SERIES
-            if (tbodySeries) {
-                tbodySeries.innerHTML = '';
-                if (data.series && data.series.length > 0) {
-                    data.series.forEach(s => {
-                        tbodySeries.insertAdjacentHTML('beforeend', `
-                            <tr>
-                                <td class="ps-3 fw-bold small">${s.serie}</td>
-                                <td class="text-center small">${s.almacen}</td>
-                                <td class="text-center small">${s.fecha}</td>
-                            </tr>`);
-                    });
-                } else {
-                    tbodySeries.innerHTML = '<tr><td colspan="3" class="text-center py-3 text-muted italic">No hay números de serie registrados.</td></tr>';
-                }
-            }
-
-            // 3. LOTES
-            if (tbodyLotes) {
-                tbodyLotes.innerHTML = '';
-                if (data.lotes && data.lotes.length > 0) {
-                    data.lotes.forEach(l => {
-                        tbodyLotes.insertAdjacentHTML('beforeend', `
-                            <tr>
-                                <td class="ps-3 fw-bold small">${l.lote}</td>
-                                <td class="text-center fw-bold">${l.cantidad}</td>
-                                <td class="text-center small">${l.almacen}</td>
-                                <td class="text-center small">${l.fecha}</td>
-                            </tr>`);
-                    });
-                } else {
-                    tbodyLotes.innerHTML = '<tr><td colspan="4" class="text-center py-3 text-muted italic">No hay lotes registrados.</td></tr>';
-                }
-            }
-
-            // 4. PEDIMENTOS
-            if (tbodyPed) {
-                tbodyPed.innerHTML = '';
-                if (data.pedimentos && data.pedimentos.length > 0) {
-                    data.pedimentos.forEach(p => {
-                        tbodyPed.insertAdjacentHTML('beforeend', `
-                            <tr>
-                                <td class="ps-3 fw-bold small">${p.pedimento}</td>
-                                <td class="text-center small">${p.aduana}</td>
-                                <td class="text-center small">${p.fecha}</td>
-                                <td class="text-center small"><a href="#" onclick="verDetalleDoc('rec', ${p.rec_id}); return false;">${p.folio_rec}</a></td>
-                            </tr>`);
-                    });
-                } else {
-                    tbodyPed.innerHTML = '<tr><td colspan="4" class="text-center py-3 text-muted italic">No hay pedimentos registrados.</td></tr>';
-                }
-            }
-        });
-}
-
 // --- 3. RECETAS (MRP) ---
 
 window.abrirConfigurarReceta = function() {
@@ -1117,21 +1011,37 @@ function agregarItemTraslado() {
     const almacenDestinoId = document.getElementById('selectAlmacenDestino').value;
     const productoSelect = document.getElementById('selectProductoTraslado');
     const productoId = productoSelect.value;
-    const productoNombre = productoSelect.options[productoSelect.selectedIndex]?.text.split(' (Disp:')[0];
+    const selectedOption = productoSelect.selectedOptions[0];
+    const productoNombre = selectedOption?.text.split(' (Disp:')[0];
     const cantidad = parseInt(document.getElementById('inputCantidadTraslado').value);
     const selectLote = document.getElementById('selectLoteTraslado');
     const selectSerie = document.getElementById('selectSerieTraslado');
-    
-    const extraId = selectLote.value || selectSerie.value || null;
-    const extraNombre = selectLote.value ? selectLote.options[selectLote.selectedIndex].text : (selectSerie.value ? selectSerie.options[selectSerie.selectedIndex].text : null);
-    
-    const disponible = parseInt(document.getElementById('infoStockDisponible').innerText);
     
     if (!almacenOrigenId || !almacenDestinoId || !productoId || !cantidad || cantidad <= 0) {
         alert("Por favor, completa todos los campos.");
         return;
     }
 
+    // --- VALIDACIÓN DE LOTES Y SERIES ---
+    const stockInfo = JSON.parse(selectedOption?.dataset?.stockInfo || '{}');
+    
+    if (stockInfo.maneja_lote && !selectLote.disabled && !selectLote.value) {
+        alert("Este producto maneja LOTES. Por favor, selecciona un lote con existencias para continuar.");
+        selectLote.focus();
+        return;
+    }
+    
+    if (stockInfo.maneja_serie && !selectSerie.disabled && !selectSerie.value) {
+        alert("Este producto maneja NÚMEROS DE SERIE. Por favor, selecciona una serie específica para continuar.");
+        selectSerie.focus();
+        return;
+    }
+
+    const extraId = selectLote.value || selectSerie.value || null;
+    const extraNombre = selectLote.value ? selectLote.options[selectLote.selectedIndex].text : (selectSerie.value ? selectSerie.options[selectSerie.selectedIndex].text : null);
+    
+    const disponible = parseInt(document.getElementById('infoStockDisponible').innerText);
+    
     if (cantidad > disponible) {
         alert(`¡Alerta! La cantidad solicitada (${cantidad}) excede el stock disponible (${disponible}). Las piezas excedentes se transferirán como reservadas.`);
     }
