@@ -7,9 +7,10 @@ from django.db.models import Sum, F
 import openpyxl
 from datetime import datetime
 from .models import Recepcion, DetalleRecepcion, DetalleRecepcionExtra
-from compras.models import OrdenCompra, DetalleCompra
-from almacenes.models import Almacen, Inventario
 from .services import procesar_recepcion_servicio
+from compras.models import OrdenCompra, DetalleCompra
+from core.models import Producto, Transaccion
+from almacenes.models import Almacen, Inventario
 from panel.models import Empresa
 from notificaciones.utils import crear_notificacion
 
@@ -496,15 +497,18 @@ def cancelar_recepcion(request, recepcion_id):
                         'qty': 1 if extra.tipo == 'serie' else extra.cantidad_lote
                     })
 
-                # Usamos el método centralizado para restar stock
-                # Al ser una cancelación de ingreso, es equivalente a una salida
-                Inventario.registrar_salida(
-                    almacen=almacen,
+                # Usamos el modelo Transacción para un log centralizado
+                # Al ser una cancelación de ingreso, es una salida (cantidad negativa)
+                Transaccion.objects.create(
                     producto=producto,
-                    cantidad_salida=det.cantidad_recibida,
+                    almacen=almacen,
+                    tipo='ajuste',
+                    cantidad=-det.cantidad_recibida,
+                    empresa=recepcion.empresa,
+                    usuario=request.user,
                     referencia=f"CANCELACIÓN: REC-{recepcion.id:04d}",
                     extras_data=extras_data,
-                    usuario=request.user
+                    estado='recibida'
                 )
 
         # Calcular nuevo estado de OC

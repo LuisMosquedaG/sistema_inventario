@@ -6,7 +6,7 @@ import json
 from .models import Recepcion, DetalleRecepcion, DetalleRecepcionExtra
 from compras.models import OrdenCompra, DetalleCompra
 from almacenes.models import Inventario, Almacen
-from core.models import Producto
+from core.models import Producto, Transaccion
 
 @transaction.atomic
 def procesar_recepcion_servicio(data_post, empresa_actual, usuario=None):
@@ -159,15 +159,19 @@ def procesar_recepcion_servicio(data_post, empresa_actual, usuario=None):
                             serie_kardex = extra.get('serie')
                 except json.JSONDecodeError: pass
 
-            Inventario.registrar_ingreso(
-                almacen=almacen,
+            # USAR MÉTODO CENTRALIZADO (Vía Transacción para log centralizado)
+            Transaccion.objects.create(
                 producto=producto,
-                cantidad_ingreso=cant_rec,
-                costo_unitario=costo_en_pesos,
+                almacen=almacen,
+                tipo='compra',
+                cantidad=cant_rec,
+                total=costo_en_pesos * Decimal(cant_rec),
+                empresa=empresa_actual,
+                usuario=usuario,
                 referencia=f"REC-{recepcion.id:04d}",
                 lote=lote_kardex,
                 serie=serie_kardex,
-                usuario=usuario
+                estado='recibida'
             )
 
     # 7. ACTUALIZAR ESTADO DE LA OC

@@ -378,7 +378,10 @@ def crear_solicitud_desde_pedido(request, detalle_id):
             almacen_destino = Almacen.objects.filter(empresa=empresa_actual).first()
 
         if not almacen_destino:
-            messages.error(request, f'No se pudo generar la orden de producción para "{producto.nombre}" porque no hay almacenes registrados. Por favor, cree un almacén primero.')
+            error_msg = f'No se pudo generar la orden de producción para "{producto.nombre}" porque no hay almacenes registrados. Por favor, cree un almacén primero.'
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': error_msg})
+            messages.error(request, error_msg)
             return redirect('detalle_pedido', pedido_id=pedido.id)
 
         # 1. Crear la Orden de Producción vinculada al pedido (En Borrador)
@@ -398,7 +401,10 @@ def crear_solicitud_desde_pedido(request, detalle_id):
         receta = DetalleReceta.objects.filter(producto_padre=producto)
         
         if not receta.exists():
-            messages.error(request, f'El producto "{producto.nombre}" es de producción pero NO TIENE RECETA. No se puede generar solicitud.')
+            error_msg = f'El producto "{producto.nombre}" es de producción pero NO TIENE RECETA. No se puede generar solicitud.'
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': error_msg})
+            messages.error(request, error_msg)
             return redirect('dashboard_pedidos')
 
         # 3. Calcular necesidades y crear detalles

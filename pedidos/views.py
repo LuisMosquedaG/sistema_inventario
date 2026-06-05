@@ -817,7 +817,10 @@ def generar_solicitud_global(request, pedido_id):
     lineas_a_comprar = DetallePedido.objects.filter(pedido=pedido, estado_linea='compra')
 
     if not lineas_a_comprar.exists():
-        messages.warning(request, 'No hay partidas pendientes de compra en este pedido.')
+        error_msg = 'No hay partidas pendientes de compra en este pedido.'
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_msg})
+        messages.warning(request, error_msg)
         return redirect('dashboard_pedidos')
 
     # 2. Buscar o Crear la Solicitud de Compra Maestra para este pedido

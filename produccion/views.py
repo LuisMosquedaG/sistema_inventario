@@ -10,7 +10,7 @@ from decimal import Decimal
 import openpyxl
 from datetime import datetime
 from .models import OrdenProduccion, DetalleOrdenProduccion
-from core.models import Producto, DetalleReceta
+from core.models import Producto, DetalleReceta, Transaccion
 from almacenes.models import Inventario, Almacen
 from panel.models import Empresa
 from notificaciones.utils import crear_notificacion
@@ -1060,22 +1060,29 @@ def finalizar_produccion_logica(request, orden):
 
         # 1. Ejecutar Movimientos de Salida (Limpiar Reserva y Quitar Físico)
         for det in detalles_orden:
-            # Usamos el método centralizado que ahora maneja físico, reserva y Kardex
-            Inventario.registrar_salida(
-                almacen=almacen_origen,
+            # Usamos el modelo Transacción para un log centralizado
+            Transaccion.objects.create(
                 producto=det.producto,
-                cantidad_salida=det.cantidad,
+                almacen=almacen_origen,
+                tipo='produccion',
+                cantidad=-det.cantidad, # Cantidad negativa para salida
+                empresa=orden.empresa,
+                usuario=request.user,
                 referencia=f"OP-{orden.id:04d} (Consumo)",
-                quitar_reserva=det.cantidad
+                quitar_reserva=det.cantidad,
+                estado='recibida'
             )
 
         # 2. Sumar Producto Terminado
-        Inventario.registrar_ingreso(
-            almacen=almacen_destino,
+        Transaccion.objects.create(
             producto=producto,
-            cantidad_ingreso=cantidad_producir,
-            costo_unitario=producto.precio_costo, # O el costo calculado de la receta
-            referencia=f"OP-{orden.id:04d} (Ensamble)"
+            almacen=almacen_destino,
+            tipo='produccion',
+            cantidad=cantidad_producir, # Cantidad positiva para entrada
+            empresa=orden.empresa,
+            usuario=request.user,
+            referencia=f"OP-{orden.id:04d} (Ensamble)",
+            estado='recibida'
         )
 
         # 5. Finalizar Orden

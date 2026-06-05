@@ -14,9 +14,9 @@ from .models import OrdenVenta, DetalleOrdenVenta
 from pedidos.models import Pedido, DetallePedido
 from panel.models import Empresa
 from almacenes.models import Inventario, Almacen, Kardex
-from recepciones.models import DetalleRecepcionExtra
+from core.models import Producto, Transaccion
 from clientes.models import Cliente
-from core.models import Producto
+from recepciones.models import DetalleRecepcionExtra
 from notificaciones.utils import crear_notificacion
 from preferencias.permissions import require_sales_permission, user_has_sales_permission
 
@@ -748,15 +748,18 @@ def ejecutar_surtido(request, ov_id):
                                 extras_data.append({'id': eid, 'qty': qty_descontar})
                                 piezas_pendientes -= qty_descontar
 
-                    # USAR MÉTODO CENTRALIZADO
-                    Inventario.registrar_salida(
-                        almacen=almacen,
+                    # USAR MÉTODO CENTRALIZADO (Vía Transacción para log centralizado)
+                    Transaccion.objects.create(
                         producto=producto,
-                        cantidad_salida=cant_a_entregar,
-                        referencia=f"{ov.folio_display}",
-                        quitar_reserva=cant_a_entregar,
+                        almacen=almacen,
+                        tipo='venta',
+                        cantidad=cant_a_entregar,
+                        total=Decimal(cant_a_entregar) * (det.precio_unitario or 0),
+                        empresa=empresa_actual,
+                        usuario=request.user,
+                        referencia=ov.folio_display,
                         extras_data=extras_data,
-                        usuario=request.user
+                        estado='recibida' # Marcamos como procesada
                     )
 
                     # --- PUNTO B: Sincronización con Pedido Original ---

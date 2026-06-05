@@ -150,6 +150,8 @@ class Transaccion(models.Model):
     TIPO_CHOICES = [
         ('compra', 'Compra'),
         ('venta', 'Venta'),
+        ('ajuste', 'Ajuste'),
+        ('produccion', 'Producción'),
     ]
     
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
@@ -165,10 +167,17 @@ class Transaccion(models.Model):
     
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
     cantidad = models.IntegerField()
-    total = models.DecimalField(max_digits=10, decimal_places=2)
+    total = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     fecha = models.DateTimeField(auto_now_add=True)
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Empresa (Tenant)")
     
+    usuario = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Usuario")
+    referencia = models.CharField(max_length=100, blank=True, null=True, verbose_name="Referencia")
+    lote = models.CharField(max_length=100, blank=True, null=True, verbose_name="Lote")
+    serie = models.CharField(max_length=100, blank=True, null=True, verbose_name="Serie")
+    extras_data = models.JSONField(default=list, blank=True, null=True, verbose_name="Datos Extras (Lotes/Series)")
+    quitar_reserva = models.IntegerField(default=0, verbose_name="Quitar Reserva")
+
     estado = models.CharField(
         max_length=20, 
         choices=ESTADO_COMPRA_CHOICES, 
@@ -199,41 +208,54 @@ class Transaccion(models.Model):
             self.total = Decimal(self.cantidad) * costo_unitario_compra
 
         elif self.tipo == 'venta':
-            self.total = Decimal(self.cantidad) * Decimal(self.producto.precio_venta)
+            if self.total == 0:
+                self.total = Decimal(self.cantidad) * Decimal(self.producto.precio_venta)
+            costo_unitario_compra = Decimal(self.producto.precio_costo)
+        
+        elif self.tipo == 'produccion' or self.tipo == 'ajuste':
             costo_unitario_compra = Decimal(self.producto.precio_costo)
 
         # --- 2. GESTIÓN DE STOCK ---
         
-        # CASO A: COMPRA RECIBIDA 
-        # Nota: En tu sistema las compras parecen ir por 'Recepcion', pero si usas este modelo directo:
-        if self.tipo == 'compra' and self.estado == 'recibida':
+        # CASO A: COMPRA RECIBIDA o AJUSTE POSITIVO
+        if (self.tipo == 'compra' and self.estado == 'recibida') or \
+           ((self.tipo == 'ajuste' or self.tipo == 'produccion') and self.cantidad > 0):
+            
             if self.producto.tipo != 'servicio':
-                # ... lógica de suma de inventario ...
-                # Si usas esto directo, también aplica F() aquí:
-                # inv.cantidad = F('cantidad') + self.cantidad
-                pass 
+                Inventario.registrar_ingreso(
+                    almacen=self.almacen,
+                    producto=self.producto,
+                    cantidad_ingreso=abs(self.cantidad),
+                    costo_unitario=costo_unitario_compra,
+                    referencia=self.referencia or f"{self.get_tipo_display()} {self.id}",
+                    lote=self.lote,
+                    serie=self.serie,
+                    usuario=self.usuario
+                )
 
-        elif self.tipo == 'venta':
-            # Calculamos el total monetario de la venta
-            self.total = Decimal(self.cantidad) * Decimal(self.producto.precio_venta)
-            costo_unitario_compra = Decimal(self.producto.precio_costo)
-
+        # CASO B: VENTA o AJUSTE NEGATIVO
+        elif self.tipo == 'venta' or \
+             ((self.tipo == 'ajuste' or self.tipo == 'produccion') and self.cantidad < 0):
+            
             # Gestionamos el stock solo si NO es un servicio
             if self.producto.tipo != 'servicio':
                 try:
-                    # Delegamos toda la lógica de validación y resta al modelo Inventario
-                    # Esto maneja el bloqueo (select_for_update) y la resta atómica (F) internamente.
+                    # Si es venta, quitar_reserva por defecto es la cantidad (ya seteado en el modelo anterior, pero aquí lo hacemos dinámico)
+                    q_res = self.quitar_reserva
+                    if self.tipo == 'venta' and q_res == 0:
+                        q_res = abs(self.cantidad)
+
                     Inventario.registrar_salida(
                         almacen=self.almacen,
                         producto=self.producto,
-                        cantidad_salida=self.cantidad
+                        cantidad_salida=abs(self.cantidad),
+                        referencia=self.referencia or f"{self.get_tipo_display()} {self.id}",
+                        usuario=self.usuario,
+                        extras_data=self.extras_data,
+                        quitar_reserva=q_res
                     )
                 except Exception as e:
-                    # Capturamos cualquier error (como Stock Insuficiente) y lo relanzamos
-                    # para que la vista lo capture y cancele la transacción.
                     raise e
-             
-             # Si es servicio, simplemente calculamos el total monetario (hecho arriba) y no tocamos stock.
         
         super().save(*args, **kwargs)
 

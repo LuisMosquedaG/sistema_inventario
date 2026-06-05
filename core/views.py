@@ -480,7 +480,24 @@ def punto_de_venta(request):
         cantidad = int(request.POST.get('cantidad', 1))
         try:
             producto = get_object_or_404(Producto, id=producto_id, empresa=empresa_actual)
-            Transaccion.objects.create(producto=producto, tipo='venta', cantidad=cantidad, empresa=empresa_actual)
+            
+            # Buscamos un almacén por defecto para la venta directa
+            from almacenes.models import Almacen
+            almacen = Almacen.objects.filter(empresa=empresa_actual).first()
+            
+            if not almacen:
+                raise ValueError("No hay almacenes configurados para realizar la venta.")
+
+            Transaccion.objects.create(
+                producto=producto, 
+                almacen=almacen,
+                tipo='venta', 
+                cantidad=cantidad, 
+                empresa=empresa_actual,
+                usuario=request.user,
+                referencia="Venta Directa (POS)",
+                estado='recibida'
+            )
             messages.success(request, f'Vendido: {cantidad} x {producto.nombre}')
             return redirect('punto_de_venta')
         except Exception as e:
@@ -846,21 +863,29 @@ def ejecutar_produccion(request):
             errs = [f"Falta {r.componente.nombre}" for r in receta if invs.get(r.componente_id, Inventario(cantidad=0)).cantidad < (r.cantidad * cant_prod)]
             if errs: return JsonResponse({'success': False, 'error': 'Stock insuficiente: ' + ', '.join(errs)})
             for r in receta:
-                # Usamos el método centralizado para cada componente
-                Inventario.registrar_salida(
-                    almacen=almacen,
+                # Usamos el modelo Transacción para un log centralizado
+                Transaccion.objects.create(
                     producto=r.componente,
-                    cantidad_salida=(r.cantidad * cant_prod),
-                    referencia=f"PROD-MANUAL: {producto.nombre}"
+                    almacen=almacen,
+                    tipo='produccion',
+                    cantidad=-(r.cantidad * cant_prod),
+                    empresa=empresa_actual,
+                    usuario=request.user,
+                    referencia=f"PROD-MANUAL: {producto.nombre}",
+                    estado='recibida'
                 )
 
-            # Usamos el método centralizado para la entrada del producto final
-            Inventario.registrar_ingreso(
-                almacen=almacen,
+            # Usamos el modelo Transacción para la entrada del producto final
+            Transaccion.objects.create(
                 producto=producto,
-                cantidad_ingreso=cant_prod,
-                costo_unitario=producto.precio_costo,
-                referencia=f"PROD-MANUAL: Ensamble"
+                almacen=almacen,
+                tipo='produccion',
+                cantidad=cant_prod,
+                total=Decimal(cant_prod) * Decimal(producto.precio_costo),
+                empresa=empresa_actual,
+                usuario=request.user,
+                referencia=f"PROD-MANUAL: Ensamble",
+                estado='recibida'
             )
             return JsonResponse({'success': True, 'message': f'Producción exitosa: {cant_prod} {producto.nombre}.'})
         except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
