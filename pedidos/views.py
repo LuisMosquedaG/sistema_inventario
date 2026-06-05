@@ -816,6 +816,17 @@ def generar_solicitud_global(request, pedido_id):
     # 1. Buscar todas las líneas que necesitan compra
     lineas_a_comprar = DetallePedido.objects.filter(pedido=pedido, estado_linea='compra')
 
+    # --- NUEVO: Validar si se requiere pago previo para solicitar ---
+    from preferencias.permissions import user_has_sales_permission
+    if user_has_sales_permission(request, 'pedidos', 'PagarParaPedido'):
+        if pedido.pago_estado != 'pagado':
+            error_msg = f'El pedido #{pedido.id} debe estar pagado para generar una solicitud de compra.'
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': error_msg})
+            messages.error(request, error_msg)
+            return redirect('dashboard_pedidos')
+    # ----------------------------------------------------------------
+
     if not lineas_a_comprar.exists():
         error_msg = 'No hay partidas pendientes de compra en este pedido.'
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':

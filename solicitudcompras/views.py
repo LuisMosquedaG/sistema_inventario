@@ -350,6 +350,18 @@ def crear_solicitud_desde_pedido(request, detalle_id):
     
     # Seguridad: Verificar que el pedido pertenezca a la empresa
     pedido = get_object_or_404(Pedido, id=detalle.pedido.id, empresa=empresa_actual)
+
+    # --- NUEVO: Validar si se requiere pago previo para solicitar ---
+    from preferencias.permissions import user_has_sales_permission
+    if user_has_sales_permission(request, 'pedidos', 'PagarParaPedido'):
+        if pedido.pago_estado != 'pagado':
+            error_msg = f'El pedido #{pedido.id} debe estar pagado para solicitar esta partida.'
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': error_msg})
+            messages.error(request, error_msg)
+            return redirect('dashboard_pedidos')
+    # ----------------------------------------------------------------
+
     producto = detalle.producto
 
     # Verificamos si YA existe una solicitud abierta para este pedido para agrupar
