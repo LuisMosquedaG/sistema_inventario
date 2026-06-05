@@ -15,4 +15,5 @@ urlpatterns = [
     path('api/productos-con-stock/<int:almacen_id>/', views.api_productos_con_stock, name='api_productos_con_stock'),
     path('api/extras-producto/<int:almacen_id>/<int:producto_id>/', views.api_extras_producto, name='api_extras_producto'),
     path('api/ejecutar-traslado/', views.api_ejecutar_traslado, name='api_ejecutar_traslado'),
+    path('api/detalle-reservas/<int:producto_id>/', views.api_detalle_reservas, name='api_detalle_reservas'),
 ]

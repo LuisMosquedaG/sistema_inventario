@@ -317,6 +317,89 @@ document.addEventListener('change', function(e) {
     }
 });
 
+// --- 2. RESERVAS ---
+
+window.abrirModalReservas = function(id, nombre) {
+    const t = document.getElementById('tituloModalReservas');
+    if (t) t.innerText = `Reservas: ${nombre}`;
+    
+    const tbody = document.getElementById('tbodyReservas');
+    const totalEl = document.getElementById('totalReservasModal');
+
+    const spinner = '<tr><td colspan="4" class="text-center py-3"><span class="spinner-border spinner-border-sm"></span> Cargando reservas...</td></tr>';
+    if (tbody) tbody.innerHTML = spinner;
+    if (totalEl) totalEl.innerText = '0';
+
+    mostrarModal('modalVerReservas');
+
+    fetch(`${APP_URLS.api_detalle_reservas}${id}/`)
+        .then(r => r.json())
+        .then(data => {
+            if (tbody) {
+                tbody.innerHTML = '';
+                if (data.reservas && data.reservas.length > 0) {
+                    data.reservas.forEach(r => {
+                        tbody.insertAdjacentHTML('beforeend', `
+                            <tr>
+                                <td class="text-center">
+                                    <span class="icon-action text-muted hover-red" title="Eliminar Reserva" onclick="eliminarReserva(${r.id}, ${id}, '${nombre}')">
+                                        <i class="bi bi-x-circle" style="font-size: 1rem;"></i>
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <div class="fw-semibold small text-dark">${r.cliente}</div>
+                                </td>
+                                <td class="text-center">
+                                    <span class="font-monospace small text-dark">${r.folio}</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="small text-muted">${r.fecha}</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="small text-dark">${r.cantidad}</span>
+                                </td>
+                            </tr>`);
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-muted italic">No hay reservas activas para este producto.</td></tr>';
+                }
+            }
+            if (totalEl) totalEl.innerText = data.total || '0';
+        })
+        .catch(err => {
+            console.error(err);
+            if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-3">Error al cargar datos.</td></tr>';
+        });
+}
+
+window.eliminarReserva = function(detalleId, productoId, productoNombre) {
+    if (!confirm(`¿Estás seguro de eliminar esta reserva? El stock volverá a estar disponible y la partida del pedido regresará a estado "Pendiente".`)) {
+        return;
+    }
+
+    fetch(`${APP_URLS.api_cancelar_reserva}${detalleId}/`, {
+        method: 'GET',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            // Recargar el modal para ver los cambios
+            abrirModalReservas(productoId, productoNombre);
+            
+            // Opcional: Podrías recargar la página principal si quieres ver el stock actualizado en la tabla de atrás
+            // location.reload();
+        } else {
+            alert("Error: " + data.error);
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert("Ocurrió un error al intentar eliminar la reserva.");
+    });
+}
+
 // --- 3. RECETAS (MRP) ---
 
 window.abrirConfigurarReceta = function() {

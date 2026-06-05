@@ -1150,3 +1150,55 @@ def editar_pedido_ajax(request, pedido_id):
             return JsonResponse({'success': False, 'error': str(e)})
 
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+@login_required(login_url='/login/')
+@transaction.atomic
+@require_sales_permission('pedidos', 'reservar', json_response=True)
+def cancelar_reserva(request, detalle_id):
+    """
+    Libera el stock reservado de un producto y regresa la línea a estado 'pendiente'.
+    """
+    from almacenes.models import Inventario
+    
+    empresa_actual = get_empresa_actual(request)
+    detalle = get_object_or_404(DetallePedido, id=detalle_id)
+    pedido = get_object_or_404(Pedido, id=detalle.pedido.id, empresa=empresa_actual)
+
+    if detalle.estado_linea != 'reservado':
+        return JsonResponse({'success': False, 'error': 'Esta línea no está reservada.'})
+
+    # 1. Liberar la reserva física si no es servicio
+    if detalle.producto.tipo != 'servicio':
+        cantidad_a_liberar = detalle.cantidad_solicitada
+        
+        # Buscamos inventarios que tengan reservas para este producto
+        inventarios_reserva = Inventario.objects.filter(
+            producto=detalle.producto,
+            empresa=empresa_actual,
+            reservado__gt=0
+        ).order_by('-reservado')
+
+        for inv in inventarios_reserva:
+            if cantidad_a_liberar <= 0:
+                break
+            
+            puedo_liberar_aqui = inv.reservado
+            if puedo_liberar_aqui >= cantidad_a_liberar:
+                inv.reservado -= cantidad_a_liberar
+                inv.save()
+                cantidad_a_liberar = 0
+            else:
+                inv.reservado = 0
+                inv.save()
+                cantidad_a_liberar -= puedo_liberar_aqui
+
+    # 2. Regresar estado a 'pendiente'
+    detalle.estado_linea = 'pendiente'
+    detalle.save()
+
+    # 3. Si el pedido estaba como 'completo', regresarlo a 'confirmado'
+    if pedido.estado == 'completo':
+        pedido.estado = 'confirmado'
+        pedido.save()
+
+    return JsonResponse({'success': True, 'message': 'Reserva liberada correctamente. La partida vuelve a estar Pendiente.'})

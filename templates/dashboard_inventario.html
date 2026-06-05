@@ -11,6 +11,7 @@
         border-radius: 6px; text-decoration: none !important;
     }
     .icon-action:hover { color: #00b8b9; transform: scale(1.15); }
+    .icon-action.hover-red:hover { color: #dc3545 !important; transform: scale(1.15); }
     .icon-action:active { transform: scale(0.95); }
 
     /* Estilo de la Tabla (Hover y Bordes) */
@@ -237,6 +238,10 @@
                                     <span onclick="abrirModalPrecios({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action" title="Precios"><i class="bi bi-tags"></i></span>
                                     {% endif %}
 
+                                    {% if granular_inventory_perms.inventario.existencias %}
+                                    <span onclick="abrirModalReservas({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action" title="Reservas"><i class="bi bi-calendar-check"></i></span>
+                                    {% endif %}
+
                                     {% if p.tipo_abastecimiento == 'produccion' %}
                                         {% if granular_inventory_perms.inventario.recetas %}
                                         <span onclick="abrirModalReceta({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action" title="Receta"><i class="bi bi-diagram-3"></i></span>
@@ -359,6 +364,7 @@
 {% include "inventario/modals/modal_crear_categoria_rapida.html" %}
 {% include "inventario/modals/modal_receta_editar.html" %}
 {% include "inventario/modals/modal_ver_receta.html" %}
+{% include "inventario/modals/modal_ver_reservas.html" %}
 {% include "inventario/modals/modal_detalle_documento.html" %}
 {% include "inventario/modals/modal_lista_precios.html" %}
 {% include "inventario/modals/modal_traslado.html" %} {# INCLUIR EL NUEVO MODAL #}
@@ -531,6 +537,8 @@
         api_productos_con_stock: "/inventario/api/productos-con-stock/",
         api_extras_producto: "/inventario/api/extras-producto/",
         api_ejecutar_traslado: "/inventario/api/ejecutar-traslado/",
+        api_detalle_reservas: "/inventario/api/detalle-reservas/",
+        api_cancelar_reserva: "/pedidos/cancelar-reserva/",
     };
 </script>
 <script src="{% static 'js/inventario.js' %}?v={% now 'U' %}"></script>

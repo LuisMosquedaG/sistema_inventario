@@ -9,6 +9,7 @@ import json
 from decimal import Decimal
 from .models import Almacen, Inventario, Kardex
 from core.models import Producto
+from pedidos.models import DetallePedido
 from panel.models import Empresa
 from recepciones.models import DetalleRecepcionExtra
 
@@ -360,3 +361,39 @@ def api_ejecutar_traslado(request):
 
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+@require_inventory_permission('inventario', 'ver', json_response=True)
+def api_detalle_reservas(request, producto_id):
+    """Retorna detalles de qué pedidos tienen reservado este producto"""
+    empresa_actual = get_empresa_actual(request)
+    producto = get_object_or_404(Producto, id=producto_id, empresa=empresa_actual)
+
+    # Buscamos partidas de pedido reservadas
+    reservas = DetallePedido.objects.filter(
+        producto=producto,
+        pedido__empresa=empresa_actual,
+        estado_linea='reservado'
+    ).select_related('pedido', 'pedido__cliente').order_by('-pedido__fecha_creacion')
+
+    data = []
+    total_gral = 0
+    for r in reservas:
+        cantidad = r.cantidad_solicitada - r.cantidad_entregada
+        if cantidad <= 0: continue
+        
+        data.append({
+            'id': r.id,
+            'cliente': str(r.pedido.cliente),
+            'folio': f"PED-{r.pedido.id:04d}",
+            'fecha': r.pedido.fecha_creacion.strftime('%d/%m/%Y'),
+            'cantidad': cantidad
+        })
+        total_gral += cantidad
+
+    return JsonResponse({
+        'success': True,
+        'producto': producto.nombre,
+        'reservas': data,
+        'total': total_gral
+    })

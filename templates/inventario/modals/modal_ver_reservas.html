@@ -1,0 +1,43 @@
+<div class="modal fade" id="modalVerReservas" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-sheet">
+        <div class="modal-content">
+            <div class="modal-header border-bottom bg-light py-2">
+                <h5 class="modal-title fw-bold" id="tituloModalReservas">Detalle de Reservas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body p-3 bg-light">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="text-center small text-muted uppercase fw-bold" style="font-size: 0.7rem; width: 60px;">Acciones</th>
+                                        <th class="text-center small text-muted uppercase fw-bold" style="font-size: 0.7rem;">Cliente</th>
+                                        <th class="text-center small text-muted uppercase fw-bold" style="font-size: 0.7rem;">Folio Pedido</th>
+                                        <th class="text-center small text-muted uppercase fw-bold" style="font-size: 0.7rem;">Fecha</th>
+                                        <th class="text-center small text-muted uppercase fw-bold" style="font-size: 0.7rem;">Cant. Reservada</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyReservas">
+                                    <!-- Se llena vía JS -->
+                                </tbody>
+                                <tfoot class="table-light">
+                                    <tr>
+                                        <th colspan="4" class="text-end ps-3 small text-muted uppercase">Total Reservado:</th>
+                                        <th class="text-center fw-bold text-dark" id="totalReservasModal" style="font-size: 0.85rem;">0</th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer border-top bg-white py-2">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>

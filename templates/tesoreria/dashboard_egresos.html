@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
+    {% load humanize %}
     <style>
         .table-pro tbody tr { transition: background-color 0.2s; }
         .table-pro tbody tr:hover td { background-color: #f8f9fa; }
@@ -86,8 +87,8 @@
                                 <th class="text-center">Forma de Pago</th>
                                 <th class="text-center">Caja / Banco</th>
                                 <th class="text-center">Referencia</th>
-                                <th class="text-end">Monto</th>
-                                <th class="text-end">Monto MXN</th>
+                                <th class="text-center">Monto</th>
+                                <th class="text-center">Monto MXN</th>
                                 <th class="text-center">Estado</th>
                             </tr>
                         </thead>
@@ -120,7 +121,7 @@
                                         --
                                     {% endif %}
                                 </td>
-                                <td class="small">
+                                <td class="text-center small">
                                     {% if egr.pago_compra %}
                                         {{ egr.pago_compra.orden_compra.proveedor.razon_social }}
                                     {% else %}
@@ -132,12 +133,12 @@
                                     <span class="badge bg-light text-dark border fw-normal">{{ egr.caja_banco.nombre }}</span>
                                 </td>
                                 <td class="text-center small text-muted">{{ egr.referencia|default:"--" }}</td>
-                                <td class="text-end small">
-                                    <span>${{ egr.monto }}</span>
+                                <td class="text-center small">
+                                    <span>${{ egr.monto|intcomma }}</span>
                                     <span class="siglas-moneda">{{ egr.moneda.siglas }}</span>
                                 </td>
-                                <td class="text-end small">
-                                    <span>${{ egr.monto_mxn }}</span>
+                                <td class="text-center small">
+                                    <span>${{ egr.monto_mxn|intcomma }}</span>
                                     <span class="siglas-moneda">MXN</span>
                                 </td>
                                 <td class="text-center">
