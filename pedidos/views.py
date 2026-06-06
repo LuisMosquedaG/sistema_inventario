@@ -1067,7 +1067,10 @@ def api_detalle_pedido_edicion(request, pedido_id):
     """Devuelve JSON con la info del pedido para cargar el modal de edición"""
     empresa_actual = get_empresa_actual(request)
     pedido = get_object_or_404(Pedido, id=pedido_id, empresa=empresa_actual)
-    
+
+    if pedido.estado != 'borrador':
+        return JsonResponse({'success': False, 'error': 'Solo se pueden editar pedidos en estado borrador.'})
+
     detalles = []
     for det in pedido.detalles.all():
         detalles.append({
@@ -1102,6 +1105,9 @@ def editar_pedido_ajax(request, pedido_id):
     """Actualiza un pedido existente"""
     empresa_actual = get_empresa_actual(request)
     pedido = get_object_or_404(Pedido, id=pedido_id, empresa=empresa_actual)
+
+    if pedido.estado != 'borrador':
+        return JsonResponse({'success': False, 'error': 'Solo se pueden editar pedidos en estado borrador.'})
 
     if request.method == 'POST':
         try:

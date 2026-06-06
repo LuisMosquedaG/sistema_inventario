@@ -306,7 +306,7 @@
                                         </span>
                                         {% endif %}
 
-                                        {% if granular_sales_perms.pedidos.editar %}
+                                        {% if granular_sales_perms.pedidos.editar and p.estado == 'borrador' %}
                                         <span onclick="cargarPedidoEdicion({{ p.id }})" class="icon-action" title="Editar">
                                             <i class="bi bi-pencil-square"></i>
                                         </span>
