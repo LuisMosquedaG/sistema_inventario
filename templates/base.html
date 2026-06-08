@@ -148,6 +148,28 @@
         .sidebar-level-2 { padding-left: 2.8rem; font-size: 0.85rem; }
         .sidebar-level-3 { padding-left: 3.8rem; font-size: 0.8rem; color: #9aa0a6; }
 
+        /* ESTILO GLASS PARA TOASTS */
+        .toast {
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3) !important;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+        }
+        .toast-normal {
+            background-color: rgba(255, 255, 255, 0.7) !important;
+        }
+        .toast-ventas {
+            background-color: rgba(255, 243, 205, 0.7) !important;
+            border-color: rgba(255, 193, 7, 0.3) !important;
+        }
+        .toast-header {
+            background-color: transparent !important;
+            border-bottom: 0 !important;
+        }
+        .toast-body {
+            background-color: transparent !important;
+        }
+
         /* SELECTOR DE SUCURSAL */
         .branch-dropdown-btn {
             background: rgba(255, 255, 255, 0.05) !important;
@@ -558,17 +580,21 @@
                 // Evitar duplicados si por alguna razón la petición se repite
                 if (document.getElementById(toastId)) return;
 
+                const isVentas = n.es_ventas;
+                const toastClass = isVentas ? 'toast-ventas' : 'toast-normal';
+                const iconColor = isVentas ? 'color: #856404;' : 'color: #00b8b9;';
+                const iconClass = 'bi-bell-fill';
+
                 const html = `
-                    <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="true" data-bs-delay="10000">
-                        <div class="toast-header border-bottom-0" style="background: rgba(0, 184, 185, 0.05);">
-                            <i class="bi bi-bell-fill me-2" style="color: #00b8b9;"></i>
-                            <strong class="me-auto text-dark">Notificación</strong>
+                    <div id="${toastId}" class="toast ${toastClass}" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="true" data-bs-delay="10000">
+                        <div class="toast-header border-bottom-0">
+                            <i class="bi ${iconClass} me-2" style="${iconColor}"></i>
+                            <strong class="me-auto text-dark">${isVentas ? 'Mensaje de Ventas' : 'Notificación'}</strong>
                             <small class="text-muted">${n.fecha}</small>
                             <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
                         </div>
                         <div class="toast-body">
                             <div class="mb-2"><strong>${n.actor}</strong> ${n.mensaje}</div>
-                            ${n.link != '#' ? `<a href="${n.link}" class="btn btn-sm px-3 text-white" style="background-color: #00b8b9; font-size: 0.7rem;">Ver registro</a>` : ''}
                         </div>
                     </div>
                 `;

@@ -27,8 +27,8 @@
         <div class="card-body p-0">
             {% for n in notificaciones %}
             <div class="notif-item d-flex align-items-center">
-                <div class="notif-icon me-3">
-                    <i class="bi bi-bell"></i>
+                <div class="notif-icon me-3 {% if 'MENSAJE DE VENTAS' in n.mensaje %}bg-warning-subtle text-warning{% endif %}" {% if 'MENSAJE DE VENTAS' in n.mensaje %}style="color: #856404 !important;"{% endif %}>
+                    <i class="bi bi-bell-fill"></i>
                 </div>
                 <div class="flex-grow-1">
                     <div class="text-dark">
@@ -38,11 +38,6 @@
                         {{ n.fecha|date:"d M Y, H:i" }}
                     </div>
                 </div>
-                {% if n.link %}
-                <div class="ms-3">
-                    <a href="{{ n.link }}" class="btn btn-sm btn-light border text-secondary">Ver Registro</a>
-                </div>
-                {% endif %}
             </div>
             {% empty %}
             <div class="p-5 text-center text-muted">

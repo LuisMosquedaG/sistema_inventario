@@ -58,27 +58,94 @@
             box-shadow: 0 4px 12px rgba(0, 184, 185, 0.2);
         }
 
-        /* Hero Section */
+        /* Hero Section - Rediseño Árboles de Proceso */
         .hero {
-            padding: 0 0 60px;
-            background: radial-gradient(circle at 0% 0%, rgba(0, 184, 185, 0.05) 0%, transparent 30%),
-                        radial-gradient(circle at 100% 100%, rgba(0, 138, 139, 0.03) 0%, transparent 30%);
+            padding: 80px 0;
+            background-color: #f8fafc;
+            background-image: radial-gradient(#e2e8f0 1.5px, transparent 1.5px);
+            background-size: 30px 30px;
+            min-height: 90vh;
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 100%;
+            background: linear-gradient(180deg, rgba(248,250,252,0) 0%, #f8fafc 100%);
+            pointer-events: none;
         }
         .hero-title {
-            margin-top: 0;
-            font-size: 3.75rem;
+            font-size: 3.25rem;
             font-weight: 800;
-            line-height: 1.1;
-            margin-bottom: 1.5rem;
-            letter-spacing: -0.03em;
+            color: var(--text-main);
+            letter-spacing: -0.02em;
+            margin-bottom: 1rem;
         }
-        .hero-title span { color: var(--brand-primary); }
         .hero-subtitle {
-            font-size: 1.2rem;
+            font-size: 1.15rem;
             color: var(--text-muted);
-            margin-bottom: 2.5rem;
-            max-width: 600px;
-            line-height: 1.6;
+            max-width: 700px;
+            margin: 0 auto 4rem;
+        }
+
+        /* Estilos de los Árboles */
+        .process-tree {
+            position: relative;
+            padding: 20px;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            border: 1px solid #f1f5f9;
+            height: 100%;
+        }
+        .tree-header {
+            font-weight: 800;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .tree-node {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px;
+            margin-bottom: 15px;
+            background: #f8fafc;
+            border-radius: 12px;
+            border: 1px solid transparent;
+            transition: all 0.3s;
+            position: relative;
+            z-index: 2;
+        }
+        .tree-node:hover {
+            border-color: var(--brand-primary);
+            background: white;
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0, 184, 185, 0.1);
+        }
+        .node-icon {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1rem;
+            color: white;
+        }
+        .node-text { font-weight: 600; font-size: 0.85rem; color: var(--text-main); }
+        
+        .tree-line {
+            position: absolute;
+            left: 36px;
+            top: 60px;
+            bottom: 40px;
+            width: 2px;
+            background: #e2e8f0;
+            z-index: 1;
         }
 
         /* Ecosystem Visualizer (Hero Image) */
@@ -158,13 +225,24 @@
         .tag-income { color: #16a34a; border-left: 3px solid #16a34a; }
         .tag-expense { color: #dc2626; border-left: 3px solid #dc2626; }
 
-        /* Colors by Area */
+        /* Colors by Area (Commercial) */
         .bg-crm { background: rgba(13, 110, 253, 0.1); color: #0d6efd; }
         .bg-quote { background: rgba(102, 16, 242, 0.1); color: #6610f2; }
         .bg-order { background: rgba(25, 135, 84, 0.1); color: #198754; }
         .bg-mrp { background: rgba(253, 126, 20, 0.1); color: #fd7e14; }
         .bg-inv { background: rgba(0, 184, 185, 0.1); color: var(--brand-primary); }
         .bg-out { background: rgba(220, 53, 69, 0.1); color: #dc3545; }
+
+        /* Colors by Area (Patronal) - Fondo tenue, icono fuerte */
+        .bg-pat-1 { background: rgba(79, 70, 229, 0.1); color: #4f46e5; } /* Indigo */
+        .bg-pat-2 { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; } /* Violeta */
+        .bg-pat-3 { background: rgba(16, 185, 129, 0.1); color: #10b981; } /* Esmeralda */
+        .bg-pat-4 { background: rgba(244, 63, 94, 0.1); color: #f43f5e; } /* Rosa/Rojo */
+        .bg-pat-5 { background: rgba(71, 85, 105, 0.1); color: #475569; } /* Pizarra */
+
+        .tree-node:nth-child(even) { transform: translateX(8px); }
+        .tree-node:nth-child(odd) { transform: translateX(-4px); }
+        .tree-node:hover { transform: scale(1.02) translateX(12px) !important; }
 
         /* Estilo de Fases */
         .phase-number { font-weight: 800; color: var(--brand-primary); opacity: 0.15; font-size: 4rem; line-height: 1; margin-bottom: -1rem; }
@@ -279,22 +357,86 @@
     <!-- HERO -->
     <section class="hero">
         <div class="container">
-            <div class="row align-items-center g-5">
-                <div class="col-lg-6 text-center text-lg-start">
-                    <h1 class="hero-title">
-                        La Suite <span>Operativa</span> que conecta todo tu negocio.
-                    </h1>
-                    <p class="hero-subtitle">
-                        Gestión unificada desde la primera cotización hasta la salida final de almacén. Automatiza tu flujo operativo con CrossoverSuite.
-                    </p>
-                    <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center justify-content-lg-start">
-                        <a href="{% url 'login' %}" class="btn btn-nav-login btn-lg px-5 py-3 fs-6">Comenzar Gestión</a>
-                        <a href="#proceso" class="btn btn-outline-secondary btn-lg px-5 py-3 border-2 fw-semibold">Explorar el Flujo</a>
+            <div class="text-center mb-5">
+                <h1 class="hero-title">El sistema que se <span>adapta</span> a tu proceso</h1>
+                <p class="hero-subtitle mx-auto">Desde la gestión comercial más ágil hasta el cumplimiento patronal más riguroso. CrossoverSuite es el núcleo de tu operación digital.</p>
+            </div>
+
+            <div class="row g-4 justify-content-center">
+                <!-- Árbol 1: Proceso Comercial -->
+                <div class="col-lg-5">
+                    <div class="process-tree">
+                        <div class="tree-line"></div>
+                        <div class="tree-header" style="color: var(--text-main);"><i class="bi bi-cart text-success"></i> Flujo Comercial</div>
+                        
+                        <div class="tree-node">
+                            <div class="node-icon bg-crm"><i class="bi bi-person-plus-fill"></i></div>
+                            <div class="node-text">Prospectos y CRM</div>
+                        </div>
+                        <div class="tree-node">
+                            <div class="node-icon bg-quote"><i class="bi bi-file-earmark-ruled-fill"></i></div>
+                            <div class="node-text">Cotizaciones Dinámicas</div>
+                        </div>
+                        <div class="tree-node">
+                            <div class="node-icon bg-order"><i class="bi bi-cpu-fill"></i></div>
+                            <div class="node-text">Pedidos e Inteligencia de Stock</div>
+                        </div>
+                        <div class="tree-node">
+                            <div class="node-icon bg-mrp"><i class="bi bi-gear-wide-connected"></i></div>
+                            <div class="node-text">MRP: Compras y Producción</div>
+                        </div>
+                        <div class="tree-node">
+                            <div class="node-icon bg-out"><i class="bi bi-truck-flatbed"></i></div>
+                            <div class="node-text">Surtido y Logística Final</div>
+                        </div>
                     </div>
                 </div>
-                
-                <div class="col-lg-6 d-none d-lg-block">
-                    <div class="ecosystem-flow">
+
+                <!-- Árbol 2: Obligaciones Patronales -->
+                <div class="col-lg-5">
+                    <div class="process-tree">
+                        <div class="tree-line"></div>
+                        <div class="tree-header" style="color: var(--text-main);"><i class="bi bi-shield text-primary"></i> Flujo Patronal</div>
+                        
+                        <div class="tree-node">
+                            <div class="node-icon bg-pat-1"><i class="bi bi-building-fill"></i></div>
+                            <div class="node-text">Gestión de Contratistas</div>
+                        </div>
+                        <div class="tree-node">
+                            <div class="node-icon bg-pat-2"><i class="bi bi-people-fill"></i></div>
+                            <div class="node-text">Control de Empleados y Altas</div>
+                        </div>
+                        <div class="tree-node">
+                            <div class="node-icon bg-pat-3"><i class="bi bi-file-earmark-pdf-fill"></i></div>
+                            <div class="node-text">Integración SUA (IMSS)</div>
+                        </div>
+                        <div class="tree-node">
+                            <div class="node-icon bg-pat-4"><i class="bi bi-cloud-check-fill"></i></div>
+                            <div class="node-text">Conciliación SAT (Nóminas)</div>
+                        </div>
+                        <div class="tree-node">
+                            <div class="node-icon bg-pat-5"><i class="bi bi-file-bar-graph-fill"></i></div>
+                            <div class="node-text">Cumplimiento ICSOE / SISUB</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- HERRAMIENTAS CORPORATIVAS (CAPACIDADES CORE) -->
+    <section class="tools-section py-5">
+        <div class="container py-5">
+            <div class="text-center mb-5">
+                <span class="fw-bold text-uppercase text-brand" style="font-size: 0.75rem; letter-spacing: 2px; color: var(--brand-primary);">Capacidades Core</span>
+                <h2 class="fw-bold mt-2">Herramientas de Control Total</h2>
+            </div>
+            
+            <div class="row g-5 align-items-start">
+                <!-- Lado Izquierdo: Visualizador del Ecosistema -->
+                <div class="col-lg-5">
+                    <div class="ecosystem-flow shadow-lg">
                         <div class="fw-bold text-uppercase text-muted mb-4 text-center" style="font-size: 0.7rem; letter-spacing: 1px;">Ecosistema CrossoverSuite</div>
                         
                         <div class="sucursal-border">
@@ -333,58 +475,52 @@
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </section>
 
-    <!-- HERRAMIENTAS CORPORATIVAS -->
-    <section class="tools-section py-5">
-        <div class="container py-5">
-            <div class="text-center mb-5">
-                <span class="fw-bold text-uppercase text-brand" style="font-size: 0.75rem; letter-spacing: 2px; color: var(--brand-primary);">Capacidades Core</span>
-                <h2 class="fw-bold mt-2">Herramientas de Control Total</h2>
-            </div>
-            <div class="row g-4">
-                <div class="col-md-4">
-                    <div class="tool-card">
-                        <div class="tool-icon"><i class="bi bi-diagram-3"></i></div>
-                        <h5 class="tool-title">Control por Sucursales</h5>
-                        <p class="tool-desc">Administración segmentada de inventarios, ventas y personal por sedes físicas independientes.</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="tool-card">
-                        <div class="tool-icon"><i class="bi bi-file-earmark-pdf"></i></div>
-                        <h5 class="tool-title">Documentación PDF</h5>
-                        <p class="tool-desc">Generación automática de comprobantes profesionales para cotizaciones, pedidos y recepciones.</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="tool-card">
-                        <div class="tool-icon"><i class="bi bi-qr-code-scan"></i></div>
-                        <h5 class="tool-title">Trazabilidad Comercial</h5>
-                        <p class="tool-desc">Seguimiento histórico preciso de cada artículo mediante control avanzado de lotes y números de serie.</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="tool-card">
-                        <div class="tool-icon"><i class="bi bi-shield-lock"></i></div>
-                        <h5 class="tool-title">Roles y Permisos</h5>
-                        <p class="tool-desc">Seguridad granular por usuario, definiendo quién puede ver, crear o aprobar en cada módulo.</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="tool-card">
-                        <div class="tool-icon"><i class="bi bi-currency-exchange"></i></div>
-                        <h5 class="tool-title">Tipo de Cambio</h5>
-                        <p class="tool-desc">Gestión multimoneda dinámica con tipos de cambio personalizados por operación comercial.</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="tool-card">
-                        <div class="tool-icon"><i class="bi bi-bank"></i></div>
-                        <h5 class="tool-title">Ingresos y Egresos</h5>
-                        <p class="tool-desc">Control riguroso de tesorería y flujos de efectivo vinculados a tus compras y ventas.</p>
+                <!-- Lado Derecho: Cuadrícula de 6 Tarjetas -->
+                <div class="col-lg-7">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="tool-card shadow-sm">
+                                <div class="tool-icon"><i class="bi bi-diagram-3"></i></div>
+                                <h5 class="tool-title">Control por Sucursales</h5>
+                                <p class="tool-desc">Administración segmentada de inventarios, ventas y personal por sedes físicas independientes.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="tool-card shadow-sm">
+                                <div class="tool-icon"><i class="bi bi-file-earmark-pdf"></i></div>
+                                <h5 class="tool-title">Documentación PDF</h5>
+                                <p class="tool-desc">Generación automática de comprobantes profesionales para cotizaciones, pedidos y recepciones.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="tool-card shadow-sm">
+                                <div class="tool-icon"><i class="bi bi-qr-code-scan"></i></div>
+                                <h5 class="tool-title">Trazabilidad Comercial</h5>
+                                <p class="tool-desc">Seguimiento histórico preciso de cada artículo mediante control avanzado de lotes y números de serie.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="tool-card shadow-sm">
+                                <div class="tool-icon"><i class="bi bi-shield-lock"></i></div>
+                                <h5 class="tool-title">Roles y Permisos</h5>
+                                <p class="tool-desc">Seguridad granular por usuario, definiendo quién puede ver, crear o aprobar en cada módulo.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="tool-card shadow-sm">
+                                <div class="tool-icon"><i class="bi bi-currency-exchange"></i></div>
+                                <h5 class="tool-title">Tipo de Cambio</h5>
+                                <p class="tool-desc">Gestión multimoneda dinámica con tipos de cambio personalizados por operación comercial.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="tool-card shadow-sm">
+                                <div class="tool-icon"><i class="bi bi-bank"></i></div>
+                                <h5 class="tool-title">Ingresos y Egresos</h5>
+                                <p class="tool-desc">Control riguroso de tesorería y flujos de efectivo vinculados a tus compras y ventas.</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -462,65 +598,110 @@
         </div>
     </section>
 
-    <!-- SECCIÓN INDEPENDIENTE: RECURSOS HUMANOS -->
-    <section class="py-5">
-        <div class="container">
-            <div class="hr-section px-4 px-md-5">
-                <div class="row align-items-center g-5">
-                    <div class="col-lg-7">
-                        <div class="d-flex gap-2 mb-3">
-                            <div class="construction-badge" style="background: var(--brand-primary);">
-                                <i class="bi bi-cpu-fill"></i> Potenciado por IA
-                            </div>
-                            <div class="construction-badge" style="background: #64748b;">
-                                <i class="bi bi-clock-history"></i> Próximamente
+    <!-- SECCIÓN: OBLIGACIONES PATRONALES (DISEÑO PREMIUM DASHBOARD) -->
+    <section class="py-5 overflow-hidden" id="hr-tech" style="background: linear-gradient(180deg, var(--bg-light) 0%, #ffffff 100%);">
+        <div class="container py-5">
+            <div class="row g-5 align-items-center">
+                <!-- Columna Texto: Propuesta de Valor -->
+                <div class="col-lg-5">
+                    <div class="pe-lg-5">
+                        <span class="fw-bold text-uppercase" style="color: var(--brand-primary); letter-spacing: 2px; font-size: 0.75rem;">Compliance & HR-Tech</span>
+                        <h2 class="display-5 fw-bold mt-2 mb-4">Control Inteligente de <span style="color: var(--brand-primary);">Personal y Contratistas</span></h2>
+                        <p class="text-muted fs-5 mb-5">Digitaliza el cumplimiento laboral con una plataforma que unifica tu operación diaria con las exigencias del IMSS y SAT en un solo ecosistema seguro.</p>
+                        
+                        <div class="d-flex align-items-start gap-4 mb-4">
+                            <div class="tool-icon shadow-sm flex-shrink-0" style="background: white; border: 1px solid #e2e8f0;"><i class="bi bi-shield-lock-fill"></i></div>
+                            <div>
+                                <h5 class="fw-bold mb-1">Blindaje REPSE & Compliance</h5>
+                                <p class="text-muted small">Validación automática de vigencias y expedientes digitales para garantizar el cumplimiento de servicios especializados sin errores manuales.</p>
                             </div>
                         </div>
                         
-                        <h2 class="fw-bold mb-4">Módulo Obligaciones Patronales</h2>
-                        <p class="text-dark fs-6 mb-3">
-                            Nuestro nuevo módulo Obligaciones Patronales está diseñado para <strong>automatizar y agilizar</strong> los procesos administrativos y operativos relacionados con personal y contratistas.
-                        </p>
-                        <p class="text-muted small mb-4">
-                            El sistema cuenta con la capacidad de leer archivos <strong>SUA mensuales y bimestrales</strong> en cuestión de segundos, permitiendo la extracción automática de empleados de forma rápida y organizada. Toda la información podrá exportarse fácilmente a Excel para su análisis, validación y control.
-                        </p>
-                        
-                        <div class="row g-3 mb-4">
-                            <div class="col-sm-6">
-                                <div class="d-flex align-items-start gap-2 mb-2">
-                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary); margin-top: 2px;"></i>
-                                    <span class="fw-semibold small">Alta y administración de empleados</span>
-                                </div>
-                                <div class="d-flex align-items-start gap-2 mb-2">
-                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary); margin-top: 2px;"></i>
-                                    <span class="fw-semibold small">Registro de empresas contratistas</span>
-                                </div>
-                                <div class="d-flex align-items-start gap-2">
-                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary); margin-top: 2px;"></i>
-                                    <span class="fw-semibold small">Asignación de contratos y beneficiarios</span>
-                                </div>
+                        <div class="d-flex align-items-start gap-4 mb-0">
+                            <div class="tool-icon shadow-sm flex-shrink-0" style="background: white; border: 1px solid #e2e8f0;"><i class="bi bi-lightning-charge-fill"></i></div>
+                            <div>
+                                <h5 class="fw-bold mb-1">Automatización de Alto Impacto</h5>
+                                <p class="text-muted small">Procesa en segundos lo que antes tomaba horas. Nuestra integración nativa con SUA y SAT elimina la carga administrativa.</p>
                             </div>
-                            <div class="col-sm-6">
-                                <div class="d-flex align-items-start gap-2 mb-2">
-                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary); margin-top: 2px;"></i>
-                                    <span class="fw-semibold small">Organización centralizada laboral</span>
-                                </div>
-                                <div class="d-flex align-items-start gap-2 mb-2">
-                                    <i class="bi bi-check-circle-fill" style="color: var(--brand-primary); margin-top: 2px;"></i>
-                                    <span class="fw-semibold small">Layouts compatibles con ICSOE y SISUB</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="p-3 border-start border-4 rounded-end bg-white shadow-sm" style="border-color: var(--brand-primary) !important;">
-                            <p class="text-muted small mb-0 italic">
-                                Con este módulo, las empresas podrán <strong>reducir tiempos operativos</strong>, minimizar errores manuales y mantener un mejor control sobre la información requerida para cumplimiento y reportes.
-                            </p>
                         </div>
                     </div>
-                    <div class="col-lg-5 text-center">
-                        <div class="p-4 bg-white shadow-lg rounded-4 d-inline-block">
-                            <i class="bi bi-fingerprint display-1 opacity-50" style="color: var(--brand-primary);"></i>
+                </div>
+                
+                <!-- Columna Visual: Grid de Capacidades -->
+                <div class="col-lg-7">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <!-- Card 1: SUA Inteligente -->
+                            <div class="p-4 bg-white border-0 shadow-lg rounded-5 h-100 d-flex flex-column" style="border-left: 6px solid var(--brand-primary) !important;">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <div class="fw-bold text-dark fs-5">Portal SUA</div>
+                                    <div class="badge bg-danger-subtle text-danger rounded-pill px-3">PDF OCR</div>
+                                </div>
+                                <p class="text-muted small mb-4">Importación masiva de cédulas mensuales y bimestrales con extracción de datos automática.</p>
+                                <ul class="list-unstyled small mb-0 mt-auto">
+                                    <li class="mb-2 d-flex align-items-center"><i class="bi bi-check-lg text-primary me-2"></i> Sincronización de SDIs</li>
+                                    <li class="mb-2 d-flex align-items-center"><i class="bi bi-check-lg text-primary me-2"></i> Auditoría de cuotas patronales</li>
+                                    <li class="d-flex align-items-center"><i class="bi bi-check-lg text-primary me-2"></i> Alta de trabajadores vía NSS</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <!-- Card 2: Reportabilidad -->
+                            <div class="p-4 bg-dark text-white shadow-lg rounded-5 h-100 d-flex flex-column">
+                                <div class="d-flex align-items-center gap-3 mb-3">
+                                    <i class="bi bi-file-earmark-spreadsheet-fill text-success fs-3"></i>
+                                    <h5 class="fw-bold mb-0">Exportación Oficial</h5>
+                                </div>
+                                <div class="d-flex flex-wrap gap-2 mb-3">
+                                    <span class="badge bg-secondary-subtle text-dark border-0">LAYOUT ICSOE</span>
+                                    <span class="badge bg-secondary-subtle text-dark border-0">LAYOUT SISUB</span>
+                                    <span class="badge bg-secondary-subtle text-dark border-0">AUDITORÍA EXCEL</span>
+                                </div>
+                                <div class="mt-auto pt-3 border-top border-secondary">
+                                    <p class="small opacity-75 mb-0">Genera declaraciones informativas en un clic con datos validados.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <!-- Card 3: Integración SAT -->
+                            <div class="p-4 bg-white border-0 shadow-lg rounded-5 h-100 d-flex flex-column">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <div class="fw-bold text-dark fs-5">Ecosistema SAT</div>
+                                    <i class="bi bi-cloud-check-fill text-primary fs-3"></i>
+                                </div>
+                                <p class="text-muted small mb-4">Descarga directa desde el Web Service para auditoría de nóminas timbradas.</p>
+                                <div class="p-3 rounded-4 mb-3" style="background: #f8fafc; border: 1px dashed #e2e8f0;">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bi bi-lock-fill text-primary"></i>
+                                        <span class="fw-bold" style="font-size: 0.7rem;">FIEL CIFRADA (Bancaria)</span>
+                                    </div>
+                                </div>
+                                <ul class="list-unstyled small mb-0 mt-auto">
+                                    <li class="mb-2 d-flex align-items-center"><i class="bi bi-check-lg text-primary me-2"></i> Descarga masiva de XMLs</li>
+                                    <li class="d-flex align-items-center"><i class="bi bi-check-lg text-primary me-2"></i> Conciliación de timbrado</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <!-- Card 4: Gestión Legal -->
+                            <div class="p-4 bg-white border-0 shadow-lg rounded-5 h-100 d-flex flex-column">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <div class="fw-bold text-dark fs-5">Contratos & Obra</div>
+                                    <i class="bi bi-pencil-square fs-3" style="color: #f97316;"></i>
+                                </div>
+                                <p class="text-muted small mb-3">Control de beneficiarios y centros de trabajo vinculados a proyectos.</p>
+                                <div class="mt-auto">
+                                    <div class="d-flex align-items-center justify-content-between mb-1">
+                                        <span class="text-muted fw-bold" style="font-size: 0.65rem;">TRAZABILIDAD</span>
+                                        <span class="fw-bold" style="font-size: 0.65rem; color: #f97316;">85%</span>
+                                    </div>
+                                    <div class="progress" style="height: 6px;">
+                                        <div class="progress-bar" style="width: 85%; background-color: #f97316;"></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -528,14 +709,54 @@
         </div>
     </section>
 
-    <!-- FINAL CTA -->
-    <section class="py-5 text-center">
-        <div class="container py-5">
-            <h2 class="fw-extrabold mb-4">Potencia tu operación corporativa</h2>
-            <p class="text-muted mb-5 fs-5">Únete a la nueva era de gestión con CrossoverSuite.</p>
-            <a href="{% url 'login' %}" class="btn btn-nav-login btn-lg px-5 py-3 fw-bold">Iniciar Sesión Ahora</a>
+            </div>
         </div>
     </section>
+
+    <!-- FINAL CTA -->
+    <section class="py-5 text-center" style="background: linear-gradient(180deg, #ffffff 0%, var(--bg-light) 100%); border-top: 1px solid #e2e8f0;">
+        <div class="container py-5">
+            <h2 class="fw-extrabold mb-3">Potencia tu operación corporativa</h2>
+            <p class="text-muted mb-5 fs-5 mx-auto" style="max-width: 700px;">¿Problemas con tu proceso actual? Es momento de automatizar. <strong style="color: var(--brand-primary);">CrossoverSuite</strong> no te obliga a cambiar, se adapta a tu forma de trabajar para llevarte al siguiente nivel.</p>
+            <button type="button" class="btn btn-nav-login btn-lg px-5 py-3 fw-bold shadow-lg" data-bs-toggle="modal" data-bs-target="#contactModal">
+                Solicitar Asesoría
+            </button>
+        </div>
+    </section>
+
+    <!-- MODAL DE CONTACTO -->
+    <div class="modal fade" id="contactModal" tabindex="-1" aria-labelledby="contactModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header border-0 bg-light p-4 rounded-top-4">
+                    <h5 class="modal-title fw-bold" id="contactModalLabel"><i class="bi bi-envelope-fill text-brand me-2"></i> Enviar Mensaje a Ventas</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-4">Completa el formulario y un asesor se pondrá en contacto contigo a la brevedad. Tu solicitud será enviada al equipo de <strong>CrossoverSuite</strong></p>
+                    <form id="formContactoVentas">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="contactName" class="form-label fw-semibold small">Nombre Completo</label>
+                            <input type="text" class="form-control bg-light border-0" id="contactName" name="Nombre" placeholder="Tu nombre..." required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="contactEmail" class="form-label fw-semibold small">Correo Electrónico</label>
+                            <input type="email" class="form-control bg-light border-0" id="contactEmail" name="Email" placeholder="nombre@empresa.com" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="contactMessage" class="form-label fw-semibold small">¿En qué podemos ayudarte?</label>
+                            <textarea class="form-control bg-light border-0" id="contactMessage" name="Mensaje" rows="4" placeholder="Cuéntanos sobre tu proceso..." required></textarea>
+                        </div>
+                        <div class="d-grid gap-2 pt-2">
+                            <button type="submit" class="btn btn-nav-login py-3" id="btnEnviarContacto">Enviar Solicitud</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <!-- FOOTER -->
     <footer>
@@ -557,5 +778,44 @@
 
     <!-- Bootstrap 5 Bundle JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        document.getElementById('formContactoVentas').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btnEnviarContacto');
+            const originalText = btn.innerHTML;
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enviando...';
+
+            const formData = new FormData(this);
+            
+            fetch('/notificaciones/enviar-mensaje-ventas/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    bootstrap.Modal.getInstance(document.getElementById('contactModal')).hide();
+                    this.reset();
+                } else {
+                    alert("Error: " + data.error);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Ocurrió un error al enviar el mensaje.");
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            });
+        });
+    </script>
 </body>
 </html>
