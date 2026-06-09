@@ -114,6 +114,13 @@
                     <i class="bi bi-layers me-1"></i> Consolidar
                 </button>
                 {% endif %}
+
+                {% if granular_purchase_perms.ordenes_compra.CargasXML %}
+                <button class="btn btn-light border text-secondary btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalImportarXML">
+                    <i class="bi bi-file-earmark-code me-1"></i> XML
+                </button>
+                {% endif %}
+
                 {% if granular_purchase_perms.ordenes_compra.crear %}
                 <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaCompra" onclick="prepararNuevaCompra()">
                     <i class="bi bi-plus-lg me-1"></i> Nueva Compra
@@ -362,6 +369,124 @@
                         <button class="btn btn-sm btn-light border-0 text-muted" disabled>&raquo;</button>
                         <button class="btn btn-sm btn-light border-0 text-muted" disabled>&raquo;&raquo;</button>
                     {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: IMPORTAR XML -->
+    <div class="modal fade" id="modalImportarXML" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl modal-sheet">
+            <div class="modal-content border-0">
+                <div class="modal-header border-bottom bg-light">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-code me-2" style="color: #00b8b9;"></i>Importar Factura XML (CFDI)</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                
+                <!-- PASO 1: SUBIR ARCHIVO -->
+                <div id="xml-paso-1">
+                    <div class="modal-body p-4 text-center">
+                        <p class="text-muted mb-4">Sube el archivo XML de tu proveedor para generar automáticamente la Orden de Compra.</p>
+                        
+                        <div class="import-zone py-5" onclick="document.getElementById('archivo_xml').click()">
+                            <i class="bi bi-filetype-xml mb-3" style="font-size: 4rem;"></i>
+                            <span class="fw-bold text-dark d-block fs-5">Selecciona el XML del Proveedor</span>
+                            <span class="text-muted small" id="xmlFileNameDisplay">Solo archivos .xml</span>
+                            <input type="file" id="archivo_xml" hidden accept=".xml" onchange="analizarXML(this)">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PASO 2: PREVISUALIZACIÓN Y MAPEOS -->
+                <div id="xml-paso-2" style="display: none;">
+                    <form id="formConfirmarXML">
+                        {% csrf_token %}
+                        <div class="modal-body p-3 bg-light">
+                            <!-- INFO DEL PROVEEDOR DETECTADO -->
+                            <div class="card border-0 shadow-sm mb-3">
+                                <div class="card-body p-3">
+                                    <div class="d-flex justify-content-between align-items-start mb-3">
+                                        <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.75rem;">Proveedor Detectado</h6>
+                                        <span id="badge-proveedor-status"></span>
+                                    </div>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label-crossover">Razón Social (XML)</label>
+                                            <div id="xml-prov-nombre" class="fw-bold text-dark">-</div>
+                                            <input type="hidden" name="xml_prov_rfc" id="input-xml-prov-rfc">
+                                            <input type="hidden" name="xml_prov_nombre" id="input-xml-prov-nombre">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label-crossover">RFC</label>
+                                            <div id="xml-prov-rfc" class="text-dark">-</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label-crossover">Acción</label>
+                                            <div id="xml-prov-accion">
+                                                <!-- Se llena dinámicamente -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- LISTADO DE ARTÍCULOS -->
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-header bg-white py-3 border-bottom">
+                                    <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.75rem;">Análisis de Conceptos</h6>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover mb-0 align-middle">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th class="ps-3" style="width: 30%;">Concepto en XML (Proveedor)</th>
+                                                    <th style="width: 35%;">Producto en Sistema (CrossoverSuite)</th>
+                                                    <th class="text-center">Cant.</th>
+                                                    <th class="text-end">Costo Unit.</th>
+                                                    <th class="text-end pe-3">Subtotal</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="xml-items-body">
+                                                <!-- Dinámico -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="card-footer bg-white text-end py-3">
+                                    <div class="row justify-content-end">
+                                        <div class="col-md-4">
+                                            <div class="d-flex justify-content-between mb-1">
+                                                <span class="text-muted small">Subtotal XML:</span>
+                                                <span class="fw-bold text-dark" id="xml-subtotal-display">$0.00</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between mb-2">
+                                                <span class="text-muted small">IVA Total XML:</span>
+                                                <span class="fw-bold text-dark" id="xml-iva-display">$0.00</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between pt-2 border-top">
+                                                <span class="fw-bold text-uppercase">Total Factura:</span>
+                                                <span class="fw-bold fs-5 text-brand" id="xml-total-display">$0.00</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer border-top bg-white py-2">
+                            <button type="button" class="btn btn-light text-secondary btn-sm" onclick="volverSubirXML()">Atrás</button>
+                            <button type="submit" class="btn btn-brand btn-sm px-4" id="btnGuardarXML">Crear Orden de Compra (Borrador)</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- LOADING -->
+                <div id="xml-loading" style="display: none;">
+                    <div class="modal-body p-5 text-center">
+                        <div class="spinner-border text-brand mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+                        <h5 class="fw-bold">Analizando factura...</h5>
+                        <p class="text-muted">Estamos validando RFCs y mapeando artículos.</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -758,6 +883,183 @@
 
 {% block extra_js %}
     <script>
+        // ==========================================
+        // LÓGICA DE IMPORTACIÓN XML
+        // ==========================================
+        let datosXMLActual = null;
+
+        function analizarXML(input) {
+            if (!input.files.length) return;
+            const file = input.files[0];
+            document.getElementById('xmlFileNameDisplay').textContent = file.name;
+
+            const formData = new FormData();
+            formData.append('xml_file', file);
+
+            // UI Transitions
+            document.getElementById('xml-paso-1').style.display = 'none';
+            document.getElementById('xml-loading').style.display = 'block';
+
+            fetch('{% url "analizar_xml_compra_ajax" %}', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('xml-loading').style.display = 'none';
+                if (data.success) {
+                    datosXMLActual = data;
+                    renderizarPaso2XML(data);
+                } else {
+                    alert(data.error);
+                    volverSubirXML();
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Error al procesar el archivo.");
+                volverSubirXML();
+            });
+        }
+
+        function volverSubirXML() {
+            document.getElementById('xml-paso-2').style.display = 'none';
+            document.getElementById('xml-loading').style.display = 'none';
+            document.getElementById('xml-paso-1').style.display = 'block';
+            document.getElementById('archivo_xml').value = '';
+            document.getElementById('xmlFileNameDisplay').textContent = "Solo archivos .xml";
+            datosXMLActual = null;
+        }
+
+        function renderizarPaso2XML(data) {
+            // 1. Info Proveedor
+            document.getElementById('xml-prov-nombre').textContent = data.proveedor.nombre;
+            document.getElementById('xml-prov-rfc').textContent = data.proveedor.rfc;
+            document.getElementById('input-xml-prov-rfc').value = data.proveedor.rfc;
+            document.getElementById('input-xml-prov-nombre').value = data.proveedor.nombre;
+
+            const badge = document.getElementById('badge-proveedor-status');
+            const accionProv = document.getElementById('xml-prov-accion');
+            
+            if (data.proveedor.existe) {
+                badge.innerHTML = '<span class="badge bg-success-subtle text-success border border-success-subtle px-2">Registrado</span>';
+                accionProv.innerHTML = '<span class="text-muted small italic">Se usará el proveedor existente.</span>';
+            } else {
+                badge.innerHTML = '<span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2">Nuevo</span>';
+                accionProv.innerHTML = '<span class="text-danger small fw-bold">Se creará nuevo proveedor.</span>';
+            }
+
+            // 2. Artículos
+            const tbody = document.getElementById('xml-items-body');
+            tbody.innerHTML = '';
+
+            data.conceptos.forEach((c, idx) => {
+                const row = document.createElement('tr');
+                
+                // Generar opciones de productos para el select
+                let optionsHtml = '<option value="">-- Seleccionar Producto --</option>';
+                {% for p in productos %}
+                optionsHtml += `<option value="{{ p.id }}" ${c.producto_id == {{ p.id }} ? 'selected' : ''}>{{ p.nombre }}</option>`;
+                {% endfor %}
+
+                row.innerHTML = `
+                    <td class="ps-3">
+                        <div class="fw-bold text-dark small mb-1">${c.clave_proveedor}</div>
+                        <div class="text-muted" style="font-size: 0.7rem; line-height: 1.2;">${c.descripcion_proveedor}</div>
+                        <input type="hidden" class="xml-clave-input" value="${c.clave_proveedor}">
+                        <input type="hidden" class="xml-desc-input" value="${c.descripcion_proveedor}">
+                    </td>
+                    <td>
+                        <select class="form-select form-select-sm xml-producto-select" style="font-size: 0.75rem;">
+                            ${optionsHtml}
+                        </select>
+                    </td>
+                    <td class="text-center small">
+                        <span class="xml-cant-text">${c.cantidad}</span>
+                    </td>
+                    <td class="text-end small text-muted">
+                        $${c.precio_unitario.toLocaleString('en-US', {minimumFractionDigits: 2})}
+                        <input type="hidden" class="xml-precio-input" value="${c.precio_unitario}">
+                    </td>
+                    <td class="text-end pe-3 fw-bold small text-dark">
+                        $${c.subtotal.toLocaleString('en-US', {minimumFractionDigits: 2})}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            // 3. Totales
+            document.getElementById('xml-subtotal-display').textContent = '$' + data.subtotal.toLocaleString('en-US', {minimumFractionDigits: 2});
+            document.getElementById('xml-iva-display').textContent = '$' + data.iva.toLocaleString('en-US', {minimumFractionDigits: 2});
+            document.getElementById('xml-total-display').textContent = '$' + data.total.toLocaleString('en-US', {minimumFractionDigits: 2});
+
+            document.getElementById('xml-paso-2').style.display = 'block';
+        }
+
+        document.getElementById('formConfirmarXML').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btnGuardarXML');
+            const originalText = btn.innerHTML;
+
+            // Recolectar datos
+            const conceptos = [];
+            let errorMapeo = false;
+
+            document.querySelectorAll('#xml-items-body tr').forEach(row => {
+                const prodId = row.querySelector('.xml-producto-select').value;
+                if (!prodId) errorMapeo = true;
+
+                conceptos.push({
+                    clave_proveedor: row.querySelector('.xml-clave-input').value,
+                    descripcion_proveedor: row.querySelector('.xml-desc-input').value,
+                    producto_id: prodId,
+                    cantidad: row.querySelector('.xml-cant-text').textContent,
+                    precio_unitario: row.querySelector('.xml-precio-input').value
+                });
+            });
+
+            if (errorMapeo) {
+                alert("Por favor mapea todos los artículos a productos de tu catálogo.");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+
+            const payload = {
+                rfc_prov: document.getElementById('input-xml-prov-rfc').value,
+                nombre_prov: document.getElementById('input-xml-prov-nombre').value,
+                conceptos: conceptos
+            };
+
+            fetch('{% url "confirmar_xml_compra_ajax" %}', {
+                method: 'POST',
+                body: JSON.stringify(payload),
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert("Error: " + data.error);
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Error de conexión al servidor.");
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            });
+        });
+
         var listaProveedores = [
             {% for p in todos_los_proveedores %}
                 { id: {{ p.id }}, razon_social: "{{ p.razon_social|escapejs }}" },

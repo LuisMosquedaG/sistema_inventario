@@ -26,6 +26,167 @@ def get_empresa_actual(request):
             return None
     return None
 
+import xml.etree.ElementTree as ET
+from proveedores.models import MapeoProductoProveedor
+
+from preferencias.permissions import (
+    get_granular_purchase_permissions, 
+    get_empresa_actual,
+    require_purchase_permission
+)
+
+@login_required
+@require_purchase_permission('ordenes_compra', 'CargasXML', json_response=True)
+def analizar_xml_compra_ajax(request):
+    if request.method == 'POST' and request.FILES.get('xml_file'):
+        empresa_actual = get_empresa_actual(request)
+        xml_file = request.FILES['xml_file']
+        
+        try:
+            tree = ET.parse(xml_file)
+            root = tree.getroot()
+            
+            # Detectar versión
+            version = root.get('Version')
+            prefix = '{http://www.sat.gob.mx/cfd/4}' if version == '4.0' else '{http://www.sat.gob.mx/cfd/3}'
+            
+            # 1. Datos del Emisor (Proveedor)
+            emisor = root.find(f'{prefix}Emisor')
+            rfc_emisor = emisor.get('Rfc')
+            nombre_emisor = emisor.get('Nombre')
+            
+            # 2. Validar Proveedor en Sistema
+            proveedor = Proveedor.objects.filter(rfc__iexact=rfc_emisor, empresa=empresa_actual).first()
+            
+            # 3. Conceptos
+            conceptos_list = []
+            conceptos_node = root.find(f'{prefix}Conceptos')
+            subtotal_xml = Decimal(root.get('SubTotal', '0'))
+            total_xml = Decimal(root.get('Total', '0'))
+            
+            for c in conceptos_node.findall(f'{prefix}Concepto'):
+                clave_prod_serv = c.get('ClaveProdServ')
+                no_id = c.get('NoIdentificacion') or clave_prod_serv
+                desc = c.get('Descripcion')
+                cant = Decimal(c.get('Cantidad', '0'))
+                valor_u = Decimal(c.get('ValorUnitario', '0'))
+                importe = Decimal(c.get('Importe', '0'))
+                
+                # Buscar mapeo previo
+                mapeo = MapeoProductoProveedor.objects.filter(
+                    empresa=empresa_actual,
+                    proveedor=proveedor,
+                    clave_proveedor=no_id
+                ).first() if proveedor else None
+                
+                producto_id = mapeo.producto.id if mapeo else None
+                producto_nombre = mapeo.producto.nombre if mapeo else None
+                
+                # Si no hay mapeo, intentar buscar por clave exacta en Producto
+                if not producto_id:
+                    p_exacto = Producto.objects.filter(clave=no_id, empresa=empresa_actual).first()
+                    if p_exacto:
+                        producto_id = p_exacto.id
+                        producto_nombre = p_exacto.nombre
+
+                conceptos_list.append({
+                    'clave_proveedor': no_id,
+                    'descripcion_proveedor': desc,
+                    'cantidad': float(cant),
+                    'precio_unitario': float(valor_u),
+                    'subtotal': float(importe),
+                    'producto_id': producto_id,
+                    'producto_nombre': producto_nombre
+                })
+
+            data = {
+                'success': True,
+                'version': version,
+                'proveedor': {
+                    'rfc': rfc_emisor,
+                    'nombre': nombre_emisor,
+                    'existe': proveedor is not None,
+                    'id': proveedor.id if proveedor else None
+                },
+                'conceptos': conceptos_list,
+                'subtotal': float(subtotal_xml),
+                'total': float(total_xml),
+                'iva': float(total_xml - subtotal_xml)
+            }
+            return JsonResponse(data)
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f"Error al leer XML: {str(e)}"})
+            
+    return JsonResponse({'success': False, 'error': 'Solicitud inválida'})
+
+@login_required
+@require_purchase_permission('ordenes_compra', 'CargasXML', json_response=True)
+@transaction.atomic
+def confirmar_xml_compra_ajax(request):
+    if request.method == 'POST':
+        empresa_actual = get_empresa_actual(request)
+        import json
+        data = json.loads(request.body)
+        
+        rfc_prov = data.get('rfc_prov')
+        nombre_prov = data.get('nombre_prov')
+        conceptos = data.get('conceptos', [])
+        
+        # 1. Obtener o Crear Proveedor
+        proveedor = Proveedor.objects.filter(rfc__iexact=rfc_prov, empresa=empresa_actual).first()
+        if not proveedor:
+            proveedor = Proveedor.objects.create(
+                empresa=empresa_actual,
+                rfc=rfc_prov.upper(),
+                razon_social=nombre_prov,
+                estado='activo'
+            )
+        
+        # 2. Crear Orden de Compra
+        moneda_mxn = Moneda.objects.filter(siglas='MXN', empresa=empresa_actual).first()
+        
+        oc = OrdenCompra.objects.create(
+            empresa=empresa_actual,
+            proveedor=proveedor,
+            usuario=request.user,
+            estado='borrador',
+            moneda=moneda_mxn,
+            tipo_cambio=Decimal('1.0000')
+        )
+        
+        # 3. Procesar Conceptos y Mapeos
+        for c in conceptos:
+            prod_id = c.get('producto_id')
+            if not prod_id:
+                return JsonResponse({'success': False, 'error': f"Falta asignar producto para: {c.get('descripcion_proveedor')}"})
+            
+            producto = get_object_or_404(Producto, id=prod_id, empresa=empresa_actual)
+            
+            # Guardar/Actualizar Mapeo
+            clave_p = c.get('clave_proveedor')
+            MapeoProductoProveedor.objects.update_or_create(
+                empresa=empresa_actual,
+                proveedor=proveedor,
+                clave_proveedor=clave_p,
+                defaults={
+                    'producto': producto,
+                    'descripcion_proveedor': c.get('descripcion_proveedor')
+                }
+            )
+            
+            # Crear Detalle OC
+            DetalleCompra.objects.create(
+                orden_compra=oc,
+                producto=producto,
+                cantidad=int(float(c.get('cantidad', 0))),
+                precio_costo=Decimal(str(c.get('precio_unitario', 0)))
+            )
+            
+        return JsonResponse({'success': True, 'message': f'Orden de Compra OC-{oc.id:04d} creada correctamente.'})
+        
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
 @login_required(login_url='/login/')
 def descargar_plantilla_compras(request):
     wb = openpyxl.Workbook()

@@ -50,3 +50,25 @@ class SucursalProveedor(models.Model):
 
     def __str__(self):
         return f"{self.nombre} - {self.proveedor.razon_social}"
+
+class MapeoProductoProveedor(models.Model):
+    """
+    Diccionario inteligente: Relaciona una clave de proveedor con un producto interno.
+    """
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
+    proveedor = models.ForeignKey(Proveedor, on_delete=models.CASCADE, related_name='mapeos_productos')
+    producto = models.ForeignKey('core.Producto', on_delete=models.CASCADE, related_name='mapeos_proveedores')
+    
+    clave_proveedor = models.CharField(max_length=100, verbose_name="Clave en Factura del Proveedor")
+    descripcion_proveedor = models.TextField(blank=True, null=True, verbose_name="Descripción en Factura")
+
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Mapeo de Producto"
+        verbose_name_plural = "Mapeos de Productos"
+        unique_together = ('empresa', 'proveedor', 'clave_proveedor')
+
+    def __str__(self):
+        return f"{self.proveedor.razon_social} | {self.clave_proveedor} -> {self.producto.nombre}"

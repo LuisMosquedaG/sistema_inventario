@@ -565,7 +565,8 @@
                                                                    style="width: 0.8rem; height: 0.8rem;"
                                                                    name="perm_compras__{{ submodulo }}__{{ p_accion }}" id="perm_compras__{{ submodulo }}__{{ p_accion }}">
                                                             <label class="form-check-label text-dark text-truncate w-100" style="font-size: 0.7rem;" for="perm_compras__{{ submodulo }}__{{ p_accion }}">
-                                                                {{ p_accion|cut:"_"|title }}
+                                                                {% if p_accion == 'CargasXML' %}CargasXML
+                                                                {% else %}{{ p_accion|cut:"_"|title }}{% endif %}
                                                             </label>
                                                         </div>
                                                     </div>

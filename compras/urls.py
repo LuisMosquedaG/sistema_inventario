@@ -8,6 +8,8 @@ urlpatterns = [
     # Importador y Exportador
     path('descargar-plantilla/', views.descargar_plantilla_compras, name='descargar_plantilla_compras'),
     path('importar/', views.importar_compras_ajax, name='importar_compras_ajax'),
+    path('importar-xml/analizar/', views.analizar_xml_compra_ajax, name='analizar_xml_compra_ajax'),
+    path('importar-xml/confirmar/', views.confirmar_xml_compra_ajax, name='confirmar_xml_compra_ajax'),
     path('exportar/', views.exportar_compras_excel, name='exportar_compras_excel'),
 
     path('api/compras/<int:compra_id>/', views.obtener_compra_json, name='obtener_compra'),
