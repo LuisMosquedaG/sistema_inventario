@@ -87,7 +87,11 @@
                     <!-- Campos ocultos necesarios para el modelo que no se piden en el form rápido -->
                     <input type="hidden" name="precio_costo" value="0.00">
                     <input type="hidden" name="precio_venta" value="0.00">
-                    <input type="hidden" name="estado" value="activo">
+                    <input type="hidden" name="estado" value="revision">
+
+                    <div class="alert alert-warning p-2 mt-2 mb-0" style="font-size: 0.7rem; border-radius: 8px;">
+                        <i class="bi bi-info-circle me-1"></i> El producto nacerá en estado <strong>Revisión</strong>. Deberá ser activado en Inventario antes de aprobar la cotización.
+                    </div>
                 </form>
             </div>
             <div class="modal-footer bg-light border-top p-2">
