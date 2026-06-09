@@ -442,8 +442,9 @@ def crear_producto_rapido(request):
         
         if not nombre:
             return JsonResponse({'success': False, 'error': 'El nombre es obligatorio'}, status=400)
-            
-        estado = request.POST.get('estado', 'activo')
+
+        # SIEMPRE NACEN EN REVISIÓN DESDE EL ALTA RÁPIDA
+        estado = 'revision'
 
         producto = Producto.objects.create(
             nombre=nombre,
