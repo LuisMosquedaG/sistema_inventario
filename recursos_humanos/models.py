@@ -279,6 +279,7 @@ class Beneficiario(models.Model):
     clave = models.CharField(max_length=50, blank=True, null=True, verbose_name="Clave")
     rfc = models.CharField(max_length=13, verbose_name="RFC")
     nombre_razon_social = models.CharField(max_length=200, verbose_name="Nombre / Razón Social")
+    objeto_contrato = models.TextField(blank=True, null=True, verbose_name="Objeto del Contrato")
     registro_patronal = models.CharField(max_length=50, blank=True, null=True, verbose_name="Registro Patronal")
     
     # Dirección

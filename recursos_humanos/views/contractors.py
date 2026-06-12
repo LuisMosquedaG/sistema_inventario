@@ -5,12 +5,12 @@ from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.db.models import Q, Count
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 import openpyxl
 import re
 from datetime import datetime
 
-from ..models import Contrato, Contratista, Beneficiario, ImportacionSUA
+from ..models import Empleado, Contrato, Contratista, Beneficiario, ImportacionSUA
 from preferencias.models import Sucursal
 from preferencias.permissions import require_hr_permission
 from .utils import get_empresa_actual
@@ -314,14 +314,31 @@ def exportar_icsoe(request, id):
             if rfc_input_clean == rfc_rep_clean or rfc_input_clean in rfc_rep_clean or rfc_rep_clean in rfc_input_clean:
                 importaciones_validas.append(imp)
         
+        # Obtener todos los contratos vigentes de este contratista para consolidar trabajadores
+        contratos_vigentes = Contrato.objects.filter(contratista=contratista, empresa=empresa_actual, estado='vigente')
+        folios_consolidado = ", ".join([c.folio for c in contratos_vigentes if c.folio]) or contratista.folio_mercantil
+
+        # Consolidar NSS de trabajadores enlazados a CUALQUIERA de los contratos vigentes
+        empleados_nss_qs = Empleado.objects.filter(
+            empresa=empresa_actual,
+            contratos_asignados__in=contratos_vigentes
+        ).values_list('nss', flat=True).distinct()
+        
+        nss_con_contrato = set(re.sub(r'[^0-9]', '', str(n)) for n in empleados_nss_qs if n)
+
         total_sin_credito = total_con_credito = total_amortizaciones = Decimal('0')
         for imp in importaciones_validas:
             for t in imp.trabajadores.all():
-                val_inf = (t.tipo_valor_infonavit or '').strip()
-                if not val_inf or val_inf == '-': total_sin_credito += t.aportacion_patronal
-                else: total_con_credito += t.aportacion_patronal
-                total_amortizaciones += t.amortizacion
-        
+                # Limpiar NSS del SUA para la comparación
+                nss_t_clean = re.sub(r'[^0-9]', '', str(t.nss))
+                
+                # Validación: Solo considerar si el trabajador (vía NSS limpio) está enlazado a un contrato vigente
+                if nss_t_clean in nss_con_contrato:
+                    val_inf = (t.tipo_valor_infonavit or '').strip()
+                    if not val_inf or val_inf == '-': total_sin_credito += t.aportacion_patronal
+                    else: total_con_credito += t.aportacion_patronal
+                    total_amortizaciones += t.amortizacion
+
         from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
         from openpyxl.utils import get_column_letter
         wb = openpyxl.Workbook(); ws = wb.active; ws.title = "ICSOE Informativo"
@@ -332,7 +349,7 @@ def exportar_icsoe(request, id):
 
         ws.merge_cells('A1:AA1'); c1 = ws['A1']; c1.value = "a-Datos Generales"; c1.fill = fill_brand; c1.font = Font(bold=True, color="FFFFFF"); c1.alignment = Alignment(horizontal="center"); c1.border = border
 
-        subgrupos = [("Periodo", 2), ("b-Datos de identificacion", 5), ("c-Domicilio fiscal", 9), ("d-Datos actuales de la escritura publica", 7), ("g-Aportacion y Amortización", 3), ("a-Registro en STPS", 1)]
+        subgrupos = [("Periodo", 2), ("b-Datos de identificacion", 5), ("c-Domicilio fiscal", 9), ("d-Datos actuales de la escritura publica", 7), ("g-Aportacion y Amortizacion", 3), ("a-Registro en STPS", 1)]
         curr_col = 1
         for nombre, span in subgrupos:
             start_cell = get_column_letter(curr_col) + "2"; end_cell = get_column_letter(curr_col + span - 1) + "2"
@@ -341,14 +358,35 @@ def exportar_icsoe(request, id):
             for c in range(curr_col, curr_col + span): ws.cell(row=2, column=c).border = border
             curr_col += span
 
-        headers = ["cuatrimestre que declara", "año que se declara", "Registro Federal de Contribuyente", "Nombre denominacion o razon social", "Correo electronico", "Telefono (numero extension)", "Registro patronal", "Calle", "Numero exterior", "Numero interior", "Entre calle", "Y calle", "Colonia", "Codigo Postal", "Municipio o Alcaldia", "Entidad Federativa", "Representante legal", "Administrador Unico", "Numero de escritura", "Nombre del Notario Publico", "Numero de Notario Publico", "Fecha de escritura publica", "Folio mercantil", "Aportacion sin credito de los trabajadores del contrato", "Aportacion con credito de los trabajadores del contrato", "Amortizacion de los trabajadores del contrato", "Numero de registro ante la Secretaria de Trabajo y Prevision Social"]
+        headers = ["cuatrimestre que declara", "anio que se declara", "Registro Federal de Contribuyente", "Nombre denominacion o razon social", "Correo electronico", "Telefono (numero extension)", "Registro patronal", "Calle", "Numero exterior", "Numero interior", "Entre calle", "Y calle", "Colonia", "Codigo Postal", "Municipio o Alcaldia", "Entidad Federativa", "Representante legal", "Administrador Unico", "Numero de escritura", "Nombre del Notario Publico", "Numero de Notario Publico", "Fecha de escritura publica", "Folio mercantil", "Aportacion sin credito de los trabajadores del contrato", "Aportacion con credito de los trabajadores del contrato", "Amortizacion de los trabajadores del contrato", "Numero de registro ante la Secretaria de Trabajo y Prevision Social"]
         for i, h in enumerate(headers, 1):
             cell = ws.cell(row=3, column=i, value=h); cell.fill = fill_light; cell.font = Font(bold=True); cell.border = border; cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True); ws.column_dimensions[get_column_letter(i)].width = 20
 
-        data_row = [f"Cuatrimestre {cuat}", anio, contratista.rfc, contratista.nombre_razon_social, contratista.correo, contratista.telefono, contratista.registro_patronal, contratista.calle, contratista.num_ext, contratista.num_int, contratista.entre_calle, contratista.y_calle, contratista.colonia, contratista.cp, contratista.municipio_alcaldia, contratista.entidad_federativa, contratista.representante_legal, contratista.administrador_unico, contratista.num_escritura, contratista.nombre_notario_publico, contratista.num_notario_publico, str(contratista.fecha_escritura_publica) if contratista.fecha_escritura_publica else '', contratista.folio_mercantil, total_sin_credito, total_con_credito, total_amortizaciones, contratista.numero_stps]
+        # Única fila consolidada con redondeo matemático (.50 sube, .49 baja)
+        total_sin_credito_red = total_sin_credito.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+        total_con_credito_red = total_con_credito.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+        total_amortizaciones_red = total_amortizaciones.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+
+        data_row = [
+            cuat, anio, contratista.rfc, contratista.nombre_razon_social, 
+            contratista.correo, contratista.telefono, contratista.registro_patronal, 
+            contratista.calle, contratista.num_ext, contratista.num_int, contratista.entre_calle, 
+            contratista.y_calle, contratista.colonia, contratista.cp, contratista.municipio_alcaldia, 
+            contratista.entidad_federativa, contratista.representante_legal, contratista.administrador_unico, 
+            contratista.num_escritura, contratista.nombre_notario_publico, contratista.num_notario_publico, 
+            str(contratista.fecha_escritura_publica) if contratista.fecha_escritura_publica else '', 
+            contratista.folio_mercantil, 
+            total_sin_credito_red, total_con_credito_red, total_amortizaciones_red, 
+            contratista.numero_stps
+        ]
         ws.append(data_row)
+        
         for col_idx in [24, 25, 26]: ws.cell(row=4, column=col_idx).number_format = '"$"#,##0.00'
         for col_idx in range(1, 28): ws.cell(row=4, column=col_idx).border = border
+
+        # Ajustar el merge inicial de la fila 1
+        ws.merge_cells('A1:AA1')
+        c1 = ws['A1']; c1.alignment = Alignment(horizontal="center")
 
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f'attachment; filename="ICSOE_INFO_{rfc_input_clean}_{anio}_C{cuat}.xlsx"'; wb.save(response)

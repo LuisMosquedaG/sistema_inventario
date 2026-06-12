@@ -15,7 +15,7 @@ try:
 except ImportError:
     pdfplumber = None
 
-from ..models import Empleado, Contratista, Beneficiario, ImportacionSUA, TrabajadorSUA
+from ..models import Empleado, Contrato, Contratista, Beneficiario, ImportacionSUA, TrabajadorSUA
 from preferencias.models import Sucursal
 from preferencias.permissions import require_hr_permission
 from .utils import get_empresa_actual, limpiar_basura_header
@@ -328,8 +328,13 @@ def alta_empleados_sua_ajax(request, id):
     try:
         importacion = ImportacionSUA.objects.get(id=id, empresa=empresa_actual)
         trabajadores = importacion.trabajadores.all(); sucursal_id = request.session.get('sucursal_id')
-        creados = 0; actualizados = 0
+        creados = 0; actualizados = 0; vinculados_a_contrato = 0
         beneficiarios_map = {b.clave.strip().upper(): b for b in Beneficiario.objects.filter(empresa=empresa_actual) if b.clave}
+        
+        # Pre-cache de contratos vigentes para búsqueda rápida
+        # Filtramos por empresa y estado vigente
+        contratos_vigentes = list(Contrato.objects.filter(empresa=empresa_actual, estado='vigente'))
+
         rfc_reporte = re.sub(r'[^A-Z0-9]', '', (importacion.rfc_empresa or '').upper()).strip()[:13]
         rp_reporte = re.sub(r'[^A-Z0-9]', '', (importacion.registro_patronal or '').upper()).strip()
         nombre_reporte = (importacion.nombre_razon_social or '').strip()
@@ -337,7 +342,7 @@ def alta_empleados_sua_ajax(request, id):
         filtros_or = Q()
         if rfc_reporte and rfc_reporte != "POR_DEFINIR": filtros_or |= Q(rfc__iexact=rfc_reporte)
         if rp_reporte: filtros_or |= Q(registro_patronal__iexact=rp_reporte)
-        if nombre_reporte: filtros_or |= Q(nombre_razon_social__iexact=nombre_reporte)
+        if nombre_reporte: filtros_or |= Q(nombre_razon_social__icontains=nombre_reporte)
             
         contratista_obj = Contratista.objects.filter(Q(empresa=empresa_actual) & filtros_or).first()
         status_cont = "Existente"
@@ -362,14 +367,31 @@ def alta_empleados_sua_ajax(request, id):
 
                 if not empleado:
                     audit_nota = f"Importado el día {importacion.fecha_importacion.strftime('%d/%m/%Y')} de la cédula {importacion.periodo} del contratista {importacion.nombre_razon_social}"
-                    nuevo = Empleado(empresa=empresa_actual, sucursal_id=sucursal_id, nss=nss_clean, curp=curp_clean, nombre=nombres, apellido_paterno=paterno, apellido_materno=materno, sdi=t.sdi, contratista=contratista_obj, beneficiario=beneficiario_obj, puesto="", departamento="General", clave_ubicacion=t.clave_ubicacion, notas=audit_nota, estado='activo')
-                    nuevo.save(); creados += 1
+                    empleado = Empleado(empresa=empresa_actual, sucursal_id=sucursal_id, nss=nss_clean, curp=curp_clean, nombre=nombres, apellido_paterno=paterno, apellido_materno=materno, sdi=t.sdi, contratista=contratista_obj, beneficiario=beneficiario_obj, puesto="", departamento="General", clave_ubicacion=t.clave_ubicacion, notas=audit_nota, estado='activo')
+                    empleado.save(); creados += 1
                 else:
                     empleado.sdi = t.sdi
                     if beneficiario_obj: empleado.beneficiario = beneficiario_obj
                     if contratista_obj: empleado.contratista = contratista_obj
                     if t.clave_ubicacion: empleado.clave_ubicacion = t.clave_ubicacion
                     empleado.save(); actualizados += 1
+                
+                # --- VINCULACIÓN AUTOMÁTICA CON CONTRATO ---
+                if beneficiario_obj:
+                    # Buscamos contratos que coincidan con este beneficiario
+                    # El ancla fuerte es el Beneficiario (vía clave de ubicación en el SUA)
+                    for c_v in contratos_vigentes:
+                        if c_v.beneficiario_id == beneficiario_obj.id:
+                            # Verificamos que el contratista coincida por objeto o por RFC/Registro
+                            # para evitar cruces erróneos si hay múltiples contratistas con el mismo beneficiario
+                            match_contratista = (
+                                c_v.contratista_id == contratista_obj.id or
+                                (c_v.contratista and (c_v.contratista.rfc == rfc_reporte or c_v.contratista.registro_patronal == rp_reporte))
+                            )
+                            if match_contratista:
+                                c_v.empleados.add(empleado)
+                                vinculados_a_contrato += 1
+                                break
 
-        return JsonResponse({'success': True, 'message': f'Proceso completado: {creados} nuevos empleados, {actualizados} actualizados. Contratista: {contratista_obj.nombre_razon_social}'})
+        return JsonResponse({'success': True, 'message': f'Proceso completado: {creados} nuevos, {actualizados} actualizados. {vinculados_a_contrato} vinculaciones a contratos realizadas. Contratista: {contratista_obj.nombre_razon_social}'})
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})

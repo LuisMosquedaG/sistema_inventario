@@ -250,26 +250,42 @@ def importar_contratos_ajax(request):
             if rfc_sujeto_obligado:
                 contratista = Contratista.objects.filter(empresa=empresa_actual, rfc=rfc_sujeto_obligado).first()
 
-            beneficiario, created = Beneficiario.objects.get_or_create(
+            objeto = str(get_val(row, 'Objeto del contrato', '')).strip()
+
+            # Validación: Si existe el RFC pero el objeto es diferente, creamos otro beneficiario
+            beneficiario = Beneficiario.objects.filter(
                 empresa=empresa_actual,
                 rfc=rfc_beneficiario,
-                defaults={
-                    'sucursal_id': sucursal_id,
-                    'nombre_razon_social': str(get_val(row, 'Nombre denominacion o razon social', '')).strip(),
-                    'registro_patronal': str(get_val(row, 'Registro Patronal ante el IMSS', '')).strip(),
-                    'calle': str(get_val(row, 'Calle', '')).strip(),
-                    'num_ext': str(get_val(row, 'Numero exterior', '')).strip(),
-                    'num_int': str(get_val(row, 'Numero interior', '')).strip(),
-                    'entre_calle': str(get_val(row, 'Entre calle', '')).strip(),
-                    'y_calle': str(get_val(row, 'Y calle', '')).strip(),
-                    'colonia': str(get_val(row, 'Colonia', '')).strip(),
-                    'cp': str(get_val(row, 'Codigo Postal', '')).strip(),
-                    'municipio_alcaldia': str(get_val(row, 'Municipio o Alcaldia', '')).strip(),
-                    'entidad_federativa': str(get_val(row, 'Entidad Federativa', '')).strip(),
-                    'correo': str(get_val(row, 'Correo electronico', '')).strip(),
-                    'telefono': str(get_val(row, 'telefono (numero extension)', '')).strip(),
-                }
-            )
+                objeto_contrato=objeto
+            ).first()
+
+            if not beneficiario:
+                # Si no existe con ese RFC y Objeto, creamos uno nuevo
+                # Generamos una clave única temporal basada en RFC y un fragmento del objeto si es necesario
+                nombre_ben = str(get_val(row, 'Nombre denominacion o razon social', '')).strip()
+                beneficiario = Beneficiario.objects.create(
+                    empresa=empresa_actual,
+                    sucursal_id=sucursal_id,
+                    rfc=rfc_beneficiario,
+                    nombre_razon_social=nombre_ben,
+                    objeto_contrato=objeto,
+                    registro_patronal=str(get_val(row, 'Registro Patronal ante el IMSS', '')).strip(),
+                    calle=str(get_val(row, 'Calle', '')).strip(),
+                    num_ext=str(get_val(row, 'Numero exterior', '')).strip(),
+                    num_int=str(get_val(row, 'Numero interior', '')).strip(),
+                    entre_calle=str(get_val(row, 'Entre calle', '')).strip(),
+                    y_calle=str(get_val(row, 'Y calle', '')).strip(),
+                    colonia=str(get_val(row, 'Colonia', '')).strip(),
+                    cp=str(get_val(row, 'Codigo Postal', '')).strip(),
+                    municipio_alcaldia=str(get_val(row, 'Municipio o Alcaldia', '')).strip(),
+                    entidad_federativa=str(get_val(row, 'Entidad Federativa', '')).strip(),
+                    correo=str(get_val(row, 'Correo electronico', '')).strip(),
+                    telefono=str(get_val(row, 'telefono (numero extension)', '')).strip(),
+                )
+                # Asignamos una clave basada en su ID para garantizar unicidad si no venía una
+                if not beneficiario.clave:
+                    beneficiario.clave = f"BEN-{beneficiario.id}"
+                    beneficiario.save()
 
             folio = str(get_val(row, 'Numero de contrato', '')).strip()
             tipo_raw = str(get_val(row, 'Tipo de contrato', '01')).strip().lower()
@@ -279,7 +295,6 @@ def importar_contratos_ajax(request):
                     tipo_contrato = code
                     break
             
-            objeto = str(get_val(row, 'Objeto del contrato', '')).strip()
             monto = to_decimal(get_val(row, 'Monto del contrato'))
             vigencia = to_date(get_val(row, 'Vigencia (del contrato)'))
             f_inicio = to_date(get_val(row, 'Fecha de inicio (del contrato)'))

@@ -33,8 +33,8 @@
     .status-suspendido { background-color: #fff9db; color: #f59f00; border: 1px solid #ffec99; }
     .status-cancelado { background-color: #f1f3f5; color: #495057; border: 1px solid #e9ecef; }
 
-    .modal-sheet .modal-content { border-radius: 12px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.15); overflow: hidden; }
-    .modal-body-gray { background-color: #f8f9fa; max-height: 75vh; overflow-y: auto; }
+    .modal-sheet .modal-content { border-radius: 12px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.15); }
+    .modal-body-gray { background-color: #f8f9fa; max-height: 65vh; overflow-y: auto; }
     .form-label-custom { font-size: 0.75rem; font-weight: 700; color: #495057; margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.5px; }
     .card-section { border: 1px solid #e9ecef !important; transition: all 0.2s ease; }
     .card-section:hover { border-color: #00b8b9 !important; }
@@ -245,7 +245,7 @@
                                 <div class="text-muted small" style="font-size: 0.7rem;">{{ c.contratista.nombre_razon_social|default:"--" }}</div>
                             </td>
                             <td class="text-center">
-                                <span class="text-muted small">{{ c.beneficiario.empleado_set.count|default:0 }}</span>
+                                <span class="text-muted small">{{ c.empleados.count|default:0 }}</span>
                             </td>
                             <td class="text-center">
                                 <span class="text-muted small">{{ c.get_tipo_contrato_display }}</span>
@@ -457,7 +457,7 @@
                     </div>
                 </div>
                 <div class="modal-footer bg-white border-top py-3">
-                    <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-light text-secondary btn-sm px-4" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-brand text-white btn-sm px-4 fw-bold shadow-sm">
                         <i class="bi bi-save me-1"></i> Guardar Contrato
                     </button>

@@ -1320,22 +1320,21 @@ def alta_empleados_sua_ajax(request, id):
         importacion = ImportacionSUA.objects.get(id=id, empresa=empresa_actual)
         trabajadores = importacion.trabajadores.all()
         sucursal_id = request.session.get('sucursal_id')
-        creados = 0; actualizados = 0
+        creados = 0; actualizados = 0; vinculados_a_contrato = 0
         beneficiarios_map = {b.clave.strip().upper(): b for b in Beneficiario.objects.filter(empresa=empresa_actual) if b.clave}
         
-        # Limpieza de datos del reporte para búsqueda unificada
+        # Limpieza de datos del reporte para búsqueda unificada de contratista
         rfc_reporte = re.sub(r'[^A-Z0-9]', '', (importacion.rfc_empresa or '').upper()).strip()[:13]
         rp_reporte = re.sub(r'[^A-Z0-9]', '', (importacion.registro_patronal or '').upper()).strip()
         nombre_reporte = (importacion.nombre_razon_social or '').strip()
 
-        # Búsqueda unificada: Si coincide RFC O Registro Patronal O Nombre, usamos el existente
         filtros_or = Q()
         if rfc_reporte and rfc_reporte != "POR_DEFINIR":
             filtros_or |= Q(rfc__iexact=rfc_reporte)
         if rp_reporte:
             filtros_or |= Q(registro_patronal__iexact=rp_reporte)
         if nombre_reporte:
-            filtros_or |= Q(nombre_razon_social__iexact=nombre_reporte)
+            filtros_or |= Q(nombre_razon_social__icontains=nombre_reporte)
             
         contratista_obj = Contratista.objects.filter(Q(empresa=empresa_actual) & filtros_or).first()
 
@@ -1349,13 +1348,13 @@ def alta_empleados_sua_ajax(request, id):
                 correo=f"contacto@{rp_reporte or 'empresa'}.com"
             )
             status_cont = "NUEVO REGISTRO"
-        else:
-            save_needed = False
-            if (not contratista_obj.rfc or contratista_obj.rfc == "POR_DEFINIR") and rfc_reporte:
-                contratista_obj.rfc = rfc_reporte; save_needed = True
-            if not contratista_obj.registro_patronal and rp_reporte:
-                contratista_obj.registro_patronal = rp_reporte; save_needed = True
-            if save_needed: contratista_obj.save()
+        
+        # Pre-cache de contratos vigentes para este contratista
+        contratos_activos = list(Contrato.objects.filter(
+            empresa=empresa_actual, 
+            contratista=contratista_obj,
+            estado='vigente'
+        ))
 
         info_contratista = f"{contratista_obj.nombre_razon_social} (ID: {contratista_obj.id}, {status_cont})"
 
@@ -1376,22 +1375,44 @@ def alta_empleados_sua_ajax(request, id):
                 if not empleado:
                     fecha_imp = importacion.fecha_importacion.strftime('%d/%m/%Y')
                     audit_nota = f"Importado el día {fecha_imp} de la cédula {importacion.periodo} del contratista {importacion.nombre_razon_social}"
-                    nuevo = Empleado(
+                    empleado = Empleado(
                         empresa=empresa_actual, sucursal_id=sucursal_id, nss=nss_clean, curp=curp_clean,
                         nombre=nombres, apellido_paterno=paterno, apellido_materno=materno,
                         sdi=t.sdi, contratista=contratista_obj, beneficiario=beneficiario_obj,
                         puesto="", departamento="General", clave_ubicacion=t.clave_ubicacion,
                         notas=audit_nota, estado='activo'
                     )
-                    nuevo.save(); creados += 1
+                    empleado.save(); creados += 1
                 else:
                     empleado.sdi = t.sdi
                     if beneficiario_obj: empleado.beneficiario = beneficiario_obj
                     if contratista_obj: empleado.contratista = contratista_obj
                     if t.clave_ubicacion: empleado.clave_ubicacion = t.clave_ubicacion
                     empleado.save(); actualizados += 1
+                
+                # --- VINCULACIÓN AUTOMÁTICA CON CONTRATO ---
+                if beneficiario_obj:
+                    # Intentamos encontrar el contrato que una a este beneficiario con el contratista del reporte
+                    # Buscamos por Beneficiario (que es el ancla fuerte en el SUA) 
+                    # y validamos que el contratista del contrato coincida con el del reporte (vía RFC o Registro)
+                    contrato_final = Contrato.objects.filter(
+                        empresa=empresa_actual,
+                        beneficiario=beneficiario_obj,
+                        estado='vigente'
+                    ).filter(
+                        Q(contratista__rfc__iexact=rfc_reporte) | 
+                        Q(contratista__registro_patronal__iexact=rp_reporte) |
+                        Q(contratista=contratista_obj)
+                    ).first()
 
-        return JsonResponse({'success': True, 'message': f'Proceso completado: {creados} nuevos empleados, {actualizados} actualizados. Contratista utilizado: {info_contratista}'})
+                    if contrato_final:
+                        contrato_final.empleados.add(empleado)
+                        vinculados_a_contrato += 1
+
+        return JsonResponse({
+            'success': True, 
+            'message': f'Proceso completado: {creados} nuevos, {actualizados} actualizados. {vinculados_a_contrato} vinculaciones a contratos realizadas. Contratista identificado: {info_contratista}'
+        })
     except ImportacionSUA.DoesNotExist: return JsonResponse({'success': False, 'error': 'No se encontró el registro SUA.'})
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
 
@@ -1551,10 +1572,27 @@ def exportar_icsoe(request, id):
         total_con_credito = Decimal('0')
         total_amortizaciones = Decimal('0')
         
+        # Obtener NSS de empleados vinculados a contratos de este contratista
+        # Solo tomamos en cuenta los que pertenecen a la empresa actual y limpiamos el NSS
+        empleados_nss_qs = Empleado.objects.filter(
+            empresa=empresa_actual, 
+            contratos_asignados__contratista=contratista
+        ).values_list('nss', flat=True).distinct()
+        
+        # Guardamos los NSS limpios (solo números) para una comparación robusta
+        nss_con_beneficiario = set(re.sub(r'[^0-9]', '', str(n)) for n in empleados_nss_qs if n)
+        
         registros_encontrados = []
         for imp in importaciones_validas:
             registros_encontrados.append(imp.periodo)
             for t in imp.trabajadores.all():
+                # Limpiar NSS del SUA para la comparación
+                nss_t_clean = re.sub(r'[^0-9]', '', str(t.nss))
+                
+                # Nueva validación: Solo considerar si el trabajador (vía NSS limpio) está enlazado a un beneficiario en el sistema
+                if nss_t_clean not in nss_con_beneficiario:
+                    continue
+
                 val_inf = (t.tipo_valor_infonavit or '').strip()
                 if not val_inf or val_inf == '-':
                     total_sin_credito += t.aportacion_patronal
