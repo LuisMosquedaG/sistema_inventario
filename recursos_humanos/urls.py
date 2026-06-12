@@ -39,6 +39,8 @@ urlpatterns = [
     path('nomina/editar/<int:id>/', views.editar_nomina_ajax, name='editar_nomina_ajax'),
     path('nomina/eliminar/<int:id>/', views.eliminar_nomina_ajax, name='eliminar_nomina_ajax'),
     path('nomina/importar/', views.importar_nomina_ajax, name='importar_nomina_ajax'),
+    path('nomina/actualizar-trabajadores/', views.actualizar_datos_trabajadores_nomina_ajax, name='actualizar_datos_trabajadores_nomina_ajax'),
+    path('nomina/exportar-excel/', views.exportar_nominas_excel, name='exportar_nominas_excel'),
     
     # Rutas para integración SAT XML
     path('sat/solicitar/', views.solicitar_descarga_sat_ajax, name='solicitar_descarga_sat_ajax'),

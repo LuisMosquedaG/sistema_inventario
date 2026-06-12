@@ -158,6 +158,11 @@ class SATService:
 
             dias = Decimal(get_attr(nomina_node, 'NumDiasPagados', '0'))
             
+            # Los datos de CURP y NSS están en el nodo Receptor DENTRO del nodo Nomina
+            nomina_receptor = nomina_node.find('.//{*}Receptor')
+            curp_val = get_attr(nomina_receptor, 'Curp', '') if nomina_receptor is not None else ''
+            nss_val = get_attr(nomina_receptor, 'NumSeguridadSocial', '') if nomina_receptor is not None else ''
+            
             # Buscar empleado local
             empleado = Empleado.objects.filter(empresa=empresa_actual, rfc=rfc_receptor).first()
 
@@ -176,6 +181,8 @@ class SATService:
                     'fecha_final_pago': f_fin,
                     'dias_pagados': dias,
                     'rfc': rfc_receptor,
+                    'curp': curp_val,
+                    'nss': nss_val,
                     'nombre': nombre_receptor,
                     'rfc_contratista': rfc_emisor,
                     'sueldo_gravado': Decimal(get_attr(root, 'Total', '0')),

@@ -156,7 +156,10 @@
             <button class="btn btn-light text-secondary btn-pro shadow-sm border" data-bs-toggle="modal" data-bs-target="#modalImportarNomina">
                 <i class="bi bi-upload me-1"></i> Importador
             </button>
-            <button class="btn btn-light text-secondary btn-pro shadow-sm border" data-bs-toggle="modal" data-bs-target="#modalDescargaXML">
+            <button class="btn btn-light border text-secondary btn-pro shadow-sm" onclick="exportarNominas()" title="Exportar a Excel">
+                <i class="bi bi-download me-1"></i> Exportador
+            </button>
+            <button class="btn btn-light text-secondary btn-pro shadow-sm border" data-bs-toggle="modal" data-bs-target="#modalDescargaXML" title="Descarga Masiva SAT">
                 <i class="bi bi-file-earmark-code me-1"></i> XML (SAT)
             </button>
             <button class="btn btn-brand text-white btn-sm px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaNomina" onclick="prepararNuevaNomina()">
@@ -168,42 +171,50 @@
     <!-- FILTROS -->
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body p-2">
-            <form method="get" id="formFiltrosNomina" class="row gx-2 gy-0 align-items-end">
-                <div class="col">
+            <form method="get" id="formFiltrosNomina" class="row gx-2 gy-2 align-items-end">
+                <div class="col-md-2">
                     <label class="form-label-custom mb-1" style="font-size: 0.65rem;">Búsqueda General</label>
                     <div class="input-group input-group-sm">
                         <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
-                        <input type="text" name="q" class="form-control border-start-0" placeholder="General..." value="{{ filtros.q|default:'' }}">
+                        <input type="text" name="q" class="form-control border-start-0" placeholder="Buscar..." value="{{ filtros.q|default:'' }}" onchange="this.form.submit()">
                     </div>
                 </div>
-                <div class="col">
+                <div class="col-md-1">
                     <label class="form-label-custom mb-1" style="font-size: 0.65rem;">Folio</label>
-                    <input type="text" name="folio" class="form-control form-control-sm" placeholder="Folio" value="{{ filtros.folio|default:'' }}">
+                    <input type="text" name="folio" class="form-control form-control-sm" placeholder="Folio" value="{{ filtros.folio|default:'' }}" onchange="this.form.submit()">
                 </div>
-                <div class="col">
+                <div class="col-md-1">
                     <label class="form-label-custom mb-1" style="font-size: 0.65rem;">UUID</label>
-                    <input type="text" name="uuid" class="form-control form-control-sm" placeholder="Fiscal" value="{{ filtros.uuid|default:'' }}">
+                    <input type="text" name="uuid" class="form-control form-control-sm" placeholder="UUID" value="{{ filtros.uuid|default:'' }}" onchange="this.form.submit()">
                 </div>
-                <div class="col">
+                <div class="col-md-2">
                     <label class="form-label-custom mb-1" style="font-size: 0.65rem;">Colaborador</label>
-                    <input type="text" name="colaborador" class="form-control form-control-sm" placeholder="Nombre" value="{{ filtros.colaborador|default:'' }}">
+                    <input type="text" name="colaborador" class="form-control form-control-sm" placeholder="Nombre" value="{{ filtros.colaborador|default:'' }}" onchange="this.form.submit()">
                 </div>
-                <div class="col">
+                <div class="col-md-2">
                     <label class="form-label-custom mb-1" style="font-size: 0.65rem;">RFC Contratista</label>
-                    <input type="text" name="rfc_contratista" class="form-control form-control-sm" placeholder="RFC" value="{{ filtros.rfc_contratista|default:'' }}">
+                    <input type="text" name="rfc_contratista" class="form-control form-control-sm" placeholder="RFC" value="{{ filtros.rfc_contratista|default:'' }}" onchange="this.form.submit()">
                 </div>
-                <div class="col">
+                <div class="col-md-1">
                     <label class="form-label-custom mb-1" style="font-size: 0.65rem;">Fecha Pago</label>
                     <input type="date" name="fecha_pago" class="form-control form-control-sm" value="{{ filtros.fecha_pago|default:'' }}" onchange="this.form.submit()">
                 </div>
-                <div class="col">
+                <div class="col-md-2">
                     <label class="form-label-custom mb-1" style="font-size: 0.65rem;">Sucursal</label>
                     <select name="sucursal" class="form-select form-select-sm" onchange="this.form.submit()">
-                        <option value="">Sucursales...</option>
+                        <option value="">Todas las sucursales</option>
                         {% for s in sucursales %}
                         <option value="{{ s.id }}" {% if filtros.sucursal == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
                         {% endfor %}
                     </select>
+                </div>
+                <div class="col-md-1 d-flex gap-1">
+                    <button type="submit" class="btn btn-brand text-white btn-sm px-2 flex-grow-1" title="Aplicar Filtros">
+                        <i class="bi bi-funnel"></i>
+                    </button>
+                    <a href="{% url 'lista_nomina' %}" class="btn btn-light border text-secondary btn-sm px-2" title="Limpiar Filtros">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </a>
                 </div>
             </form>
         </div>
@@ -1104,6 +1115,45 @@
             console.error(err);
             btn.disabled = false;
             btn.innerHTML = originalText;
+        });
+    }
+
+    function exportarNominas() {
+        const form = document.getElementById('formFiltrosNomina');
+        const formData = new FormData(form);
+        const params = new URLSearchParams(formData).toString();
+        window.location.href = `/recursos-humanos/nomina/exportar-excel/?${params}`;
+    }
+
+    function actualizarDatosTrabajadores() {
+        const btn = document.getElementById('btnActualizarTrabajadores');
+        const originalHtml = btn.innerHTML;
+        
+        if (!confirm("Se buscará a los empleados por RFC y se actualizarán el NSS, CURP y SDI en los recibos de nómina donde falten. ¿Continuar?")) return;
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        fetch('/recursos-humanos/nomina/actualizar-trabajadores/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert("Error: " + data.error);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            alert("Ocurrió un error de conexión.");
         });
     }
 </script>

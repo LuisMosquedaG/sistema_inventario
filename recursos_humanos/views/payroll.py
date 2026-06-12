@@ -4,13 +4,13 @@ from django.http import JsonResponse, HttpResponse
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
 from django.db.models import Q
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 import openpyxl
 import math
 import re
-from datetime import datetime
+from datetime import datetime, date
 
-from ..models import Empleado, Contrato, Contratista, Nomina
+from ..models import Empleado, Contrato, Contratista, Nomina, Beneficiario, ImportacionSUA, TrabajadorSUA
 from preferencias.models import Sucursal
 from preferencias.permissions import require_hr_permission
 from .utils import get_empresa_actual
@@ -25,23 +25,24 @@ def lista_nomina(request):
     nominas = Nomina.objects.filter(empresa=empresa_actual).select_related('empleado', 'sucursal').order_by('-fecha_pago', 'nombre')
 
     # Filtros
-    q = request.GET.get('q', '')
-    f_folio = request.GET.get('folio', '')
-    f_uuid = request.GET.get('uuid', '')
-    f_colaborador = request.GET.get('colaborador', '')
-    f_rfc_contratista = request.GET.get('rfc_contratista', '')
-    f_fecha_pago = request.GET.get('fecha_pago', '')
-    f_sucursal = request.GET.get('sucursal', '')
+    q = request.GET.get('q', '').strip()
+    f_folio = request.GET.get('folio', '').strip()
+    f_uuid = request.GET.get('uuid', '').strip()
+    f_colaborador = request.GET.get('colaborador', '').strip()
+    f_rfc_contratista = request.GET.get('rfc_contratista', '').strip()
+    f_fecha_pago = request.GET.get('fecha_pago', '').strip()
+    f_sucursal = request.GET.get('sucursal', '').strip()
 
     if q:
         nominas = nominas.filter(
             Q(nombre__icontains=q) |
             Q(rfc__icontains=q) |
             Q(curp__icontains=q) |
+            Q(nss__icontains=q) |
             Q(folio__icontains=q) |
             Q(uuid__icontains=q) |
             Q(rfc_contratista__icontains=q)
-        )
+        ).distinct()
     
     if f_folio:
         nominas = nominas.filter(folio__icontains=f_folio)
@@ -55,6 +56,9 @@ def lista_nomina(request):
         nominas = nominas.filter(fecha_pago=f_fecha_pago)
     if f_sucursal:
         nominas = nominas.filter(sucursal_id=f_sucursal)
+
+    # Re-ordenar para asegurar consistencia después de los filtros
+    nominas = nominas.order_by('-fecha_pago', 'nombre')
 
     # Paginación
     paginator = Paginator(nominas, 20)
@@ -184,55 +188,180 @@ def importar_nomina_ajax(request):
     except Exception as e: return JsonResponse({'success': False, 'error': f'Error al procesar el archivo: {str(e)}'})
 
 @login_required(login_url='/login/')
+@require_POST
+def actualizar_datos_trabajadores_nomina_ajax(request):
+    empresa_actual = get_empresa_actual(request)
+    try:
+        # 1. Mapear empleados por RFC para búsqueda rápida
+        # Limpiamos el RFC de espacios y guiones
+        empleados_qs = Empleado.objects.filter(empresa=empresa_actual)
+        empleados_map = {re.sub(r'[^A-Z0-9]', '', (e.rfc or '').upper()): e for e in empleados_qs if e.rfc}
+
+        # 2. Obtener todas las nóminas de la empresa
+        nominas = Nomina.objects.filter(empresa=empresa_actual)
+        
+        actualizados = 0
+        for nom in nominas:
+            rfc_nom = re.sub(r'[^A-Z0-9]', '', (nom.rfc or '').upper())
+            empleado = empleados_map.get(rfc_nom)
+            
+            if empleado:
+                # Solo actualizamos si los campos están vacíos o el SDI es distinto de 0
+                changed = False
+                if not nom.nss and empleado.nss: nom.nss = empleado.nss; changed = True
+                if not nom.curp and empleado.curp: nom.curp = empleado.curp; changed = True
+                if (not nom.sdi or nom.sdi == 0) and empleado.sdi: nom.sdi = empleado.sdi; changed = True
+                if (not nom.sbc or nom.sbc == 0) and empleado.sbc: nom.sbc = empleado.sbc; changed = True
+                if not nom.empleado: nom.empleado = empleado; changed = True
+                
+                if changed:
+                    nom.save(); actualizados += 1
+        
+        return JsonResponse({'success': True, 'message': f'Proceso completado. Se actualizaron los datos de {actualizados} recibos de nómina.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required(login_url='/login/')
+def exportar_nominas_excel(request):
+    empresa_actual = get_empresa_actual(request)
+    nominas = Nomina.objects.filter(empresa=empresa_actual).select_related('empleado', 'sucursal')
+
+    # Replicar Filtros
+    q = request.GET.get('q', '').strip()
+    f_folio = request.GET.get('folio', '').strip()
+    f_uuid = request.GET.get('uuid', '').strip()
+    f_colaborador = request.GET.get('colaborador', '').strip()
+    f_rfc_contratista = request.GET.get('rfc_contratista', '').strip()
+    f_fecha_pago = request.GET.get('fecha_pago', '').strip()
+    f_sucursal = request.GET.get('sucursal', '').strip()
+
+    if q:
+        nominas = nominas.filter(
+            Q(nombre__icontains=q) | Q(rfc__icontains=q) | Q(curp__icontains=q) |
+            Q(nss__icontains=q) | Q(folio__icontains=q) | Q(uuid__icontains=q) |
+            Q(rfc_contratista__icontains=q)
+        ).distinct()
+    
+    if f_folio: nominas = nominas.filter(folio__icontains=f_folio)
+    if f_uuid: nominas = nominas.filter(uuid__icontains=f_uuid)
+    if f_colaborador: nominas = nominas.filter(nombre__icontains=f_colaborador)
+    if f_rfc_contratista: nominas = nominas.filter(rfc_contratista__icontains=f_rfc_contratista)
+    if f_fecha_pago: nominas = nominas.filter(fecha_pago=f_fecha_pago)
+    if f_sucursal: nominas = nominas.filter(sucursal_id=f_sucursal)
+
+    nominas = nominas.order_by('-fecha_pago', 'nombre')
+
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Nominas"
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    
+    # Estilos
+    header_fill = PatternFill(start_color="00b8b9", end_color="00b8b9", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF")
+    border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+
+    headers = [
+        "Folio", "Serie", "UUID", "Uso CFDI", "Tipo Nomina", "Periodo", 
+        "Fecha Emision", "Fecha Certificacion", "Fecha Pago", "Fecha Inicial", "Fecha Final", 
+        "Dias Pagados", "Colaborador", "RFC", "CURP", "NSS", "RFC Contratista", 
+        "SDI", "SBC", "Vacaciones (Exento)", "Vacaciones Dignas (Exento)", "Aguinaldo (Exento)", 
+        "Sueldo (Gravado)", "Vacaciones (Gravado)", "Vacaciones Dignas (Gravado)", "Aguinaldo (Gravado)", "Sucursal"
+    ]
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_num, value=header)
+        cell.fill = header_fill; cell.font = header_font; cell.alignment = Alignment(horizontal="center"); cell.border = border
+
+    for row_num, nom in enumerate(nominas, 2):
+        data = [
+            nom.folio, nom.serie, nom.uuid, nom.uso_cfdi,
+            "Ordinaria" if nom.tipo_nomina == 'O' else "Extraordinaria",
+            nom.periodo, nom.fecha_emision, nom.fecha_certificacion, 
+            nom.fecha_pago, nom.fecha_inicial_pago, nom.fecha_final_pago,
+            nom.dias_pagados, nom.nombre, nom.rfc, nom.curp, nom.nss, nom.rfc_contratista,
+            nom.sdi, nom.sbc, nom.vacaciones_exento, nom.vacaciones_dignas_exento, nom.aguinaldo_exento,
+            nom.sueldo_gravado, nom.vacaciones_gravado, nom.vacaciones_dignas_gravado, nom.aguinaldo_gravado,
+            nom.sucursal.nombre if nom.sucursal else "General"
+        ]
+        for col_num, val in enumerate(data, 1):
+            # Formatear fechas para Excel si es necesario
+            if isinstance(val, (datetime, date)):
+                cell = ws.cell(row=row_num, column=col_num, value=val)
+                cell.number_format = 'yyyy-mm-dd'
+            else:
+                cell = ws.cell(row=row_num, column=col_num, value=str(val) if val is not None else "")
+            cell.border = border
+
+    for i in range(1, len(headers) + 1): ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = 20
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="Listado_Nominas.xlsx"'
+    wb.save(response); return response
+
+@login_required(login_url='/login/')
 def exportar_sisub_trabajadores(request, id):
     empresa_actual = get_empresa_actual(request)
     contratista = get_object_or_404(Contratista, id=id, empresa=empresa_actual)
-    cuat = int(request.GET.get('cuatrimestre', 1)); anio = int(request.GET.get('anio', datetime.now().year))
+    cuat = int(request.GET.get('cuatrimestre', 1)); anio_val = request.GET.get('anio', '')
+    if not anio_val: return HttpResponse("Año requerido", status=400)
+    anio = int(anio_val)
     
-    # Cuatrimestres SISUB: 1(Ene-Abr), 2(May-Ago), 3(Sep-Dic)
     meses_filtro = {1: [1, 2, 3, 4], 2: [5, 6, 7, 8], 3: [9, 10, 11, 12]}.get(cuat, [1, 2, 3, 4])
     
-    # Limpiamos el RFC del contratista para una comparación robusta
-    rfc_cont_clean = re.sub(r'[^A-Z0-9]', '', contratista.rfc.upper()).strip()
-
-    # Buscamos nóminas que coincidan con el contratista por objeto o por RFC emisor (limpio)
-    nominas_qs = Nomina.objects.filter(
-        empresa=empresa_actual, 
-        fecha_pago__year=anio, 
-        fecha_pago__month__in=meses_filtro
-    ).filter(
-        Q(empleado__contratista=contratista) | 
-        Q(rfc_contratista__icontains=rfc_cont_clean) |
-        Q(rfc_contratista__icontains=contratista.rfc.strip())
-    ).select_related('empleado', 'empleado__contratista')
-
-    from ..models import ImportacionSUA, TrabajadorSUA
-    incapacidades = {}
+    # 1. Obtener empleados vinculados a los contratos vigentes
+    contratos = Contrato.objects.filter(contratista=contratista, empresa=empresa_actual, estado='vigente').prefetch_related('empleados', 'beneficiario')
     
-    # Mapeo de meses para búsqueda en SUA
+    emp_map = {} # nss -> c, curp -> c, name -> c
+    for c in contratos:
+        for e in c.empleados.all():
+            n_clean = re.sub(r'[^0-9]', '', e.nss) if e.nss else ""
+            c_clean = re.sub(r'[^A-Z0-9]', '', (e.curp or '').upper())
+            name = f"{e.nombre} {e.apellido_paterno} {e.apellido_materno}".strip().upper()
+            
+            if n_clean: emp_map[n_clean] = c
+            if c_clean: emp_map[c_clean] = c
+            if name: emp_map[name] = c
+
+    # 2. Buscar TODOS los recibos de nómina en el periodo
+    recibos_total = Nomina.objects.filter(
+        empresa=empresa_actual,
+        fecha_pago__year=anio,
+        fecha_pago__month__in=meses_filtro
+    ).order_by('fecha_pago')
+
+    recibos_filtrados = []
+    for r in recibos_total:
+        n_nom = re.sub(r'[^0-9]', '', r.nss) if r.nss else ""
+        c_nom = re.sub(r'[^A-Z0-9]', '', (r.curp or '').upper())
+        name_nom = (r.nombre or "").strip().upper()
+        
+        # Estrategia de Match Triple (NSS, CURP, NOMBRE)
+        con_match = emp_map.get(n_nom) or emp_map.get(c_nom) or emp_map.get(name_nom)
+        
+        if con_match:
+            recibos_filtrados.append((r, con_match))
+
+    # 3. Obtener información de SUA (Bimestral)
+    from ..models import ImportacionSUA, TrabajadorSUA
+    sua_data = {}
     nombres_meses = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
     
     for mes in meses_filtro:
-        nombre_mes = nombres_meses[mes]
-        # Búsqueda más flexible del periodo (ej: "ABRIL 2026")
-        sua_reg = ImportacionSUA.objects.filter(
-            empresa=empresa_actual, 
-            periodo__icontains=nombre_mes.upper()
-        ).filter(
-            periodo__icontains=str(anio)
-        ).first()
-        
-        if sua_reg:
-            # Bimestre: 1(Ene-Feb), 2(Mar-Abr), 3(May-Jun), 4(Jul-Ago), 5(Sep-Oct), 6(Nov-Dic)
-            bimestre_actual = (mes + 1) // 2
-            for ts in TrabajadorSUA.objects.filter(importacion=sua_reg):
-                nss_key = re.sub(r'[^0-9]', '', ts.nss) if ts.nss else ""
-                if nss_key:
-                    try: inc_val = int(float(ts.inc or 0))
-                    except: inc_val = 0
-                    k = (nss_key, bimestre_actual)
-                    incapacidades[k] = incapacidades.get(k, 0) + inc_val
+        sua_regs = ImportacionSUA.objects.filter(empresa=empresa_actual, periodo__icontains=nombres_meses[mes].upper()).filter(periodo__icontains=str(anio))
+        for sr in sua_regs:
+            bim = (mes + 1) // 2
+            for ts in sr.trabajadores.all():
+                ts_nss = re.sub(r'[^0-9]', '', ts.nss) if ts.nss else ""
+                ts_curp = re.sub(r'[^A-Z0-9]', '', (ts.rfc_curp or '').upper())
+                ts_name = (ts.nombre or "").strip().upper()
+                
+                val = {'sdi': ts.sdi, 'inc': 0}
+                try: val['inc'] = int(float(ts.incapacidades or 0))
+                except: pass
+                
+                if ts_nss: sua_data[(ts_nss, bim)] = val
+                if ts_curp: sua_data[(ts_curp, bim)] = val
+                if ts_name: sua_data[(ts_name, bim)] = val
 
+    # 4. Generar el Excel
     from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
     wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Trabajadores SISUB"
     fill_brand = PatternFill(start_color="00b8b9", end_color="00b8b9", fill_type="solid")
@@ -243,72 +372,55 @@ def exportar_sisub_trabajadores(request, id):
 
     ws.merge_cells('A1:N1'); ws['A1'] = "d-Informacion de los trabajadores"; ws.merge_cells('O1:S1'); ws['O1'] = "e-Determinacion del salario base de aportacion"
     for c in range(1, 20): cell = ws.cell(row=1, column=c); cell.fill = fill_brand; cell.font = Font(bold=True, color="FFFFFF"); cell.alignment = center_align; cell.border = border
-
-    ws.merge_cells('A2:C2'); ws['A2'] = "Periodo"; ws.merge_cells('D2:N2'); ws['D2'] = "a-Identificacion"; ws.merge_cells('O2:S2'); ws['O2'] = "a-Percepciones por bimestre 1"
+    ws.merge_cells('A2:C2'); ws['A2'] = "Periodo"; ws.merge_cells('D2:N2'); ws['D2'] = "a-Identificacion"; ws.merge_cells('O2:S2'); ws['O2'] = "a-Percepciones por bimestre"
     for c in range(1, 20): cell = ws.cell(row=2, column=c); cell.fill = fill_gray_dark; cell.font = Font(bold=True); cell.alignment = center_align; cell.border = border
 
     headers = ["cuatrimestre que declara", "anio que se declara", "bimestre", "Registro Federal de Contribuyente del sujeto obligado", "Numero de contrato", "Registro Patronal ante el IMSS", "Numero de Seguro Social del trabajador", "Calle (centro del trabajo)", "Numero exterior (centro del trabajo)", "Numero interior (centro de trabajo)", "Colonia (centro de trabajo)", "Codigo Postal (centro de trabajo)", "Municipio o Alcaldia (centro de trabajo)", "Entidad federativa (centro de trabajo)", "Monto Percepciones variables", "Monto Percepciones fijas", "Dias de Incapacidad", "Percepciones no integrables al SBA", "salario no excedente (VSM)"]
-    for col_num, header in enumerate(headers, 1): cell = ws.cell(row=3, column=col_num); cell.value = header; cell.font = Font(bold=True); cell.fill = fill_gray_light; cell.alignment = center_align; cell.border = border
-
-    data_procesada = {}
-    for nom in nominas_qs:
-        bimestre_nom = (nom.fecha_pago.month + 1) // 2
-        nss_clean = re.sub(r'[^0-9]', '', nom.nss) if nom.nss else f"REF-{nom.id}"
-        key = (nss_clean, bimestre_nom)
-        
-        if key not in data_procesada:
-            # Buscar contrato vinculado a este empleado y contratista
-            contrato = Contrato.objects.filter(empleados=nom.empleado, contratista=contratista, estado='vigente').first() if nom.empleado else None
-            data_procesada[key] = {
-                'nss': nss_clean, 
-                'sdi': nom.sdi, 
-                'bimestre': bimestre_nom, 
-                'percepciones_fijas': Decimal('0'), 
-                'contrato_folio': contrato.folio if (contrato and contrato.folio) else "SIN FOLIO", 
-                'beneficiario': contrato.beneficiario if contrato else (nom.empleado.beneficiario if nom.empleado else None)
-            }
-        
-        # Sumar todas las percepciones registradas en la nómina
-        percepciones = (
-            (nom.vacaciones_exento or 0) + (nom.vacaciones_dignas_exento or 0) + 
-            (nom.aguinaldo_exento or 0) + (nom.sueldo_gravado or 0) + 
-            (nom.vacaciones_gravado or 0) + (nom.vacaciones_dignas_gravado or 0) + 
-            (nom.aguinaldo_gravado or 0)
-        )
-        data_procesada[key]['percepciones_fijas'] += percepciones
+    for i, h in enumerate(headers, 1): cell = ws.cell(row=3, column=i); cell.value = h; cell.font = Font(bold=True); cell.fill = fill_gray_light; cell.alignment = center_align; cell.border = border
 
     row_num = 4
-    for k in sorted(data_procesada.keys(), key=lambda x: (x[1], x[0])):
-        data = data_procesada[k]; b = data['beneficiario']
+    for r, con in recibos_filtrados:
+        n_nom = re.sub(r'[^0-9]', '', r.nss) if r.nss else ""
+        c_nom = re.sub(r'[^A-Z0-9]', '', (r.curp or '').upper())
+        name_nom = (r.nombre or "").strip().upper()
+        
+        ben = con.beneficiario
+        bim = (r.fecha_pago.month + 1) // 2
+        
         ws.cell(row=row_num, column=1).value = cuat
         ws.cell(row=row_num, column=2).value = anio
-        ws.cell(row=row_num, column=3).value = data['bimestre']
+        ws.cell(row=row_num, column=3).value = bim
         ws.cell(row=row_num, column=4).value = contratista.rfc
-        ws.cell(row=row_num, column=5).value = data['contrato_folio']
+        ws.cell(row=row_num, column=5).value = con.folio or "SIN FOLIO"
         ws.cell(row=row_num, column=6).value = contratista.registro_patronal
-        ws.cell(row=row_num, column=7).value = data['nss']
+        ws.cell(row=row_num, column=7).value = n_nom or r.nss
         
-        if b:
-            ws.cell(row=row_num, column=8).value = b.calle
-            ws.cell(row=row_num, column=9).value = b.num_ext
-            ws.cell(row=row_num, column=10).value = b.num_int
-            ws.cell(row=row_num, column=11).value = b.colonia
-            ws.cell(row=row_num, column=12).value = b.cp
-            ws.cell(row=row_num, column=13).value = b.municipio_alcaldia
-            ws.cell(row=row_num, column=14).value = b.entidad_federativa
+        if ben:
+            ws.cell(row=row_num, column=8).value = ben.calle
+            ws.cell(row=row_num, column=9).value = ben.num_ext
+            ws.cell(row=row_num, column=10).value = ben.num_int
+            ws.cell(row=row_num, column=11).value = ben.colonia
+            ws.cell(row=row_num, column=12).value = ben.cp
+            ws.cell(row=row_num, column=13).value = ben.municipio_alcaldia
+            ws.cell(row=row_num, column=14).value = ben.entidad_federativa
         
         ws.cell(row=row_num, column=15).value = 0
-        ws.cell(row=row_num, column=16).value = math.ceil(float(data['percepciones_fijas']))
-        ws.cell(row=row_num, column=17).value = incapacidades.get((data['nss'], data['bimestre']), 0)
+        per_sum = (r.vacaciones_exento or 0) + (r.vacaciones_dignas_exento or 0) + (r.aguinaldo_exento or 0) + (r.sueldo_gravado or 0) + (r.vacaciones_gravado or 0) + (r.vacaciones_dignas_gravado or 0) + (r.aguinaldo_gravado or 0)
+        ws.cell(row=row_num, column=16).value = int(Decimal(per_sum).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
+        
+        # Match SUA por NSS, CURP o NOMBRE
+        s_info = sua_data.get((n_nom, bim)) or sua_data.get((c_nom, bim)) or sua_data.get((name_nom, bim)) or {'sdi': Decimal('0.00'), 'inc': 0}
+        ws.cell(row=row_num, column=17).value = s_info['inc']
         ws.cell(row=row_num, column=18).value = 0
-        ws.cell(row=row_num, column=19).value = float(data['sdi'] or 0)
+        # Column S: Salario (SDI de la cédula SUA) sin redondeo, exacto como en la base
+        # Usamos Decimal para mantener la precisión original de la cédula
+        ws.cell(row=row_num, column=19).value = s_info['sdi']
         ws.cell(row=row_num, column=19).number_format = '#,##0.00'
         
-        for c in range(1, 20): ws.cell(row=row_num, column=c).border = border
+        for c_idx in range(1, 20): ws.cell(row=row_num, column=c_idx).border = border
         row_num += 1
 
-    from openpyxl.utils import get_column_letter
-    for i in range(1, 20): ws.column_dimensions[get_column_letter(i)].width = 22
+    for i in range(1, 20): ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = 22
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f'attachment; filename="SISUB_TRABAJADORES_{contratista.rfc}_{anio}_C{cuat}.xlsx"'
     wb.save(response)
