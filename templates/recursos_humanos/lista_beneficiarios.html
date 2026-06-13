@@ -107,7 +107,8 @@
                     <thead>
                         <tr>
                             <th class="text-center" style="width: 80px;">Acciones</th>
-                            <th class="text-center">Razón Social / RFC / Clave</th>
+                            <th class="text-center">Clave</th>
+                            <th class="text-center">Razón Social / RFC</th>
                             <th class="text-center">Empleados</th>
                             <th class="text-center">Contacto</th>
                             <th class="text-center">Ubicación</th>
@@ -128,9 +129,12 @@
                                 </div>
                             </td>
                             <td class="text-center">
+                                <span class="text-muted small">{{ b.clave|default:"--" }}</span>
+                            </td>
+                            <td class="text-center">
                                 <div class="text-dark small fw-bold">{{ b.nombre_razon_social }}</div>
                                 <div class="text-muted small" style="font-size: 0.7rem;">
-                                    {{ b.rfc }}{% if b.clave %} | {{ b.clave }}{% endif %}
+                                    {{ b.rfc }}
                                 </div>
                             </td>
                             <td class="text-center">

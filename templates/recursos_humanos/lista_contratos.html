@@ -155,7 +155,7 @@
                     <select name="beneficiario_id" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="">Todos...</option>
                         {% for b in beneficiarios %}
-                        <option value="{{ b.id }}" {% if filtros.beneficiario_id == b.id|stringformat:"s" %}selected{% endif %}>{{ b.nombre_razon_social }}</option>
+                        <option value="{{ b.id }}" {% if filtros.beneficiario_id == b.id|stringformat:"s" %}selected{% endif %}>{{ b.nombre_razon_social }}{% if b.clave %} [{{ b.clave }}]{% endif %}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -217,7 +217,6 @@
                             <th class="text-center">Folio</th>
                             <th class="text-center">Beneficiario / Contratista</th>
                             <th class="text-center">Colaboradores</th>
-                            <th class="text-center">Tipo</th>
                             <th class="text-center">Vigencia Contrato</th>
                             <th class="text-center">Periodo</th>
                             <th class="text-center">Monto</th>
@@ -241,14 +240,18 @@
                                 <span class="text-muted small">{{ c.folio|default:"--" }}</span>
                             </td>
                             <td class="text-center">
-                                <div class="text-dark small fw-bold">{{ c.beneficiario.nombre_razon_social|default:"--" }}</div>
-                                <div class="text-muted small" style="font-size: 0.7rem;">{{ c.contratista.nombre_razon_social|default:"--" }}</div>
+                                <div class="text-dark small fw-bold">
+                                    {{ c.beneficiario.nombre_razon_social|default:"--" }}
+                                    {% if c.beneficiario.clave %}
+                                    <span class="text-muted fw-normal" style="font-size: 0.7rem;">[{{ c.beneficiario.clave }}]</span>
+                                    {% endif %}
+                                </div>
+                                <div class="text-muted small" style="font-size: 0.7rem;">
+                                    {{ c.contratista.nombre_razon_social|default:"--" }}
+                                </div>
                             </td>
                             <td class="text-center">
                                 <span class="text-muted small">{{ c.empleados.count|default:0 }}</span>
-                            </td>
-                            <td class="text-center">
-                                <span class="text-muted small">{{ c.get_tipo_contrato_display }}</span>
                             </td>
                             <td class="text-center">
                                 <span class="text-muted small">{% if c.vigencia_contrato %}{{ c.vigencia_contrato|date:"d/m/Y" }}{% else %}--{% endif %}</span>
@@ -375,7 +378,7 @@
                                     <select name="contratista" id="inputContratista" class="form-select form-select-sm" required>
                                         <option value="">-- Seleccionar Contratista --</option>
                                         {% for c in contratistas %}
-                                        <option value="{{ c.id }}">{{ c.nombre_razon_social }} ({{ c.rfc }})</option>
+                                        <option value="{{ c.id }}">{{ c.nombre_razon_social }}</option>
                                         {% endfor %}
                                     </select>
                                 </div>
@@ -384,7 +387,7 @@
                                     <select name="beneficiario" id="inputBeneficiario" class="form-select form-select-sm" required onchange="seleccionarEmpleadosPorBeneficiario(this.value)">
                                         <option value="">-- Seleccionar Beneficiario --</option>
                                         {% for b in beneficiarios %}
-                                        <option value="{{ b.id }}">{{ b.nombre_razon_social }} ({{ b.rfc }})</option>
+                                        <option value="{{ b.id }}">{{ b.nombre_razon_social }}{% if b.clave %} [{{ b.clave }}]{% endif %}</option>
                                         {% endfor %}
                                     </select>
                                 </div>
