@@ -8,6 +8,7 @@ from django.db.models import Q, Count
 from decimal import Decimal, ROUND_HALF_UP
 import openpyxl
 import re
+import csv
 from datetime import datetime
 
 from ..models import Empleado, Contrato, Contratista, Beneficiario, ImportacionSUA
@@ -247,50 +248,60 @@ def exportar_sisub_contratos(request, id):
         contratista = get_object_or_404(Contratista, id=id, empresa=empresa_actual)
         cuatrimestre = request.GET.get('cuatrimestre', '1')
         anio = request.GET.get('anio', '')
+        formato = request.GET.get('formato', 'excel')
         contratos = Contrato.objects.filter(contratista=contratista, empresa=empresa_actual).select_related('beneficiario')
 
-        from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
-        from openpyxl.utils import get_column_letter
-
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "SISUB Contratos"
-
-        fill_main = PatternFill(start_color="00b8b9", end_color="00b8b9", fill_type="solid")
-        fill_sec = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
-        fill_head = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
-        border = Border(left=Side(style='thin', color="B2B2B2"), right=Side(style='thin', color="B2B2B2"), top=Side(style='thin', color="B2B2B2"), bottom=Side(style='thin', color="B2B2B2"))
-        center_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
-
-        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=25)
-        c1 = ws.cell(row=1, column=1, value="b-Contratos de servicio (cliente)")
-        c1.alignment = center_align; c1.font = Font(bold=True, color="FFFFFF", size=12); c1.fill = fill_main; c1.border = border
-
-        ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=2); ws.cell(row=2, column=1, value="periodo")
-        ws.merge_cells(start_row=2, start_column=3, end_row=2, end_column=11); ws.cell(row=2, column=3, value="a-Datos generales del contrato")
-        ws.merge_cells(start_row=2, start_column=12, end_row=2, end_column=14); ws.cell(row=2, column=12, value="b-Identificacion del beneficiario")
-        ws.merge_cells(start_row=2, start_column=15, end_row=2, end_column=25); ws.cell(row=2, column=15, value="c-Domicilio fiscal del beneficiario")
-        
-        for c in range(1, 26):
-            cell = ws.cell(row=2, column=c); cell.fill = fill_sec; cell.font = Font(bold=True); cell.border = border; cell.alignment = center_align
-
         headers = ['Cuatrimestre', 'Año', 'RFC Sujeto', 'Folio', 'Tipo', 'Objeto', 'Monto', 'Vigencia', 'Inicio', 'Termino', 'Trabajadores', 'RFC Ben', 'Nombre Ben', 'RegPat Ben', 'Calle', 'Ext', 'Int', 'Entre', 'Y', 'Colonia', 'CP', 'Mun', 'Edo', 'Email', 'Tel']
-        for i, h in enumerate(headers, 1):
-            cell = ws.cell(row=3, column=i, value=h); cell.fill = fill_head; cell.font = Font(bold=True); cell.border = border; cell.alignment = center_align
-
+        
+        data_rows = []
         for con in contratos:
             ben = con.beneficiario
-            row_data = [cuatrimestre, anio, contratista.rfc, con.folio, con.get_tipo_contrato_display(), con.objeto_contrato, con.monto_contrato, str(con.vigencia_contrato or ''), str(con.fecha_inicio or ''), str(con.fecha_fin or ''), con.num_estimado_trabajadores, ben.rfc if ben else '', ben.nombre_razon_social if ben else '', ben.registro_patronal if ben else '', ben.calle if ben else '', ben.num_ext if ben else '', ben.num_int if ben else '', ben.entre_calle if ben else '', ben.y_calle if ben else '', ben.colonia if ben else '', ben.cp if ben else '', ben.municipio_alcaldia if ben else '', ben.entidad_federativa if ben else '', ben.correo if ben else '', ben.telefono if ben else '']
-            ws.append(row_data)
-            for cell in ws[ws.max_row]: cell.border = border; cell.alignment = Alignment(vertical="center")
-
-        for i in range(1, 26): ws.column_dimensions[get_column_letter(i)].width = 18
+            data_rows.append([
+                cuatrimestre, anio, contratista.rfc, con.folio, con.get_tipo_contrato_display(), 
+                con.objeto_contrato, con.monto_contrato, str(con.vigencia_contrato or ''), 
+                str(con.fecha_inicio or ''), str(con.fecha_fin or ''), con.num_estimado_trabajadores, 
+                ben.rfc if ben else '', ben.nombre_razon_social if ben else '', ben.registro_patronal if ben else '', 
+                ben.calle if ben else '', ben.num_ext if ben else '', ben.num_int if ben else '', 
+                ben.entre_calle if ben else '', ben.y_calle if ben else '', ben.colonia if ben else '', 
+                ben.cp if ben else '', ben.municipio_alcaldia if ben else '', ben.entidad_federativa if ben else '', 
+                ben.correo if ben else '', ben.telefono if ben else ''
+            ])
 
         rfc_clean = re.sub(r'[^A-Z0-9]', '', contratista.rfc.upper())
-        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = f'attachment; filename="SISUB_CONTRATOS_{rfc_clean}.xlsx"'
-        wb.save(response)
-        return response
+        
+        if formato == 'csv':
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = f'attachment; filename="SISUB_CONTRATOS_{rfc_clean}.csv"'
+            response.write(u'\ufeff'.encode('utf8'))
+            writer = csv.writer(response)
+            writer.writerow(headers)
+            writer.writerows(data_rows)
+            return response
+        else:
+            from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
+            from openpyxl.utils import get_column_letter
+            wb = openpyxl.Workbook(); ws = wb.active; ws.title = "SISUB Contratos"
+            fill_main = PatternFill(start_color="00b8b9", end_color="00b8b9", fill_type="solid")
+            fill_sec = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
+            fill_head = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+            border = Border(left=Side(style='thin', color="B2B2B2"), right=Side(style='thin', color="B2B2B2"), top=Side(style='thin', color="B2B2B2"), bottom=Side(style='thin', color="B2B2B2"))
+            center_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+            ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=25)
+            c1 = ws.cell(row=1, column=1, value="b-Contratos de servicio (cliente)"); c1.alignment = center_align; c1.font = Font(bold=True, color="FFFFFF", size=12); c1.fill = fill_main; c1.border = border
+            ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=2); ws.cell(row=2, column=1, value="periodo")
+            ws.merge_cells(start_row=2, start_column=3, end_row=2, end_column=11); ws.cell(row=2, column=3, value="a-Datos generales del contrato")
+            ws.merge_cells(start_row=2, start_column=12, end_row=2, end_column=14); ws.cell(row=2, column=12, value="b-Identificacion del beneficiario")
+            ws.merge_cells(start_row=2, start_column=15, end_row=2, end_column=25); ws.cell(row=2, column=15, value="c-Domicilio fiscal del beneficiario")
+            for c in range(1, 26): cell = ws.cell(row=2, column=c); cell.fill = fill_sec; cell.font = Font(bold=True); cell.border = border; cell.alignment = center_align
+            for i, h in enumerate(headers, 1): cell = ws.cell(row=3, column=i, value=h); cell.fill = fill_head; cell.font = Font(bold=True); cell.border = border; cell.alignment = center_align
+            for row_data in data_rows:
+                ws.append(row_data)
+                for cell in ws[ws.max_row]: cell.border = border; cell.alignment = Alignment(vertical="center")
+            for i in range(1, 26): ws.column_dimensions[get_column_letter(i)].width = 18
+            response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename="SISUB_CONTRATOS_{rfc_clean}.xlsx"'; wb.save(response)
+            return response
     except Exception as e: return HttpResponse(f"Error al generar reporte: {str(e)}", status=500)
 
 @login_required(login_url='/login/')
@@ -300,6 +311,7 @@ def exportar_icsoe(request, id):
     try:
         contratista = Contratista.objects.get(id=id, empresa=empresa_actual)
         cuat = request.GET.get('cuatrimestre', '1'); anio = request.GET.get('anio', '')
+        formato = request.GET.get('formato', 'excel')
         if not anio: return HttpResponse("Año requerido", status=400)
         
         periodos_busqueda = {'1': ['FEBRERO', 'ABRIL'], '2': ['JUNIO', 'AGOSTO'], '3': ['OCTUBRE', 'DICIEMBRE']}.get(cuat, [])
@@ -314,59 +326,27 @@ def exportar_icsoe(request, id):
             if rfc_input_clean == rfc_rep_clean or rfc_input_clean in rfc_rep_clean or rfc_rep_clean in rfc_input_clean:
                 importaciones_validas.append(imp)
         
-        # Obtener todos los contratos vigentes de este contratista para consolidar trabajadores
         contratos_vigentes = Contrato.objects.filter(contratista=contratista, empresa=empresa_actual, estado='vigente')
         folios_consolidado = ", ".join([c.folio for c in contratos_vigentes if c.folio]) or contratista.folio_mercantil
-
-        # Consolidar NSS de trabajadores enlazados a CUALQUIERA de los contratos vigentes
-        empleados_nss_qs = Empleado.objects.filter(
-            empresa=empresa_actual,
-            contratos_asignados__in=contratos_vigentes
-        ).values_list('nss', flat=True).distinct()
-        
+        empleados_nss_qs = Empleado.objects.filter(empresa=empresa_actual, contratos_asignados__in=contratos_vigentes).values_list('nss', flat=True).distinct()
         nss_con_contrato = set(re.sub(r'[^0-9]', '', str(n)) for n in empleados_nss_qs if n)
 
         total_sin_credito = total_con_credito = total_amortizaciones = Decimal('0')
         for imp in importaciones_validas:
             for t in imp.trabajadores.all():
-                # Limpiar NSS del SUA para la comparación
                 nss_t_clean = re.sub(r'[^0-9]', '', str(t.nss))
-                
-                # Validación: Solo considerar si el trabajador (vía NSS limpio) está enlazado a un contrato vigente
                 if nss_t_clean in nss_con_contrato:
                     val_inf = (t.tipo_valor_infonavit or '').strip()
                     if not val_inf or val_inf == '-': total_sin_credito += t.aportacion_patronal
                     else: total_con_credito += t.aportacion_patronal
                     total_amortizaciones += t.amortizacion
 
-        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-        from openpyxl.utils import get_column_letter
-        wb = openpyxl.Workbook(); ws = wb.active; ws.title = "ICSOE Informativo"
-        fill_brand = PatternFill(start_color="00b8b9", end_color="00b8b9", fill_type="solid")
-        fill_gray = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
-        fill_light = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
-        border = Border(left=Side(style='thin', color="B2B2B2"), right=Side(style='thin', color="B2B2B2"), top=Side(style='thin', color="B2B2B2"), bottom=Side(style='thin', color="B2B2B2"))
-
-        ws.merge_cells('A1:AA1'); c1 = ws['A1']; c1.value = "a-Datos Generales"; c1.fill = fill_brand; c1.font = Font(bold=True, color="FFFFFF"); c1.alignment = Alignment(horizontal="center"); c1.border = border
-
-        subgrupos = [("Periodo", 2), ("b-Datos de identificacion", 5), ("c-Domicilio fiscal", 9), ("d-Datos actuales de la escritura publica", 7), ("g-Aportacion y Amortizacion", 3), ("a-Registro en STPS", 1)]
-        curr_col = 1
-        for nombre, span in subgrupos:
-            start_cell = get_column_letter(curr_col) + "2"; end_cell = get_column_letter(curr_col + span - 1) + "2"
-            if span > 1: ws.merge_cells(f"{start_cell}:{end_cell}")
-            cell = ws[start_cell]; cell.value = nombre; cell.fill = fill_gray; cell.font = Font(bold=True); cell.alignment = Alignment(horizontal="center"); cell.border = border
-            for c in range(curr_col, curr_col + span): ws.cell(row=2, column=c).border = border
-            curr_col += span
-
-        headers = ["cuatrimestre que declara", "anio que se declara", "Registro Federal de Contribuyente", "Nombre denominacion o razon social", "Correo electronico", "Telefono (numero extension)", "Registro patronal", "Calle", "Numero exterior", "Numero interior", "Entre calle", "Y calle", "Colonia", "Codigo Postal", "Municipio o Alcaldia", "Entidad Federativa", "Representante legal", "Administrador Unico", "Numero de escritura", "Nombre del Notario Publico", "Numero de Notario Publico", "Fecha de escritura publica", "Folio mercantil", "Aportacion sin credito de los trabajadores del contrato", "Aportacion con credito de los trabajadores del contrato", "Amortizacion de los trabajadores del contrato", "Numero de registro ante la Secretaria de Trabajo y Prevision Social"]
-        for i, h in enumerate(headers, 1):
-            cell = ws.cell(row=3, column=i, value=h); cell.fill = fill_light; cell.font = Font(bold=True); cell.border = border; cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True); ws.column_dimensions[get_column_letter(i)].width = 20
-
-        # Única fila consolidada con redondeo matemático (.50 sube, .49 baja)
         total_sin_credito_red = total_sin_credito.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
         total_con_credito_red = total_con_credito.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
         total_amortizaciones_red = total_amortizaciones.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
 
+        headers = ["cuatrimestre que declara", "anio que se declara", "Registro Federal de Contribuyente", "Nombre denominacion o razon social", "Correo electronico", "Telefono (numero extension)", "Registro patronal", "Calle", "Numero exterior", "Numero interior", "Entre calle", "Y calle", "Colonia", "Codigo Postal", "Municipio o Alcaldia", "Entidad Federativa", "Representante legal", "Administrador Unico", "Numero de escritura", "Nombre del Notario Publico", "Numero de Notario Publico", "Fecha de escritura publica", "Folio mercantil", "Aportacion sin credito de los trabajadores del contrato", "Aportacion con credito de los trabajadores del contrato", "Amortizacion de los trabajadores del contrato", "Numero de registro ante la Secretaria de Trabajo y Prevision Social"]
+        
         data_row = [
             cuat, anio, contratista.rfc, contratista.nombre_razon_social, 
             contratista.correo, contratista.telefono, contratista.registro_patronal, 
@@ -379,16 +359,39 @@ def exportar_icsoe(request, id):
             total_sin_credito_red, total_con_credito_red, total_amortizaciones_red, 
             contratista.numero_stps
         ]
-        ws.append(data_row)
-        
-        for col_idx in [24, 25, 26]: ws.cell(row=4, column=col_idx).number_format = '"$"#,##0.00'
-        for col_idx in range(1, 28): ws.cell(row=4, column=col_idx).border = border
 
-        # Ajustar el merge inicial de la fila 1
-        ws.merge_cells('A1:AA1')
-        c1 = ws['A1']; c1.alignment = Alignment(horizontal="center")
-
-        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = f'attachment; filename="ICSOE_INFO_{rfc_input_clean}_{anio}_C{cuat}.xlsx"'; wb.save(response)
-        return response
+        if formato == 'csv':
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = f'attachment; filename="ICSOE_INFO_{rfc_input_clean}_{anio}_C{cuat}.csv"'
+            response.write(u'\ufeff'.encode('utf8'))
+            writer = csv.writer(response)
+            writer.writerow(headers)
+            writer.writerow(data_row)
+            return response
+        else:
+            from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+            from openpyxl.utils import get_column_letter
+            wb = openpyxl.Workbook(); ws = wb.active; ws.title = "ICSOE Informativo"
+            fill_brand = PatternFill(start_color="00b8b9", end_color="00b8b9", fill_type="solid")
+            fill_gray = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
+            fill_light = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+            border = Border(left=Side(style='thin', color="B2B2B2"), right=Side(style='thin', color="B2B2B2"), top=Side(style='thin', color="B2B2B2"), bottom=Side(style='thin', color="B2B2B2"))
+            ws.merge_cells('A1:AA1'); c1 = ws['A1']; c1.value = "a-Datos Generales"; c1.fill = fill_brand; c1.font = Font(bold=True, color="FFFFFF"); c1.alignment = Alignment(horizontal="center"); c1.border = border
+            subgrupos = [("Periodo", 2), ("b-Datos de identificacion", 5), ("c-Domicilio fiscal", 9), ("d-Datos actuales de la escritura publica", 7), ("g-Aportacion y Amortizacion", 3), ("a-Registro en STPS", 1)]
+            curr_col = 1
+            for nombre, span in subgrupos:
+                start_cell = get_column_letter(curr_col) + "2"; end_cell = get_column_letter(curr_col + span - 1) + "2"
+                if span > 1: ws.merge_cells(f"{start_cell}:{end_cell}")
+                cell = ws[start_cell]; cell.value = nombre; cell.fill = fill_gray; cell.font = Font(bold=True); cell.alignment = Alignment(horizontal="center"); cell.border = border
+                for c in range(curr_col, curr_col + span): ws.cell(row=2, column=c).border = border
+                curr_col += span
+            for i, h in enumerate(headers, 1): cell = ws.cell(row=3, column=i, value=h); cell.fill = fill_light; cell.font = Font(bold=True); cell.border = border; cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True); ws.column_dimensions[get_column_letter(i)].width = 20
+            ws.append(data_row)
+            for col_idx in [24, 25, 26]: ws.cell(row=4, column=col_idx).number_format = '"$"#,##0.00'
+            for col_idx in range(1, 28): ws.cell(row=4, column=col_idx).border = border
+            ws.merge_cells('A1:AA1'); c1 = ws['A1']; c1.alignment = Alignment(horizontal="center")
+            response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename="ICSOE_INFO_{rfc_input_clean}_{anio}_C{cuat}.xlsx"'; wb.save(response)
+            return response
+    except Exception as e: return HttpResponse(str(e), status=500)
     except Exception as e: return HttpResponse(str(e), status=500)

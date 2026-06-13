@@ -448,9 +448,12 @@
                     <input type="number" id="sisub_c_anio" class="form-control form-control-sm" value="{% now 'Y' %}">
                 </div>
             </div>
-            <div class="modal-footer border-top-0 pt-0">
-                <button type="button" class="btn btn-brand text-white btn-sm w-100 fw-bold" onclick="generarReporteSISUBContratos()">
-                    <i class="bi bi-download me-1"></i> Descargar Excel
+            <div class="modal-footer border-top-0 pt-0 d-flex gap-2">
+                <button type="button" class="btn btn-brand text-white btn-sm flex-grow-1 fw-bold" onclick="generarReporteSISUBContratos('excel')">
+                    <i class="bi bi-file-earmark-excel me-1"></i> Excel
+                </button>
+                <button type="button" class="btn btn-light border text-secondary btn-sm flex-grow-1 fw-bold" onclick="generarReporteSISUBContratos('csv')">
+                    <i class="bi bi-file-earmark-spreadsheet me-1"></i> CSV
                 </button>
             </div>
         </div>
@@ -480,9 +483,12 @@
                     <input type="number" id="sisub_t_anio" class="form-control form-control-sm" value="{% now 'Y' %}">
                 </div>
             </div>
-            <div class="modal-footer border-top-0 pt-0">
-                <button type="button" class="btn btn-brand text-white btn-sm w-100 fw-bold" onclick="generarReporteSISUBTrabajadores()">
-                    <i class="bi bi-download me-1"></i> Descargar Excel
+            <div class="modal-footer border-top-0 pt-0 d-flex gap-2">
+                <button type="button" class="btn btn-brand text-white btn-sm flex-grow-1 fw-bold" onclick="generarReporteSISUBTrabajadores('excel')">
+                    <i class="bi bi-file-earmark-excel me-1"></i> Excel
+                </button>
+                <button type="button" class="btn btn-light border text-secondary btn-sm flex-grow-1 fw-bold" onclick="generarReporteSISUBTrabajadores('csv')">
+                    <i class="bi bi-file-earmark-spreadsheet me-1"></i> CSV
                 </button>
             </div>
         </div>
@@ -512,9 +518,12 @@
                     <input type="number" id="icsoe_anio" class="form-control form-control-sm" value="{% now 'Y' %}">
                 </div>
             </div>
-            <div class="modal-footer border-top-0 pt-0">
-                <button type="button" class="btn btn-brand text-white btn-sm w-100 fw-bold" onclick="generarReporteICSOE()">
-                    <i class="bi bi-download me-1"></i> Descargar Excel
+            <div class="modal-footer border-top-0 pt-0 d-flex gap-2">
+                <button type="button" class="btn btn-brand text-white btn-sm flex-grow-1 fw-bold" onclick="generarReporteICSOE('excel')">
+                    <i class="bi bi-file-earmark-excel me-1"></i> Excel
+                </button>
+                <button type="button" class="btn btn-light border text-secondary btn-sm flex-grow-1 fw-bold" onclick="generarReporteICSOE('csv')">
+                    <i class="bi bi-file-earmark-spreadsheet me-1"></i> CSV
                 </button>
             </div>
         </div>
@@ -529,7 +538,7 @@
         if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
     }
 
-    function generarReporteSISUBContratos() {
+    function generarReporteSISUBContratos(formato = 'excel') {
         const id = document.getElementById('sisub_c_contratista_id').value;
         const cuat = document.getElementById('sisub_c_cuatrimestre').value;
         const anio = document.getElementById('sisub_c_anio').value;
@@ -537,11 +546,10 @@
         if(!id) { alert("ID de contratista no encontrado"); return; }
         if(!anio) { alert("Indique el año"); return; }
         
-        // Ocultar modal primero para evitar bloqueos visuales
         const modalEl = document.getElementById('modalSISUBContratos');
         bootstrap.Modal.getOrCreateInstance(modalEl).hide();
         
-        window.location.href = `/recursos-humanos/contratistas/exportar-sisub/${id}/?cuatrimestre=${cuat}&anio=${anio}`;
+        window.location.href = `/recursos-humanos/contratistas/exportar-sisub/${id}/?cuatrimestre=${cuat}&anio=${anio}&formato=${formato}`;
     }
 
     function abrirModalSISUBTrabajadores(id) {
@@ -551,7 +559,7 @@
         if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
     }
 
-    function generarReporteSISUBTrabajadores() {
+    function generarReporteSISUBTrabajadores(formato = 'excel') {
         const id = document.getElementById('sisub_t_contratista_id').value;
         const cuat = document.getElementById('sisub_t_cuatrimestre').value;
         const anio = document.getElementById('sisub_t_anio').value;
@@ -562,7 +570,7 @@
         const modalEl = document.getElementById('modalSISUBTrabajadores');
         bootstrap.Modal.getOrCreateInstance(modalEl).hide();
         
-        window.location.href = `/recursos-humanos/contratistas/exportar-sisub-trabajadores/${id}/?cuatrimestre=${cuat}&anio=${anio}`;
+        window.location.href = `/recursos-humanos/contratistas/exportar-sisub-trabajadores/${id}/?cuatrimestre=${cuat}&anio=${anio}&formato=${formato}`;
     }
 
     function abrirModalICSOE(id) {
@@ -572,7 +580,7 @@
         if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
     }
 
-    function generarReporteICSOE() {
+    function generarReporteICSOE(formato = 'excel') {
         const id = document.getElementById('icsoe_contratista_id').value;
         const cuat = document.getElementById('icsoe_cuatrimestre').value;
         const anio = document.getElementById('icsoe_anio').value;
@@ -583,7 +591,7 @@
         const modalEl = document.getElementById('modalICSOE');
         bootstrap.Modal.getOrCreateInstance(modalEl).hide();
         
-        window.location.href = `/recursos-humanos/contratistas/exportar-icsoe/${id}/?cuatrimestre=${cuat}&anio=${anio}`;
+        window.location.href = `/recursos-humanos/contratistas/exportar-icsoe/${id}/?cuatrimestre=${cuat}&anio=${anio}&formato=${formato}`;
     }
 
     function prepararNuevoContratista() {
