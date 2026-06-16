@@ -474,6 +474,7 @@ def exportar_carga_trabajadores(request, id):
     if formato == 'csv':
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="Carga_Trabajadores_{contratista.rfc}_{anio}_C{cuat}.csv"'
+        response.write(u'\ufeff'.encode('utf-8'))
         
         writer = csv.writer(response)
         writer.writerow(['NSS(11 dígitos)', 'CURP(18 caracteres)', 'Salario base de cotización(numérico con 2 decimales)'])
