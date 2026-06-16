@@ -11,7 +11,7 @@ import re
 import csv
 from datetime import datetime
 
-from ..models import Empleado, Contrato, Contratista, Beneficiario, ImportacionSUA
+from ..models import Empleado, Contrato, Contratista, Beneficiario, ImportacionSUA, TrabajadorSUA
 from preferencias.models import Sucursal
 from preferencias.permissions import require_hr_permission
 from .utils import get_empresa_actual
@@ -394,4 +394,121 @@ def exportar_icsoe(request, id):
             response['Content-Disposition'] = f'attachment; filename="ICSOE_INFO_{rfc_input_clean}_{anio}_C{cuat}.xlsx"'; wb.save(response)
             return response
     except Exception as e: return HttpResponse(str(e), status=500)
-    except Exception as e: return HttpResponse(str(e), status=500)
+
+@login_required(login_url='/login/')
+def exportar_carga_trabajadores(request, id):
+    empresa_actual = get_empresa_actual(request)
+    contratista = get_object_or_404(Contratista, id=id, empresa=empresa_actual)
+
+    cuat = int(request.GET.get('cuatrimestre', 1))
+    anio = request.GET.get('anio', datetime.now().year)
+    formato = request.GET.get('formato', 'excel')
+
+    cuat_meses_map = {
+        1: [1, 2, 3, 4],
+        2: [5, 6, 7, 8],
+        3: [9, 10, 11, 12],
+    }
+    meses_filtro = cuat_meses_map.get(cuat, [1, 2, 3, 4])
+    
+    # RFC limpio para búsqueda
+    rfc_clean_input = re.sub(r'[^A-Z0-9]', '', contratista.rfc.upper())
+
+    # Buscar Importaciones SUA
+    importaciones_validas = []
+    for mes in meses_filtro:
+        nombre_mes = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"][mes]
+        
+        # Filtramos por empresa, mes y año de forma independiente para mayor flexibilidad (ej: "Enero-2024" o "Enero 2024")
+        imps = ImportacionSUA.objects.filter(
+            empresa=empresa_actual, 
+            periodo__icontains=nombre_mes
+        ).filter(
+            periodo__icontains=str(anio)
+        )
+        for imp in imps:
+            rfc_imp_clean = re.sub(r'[^A-Z0-9]', '', (imp.rfc_empresa or '').upper())
+            if rfc_clean_input == rfc_imp_clean or rfc_clean_input in rfc_imp_clean or rfc_imp_clean in rfc_clean_input:
+                importaciones_validas.append(imp)
+
+    # Obtener Trabajadores de estas importaciones
+    trabajadores_data = {} # NSS -> {nss, curp, sbc}
+    
+    for imp in importaciones_validas:
+        trabajadores_sua = TrabajadorSUA.objects.filter(importacion=imp)
+        for ts in trabajadores_sua:
+            nss_raw = (ts.nss or "").strip()
+            nss_clean = re.sub(r'[^0-9]', '', nss_raw)
+            if not nss_clean: continue
+            
+            # Validar si el trabajador tiene un beneficiario asignado en el modelo Empleado
+            # Buscamos por NSS
+            empleado = Empleado.objects.filter(empresa=empresa_actual, nss=nss_clean).first()
+            
+            # Si no se encuentra por NSS, intentamos por CURP si está disponible
+            if not empleado and ts.rfc_curp:
+                curp_ts = re.sub(r'[^A-Z0-9]', '', ts.rfc_curp.upper())[:18]
+                if len(curp_ts) == 18:
+                    empleado = Empleado.objects.filter(empresa=empresa_actual, curp=curp_ts).first()
+            
+            if empleado and empleado.beneficiario:
+                # Extraer CURP: priorizar Empleado, luego ts.rfc_curp
+                curp_final = empleado.curp
+                if not curp_final and ts.rfc_curp:
+                    curp_final = re.sub(r'[^A-Z0-9]', '', ts.rfc_curp.upper())[:18]
+                
+                # NSS debe tener 11 dígitos
+                nss_display = nss_clean.zfill(11)[:11]
+                
+                # Tomamos el SBC (SDI en el modelo TrabajadorSUA)
+                sbc_val = float(ts.sdi or 0)
+                
+                # Si ya existe, nos quedamos con el más reciente (o simplemente el último procesado)
+                trabajadores_data[nss_display] = {
+                    'nss': nss_display,
+                    'curp': curp_final[:18] if curp_final else "",
+                    'sbc': sbc_val
+                }
+
+    # Generar Reporte
+    if formato == 'csv':
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="Carga_Trabajadores_{contratista.rfc}_{anio}_C{cuat}.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow(['NSS(11 dígitos)', 'CURP(18 caracteres)', 'Salario base de cotización(numérico con 2 decimales)'])
+        
+        for nss in sorted(trabajadores_data.keys()):
+            d = trabajadores_data[nss]
+            writer.writerow([d['nss'], d['curp'], f"{d['sbc']:.2f}"])
+        
+        return response
+    else:
+        from openpyxl.styles import Font
+        from openpyxl.utils import get_column_letter
+        
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Carga Trabajadores"
+        
+        headers = ['NSS(11 dígitos)', 'CURP(18 caracteres)', 'Salario base de cotización(numérico con 2 decimales)']
+        for i, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=i, value=h)
+            cell.font = Font(bold=True)
+        
+        row_num = 2
+        for nss in sorted(trabajadores_data.keys()):
+            d = trabajadores_data[nss]
+            ws.cell(row=row_num, column=1, value=d['nss'])
+            ws.cell(row=row_num, column=2, value=d['curp'])
+            ws.cell(row=row_num, column=3, value=d['sbc']).number_format = '0.00'
+            row_num += 1
+            
+        for i in range(1, 4):
+            ws.column_dimensions[get_column_letter(i)].width = 30
+            
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="Carga_Trabajadores_{contratista.rfc}_{anio}_C{cuat}.xlsx"'
+        wb.save(response)
+        return response
+

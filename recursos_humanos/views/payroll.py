@@ -175,17 +175,16 @@ def exportar_nominas_excel(request):
     if f_suc: nominas = nominas.filter(sucursal_id=f_suc)
     nominas = nominas.order_by('-fecha_pago', 'nombre')
     wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Nominas"
-    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-    h_fill = PatternFill(start_color="00b8b9", end_color="00b8b9", fill_type="solid"); h_font = Font(bold=True, color="FFFFFF"); bdr = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    from openpyxl.styles import Font, Alignment
+    h_font = Font(bold=True)
     headers = ["Folio", "Serie", "UUID", "Uso CFDI", "Tipo Nomina", "Periodo", "Fecha Emision", "Fecha Certificacion", "Fecha Pago", "Fecha Inicial", "Fecha Final", "Dias Pagados", "Colaborador", "RFC", "CURP", "NSS", "RFC Contratista", "SDI", "SBC", "Sucursal"]
     for i, h in enumerate(headers, 1):
-        c = ws.cell(row=1, column=i, value=h); c.fill = h_fill; c.font = h_font; c.alignment = Alignment(horizontal="center"); c.border = bdr
+        c = ws.cell(row=1, column=i, value=h); c.font = h_font; c.alignment = Alignment(horizontal="center")
     for r_idx, nom in enumerate(nominas, 2):
         data = [nom.folio, nom.serie, nom.uuid, nom.uso_cfdi, "O" if nom.tipo_nomina=='O' else "E", nom.periodo, nom.fecha_emision, nom.fecha_certificacion, nom.fecha_pago, nom.fecha_inicial_pago, nom.fecha_final_pago, nom.dias_pagados, nom.nombre, nom.rfc, nom.curp, nom.nss, nom.rfc_contratista, nom.sdi, nom.sbc, nom.sucursal.nombre if nom.sucursal else "General"]
         for c_idx, val in enumerate(data, 1):
             cl = ws.cell(row=r_idx, column=c_idx, value=val if not isinstance(val, (datetime,date)) else val)
             if isinstance(val, (datetime,date)): cl.number_format = 'yyyy-mm-dd'
-            cl.border = bdr
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); response['Content-Disposition'] = 'attachment; filename="Listado_Nominas.xlsx"'; wb.save(response); return response
 
 @login_required(login_url='/login/')

@@ -21,6 +21,7 @@ urlpatterns = [
     path('contratistas/importar/', views.importar_contratistas_ajax, name='importar_contratistas_ajax'),
     path('contratistas/exportar-sisub/<int:id>/', views.exportar_sisub_contratos, name='exportar_sisub_contratos'),
     path('contratistas/exportar-sisub-trabajadores/<int:id>/', views.exportar_sisub_trabajadores, name='exportar_sisub_trabajadores'),
+    path('contratistas/exportar-carga-trabajadores/<int:id>/', views.exportar_carga_trabajadores, name='exportar_carga_trabajadores'),
     path('contratistas/exportar-icsoe/<int:id>/', views.exportar_icsoe, name='exportar_icsoe'),
     path('beneficiarios/', views.lista_beneficiarios, name='lista_beneficiarios'),
     path('beneficiarios/crear/', views.crear_beneficiario_ajax, name='crear_beneficiario_ajax'),
