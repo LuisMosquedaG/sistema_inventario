@@ -482,13 +482,13 @@
     }
 
     function getIconByFilename(filename) {
-        if (!filename) return 'bi-file-earmark-fill text-secondary';
+        if (!filename) return 'bi-file-earmark text-secondary';
         const ext = filename.split('.').pop().toLowerCase();
-        if (ext === 'pdf') return 'bi-file-earmark-pdf-fill text-danger';
-        if (['xlsx', 'xls', 'csv'].includes(ext)) return 'bi-file-earmark-excel-fill text-success';
-        if (['docx', 'doc'].includes(ext)) return 'bi-file-earmark-word-fill text-primary';
-        if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) return 'bi-file-earmark-image-fill text-info';
-        return 'bi-file-earmark-fill text-secondary';
+        if (ext === 'pdf') return 'bi-file-earmark-pdf text-danger';
+        if (['xlsx', 'xls', 'csv'].includes(ext)) return 'bi-file-earmark-excel text-success';
+        if (['docx', 'doc'].includes(ext)) return 'bi-file-earmark-word text-primary';
+        if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) return 'bi-file-earmark-image text-info';
+        return 'bi-file-earmark text-secondary';
     }
 
     function cargarMatrizDocumentos() {

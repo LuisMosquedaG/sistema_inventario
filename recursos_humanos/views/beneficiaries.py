@@ -143,6 +143,36 @@ def eliminar_beneficiario_ajax(request, id):
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
 
+import os
+import io
+from PIL import Image
+from django.core.files.base import ContentFile
+
+def optimizar_archivo(archivo_original):
+    """
+    Optimiza el archivo subido para ahorrar espacio en disco sin perder calidad perceptible.
+    - Imágenes: Convierte a WEBP con calidad 85.
+    """
+    nombre, extension = os.path.splitext(archivo_original.name)
+    extension = extension.lower()
+    
+    if extension in ['.jpg', '.jpeg', '.png', '.bmp']:
+        try:
+            img = Image.open(archivo_original)
+            if img.mode in ('RGBA', 'P'):
+                img = img.convert('RGBA')
+            else:
+                img = img.convert('RGB')
+                
+            output = io.BytesIO()
+            img.save(output, format='WEBP', quality=85, optimize=True)
+            output.seek(0)
+            return ContentFile(output.read(), name=f"{nombre}.webp")
+        except Exception:
+            return archivo_original
+    
+    return archivo_original
+
 @login_required(login_url='/login/')
 @require_hr_permission('beneficiarios', 'ver', json_response=True)
 def obtener_documentacion_json(request, id):
@@ -195,6 +225,9 @@ def subir_documento_ajax(request, id):
         return JsonResponse({'success': False, 'error': 'No se seleccionó ningún archivo.'})
         
     try:
+        # Optimización y compresión transparente
+        archivo = optimizar_archivo(archivo)
+
         # Si ya existe para ese mes/anio/tipo, lo actualizamos (o borramos el anterior)
         doc, created = DocumentacionBeneficiario.objects.get_or_create(
             beneficiario=ben,
