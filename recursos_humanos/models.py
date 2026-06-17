@@ -1,5 +1,11 @@
 from django.db import models
 from panel.models import Empresa
+import os
+
+def upload_to_beneficiario_doc(instance, filename):
+    # Organizar por subdominio de empresa / tipo de documento
+    subdominio = instance.empresa.subdominio
+    return f'tenants/{subdominio}/beneficiarios/documentos/{filename}'
 
 class Empleado(models.Model):
     # Opciones
@@ -305,6 +311,46 @@ class Beneficiario(models.Model):
     class Meta:
         verbose_name = "Beneficiario"
         verbose_name_plural = "Beneficiarios"
+
+class DocumentacionBeneficiario(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
+    beneficiario = models.ForeignKey(Beneficiario, on_delete=models.CASCADE, related_name='documentos', verbose_name="Beneficiario")
+    
+    NOMBRE_DOC_CHOICES = [
+        ('REPSE', 'Registro REPSE'),
+        ('SAT', 'Opinión SAT'),
+        ('IMSS', 'Opinión IMSS'),
+        ('INFONAVIT', 'Opinión INFONAVIT'),
+        ('SUA_CEDULA', 'Cédula SUA'),
+        ('SUA_PAGO', 'Pago SUA'),
+        ('LISTA_TRABAJADORES', 'Lista de Trabajadores'),
+        ('OTROS', 'Otros'),
+    ]
+    
+    nombre_documento = models.CharField(max_length=50, choices=NOMBRE_DOC_CHOICES, verbose_name="Nombre del Documento")
+    archivo = models.FileField(upload_to=upload_to_beneficiario_doc, verbose_name="Archivo")
+    mes = models.PositiveIntegerField(verbose_name="Mes (1-12)")
+    anio = models.PositiveIntegerField(verbose_name="Año")
+    fecha_subida = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.beneficiario.nombre_razon_social} - {self.nombre_documento} ({self.mes}/{self.anio})"
+
+    class Meta:
+        verbose_name = "Documentación de Beneficiario"
+        verbose_name_plural = "Documentación de Beneficiarios"
+        unique_together = ('beneficiario', 'nombre_documento', 'mes', 'anio')
+
+# SECCIÓN DE SEÑALES PARA LIMPIEZA DE DISCO Y GESTIÓN POR EMPRESA
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
+
+@receiver(post_delete, sender=DocumentacionBeneficiario)
+def eliminar_archivo_fisico_beneficiario(sender, instance, **kwargs):
+    """Elimina el archivo del servidor cuando se borra el registro de la BD"""
+    if instance.archivo:
+        if os.path.isfile(instance.archivo.path):
+            os.remove(instance.archivo.path)
 
 class ImportacionSUA(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")

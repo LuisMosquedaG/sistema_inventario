@@ -265,20 +265,29 @@ def actualizar_empresa(request, empresa_id):
 import os
 
 def calcular_uso_disco_mb(empresa):
-    """Calcula el espacio real ocupado por los archivos de la empresa en MB"""
+    """Calcula el espacio real ocupado por la carpeta de la empresa en media/tenants/"""
     total_bytes = 0
+    from django.conf import settings
     
-    # 1. Logo de la empresa
+    # Ruta base del tenant: media/tenants/subdominio/
+    tenant_path = os.path.join(settings.MEDIA_ROOT, 'tenants', empresa.subdominio)
+    
+    if os.path.exists(tenant_path):
+        for root, dirs, files in os.walk(tenant_path):
+            for f in files:
+                fp = os.path.join(root, f)
+                if not os.path.islink(fp):
+                    total_bytes += os.path.getsize(fp)
+                    
+    # También incluimos el logo si está fuera de la carpeta tenants (por compatibilidad anterior)
     try:
         if empresa.logo and os.path.exists(empresa.logo.path):
-            total_bytes += os.path.getsize(empresa.logo.path)
-    except (AttributeError, ValueError):
+            if 'tenants' not in empresa.logo.path:
+                total_bytes += os.path.getsize(empresa.logo.path)
+    except Exception:
         pass
-        
-    # 2. Otros posibles archivos (ej: FIEL, Nóminas, etc.)
-    # Aquí puedes agregar más modelos conforme el sistema crezca
             
-    # Convertir a MB (1 MB = 1,048,576 bytes)
+    # Convertir a MB
     return round(total_bytes / (1024 * 1024), 2)
 
 @login_required(login_url='/login/')

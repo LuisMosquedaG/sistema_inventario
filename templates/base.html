@@ -562,14 +562,17 @@
                     if (response.status === 403) {
                         const contentType = response.headers.get("content-type");
                         if (contentType && contentType.includes("text/html")) {
-                            const html = await response.text();
+                            // IMPORTANTE: Clonar la respuesta para poder leer el cuerpo 
+                            // sin afectar el flujo original si fuera necesario.
+                            const clone = response.clone();
+                            const html = await clone.text();
+                            
                             // Validamos que sea nuestra pantalla de error profesional
                             if (html.includes('error-card')) {
                                 document.open();
                                 document.write(html);
                                 document.close();
                                 // Cancelamos el flujo original devolviendo una promesa que nunca termina
-                                // Esto evita que el código JS original muestre un alert de error genérico.
                                 return new Promise(() => {});
                             }
                         }

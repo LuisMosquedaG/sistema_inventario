@@ -1,5 +1,10 @@
 from django.db import models
 
+import os
+
+def upload_to_empresa_logo(instance, filename):
+    return f'tenants/{instance.subdominio}/logos/{filename}'
+
 class Empresa(models.Model):
     """
     Modelo para representar a cada cliente (Tenant) en el sistema Multi-Tenant.
@@ -12,7 +17,7 @@ class Empresa(models.Model):
     # Nuevos campos de contacto y logo
     nombre_contacto = models.CharField(max_length=150, blank=True, null=True, verbose_name="Nombre de contacto")
     telefono_contacto = models.CharField(max_length=20, blank=True, null=True, verbose_name="Teléfono de contacto")
-    logo = models.ImageField(upload_to='logos/', blank=True, null=True, verbose_name="Logo de la empresa")
+    logo = models.ImageField(upload_to=upload_to_empresa_logo, blank=True, null=True, verbose_name="Logo de la empresa")
 
     # Campos de dirección
     calle = models.CharField(max_length=200, blank=True, null=True, verbose_name="Calle")
@@ -60,3 +65,14 @@ class Empresa(models.Model):
     class Meta:
         verbose_name = "Empresa (Tenant)"
         verbose_name_plural = "Empresas (Tenants)"
+
+# SECCIÓN DE SEÑALES PARA LIMPIEZA DE DISCO
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
+
+@receiver(post_delete, sender=Empresa)
+def eliminar_archivo_fisico_empresa(sender, instance, **kwargs):
+    """Elimina el logo del servidor cuando se borra la empresa"""
+    if instance.logo:
+        if os.path.isfile(instance.logo.path):
+            os.remove(instance.logo.path)

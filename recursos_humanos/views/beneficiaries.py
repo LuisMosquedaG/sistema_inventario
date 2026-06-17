@@ -4,8 +4,9 @@ from django.http import JsonResponse
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
 from django.db.models import Q, Count
+from datetime import datetime
 
-from ..models import Beneficiario
+from ..models import Beneficiario, DocumentacionBeneficiario
 from preferencias.models import Sucursal
 from preferencias.permissions import require_hr_permission
 from .utils import get_empresa_actual
@@ -56,6 +57,7 @@ def lista_beneficiarios(request):
         'page_obj': page_obj, 
         'sucursales': sucursales, 
         'empresa': empresa_actual, 
+        'anios_lista': [2024, 2025, 2026],
         'filtros': {
             'q': q, 
             'razon_social': f_razon, 
@@ -138,5 +140,87 @@ def eliminar_beneficiario_ajax(request, id):
         return JsonResponse({'success': True, 'message': 'Beneficiario eliminado correctamente.'})
     except Beneficiario.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Beneficiario no encontrado.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required(login_url='/login/')
+@require_hr_permission('beneficiarios', 'ver', json_response=True)
+def obtener_documentacion_json(request, id):
+    empresa_actual = get_empresa_actual(request)
+    ben = get_object_or_404(Beneficiario, id=id, empresa=empresa_actual)
+    
+    anio = int(request.GET.get('anio', datetime.now().year))
+    
+    docs_existentes = DocumentacionBeneficiario.objects.filter(beneficiario=ben, anio=anio)
+    
+    # Mapeo de documentos estándar
+    tipos_doc = DocumentacionBeneficiario.NOMBRE_DOC_CHOICES
+    
+    matrix = []
+    for code, nombre in tipos_doc:
+        meses_data = {}
+        for m in range(1, 13):
+            doc = docs_existentes.filter(nombre_documento=code, mes=m).first()
+            meses_data[m] = {
+                'id': doc.id if doc else None,
+                'url': doc.archivo.url if doc else None,
+                'nombre_archivo': doc.archivo.name.split('/')[-1] if doc else None
+            }
+        matrix.append({
+            'codigo': code,
+            'nombre': nombre,
+            'meses': meses_data
+        })
+        
+    return JsonResponse({
+        'success': True,
+        'beneficiario': ben.nombre_razon_social,
+        'anio': anio,
+        'matrix': matrix
+    })
+
+@login_required(login_url='/login/')
+@require_POST
+@require_hr_permission('beneficiarios', 'editar', json_response=True)
+def subir_documento_ajax(request, id):
+    empresa_actual = get_empresa_actual(request)
+    ben = get_object_or_404(Beneficiario, id=id, empresa=empresa_actual)
+    
+    archivo = request.FILES.get('archivo')
+    codigo = request.POST.get('codigo')
+    mes = int(request.POST.get('mes'))
+    anio = int(request.POST.get('anio'))
+    
+    if not archivo:
+        return JsonResponse({'success': False, 'error': 'No se seleccionó ningún archivo.'})
+        
+    try:
+        # Si ya existe para ese mes/anio/tipo, lo actualizamos (o borramos el anterior)
+        doc, created = DocumentacionBeneficiario.objects.get_or_create(
+            beneficiario=ben,
+            nombre_documento=codigo,
+            mes=mes,
+            anio=anio,
+            defaults={'empresa': empresa_actual, 'archivo': archivo}
+        )
+        
+        if not created:
+            doc.archivo = archivo
+            doc.save()
+            
+        return JsonResponse({'success': True, 'message': 'Archivo subido correctamente.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required(login_url='/login/')
+@require_POST
+@require_hr_permission('beneficiarios', 'editar', json_response=True)
+def eliminar_documento_ajax(request, id):
+    # En este caso 'id' es el ID de DocumentacionBeneficiario
+    empresa_actual = get_empresa_actual(request)
+    doc = get_object_or_404(DocumentacionBeneficiario, id=id, empresa=empresa_actual)
+    try:
+        doc.delete()
+        return JsonResponse({'success': True, 'message': 'Archivo eliminado correctamente.'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
