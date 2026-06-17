@@ -71,6 +71,34 @@
     .module-selector-input:checked + .module-selector-label span {
         color: #00b8b9;
     }
+
+    /* Estilos para el selector de Estado de Servicio (Minimalista) */
+    .status-selector-input { display: none; }
+    .status-selector-label {
+        cursor: pointer;
+        border: none;
+        border-radius: 12px;
+        padding: 10px;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background-color: transparent;
+    }
+    .status-selector-label i { font-size: 1.5rem; color: #dee2e6; transition: all 0.2s ease; }
+    .status-selector-label .status-info { display: flex; flex-direction: column; }
+    .status-selector-label .status-name { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: #adb5bd; transition: all 0.2s ease; }
+    .status-selector-label .status-desc { font-size: 0.65rem; color: #adb5bd; }
+
+    /* Estados específicos al estar seleccionados */
+    .status-selector-input:checked + .status-selector-label.label-activa i,
+    .status-selector-input:checked + .status-selector-label.label-activa .status-name { color: #2f9e44; }
+
+    .status-selector-input:checked + .status-selector-label.label-suspendida i,
+    .status-selector-input:checked + .status-selector-label.label-suspendida .status-name { color: #f08c00; }
+
+    .status-selector-input:checked + .status-selector-label.label-inactiva i,
+    .status-selector-input:checked + .status-selector-label.label-inactiva .status-name { color: #e03131; }
 </style>
 
 <div class="container-fluid py-4 px-4 h-100">
@@ -351,6 +379,47 @@
                                 </label>
                             </div>
                             {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PARTE 1.5: ESTATUS DEL SERVICIO -->
+                <div class="card card-settings mb-4">
+                    <div class="card-header bg-white border-bottom-0 pt-4 px-4">
+                        <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.75rem; letter-spacing: 1px;">Estatus Operativo del Servicio</h6>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <input type="radio" name="estado_servicio" id="status_activa" value="activa" class="status-selector-input" {% if empresa_t.estado_servicio == 'activa' %}checked{% endif %}>
+                                <label class="status-selector-label label-activa" for="status_activa">
+                                    <i class="bi bi-check-circle-fill"></i>
+                                    <div class="status-info">
+                                        <span class="status-name">Activa</span>
+                                        <span class="status-desc">Acceso normal para todos los usuarios.</span>
+                                    </div>
+                                </label>
+                            </div>
+                            <div class="col-md-4">
+                                <input type="radio" name="estado_servicio" id="status_suspendida" value="suspendida" class="status-selector-input" {% if empresa_t.estado_servicio == 'suspendida' %}checked{% endif %}>
+                                <label class="status-selector-label label-suspendida" for="status_suspendida">
+                                    <i class="bi bi-pause-circle-fill"></i>
+                                    <div class="status-info">
+                                        <span class="status-name">Suspendida</span>
+                                        <span class="status-desc">Solo lectura. Sin acciones de cambio.</span>
+                                    </div>
+                                </label>
+                            </div>
+                            <div class="col-md-4">
+                                <input type="radio" name="estado_servicio" id="status_inactiva" value="inactiva" class="status-selector-input" {% if empresa_t.estado_servicio == 'inactiva' %}checked{% endif %}>
+                                <label class="status-selector-label label-inactiva" for="status_inactiva">
+                                    <i class="bi bi-x-circle-fill"></i>
+                                    <div class="status-info">
+                                        <span class="status-name">Inactiva</span>
+                                        <span class="status-desc">Acceso bloqueado (excepto Súper Admin).</span>
+                                    </div>
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </div>

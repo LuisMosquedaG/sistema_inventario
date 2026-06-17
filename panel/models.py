@@ -22,6 +22,18 @@ class Empresa(models.Model):
     cp = models.CharField(max_length=10, blank=True, null=True, verbose_name="Código Postal")
 
     fecha_alta = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de alta")
+    
+    ESTADO_SERVICIO_CHOICES = [
+        ('activa', 'Activa'),
+        ('inactiva', 'Inactiva'),
+        ('suspendida', 'Suspendida'),
+    ]
+    estado_servicio = models.CharField(
+        max_length=20, 
+        choices=ESTADO_SERVICIO_CHOICES, 
+        default='activa',
+        verbose_name="Estado del Servicio"
+    )
     activa = models.BooleanField(default=True, verbose_name="Empresa Activa")
 
     # Módulos habilitados

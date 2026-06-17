@@ -77,6 +77,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'panel.middleware.LicenseAutoRenewalMiddleware',
+    'panel.middleware.TenantStatusMiddleware',
 ]
 
 ROOT_URLCONF = 'sistema_inventario.urls'

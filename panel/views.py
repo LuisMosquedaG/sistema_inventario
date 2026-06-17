@@ -54,7 +54,7 @@ def crear_empresa(request):
         nombre = request.POST.get('nombre')
         subdominio = request.POST.get('subdominio').strip().lower() 
         correo = request.POST.get('correo_contacto')
-        estado_str = request.POST.get('activa', 'True')
+        estado_str = request.POST.get('estado_servicio', 'activa')
         
         # Nuevos campos
         nombre_contacto = request.POST.get('nombre_contacto')
@@ -82,7 +82,8 @@ def crear_empresa(request):
                 colonia=colonia,
                 estado=estado,
                 cp=cp,
-                activa=(estado_str == 'True'),
+                estado_servicio=estado_str,
+                activa=(estado_str == 'activa'),
                 modulo_ventas=(request.POST.get('modulo_ventas') == 'on'),
                 modulo_compras=(request.POST.get('modulo_compras') == 'on'),
                 modulo_tesoreria=(request.POST.get('modulo_tesoreria') == 'on'),
@@ -194,6 +195,7 @@ def obtener_empresa_json(request, empresa_id):
         'colonia': empresa.colonia or '',
         'estado': empresa.estado or '',
         'cp': empresa.cp or '',
+        'estado_servicio': empresa.estado_servicio,
         'activa': 'True' if empresa.activa else 'False',
         'modulo_ventas': empresa.modulo_ventas,
         'modulo_compras': empresa.modulo_compras,
@@ -234,7 +236,10 @@ def actualizar_empresa(request, empresa_id):
             if request.FILES.get('logo'):
                 empresa.logo = request.FILES.get('logo')
 
-            empresa.activa = (request.POST.get('activa') == 'True')
+            # Manejo de Estatus
+            empresa.estado_servicio = request.POST.get('estado_servicio', 'activa')
+            # Sincronizar campo activa (bool)
+            empresa.activa = (empresa.estado_servicio == 'activa')
 
             # Actualizar módulos
             empresa.modulo_ventas = (request.POST.get('modulo_ventas') == 'on')
@@ -331,6 +336,9 @@ def actualizar_limites_ajax(request, empresa_id):
         # Límites
         empresa.limite_sucursales = int(request.POST.get('limite_sucursales', 5))
         empresa.limite_contratistas = int(request.POST.get('limite_contratistas', 10))
+        
+        # Estado del Servicio
+        empresa.estado_servicio = request.POST.get('estado_servicio', 'activa')
         
         # Recibimos GB del formulario, guardamos MB
         limite_gb = float(request.POST.get('limite_espacio_disco', 1))
