@@ -529,9 +529,13 @@
                 <span id="userNameDisplay" style="font-size: 0.85rem; font-weight: 500;" class="text-truncate">{{ user.username }}</span>
             </div>
             <div class="d-flex align-items-center">
+                {% if user.username != 'madmin@crossoversuite' %}
                 <a href="/notificaciones/historial/" class="me-3" title="Notificaciones"><i class="bi bi-bell" style="font-size: 1.1rem; color: #adb5bd;"></i></a>
-                {% if user.is_superuser or user.is_staff or user.username == 'madmin@crossoversuite' %}
-                <a href="/preferencias/" class="me-3" title="Preferencias"><i class="bi bi-gear" style="font-size: 1.1rem; color: #adb5bd;"></i></a>
+                {% endif %}
+                {% if user.username != 'madmin@crossoversuite' %}
+                    {% if user.is_superuser or user.is_staff %}
+                    <a href="/preferencias/" class="me-3" title="Preferencias"><i class="bi bi-gear" style="font-size: 1.1rem; color: #adb5bd;"></i></a>
+                    {% endif %}
                 {% endif %}
                 <a href="/logout/" title="Cerrar Sesión"><i class="bi bi-door-open" style="font-size: 1.1rem;"></i></a>
             </div>
@@ -546,6 +550,36 @@
     <!-- SCRIPTS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{% static 'js/utils.js' %}"></script>
+
+    <!-- INTERCEPTOR GLOBAL PARA BLOQUEOS (SUSPENSIÓN/INACTIVIDAD) -->
+    <script>
+        (function() {
+            const originalFetch = window.fetch;
+            window.fetch = function() {
+                return originalFetch.apply(this, arguments).then(async (response) => {
+                    // Si recibimos un 403 Forbidden y el contenido es HTML, 
+                    // probablemente es nuestra pantalla de bloqueo de empresa.
+                    if (response.status === 403) {
+                        const contentType = response.headers.get("content-type");
+                        if (contentType && contentType.includes("text/html")) {
+                            const html = await response.text();
+                            // Validamos que sea nuestra pantalla de error profesional
+                            if (html.includes('error-card')) {
+                                document.open();
+                                document.write(html);
+                                document.close();
+                                // Cancelamos el flujo original devolviendo una promesa que nunca termina
+                                // Esto evita que el código JS original muestre un alert de error genérico.
+                                return new Promise(() => {});
+                            }
+                        }
+                    }
+                    return response;
+                });
+            };
+        })();
+    </script>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Limpiar nombre de usuario (quitar @dominio)
@@ -605,7 +639,7 @@
                 el.addEventListener('hidden.bs.toast', () => { el.remove(); });
             }
 
-            {% if user.is_authenticated %}
+            {% if user.is_authenticated and user.username != 'madmin@crossoversuite' %}
                 // Polling cada 10 segundos para balancear realismo y carga
                 setInterval(fetchNotificaciones, 10000); 
                 // Carga inicial inmediata

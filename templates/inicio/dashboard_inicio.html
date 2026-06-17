@@ -66,6 +66,15 @@
                         </div>
                     {% endif %}
                     <h3 class="fw-bold text-dark mb-1">{{ empresa.nombre|default:"Sin Empresa" }}</h3>
+                    <div class="mb-2">
+                        {% if empresa.estado_servicio == 'activa' %}
+                            <span class="badge rounded-pill bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-3" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Servicio Activo</span>
+                        {% elif empresa.estado_servicio == 'suspendida' %}
+                            <span class="badge rounded-pill bg-warning bg-opacity-10 text-warning border border-warning border-opacity-50 px-3" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #f08c00 !important;">Servicio Suspendido</span>
+                        {% else %}
+                            <span class="badge rounded-pill bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-3" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Servicio Inactivo</span>
+                        {% endif %}
+                    </div>
                     <hr class="w-100 my-3 opacity-25">
                     <div class="text-start w-100">
                         <div class="d-flex align-items-start mb-2">

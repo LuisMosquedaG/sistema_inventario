@@ -89,21 +89,8 @@ class TenantStatusMiddleware:
                     elif empresa.estado_servicio == 'suspendida':
                         # Permitir solo navegación (GET)
                         if request.method != 'GET':
-                            # Si es una petición AJAX/JSON, devolvemos un JSON con el código 403
-                            # para que el frontend pueda manejar el redireccionamiento o mostrar el error.
-                            is_ajax = (
-                                request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 
-                                'application/json' in request.headers.get('Accept', '')
-                            )
-                            
-                            if is_ajax:
-                                from django.http import JsonResponse
-                                return JsonResponse({
-                                    'success': False, 
-                                    'suspended': True,
-                                    'error': 'SERVICIO SUSPENDIDO: El sistema se encuentra en modo de consulta (Solo Lectura).'
-                                }, status=403)
-                            
+                            # Enviamos siempre la vista HTML. El interceptor global en base.html
+                            # se encargará de renderizarla aunque sea una petición AJAX.
                             return render(request, 'error_tenant_status.html', {
                                 'empresa': empresa,
                                 'mensaje': 'Servicio Suspendido: El sistema se encuentra en modo de consulta (Solo Lectura). No se pueden realizar cambios.'
