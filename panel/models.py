@@ -37,6 +37,11 @@ class Empresa(models.Model):
     fecha_inicio_licencia = models.DateField(null=True, blank=True, verbose_name="Inicio de Licencia")
     fecha_vencimiento_licencia = models.DateField(null=True, blank=True, verbose_name="Vencimiento de Licencia")
 
+    # Límites de Recursos
+    limite_sucursales = models.PositiveIntegerField(default=5, verbose_name="Límite de Sucursales")
+    limite_contratistas = models.PositiveIntegerField(default=10, verbose_name="Límite de Contratistas")
+    limite_espacio_disco = models.PositiveIntegerField(default=1024, verbose_name="Límite de Espacio (MB)", help_text="En Megabytes")
+
     def __str__(self):
         return self.nombre
 

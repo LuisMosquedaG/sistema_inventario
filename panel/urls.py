@@ -7,4 +7,6 @@ urlpatterns = [
     path('eliminar/<int:empresa_id>/', views.eliminar_empresa, name='eliminar_empresa'),
     path('api/<int:empresa_id>/', views.obtener_empresa_json, name='obtener_empresa'),
     path('actualizar/<int:empresa_id>/', views.actualizar_empresa, name='actualizar_empresa'),
+    path('gestion/<int:empresa_id>/', views.gestion_empresa, name='gestion_empresa'),
+    path('actualizar-limites/<int:empresa_id>/', views.actualizar_limites_ajax, name='actualizar_limites_ajax'),
 ]

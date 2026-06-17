@@ -1,7 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse  # <--- FALTABA ESTE (Para eliminar_empresa)
+from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth.models import User  # <--- FALTABA ESTE (Para crear los usuarios sadmin/admin)
+from django.views.decorators.http import require_POST
+from django.contrib.auth.models import User
 from .models import Empresa
 from django.contrib import messages
 
@@ -255,3 +256,87 @@ def actualizar_empresa(request, empresa_id):
             return JsonResponse({'success': False, 'error': str(e)})
 
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+import os
+
+def calcular_uso_disco_mb(empresa):
+    """Calcula el espacio real ocupado por los archivos de la empresa en MB"""
+    total_bytes = 0
+    
+    # 1. Logo de la empresa
+    try:
+        if empresa.logo and os.path.exists(empresa.logo.path):
+            total_bytes += os.path.getsize(empresa.logo.path)
+    except (AttributeError, ValueError):
+        pass
+        
+    # 2. Otros posibles archivos (ej: FIEL, Nóminas, etc.)
+    # Aquí puedes agregar más modelos conforme el sistema crezca
+            
+    # Convertir a MB (1 MB = 1,048,576 bytes)
+    return round(total_bytes / (1024 * 1024), 2)
+
+@login_required(login_url='/login/')
+@user_passes_test(check_master_admin, login_url='/inventario/')
+def gestion_empresa(request, empresa_id):
+    empresa = get_object_or_404(Empresa, id=empresa_id)
+    
+    # Importaciones dinámicas para evitar circulares si las hay
+    from recursos_humanos.models import Empleado, Contrato, ImportacionSUA, Contratista, Beneficiario
+    from ventas.models import OrdenVenta
+    from compras.models import OrdenCompra
+    from core.models import Producto
+    
+    # Estadísticas básicas para Observabilidad
+    stats = {
+        'empleados': Empleado.objects.filter(empresa=empresa).count(),
+        'contratistas': Contratista.objects.filter(empresa=empresa).count(),
+        'beneficiarios': Beneficiario.objects.filter(empresa=empresa).count(),
+        'contratos': Contrato.objects.filter(empresa=empresa).count(),
+        'nominas': ImportacionSUA.objects.filter(empresa=empresa).count(),
+        'productos': Producto.objects.filter(empresa=empresa).count(),
+        'ventas': OrdenVenta.objects.filter(empresa=empresa).count(),
+        'compras': OrdenCompra.objects.filter(empresa=empresa).count(),
+        'usuarios': User.objects.filter(username__icontains=f"@{empresa.subdominio}").count(),
+    }
+    
+    # Cálculo de espacio en disco REAL
+    uso_actual_mb = calcular_uso_disco_mb(empresa)
+    porcentaje_uso = round((uso_actual_mb / empresa.limite_espacio_disco) * 100, 1) if empresa.limite_espacio_disco > 0 else 0
+
+    return render(request, 'panel/gestion_empresa.html', {
+        'empresa_t': empresa,
+        'stats': stats,
+        'uso_actual_mb': uso_actual_mb,
+        'porcentaje_uso': porcentaje_uso,
+        'limite_gb': round(empresa.limite_espacio_disco / 1024, 2),
+        'modulos_lista': ['ventas', 'compras', 'recursos_humanos', 'inventarios', 'produccion', 'tesoreria', 'costeos']
+    })
+
+@login_required(login_url='/login/')
+@require_POST
+@user_passes_test(check_master_admin, login_url='/inventario/')
+def actualizar_limites_ajax(request, empresa_id):
+    empresa = get_object_or_404(Empresa, id=empresa_id)
+    try:
+        # Módulos
+        empresa.modulo_ventas = (request.POST.get('modulo_ventas') == 'on')
+        empresa.modulo_compras = (request.POST.get('modulo_compras') == 'on')
+        empresa.modulo_recursos_humanos = (request.POST.get('modulo_recursos_humanos') == 'on')
+        empresa.modulo_inventarios = (request.POST.get('modulo_inventarios') == 'on')
+        empresa.modulo_produccion = (request.POST.get('modulo_produccion') == 'on')
+        empresa.modulo_tesoreria = (request.POST.get('modulo_tesoreria') == 'on')
+        empresa.modulo_costeos = (request.POST.get('modulo_costeos') == 'on')
+
+        # Límites
+        empresa.limite_sucursales = int(request.POST.get('limite_sucursales', 5))
+        empresa.limite_contratistas = int(request.POST.get('limite_contratistas', 10))
+        
+        # Recibimos GB del formulario, guardamos MB
+        limite_gb = float(request.POST.get('limite_espacio_disco', 1))
+        empresa.limite_espacio_disco = int(limite_gb * 1024)
+
+        empresa.save()
+        return JsonResponse({'success': True, 'message': 'Planes y límites actualizados correctamente.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

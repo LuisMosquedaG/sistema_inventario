@@ -136,6 +136,10 @@
                             <!-- 1. Acciones -->
                             <td class="text-center">
                                 <div class="d-flex justify-content-center gap-1">
+                                    <!-- Botón Gestión -->
+                                    <a href="{% url 'gestion_empresa' emp.id %}" class="icon-action" title="Gestión">
+                                        <i class="bi bi-sliders"></i>
+                                    </a>
                                     <!-- Botón Editar -->
                                     <span onclick="cargarEmpresaEdicion({{ emp.id }}); return false;" class="icon-action" title="Editar Empresa">
                                         <i class="bi bi-pencil-square"></i>
