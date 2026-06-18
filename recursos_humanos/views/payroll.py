@@ -219,13 +219,61 @@ def exportar_sisub_trabajadores(request, id):
                 if tm: sua_data[(tm, bim)] = v
 
     headers = ["cuatrimestre que declara", "anio que se declara", "bimestre", "Registro Federal de Contribuyente del sujeto obligado", "Numero de contrato", "Registro Patronal ante el IMSS", "Numero de Seguro Social del trabajador", "Calle (centro del trabajo)", "Numero exterior (centro del trabajo)", "Numero interior (centro de trabajo)", "Colonia (centro de trabajo)", "Codigo Postal (centro de trabajo)", "Municipio o Alcaldia (centro de trabajo)", "Entidad federativa (centro de trabajo)", "Monto Percepciones variables", "Monto Percepciones fijas", "Dias de Incapacidad", "Percepciones no integrables al SBA", "salario no excedente (VSM)"]
-    data_rows = []
+    
+    grouped_data = {}
     for r in recibos:
-        n = re.sub(r'[^0-9]','',r.nss or ''); curp = re.sub(r'[^A-Z0-9]','',(r.curp or '').upper()); name = (r.nombre or '').strip().upper(); bim = (r.fecha_pago.month+1)//2
-        con = emp_map.get(n) or emp_map.get(curp) or emp_map.get(name); ben = con.beneficiario
+        n = re.sub(r'[^0-9]','',r.nss or '')
+        curp = re.sub(r'[^A-Z0-9]','',(r.curp or '').upper())
+        name = (r.nombre or '').strip().upper()
+        if not r.fecha_pago:
+            continue
+        bim = (r.fecha_pago.month + 1) // 2
+        
+        # Clave única del trabajador en este bimestre
+        worker_key = n if n else (curp if curp else name)
+        if not worker_key:
+            continue
+            
+        key = (worker_key, bim)
         per = (r.vacaciones_exento or 0) + (r.vacaciones_dignas_exento or 0) + (r.aguinaldo_exento or 0) + (r.sueldo_gravado or 0) + (r.vacaciones_gravado or 0) + (r.vacaciones_dignas_gravado or 0) + (r.aguinaldo_gravado or 0)
-        s = sua_data.get((n, bim)) or sua_data.get((curp, bim)) or sua_data.get((name, bim)) or {'sdi': Decimal('0.00'), 'inc': 0}
-        data_rows.append([cuat, anio, bim, contratista.rfc, con.folio or "S/F", contratista.registro_patronal, n or r.nss, ben.calle, ben.num_ext, ben.num_int, ben.colonia, ben.cp, ben.municipio_alcaldia, ben.entidad_federativa, 0, int(Decimal(per).quantize(Decimal('1'), ROUND_HALF_UP)), s['inc'], 0, s['sdi']])
+        
+        if key not in grouped_data:
+            con = emp_map.get(n) or emp_map.get(curp) or emp_map.get(name)
+            ben = con.beneficiario if con else None
+            s = sua_data.get((n, bim)) or sua_data.get((curp, bim)) or sua_data.get((name, bim)) or {'sdi': Decimal('0.00'), 'inc': 0}
+            
+            grouped_data[key] = {
+                'cuat': cuat,
+                'anio': anio,
+                'bim': bim,
+                'contratista_rfc': contratista.rfc,
+                'contrato_folio': con.folio if con and con.folio else "S/F",
+                'registro_patronal': contratista.registro_patronal,
+                'nss': n or r.nss,
+                'calle': ben.calle if ben else '',
+                'num_ext': ben.num_ext if ben else '',
+                'num_int': ben.num_int if ben else '',
+                'colonia': ben.colonia if ben else '',
+                'cp': ben.cp if ben else '',
+                'municipio': ben.municipio_alcaldia if ben else '',
+                'entidad': ben.entidad_federativa if ben else '',
+                'percepciones': Decimal('0.00'),
+                'incapacidades': s['inc'],
+                'sdi': s['sdi']
+            }
+            
+        grouped_data[key]['percepciones'] += per
+
+    data_rows = []
+    for key in sorted(grouped_data.keys(), key=lambda x: (x[1], x[0])):
+        d = grouped_data[key]
+        per_rounded = int(Decimal(d['percepciones']).quantize(Decimal('1'), ROUND_HALF_UP))
+        data_rows.append([
+            d['cuat'], d['anio'], d['bim'], d['contratista_rfc'], d['contrato_folio'],
+            d['registro_patronal'], d['nss'], d['calle'], d['num_ext'], d['num_int'],
+            d['colonia'], d['cp'], d['municipio'], d['entidad'], 0,
+            per_rounded, d['incapacidades'], 0, d['sdi']
+        ])
 
     if formato == 'csv':
         resp = HttpResponse(content_type='text/csv'); resp['Content-Disposition'] = f'attachment; filename="SISUB_TRABAJADORES_{contratista.rfc}.csv"'; resp.write(u'\ufeff'.encode('utf8')); w = csv.writer(resp); w.writerow(headers); w.writerows(data_rows); return resp

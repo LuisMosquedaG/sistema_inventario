@@ -463,12 +463,17 @@ def exportar_carga_trabajadores(request, id):
                 # Tomamos el SBC (SDI en el modelo TrabajadorSUA)
                 sbc_val = float(ts.sdi or 0)
                 
-                # Si ya existe, nos quedamos con el más reciente (o simplemente el último procesado)
-                trabajadores_data[nss_display] = {
-                    'nss': nss_display,
-                    'curp': curp_final[:18] if curp_final else "",
-                    'sbc': sbc_val
-                }
+                # Si ya existe, actualizamos el SBC solo si el nuevo valor es > 0 
+                # para evitar que un valor en cero sobreescriba el último sueldo válido.
+                if nss_display in trabajadores_data:
+                    if sbc_val > 0:
+                        trabajadores_data[nss_display]['sbc'] = sbc_val
+                else:
+                    trabajadores_data[nss_display] = {
+                        'nss': nss_display,
+                        'curp': curp_final[:18] if curp_final else "",
+                        'sbc': sbc_val
+                    }
 
     # Generar Reporte
     if formato == 'csv':

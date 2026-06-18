@@ -977,9 +977,9 @@
 
                 let accionHtml = '--';
                 if (s.estado === 'terminada') {
-                    accionHtml = `<button class="btn btn-xs btn-brand py-0 px-2 fw-bold" style="font-size: 0.6rem;" onclick="integrarXML(${s.id})">Integrar</button>`;
+                    accionHtml = `<button class="btn btn-xs btn-brand py-0 px-2 fw-bold" style="font-size: 0.6rem;" onclick="integrarXML(this, ${s.id})">Integrar</button>`;
                 } else if (s.estado === 'solicitada' || s.estado === 'en_proceso') {
-                    accionHtml = `<button class="btn btn-xs btn-outline-primary py-0 px-2 fw-bold" style="font-size: 0.6rem;" onclick="verificarEstadoSAT(${s.id})">Verificar</button>`;
+                    accionHtml = `<button class="btn btn-xs btn-outline-primary py-0 px-2 fw-bold" style="font-size: 0.6rem;" onclick="verificarEstadoSAT(this, ${s.id})">Verificar</button>`;
                 }
 
                 tbody.innerHTML += `
@@ -1036,7 +1036,7 @@
         });
     });
 
-    function integrarXML(solicitudId) {
+    function integrarXML(btn, solicitudId) {
         const passwordInput = document.querySelector('input[name="password_fiel"]');
         if (!passwordInput.value) {
             alert("Para integrar, primero escriba la contraseña de la FIEL en el campo correspondiente arriba.");
@@ -1047,7 +1047,6 @@
 
         if (!confirm("Se procesarán los archivos descargados y se integrarán a la lista de nóminas. ¿Continuar?")) return;
         
-        const btn = event.target;
         const originalText = btn.innerHTML;
         btn.disabled = true;
         btn.innerHTML = '...';
@@ -1079,7 +1078,7 @@
         });
     }
 
-    function verificarEstadoSAT(solicitudId) {
+    function verificarEstadoSAT(btn, solicitudId) {
         const passwordInput = document.querySelector('input[name="password_fiel"]');
         if (!passwordInput.value) {
             alert("Para verificar el estado, escriba la contraseña de la FIEL arriba.");
@@ -1088,7 +1087,6 @@
             return;
         }
 
-        const btn = event.target;
         const originalText = btn.innerHTML;
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';

@@ -166,13 +166,53 @@ class SATService:
             # Buscar empleado local
             empleado = Empleado.objects.filter(empresa=empresa_actual, rfc=rfc_receptor).first()
 
+            # Inicializar variables de percepciones
+            vacaciones_exento = Decimal('0.00')
+            vacaciones_dignas_exento = Decimal('0.00')
+            aguinaldo_exento = Decimal('0.00')
+            
+            sueldo_gravado = Decimal('0.00')
+            vacaciones_gravado = Decimal('0.00')
+            vacaciones_dignas_gravado = Decimal('0.00')
+            aguinaldo_gravado = Decimal('0.00')
+
+            percepciones_node = nomina_node.find('.//{*}Percepciones')
+            if percepciones_node is not None:
+                for perc in percepciones_node.findall('.//{*}Percepcion'):
+                    tipo = get_attr(perc, 'TipoPercepcion', '')
+                    concepto = get_attr(perc, 'Concepto', '').upper()
+                    
+                    try:
+                        imp_gravado = Decimal(get_attr(perc, 'ImporteGravado', '0'))
+                    except:
+                        imp_gravado = Decimal('0.00')
+                        
+                    try:
+                        imp_exento = Decimal(get_attr(perc, 'ImporteExento', '0'))
+                    except:
+                        imp_exento = Decimal('0.00')
+                    
+                    # Clasificar las percepciones
+                    if "AGUINALDO" in concepto or tipo == '002':
+                        aguinaldo_gravado += imp_gravado
+                        aguinaldo_exento += imp_exento
+                    elif "VACACIONES DIGNAS" in concepto:
+                        vacaciones_dignas_gravado += imp_gravado
+                        vacaciones_dignas_exento += imp_exento
+                    elif "VACACIONES" in concepto:
+                        vacaciones_gravado += imp_gravado
+                        vacaciones_exento += imp_exento
+                    else:
+                        # Por defecto, sumamos el importe gravado al sueldo
+                        sueldo_gravado += imp_gravado
+
             Nomina.objects.update_or_create(
                 empresa=empresa_actual,
                 uuid=uuid_val,
                 defaults={
                     'sucursal_id': sucursal_id,
                     'empleado': empleado,
-                    'periodo': f"SAT {f_pago.strftime('%m/%Y')}" if f_pago else "SAT S/F",
+                    'periodo': f"SAT Bimestre {(f_pago.month + 1) // 2} {f_pago.year}" if f_pago else "SAT S/F",
                     'tipo_nomina': get_attr(nomina_node, 'TipoNomina', 'O'),
                     'folio': get_attr(root, 'Folio'),
                     'serie': get_attr(root, 'Serie'),
@@ -185,7 +225,13 @@ class SATService:
                     'nss': nss_val,
                     'nombre': nombre_receptor,
                     'rfc_contratista': rfc_emisor,
-                    'sueldo_gravado': Decimal(get_attr(root, 'Total', '0')),
+                    'sueldo_gravado': sueldo_gravado,
+                    'vacaciones_exento': vacaciones_exento,
+                    'vacaciones_dignas_exento': vacaciones_dignas_exento,
+                    'aguinaldo_exento': aguinaldo_exento,
+                    'vacaciones_gravado': vacaciones_gravado,
+                    'vacaciones_dignas_gravado': vacaciones_dignas_gravado,
+                    'aguinaldo_gravado': aguinaldo_gravado,
                 }
             )
             return True
