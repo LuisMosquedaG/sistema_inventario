@@ -164,3 +164,94 @@ class SISUBExportTest(TestCase):
         row_data = lines[1].split(',')
         self.assertEqual(row_data[15], '2500')
 
+    def test_exportar_sisub_sdi_cero_fallback(self):
+        from recursos_humanos.models import ImportacionSUA, TrabajadorSUA
+        
+        # Crear importación de SUA para Mayo 2026 (mes 5, Bimestre 3) con SDI > 0
+        sua_mayo = ImportacionSUA.objects.create(
+            empresa=self.empresa,
+            periodo="MAYO 2026",
+            tipo="mensual",
+            rfc_empresa="CON010101AAA"
+        )
+        TrabajadorSUA.objects.create(
+            importacion=sua_mayo,
+            nss="12345678901",
+            nombre="Pedro Perez",
+            rfc_curp="PEPE000000HDFRXX01",
+            sdi=Decimal('185.50')
+        )
+        
+        # Crear importación de SUA para Junio 2026 (mes 6, Bimestre 3) con SDI = 0
+        sua_junio = ImportacionSUA.objects.create(
+            empresa=self.empresa,
+            periodo="JUNIO 2026",
+            tipo="mensual",
+            rfc_empresa="CON010101AAA"
+        )
+        TrabajadorSUA.objects.create(
+            importacion=sua_junio,
+            nss="12345678901",
+            nombre="Pedro Perez",
+            rfc_curp="PEPE000000HDFRXX01",
+            sdi=Decimal('0.00')
+        )
+        
+        self.client.login(username="admin@prueba", password="password")
+        from django.urls import reverse
+        url = reverse('exportar_sisub_trabajadores', args=[self.contratista.id])
+        response = self.client.get(url, {'cuatrimestre': 2, 'anio': 2026, 'formato': 'csv'})
+        
+        self.assertEqual(response.status_code, 200)
+        
+        content = response.content.decode('utf-8-sig')
+        lines = [line.strip() for line in content.splitlines() if line.strip()]
+        
+        # La segunda línea (datos) debe tener el SDI de Mayo (185.50) en lugar del 0.00 de Junio
+        row_data = lines[1].split(',')
+        self.assertEqual(Decimal(row_data[18]), Decimal('185.50'))
+
+    def test_exportar_nominas_excel(self):
+        # Crear un recibo con percepciones para exportar
+        Nomina.objects.create(
+            empresa=self.empresa,
+            empleado=self.empleado,
+            periodo="SAT Bimestre 3 2026",
+            fecha_pago="2026-06-15",
+            rfc="PEPE000000XX1",
+            curp="PEPE000000HDFRXX01",
+            nss="12345678901",
+            nombre="Pedro Perez",
+            sueldo_gravado=Decimal('1200.00'),
+            vacaciones_gravado=Decimal('300.00'),
+            vacaciones_exento=Decimal('100.00'),
+            vacaciones_dignas_gravado=Decimal('400.00'),
+            vacaciones_dignas_exento=Decimal('200.00'),
+            aguinaldo_gravado=Decimal('500.00'),
+            aguinaldo_exento=Decimal('250.00')
+        )
+        self.client.login(username="admin@prueba", password="password")
+        from django.urls import reverse
+        url = reverse('exportar_nominas_excel')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        
+        # Leer el Excel generado en memoria
+        import io
+        import openpyxl
+        wb = openpyxl.load_workbook(io.BytesIO(response.content), data_only=True)
+        ws = wb.active
+        
+        # Verificar cabeceras
+        headers = [cell.value for cell in ws[1]]
+        self.assertIn("Sueldo (Gravado)", headers)
+        self.assertIn("Vacaciones (Gravado)", headers)
+        self.assertIn("Vacaciones (Exento)", headers)
+        self.assertIn("Vacaciones Dignas (Gravado)", headers)
+        self.assertIn("Vacaciones Dignas (Exento)", headers)
+        self.assertIn("Aguinaldo (Gravado)", headers)
+        self.assertIn("Aguinaldo (Exento)", headers)
+
+
+

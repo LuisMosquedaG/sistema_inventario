@@ -177,14 +177,32 @@ def exportar_nominas_excel(request):
     wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Nominas"
     from openpyxl.styles import Font, Alignment
     h_font = Font(bold=True)
-    headers = ["Folio", "Serie", "UUID", "Uso CFDI", "Tipo Nomina", "Periodo", "Fecha Emision", "Fecha Certificacion", "Fecha Pago", "Fecha Inicial", "Fecha Final", "Dias Pagados", "Colaborador", "RFC", "CURP", "NSS", "RFC Contratista", "SDI", "SBC", "Sucursal"]
+    headers = [
+        "Folio", "Serie", "UUID", "Uso CFDI", "Tipo Nomina", "Periodo", 
+        "Fecha Emision", "Fecha Certificacion", "Fecha Pago", "Fecha Inicial", "Fecha Final", 
+        "Dias Pagados", "Colaborador", "RFC", "CURP", "NSS", "RFC Contratista", "SDI", "SBC",
+        "Sueldo (Gravado)", "Vacaciones (Gravado)", "Vacaciones (Exento)", 
+        "Vacaciones Dignas (Gravado)", "Vacaciones Dignas (Exento)", 
+        "Aguinaldo (Gravado)", "Aguinaldo (Exento)", "Sucursal"
+    ]
     for i, h in enumerate(headers, 1):
         c = ws.cell(row=1, column=i, value=h); c.font = h_font; c.alignment = Alignment(horizontal="center")
     for r_idx, nom in enumerate(nominas, 2):
-        data = [nom.folio, nom.serie, nom.uuid, nom.uso_cfdi, "O" if nom.tipo_nomina=='O' else "E", nom.periodo, nom.fecha_emision, nom.fecha_certificacion, nom.fecha_pago, nom.fecha_inicial_pago, nom.fecha_final_pago, nom.dias_pagados, nom.nombre, nom.rfc, nom.curp, nom.nss, nom.rfc_contratista, nom.sdi, nom.sbc, nom.sucursal.nombre if nom.sucursal else "General"]
+        data = [
+            nom.folio, nom.serie, nom.uuid, nom.uso_cfdi, "O" if nom.tipo_nomina=='O' else "E", nom.periodo, 
+            nom.fecha_emision, nom.fecha_certificacion, nom.fecha_pago, nom.fecha_inicial_pago, nom.fecha_final_pago, 
+            nom.dias_pagados, nom.nombre, nom.rfc, nom.curp, nom.nss, nom.rfc_contratista, nom.sdi, nom.sbc,
+            nom.sueldo_gravado, nom.vacaciones_gravado, nom.vacaciones_exento, 
+            nom.vacaciones_dignas_gravado, nom.vacaciones_dignas_exento, 
+            nom.aguinaldo_gravado, nom.aguinaldo_exento,
+            nom.sucursal.nombre if nom.sucursal else "General"
+        ]
         for c_idx, val in enumerate(data, 1):
-            cl = ws.cell(row=r_idx, column=c_idx, value=val if not isinstance(val, (datetime,date)) else val)
-            if isinstance(val, (datetime,date)): cl.number_format = 'yyyy-mm-dd'
+            cl = ws.cell(row=r_idx, column=c_idx, value=val)
+            if isinstance(val, (datetime, date)):
+                cl.number_format = 'yyyy-mm-dd'
+            elif isinstance(val, Decimal):
+                cl.number_format = '#,##0.00'
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); response['Content-Disposition'] = 'attachment; filename="Listado_Nominas.xlsx"'; wb.save(response); return response
 
 @login_required(login_url='/login/')
@@ -203,20 +221,48 @@ def exportar_sisub_trabajadores(request, id):
             if name: emp_map[name] = c
     recibos = [r for r in Nomina.objects.filter(empresa=empresa_actual, fecha_pago__year=anio, fecha_pago__month__in=meses_filtro) if emp_map.get(re.sub(r'[^0-9]','',r.nss or '')) or emp_map.get(re.sub(r'[^A-Z0-9]','',(r.curp or '').upper())) or emp_map.get((r.nombre or '').strip().upper())]
     
+    rfc_clean_input = re.sub(r'[^A-Z0-9]', '', contratista.rfc.upper())
     sua_data = {}
+    ultimo_sdi_trabajador = {}
     nombres = ["","Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]
     for m in meses_filtro:
-        suas = ImportacionSUA.objects.filter(empresa=empresa_actual, periodo__icontains=nombres[m].upper()).filter(periodo__icontains=str(anio))
-        for sr in suas:
-            bim = (m+1)//2
-            for ts in sr.trabajadores.all():
-                tn = re.sub(r'[^0-9]','',ts.nss) if ts.nss else ""; tc = re.sub(r'[^A-Z0-9]','',(ts.rfc_curp or '').upper()); tm = (ts.nombre or "").strip().upper()
-                v = {'sdi': ts.sdi, 'inc': 0}
-                try: v['inc'] = int(float(ts.incapacidades or 0))
-                except: pass
-                if tn: sua_data[(tn, bim)] = v
-                if tc: sua_data[(tc, bim)] = v
-                if tm: sua_data[(tm, bim)] = v
+        imps = ImportacionSUA.objects.filter(
+            empresa=empresa_actual,
+            periodo__icontains=nombres[m].upper()
+        ).filter(
+            periodo__icontains=str(anio)
+        )
+        for imp in imps:
+            rfc_imp_clean = re.sub(r'[^A-Z0-9]', '', (imp.rfc_empresa or '').upper())
+            if rfc_clean_input == rfc_imp_clean or rfc_clean_input in rfc_imp_clean or rfc_imp_clean in rfc_clean_input:
+                bim = (m+1)//2
+                for ts in imp.trabajadores.all():
+                    tn = re.sub(r'[^0-9]','',ts.nss) if ts.nss else ""; tc = re.sub(r'[^A-Z0-9]','',(ts.rfc_curp or '').upper()); tm = (ts.nombre or "").strip().upper()
+                    
+                    sdi_val = ts.sdi
+                    last_known_sdi = None
+                    if tn and tn in ultimo_sdi_trabajador:
+                        last_known_sdi = ultimo_sdi_trabajador[tn]
+                    elif tc and tc in ultimo_sdi_trabajador:
+                        last_known_sdi = ultimo_sdi_trabajador[tc]
+                    elif tm and tm in ultimo_sdi_trabajador:
+                        last_known_sdi = ultimo_sdi_trabajador[tm]
+                    
+                    if (not sdi_val or sdi_val == 0) and last_known_sdi:
+                        sdi_val = last_known_sdi
+                    elif sdi_val and sdi_val > 0:
+                        if tn: ultimo_sdi_trabajador[tn] = sdi_val
+                        if tc: ultimo_sdi_trabajador[tc] = sdi_val
+                        if tm: ultimo_sdi_trabajador[tm] = sdi_val
+                    
+                    v = {'sdi': sdi_val, 'inc': 0}
+                    try: v['inc'] = int(float(ts.incapacidades or 0))
+                    except: pass
+                    if tn: sua_data[(tn, bim)] = v
+                    if tc: sua_data[(tc, bim)] = v
+                    if tm: sua_data[(tm, bim)] = v
+
+
 
     headers = ["cuatrimestre que declara", "anio que se declara", "bimestre", "Registro Federal de Contribuyente del sujeto obligado", "Numero de contrato", "Registro Patronal ante el IMSS", "Numero de Seguro Social del trabajador", "Calle (centro del trabajo)", "Numero exterior (centro del trabajo)", "Numero interior (centro de trabajo)", "Colonia (centro de trabajo)", "Codigo Postal (centro de trabajo)", "Municipio o Alcaldia (centro de trabajo)", "Entidad federativa (centro de trabajo)", "Monto Percepciones variables", "Monto Percepciones fijas", "Dias de Incapacidad", "Percepciones no integrables al SBA", "salario no excedente (VSM)"]
     
@@ -242,6 +288,28 @@ def exportar_sisub_trabajadores(request, id):
             ben = con.beneficiario if con else None
             s = sua_data.get((n, bim)) or sua_data.get((curp, bim)) or sua_data.get((name, bim)) or {'sdi': Decimal('0.00'), 'inc': 0}
             
+            sdi_val = s['sdi']
+            if not sdi_val or sdi_val == 0:
+                # 1. Fallback to last known non-zero SDI in this cuatrimestre
+                last_known = None
+                if n and n in ultimo_sdi_trabajador:
+                    last_known = ultimo_sdi_trabajador[n]
+                elif curp and curp in ultimo_sdi_trabajador:
+                    last_known = ultimo_sdi_trabajador[curp]
+                elif name and name in ultimo_sdi_trabajador:
+                    last_known = ultimo_sdi_trabajador[name]
+                
+                if last_known and last_known > 0:
+                    sdi_val = last_known
+                else:
+                    # 2. Fallback to employee profile SDI
+                    empleado = None
+                    if n: empleado = Empleado.objects.filter(empresa=empresa_actual, nss=n).first()
+                    if not empleado and curp: empleado = Empleado.objects.filter(empresa=empresa_actual, curp=curp).first()
+                    
+                    if empleado and empleado.sdi and empleado.sdi > 0:
+                        sdi_val = empleado.sdi
+            
             grouped_data[key] = {
                 'cuat': cuat,
                 'anio': anio,
@@ -259,7 +327,7 @@ def exportar_sisub_trabajadores(request, id):
                 'entidad': ben.entidad_federativa if ben else '',
                 'percepciones': Decimal('0.00'),
                 'incapacidades': s['inc'],
-                'sdi': s['sdi']
+                'sdi': sdi_val
             }
             
         grouped_data[key]['percepciones'] += per
