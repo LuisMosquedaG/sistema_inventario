@@ -555,9 +555,15 @@
                         <option value="3">Tercero (Sep-Dic)</option>
                     </select>
                 </div>
-                <div class="mb-2">
+                <div class="mb-3">
                     <label class="form-label small fw-bold">Año</label>
                     <input type="number" id="carga_t_anio" class="form-control form-control-sm" value="{% now 'Y' %}">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small fw-bold">Beneficiario</label>
+                    <select id="carga_t_beneficiario" class="form-select form-select-sm">
+                        <option value="todos">Todos</option>
+                    </select>
                 </div>
             </div>
             <div class="modal-footer border-top-0 pt-0 d-flex gap-2">
@@ -576,6 +582,37 @@
     function abrirModalCargaTrabajadores(id) {
         const input = document.getElementById('carga_t_contratista_id');
         if (input) input.value = id;
+
+        const selectBen = document.getElementById('carga_t_beneficiario');
+        if (selectBen) {
+            selectBen.innerHTML = '<option value="todos">Cargando...</option>';
+            selectBen.disabled = true;
+        }
+
+        // Fetch de los beneficiarios enlazados al contratista
+        fetch(`/recursos-humanos/contratistas/obtener-beneficiarios/${id}/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && selectBen) {
+                    let html = '<option value="todos">Todos</option>';
+                    data.beneficiarios.forEach(b => {
+                        html += `<option value="${b.id}">${b.rfc} - ${b.nombre_razon_social}</option>`;
+                    });
+                    selectBen.innerHTML = html;
+                    selectBen.disabled = false;
+                } else if (selectBen) {
+                    selectBen.innerHTML = '<option value="todos">Todos (Error)</option>';
+                    selectBen.disabled = false;
+                }
+            })
+            .catch(err => {
+                console.error("Error al cargar beneficiarios:", err);
+                if (selectBen) {
+                    selectBen.innerHTML = '<option value="todos">Todos (Error de red)</option>';
+                    selectBen.disabled = false;
+                }
+            });
+
         const modalEl = document.getElementById('modalCargaTrabajadores');
         if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
     }
@@ -584,6 +621,7 @@
         const id = document.getElementById('carga_t_contratista_id').value;
         const cuat = document.getElementById('carga_t_cuatrimestre').value;
         const anio = document.getElementById('carga_t_anio').value;
+        const beneficiario = document.getElementById('carga_t_beneficiario').value;
         
         if(!id) { alert("ID de contratista no encontrado"); return; }
         if(!anio) { alert("Indique el año"); return; }
@@ -591,7 +629,7 @@
         const modalEl = document.getElementById('modalCargaTrabajadores');
         bootstrap.Modal.getOrCreateInstance(modalEl).hide();
         
-        window.location.href = `/recursos-humanos/contratistas/exportar-carga-trabajadores/${id}/?cuatrimestre=${cuat}&anio=${anio}&formato=${formato}`;
+        window.location.href = `/recursos-humanos/contratistas/exportar-carga-trabajadores/${id}/?cuatrimestre=${cuat}&anio=${anio}&beneficiario_id=${beneficiario}&formato=${formato}`;
     }
 
     function abrirModalSISUBContratos(id) {

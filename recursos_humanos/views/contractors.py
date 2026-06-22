@@ -403,6 +403,7 @@ def exportar_carga_trabajadores(request, id):
     cuat = int(request.GET.get('cuatrimestre', 1))
     anio = request.GET.get('anio', datetime.now().year)
     formato = request.GET.get('formato', 'excel')
+    beneficiario_id = request.GET.get('beneficiario_id', 'todos')
 
     cuat_meses_map = {
         1: [1, 2, 3, 4],
@@ -452,6 +453,10 @@ def exportar_carga_trabajadores(request, id):
                     empleado = Empleado.objects.filter(empresa=empresa_actual, curp=curp_ts).first()
             
             if empleado and empleado.beneficiario:
+                # Filtrar por beneficiario si se seleccionó uno específico
+                if beneficiario_id and beneficiario_id != 'todos' and str(empleado.beneficiario_id) != str(beneficiario_id):
+                    continue
+
                 # Extraer CURP: priorizar Empleado, luego ts.rfc_curp
                 curp_final = empleado.curp
                 if not curp_final and ts.rfc_curp:
@@ -475,10 +480,19 @@ def exportar_carga_trabajadores(request, id):
                         'sbc': sbc_val
                     }
 
+    # Obtener sufijo para nombre de archivo si se filtra por beneficiario
+    filename_suffix = ""
+    if beneficiario_id and beneficiario_id != 'todos':
+        try:
+            ben = Beneficiario.objects.get(id=beneficiario_id, empresa=empresa_actual)
+            filename_suffix = f"_{re.sub(r'[^A-Z0-9]', '', ben.rfc.upper())}"
+        except Beneficiario.DoesNotExist:
+            pass
+
     # Generar Reporte
     if formato == 'csv':
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="Carga_Trabajadores_{contratista.rfc}_{anio}_C{cuat}.csv"'
+        response['Content-Disposition'] = f'attachment; filename="Carga_Trabajadores_{contratista.rfc}{filename_suffix}_{anio}_C{cuat}.csv"'
         response.write(u'\ufeff'.encode('utf-8'))
         
         writer = csv.writer(response)
@@ -514,7 +528,31 @@ def exportar_carga_trabajadores(request, id):
             ws.column_dimensions[get_column_letter(i)].width = 30
             
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = f'attachment; filename="Carga_Trabajadores_{contratista.rfc}_{anio}_C{cuat}.xlsx"'
+        response['Content-Disposition'] = f'attachment; filename="Carga_Trabajadores_{contratista.rfc}{filename_suffix}_{anio}_C{cuat}.xlsx"'
         wb.save(response)
         return response
+
+
+@login_required(login_url='/login/')
+@require_hr_permission('contratistas', 'ver', json_response=True)
+def obtener_beneficiarios_contratista_json(request, id):
+    empresa_actual = get_empresa_actual(request)
+    contratista = get_object_or_404(Contratista, id=id, empresa=empresa_actual)
+    
+    # Obtener beneficiarios vinculados por contratos a este contratista
+    beneficiarios = Beneficiario.objects.filter(
+        contrato__contratista=contratista,
+        empresa=empresa_actual
+    ).distinct().order_by('nombre_razon_social')
+    
+    data = [
+        {
+            'id': b.id,
+            'nombre_razon_social': b.nombre_razon_social,
+            'rfc': b.rfc
+        }
+        for b in beneficiarios
+    ]
+    return JsonResponse({'success': True, 'beneficiarios': data})
+
 
