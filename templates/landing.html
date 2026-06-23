@@ -11,7 +11,7 @@
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <!-- Google Fonts: Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
     {% load static %}
     
     <style>
@@ -60,34 +60,71 @@
 
         /* Hero Section - Rediseño Árboles de Proceso */
         .hero {
-            padding: 80px 0;
-            background-color: #f8fafc;
-            background-image: radial-gradient(#e2e8f0 1.5px, transparent 1.5px);
-            background-size: 30px 30px;
+            position: relative;
+            overflow: hidden;
+            background-color: #f8fafc; /* Restored to light gray background */
             min-height: 90vh;
             display: flex;
             align-items: center;
-            position: relative;
+            justify-content: center;
+            padding: 80px 0;
         }
-        .hero::before {
-            content: '';
+        #particles-container {
             position: absolute;
-            top: 0; left: 0; right: 0; height: 100%;
-            background: linear-gradient(180deg, rgba(248,250,252,0) 0%, #f8fafc 100%);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            opacity: 0;
+            transition: opacity 1.5s ease-in-out;
             pointer-events: none;
         }
-        .hero-title {
-            font-size: 3.25rem;
-            font-weight: 800;
-            color: var(--text-main);
-            letter-spacing: -0.02em;
-            margin-bottom: 1rem;
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            max-width: 1200px;
+            width: 100%;
         }
-        .hero-subtitle {
-            font-size: 1.15rem;
-            color: var(--text-muted);
-            max-width: 700px;
-            margin: 0 auto 4rem;
+        #hero-logo-container {
+            opacity: 0;
+            transform: scale(0.8);
+            transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        #hero-cta {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.8s ease, transform 0.8s ease;
+        }
+        .blinking-cursor {
+            color: var(--brand-primary);
+            font-weight: 300;
+            animation: blink-cursor 0.8s step-end infinite;
+        }
+        @keyframes blink-cursor {
+            from, to { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        .hero-title {
+            min-height: 160px; /* Evita que el contenido salte durante la escritura */
+            font-size: clamp(2.2rem, 3.3vw, 3.6rem);
+            font-weight: 400;
+            color: var(--text-main); /* Restored to dark text color */
+            letter-spacing: -0.02em;
+            margin-bottom: 2rem;
+            line-height: 1.3;
+            white-space: pre-line;
+        }
+        @media (max-width: 768px) {
+            .hero-title {
+                font-size: clamp(1.4rem, 5vw, 2.2rem);
+                min-height: 200px;
+            }
         }
 
         /* Estilos de los Árboles */
@@ -338,6 +375,8 @@
         footer .text-muted { color: rgba(255,255,255,0.6) !important; }
         footer a { color: var(--brand-primary); }
         </style>
+    <!-- Three.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 </head>
 <body>
 
@@ -355,73 +394,30 @@
     </nav>
 
     <!-- HERO -->
-    <section class="hero">
-        <div class="container">
-            <div class="text-center mb-5">
-                <h1 class="hero-title">El sistema que se <span>adapta</span> a tu proceso</h1>
-                <p class="hero-subtitle mx-auto">Desde la gestión comercial más ágil hasta el cumplimiento patronal más riguroso. CrossoverSuite es el núcleo de tu operación digital.</p>
-            </div>
+    <section class="hero" id="hero-section">
+        <!-- Three.js Canvas Container -->
+        <div id="particles-container"></div>
 
-            <div class="row g-4 justify-content-center">
-                <!-- Árbol 1: Proceso Comercial -->
-                <div class="col-lg-5">
-                    <div class="process-tree">
-                        <div class="tree-line"></div>
-                        <div class="tree-header" style="color: var(--text-main);"><i class="bi bi-cart text-success"></i> Flujo Comercial</div>
-                        
-                        <div class="tree-node">
-                            <div class="node-icon bg-crm"><i class="bi bi-person-plus-fill"></i></div>
-                            <div class="node-text">Prospectos y CRM</div>
-                        </div>
-                        <div class="tree-node">
-                            <div class="node-icon bg-quote"><i class="bi bi-file-earmark-ruled-fill"></i></div>
-                            <div class="node-text">Cotizaciones Dinámicas</div>
-                        </div>
-                        <div class="tree-node">
-                            <div class="node-icon bg-order"><i class="bi bi-cpu-fill"></i></div>
-                            <div class="node-text">Pedidos e Inteligencia de Stock</div>
-                        </div>
-                        <div class="tree-node">
-                            <div class="node-icon bg-mrp"><i class="bi bi-gear-wide-connected"></i></div>
-                            <div class="node-text">MRP: Compras y Producción</div>
-                        </div>
-                        <div class="tree-node">
-                            <div class="node-icon bg-out"><i class="bi bi-truck-flatbed"></i></div>
-                            <div class="node-text">Surtido y Logística Final</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Árbol 2: Obligaciones Patronales -->
-                <div class="col-lg-5">
-                    <div class="process-tree">
-                        <div class="tree-line"></div>
-                        <div class="tree-header" style="color: var(--text-main);"><i class="bi bi-shield text-primary"></i> Flujo Patronal</div>
-                        
-                        <div class="tree-node">
-                            <div class="node-icon bg-pat-1"><i class="bi bi-building-fill"></i></div>
-                            <div class="node-text">Gestión de Contratistas</div>
-                        </div>
-                        <div class="tree-node">
-                            <div class="node-icon bg-pat-2"><i class="bi bi-people-fill"></i></div>
-                            <div class="node-text">Control de Empleados y Altas</div>
-                        </div>
-                        <div class="tree-node">
-                            <div class="node-icon bg-pat-3"><i class="bi bi-file-earmark-pdf-fill"></i></div>
-                            <div class="node-text">Integración SUA (IMSS)</div>
-                        </div>
-                        <div class="tree-node">
-                            <div class="node-icon bg-pat-4"><i class="bi bi-cloud-check-fill"></i></div>
-                            <div class="node-text">Conciliación SAT (Nóminas)</div>
-                        </div>
-                        <div class="tree-node">
-                            <div class="node-icon bg-pat-5"><i class="bi bi-file-bar-graph-fill"></i></div>
-                            <div class="node-text">Cumplimiento ICSOE / SISUB</div>
-                        </div>
-                    </div>
+        <div class="container hero-content">
+            <!-- LOGO CONTAINER -->
+            <div id="hero-logo-container" class="mb-1">
+                <div class="d-flex align-items-center justify-content-center flex-column flex-sm-row">
+                    <img src="{% static 'img/Logo.png' %}" alt="CrossoverSuite Logo" height="90" class="mb-3 mb-sm-0 me-sm-3">
+                    <span class="fw-bold fs-1" style="letter-spacing: -2px; color: var(--text-main);">Crossover<span style="color:var(--brand-primary)">Suite</span></span>
                 </div>
             </div>
 
+            <!-- TYPING TEXT CONTAINER -->
+            <h1 class="hero-title mb-5">
+                <span id="typing-text"></span><span id="typing-cursor">|</span>
+            </h1>
+            
+            <!-- HERO BUTTONS (FADE IN LATER) -->
+            <div id="hero-cta">
+                <button type="button" class="btn btn-nav-login btn-lg px-5 py-3 fw-bold shadow-lg" data-bs-toggle="modal" data-bs-target="#contactModal">
+                    Solicitar Asesoría
+                </button>
+            </div>
         </div>
     </section>
 
@@ -816,6 +812,313 @@
                 btn.innerHTML = originalText;
             });
         });
+
+        // ==========================================
+        // HERO TYPING & THREE.JS PARTICLES ANIMATION
+        // ==========================================
+        (function() {
+            const typingText = "Deja de forzar tu negocio en un sistema.\nElige uno que lo entienda.";
+            const typingTarget = document.getElementById('typing-text');
+            const cursorTarget = document.getElementById('typing-cursor');
+            const particlesContainer = document.getElementById('particles-container');
+            const logoContainer = document.getElementById('hero-logo-container');
+            const ctaContainer = document.getElementById('hero-cta');
+
+            let charIndex = 0;
+
+            function typeWriter() {
+                if (charIndex < typingText.length) {
+                    if (typingTarget) {
+                        typingTarget.textContent += typingText.charAt(charIndex);
+                    }
+                    charIndex++;
+                    // Velocidad natural de escritura entre 50ms y 80ms
+                    const delay = Math.floor(Math.random() * (80 - 50 + 1)) + 50;
+                    setTimeout(typeWriter, delay);
+                } else {
+                    // Escritura terminada
+                    if (cursorTarget) {
+                        cursorTarget.style.display = 'none';
+                    }
+                    
+                    // 1. Inicializar y mostrar las partículas
+                    initParticles();
+                    if (particlesContainer) {
+                        particlesContainer.style.opacity = '1';
+                    }
+                    
+                    // 2. Mostrar logo con animación fade-in y scale-up (0.8 a 1.0)
+                    if (logoContainer) {
+                        logoContainer.style.opacity = '1';
+                        logoContainer.style.transform = 'scale(1)';
+                    }
+                    
+                    // 3. Mostrar botón de CTA
+                    if (ctaContainer) {
+                        ctaContainer.style.opacity = '1';
+                        ctaContainer.style.transform = 'translateY(0)';
+                    }
+                }
+            }
+
+            // Variables de Three.js para la ola de pastillas en cuadrícula ordenada (Estilo reactivo premium)
+            let scene, camera, renderer, instancedMesh;
+            const cols = 48;
+            const rows = 36;
+            const numParticles = cols * rows;
+            const particlesArray = [];
+            
+            const palette = ['#0d6efd', '#6610f2', '#198754', '#fd7e14', '#00b8b9', '#dc3545'];
+            const mouse = new THREE.Vector2(-9999, -9999);
+            const targetMouse = new THREE.Vector3(0, 0, 0); // Apunta al centro por defecto
+            const raycaster = new THREE.Raycaster();
+            const clock = new THREE.Clock();
+
+            // Textura blanca de pastilla de alta definición (256x256)
+            function createPillTexture() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 256;
+                canvas.height = 256;
+                const ctx = canvas.getContext('2d');
+                
+                const w = 110;
+                const h = 160;
+                const r = 55; // Radio para una cápsula más corta y gordita
+                const x = 128 - w / 2;
+                const y = 128 - h / 2;
+                
+                // Resplandor difuminado suave de alta resolución
+                ctx.shadowColor = 'rgba(255, 255, 255, 1.0)';
+                ctx.shadowBlur = 24;
+                
+                ctx.fillStyle = 'rgba(255, 255, 255, 1.0)';
+                ctx.beginPath();
+                ctx.arc(128, y + r, r, Math.PI, 0);
+                ctx.lineTo(128 + r, y + h - r);
+                ctx.arc(128, y + h - r, r, 0, Math.PI);
+                ctx.closePath();
+                ctx.fill();
+                
+                const texture = new THREE.CanvasTexture(canvas);
+                // Configuración de filtrado de alta calidad
+                texture.generateMipmaps = true;
+                texture.minFilter = THREE.LinearMipmapLinearFilter;
+                texture.magFilter = THREE.LinearFilter;
+                texture.anisotropy = 8; // Reduce el aliasing en ángulos oblicuos
+                
+                return texture;
+            }
+
+            function initParticles() {
+                const container = document.getElementById('particles-container');
+                if (!container || !window.THREE) return;
+                
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+                
+                scene = new THREE.Scene();
+                
+                camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
+                camera.position.set(0, 0, 45);
+                camera.lookAt(0, 0, 0);
+                
+                renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setSize(width, height);
+                renderer.setPixelRatio(window.devicePixelRatio); // Renderiza a resolución nativa completa sin comprimir
+                container.appendChild(renderer.domElement);
+                
+                // Geometría para pastillas (Relación base más ancha)
+                const geometry = new THREE.PlaneGeometry(0.7, 1.0);
+                const texture = createPillTexture();
+                const material = new THREE.MeshBasicMaterial({
+                    map: texture,
+                    transparent: true,
+                    depthWrite: false
+                });
+                
+                instancedMesh = new THREE.InstancedMesh(geometry, material, numParticles);
+                scene.add(instancedMesh);
+                
+                const aspect = width / height;
+                const boundaryX = 46 * aspect;
+                const boundaryY = 34;
+                
+                // Distribución en cuadrícula ordenada y simétrica
+                const spacingX = (boundaryX * 2) / (cols - 1);
+                const spacingY = (boundaryY * 2) / (rows - 1);
+
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        const x = -boundaryX + c * spacingX;
+                        const y = -boundaryY + r * spacingY;
+                        const z = 0;
+                        
+                        const p = {
+                            basePos: new THREE.Vector3(x, y, z),
+                            pos: new THREE.Vector3(x, y, z),
+                            phase: (r * 0.2 + c * 0.3) % (Math.PI * 2),
+                            speed: 1.5 + ((r * 3 + c * 5) % 7) * 0.1
+                        };
+                        
+                        particlesArray.push(p);
+                        instancedMesh.setColorAt(particlesArray.length - 1, new THREE.Color(palette[0]));
+                    }
+                }
+                
+                const heroSection = document.getElementById('hero-section');
+                if (heroSection) {
+                    heroSection.addEventListener('pointermove', onPointerMove);
+                    heroSection.addEventListener('pointerleave', onPointerLeave);
+                }
+                
+                window.addEventListener('resize', onWindowResize);
+                
+                animate();
+            }
+
+            function onPointerMove(event) {
+                if (!renderer) return;
+                const rect = renderer.domElement.getBoundingClientRect();
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            }
+
+            function onPointerLeave() {
+                mouse.x = -9999;
+                mouse.y = -9999;
+            }
+
+            function onWindowResize() {
+                const container = document.getElementById('particles-container');
+                if (!container || !camera || !renderer) return;
+                
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+                
+                camera.aspect = width / height;
+                camera.updateProjectionMatrix();
+                
+                renderer.setSize(width, height);
+            }
+
+            function animate() {
+                requestAnimationFrame(animate);
+                
+                if (!instancedMesh || !clock) return;
+                
+                const time = clock.getElapsedTime();
+                const dummy = new THREE.Object3D();
+                const dir = new THREE.Vector3();
+                const q = new THREE.Quaternion();
+                
+                // Intersectar rayo del mouse con plano z = 0
+                if (mouse.x > -1000 && raycaster) {
+                    raycaster.setFromCamera(mouse, camera);
+                    const ray = raycaster.ray;
+                    if (Math.abs(ray.direction.z) > 0.0001) {
+                        const t = -ray.origin.z / ray.direction.z;
+                        if (t >= 0) {
+                            targetMouse.copy(ray.origin).addScaledVector(ray.direction, t);
+                        }
+                    }
+                } else {
+                    // Por defecto apunta al centro (0, 0, 0)
+                    targetMouse.set(0, 0, 0);
+                }
+                
+                const bgColor = new THREE.Color('#f8fafc');
+                
+                // 1. Calcular color base uniforme que cambia con el tiempo (Estilo respiración)
+                const colorPeriod = 10.0; // 10 segundos por ciclo completo (más rápido)
+                const progress = (time / colorPeriod) % 1.0;
+                const colorVal = progress * palette.length;
+                const idx1 = Math.floor(colorVal);
+                const idx2 = (idx1 + 1) % palette.length;
+                const factor = colorVal - idx1;
+                
+                const color1 = new THREE.Color(palette[idx1]);
+                const color2 = new THREE.Color(palette[idx2]);
+                const activeBaseColor = color1.clone().lerp(color2, factor);
+                
+                for (let i = 0; i < numParticles; i++) {
+                    const p = particlesArray[i];
+                    
+                    p.pos.copy(p.basePos);
+                    
+                    // Vector hacia el puntero/centro
+                    dir.copy(targetMouse).sub(p.pos);
+                    const dist = dir.length();
+                    dir.normalize();
+                    
+                    // Rotar pastilla para que apunte hacia el target
+                    q.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+                    
+                    // Configuración de la onda de altura (Z positivo hacia la cámara)
+                    let zOffset = 0;
+                    const maxRadius = 38;
+                    const minRadius = 4;
+                    
+                    if (dist < maxRadius) {
+                        zOffset = (1.0 - (dist / maxRadius)) * 6.5;
+                    }
+                    
+                    // Leve ondulación ambiental continua
+                    const ambientWave = Math.sin(time * 1.8 + p.basePos.x * 0.12 + p.basePos.y * 0.12) * 1.2;
+                    p.pos.z = zOffset + ambientWave;
+                    
+                    // Lógica del tamaño tipo "ola circular" (envelope de campana de seno)
+                    let scale = 0;
+                    if (dist >= minRadius && dist <= maxRadius) {
+                        const t = (dist - minRadius) / (maxRadius - minRadius);
+                        scale = Math.sin(t * Math.PI); // Campana perfecta (0 en min, 1 en medio, 0 en max)
+                    }
+                    
+                    // Efecto de respiración: los óvalos visibles oscilan sutilmente
+                    const breathing = 1.0 + 0.16 * Math.sin(time * p.speed + p.phase);
+                    const finalScale = scale * breathing;
+                    
+                    dummy.position.copy(p.pos);
+                    dummy.quaternion.copy(q);
+                    
+                    // Forma tipo pastilla corta y gordita (reducida un 30% en tamaño absoluto)
+                    dummy.scale.set(
+                        finalScale * 1.25 * 0.7, // Ancho (más gordita)
+                        finalScale * 1.0 * 0.7,  // Largo (más corta)
+                        1.0
+                    );
+                    dummy.updateMatrix();
+                    instancedMesh.setMatrixAt(i, dummy.matrix);
+                    
+                    // Lerp del color hacia el fondo (#f8fafc) para transición de desvanecimiento
+                    const finalColor = activeBaseColor.clone().lerp(bgColor, 1.0 - scale);
+                    
+                    // Modulación de intensidad/brillo en sincronía con la respiración local de tamaño
+                    if (scale > 0) {
+                        const intensity = 0.84 + 0.16 * Math.sin(time * p.speed + p.phase);
+                        finalColor.multiplyScalar(intensity);
+                    }
+                    instancedMesh.setColorAt(i, finalColor);
+                }
+                
+                instancedMesh.instanceMatrix.needsUpdate = true;
+                if (instancedMesh.instanceColor) {
+                    instancedMesh.instanceColor.needsUpdate = true;
+                }
+                
+                renderer.render(scene, camera);
+            }
+
+            // Iniciar efecto al cargar la página
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => {
+                    if (cursorTarget) cursorTarget.classList.add('blinking-cursor');
+                    setTimeout(typeWriter, 600);
+                });
+            } else {
+                if (cursorTarget) cursorTarget.classList.add('blinking-cursor');
+                setTimeout(typeWriter, 600);
+            }
+        })();
     </script>
 </body>
 </html>
