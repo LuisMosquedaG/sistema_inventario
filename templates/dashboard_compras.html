@@ -88,6 +88,8 @@
             margin-bottom: 15px;
             display: block;
         }
+        .aplica-iva-switch-custom:checked { background-color: #00b8b9 !important; border-color: #00b8b9 !important; }
+        .aplica-iva-switch-custom:focus { border-color: #00b8b9 !important; box-shadow: 0 0 0 0.25rem rgba(0, 184, 185, 0.25) !important; }
     </style>
 
     <div class="container-fluid py-2 px-4">
@@ -616,7 +618,13 @@
 
                         <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
                             <div class="card-body p-3">
-                                <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem;">Agregar Artículo</h6>
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.75rem;">Agregar Artículo</h6>
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input aplica-iva-switch-custom" type="checkbox" role="switch" name="aplica_iva" id="aplica_iva_switch" checked onchange="calcularGranTotalLista()">
+                                        <label class="form-check-label small fw-bold text-secondary ms-1" for="aplica_iva_switch">Aplica IVA</label>
+                                    </div>
+                                </div>
                                 <div class="row g-2 align-items-end">
                                     <div class="col-md-4">
                                         <label class="form-label small text-muted">Producto</label>
@@ -1456,6 +1464,15 @@
             document.getElementById('granTotalModal').innerText = '$0.00';
             document.getElementById('mensajeVacio').style.display = 'block';
 
+            const aplicaIvaSwitch = document.getElementById('aplica_iva_switch');
+            if (aplicaIvaSwitch) {
+                aplicaIvaSwitch.checked = true;
+            }
+            const ocSubtotal = document.getElementById('ocSubtotal');
+            if (ocSubtotal) ocSubtotal.innerText = '$0.00';
+            const ocIvaTotal = document.getElementById('ocIvaTotal');
+            if (ocIvaTotal) ocIvaTotal.innerText = '$0.00';
+
             // Reset Custom Select
             const pInput = document.getElementById('selectProductoAgregar');
             if (pInput) pInput.value = '';
@@ -1693,9 +1710,32 @@
             let subtotalAcum = 0;
             let ivaAcum = 0;
 
+            const aplicaIvaSwitch = document.getElementById('aplica_iva_switch');
+            const aplicaIva = aplicaIvaSwitch ? aplicaIvaSwitch.checked : true;
+
             document.querySelectorAll('#tablaCuerpo tr').forEach(fila => {
-                subtotalAcum += parseFloat(fila.cells[3].innerText.replace('$', '').replace(',', '')) || 0;
-                ivaAcum += parseFloat(fila.cells[4].innerText.replace('$', '').replace(',', '')) || 0;
+                const sub = parseFloat(fila.cells[3].innerText.replace('$', '').replace(',', '')) || 0;
+                
+                const ivaInput = fila.cells[4].querySelector('input[name="iva_porcentaje[]"]');
+                const ivaPorc = ivaInput ? parseFloat(ivaInput.value) : 0;
+                
+                const iva = aplicaIva ? (sub * (ivaPorc / 100)) : 0;
+                const tot = sub + iva;
+
+                // Actualizar visualmente la celda de IVA (span)
+                const ivaSpan = fila.cells[4].querySelector('span');
+                if (ivaSpan) {
+                    ivaSpan.innerText = '$' + iva.toFixed(2);
+                }
+
+                // Actualizar visualmente la celda de Total (span)
+                const totSpan = fila.cells[5].querySelector('span');
+                if (totSpan) {
+                    totSpan.innerText = '$' + tot.toFixed(2);
+                }
+
+                subtotalAcum += sub;
+                ivaAcum += iva;
             });
 
             const descuento = parseFloat(document.getElementById('inputDescuentoOC').value) || 0;
@@ -1762,6 +1802,11 @@
                 form.querySelector('[name="descuento"]').value = data.descuento || '0.00';
                 form.querySelector('[name="fecha"]').value = data.fecha;
                 form.querySelector('[name="notas"]').value = data.notas || '';
+
+                const aplicaIvaSwitch = document.getElementById('aplica_iva_switch');
+                if (aplicaIvaSwitch) {
+                    aplicaIvaSwitch.checked = (data.aplica_iva !== false);
+                }
                 
                 const tbody = document.getElementById('tablaCuerpo');
                 tbody.innerHTML = '';

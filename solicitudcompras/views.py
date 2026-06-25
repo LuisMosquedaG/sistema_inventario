@@ -380,7 +380,8 @@ def crear_solicitud_desde_pedido(request, detalle_id):
             solicitante=request.user, 
             empresa=empresa_actual, 
             sucursal=pedido.sucursal, # Hereda la sucursal del pedido
-            estado='borrador'
+            estado='borrador',
+            aplica_iva=pedido.aplica_iva
         )
 
     # --- INTELIGENCIA: ¿ES PRODUCCIÓN? ---
@@ -602,6 +603,7 @@ def actualizar_solicitud(request, solicitud_id):
             if solicitud.estado != 'borrador':
                 return JsonResponse({'success': False, 'error': 'Solo se pueden editar solicitudes en Borrador.'})
 
+            solicitud.aplica_iva = request.POST.get('aplica_iva') == 'on'
             solicitud.notas = request.POST.get('notas', '')
             solicitud.save()
 
@@ -660,13 +662,15 @@ def crear_solicitud_manual(request):
                 except Sucursal.DoesNotExist:
                     pass
 
+            aplica_iva = request.POST.get('aplica_iva') == 'on'
             notas = request.POST.get('notas', '')
             solicitud = SolicitudCompra.objects.create(
                 solicitante=request.user,
                 empresa=empresa_actual,
                 sucursal=sucursal_obj,
                 estado='borrador',
-                notas=notas
+                notas=notas,
+                aplica_iva=aplica_iva
             )
 
             productos_ids = request.POST.getlist('producto_id[]')

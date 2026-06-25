@@ -35,6 +35,8 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
         except Sucursal.DoesNotExist:
             pass
 
+    aplica_iva = data_post.get('aplica_iva') == 'on'
+
     # 2. Crear la Cabecera (OrdenCompra)
     orden = OrdenCompra.objects.create(
         proveedor_id=proveedor,
@@ -48,7 +50,8 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
         estado='borrador',
         usuario=usuario,
         empresa=empresa_actual,
-        sucursal_empresa=sucursal_empresa_obj
+        sucursal_empresa=sucursal_empresa_obj,
+        aplica_iva=aplica_iva
     )
 
     # 3. Procesar la lista de ítems

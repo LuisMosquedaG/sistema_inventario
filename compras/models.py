@@ -26,6 +26,7 @@ class OrdenCompra(models.Model):
     moneda = models.ForeignKey('preferencias.Moneda', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Moneda")
     tipo_cambio = models.DecimalField(max_digits=10, decimal_places=4, default=1.0000, verbose_name="Tipo de Cambio")
     descuento = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Descuento")
+    aplica_iva = models.BooleanField(default=True, verbose_name="Aplica IVA")
 
     notas = models.TextField(blank=True, null=True)
     usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Creado por")
@@ -151,6 +152,8 @@ class DetalleCompra(models.Model):
 
     @property
     def iva_monto(self):
+        if not self.orden_compra.aplica_iva:
+            return Decimal('0')
         porc = self.producto.iva or Decimal('0')
         return self.subtotal * (porc / 100)
 

@@ -24,6 +24,7 @@ class SolicitudCompra(models.Model):
     fecha_envio = models.DateTimeField(null=True, blank=True, verbose_name="Enviada el")
     
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='borrador')
+    aplica_iva = models.BooleanField(default=True, verbose_name="Aplica IVA")
     notas = models.TextField(blank=True, verbose_name="Notas / Urgencia")
 
     def __str__(self):
@@ -108,6 +109,8 @@ class DetalleSolicitudCompra(models.Model):
 
     @property
     def iva_monto(self):
+        if not self.solicitud.aplica_iva:
+            return Decimal('0')
         porc = self.producto.iva or Decimal('0')
         return self.subtotal * (porc / 100)
 

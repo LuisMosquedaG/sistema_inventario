@@ -120,6 +120,11 @@ function prepararNuevaSolicitud() {
     document.getElementById('solicitudIvaTotal').innerText = '$0.00';
     document.getElementById('granTotalSolicitud').innerText = '$0.00';
     
+    const aplicaIvaSwitch = document.getElementById('aplica_iva_switch');
+    if (aplicaIvaSwitch) {
+        aplicaIvaSwitch.checked = true;
+    }
+    
     // Resetear botón de agregar
     const btn = document.getElementById('btnAddItem');
     if (btn) {
@@ -329,10 +334,26 @@ function calcularTotalSolicitud() {
     let ivaTotal = 0;
     let granTotal = 0;
 
+    const aplicaIvaSwitch = document.getElementById('aplica_iva_switch');
+    const aplicaIva = aplicaIvaSwitch ? aplicaIvaSwitch.checked : true;
+
     document.querySelectorAll('#cuerpoTablaSolicitud tr').forEach(fila => {
         const sub = parseFloat(fila.cells[7].innerText.replace('$', '').replace(',', '')) || 0;
-        const iva = parseFloat(fila.cells[8].innerText.replace('$', '').replace(',', '')) || 0;
-        const tot = parseFloat(fila.cells[9].innerText.replace('$', '').replace(',', '')) || 0;
+        
+        // Obtener el IVA porcentaje original del input hidden en la celda 8
+        const ivaInput = fila.cells[8].querySelector('input[name="iva_porcentaje[]"]');
+        const ivaPorc = ivaInput ? parseFloat(ivaInput.value) : 0;
+        
+        const iva = aplicaIva ? (sub * (ivaPorc / 100)) : 0;
+        const tot = sub + iva;
+        
+        // Actualizar visualmente la celda de IVA
+        const ivaSpan = fila.cells[8].querySelector('span');
+        if (ivaSpan) ivaSpan.innerText = '$' + iva.toFixed(2);
+        
+        // Actualizar visualmente la celda de Importe
+        const totSpan = fila.cells[9].querySelector('span');
+        if (totSpan) totSpan.innerText = '$' + tot.toFixed(2);
         
         subtotalTotal += sub;
         ivaTotal += iva;
@@ -629,6 +650,11 @@ async function cargarParaEdicion(id) {
         document.getElementById('solicitud_id_edit').value = id;
         document.getElementById('tituloModalSolicitud').innerText = `Editar Solicitud SOL-${String(id).padStart(4, '0')}`;
         document.getElementById('notas_solicitud').value = data.notas || '';
+        
+        const aplicaIvaSwitch = document.getElementById('aplica_iva_switch');
+        if (aplicaIvaSwitch) {
+            aplicaIvaSwitch.checked = data.aplica_iva !== false;
+        }
         
         const secPedido = document.getElementById('seccion_datos_pedido');
         if (data.pedido_origen) {

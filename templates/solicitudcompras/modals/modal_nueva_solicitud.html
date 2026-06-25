@@ -90,7 +90,13 @@
                     <!-- SECCIÓN 2: AGREGAR ARTÍCULO -->
                     <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
                         <div class="card-body p-3">
-                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem;">2. Agregar Artículo</h6>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.75rem; line-height: 1;">2. Agregar Artículo</h6>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input aplica-iva-switch-custom" type="checkbox" role="switch" name="aplica_iva" id="aplica_iva_switch" checked onchange="calcularTotalSolicitud()">
+                                    <label class="form-check-label small fw-bold text-secondary ms-1" for="aplica_iva_switch">Aplica IVA</label>
+                                </div>
+                            </div>
                             <input type="hidden" id="edit_item_pedido_det_id" value="">
                             <div class="row g-2 align-items-end">
                                 <div class="col-md-5">
@@ -219,6 +225,8 @@
 </div>
 
 <style>
+    .aplica-iva-switch-custom:checked { background-color: #00b8b9 !important; border-color: #00b8b9 !important; }
+    .aplica-iva-switch-custom:focus { border-color: #00b8b9 !important; box-shadow: 0 0 0 0.25rem rgba(0, 184, 185, 0.25) !important; }
     .custom-switch-brand:checked { background-color: #00b8b9 !important; border-color: #00b8b9 !important; }
     .btn-outline-brand { color: #00b8b9; border-color: #00b8b9; }
     .btn-outline-brand:hover { background-color: #00b8b9; color: white; }

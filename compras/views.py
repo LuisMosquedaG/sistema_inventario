@@ -594,6 +594,7 @@ def obtener_compra_json(request, compra_id):
             'fecha_formateada': orden.fecha.strftime('%d/%m/%Y'),
             'notas': orden.notas or '',
             'estado': orden.estado,
+            'aplica_iva': orden.aplica_iva,
             'detalles': detalles_list,
             'subtotal_total': float(orden.calcular_subtotal),
             'iva_total': float(orden.calcular_iva),
@@ -650,6 +651,7 @@ def actualizar_compra(request, compra_id):
                 except ValueError: pass
 
             orden.notas = request.POST.get('notas')
+            orden.aplica_iva = request.POST.get('aplica_iva') == 'on'
             orden.save()
 
             # 2. Manejo de Ítems
@@ -746,7 +748,8 @@ def consolidar_compras_ajax(request):
                     estado='borrador',
                     empresa=empresa_actual,
                     usuario=request.user,
-                    notas=leyenda_notas
+                    notas=leyenda_notas,
+                    aplica_iva=oc_base.aplica_iva
                 )
 
                 # Mover detalles
