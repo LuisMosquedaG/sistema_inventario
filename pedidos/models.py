@@ -43,6 +43,7 @@ class Pedido(models.Model):
 
     fecha_creacion = models.DateTimeField(default=timezone.now, verbose_name="Creado el")
     fecha_confirmacion = models.DateTimeField(null=True, blank=True, verbose_name="Confirmado el")
+    aplica_iva = models.BooleanField(default=True, verbose_name="Aplica IVA")
     
     # ESTADO GENERAL DEL PEDIDO
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='borrador')
@@ -203,6 +204,8 @@ class DetallePedido(models.Model):
 
     @property
     def iva_monto(self):
+        if not self.pedido.aplica_iva:
+            return Decimal('0')
         porc = self.producto.iva or Decimal('0')
         return self.subtotal * (porc / 100)
 

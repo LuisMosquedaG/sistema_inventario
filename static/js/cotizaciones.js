@@ -212,10 +212,26 @@ function calcularGranTotalLista() {
     let ivaTotal = 0;
     let granTotal = 0;
 
+    const aplicaIvaSwitch = document.getElementById('aplica_iva_switch');
+    const aplicaIva = aplicaIvaSwitch ? aplicaIvaSwitch.checked : true;
+
     document.querySelectorAll('#tablaCuerpo tr').forEach(fila => {
         const sub = parseFloat(fila.cells[3].innerText.replace('$', '').replace(',', '')) || 0;
-        const iva = parseFloat(fila.cells[4].innerText.replace('$', '').replace(',', '')) || 0;
-        const tot = parseFloat(fila.cells[5].innerText.replace('$', '').replace(',', '')) || 0;
+        
+        // Obtener el IVA porcentaje original del input hidden en la celda 4
+        const ivaInput = fila.cells[4].querySelector('input[name="iva_porcentaje[]"]');
+        const ivaPorc = ivaInput ? parseFloat(ivaInput.value) : 0;
+        
+        const iva = aplicaIva ? (sub * (ivaPorc / 100)) : 0;
+        const tot = sub + iva;
+        
+        // Actualizar visualmente la celda de IVA
+        const ivaSpan = fila.cells[4].querySelector('span');
+        if (ivaSpan) ivaSpan.innerText = '$' + iva.toFixed(2);
+        
+        // Actualizar visualmente la celda de Importe
+        const totSpan = fila.cells[5].querySelector('span');
+        if (totSpan) totSpan.innerText = '$' + tot.toFixed(2);
         
         subtotalTotal += sub;
         ivaTotal += iva;
@@ -291,6 +307,11 @@ window.limpiarModalCotizacion = function() {
     document.getElementById('granTotalModal').innerText = '$0.00';
     document.getElementById('modalSubtotal').innerText = '$0.00';
     document.getElementById('modalIvaTotal').innerText = '$0.00';
+    
+    const aplicaIvaSwitch = document.getElementById('aplica_iva_switch');
+    if (aplicaIvaSwitch) {
+        aplicaIvaSwitch.checked = true;
+    }
     document.getElementById('selectProductoAgregar').value = "";
     document.getElementById('producto_busqueda').value = "";
     document.getElementById('producto_display_fake').innerHTML = '<span class="text-muted" style="font-weight:400;">Seleccionar...</span>';
@@ -409,6 +430,11 @@ window.cargarParaEdicion = function(id) {
             document.querySelector('input[name="fecha_fin"]').value = data.fecha_fin;
             document.querySelector('input[name="origen"]').value = data.origen;
             document.querySelector('input[name="direccion_entrega"]').value = data.direccion_entrega;
+            
+            const aplicaIvaSwitch = document.getElementById('aplica_iva_switch');
+            if (aplicaIvaSwitch) {
+                aplicaIvaSwitch.checked = data.aplica_iva !== false;
+            }
             
             // Simular selección de cliente
             const optionCliente = document.querySelector(`#wrapperCliente .custom-option[data-value="${data.cliente}"]`);

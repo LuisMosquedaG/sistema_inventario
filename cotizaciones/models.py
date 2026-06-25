@@ -47,6 +47,7 @@ class Cotizacion(models.Model):
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='borrador')
     resultado = models.CharField(max_length=20, choices=RESULTADO_CHOICES, default='pendiente')
     creado_en = models.DateTimeField(auto_now_add=True, verbose_name="Creado el")
+    aplica_iva = models.BooleanField(default=True, verbose_name="Aplica IVA")
 
     parent_quote = models.ForeignKey(
         'self', 
@@ -111,6 +112,8 @@ class DetalleCotizacion(models.Model):
 
     @property
     def iva_monto(self):
+        if not self.cotizacion.aplica_iva:
+            return Decimal('0')
         porc = self.producto.iva or Decimal('0')
         return self.subtotal * (porc / 100)
 

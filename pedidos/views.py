@@ -292,6 +292,8 @@ def crear_pedido_manual(request):
                         timezone.get_current_timezone()
                     )
 
+            aplica_iva = request.POST.get('aplica_iva') == 'on'
+
             create_kwargs = {
                 'cliente': cliente,
                 'contacto': contacto,
@@ -299,7 +301,8 @@ def crear_pedido_manual(request):
                 'empresa': empresa_actual,
                 'sucursal': sucursal_obj,
                 'estado': 'borrador',
-                'notas': notas
+                'notas': notas,
+                'aplica_iva': aplica_iva
             }
             if fecha_creacion:
                 create_kwargs['fecha_creacion'] = fecha_creacion
@@ -493,7 +496,8 @@ def crear_pedido_desde_cotizacion(request, cotizacion_id):
             empresa=empresa_actual,
             sucursal=sucursal_obj,
             cotizacion_origen_id=cotizacion.id,
-            estado='borrador' # Inicia en borrador para que el usuario revise antes de confirmar
+            estado='borrador', # Inicia en borrador para que el usuario revise antes de confirmar
+            aplica_iva=cotizacion.aplica_iva
         )
 
         # 3. Migrar Detalles
@@ -1110,6 +1114,7 @@ def api_detalle_pedido_edicion(request, pedido_id):
         'contacto_id': pedido.contacto.id if pedido.contacto else '',
         'fecha': pedido.fecha_creacion.strftime('%Y-%m-%d') if pedido.fecha_creacion else '',
         'notas': pedido.notas or '',
+        'aplica_iva': pedido.aplica_iva,
         'detalles': detalles,
         'subtotal_total': float(pedido.calcular_subtotal),
         'iva_total': float(pedido.calcular_iva),
@@ -1163,6 +1168,7 @@ def editar_pedido_ajax(request, pedido_id):
                     combined = datetime.datetime.combine(parsed_d, orig_time)
                     pedido.fecha_creacion = timezone.make_aware(combined, timezone.get_current_timezone())
 
+            pedido.aplica_iva = request.POST.get('aplica_iva') == 'on'
             pedido.save()
 
             # 2. Actualizar Detalles (Sustituir por los nuevos)

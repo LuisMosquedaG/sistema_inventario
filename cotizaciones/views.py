@@ -386,6 +386,8 @@ def crear_cotizacion(request):
                 except Sucursal.DoesNotExist:
                     pass
 
+            aplica_iva = request.POST.get('aplica_iva') == 'on'
+
             # --- 2. CREAR CABECERA ---
             nueva_cotizacion = Cotizacion.objects.create(
                 cliente=cliente_obj,
@@ -397,7 +399,8 @@ def crear_cotizacion(request):
                 direccion_entrega=direccion,
                 estado='borrador',
                 empresa=empresa_actual,
-                sucursal=sucursal_obj
+                sucursal=sucursal_obj,
+                aplica_iva=aplica_iva
             )
 
             # --- 3. GUARDAR DETALLES ---
@@ -514,6 +517,7 @@ def actualizar_cotizacion(request, cotizacion_id):
             cotizacion.fecha_fin = fecha_fin
             cotizacion.origen = origen
             cotizacion.direccion_entrega = direccion
+            cotizacion.aplica_iva = request.POST.get('aplica_iva') == 'on'
             cotizacion.save()
 
             # Actualizar Detalles
@@ -613,7 +617,8 @@ def recotizar(request, cotizacion_id):
                 estado='borrador',
                 parent_quote=original,
                 empresa=original.empresa, # Hereda la empresa correctamente
-                sucursal=sucursal_obj # Usa la sucursal determinada
+                sucursal=sucursal_obj, # Usa la sucursal determinada
+                aplica_iva=original.aplica_iva
             )
 
             for detalle in original.detalles.all():
