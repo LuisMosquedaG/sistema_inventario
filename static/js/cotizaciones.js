@@ -404,6 +404,49 @@ window.verCotizacion = function(id) {
         });
 };
 
+window.prepararNuevaCotizacion = function() {
+    const form = document.getElementById('formCotizacion');
+    form.reset();
+    form.action = "/cotizaciones/crear/";
+    document.getElementById('tablaCuerpo').innerHTML = '';
+    document.getElementById('granTotalModal').innerText = '$0.00';
+    document.getElementById('modalSubtotal').innerText = '$0.00';
+    document.getElementById('modalIvaTotal').innerText = '$0.00';
+    document.getElementById('mensajeVacio').style.display = 'block';
+
+    const aplicaIvaSwitch = document.getElementById('aplica_iva_switch');
+    if (aplicaIvaSwitch) {
+        aplicaIvaSwitch.checked = true;
+    }
+
+    // Restablecer capas personalizadas
+    document.getElementById('cliente_id_input').value = "";
+    document.getElementById('cliente_display_fake').innerHTML = '<span class="text-muted" style="font-weight:400;">Buscar cliente...</span>';
+    document.getElementById('cliente_busqueda').value = "";
+
+    document.getElementById('contacto_id_input').value = "";
+    document.getElementById('contacto_display_fake').innerHTML = '<span class="text-muted" style="font-weight:400;">Selecciona cliente primero...</span>';
+    document.getElementById('contacto_busqueda').value = "";
+    document.getElementById('contacto_busqueda').disabled = true;
+
+    document.getElementById('selectProductoAgregar').value = "";
+    document.getElementById('producto_busqueda').value = "";
+    document.getElementById('producto_display_fake').innerHTML = '<span class="text-muted" style="font-weight:400;">Buscar producto...</span>';
+    document.getElementById('inputCantidadAgregar').value = 1;
+    document.getElementById('inputPrecioAgregar').value = "0.00";
+    document.getElementById('edit_index').value = "-1";
+
+    const btnAgregarArt = document.querySelector('button[onclick="agregarALista()"]');
+    if (btnAgregarArt) btnAgregarArt.innerHTML = '<i class="bi bi-plus-lg"></i>';
+
+    document.querySelector('.modal-title').innerHTML = '<i class="bi bi-plus-lg me-2" style="color: #00b8b9;"></i> Registrar Cotización';
+
+    // Establecer fechas predeterminadas a hoy
+    const hoy = new Date().toISOString().split('T')[0];
+    document.getElementById('fecha_inicio').value = hoy;
+    document.getElementById('fecha_fin').value = hoy;
+};
+
 window.cargarParaEdicion = function(id) {
     const form = document.getElementById('formCotizacion');
     form.reset();

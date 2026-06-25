@@ -29,7 +29,8 @@
                 
                 <button class="btn btn-brand text-white btn-pro shadow-sm" 
                         data-bs-toggle="modal" 
-                        data-bs-target="#modalNuevaCotizacion">
+                        data-bs-target="#modalNuevaCotizacion"
+                        onclick="prepararNuevaCotizacion()">
                     <i class="bi bi-plus-lg me-1"></i> Nueva Cotización
                 </button>
                 {% endif %}
@@ -223,7 +224,7 @@
 
                                     <!-- 4. FECHA -->
                                     <td class="text-center">
-                                        <div class="text-dark">{{ c.creado_en|date:"d M Y" }}</div>
+                                        <div class="text-dark">{{ c.fecha_inicio|date:"d M Y" }}</div>
                                     </td>
 
                                     <!-- 5. VENCE -->
