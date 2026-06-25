@@ -278,15 +278,33 @@ def crear_pedido_manual(request):
                     pass
 
             # 1. Crear Cabecera
-            nuevo_pedido = Pedido.objects.create(
-                cliente=cliente,
-                contacto=contacto,
-                vendedor=request.user,
-                empresa=empresa_actual,
-                sucursal=sucursal_obj,
-                estado='borrador',
-                notas=notas
-            )
+            fecha_str = request.POST.get('fecha')
+            fecha_creacion = None
+            if fecha_str:
+                from django.utils.dateparse import parse_date
+                from django.utils import timezone
+                import datetime
+                parsed_d = parse_date(fecha_str)
+                if parsed_d:
+                    current_time = datetime.datetime.now().time()
+                    fecha_creacion = timezone.make_aware(
+                        datetime.datetime.combine(parsed_d, current_time),
+                        timezone.get_current_timezone()
+                    )
+
+            create_kwargs = {
+                'cliente': cliente,
+                'contacto': contacto,
+                'vendedor': request.user,
+                'empresa': empresa_actual,
+                'sucursal': sucursal_obj,
+                'estado': 'borrador',
+                'notas': notas
+            }
+            if fecha_creacion:
+                create_kwargs['fecha_creacion'] = fecha_creacion
+
+            nuevo_pedido = Pedido.objects.create(**create_kwargs)
 
             # 2. Guardar Detalles
             productos_ids = request.POST.getlist('producto_id[]')
@@ -1090,6 +1108,7 @@ def api_detalle_pedido_edicion(request, pedido_id):
         'cliente_id': pedido.cliente.id,
         'cliente_nombre': pedido.cliente.razon_social or pedido.cliente.nombre_completo,
         'contacto_id': pedido.contacto.id if pedido.contacto else '',
+        'fecha': pedido.fecha_creacion.strftime('%Y-%m-%d') if pedido.fecha_creacion else '',
         'notas': pedido.notas or '',
         'detalles': detalles,
         'subtotal_total': float(pedido.calcular_subtotal),
@@ -1127,6 +1146,23 @@ def editar_pedido_ajax(request, pedido_id):
             pedido.cliente = cliente
             pedido.contacto = contacto
             pedido.notas = notas
+            
+            fecha_str = request.POST.get('fecha')
+            if fecha_str:
+                from django.utils.dateparse import parse_date
+                from django.utils import timezone
+                import datetime
+                parsed_d = parse_date(fecha_str)
+                if parsed_d:
+                    if pedido.fecha_creacion:
+                        local_dt = timezone.localtime(pedido.fecha_creacion)
+                        orig_time = local_dt.time()
+                    else:
+                        orig_time = datetime.datetime.now().time()
+                    
+                    combined = datetime.datetime.combine(parsed_d, orig_time)
+                    pedido.fecha_creacion = timezone.make_aware(combined, timezone.get_current_timezone())
+
             pedido.save()
 
             # 2. Actualizar Detalles (Sustituir por los nuevos)

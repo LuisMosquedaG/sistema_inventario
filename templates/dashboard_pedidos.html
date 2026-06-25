@@ -698,7 +698,7 @@
                                 <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Datos del Cliente</h6>
                                 <div class="row g-2">
                                     <!-- CLIENTE -->
-                                    <div class="col-md-6">
+                                    <div class="col-md-5">
                                         <label class="form-label small fw-bold text-secondary">Cliente</label>
                                         <div class="custom-select-wrapper" id="wrapperClienteNuevo">
                                             <div class="custom-select">
@@ -723,11 +723,17 @@
                                     </div>
 
                                     <!-- CONTACTO -->
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                                         <label class="form-label small fw-bold text-secondary">Contacto</label>
                                         <select name="contacto" id="selectContactoNuevo" class="form-select form-select-sm" disabled>
                                             <option value="">Selecciona cliente primero...</option>
                                         </select>
+                                    </div>
+
+                                    <!-- FECHA -->
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold text-secondary">Fecha</label>
+                                        <input type="date" name="fecha" id="inputFechaPedido" class="form-control form-control-sm" value="{% now 'Y-m-d' %}">
                                     </div>
 
                                     <!-- NOTAS -->
@@ -1280,6 +1286,11 @@
         
         const selectLista = document.getElementById('selectListaPrecioPedido');
         if (selectLista) selectLista.value = "";
+
+        const inputFecha = document.getElementById('inputFechaPedido');
+        if (inputFecha) {
+            inputFecha.value = new Date().toISOString().split('T')[0];
+        }
     };
 
     /**
@@ -1320,6 +1331,12 @@
 
                 // 3. Cargar Notas
                 document.querySelector('textarea[name="notas"]').value = data.notas;
+
+                // 3.5 Cargar Fecha
+                const inputFecha = document.getElementById('inputFechaPedido');
+                if (inputFecha && data.fecha) {
+                    inputFecha.value = data.fecha;
+                }
 
                 // 4. Cargar Artículos
                 const tbody = document.getElementById('tablaCuerpoNuevo');

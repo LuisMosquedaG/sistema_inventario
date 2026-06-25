@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 from decimal import Decimal
 from panel.models import Empresa
 from clientes.models import Cliente, ContactoCliente
@@ -40,7 +41,7 @@ class Pedido(models.Model):
     # Referencia a la cotización origen (opcional)
     cotizacion_origen_id = models.PositiveIntegerField(null=True, blank=True, verbose_name="ID Cotización")
 
-    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Creado el")
+    fecha_creacion = models.DateTimeField(default=timezone.now, verbose_name="Creado el")
     fecha_confirmacion = models.DateTimeField(null=True, blank=True, verbose_name="Confirmado el")
     
     # ESTADO GENERAL DEL PEDIDO
