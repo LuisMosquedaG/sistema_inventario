@@ -3,6 +3,7 @@ from core.models import Producto
 from panel.models import Empresa
 from django.contrib.auth.models import User
 from decimal import Decimal
+from django.utils import timezone
 
 class OrdenCompra(models.Model):
     """ Cabecera de la Orden de Compra """
@@ -16,7 +17,7 @@ class OrdenCompra(models.Model):
 
     proveedor = models.ForeignKey('proveedores.Proveedor', on_delete=models.PROTECT, verbose_name="Proveedor", limit_choices_to={'estado': 'activo'})
     sucursal = models.ForeignKey('proveedores.SucursalProveedor', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
-    fecha = models.DateTimeField(auto_now_add=True)
+    fecha = models.DateTimeField(default=timezone.now, verbose_name="Fecha")
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='borrador')
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Empresa")
     sucursal_empresa = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal Empresa")

@@ -18,7 +18,7 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
     moneda_id = data_post.get('moneda')
     tipo_cambio = data_post.get('tipo_cambio', '1.0000')
     descuento = data_post.get('descuento', '0.00')
-    fecha = data_post.get('fecha')
+    fecha_str = data_post.get('fecha')
     notas = data_post.get('notas')
 
     if not proveedor:
@@ -37,22 +37,34 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
 
     aplica_iva = data_post.get('aplica_iva') == 'on'
 
+    # Parsear fecha si se proporciona
+    fecha = None
+    if fecha_str:
+        from datetime import datetime
+        try:
+            fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+
     # 2. Crear la Cabecera (OrdenCompra)
-    orden = OrdenCompra.objects.create(
-        proveedor_id=proveedor,
-        sucursal_id=sucursal_id if sucursal_id else None, 
-        almacen_destino_id=almacen_id if almacen_id else None,
-        moneda_id=moneda_id if moneda_id else None,
-        tipo_cambio=tipo_cambio,
-        descuento=descuento,
-        fecha=fecha,
-        notas=notas,
-        estado='borrador',
-        usuario=usuario,
-        empresa=empresa_actual,
-        sucursal_empresa=sucursal_empresa_obj,
-        aplica_iva=aplica_iva
-    )
+    create_kwargs = {
+        'proveedor_id': proveedor,
+        'sucursal_id': sucursal_id if sucursal_id else None, 
+        'almacen_destino_id': almacen_id if almacen_id else None,
+        'moneda_id': moneda_id if moneda_id else None,
+        'tipo_cambio': tipo_cambio,
+        'descuento': descuento,
+        'notas': notas,
+        'estado': 'borrador',
+        'usuario': usuario,
+        'empresa': empresa_actual,
+        'sucursal_empresa': sucursal_empresa_obj,
+        'aplica_iva': aplica_iva
+    }
+    if fecha:
+        create_kwargs['fecha'] = fecha
+
+    orden = OrdenCompra.objects.create(**create_kwargs)
 
     # 3. Procesar la lista de ítems
     productos_ids = data_post.getlist('producto_id[]')
