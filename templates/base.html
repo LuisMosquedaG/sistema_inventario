@@ -253,9 +253,92 @@
             position: relative;
             z-index: 1; 
         }
+
+        /* Estilos para colapsar sidebar (tira de íconos) y expandir contenido */
+        .sidebar {
+            transition: width 0.3s ease, left 0.3s ease !important;
+        }
+        .main-content {
+            transition: margin-left 0.3s ease !important;
+        }
+
+        .sidebar-toggle-btn-inner {
+            background: none;
+            color: #adb5bd;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: color 0.2s, background-color 0.2s;
+        }
+        .sidebar-toggle-btn-inner:hover {
+            color: #ffffff;
+            background-color: rgba(255,255,255,0.1);
+        }
+
+        @media (min-width: 992px) {
+            body.sidebar-collapsed .sidebar {
+                width: 60px !important;
+                left: 0 !important;
+            }
+            body.sidebar-collapsed .main-content {
+                margin-left: 60px !important;
+            }
+            body.sidebar-collapsed .brand-text {
+                display: none !important;
+            }
+            body.sidebar-collapsed .brand-title {
+                justify-content: center !important;
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+            }
+            body.sidebar-collapsed .sidebar-link {
+                font-size: 0 !important;
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+                justify-content: center !important;
+                display: flex !important;
+                align-items: center !important;
+                height: 48px;
+            }
+            body.sidebar-collapsed .sidebar-icon {
+                font-size: 1.25rem !important;
+                margin-right: 0 !important;
+            }
+            body.sidebar-collapsed .sidebar-link i {
+                margin-right: 0 !important;
+            }
+            body.sidebar-collapsed .sidebar-link .bi-chevron-down {
+                display: none !important;
+            }
+            body.sidebar-collapsed .sidebar-level-2,
+            body.sidebar-collapsed .sidebar-level-3 {
+                height: 40px !important;
+                background-color: rgba(255, 255, 255, 0.04) !important;
+            }
+            body.sidebar-collapsed .sidebar-level-2 i,
+            body.sidebar-collapsed .sidebar-level-3 i {
+                font-size: 1rem !important;
+            }
+            body.sidebar-collapsed .sidebar-branch-selector {
+                display: none !important;
+            }
+            body.sidebar-collapsed .sidebar-footer {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body class="{% if '/inventario/' in request.path or '/ventas/' in request.path or '/compras/' in request.path %}sidebar-open{% endif %}">
+    <script>
+        if (localStorage.getItem('sidebar_collapsed') === 'true') {
+            document.body.classList.add('sidebar-collapsed');
+        }
+    </script>
+
+
 
     <!-- Contenedor para Toasts de Notificaciones -->
     <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer" style="z-index: 2000;"></div>
@@ -281,8 +364,11 @@
             <button class="btn-close btn-close-white" id="sidebarClose"></button>
         </div>
 
-        <div class="brand-title">
-            <span class="brand-highlight">Crossover</span><span class="brand-suite">Suite</span>
+        <div class="brand-title d-flex align-items-center justify-content-between px-3">
+            <span class="brand-text text-truncate"><span class="brand-highlight">Crossover</span><span class="brand-suite">Suite</span></span>
+            <button id="desktopSidebarToggle" class="sidebar-toggle-btn-inner btn border-0 text-white p-0 d-none d-lg-block" title="Colapsar Barra Lateral">
+                <i class="bi bi-chevron-left"></i>
+            </button>
         </div>
 
         <div class="sidebar-menu-wrapper">
@@ -674,6 +760,37 @@
                     if (window.innerWidth < 992) toggleSidebar();
                 });
             });
+
+            // --- DESKTOP SIDEBAR COLLAPSE LOGIC ---
+            const desktopToggleBtn = document.getElementById('desktopSidebarToggle');
+            if (desktopToggleBtn) {
+                desktopToggleBtn.addEventListener('click', () => {
+                    document.body.classList.toggle('sidebar-collapsed');
+                    const isCollapsed = document.body.classList.contains('sidebar-collapsed');
+                    localStorage.setItem('sidebar_collapsed', isCollapsed ? 'true' : 'false');
+                    
+                    const icon = desktopToggleBtn.querySelector('i');
+                    if (icon) {
+                        if (isCollapsed) {
+                            icon.className = 'bi bi-chevron-right';
+                            desktopToggleBtn.setAttribute('title', 'Expandir Barra Lateral');
+                        } else {
+                            icon.className = 'bi bi-chevron-left';
+                            desktopToggleBtn.setAttribute('title', 'Colapsar Barra Lateral');
+                        }
+                    }
+                });
+
+                // Cargar estado de ícono inicial según persistencia
+                const storedState = localStorage.getItem('sidebar_collapsed');
+                if (storedState === 'true') {
+                    const icon = desktopToggleBtn.querySelector('i');
+                    if (icon) {
+                        icon.className = 'bi bi-chevron-right';
+                        desktopToggleBtn.setAttribute('title', 'Expandir Barra Lateral');
+                    }
+                }
+            }
         });
 
         function cambiarSucursal(id) {
