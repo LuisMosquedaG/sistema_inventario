@@ -10,7 +10,7 @@ from ventas.models import OrdenVenta
 from compras.models import OrdenCompra
 from recepciones.models import Recepcion
 from produccion.models import OrdenProduccion
-from tesoreria.models import PagoPedido, PagoCompra
+from tesoreria.models import PagoPedido, PagoCompra, Ingreso
 from clientes.models import Cliente
 from decimal import Decimal
 import json
@@ -141,6 +141,7 @@ def dashboard_inicio(request):
     meses_es = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
     
     resumen_periodo = []
+    comprobantes_ingresos_periodo = []
     for i in range(5, -1, -1):
         target_month = mes_actual - i
         target_year = anio_actual
@@ -176,6 +177,30 @@ def dashboard_inicio(request):
             'es_actual': (i == 0)
         })
 
+        # --- COMPROBANTES VS INGRESOS ---
+        # 1. Pedidos en revisión o completo (sumando total_pedido)
+        pedidos_mes = Pedido.objects.filter(
+            empresa=empresa_actual,
+            estado__in=['revision', 'completo'],
+            fecha_creacion__year=target_year,
+            fecha_creacion__month=target_month
+        )
+        total_comprobantes = sum(p.total_pedido for p in pedidos_mes)
+
+        # 2. Ingresos aplicados (monto_mxn)
+        total_ingresos = Ingreso.objects.filter(
+            empresa=empresa_actual,
+            estado='applied' if hasattr(Ingreso, 'applied') else 'aplicado',  # Por si acaso, usamos 'aplicado'
+            fecha__year=target_year,
+            fecha__month=target_month
+        ).aggregate(total=Sum('monto_mxn'))['total'] or Decimal('0.00')
+
+        comprobantes_ingresos_periodo.append({
+            'mes': meses_es[target_month - 1],
+            'comprobantes': float(total_comprobantes),
+            'ingresos': float(total_ingresos)
+        })
+
     contexto = {
         'empresa': empresa_actual,
         'username_display': username_display,
@@ -193,7 +218,8 @@ def dashboard_inicio(request):
             'pareto_valor': stats_pareto_valor,
             'top_clientes': stats_top_clientes,
         }),
-        'resumen_json': json.dumps(resumen_periodo)
+        'resumen_json': json.dumps(resumen_periodo),
+        'comprobantes_ingresos_json': json.dumps(comprobantes_ingresos_periodo)
     }
     return render(request, 'inicio/dashboard_inicio.html', contexto)
 
