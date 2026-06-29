@@ -100,7 +100,9 @@ def dashboard_preferencias(request):
         contexto['monedas'] = Moneda.objects.filter(empresa=empresa_actual)
     
     elif seccion_activa == 'sucursales':
+        from clientes.models import Cliente
         contexto['sucursales'] = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
+        contexto['clientes_activos'] = Cliente.objects.filter(empresa=empresa_actual, estado='activo').order_by('razon_social', 'nombre')
     
     elif seccion_activa == 'datos':
         # Solo admin/sadmin pueden entrar aquí
@@ -669,6 +671,7 @@ def crear_sucursal_ajax(request):
                 estado=request.POST.get('estado'),
                 pais=request.POST.get('pais', 'México'),
                 cp=request.POST.get('cp'),
+                cliente_defecto_id=request.POST.get('cliente_defecto') or None,
                 empresa=empresa_actual
             )
             return JsonResponse({'success': True, 'message': 'Sucursal registrada correctamente.'})
@@ -691,7 +694,8 @@ def api_detalle_sucursal(request, sucursal_id):
         'ciudad': suc.ciudad,
         'estado': suc.estado,
         'pais': suc.pais,
-        'cp': suc.cp
+        'cp': suc.cp,
+        'cliente_defecto': suc.cliente_defecto_id or ''
     })
 
 @login_required
@@ -709,6 +713,7 @@ def actualizar_sucursal_ajax(request, sucursal_id):
             suc.estado = request.POST.get('estado')
             suc.pais = request.POST.get('pais')
             suc.cp = request.POST.get('cp')
+            suc.cliente_defecto_id = request.POST.get('cliente_defecto') or None
             suc.save()
             return JsonResponse({'success': True, 'message': 'Sucursal actualizada correctamente.'})
         except Exception as e:

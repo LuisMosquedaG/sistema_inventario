@@ -30,4 +30,8 @@ urlpatterns = [
     path('descargar-plantilla/', views.descargar_plantilla_salidas, name='descargar_plantilla_salidas'),
     path('importar/', views.importar_salidas_ajax, name='importar_salidas_ajax'),
     path('exportar/', views.exportar_salidas_excel, name='exportar_salidas_excel'),
+
+    # 9. Punto de Venta (POS)
+    path('pos/', views.punto_de_venta, name='punto_de_venta'),
+    path('pos/crear-venta/', views.crear_venta_pos_ajax, name='crear_venta_pos_ajax'),
 ]

@@ -355,6 +355,9 @@
                         {% if sales_ui_permissions.salidas %}
                         <li><a href="/ventas/" class="sidebar-link sidebar-level-2 {% if request.path == '/ventas/' %}sidebar-sub-active{% endif %}"><i class="bi bi-receipt-cutoff me-2 small"></i> Salidas</a></li>
                         {% endif %}
+                        {% if sales_ui_permissions.punto_de_venta %}
+                        <li><a href="/ventas/pos/" class="sidebar-link sidebar-level-2 {% if request.path == '/ventas/pos/' %}sidebar-sub-active{% endif %}"><i class="bi bi-shop me-2 small"></i> Punto de Venta</a></li>
+                        {% endif %}
                     </ul>
                 </div>
             </div>

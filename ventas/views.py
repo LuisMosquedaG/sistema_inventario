@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 from django.core.paginator import Paginator
 from django.utils import timezone
 from django.db import transaction
@@ -858,3 +859,326 @@ def actualizar_estado_entrega(request, ov_id):
         messages.success(request, f"Estado de entrega actualizado a {ov.get_estado_entrega_display()}.")
     
     return redirect('dashboard_ventas')
+
+# --- PUNTO DE VENTA (POS) ---
+
+@login_required
+def punto_de_venta(request):
+    from preferencias.permissions import user_has_sales_permission
+    if not (user_has_sales_permission(request, 'punto_de_venta', 'ver') or user_has_sales_permission(request, 'pedidos', 'ver')):
+        return render(request, 'error_sin_empresa.html', status=403)
+
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return render(request, 'error_sin_empresa.html', status=403)
+
+    sucursal_id = request.session.get('sucursal_id')
+    from preferencias.models import Sucursal
+    sucursal = None
+    if sucursal_id:
+        try:
+            sucursal = Sucursal.objects.get(id=sucursal_id, empresa=empresa_actual)
+        except Sucursal.DoesNotExist:
+            pass
+
+    if not sucursal:
+        sucursal = Sucursal.objects.filter(empresa=empresa_actual).first()
+
+    if not sucursal:
+        messages.warning(request, "Debes configurar al menos una sucursal en Preferencias antes de usar el Punto de Venta.")
+        return redirect('dashboard_ventas')
+
+    cliente_defecto = sucursal.cliente_defecto
+
+    from core.models import Producto
+    from almacenes.models import Inventario, Almacen
+    
+    almacen = Almacen.objects.filter(empresa=empresa_actual, sucursal=sucursal).first()
+
+    productos_data = []
+    productos = Producto.objects.filter(empresa=empresa_actual, estado='activo').order_by('nombre')
+    
+    for prod in productos:
+        stock = 0
+        if prod.tipo != 'servicio' and almacen:
+            inv = Inventario.objects.filter(almacen=almacen, producto=prod).first()
+            if inv:
+                stock = inv.cantidad - inv.reservado
+        
+        import math
+        precio_redondeado = math.ceil(float(prod.precio_venta or 0))
+
+        productos_data.append({
+            'id': prod.id,
+            'nombre': prod.nombre,
+            'sku': prod.clave or '',
+            'tipo': prod.tipo,
+            'categoria': prod.categoria or '',
+            'subcategoria': prod.subcategoria or '',
+            'precio_venta': float(precio_redondeado),
+            'iva': float(prod.iva or 0),
+            'stock': stock
+        })
+
+    from tesoreria.models import CajaBanco
+    cajas_bancos = CajaBanco.objects.filter(empresa=empresa_actual, activo=True)
+
+    from clientes.models import Cliente
+    clientes = Cliente.objects.filter(empresa=empresa_actual, estado='activo').order_by('razon_social', 'nombre')
+
+    categorias_unicas = Producto.objects.filter(empresa=empresa_actual, estado='activo').exclude(categoria__isnull=True).exclude(categoria='').values_list('categoria', flat=True).distinct().order_by('categoria')
+    subcategorias_unicas = Producto.objects.filter(empresa=empresa_actual, estado='activo').exclude(subcategoria__isnull=True).exclude(subcategoria='').values_list('subcategoria', flat=True).distinct().order_by('subcategoria')
+
+    contexto = {
+        'empresa': empresa_actual,
+        'sucursal': sucursal,
+        'almacen': almacen,
+        'cliente_defecto': cliente_defecto,
+        'productos': productos_data,
+        'cajas_bancos': cajas_bancos,
+        'clientes': clientes,
+        'categorias': list(categorias_unicas),
+        'subcategorias': list(subcategorias_unicas),
+        'section': 'pos',
+    }
+    return render(request, 'ventas/punto_de_venta.html', contexto)
+
+
+@login_required
+@require_POST
+def crear_venta_pos_ajax(request):
+    from preferencias.permissions import user_has_sales_permission
+    if not (user_has_sales_permission(request, 'punto_de_venta', 'crear') or user_has_sales_permission(request, 'pedidos', 'crear')):
+        return JsonResponse({'success': False, 'error': 'No tienes permisos para realizar ventas.'})
+
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Empresa no encontrada.'})
+
+    try:
+        import json
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Datos JSON inválidos.'})
+
+    cliente_id = data.get('cliente_id')
+    items = data.get('items', [])
+    pagos = data.get('pagos', [])
+    aplica_iva = data.get('aplica_iva', True)
+
+    if not items:
+        return JsonResponse({'success': False, 'error': 'El carrito está vacío.'})
+    if not pagos:
+        return JsonResponse({'success': False, 'error': 'Debes ingresar al menos un método de pago.'})
+
+    from preferencias.models import Sucursal
+    sucursal_id = request.session.get('sucursal_id')
+    sucursal = None
+    if sucursal_id:
+        try:
+            sucursal = Sucursal.objects.get(id=sucursal_id, empresa=empresa_actual)
+        except Sucursal.DoesNotExist:
+            pass
+    if not sucursal:
+        sucursal = Sucursal.objects.filter(empresa=empresa_actual).first()
+    if not sucursal:
+        return JsonResponse({'success': False, 'error': 'No se detectó sucursal activa.'})
+
+    from clientes.models import Cliente
+    cliente = None
+    if cliente_id:
+        try:
+            cliente = Cliente.objects.get(id=cliente_id, empresa=empresa_actual)
+        except Cliente.DoesNotExist:
+            pass
+    if not cliente:
+        cliente = sucursal.cliente_defecto
+    if not cliente:
+        return JsonResponse({'success': False, 'error': 'No hay un cliente configurado por defecto para la sucursal ni seleccionado en el carrito.'})
+
+    from almacenes.models import Almacen, Inventario
+    almacen = Almacen.objects.filter(empresa=empresa_actual, sucursal=sucursal).first()
+    if not almacen:
+        return JsonResponse({'success': False, 'error': 'No se encontró ningún almacén configurado para la sucursal actual para procesar la salida de inventario.'})
+
+    from core.models import Producto, Transaccion
+    from pedidos.models import Pedido, DetallePedido
+    from ventas.models import OrdenVenta, DetalleOrdenVenta
+    from tesoreria.models import PagoPedido, Ingreso, CajaBanco
+    from django.db import transaction
+    from decimal import Decimal
+
+    try:
+        with transaction.atomic():
+            # 1. Calcular total_pedido
+            total_pedido = Decimal('0.00')
+            for item in items:
+                prod_id = item.get('producto_id')
+                qty = int(item.get('cantidad', 1))
+                
+                import math
+                price = Decimal(str(math.ceil(float(item.get('precio_unitario', 0)))))
+
+                try:
+                    producto = Producto.objects.get(id=prod_id, empresa=empresa_actual, estado='activo')
+                except Producto.DoesNotExist:
+                    raise ValueError(f"El producto con ID {prod_id} no existe o está inactivo.")
+
+                subtotal = qty * price
+                porc = (producto.iva or Decimal('0.00')) if aplica_iva else Decimal('0.00')
+                iva_monto = subtotal * (porc / 100)
+                total_pedido += (subtotal + iva_monto)
+
+            total_pedido = total_pedido.quantize(Decimal('1'), rounding='ROUND_CEILING')
+
+            # 2. Validar y procesar pagos
+            total_pagos_ingresados = Decimal('0.00')
+            for p in pagos:
+                total_pagos_ingresados += Decimal(str(p.get('monto', 0)))
+
+            if total_pagos_ingresados < total_pedido:
+                raise ValueError(f"El monto total pagado (${total_pagos_ingresados}) es menor al total de la venta (${total_pedido}).")
+
+            cambio = total_pagos_ingresados - total_pedido
+
+            pagos_ajustados = []
+            for p in pagos:
+                pagos_ajustados.append({
+                    'caja_banco_id': p.get('caja_banco_id'),
+                    'forma_pago': p.get('forma_pago'),
+                    'monto': Decimal(str(p.get('monto', 0)))
+                })
+
+            if cambio > 0:
+                # Restar cambio del pago en efectivo si existe
+                efectivo_pago = next((p for p in pagos_ajustados if p['forma_pago'] == 'efectivo'), None)
+                if efectivo_pago:
+                    if efectivo_pago['monto'] >= cambio:
+                        efectivo_pago['monto'] -= cambio
+                        cambio = Decimal('0')
+                    else:
+                        cambio -= efectivo_pago['monto']
+                        efectivo_pago['monto'] = Decimal('0')
+
+                # Si aún queda cambio, restar de los demás pagos
+                if cambio > 0:
+                    for p in pagos_ajustados:
+                        if p['monto'] >= cambio:
+                            p['monto'] -= cambio
+                            cambio = Decimal('0')
+                            break
+                        else:
+                            cambio -= p['monto']
+                            p['monto'] = Decimal('0')
+
+            pagos_ajustados = [p for p in pagos_ajustados if p['monto'] > 0]
+
+            # 3. Crear el Pedido y la Orden de Venta (Salida)
+            pedido = Pedido.objects.create(
+                cliente=cliente,
+                vendedor=request.user,
+                empresa=empresa_actual,
+                sucursal=sucursal,
+                estado='completo',
+                aplica_iva=aplica_iva
+            )
+
+            from django.utils import timezone
+            orden_venta = OrdenVenta.objects.create(
+                pedido_origen=pedido,
+                cliente=cliente,
+                vendedor=request.user,
+                empresa=empresa_actual,
+                sucursal=sucursal,
+                estado='surtido',
+                estado_entrega='entregado',
+                almacen=almacen,
+                fecha_surtido=timezone.now()
+            )
+
+            # 4. Crear DetallePedido, DetalleOrdenVenta y Transaccion
+            for item in items:
+                prod_id = item.get('producto_id')
+                qty = int(item.get('cantidad', 1))
+                price = Decimal(str(item.get('precio_unitario', 0)))
+                producto = Producto.objects.get(id=prod_id, empresa=empresa_actual, estado='activo')
+
+                if producto.tipo != 'servicio':
+                    inv = Inventario.objects.filter(almacen=almacen, producto=producto).first()
+                    stock_disp = (inv.cantidad - inv.reservado) if inv else 0
+                    if stock_disp < qty:
+                        raise ValueError(f"Stock insuficiente para {producto.nombre}. Disponible: {stock_disp}, Solicitado: {qty}")
+
+                detalle = DetallePedido.objects.create(
+                    pedido=pedido,
+                    producto=producto,
+                    cantidad_solicitada=qty,
+                    cantidad_entregada=qty,
+                    precio_unitario=price,
+                    estado_linea='completo'
+                )
+
+                DetalleOrdenVenta.objects.create(
+                    orden_venta=orden_venta,
+                    producto=producto,
+                    cantidad=qty,
+                    precio_unitario=price
+                )
+
+                if producto.tipo != 'servicio':
+                    Transaccion.objects.create(
+                        producto=producto,
+                        almacen=almacen,
+                        tipo='venta',
+                        cantidad=-qty,
+                        total=Decimal(qty) * price,
+                        empresa=empresa_actual,
+                        usuario=request.user,
+                        referencia=f"Venta POS Pedido #{pedido.id}",
+                        estado='recibida'
+                    )
+
+            # 5. Crear los registros de pago e ingreso
+            for idx, p in enumerate(pagos_ajustados):
+                caja_id = p['caja_banco_id']
+                try:
+                    caja_banco = CajaBanco.objects.get(id=caja_id, empresa=empresa_actual, activo=True)
+                except CajaBanco.DoesNotExist:
+                    raise ValueError(f"La Caja o Banco con ID {caja_id} no es válido o está inactivo.")
+
+                pago_pedido = PagoPedido.objects.create(
+                    fecha_pago=timezone.now().date(),
+                    forma_pago=p['forma_pago'],
+                    referencia=f"Venta POS Pedido #{pedido.id} (Pago {idx+1})",
+                    tipo_cambio=Decimal('1.00'),
+                    monto=p['monto'],
+                    monto_mxn=p['monto'],
+                    caja_banco=caja_banco,
+                    empresa=empresa_actual,
+                    moneda=caja_banco.moneda,
+                    pedido=pedido,
+                    estado='aplicado'
+                )
+
+                Ingreso.objects.create(
+                    fecha=timezone.now().date(),
+                    concepto=f"Cobro POS - Pedido #{pedido.id} (Pago {idx+1})",
+                    monto=p['monto'],
+                    moneda=caja_banco.moneda,
+                    tipo_cambio=Decimal('1.00'),
+                    monto_mxn=p['monto'],
+                    forma_pago=p['forma_pago'],
+                    caja_banco=caja_banco,
+                    referencia=f"Venta POS Pedido #{pedido.id} (Pago {idx+1})",
+                    pago_pedido=pago_pedido,
+                    estado='aplicado',
+                    empresa=empresa_actual,
+                    sucursal=sucursal
+                )
+
+            return JsonResponse({'success': True, 'message': 'Venta registrada y pagada correctamente.', 'pedido_id': pedido.id})
+
+    except ValueError as ve:
+        return JsonResponse({'success': False, 'error': str(ve)})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f"Error interno: {str(e)}"})

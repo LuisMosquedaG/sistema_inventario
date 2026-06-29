@@ -113,6 +113,14 @@ class Sucursal(models.Model):
     estado = models.CharField(max_length=100, verbose_name="Estado")
     pais = models.CharField(max_length=100, default="México", verbose_name="País")
     cp = models.CharField(max_length=10, verbose_name="Código Postal")
+    cliente_defecto = models.ForeignKey(
+        'clientes.Cliente',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Cliente por Defecto (POS)",
+        related_name='sucursales_defecto'
+    )
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='sucursales')
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
