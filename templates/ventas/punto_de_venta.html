@@ -137,6 +137,19 @@
             max-height: 300px !important;
             overflow-y: auto !important;
         }
+        .product-card .card-body {
+            padding: 10px !important;
+        }
+        .product-card .card-title {
+            font-size: 0.85rem !important;
+        }
+        .product-card .text-brand {
+            font-size: 1rem !important;
+        }
+        .product-card .badge-stock {
+            font-size: 0.6rem !important;
+            padding: 2px 6px !important;
+        }
     }
 </style>
 
@@ -205,7 +218,7 @@
             </div>
 
             <!-- Grilla del catálogo -->
-            <div class="product-grid row g-3 row-cols-2 row-cols-sm-3 row-cols-lg-4 align-content-start" id="posCatalog">
+            <div class="product-grid row g-3 row-cols-2 row-cols-md-3 row-cols-lg-4 align-content-start" id="posCatalog">
                 {% for prod in productos %}
                 <div class="col product-item" data-type="{{ prod.tipo }}" data-name="{{ prod.nombre|lower }}" data-sku="{{ prod.sku|lower }}" data-categoria="{{ prod.categoria|lower }}" data-subcategoria="{{ prod.subcategoria|lower }}">
                     <div class="card h-100 product-card shadow-sm border-0" onclick="addToCart({{ prod.id }}, '{{ prod.nombre|escapejs }}', {{ prod.precio_venta }}, '{{ prod.tipo }}', {{ prod.stock }}, {{ prod.iva|default:0 }})">
