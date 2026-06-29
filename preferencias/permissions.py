@@ -384,7 +384,7 @@ def get_sales_ui_permissions(request):
         'cotizaciones': user_has_sales_permission(request, 'cotizaciones', 'ver'),
         'pedidos': user_has_sales_permission(request, 'pedidos', 'ver'),
         'salidas': user_has_sales_permission(request, 'salidas', 'ver'),
-        'punto_de_venta': user_has_sales_permission(request, 'punto_de_venta', 'ver') or user_has_sales_permission(request, 'pedidos', 'ver'),
+        'punto_de_venta': user_has_sales_permission(request, 'punto_de_venta', 'ver'),
     }
 
 

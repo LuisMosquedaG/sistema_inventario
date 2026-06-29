@@ -865,7 +865,7 @@ def actualizar_estado_entrega(request, ov_id):
 @login_required
 def punto_de_venta(request):
     from preferencias.permissions import user_has_sales_permission
-    if not (user_has_sales_permission(request, 'punto_de_venta', 'ver') or user_has_sales_permission(request, 'pedidos', 'ver')):
+    if not user_has_sales_permission(request, 'punto_de_venta', 'ver'):
         return render(request, 'error_sin_empresa.html', status=403)
 
     empresa_actual = get_empresa_actual(request)
@@ -948,7 +948,7 @@ def punto_de_venta(request):
 @require_POST
 def crear_venta_pos_ajax(request):
     from preferencias.permissions import user_has_sales_permission
-    if not (user_has_sales_permission(request, 'punto_de_venta', 'crear') or user_has_sales_permission(request, 'pedidos', 'crear')):
+    if not user_has_sales_permission(request, 'punto_de_venta', 'crear'):
         return JsonResponse({'success': False, 'error': 'No tienes permisos para realizar ventas.'})
 
     empresa_actual = get_empresa_actual(request)
