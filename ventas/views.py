@@ -459,16 +459,37 @@ def crear_orden_venta(request, pedido_id):
         messages.warning(request, 'Este pedido ya tiene una Orden de Salida activa.')
         return redirect('dashboard_ventas')
 
+    lineas_pedido = pedido.detalles.filter(parent_line__isnull=True)
+    only_services = lineas_pedido.exists() and all(linea.producto.tipo == 'servicio' for linea in lineas_pedido)
+
+    from django.utils import timezone
+    from almacenes.models import Almacen
+
+    if only_services:
+        estado_inicial = 'surtido'
+        entrega_inicial = 'entregado'
+        fecha_surtido_inicial = timezone.now()
+        almacen_salida = Almacen.objects.filter(empresa=empresa_actual, sucursal=pedido.sucursal).first()
+        if not almacen_salida:
+            almacen_salida = Almacen.objects.filter(empresa=empresa_actual).first()
+    else:
+        estado_inicial = 'borrador'
+        entrega_inicial = 'pendiente'
+        fecha_surtido_inicial = None
+        almacen_salida = None
+
     ov = OrdenVenta.objects.create(
         pedido_origen=pedido,
         cliente=pedido.cliente,
         vendedor=pedido.vendedor, # Se hereda el vendedor del pedido original
         empresa=empresa_actual,
         sucursal=pedido.sucursal, # Hereda la sucursal del pedido
-        estado='borrador'
+        estado=estado_inicial,
+        estado_entrega=entrega_inicial,
+        fecha_surtido=fecha_surtido_inicial,
+        almacen=almacen_salida
     )
 
-    lineas_pedido = pedido.detalles.filter(parent_line__isnull=True)
     for linea in lineas_pedido:
         DetalleOrdenVenta.objects.create(
             orden_venta=ov,
@@ -485,7 +506,10 @@ def crear_orden_venta(request, pedido_id):
         propietario=pedido.vendedor # El dueño es el vendedor original
     )
 
-    messages.success(request, f'Orden de Salida #{ov.id} creada en estado Borrador.')
+    if only_services:
+        messages.success(request, f'Orden de Salida #{ov.id} creada y surtida automáticamente al ser únicamente de servicios.')
+    else:
+        messages.success(request, f'Orden de Salida #{ov.id} creada en estado Borrador.')
     return redirect('dashboard_ventas')
 
 @login_required

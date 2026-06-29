@@ -1,0 +1,9 @@
+- [x] Cambiar la etiqueta "SKU" por "Clave" en las tarjetas de artículos del Punto de Venta.
+- [x] Integrar selectores personalizados con buscador de texto para Cliente y Cajas/Bancos en renglones dinámicos de pago.
+- [x] Agregar switch "Aplica IVA" con color corporativo e interactividad en el cálculo del ticket.
+- [x] Modificar la grilla del catálogo a 4 columnas por fila y estirar el panel de ticket a la base de la pantalla.
+- [x] Enmendar fallbacks de almacén y establecer validación de stock estricta por la sucursal activa.
+- [x] Generar automáticamente Orden de Venta en estado "surtido" y entrega "entregado" al concretar la venta POS.
+- [x] Validar que las funciones de ver/crear del Punto de Venta operen correctamente bajo la matriz de roles y permisos.
+- [x] Eliminar fallbacks de permisos cruzados de Pedidos para que el Punto de Venta respete estrictamente los checkboxes de Roles.
+- [x] Implementar validación para auto-entregar/surtir la Orden de Salida cuando un Pedido contiene exclusivamente servicios.

@@ -118,6 +118,26 @@
         background-color: #00b8b9 !important;
         border-color: #00b8b9 !important;
     }
+    @media (max-width: 991.98px) {
+        .pos-container {
+            height: auto !important;
+            overflow: visible !important;
+        }
+        .product-grid {
+            height: 480px !important;
+            overflow-y: auto !important;
+            margin-bottom: 15px;
+        }
+        .cart-panel {
+            height: auto !important;
+            margin-top: 15px;
+            padding: 20px !important;
+        }
+        .cart-items {
+            max-height: 300px !important;
+            overflow-y: auto !important;
+        }
+    }
 </style>
 
 <div class="container-fluid pos-container py-3">
@@ -185,7 +205,7 @@
             </div>
 
             <!-- Grilla del catálogo -->
-            <div class="product-grid row g-3 row-cols-1 row-cols-md-4 align-content-start" id="posCatalog">
+            <div class="product-grid row g-3 row-cols-2 row-cols-sm-3 row-cols-lg-4 align-content-start" id="posCatalog">
                 {% for prod in productos %}
                 <div class="col product-item" data-type="{{ prod.tipo }}" data-name="{{ prod.nombre|lower }}" data-sku="{{ prod.sku|lower }}" data-categoria="{{ prod.categoria|lower }}" data-subcategoria="{{ prod.subcategoria|lower }}">
                     <div class="card h-100 product-card shadow-sm border-0" onclick="addToCart({{ prod.id }}, '{{ prod.nombre|escapejs }}', {{ prod.precio_venta }}, '{{ prod.tipo }}', {{ prod.stock }}, {{ prod.iva|default:0 }})">
