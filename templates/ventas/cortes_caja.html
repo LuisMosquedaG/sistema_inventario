@@ -459,7 +459,7 @@
 
 <!-- MODAL: ARTICULOS VENDIDOS EN LA SESION -->
 <div class="modal fade" id="modalArticulosSesion" tabindex="-1" aria-labelledby="modalArticulosSesionLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header border-bottom bg-light py-3">
                 <h5 class="modal-title fw-bold text-dark" id="modalArticulosSesionLabel">
@@ -473,9 +473,9 @@
                     <table class="table table-pro mb-0 align-middle">
                         <thead>
                             <tr>
-                                <th class="text-center" style="width: 50%;">Artículo / Producto</th>
-                                <th class="text-center" style="width: 25%;">Cantidad Vendida</th>
-                                <th class="text-center" style="width: 25%;">Total Recaudado</th>
+                                <th class="text-center" style="width: 50%;">Artículo</th>
+                                <th class="text-center" style="width: 25%;">Cantidad</th>
+                                <th class="text-center" style="width: 25%;">Total</th>
                             </tr>
                         </thead>
                         <tbody id="tbodyArticulosSesion">
@@ -657,13 +657,29 @@
                         const folioFormatted = 'PED-' + String(v.id).padStart(4, '0');
                         html += `
                             <tr>
-                                <td class="text-center fw-bold text-secondary">${folioFormatted}</td>
-                                <td class="text-center small">${v.fecha}</td>
-                                <td class="text-center">${v.cliente}</td>
-                                <td class="text-center fw-bold text-dark">$${v.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                <td class="text-center text-secondary">${folioFormatted}</td>
+                                <td class="text-center small text-secondary">${v.fecha}</td>
+                                <td class="text-center text-secondary">${v.cliente}</td>
+                                <td class="text-center text-secondary">$${v.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                             </tr>
                         `;
                     });
+                    
+                    // Filas de subtotal, IVA y total al final
+                    html += `
+                        <tr class="table-light border-top">
+                            <td colspan="3" class="text-end fw-semibold text-secondary py-2 pe-4">Subtotal:</td>
+                            <td class="text-center fw-semibold text-secondary py-2">$${data.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        </tr>
+                        <tr class="table-light">
+                            <td colspan="3" class="text-end fw-semibold text-secondary py-2 pe-4">IVA:</td>
+                            <td class="text-center fw-semibold text-secondary py-2">$${data.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        </tr>
+                        <tr class="table-light fw-bold text-dark border-bottom">
+                            <td colspan="3" class="text-end py-2 pe-4">Total:</td>
+                            <td class="text-center py-2">$${data.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        </tr>
+                    `;
                     tbody.innerHTML = html;
                 }
             } else {
@@ -729,12 +745,28 @@
                     data.articulos.forEach(art => {
                         html += `
                             <tr>
-                                <td class="text-center fw-bold text-dark">${art.nombre}</td>
-                                <td class="text-center text-secondary fw-semibold">${art.cantidad}</td>
-                                <td class="text-center fw-bold text-dark">$${art.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                <td class="text-center text-secondary">${art.nombre}</td>
+                                <td class="text-center text-secondary">${art.cantidad}</td>
+                                <td class="text-center text-secondary">$${art.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                             </tr>
                         `;
                     });
+                    
+                    // Filas de subtotal, IVA y total al final
+                    html += `
+                        <tr class="table-light border-top">
+                            <td colspan="2" class="text-end fw-semibold text-secondary py-2 pe-4">Subtotal:</td>
+                            <td class="text-center fw-semibold text-secondary py-2">$${data.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        </tr>
+                        <tr class="table-light">
+                            <td colspan="2" class="text-end fw-semibold text-secondary py-2 pe-4">IVA:</td>
+                            <td class="text-center fw-semibold text-secondary py-2">$${data.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        </tr>
+                        <tr class="table-light fw-bold text-dark border-bottom">
+                            <td colspan="2" class="text-end py-2 pe-4">Total:</td>
+                            <td class="text-center py-2">$${data.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        </tr>
+                    `;
                     tbody.innerHTML = html;
                 }
             } else {

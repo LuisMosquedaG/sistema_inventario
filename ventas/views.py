@@ -1516,6 +1516,11 @@ def obtener_ventas_sesion_ajax(request, sesion_id):
         sesion = SesionCajaPOS.objects.get(id=sesion_id, caja_pos__empresa=empresa_actual)
         pedidos = Pedido.objects.filter(sesion_caja=sesion).order_by('-fecha_creacion')
         
+        from decimal import Decimal
+        total_subtotal = Decimal('0.00')
+        total_iva = Decimal('0.00')
+        total_final = Decimal('0.00')
+        
         ventas_data = []
         for p in pedidos:
             # Obtener desglose de pagos
@@ -1524,16 +1529,34 @@ def obtener_ventas_sesion_ajax(request, sesion_id):
             if not desglose_pagos:
                 desglose_pagos = "Sin pagos registrados"
                 
+            p_subtotal = Decimal('0.00')
+            p_iva = Decimal('0.00')
+            for d in p.detalles.all():
+                p_subtotal += d.subtotal
+                p_iva += d.iva_monto
+                
+            total_subtotal += p_subtotal
+            total_iva += p_iva
+            total_final += p.total_pedido
+                
             ventas_data.append({
                 'id': p.id,
                 'fecha': p.fecha_creacion.strftime('%d/%m/%Y %H:%M'),
                 'cliente': str(p.cliente),
+                'subtotal': float(p_subtotal),
+                'iva': float(p_iva),
                 'total': float(p.total_pedido),
                 'estado': p.get_estado_display(),
                 'pagos': desglose_pagos
             })
             
-        return JsonResponse({'success': True, 'ventas': ventas_data})
+        return JsonResponse({
+            'success': True, 
+            'ventas': ventas_data,
+            'subtotal': float(total_subtotal),
+            'iva': float(total_iva),
+            'total': float(total_final)
+        })
     except SesionCajaPOS.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'La sesión de caja no existe o no pertenece a la empresa.'}, status=404)
     except Exception as e:
@@ -1555,11 +1578,19 @@ def obtener_articulos_sesion_ajax(request, sesion_id):
         from decimal import Decimal
         items_map = defaultdict(lambda: {'nombre': '', 'cantidad': 0, 'total': Decimal('0.00')})
         
+        session_subtotal = Decimal('0.00')
+        session_iva = Decimal('0.00')
+        session_total = Decimal('0.00')
+        
         for d in detalles:
             prod_id = d.producto.id
             items_map[prod_id]['nombre'] = d.producto.nombre
             items_map[prod_id]['cantidad'] += d.cantidad_solicitada
             items_map[prod_id]['total'] += d.total
+            
+            session_subtotal += d.subtotal
+            session_iva += d.iva_monto
+            session_total += d.total
             
         articulos_data = []
         for prod_id, info in items_map.items():
@@ -1572,7 +1603,13 @@ def obtener_articulos_sesion_ajax(request, sesion_id):
             
         articulos_data.sort(key=lambda x: x['cantidad'], reverse=True)
             
-        return JsonResponse({'success': True, 'articulos': articulos_data})
+        return JsonResponse({
+            'success': True, 
+            'articulos': articulos_data,
+            'subtotal': float(session_subtotal),
+            'iva': float(session_iva),
+            'total': float(session_total)
+        })
     except SesionCajaPOS.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'La sesión de caja no existe o no pertenece a la empresa.'}, status=404)
     except Exception as e:
