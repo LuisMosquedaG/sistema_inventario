@@ -1576,7 +1576,13 @@ def obtener_articulos_sesion_ajax(request, sesion_id):
         
         from collections import defaultdict
         from decimal import Decimal
-        items_map = defaultdict(lambda: {'nombre': '', 'cantidad': 0, 'total': Decimal('0.00')})
+        items_map = defaultdict(lambda: {
+            'nombre': '',
+            'cantidad': 0,
+            'subtotal': Decimal('0.00'),
+            'iva': Decimal('0.00'),
+            'total': Decimal('0.00')
+        })
         
         session_subtotal = Decimal('0.00')
         session_iva = Decimal('0.00')
@@ -1586,6 +1592,8 @@ def obtener_articulos_sesion_ajax(request, sesion_id):
             prod_id = d.producto.id
             items_map[prod_id]['nombre'] = d.producto.nombre
             items_map[prod_id]['cantidad'] += d.cantidad_solicitada
+            items_map[prod_id]['subtotal'] += d.subtotal
+            items_map[prod_id]['iva'] += d.iva_monto
             items_map[prod_id]['total'] += d.total
             
             session_subtotal += d.subtotal
@@ -1598,6 +1606,8 @@ def obtener_articulos_sesion_ajax(request, sesion_id):
                 'id': prod_id,
                 'nombre': info['nombre'],
                 'cantidad': info['cantidad'],
+                'subtotal': float(info['subtotal']),
+                'iva': float(info['iva']),
                 'total': float(info['total'])
             })
             

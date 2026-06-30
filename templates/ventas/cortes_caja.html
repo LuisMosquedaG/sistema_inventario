@@ -438,10 +438,12 @@
                     <table class="table table-pro mb-0 align-middle">
                         <thead>
                             <tr>
-                                <th class="text-center" style="width: 20%;">Folio</th>
-                                <th class="text-center" style="width: 25%;">Fecha/Hora</th>
-                                <th class="text-center" style="width: 35%;">Cliente</th>
-                                <th class="text-center" style="width: 20%;">Total</th>
+                                <th class="text-center" style="width: 15%;">Folio</th>
+                                <th class="text-center" style="width: 20%;">Fecha/Hora</th>
+                                <th class="text-center" style="width: 25%;">Cliente</th>
+                                <th class="text-center" style="width: 13%;">Subtotal</th>
+                                <th class="text-center" style="width: 13%;">IVA</th>
+                                <th class="text-center" style="width: 14%;">Total</th>
                             </tr>
                         </thead>
                         <tbody id="tbodyVentasSesion">
@@ -459,7 +461,7 @@
 
 <!-- MODAL: ARTICULOS VENDIDOS EN LA SESION -->
 <div class="modal fade" id="modalArticulosSesion" tabindex="-1" aria-labelledby="modalArticulosSesionLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header border-bottom bg-light py-3">
                 <h5 class="modal-title fw-bold text-dark" id="modalArticulosSesionLabel">
@@ -473,9 +475,11 @@
                     <table class="table table-pro mb-0 align-middle">
                         <thead>
                             <tr>
-                                <th class="text-center" style="width: 50%;">Artículo</th>
-                                <th class="text-center" style="width: 25%;">Cantidad</th>
-                                <th class="text-center" style="width: 25%;">Total</th>
+                                <th class="text-center" style="width: 35%;">Artículo</th>
+                                <th class="text-center" style="width: 15%;">Cantidad</th>
+                                <th class="text-center" style="width: 16%;">Subtotal</th>
+                                <th class="text-center" style="width: 16%;">IVA</th>
+                                <th class="text-center" style="width: 18%;">Total</th>
                             </tr>
                         </thead>
                         <tbody id="tbodyArticulosSesion">
@@ -620,7 +624,7 @@
         const tbody = document.getElementById('tbodyVentasSesion');
         tbody.innerHTML = `
             <tr>
-                <td colspan="4" class="text-center py-4">
+                <td colspan="6" class="text-center py-4">
                     <div class="spinner-border spinner-border-sm text-brand" style="color: #00b8b9;" role="status">
                         <span class="visually-hidden">Cargando...</span>
                     </div>
@@ -645,7 +649,7 @@
                 if (data.ventas.length === 0) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="4" class="text-center py-4 text-muted small">
+                            <td colspan="6" class="text-center py-4 text-muted small">
                                 <i class="bi bi-inboxes d-block fs-4 mb-2 opacity-50"></i>
                                 No se registraron ventas durante este turno.
                             </td>
@@ -660,23 +664,19 @@
                                 <td class="text-center text-secondary">${folioFormatted}</td>
                                 <td class="text-center small text-secondary">${v.fecha}</td>
                                 <td class="text-center text-secondary">${v.cliente}</td>
+                                <td class="text-center text-secondary">$${v.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                <td class="text-center text-secondary">$${v.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                                 <td class="text-center text-secondary">$${v.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                             </tr>
                         `;
                     });
                     
-                    // Filas de subtotal, IVA y total al final
+                    // Fila de totales en una sola línea
                     html += `
-                        <tr class="table-light border-top">
-                            <td colspan="3" class="text-end fw-semibold text-secondary py-2 pe-4">Subtotal:</td>
-                            <td class="text-center fw-semibold text-secondary py-2">$${data.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                        </tr>
-                        <tr class="table-light">
-                            <td colspan="3" class="text-end fw-semibold text-secondary py-2 pe-4">IVA:</td>
-                            <td class="text-center fw-semibold text-secondary py-2">$${data.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                        </tr>
-                        <tr class="table-light fw-bold text-dark border-bottom">
-                            <td colspan="3" class="text-end py-2 pe-4">Total:</td>
+                        <tr class="table-light border-top fw-bold text-dark border-bottom">
+                            <td colspan="3" class="text-end py-2 pe-4">Totales:</td>
+                            <td class="text-center py-2">$${data.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td class="text-center py-2">$${data.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                             <td class="text-center py-2">$${data.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                         </tr>
                     `;
@@ -685,7 +685,7 @@
             } else {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="4" class="text-center py-4 text-danger small">
+                        <td colspan="6" class="text-center py-4 text-danger small">
                             Error al cargar ventas: ${data.error}
                         </td>
                     </tr>
@@ -696,7 +696,7 @@
             console.error('Error:', error);
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="4" class="text-center py-4 text-danger small">
+                    <td colspan="6" class="text-center py-4 text-danger small">
                         Ocurrió un error al consultar las ventas del turno.
                     </td>
                 </tr>
@@ -709,7 +709,7 @@
         const tbody = document.getElementById('tbodyArticulosSesion');
         tbody.innerHTML = `
             <tr>
-                <td colspan="3" class="text-center py-4">
+                <td colspan="5" class="text-center py-4">
                     <div class="spinner-border spinner-border-sm text-brand" style="color: #00b8b9;" role="status">
                         <span class="visually-hidden">Cargando...</span>
                     </div>
@@ -734,7 +734,7 @@
                 if (data.articulos.length === 0) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="3" class="text-center py-4 text-muted small">
+                            <td colspan="5" class="text-center py-4 text-muted small">
                                 <i class="bi bi-box d-block fs-4 mb-2 opacity-50"></i>
                                 No se registraron artículos vendidos durante este turno.
                             </td>
@@ -747,23 +747,19 @@
                             <tr>
                                 <td class="text-center text-secondary">${art.nombre}</td>
                                 <td class="text-center text-secondary">${art.cantidad}</td>
+                                <td class="text-center text-secondary">$${art.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                <td class="text-center text-secondary">$${art.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                                 <td class="text-center text-secondary">$${art.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                             </tr>
                         `;
                     });
                     
-                    // Filas de subtotal, IVA y total al final
+                    // Fila de totales en una sola línea
                     html += `
-                        <tr class="table-light border-top">
-                            <td colspan="2" class="text-end fw-semibold text-secondary py-2 pe-4">Subtotal:</td>
-                            <td class="text-center fw-semibold text-secondary py-2">$${data.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                        </tr>
-                        <tr class="table-light">
-                            <td colspan="2" class="text-end fw-semibold text-secondary py-2 pe-4">IVA:</td>
-                            <td class="text-center fw-semibold text-secondary py-2">$${data.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                        </tr>
-                        <tr class="table-light fw-bold text-dark border-bottom">
-                            <td colspan="2" class="text-end py-2 pe-4">Total:</td>
+                        <tr class="table-light border-top fw-bold text-dark border-bottom">
+                            <td colspan="2" class="text-end py-2 pe-4">Totales:</td>
+                            <td class="text-center py-2">$${data.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td class="text-center py-2">$${data.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                             <td class="text-center py-2">$${data.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                         </tr>
                     `;
@@ -772,7 +768,7 @@
             } else {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="3" class="text-center py-4 text-danger small">
+                        <td colspan="5" class="text-center py-4 text-danger small">
                             Error al cargar artículos: ${data.error}
                         </td>
                     </tr>
@@ -783,7 +779,7 @@
             console.error('Error:', error);
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="3" class="text-center py-4 text-danger small">
+                    <td colspan="5" class="text-center py-4 text-danger small">
                         Ocurrió un error al consultar los artículos del turno.
                     </td>
                 </tr>
