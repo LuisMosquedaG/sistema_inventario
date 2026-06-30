@@ -953,6 +953,18 @@ def punto_de_venta(request):
     categorias_unicas = Producto.objects.filter(empresa=empresa_actual, estado='activo').exclude(categoria__isnull=True).exclude(categoria='').values_list('categoria', flat=True).distinct().order_by('categoria')
     subcategorias_unicas = Producto.objects.filter(empresa=empresa_actual, estado='activo').exclude(subcategoria__isnull=True).exclude(subcategoria='').values_list('subcategoria', flat=True).distinct().order_by('subcategoria')
 
+    from ventas.models import CajaPOS, SesionCajaPOS
+    # Verificar sesión activa en base de datos
+    sesion_activa = SesionCajaPOS.objects.filter(usuario=request.user, estado='abierta').first()
+    if sesion_activa:
+        request.session['sesion_caja_id'] = sesion_activa.id
+    else:
+        if 'sesion_caja_id' in request.session:
+            del request.session['sesion_caja_id']
+
+    # Cajas habilitadas (abiertas por administración) y asignadas a este usuario
+    cajas_disponibles = CajaPOS.objects.filter(empresa=empresa_actual, sucursal=sucursal, estado='abierta', usuario_asignado=request.user)
+
     contexto = {
         'empresa': empresa_actual,
         'sucursal': sucursal,
@@ -963,6 +975,8 @@ def punto_de_venta(request):
         'clientes': clientes,
         'categorias': list(categorias_unicas),
         'subcategorias': list(subcategorias_unicas),
+        'sesion_activa': sesion_activa,
+        'cajas_disponibles': cajas_disponibles,
         'section': 'pos',
     }
     return render(request, 'ventas/punto_de_venta.html', contexto)
@@ -978,6 +992,16 @@ def crear_venta_pos_ajax(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
         return JsonResponse({'success': False, 'error': 'Empresa no encontrada.'})
+
+    from ventas.models import SesionCajaPOS
+    sesion_id = request.session.get('sesion_caja_id')
+    sesion = None
+    if sesion_id:
+        sesion = SesionCajaPOS.objects.filter(id=sesion_id, usuario=request.user, estado='abierta').first()
+    if not sesion:
+        sesion = SesionCajaPOS.objects.filter(usuario=request.user, estado='abierta').first()
+    if not sesion:
+        return JsonResponse({'success': False, 'error': 'No tienes una sesión de caja abierta. Por favor, abre una sesión primero.'})
 
     try:
         import json
@@ -1067,9 +1091,24 @@ def crear_venta_pos_ajax(request):
 
             pagos_ajustados = []
             for p in pagos:
+                fp = p.get('forma_pago')
+                db_fp = fp
+                if fp == 'efectivo':
+                    caja_banco = sesion.caja_pos.caja_efectivo
+                elif fp in ['tarjeta', 'tarjeta_debito', 'tarjeta_credito']:
+                    caja_banco = sesion.caja_pos.banco_tarjeta
+                    db_fp = 'tarjeta_debito'
+                elif fp == 'transferencia':
+                    caja_banco = sesion.caja_pos.banco_transferencia
+                else:
+                    caja_banco = sesion.caja_pos.caja_efectivo
+
+                if not caja_banco:
+                    raise ValueError(f"No se ha configurado la cuenta de destino para el método de pago {fp} en la Caja POS.")
+
                 pagos_ajustados.append({
-                    'caja_banco_id': p.get('caja_banco_id'),
-                    'forma_pago': p.get('forma_pago'),
+                    'caja_banco_id': caja_banco.id,
+                    'forma_pago': db_fp,
                     'monto': Decimal(str(p.get('monto', 0)))
                 })
 
@@ -1104,7 +1143,8 @@ def crear_venta_pos_ajax(request):
                 empresa=empresa_actual,
                 sucursal=sucursal,
                 estado='completo',
-                aplica_iva=aplica_iva
+                aplica_iva=aplica_iva,
+                sesion_caja=sesion
             )
 
             from django.utils import timezone
@@ -1206,3 +1246,334 @@ def crear_venta_pos_ajax(request):
         return JsonResponse({'success': False, 'error': str(ve)})
     except Exception as e:
         return JsonResponse({'success': False, 'error': f"Error interno: {str(e)}"})
+
+
+# ==========================================
+# CORTES DE CAJA VIEWS
+# ==========================================
+from django.contrib.auth.models import User
+from tesoreria.models import CajaBanco, PagoPedido
+from django.db.models import Sum
+from .models import CajaPOS, SesionCajaPOS
+
+@login_required
+def cortes_caja_list(request):
+    from preferencias.permissions import user_has_sales_permission
+    if not user_has_sales_permission(request, 'punto_de_venta', 'ver'):
+        return render(request, 'error_sin_empresa.html', status=403)
+
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return render(request, 'error_sin_empresa.html', status=403)
+
+    sucursal_id = request.session.get('sucursal_id')
+    from preferencias.models import Sucursal
+    sucursal = None
+    if sucursal_id:
+        try:
+            sucursal = Sucursal.objects.get(id=sucursal_id, empresa=empresa_actual)
+        except Sucursal.DoesNotExist:
+            pass
+    if not sucursal:
+        sucursal = Sucursal.objects.filter(empresa=empresa_actual).first()
+
+    # Listado de cajas configuradas para esta empresa (todas las sucursales)
+    cajas_pos = CajaPOS.objects.filter(empresa=empresa_actual)
+    
+    # Historial de sesiones (todas las sucursales)
+    sesiones = SesionCajaPOS.objects.filter(caja_pos__empresa=empresa_actual).order_by('-fecha_apertura')
+
+    # Datos para modales de creación
+    usuarios = User.objects.filter(is_active=True, username__contains=f"@{empresa_actual.subdominio}").order_by('username')
+    cajas_efectivo = CajaBanco.objects.filter(empresa=empresa_actual, activo=True, tipo='caja')
+    if not cajas_efectivo.exists():
+        cajas_efectivo = CajaBanco.objects.filter(empresa=empresa_actual, activo=True)
+        
+    bancos = CajaBanco.objects.filter(empresa=empresa_actual, activo=True, tipo='banco')
+    if not bancos.exists():
+        bancos = CajaBanco.objects.filter(empresa=empresa_actual, activo=True)
+
+    contexto = {
+        'cajas_pos': cajas_pos,
+        'sesiones': sesiones,
+        'usuarios': usuarios,
+        'cajas_efectivo': cajas_efectivo,
+        'bancos': bancos,
+        'empresa': empresa_actual,
+        'sucursal': sucursal,
+        'section': 'cortes_caja',
+    }
+    return render(request, 'ventas/cortes_caja.html', contexto)
+
+
+@login_required
+@require_POST
+def crear_caja_pos_ajax(request):
+    from preferencias.permissions import user_has_sales_permission
+    if not user_has_sales_permission(request, 'punto_de_venta', 'crear'):
+        return JsonResponse({'success': False, 'error': 'No tienes permisos para crear cajas.'})
+
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Empresa no encontrada.'})
+
+    sucursal_id = request.session.get('sucursal_id')
+    from preferencias.models import Sucursal
+    sucursal = None
+    if sucursal_id:
+        try:
+            sucursal = Sucursal.objects.get(id=sucursal_id, empresa=empresa_actual)
+        except Sucursal.DoesNotExist:
+            pass
+    if not sucursal:
+        sucursal = Sucursal.objects.filter(empresa=empresa_actual).first()
+
+    nombre = request.POST.get('nombre')
+    usuario_id = request.POST.get('usuario_asignado')
+    caja_efectivo_id = request.POST.get('caja_efectivo')
+    banco_tarjeta_id = request.POST.get('banco_tarjeta')
+    banco_transferencia_id = request.POST.get('banco_transferencia')
+
+    if not (nombre and usuario_id and caja_efectivo_id and banco_tarjeta_id and banco_transferencia_id):
+        return JsonResponse({'success': False, 'error': 'Todos los campos son obligatorios.'})
+
+    try:
+        usuario = User.objects.get(id=usuario_id, is_active=True)
+        caja_efectivo = CajaBanco.objects.get(id=caja_efectivo_id, empresa=empresa_actual)
+        banco_tarjeta = CajaBanco.objects.get(id=banco_tarjeta_id, empresa=empresa_actual)
+        banco_transferencia = CajaBanco.objects.get(id=banco_transferencia_id, empresa=empresa_actual)
+
+        caja = CajaPOS.objects.create(
+            nombre=nombre,
+            usuario_asignado=usuario,
+            caja_efectivo=caja_efectivo,
+            banco_tarjeta=banco_tarjeta,
+            banco_transferencia=banco_transferencia,
+            estado='cerrada',
+            empresa=empresa_actual,
+            sucursal=sucursal
+        )
+        return JsonResponse({'success': True, 'message': 'Caja de punto de venta creada correctamente.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_POST
+def cambiar_estado_caja_pos_ajax(request, caja_id):
+    from preferencias.permissions import user_has_sales_permission
+    if not user_has_sales_permission(request, 'punto_de_venta', 'crear'):
+        return JsonResponse({'success': False, 'error': 'No tienes permisos para modificar cajas.'})
+
+    empresa_actual = get_empresa_actual(request)
+    caja = get_object_or_404(CajaPOS, id=caja_id, empresa=empresa_actual)
+
+    nuevo_estado = request.POST.get('estado')
+    if nuevo_estado not in ['abierta', 'cerrada']:
+        return JsonResponse({'success': False, 'error': 'Estado inválido.'})
+
+    caja.estado = nuevo_estado
+    caja.save()
+    return JsonResponse({'success': True, 'message': f'La caja ahora está {caja.get_estado_display().lower()}.'})
+
+
+@login_required
+@require_POST
+def apertura_sesion_pos_ajax(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Empresa no encontrada.'})
+
+    caja_id = request.POST.get('caja_id')
+    monto_inicial_str = request.POST.get('monto_inicial', '0.00')
+
+    try:
+        monto_inicial = Decimal(monto_inicial_str)
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Monto inicial inválido.'})
+
+    if not caja_id:
+        return JsonResponse({'success': False, 'error': 'Debes seleccionar una caja registradora.'})
+
+    # Verificar si el usuario ya tiene una sesión abierta
+    sesion_abierta = SesionCajaPOS.objects.filter(usuario=request.user, estado='abierta').first()
+    if sesion_abierta:
+        request.session['sesion_caja_id'] = sesion_abierta.id
+        return JsonResponse({'success': True, 'message': 'Ya tenías una sesión activa.', 'sesion_id': sesion_abierta.id})
+
+    try:
+        caja_pos = CajaPOS.objects.get(id=caja_id, empresa=empresa_actual, estado='abierta')
+        # Crear la sesión
+        sesion = SesionCajaPOS.objects.create(
+            caja_pos=caja_pos,
+            usuario=request.user,
+            monto_inicial=monto_inicial,
+            estado='abierta'
+        )
+        request.session['sesion_caja_id'] = sesion.id
+        return JsonResponse({'success': True, 'message': 'Sesión de caja abierta correctamente.', 'sesion_id': sesion.id})
+    except CajaPOS.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'La caja seleccionada no está habilitada o abierta por administración.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def obtener_totales_sesion_ajax(request):
+    empresa_actual = get_empresa_actual(request)
+    sesion_id = request.session.get('sesion_caja_id')
+    sesion = None
+    if sesion_id:
+        sesion = SesionCajaPOS.objects.filter(id=sesion_id, usuario=request.user, estado='abierta').first()
+    if not sesion:
+        sesion = SesionCajaPOS.objects.filter(usuario=request.user, estado='abierta').first()
+
+    if not sesion:
+        return JsonResponse({'success': False, 'error': 'No hay sesión de caja abierta.'})
+
+    # Calcular montos dinámicamente de los pagos aplicados
+    pagos = PagoPedido.objects.filter(pedido__sesion_caja=sesion, estado='aplicado')
+    
+    ventas_efectivo = pagos.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+    ventas_tarjeta = pagos.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito']).aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+    ventas_transferencia = pagos.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+
+    efectivo_estimado = sesion.monto_inicial + ventas_efectivo
+
+    return JsonResponse({
+        'success': True,
+        'caja_nombre': sesion.caja_pos.nombre,
+        'monto_inicial': float(sesion.monto_inicial),
+        'ventas_efectivo': float(ventas_efectivo),
+        'ventas_tarjeta': float(ventas_tarjeta),
+        'ventas_transferencia': float(ventas_transferencia),
+        'efectivo_estimado': float(efectivo_estimado),
+        'fecha_apertura': sesion.fecha_apertura.strftime('%Y-%m-%d %H:%M:%S')
+    })
+
+
+@login_required
+@require_POST
+def cierre_sesion_pos_ajax(request):
+    empresa_actual = get_empresa_actual(request)
+    sesion_id = request.session.get('sesion_caja_id')
+    sesion = None
+    if sesion_id:
+        sesion = SesionCajaPOS.objects.filter(id=sesion_id, usuario=request.user, estado='abierta').first()
+    if not sesion:
+        sesion = SesionCajaPOS.objects.filter(usuario=request.user, estado='abierta').first()
+
+    if not sesion:
+        return JsonResponse({'success': False, 'error': 'No hay sesión de caja activa para cerrar.'})
+
+    monto_final_str = request.POST.get('monto_final_efectivo', '0.00')
+    try:
+        monto_final = Decimal(monto_final_str)
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Monto final de efectivo inválido.'})
+
+    try:
+        # Calcular los montos dinámicos del sistema para congelarlos
+        pagos = PagoPedido.objects.filter(pedido__sesion_caja=sesion, estado='aplicado')
+        
+        ventas_efectivo = pagos.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+        ventas_tarjeta = pagos.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito']).aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+        ventas_transferencia = pagos.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+
+        with transaction.atomic():
+            # Actualizar la sesión
+            sesion.monto_final_efectivo = monto_final
+            sesion.total_ventas_efectivo = ventas_efectivo
+            sesion.total_ventas_tarjeta = ventas_tarjeta
+            sesion.total_ventas_transferencia = ventas_transferencia
+            sesion.estado = 'cerrada'
+            sesion.fecha_cierre = timezone.now()
+            sesion.save()
+
+            # Cerrar también la caja POS asociada (para exigir apertura del administrador la siguiente vez)
+            caja = sesion.caja_pos
+            caja.estado = 'cerrada'
+            caja.save()
+
+            # Limpiar la variable de sesión
+            if 'sesion_caja_id' in request.session:
+                del request.session['sesion_caja_id']
+
+        return JsonResponse({'success': True, 'message': 'Corte y cierre de caja procesado correctamente.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def obtener_ventas_sesion_ajax(request, sesion_id):
+    from pedidos.models import Pedido
+    from tesoreria.models import PagoPedido
+    
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'No se encontró empresa activa.'}, status=403)
+        
+    try:
+        sesion = SesionCajaPOS.objects.get(id=sesion_id, caja_pos__empresa=empresa_actual)
+        pedidos = Pedido.objects.filter(sesion_caja=sesion).order_by('-fecha_creacion')
+        
+        ventas_data = []
+        for p in pedidos:
+            # Obtener desglose de pagos
+            pagos = PagoPedido.objects.filter(pedido=p)
+            desglose_pagos = ", ".join([f"{pag.get_forma_pago_display()}: ${pag.monto:,.2f}" for pag in pagos])
+            if not desglose_pagos:
+                desglose_pagos = "Sin pagos registrados"
+                
+            ventas_data.append({
+                'id': p.id,
+                'fecha': p.fecha_creacion.strftime('%d/%m/%Y %H:%M'),
+                'cliente': str(p.cliente),
+                'total': float(p.total_pedido),
+                'estado': p.get_estado_display(),
+                'pagos': desglose_pagos
+            })
+            
+        return JsonResponse({'success': True, 'ventas': ventas_data})
+    except SesionCajaPOS.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'La sesión de caja no existe o no pertenece a la empresa.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def obtener_articulos_sesion_ajax(request, sesion_id):
+    from pedidos.models import DetallePedido
+    
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'No se encontró empresa activa.'}, status=403)
+        
+    try:
+        sesion = SesionCajaPOS.objects.get(id=sesion_id, caja_pos__empresa=empresa_actual)
+        detalles = DetallePedido.objects.filter(pedido__sesion_caja=sesion).select_related('producto')
+        
+        from collections import defaultdict
+        from decimal import Decimal
+        items_map = defaultdict(lambda: {'nombre': '', 'cantidad': 0, 'total': Decimal('0.00')})
+        
+        for d in detalles:
+            prod_id = d.producto.id
+            items_map[prod_id]['nombre'] = d.producto.nombre
+            items_map[prod_id]['cantidad'] += d.cantidad_solicitada
+            items_map[prod_id]['total'] += d.total
+            
+        articulos_data = []
+        for prod_id, info in items_map.items():
+            articulos_data.append({
+                'id': prod_id,
+                'nombre': info['nombre'],
+                'cantidad': info['cantidad'],
+                'total': float(info['total'])
+            })
+            
+        articulos_data.sort(key=lambda x: x['cantidad'], reverse=True)
+            
+        return JsonResponse({'success': True, 'articulos': articulos_data})
+    except SesionCajaPOS.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'La sesión de caja no existe o no pertenece a la empresa.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

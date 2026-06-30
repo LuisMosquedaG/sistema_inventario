@@ -260,11 +260,22 @@
             <div class="cart-panel shadow-sm border-0 h-100 p-4">
                 <!-- Encabezado del Ticket -->
                 <div class="border-bottom pb-3 mb-3">
-                    <h5 class="fw-bold text-dark mb-1"><i class="bi bi-receipt me-2 text-brand"></i>Ticket de Venta</h5>
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <h5 class="fw-bold text-dark mb-0"><i class="bi bi-receipt me-2 text-brand"></i>Ticket de Venta</h5>
+                        {% if sesion_activa %}
+                        <button class="btn btn-sm py-1 px-3 fw-bold text-white shadow-sm" style="background-color: #00b8b9; border: none; border-radius: 8px; font-size: 0.8rem;" onclick="abrirModalCorte()">
+                            <i class="bi bi-calculator-fill me-1"></i>Hacer Corte
+                        </button>
+                        {% endif %}
+                    </div>
                     <p class="text-muted small mb-0">
                         <i class="bi bi-geo-alt me-1"></i>Sucursal: <strong class="text-secondary">{{ sucursal.nombre }}</strong>
                         <span class="mx-2 text-muted">|</span>
                         <i class="bi bi-person me-1"></i>Usuario: <strong class="text-secondary" id="ticketUserDisplay">{{ user.username }}</strong>
+                        {% if sesion_activa %}
+                        <span class="mx-2 text-muted">|</span>
+                        <i class="bi bi-shop-window me-1"></i>Caja: <strong class="text-secondary">{{ sesion_activa.caja_pos.nombre }}</strong>
+                        {% endif %}
                     </p>
                 </div>
 
@@ -394,6 +405,9 @@
         {% endfor %}
     ];
 
+    // Sesión activa
+    const isSessionActive = {% if sesion_activa %}true{% else %}false{% endif %};
+
     // Modelo de datos del carrito
     const cart = {};
     let currentTotalVenta = 0;
@@ -521,7 +535,7 @@
 
         const rowHtml = `
         <div class="row g-1 align-items-center mb-1 payment-row animate__animated animate__fadeInFast" id="${rowId}">
-            <div class="col-4">
+            <div class="col-6">
                 <div class="custom-select-wrapper">
                     <div class="custom-select">
                         <div class="custom-select__trigger bg-white border" style="height: 31px; cursor: pointer; border-radius: 6px;">
@@ -539,23 +553,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-4">
-                <div class="custom-select-wrapper">
-                    <div class="custom-select">
-                        <div class="custom-select__trigger bg-white border" style="height: 31px; cursor: pointer; border-radius: 6px;">
-                            <div class="fake-input-layer px-2" style="font-size: 0.8rem !important; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 100px;">
-                                <span class="text-dark caja-selected-label">${defaultCajaLabel}</span>
-                            </div>
-                            <input type="hidden" class="payment-caja-select" value="${defaultCajaId}">
-                            <i class="bi bi-chevron-down" style="position: absolute; right: 8px; color: #6c757d; pointer-events: none; font-size: 0.7rem;"></i>
-                        </div>
-                        <div class="custom-options" style="border-radius: 6px; margin-top: 2px; border: none; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-height: 150px; overflow-y: auto;">
-                            ${optionsHtml}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-3 payment-amount-col">
+            <div class="col-5 payment-amount-col">
                 <input type="number" class="form-control form-control-sm payment-amount-input text-end fw-bold" step="0.01" min="0" placeholder="0.00" value="${montoVal}" oninput="handleRowInput(this)">
             </div>
             <div class="col-1 text-center">
@@ -652,6 +650,11 @@
         const posFaltante = document.getElementById('posFaltante');
         const posCambio = document.getElementById('posCambio');
         const checkoutBtn = document.querySelector('button[onclick="processPOSCheckout()"]');
+
+        if (!isSessionActive) {
+            checkoutBtn.disabled = true;
+            return;
+        }
 
         const diff = totalVenta - totalIngresado;
 
@@ -933,6 +936,10 @@
 
     // Checkout / Envío de pago POS
     function processPOSCheckout() {
+        if (!isSessionActive) {
+            alert("No hay una sesión de caja activa. Por favor, abre una sesión primero.");
+            return;
+        }
         const keys = Object.keys(cart);
         if (keys.length === 0) {
             alert("El carrito está vacío. Agrega artículos antes de cobrar.");
@@ -948,21 +955,15 @@
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
             const formaPago = row.querySelector('.payment-method-select').value;
-            const cajaBancoId = row.querySelector('.payment-caja-select').value;
             const monto = parseFloat(row.querySelector('.payment-amount-input').value) || 0;
 
             if (monto <= 0) {
                 alert("Cada pago ingresado debe tener un monto mayor a cero.");
                 return;
             }
-            if (!cajaBancoId) {
-                alert("Selecciona una Caja/Banco para cada línea de pago.");
-                return;
-            }
 
             pagos.push({
                 forma_pago: formaPago,
-                caja_banco_id: cajaBancoId,
                 monto: monto
             });
         }
@@ -1026,5 +1027,249 @@
             alert("Ocurrió un error en la conexión: " + err.message);
         });
     }
+</script>
+
+<!-- MODAL: APERTURA DE TURNO (OBLIGATORIO) -->
+{% if not sesion_activa %}
+<div class="modal fade" id="modalAperturaSesion" tabindex="-1" aria-labelledby="modalAperturaSesionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-bottom bg-light py-3">
+                <h5 class="modal-title fw-bold text-dark" id="modalAperturaSesionLabel">
+                    <i class="bi bi-door-open me-2" style="color: #00b8b9;"></i>
+                    Apertura de Turno (POS)
+                </h5>
+            </div>
+            <form id="formAperturaSesion">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <div class="alert alert-info small mb-3" style="background-color: #ebfbee; border: none; color: #1c7ed6;">
+                        <i class="bi bi-info-circle-fill me-2"></i>
+                        Para comenzar a vender en el Punto de Venta, selecciona tu caja abierta asignada e ingresa tu fondo inicial de efectivo.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="selectCajaApertura" class="form-label fw-semibold small text-secondary">Caja Registradora Habilitada</label>
+                        <select class="form-select" id="selectCajaApertura" name="caja_id" required>
+                            <option value="">-- Selecciona Caja POS --</option>
+                            {% for c in cajas_disponibles %}
+                            <option value="{{ c.id }}">{{ c.nombre }} (Asignada: {{ c.usuario_asignado.username }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="montoInicialApertura" class="form-label fw-semibold small text-secondary">Monto Inicial Efectivo (Fondo)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0 text-secondary">$</span>
+                            <input type="number" step="0.01" min="0" class="form-control ps-1 border-start-0" id="montoInicialApertura" name="monto_inicial" value="0.00" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top bg-white py-3">
+                    <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-brand text-white btn-sm px-4">Iniciar Turno</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const modalEl = document.getElementById('modalAperturaSesion');
+        if (modalEl) {
+            const myModal = new bootstrap.Modal(modalEl);
+            myModal.show();
+        }
+
+        const form = document.getElementById('formAperturaSesion');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(this);
+
+                fetch('{% url "apertura_sesion_pos_ajax" %}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert("Error: " + data.error);
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert("Error al procesar la apertura de caja.");
+                });
+            });
+        }
+    });
+</script>
+{% endif %}
+
+<!-- MODAL: CIERRE DE TURNO / CORTE DE CAJA -->
+<div class="modal fade" id="modalCierreCaja" tabindex="-1" aria-labelledby="modalCierreCajaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-bottom border-light py-3">
+                <h5 class="modal-title fw-bold text-dark" id="modalCierreCajaLabel">Realizar Corte de Caja</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formCierreCaja">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <div class="alert alert-warning small mb-3">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        Al realizar el corte se consolidarán los totales de ventas y se cerrará la sesión de cobro.
+                    </div>
+                    
+                    <div class="bg-light p-3 rounded mb-3" style="font-size: 0.9rem;">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-secondary">Caja Registradora:</span>
+                            <span id="cierreCajaNombre" class="fw-bold text-dark">-</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-secondary">Apertura:</span>
+                            <span id="cierreAperturaFecha" class="fw-bold text-dark">-</span>
+                        </div>
+                        <hr class="my-2">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-secondary">(+) Fondo Inicial:</span>
+                            <span id="cierreMontoInicial" class="fw-semibold text-dark">$0.00</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-secondary">(+) Ventas en Efectivo:</span>
+                            <span id="cierreVentasEfectivo" class="fw-semibold text-dark">$0.00</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-secondary">(=) Efectivo Estimado:</span>
+                            <span id="cierreEfectivoEstimado" class="fw-bold" style="color: #00b8b9;">$0.00</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1 mt-2 border-top pt-2">
+                            <span class="text-secondary">(*) Ventas con Tarjeta:</span>
+                            <span id="cierreVentasTarjeta" class="fw-semibold text-dark">$0.00</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-secondary">(*) Ventas con Transferencia:</span>
+                            <span id="cierreVentasTransferencia" class="fw-semibold text-dark">$0.00</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="montoFinalContado" class="form-label fw-semibold small text-secondary">Efectivo Físico en Caja (Contado Real)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0 text-secondary">$</span>
+                            <input type="number" step="0.01" min="0" class="form-control ps-1 border-start-0" id="montoFinalContado" name="monto_final_efectivo" placeholder="0.00" required>
+                        </div>
+                    </div>
+
+                    <div class="p-2 rounded text-center fw-bold" id="cierreDiferenciaWrapper" style="display:none; font-size: 0.95rem;">
+                        Diferencia: <span id="cierreDiferenciaMonto">$0.00</span>
+                    </div>
+                </div>
+                <div class="modal-footer border-top border-light py-3 bg-light">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger px-4">Confirmar y Cerrar Caja</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    let estimadoEfectivoGlobal = 0;
+
+    function abrirModalCorte() {
+        fetch('{% url "obtener_totales_sesion_ajax" %}', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('cierreCajaNombre').innerText = data.caja_nombre;
+                document.getElementById('cierreAperturaFecha').innerText = data.fecha_apertura;
+                
+                document.getElementById('cierreMontoInicial').innerText = '$' + data.monto_inicial.toFixed(2);
+                document.getElementById('cierreVentasEfectivo').innerText = '$' + data.ventas_efectivo.toFixed(2);
+                document.getElementById('cierreEfectivoEstimado').innerText = '$' + data.efectivo_estimado.toFixed(2);
+                document.getElementById('cierreVentasTarjeta').innerText = '$' + data.ventas_tarjeta.toFixed(2);
+                document.getElementById('cierreVentasTransferencia').innerText = '$' + data.ventas_transferencia.toFixed(2);
+                
+                estimadoEfectivoGlobal = data.efectivo_estimado;
+                
+                // Limpiar diferencia e input
+                document.getElementById('montoFinalContado').value = '';
+                document.getElementById('cierreDiferenciaWrapper').style.display = 'none';
+
+                // Mostrar modal
+                const modal = new bootstrap.Modal(document.getElementById('modalCierreCaja'));
+                modal.show();
+            } else {
+                alert("Error al cargar datos del corte: " + data.error);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Error al conectar para obtener totales del corte.");
+        });
+    }
+
+    // Calcular diferencias en caliente mientras el cajero cuenta
+    document.getElementById('montoFinalContado').addEventListener('input', function() {
+        const val = parseFloat(this.value) || 0;
+        const diff = val - estimadoEfectivoGlobal;
+        const wrapper = document.getElementById('cierreDiferenciaWrapper');
+        const textSpan = document.getElementById('cierreDiferenciaMonto');
+        
+        wrapper.style.display = 'block';
+        if (diff === 0) {
+            textSpan.innerText = "$0.00 (Cuadrado)";
+            wrapper.className = "p-2 rounded text-center fw-bold bg-success text-white";
+        } else if (diff > 0) {
+            textSpan.innerText = "+$" + diff.toFixed(2) + " (Sobrante)";
+            wrapper.className = "p-2 rounded text-center fw-bold bg-success text-white";
+        } else {
+            textSpan.innerText = "-$" + Math.abs(diff).toFixed(2) + " (Faltante)";
+            wrapper.className = "p-2 rounded text-center fw-bold bg-danger text-white";
+        }
+    });
+
+    // Enviar el cierre de caja
+    document.getElementById('formCierreCaja').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        fetch('{% url "cierre_sesion_pos_ajax" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                // Redirigir al historial de cortes
+                window.location.href = '{% url "cortes_caja_list" %}';
+            } else {
+                alert("Error al cerrar caja: " + data.error);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Error al enviar solicitud de cierre.");
+        });
+    });
 </script>
 {% endblock %}

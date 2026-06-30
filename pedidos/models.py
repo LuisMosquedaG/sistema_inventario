@@ -44,6 +44,14 @@ class Pedido(models.Model):
     fecha_creacion = models.DateTimeField(default=timezone.now, verbose_name="Creado el")
     fecha_confirmacion = models.DateTimeField(null=True, blank=True, verbose_name="Confirmado el")
     aplica_iva = models.BooleanField(default=True, verbose_name="Aplica IVA")
+    sesion_caja = models.ForeignKey(
+        'ventas.SesionCajaPOS',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Sesión de Caja POS",
+        related_name="pedidos"
+    )
     
     # ESTADO GENERAL DEL PEDIDO
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='borrador')

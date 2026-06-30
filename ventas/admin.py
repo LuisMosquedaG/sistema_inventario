@@ -22,3 +22,17 @@ class OrdenVentaAdmin(admin.ModelAdmin):
 
 # Registro opcional del detalle por separado
 admin.site.register(DetalleOrdenVenta)
+
+from .models import CajaPOS, SesionCajaPOS
+
+@admin.register(CajaPOS)
+class CajaPOSAdmin(admin.ModelAdmin):
+    list_display = ('id', 'nombre', 'usuario_asignado', 'estado', 'sucursal')
+    list_filter = ('estado', 'sucursal')
+    search_fields = ('nombre', 'usuario_asignado__username')
+
+@admin.register(SesionCajaPOS)
+class SesionCajaPOSAdmin(admin.ModelAdmin):
+    list_display = ('id', 'caja_pos', 'usuario', 'monto_inicial', 'estado', 'fecha_apertura', 'fecha_cierre')
+    list_filter = ('estado', 'fecha_apertura')
+    search_fields = ('caja_pos__nombre', 'usuario__username')

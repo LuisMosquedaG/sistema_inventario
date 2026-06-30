@@ -163,3 +163,77 @@ class DetalleOrdenVenta(models.Model):
     @property
     def total(self):
         return self.subtotal + self.iva_monto
+
+
+# ==========================================
+# MODELO: CAJA PUNTO DE VENTA (POS)
+# ==========================================
+class CajaPOS(models.Model):
+    ESTADO_CHOICES = (
+        ('abierta', 'Abierta'),
+        ('cerrada', 'Cerrada'),
+    )
+
+    nombre = models.CharField(max_length=100, verbose_name="Nombre de la Caja")
+    usuario_asignado = models.ForeignKey(User, on_delete=models.CASCADE, related_name='cajas_pos', verbose_name="Usuario Asignado")
+    caja_efectivo = models.ForeignKey('tesoreria.CajaBanco', on_delete=models.PROTECT, related_name='cajas_pos_efectivo', verbose_name="Caja (Efectivo)")
+    banco_tarjeta = models.ForeignKey('tesoreria.CajaBanco', on_delete=models.PROTECT, related_name='cajas_pos_tarjeta', verbose_name="Banco Tarjeta")
+    banco_transferencia = models.ForeignKey('tesoreria.CajaBanco', on_delete=models.PROTECT, related_name='cajas_pos_transferencia', verbose_name="Banco Transferencias")
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='cerrada', verbose_name="Estado")
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
+    sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
+
+    class Meta:
+        verbose_name = "Caja POS"
+        verbose_name_plural = "Cajas POS"
+
+    def __str__(self):
+        return f"{self.nombre} - {self.usuario_asignado.username} ({self.get_estado_display()})"
+
+    @property
+    def username_display(self):
+        if '@' in self.usuario_asignado.username:
+            return self.usuario_asignado.username.split('@')[0]
+        return self.usuario_asignado.username
+
+
+# ==========================================
+# MODELO: SESION DE CAJA POS
+# ==========================================
+class SesionCajaPOS(models.Model):
+    ESTADO_CHOICES = (
+        ('abierta', 'Abierta'),
+        ('cerrada', 'Cerrada'),
+    )
+
+    caja_pos = models.ForeignKey(CajaPOS, on_delete=models.CASCADE, related_name='sesiones', verbose_name="Caja POS")
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sesiones_pos', verbose_name="Usuario")
+    monto_inicial = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Monto Inicial (Efectivo)")
+    fecha_apertura = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Apertura")
+    
+    # Cierre
+    fecha_cierre = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de Cierre")
+    monto_final_efectivo = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="Monto Final Efectivo (Contado)")
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='abierta', verbose_name="Estado")
+    
+    # Totales calculados por sistema
+    total_ventas_efectivo = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Ventas Efectivo")
+    total_ventas_tarjeta = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Ventas Tarjeta")
+    total_ventas_transferencia = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Ventas Transferencia")
+    
+    class Meta:
+        verbose_name = "Sesión de Caja POS"
+        verbose_name_plural = "Sesiones de Caja POS"
+
+    def __str__(self):
+        return f"Sesión {self.caja_pos.nombre} - {self.fecha_apertura.strftime('%d/%m/%Y %H:%M')}"
+
+    @property
+    def username_display(self):
+        if '@' in self.usuario.username:
+            return self.usuario.username.split('@')[0]
+        return self.usuario.username
+
+    @property
+    def total_ventas(self):
+        return self.total_ventas_efectivo + self.total_ventas_tarjeta + self.total_ventas_transferencia

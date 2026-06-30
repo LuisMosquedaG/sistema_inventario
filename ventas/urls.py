@@ -34,4 +34,14 @@ urlpatterns = [
     # 9. Punto de Venta (POS)
     path('pos/', views.punto_de_venta, name='punto_de_venta'),
     path('pos/crear-venta/', views.crear_venta_pos_ajax, name='crear_venta_pos_ajax'),
+    
+    # 10. Cortes de Caja
+    path('cortes-caja/', views.cortes_caja_list, name='cortes_caja_list'),
+    path('cortes-caja/crear-caja/', views.crear_caja_pos_ajax, name='crear_caja_pos_ajax'),
+    path('cortes-caja/cambiar-estado/<int:caja_id>/', views.cambiar_estado_caja_pos_ajax, name='cambiar_estado_caja_pos_ajax'),
+    path('cortes-caja/ventas-sesion/<int:sesion_id>/', views.obtener_ventas_sesion_ajax, name='obtener_ventas_sesion_ajax'),
+    path('cortes-caja/articulos-sesion/<int:sesion_id>/', views.obtener_articulos_sesion_ajax, name='obtener_articulos_sesion_ajax'),
+    path('pos/apertura-sesion/', views.apertura_sesion_pos_ajax, name='apertura_sesion_pos_ajax'),
+    path('pos/totales-sesion/', views.obtener_totales_sesion_ajax, name='obtener_totales_sesion_ajax'),
+    path('pos/cierre-sesion/', views.cierre_sesion_pos_ajax, name='cierre_sesion_pos_ajax'),
 ]

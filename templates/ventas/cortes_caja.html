@@ -1,0 +1,762 @@
+{% extends 'base.html' %}
+{% load static humanize %}
+
+{% block content %}
+<style>
+    .badge-status {
+        font-size: 0.75rem;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+    .status-open {
+        background-color: #ebfbee;
+        color: #2f9e44;
+    }
+    .status-closed {
+        background-color: #f1f3f5;
+        color: #495057;
+    }
+    .form-check-input:checked {
+        background-color: #00b8b9 !important;
+        border-color: #00b8b9 !important;
+    }
+    /* Animación Suave del Modal General (efecto cotización) */
+    .modal.fade .modal-dialog {
+        transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease-out !important;
+        transform: scale(0.9) translateY(-50px) !important;
+        opacity: 0;
+    }
+    .modal.show .modal-dialog {
+        transform: scale(1) translateY(0) !important;
+        opacity: 1 !important;
+    }
+</style>
+
+<div class="container-fluid py-2 px-4">
+    <!-- HEADER -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+        <div>
+            <h4 class="section-title mb-0">Cortes de Caja y Sesiones POS</h4>
+            <span class="section-subtitle">Administra las cajas de tus puntos de venta y audita las sesiones de caja de tus colaboradores</span>
+        </div>
+        {% if granular_sales_perms.punto_de_venta.crear %}
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaCaja">
+                <i class="bi bi-plus-lg me-1"></i> Nueva Caja POS
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sección 1: Cajas Registradoras (Configuración) -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white py-3 border-bottom border-light">
+                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-shop me-2 text-brand" style="color: #00b8b9;"></i>Cajas POS en la Sucursal</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-pro mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="text-center px-4">Acciones</th>
+                                    <th class="px-4 text-center">ID</th>
+                                    <th class="text-center">Sucursal</th>
+                                    <th class="text-center">Nombre de Caja</th>
+                                    <th class="text-center">Cajero Asignado</th>
+                                    <th class="text-center">Cuenta Efectivo</th>
+                                    <th class="text-center">Banco Tarjetas</th>
+                                    <th class="text-center">Banco Transferencias</th>
+                                    <th class="text-center">Habilitada por Admin</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for caja in cajas_pos %}
+                                <tr>
+                                    <td class="text-center px-4">
+                                        <div class="form-check form-switch d-inline-block">
+                                            <input class="form-check-input" type="checkbox" role="switch" id="switchCaja{{ caja.id }}" 
+                                                   {% if caja.estado == 'abierta' %}checked{% endif %}
+                                                   onclick="toggleCajaEstado({{ caja.id }}, this)">
+                                        </div>
+                                    </td>
+                                    <td class="px-4 text-center fw-bold text-secondary">#{{ caja.id }}</td>
+                                    <td class="text-center">{{ caja.sucursal.nombre|default:"N/A" }}</td>
+                                    <td class="text-center"><strong>{{ caja.nombre }}</strong></td>
+                                    <td class="text-center">
+                                        <span>{{ caja.username_display }}</span>
+                                    </td>
+                                    <td class="text-center">{{ caja.caja_efectivo.nombre }}</td>
+                                    <td class="text-center">{{ caja.banco_tarjeta.nombre }}</td>
+                                    <td class="text-center">{{ caja.banco_transferencia.nombre }}</td>
+                                    <td class="text-center">
+                                        {% if caja.estado == 'abierta' %}
+                                        <span class="badge-status status-open">Habilitada (Abierta)</span>
+                                        {% else %}
+                                        <span class="badge-status status-closed">Inhabilitada (Cerrada)</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center py-5 text-muted">
+                                        <i class="bi bi-inboxes display-4 d-block mb-3 opacity-50"></i>
+                                        No hay cajas POS registradas para esta sucursal.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sección 2: Historial de Sesiones Abiertas y Cerradas -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white py-3 border-bottom border-light">
+                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-clock-history me-2 text-brand" style="color: #00b8b9;"></i>Historial de Turnos y Cortes</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-pro mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="text-center px-4">Acciones</th>
+                                    <th class="px-4 text-center">Sesión</th>
+                                    <th class="text-center">Cajero</th>
+                                    <th class="text-center">Fecha/Hora Turno</th>
+                                    <th class="text-center">Fondo Inicial</th>
+                                    <th class="text-center">Ventas Efec.</th>
+                                    <th class="text-center">Ventas Tarj.</th>
+                                    <th class="text-center">Ventas Transf.</th>
+                                    <th class="text-center">Total Ventas</th>
+                                    <th class="text-center">Contado Real</th>
+                                    <th class="text-center">Diferencia</th>
+                                    <th class="text-center px-4">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sesion in sesiones %}
+                                <tr>
+                                    <!-- 1. ACCIONES -->
+                                    <td class="text-center px-4">
+                                        <div class="d-flex justify-content-center gap-1">
+                                            <span class="icon-action" title="Ver Detalles"
+                                                  onclick="verDetallesSesion(this)"
+                                                  data-caja="{{ sesion.caja_pos.nombre|escapejs }}"
+                                                  data-cajero="{{ sesion.username_display|escapejs }}"
+                                                  data-sucursal="{{ sesion.caja_pos.sucursal.nombre|default:'N/A'|escapejs }}"
+                                                  data-estado="{{ sesion.estado }}"
+                                                  data-apertura="{{ sesion.fecha_apertura|date:'d/m/Y H:i' }}"
+                                                  data-cierre="{% if sesion.fecha_cierre %}{{ sesion.fecha_cierre|date:'d/m/Y H:i' }}{% endif %}"
+                                                  data-monto-inicial="{{ sesion.monto_inicial }}"
+                                                  data-ventas-efectivo="{{ sesion.total_ventas_efectivo }}"
+                                                  data-ventas-tarjeta="{{ sesion.total_ventas_tarjeta }}"
+                                                  data-ventas-transferencia="{{ sesion.total_ventas_transferencia }}"
+                                                  data-total-ventas="{{ sesion.total_ventas }}"
+                                                  data-contado-real="{{ sesion.monto_final_efectivo|default:0 }}">
+                                                <i class="bi bi-eye"></i>
+                                            </span>
+                                            <span class="icon-action" title="Ver Ventas Realizadas"
+                                                  onclick="verVentasSesion({{ sesion.id }}, '{{ sesion.caja_pos.nombre|escapejs }}')">
+                                                <i class="bi bi-receipt"></i>
+                                            </span>
+                                            <span class="icon-action" title="Ver Artículos Vendidos"
+                                                  onclick="verArticulosSesion({{ sesion.id }}, '{{ sesion.caja_pos.nombre|escapejs }}')">
+                                                <i class="bi bi-box-seam"></i>
+                                            </span>
+                                        </div>
+                                    </td>
+                                    
+                                    <!-- 2. SESION / CAJA -->
+                                    <td class="px-4 text-center">
+                                        <strong>{{ sesion.caja_pos.nombre }}</strong>
+                                        <span class="text-muted d-block small">ID: #{{ sesion.id }}</span>
+                                    </td>
+                                    
+                                    <!-- 3. CAJERO -->
+                                    <td class="text-center">{{ sesion.username_display }}</td>
+                                    
+                                    <!-- 4. FECHA/HORA TURNO -->
+                                    <td class="text-center small">
+                                        <div><strong>Apertura:</strong> {{ sesion.fecha_apertura|date:"d/m/Y H:i" }}</div>
+                                        <div class="text-muted">
+                                            <strong>Cierre:</strong> 
+                                            {% if sesion.fecha_cierre %}
+                                                {{ sesion.fecha_cierre|date:"d/m/Y H:i" }}
+                                            {% else %}
+                                                <span class="text-success fw-bold">Activo</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    
+                                    <!-- 5. FONDO INICIAL -->
+                                    <td class="text-center fw-bold text-secondary">${{ sesion.monto_inicial|floatformat:2|intcomma }}</td>
+                                    
+                                    <!-- 6. VENTAS EFECTIVO -->
+                                    <td class="text-center">${{ sesion.total_ventas_efectivo|floatformat:2|intcomma }}</td>
+                                    
+                                    <!-- 7. VENTAS TARJETA -->
+                                    <td class="text-center">${{ sesion.total_ventas_tarjeta|floatformat:2|intcomma }}</td>
+                                    
+                                    <!-- 8. VENTAS TRANSFERENCIA -->
+                                    <td class="text-center">${{ sesion.total_ventas_transferencia|floatformat:2|intcomma }}</td>
+                                    
+                                    <!-- 9. TOTAL VENTAS -->
+                                    <td class="text-center fw-bold text-dark">${{ sesion.total_ventas|floatformat:2|intcomma }}</td>
+                                    
+                                    <!-- 10. CONTADO REAL -->
+                                    <td class="text-center fw-bold">
+                                        {% if sesion.estado == 'cerrada' %}
+                                            ${{ sesion.monto_final_efectivo|floatformat:2|intcomma }}
+                                        {% else %}
+                                            <span class="text-muted small">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    
+                                    <!-- 11. DIFERENCIA -->
+                                    <td class="text-center fw-bold">
+                                        {% if sesion.estado == 'cerrada' %}
+                                            <span id="diff-span-{{ sesion.id }}"></span>
+                                            <script>
+                                                (function() {
+                                                    const finalEf = parseFloat("{{ sesion.monto_final_efectivo }}");
+                                                    const inicial = parseFloat("{{ sesion.monto_inicial }}");
+                                                    const ventas = parseFloat("{{ sesion.total_ventas_efectivo }}");
+                                                    const diff = finalEf - (inicial + ventas);
+                                                    const el = document.getElementById("diff-span-{{ sesion.id }}");
+                                                    if (diff === 0) {
+                                                        el.innerHTML = "$0.00";
+                                                        el.className = "text-success";
+                                                    } else if (diff > 0) {
+                                                        el.innerHTML = "+$" + diff.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                                        el.className = "text-info";
+                                                    } else {
+                                                        el.innerHTML = "-$" + Math.abs(diff).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                                        el.className = "text-danger";
+                                                    }
+                                                })();
+                                            </script>
+                                        {% else %}
+                                            <span class="text-muted small">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    
+                                    <!-- 12. ESTADO -->
+                                    <td class="text-center px-4">
+                                        {% if sesion.estado == 'abierta' %}
+                                            <span class="badge-status status-open">Abierto</span>
+                                        {% else %}
+                                            <span class="badge-status status-closed">Cerrado</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="12" class="text-center py-5 text-muted">
+                                        <i class="bi bi-receipt display-4 d-block mb-3 opacity-50"></i>
+                                        No hay turnos registrados para esta empresa.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: NUEVA CAJA POS -->
+<div class="modal fade" id="modalNuevaCaja" tabindex="-1" aria-labelledby="modalNuevaCajaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-bottom bg-light py-3">
+                <h5 class="modal-title fw-bold text-dark" id="modalNuevaCajaLabel">
+                    <i class="bi bi-cash-coin me-2" style="color: #00b8b9;"></i>
+                    Crear Caja POS
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formNuevaCaja">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label for="cajaNombre" class="form-label fw-semibold small text-secondary">Nombre de la Caja</label>
+                        <input type="text" class="form-control" id="cajaNombre" name="nombre" placeholder="Ej. Caja Principal, Caja Pasillo" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="cajaUsuario" class="form-label fw-semibold small text-secondary">Usuario Cajero Asignado</label>
+                        <select class="form-select" id="cajaUsuario" name="usuario_asignado" required>
+                            <option value="">-- Selecciona Cajero --</option>
+                            {% for u in usuarios %}
+                            <option value="{{ u.id }}">{{ u.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="cajaBancoEf" class="form-label fw-semibold small text-secondary">Caja de Efectivo (Tesorería)</label>
+                        <select class="form-select" id="cajaBancoEf" name="caja_efectivo" required>
+                            <option value="">-- Selecciona Cuenta Efectivo --</option>
+                            {% for cb in cajas_efectivo %}
+                            <option value="{{ cb.id }}">{{ cb.nombre }} ({{ cb.moneda.siglas }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="cajaBancoTarj" class="form-label fw-semibold small text-secondary">Banco para Tarjetas (Tesorería)</label>
+                        <select class="form-select" id="cajaBancoTarj" name="banco_tarjeta" required>
+                            <option value="">-- Selecciona Cuenta Tarjetas --</option>
+                            {% for b in bancos %}
+                            <option value="{{ b.id }}">{{ b.nombre }} ({{ b.moneda.siglas }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="cajaBancoTrans" class="form-label fw-semibold small text-secondary">Banco para Transferencias (Tesorería)</label>
+                        <select class="form-select" id="cajaBancoTrans" name="banco_transferencia" required>
+                            <option value="">-- Selecciona Cuenta Transferencias --</option>
+                            {% for b in bancos %}
+                            <option value="{{ b.id }}">{{ b.nombre }} ({{ b.moneda.siglas }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer border-top bg-white py-3">
+                    <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-brand text-white btn-sm px-4">Crear Caja</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: DETALLES DE SESION -->
+<div class="modal fade" id="modalVerSesion" tabindex="-1" aria-labelledby="modalVerSesionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-bottom bg-light py-3">
+                <h5 class="modal-title fw-bold text-dark" id="modalVerSesionLabel">
+                    <i class="bi bi-eye me-2" style="color: #00b8b9;"></i>
+                    Detalles del Turno / Corte
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="bg-light p-3 rounded mb-3" style="font-size: 0.9rem;">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-secondary">Caja Registradora:</span>
+                        <span id="verSesionCaja" class="fw-bold text-dark">-</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-secondary">Cajero:</span>
+                        <span id="verSesionCajero" class="fw-bold text-dark">-</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-secondary">Sucursal:</span>
+                        <span id="verSesionSucursal" class="fw-bold text-dark">-</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-secondary">Estado del Turno:</span>
+                        <span id="verSesionEstado" class="fw-bold">-</span>
+                    </div>
+                    <hr class="my-2">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-secondary">Apertura:</span>
+                        <span id="verSesionApertura" class="fw-bold text-dark">-</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-secondary">Cierre:</span>
+                        <span id="verSesionCierre" class="fw-bold text-dark">-</span>
+                    </div>
+                    <hr class="my-2">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-secondary">(+) Fondo Inicial:</span>
+                        <span id="verSesionMontoInicial" class="fw-semibold text-dark">$0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-secondary">(+) Ventas Efectivo:</span>
+                        <span id="verSesionVentasEfectivo" class="fw-semibold text-dark">$0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-secondary">(+) Ventas Tarjeta:</span>
+                        <span id="verSesionVentasTarjeta" class="fw-semibold text-dark">$0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-secondary">(+) Ventas Transferencia:</span>
+                        <span id="verSesionVentasTransferencia" class="fw-semibold text-dark">$0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1 border-top pt-2 mt-2">
+                        <span class="text-secondary fw-bold">(=) Total Ventas:</span>
+                        <span id="verSesionTotalVentas" class="fw-bold text-dark">$0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-secondary fw-bold">(=) Total Estimado Efectivo:</span>
+                        <span id="verSesionEfectivoEstimado" class="fw-bold" style="color: #00b8b9;">$0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1 border-top pt-2 mt-2" id="verSesionContadoRow">
+                        <span class="text-secondary fw-bold">(=) Contado Real:</span>
+                        <span id="verSesionContadoReal" class="fw-bold text-dark">$0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1" id="verSesionDiferenciaRow">
+                        <span class="text-secondary fw-bold">(=) Diferencia:</span>
+                        <span id="verSesionDiferencia" class="fw-bold">$0.00</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top bg-white py-3">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: VENTAS REALIZADAS EN LA SESION -->
+<div class="modal fade" id="modalVentasSesion" tabindex="-1" aria-labelledby="modalVentasSesionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-bottom bg-light py-3">
+                <h5 class="modal-title fw-bold text-dark" id="modalVentasSesionLabel">
+                    <i class="bi bi-receipt me-2" style="color: #00b8b9;"></i>
+                    Ventas del Turno: <span id="nombreCajaVentas" class="text-brand">-</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="table-responsive">
+                    <table class="table table-pro mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th class="text-center" style="width: 20%;">Folio</th>
+                                <th class="text-center" style="width: 25%;">Fecha/Hora</th>
+                                <th class="text-center" style="width: 35%;">Cliente</th>
+                                <th class="text-center" style="width: 20%;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyVentasSesion">
+                            <!-- Se llena dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer border-top bg-white py-3">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: ARTICULOS VENDIDOS EN LA SESION -->
+<div class="modal fade" id="modalArticulosSesion" tabindex="-1" aria-labelledby="modalArticulosSesionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-bottom bg-light py-3">
+                <h5 class="modal-title fw-bold text-dark" id="modalArticulosSesionLabel">
+                    <i class="bi bi-box-seam me-2" style="color: #00b8b9;"></i>
+                    Artículos Vendidos: <span id="nombreCajaArticulos" class="text-brand">-</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="table-responsive">
+                    <table class="table table-pro mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th class="text-center" style="width: 50%;">Artículo / Producto</th>
+                                <th class="text-center" style="width: 25%;">Cantidad Vendida</th>
+                                <th class="text-center" style="width: 25%;">Total Recaudado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyArticulosSesion">
+                            <!-- Se llena dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer border-top bg-white py-3">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Configurar envío del formulario de creación de Caja POS
+    document.getElementById('formNuevaCaja').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const form = this;
+        const formData = new FormData(form);
+
+        fetch('{% url "crear_caja_pos_ajax" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Cerrar modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalNuevaCaja'));
+                modal.hide();
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Ocurrió un error al procesar el formulario.');
+        });
+    });
+
+    // Activar / Desactivar Caja POS (Habilitar para Apertura)
+    function toggleCajaEstado(cajaId, switchEl) {
+        const estado = switchEl.checked ? 'abierta' : 'cerrada';
+        const formData = new FormData();
+        formData.append('estado', estado);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch(`/ventas/cortes-caja/cambiar-estado/${cajaId}/`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                alert('Error: ' + data.error);
+                switchEl.checked = !switchEl.checked; // Revertir switch
+            } else {
+                location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Ocurrió un error al cambiar el estado de la caja.');
+            switchEl.checked = !switchEl.checked; // Revertir switch
+        });
+    }
+    // Mostrar detalles históricos de la sesión en el modal
+    function verDetallesSesion(btn) {
+        const caja = btn.getAttribute('data-caja');
+        const cajero = btn.getAttribute('data-cajero');
+        const sucursal = btn.getAttribute('data-sucursal');
+        const estado = btn.getAttribute('data-estado');
+        const apertura = btn.getAttribute('data-apertura');
+        const cierre = btn.getAttribute('data-cierre');
+        
+        const montoInicial = parseFloat(btn.getAttribute('data-monto-inicial')) || 0;
+        const ventasEfectivo = parseFloat(btn.getAttribute('data-ventas-efectivo')) || 0;
+        const ventasTarjeta = parseFloat(btn.getAttribute('data-ventas-tarjeta')) || 0;
+        const ventasTransferencia = parseFloat(btn.getAttribute('data-ventas-transferencia')) || 0;
+        const totalVentas = parseFloat(btn.getAttribute('data-total-ventas')) || 0;
+        const contadoReal = parseFloat(btn.getAttribute('data-contado-real')) || 0;
+        
+        document.getElementById('verSesionCaja').innerText = caja;
+        document.getElementById('verSesionCajero').innerText = cajero;
+        document.getElementById('verSesionSucursal').innerText = sucursal;
+        
+        const statusEl = document.getElementById('verSesionEstado');
+        if (estado === 'abierta') {
+            statusEl.innerText = 'Activo / Abierta';
+            statusEl.className = 'fw-bold text-success';
+            document.getElementById('verSesionCierre').innerText = 'Turno en curso';
+            document.getElementById('verSesionContadoRow').style.display = 'none';
+            document.getElementById('verSesionDiferenciaRow').style.display = 'none';
+        } else {
+            statusEl.innerText = 'Cerrada';
+            statusEl.className = 'fw-bold text-secondary';
+            document.getElementById('verSesionCierre').innerText = cierre;
+            document.getElementById('verSesionContadoRow').style.display = 'flex';
+            document.getElementById('verSesionDiferenciaRow').style.display = 'flex';
+        }
+        
+        document.getElementById('verSesionApertura').innerText = apertura;
+        document.getElementById('verSesionMontoInicial').innerText = '$' + montoInicial.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('verSesionVentasEfectivo').innerText = '$' + ventasEfectivo.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('verSesionVentasTarjeta').innerText = '$' + ventasTarjeta.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('verSesionVentasTransferencia').innerText = '$' + ventasTransferencia.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('verSesionTotalVentas').innerText = '$' + totalVentas.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        
+        const estimadoEf = montoInicial + ventasEfectivo;
+        document.getElementById('verSesionEfectivoEstimado').innerText = '$' + estimadoEf.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        
+        if (estado === 'cerrada') {
+            document.getElementById('verSesionContadoReal').innerText = '$' + contadoReal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            const diff = contadoReal - estimadoEf;
+            const diffEl = document.getElementById('verSesionDiferencia');
+            diffEl.innerText = (diff >= 0 ? '+' : '-') + '$' + Math.abs(diff).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            if (diff === 0) {
+                diffEl.className = 'fw-bold text-success';
+            } else if (diff > 0) {
+                diffEl.className = 'fw-bold text-info';
+            } else {
+                diffEl.className = 'fw-bold text-danger';
+            }
+        }
+        
+        const modal = new bootstrap.Modal(document.getElementById('modalVerSesion'));
+        modal.show();
+    }
+    // Consultar y renderizar las ventas realizadas durante un turno
+    function verVentasSesion(sesionId, cajaNombre) {
+        document.getElementById('nombreCajaVentas').innerText = cajaNombre;
+        const tbody = document.getElementById('tbodyVentasSesion');
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm text-brand" style="color: #00b8b9;" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <span class="ms-2 text-secondary small">Cargando ventas del turno...</span>
+                </td>
+            </tr>
+        `;
+        
+        // Abrir el modal inmediatamente
+        const modal = new bootstrap.Modal(document.getElementById('modalVentasSesion'));
+        modal.show();
+
+        fetch(`/ventas/cortes-caja/ventas-sesion/${sesionId}/`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (data.ventas.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="4" class="text-center py-4 text-muted small">
+                                <i class="bi bi-inboxes d-block fs-4 mb-2 opacity-50"></i>
+                                No se registraron ventas durante este turno.
+                            </td>
+                        </tr>
+                    `;
+                } else {
+                    let html = '';
+                    data.ventas.forEach(v => {
+                        const folioFormatted = 'PED-' + String(v.id).padStart(4, '0');
+                        html += `
+                            <tr>
+                                <td class="text-center fw-bold text-secondary">${folioFormatted}</td>
+                                <td class="text-center small">${v.fecha}</td>
+                                <td class="text-center">${v.cliente}</td>
+                                <td class="text-center fw-bold text-dark">$${v.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            </tr>
+                        `;
+                    });
+                    tbody.innerHTML = html;
+                }
+            } else {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center py-4 text-danger small">
+                            Error al cargar ventas: ${data.error}
+                        </td>
+                    </tr>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center py-4 text-danger small">
+                        Ocurrió un error al consultar las ventas del turno.
+                    </td>
+                </tr>
+            `;
+        });
+    }
+    // Consultar y renderizar los artículos vendidos durante un turno
+    function verArticulosSesion(sesionId, cajaNombre) {
+        document.getElementById('nombreCajaArticulos').innerText = cajaNombre;
+        const tbody = document.getElementById('tbodyArticulosSesion');
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="3" class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm text-brand" style="color: #00b8b9;" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <span class="ms-2 text-secondary small">Cargando artículos del turno...</span>
+                </td>
+            </tr>
+        `;
+        
+        // Abrir el modal inmediatamente
+        const modal = new bootstrap.Modal(document.getElementById('modalArticulosSesion'));
+        modal.show();
+
+        fetch(`/ventas/cortes-caja/articulos-sesion/${sesionId}/`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (data.articulos.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="3" class="text-center py-4 text-muted small">
+                                <i class="bi bi-box d-block fs-4 mb-2 opacity-50"></i>
+                                No se registraron artículos vendidos durante este turno.
+                            </td>
+                        </tr>
+                    `;
+                } else {
+                    let html = '';
+                    data.articulos.forEach(art => {
+                        html += `
+                            <tr>
+                                <td class="text-center fw-bold text-dark">${art.nombre}</td>
+                                <td class="text-center text-secondary fw-semibold">${art.cantidad}</td>
+                                <td class="text-center fw-bold text-dark">$${art.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            </tr>
+                        `;
+                    });
+                    tbody.innerHTML = html;
+                }
+            } else {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="text-center py-4 text-danger small">
+                            Error al cargar artículos: ${data.error}
+                        </td>
+                    </tr>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="3" class="text-center py-4 text-danger small">
+                        Ocurrió un error al consultar los artículos del turno.
+                    </td>
+                </tr>
+            `;
+        });
+    }
+</script>
+{% endblock %}
