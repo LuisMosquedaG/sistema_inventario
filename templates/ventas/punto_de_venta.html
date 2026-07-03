@@ -1184,8 +1184,46 @@
     </div>
 </div>
 
+<!-- MODAL: PREGUNTA INCLUSION ARTICULOS EN IMPRESION -->
+<div class="modal fade" id="modalPreguntaImpresion" tabindex="-1" aria-labelledby="modalPreguntaImpresionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-bottom bg-light py-2">
+                <h6 class="modal-title fw-bold text-dark" id="modalPreguntaImpresionLabel">
+                    <i class="bi bi-printer me-2" style="color: #00b8b9;"></i>
+                    Imprimir Ticket
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center p-3">
+                <p class="mb-3 text-secondary" style="font-size: 0.9rem;">
+                    ¿Deseas incluir el desglose detallado de los <strong>artículos vendidos</strong> en el ticket?
+                </p>
+                <div class="d-grid gap-2">
+                    <button type="button" id="btnConfirmarPrintConArticulos" class="btn btn-brand text-white btn-sm shadow-sm">
+                        <i class="bi bi-file-earmark-text me-1"></i> Sí, incluir artículos
+                    </button>
+                    <button type="button" id="btnConfirmarPrintSinArticulos" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-calculator me-1"></i> No, solo totales
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     let estimadoEfectivoGlobal = 0;
+    let sesionIdParaImprimir = null;
+    let modalPreguntaImpresion = null;
+    
+    function solicitarImpresion(sesionId) {
+        sesionIdParaImprimir = sesionId;
+        if (!modalPreguntaImpresion) {
+            modalPreguntaImpresion = new bootstrap.Modal(document.getElementById('modalPreguntaImpresion'));
+        }
+        modalPreguntaImpresion.show();
+    }
 
     function abrirModalCorte() {
         fetch('{% url "obtener_totales_sesion_ajax" %}', {
@@ -1259,9 +1297,19 @@
         .then(r => r.json())
         .then(data => {
             if (data.success) {
+                // Ocultar modal de cierre de caja
+                const formModal = bootstrap.Modal.getInstance(document.getElementById('modalCierreCaja'));
+                if (formModal) {
+                    formModal.hide();
+                }
+                
                 alert(data.message);
-                // Redirigir al historial de cortes
-                window.location.href = '{% url "cortes_caja_list" %}';
+                
+                if (data.sesion_id) {
+                    solicitarImpresion(data.sesion_id);
+                } else {
+                    window.location.href = '{% url "cortes_caja_list" %}';
+                }
             } else {
                 alert("Error al cerrar caja: " + data.error);
             }
@@ -1270,6 +1318,42 @@
             console.error(err);
             alert("Error al enviar solicitud de cierre.");
         });
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const btnCon = document.getElementById('btnConfirmarPrintConArticulos');
+        const btnSin = document.getElementById('btnConfirmarPrintSinArticulos');
+        
+        if (btnCon) {
+            btnCon.addEventListener('click', function() {
+                if (sesionIdParaImprimir) {
+                    window.open(`/ventas/cortes-caja/imprimir/${sesionIdParaImprimir}/?incluir_articulos=true`, '_blank');
+                    if (modalPreguntaImpresion) {
+                        modalPreguntaImpresion.hide();
+                    }
+                    window.location.href = '{% url "cortes_caja_list" %}';
+                }
+            });
+        }
+        if (btnSin) {
+            btnSin.addEventListener('click', function() {
+                if (sesionIdParaImprimir) {
+                    window.open(`/ventas/cortes-caja/imprimir/${sesionIdParaImprimir}/`, '_blank');
+                    if (modalPreguntaImpresion) {
+                        modalPreguntaImpresion.hide();
+                    }
+                    window.location.href = '{% url "cortes_caja_list" %}';
+                }
+            });
+        }
+        
+        // Redirigir al cerrar el modal de pregunta (si deciden no imprimir)
+        const modalEl = document.getElementById('modalPreguntaImpresion');
+        if (modalEl) {
+            modalEl.addEventListener('hidden.bs.modal', function() {
+                window.location.href = '{% url "cortes_caja_list" %}';
+            });
+        }
     });
 </script>
 {% endblock %}

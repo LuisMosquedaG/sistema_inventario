@@ -40,6 +40,30 @@
             -webkit-backdrop-filter: blur(15px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.3);
         }
+        .nav-link-custom {
+            color: var(--text-muted) !important;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: color 0.2s ease;
+            position: relative;
+            padding: 0.25rem 0;
+        }
+        .nav-link-custom:hover {
+            color: var(--brand-primary) !important;
+        }
+        .nav-link-custom::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: -2px;
+            left: 0;
+            background-color: var(--brand-primary);
+            transition: width 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .nav-link-custom:hover::after {
+            width: 100%;
+        }
         .btn-nav-login {
             background: var(--brand-primary);
             color: white;
@@ -387,7 +411,12 @@
                 <img src="{% static 'img/Logo.png' %}" alt="CrossoverSuite" class="me-2" height="32">
                 <span class="fw-bold fs-4" style="letter-spacing: -1px;">Crossover<span style="color:var(--brand-primary)">Suite</span></span>
             </a>
-            <div class="ms-auto">
+            <div class="ms-auto d-flex align-items-center gap-4">
+                <div class="d-none d-md-flex align-items-center gap-4 me-2">
+                    <a href="#proceso" class="text-decoration-none nav-link-custom">Comercial</a>
+                    <a href="#punto-de-venta-landing" class="text-decoration-none nav-link-custom">Punto de venta</a>
+                    <a href="#hr-tech" class="text-decoration-none nav-link-custom">Obligaciones patronales</a>
+                </div>
                 <a href="{% url 'login' %}" class="btn btn-nav-login">Inicia Sesión</a>
             </div>
         </div>
@@ -592,6 +621,113 @@
                 </div>
             </div>
         </div>
+    </section>
+
+    <!-- SECCIÓN: PUNTO DE VENTA (POS) & CORTES DE CAJA (ESTILO TICKET FISICO & TIMELINE) -->
+    <section class="py-5 overflow-hidden" id="punto-de-venta-landing" style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); position: relative;">
+        <!-- Elementos decorativos de fondo -->
+        <div style="position: absolute; width: 300px; height: 300px; background: rgba(0, 184, 185, 0.05); filter: blur(80px); top: 10%; left: -50px; border-radius: 50%; pointer-events: none;"></div>
+        <div style="position: absolute; width: 400px; height: 400px; background: rgba(99, 102, 241, 0.05); filter: blur(100px); bottom: 10%; right: -50px; border-radius: 50%; pointer-events: none;"></div>
+
+        <div class="container py-5">
+            <div class="row g-5 align-items-center">
+                
+                <!-- Columna Izquierda: Mockup del Ticket Térmico 3D -->
+                <div class="col-lg-5 d-flex justify-content-center order-2 order-lg-1">
+                    <div class="simulated-ticket-wrapper" style="perspective: 1000px; width: 100%; max-width: 340px;">
+                        <div class="simulated-ticket" style="background: #ffffff; color: #1e293b; padding: 25px 20px; font-family: 'Courier New', Courier, monospace; font-size: 0.75rem; line-height: 1.4; border-radius: 2px; box-shadow: 0 30px 60px -15px rgba(15, 23, 42, 0.2), 0 15px 30px -10px rgba(0, 0, 0, 0.1); transform: rotateY(15deg) rotateX(5deg) rotateZ(-2deg); transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); border-top: 5px dashed #cbd5e1; border-bottom: 5px dashed #cbd5e1; position: relative;">
+                            <!-- Sombra de la base del ticket -->
+                            <div style="position: absolute; top: -5px; left: 0; right: 0; height: 5px; background: radial-gradient(circle, transparent 30%, #cbd5e1 31%); background-size: 8px 10px;"></div>
+                            
+                            <div class="text-center fw-bold" style="letter-spacing: 1px; margin-bottom: 5px;">*** CROSSOVERSUITE ***</div>
+                            <div class="text-center" style="margin-bottom: 12px; font-size: 0.7rem;">SISTEMA DE INVENTARIO Y POS</div>
+                            
+                            <div>FECHA: 2026-07-02 20:15</div>
+                            <div>SESION: #0042 (CERRADA)</div>
+                            <div>CAJERO: CAJA 1</div>
+                            <div>SUCURSAL: MATRIZ SUR</div>
+                            <div style="border-top: 1px dashed #64748b; margin: 8px 0;"></div>
+                            
+                            <div class="fw-bold text-center" style="margin-bottom: 6px;">DESGLOSE POR FORMA DE PAGO</div>
+                            <div class="d-flex justify-content-between"><span>Ventas Efectivo:</span><span>$11,890.00</span></div>
+                            <div class="d-flex justify-content-between"><span>Ventas Tarjeta:</span><span>$5,800.00</span></div>
+                            <div class="d-flex justify-content-between"><span>Ventas Transf:</span><span>$0.00</span></div>
+                            <div class="d-flex justify-content-between fw-bold" style="border-top: 1px dotted #94a3b8; padding-top: 2px;"><span>TOTAL VENTAS:</span><span>$17,690.00</span></div>
+                            <div style="border-top: 1px dashed #64748b; margin: 8px 0;"></div>
+                            
+                            <div class="fw-bold text-center" style="margin-bottom: 6px;">DESGLOSE IMPUESTOS DE VENTAS</div>
+                            <div class="fw-bold">EFECTIVO:</div>
+                            <div class="d-flex justify-content-between" style="padding-left: 8px;"><span>Subtotal:</span><span>$10,250.00</span></div>
+                            <div class="d-flex justify-content-between" style="padding-left: 8px;"><span>IVA:</span><span>$1,640.00</span></div>
+                            <div class="d-flex justify-content-between" style="padding-left: 8px;"><span>Total:</span><span>$11,890.00</span></div>
+                            
+                            <div class="fw-bold" style="margin-top: 4px;">TARJETA:</div>
+                            <div class="d-flex justify-content-between" style="padding-left: 8px;"><span>Subtotal:</span><span>$5,000.00</span></div>
+                            <div class="d-flex justify-content-between" style="padding-left: 8px;"><span>IVA:</span><span>$800.00</span></div>
+                            <div class="d-flex justify-content-between" style="padding-left: 8px;"><span>Total:</span><span>$5,800.00</span></div>
+                            
+                            <div class="fw-bold" style="border-top: 1px dashed #cbd5e1; margin-top: 6px; padding-top: 4px;">CONSOLIDADO:</div>
+                            <div class="d-flex justify-content-between fw-bold" style="padding-left: 8px;"><span>Subtotal:</span><span>$15,250.00</span></div>
+                            <div class="d-flex justify-content-between fw-bold" style="padding-left: 8px;"><span>IVA:</span><span>$2,440.00</span></div>
+                            <div class="d-flex justify-content-between fw-bold" style="padding-left: 8px;"><span>TOTAL GRAL:</span><span>$17,690.00</span></div>
+                            
+                            <div style="border-top: 1px dashed #64748b; margin: 8px 0;"></div>
+                            <div class="text-center fw-bold" style="font-size: 0.8rem; letter-spacing: 2px;">* CAJA CUADRADA *</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Columna Derecha: Propuesta de Valor Comercial (Derecha) -->
+                <div class="col-lg-7 order-1 order-lg-2">
+                    <div class="ps-lg-5">
+                        <span class="badge rounded-pill mb-3 px-3 py-2 text-uppercase fw-bold" style="background: rgba(0, 184, 185, 0.1); color: var(--brand-primary); letter-spacing: 1px; font-size: 0.75rem;">MÓDULO PUNTO DE VENTA (POS)</span>
+                        <h2 class="display-5 fw-bold mt-2 mb-4">Control Absoluto de <span style="color: var(--brand-primary);">Tus Ventas y Cajas</span></h2>
+                        <p class="text-muted fs-5 mb-5">Digitaliza los turnos de venta, concilia cobros físicos contra el sistema de inmediato y optimiza la distribución de ingresos contables sin esfuerzo administrativo.</p>
+                        
+                        <!-- Timeline Premium de Funciones -->
+                        <div class="pos-feature-timeline">
+                            <div class="d-flex gap-4 mb-4 pb-4 border-bottom border-light-subtle">
+                                <div class="timeline-dot-wrapper" style="position: relative;">
+                                    <div class="timeline-icon shadow-sm" style="width: 50px; height: 50px; background: var(--brand-primary); color: white; display: flex; align-items: center; justify-content: center; border-radius: 16px; font-size: 1.25rem;"><i class="bi bi-safe-fill"></i></div>
+                                </div>
+                                <div>
+                                    <h5 class="fw-bold mb-2">Auditoría en Arqueo de Caja</h5>
+                                    <p class="text-muted small mb-0">Cada turno inicia declarando el fondo inicial en efectivo. Al cerrar, el sistema calcula diferencias (sobrantes y faltantes) cruzando las ventas declaradas contra los cobros reales.</p>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-4 mb-4 pb-4 border-bottom border-light-subtle">
+                                <div class="timeline-dot-wrapper" style="position: relative;">
+                                    <div class="timeline-icon shadow-sm" style="width: 50px; height: 50px; background: #6366f1; color: white; display: flex; align-items: center; justify-content: center; border-radius: 16px; font-size: 1.25rem;"><i class="bi bi-file-earmark-check-fill"></i></div>
+                                </div>
+                                <div>
+                                    <h5 class="fw-bold mb-2">Impuestos por Forma de Pago</h5>
+                                    <p class="text-muted small mb-0">El ticket de corte calcula de forma independiente y proporcional cuánto corresponde a Subtotal e IVA para cobros en Efectivo, Tarjeta y Transferencia.</p>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-4">
+                                <div class="timeline-dot-wrapper" style="position: relative;">
+                                    <div class="timeline-icon shadow-sm" style="width: 50px; height: 50px; background: #10b981; color: white; display: flex; align-items: center; justify-content: center; border-radius: 16px; font-size: 1.25rem;"><i class="bi bi-cpu-fill"></i></div>
+                                </div>
+                                <div>
+                                    <h5 class="fw-bold mb-2">Sincronización de Stock Atómica</h5>
+                                    <p class="text-muted small mb-0">Sin esperas ni procesos por lotes: al confirmar la venta en el POS, el motor de inventario descuenta los artículos del stock del almacén de la sucursal al instante.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        
+        <!-- Añadir efecto hover al ticket en CSS inline -->
+        <style>
+            .simulated-ticket-wrapper:hover .simulated-ticket {
+                transform: rotateY(5deg) rotateX(2deg) rotateZ(-1deg) translateY(-10px) !important;
+            }
+        </style>
     </section>
 
     <!-- SECCIÓN: OBLIGACIONES PATRONALES (DISEÑO PREMIUM DASHBOARD) -->

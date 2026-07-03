@@ -1310,8 +1310,14 @@ def cortes_caja_list(request):
 @require_POST
 def crear_caja_pos_ajax(request):
     from preferencias.permissions import user_has_sales_permission
-    if not user_has_sales_permission(request, 'punto_de_venta', 'crear'):
-        return JsonResponse({'success': False, 'error': 'No tienes permisos para crear cajas.'})
+    caja_id = request.POST.get('caja_id')
+    
+    if caja_id:
+        if not user_has_sales_permission(request, 'punto_de_venta', 'editar') and not user_has_sales_permission(request, 'punto_de_venta', 'crear'):
+            return JsonResponse({'success': False, 'error': 'No tienes permisos para editar cajas.'})
+    else:
+        if not user_has_sales_permission(request, 'punto_de_venta', 'crear'):
+            return JsonResponse({'success': False, 'error': 'No tienes permisos para crear cajas.'})
 
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
@@ -1343,17 +1349,30 @@ def crear_caja_pos_ajax(request):
         banco_tarjeta = CajaBanco.objects.get(id=banco_tarjeta_id, empresa=empresa_actual)
         banco_transferencia = CajaBanco.objects.get(id=banco_transferencia_id, empresa=empresa_actual)
 
-        caja = CajaPOS.objects.create(
-            nombre=nombre,
-            usuario_asignado=usuario,
-            caja_efectivo=caja_efectivo,
-            banco_tarjeta=banco_tarjeta,
-            banco_transferencia=banco_transferencia,
-            estado='cerrada',
-            empresa=empresa_actual,
-            sucursal=sucursal
-        )
-        return JsonResponse({'success': True, 'message': 'Caja de punto de venta creada correctamente.'})
+        if caja_id:
+            try:
+                caja = CajaPOS.objects.get(id=caja_id, empresa=empresa_actual)
+                caja.nombre = nombre
+                caja.usuario_asignado = usuario
+                caja.caja_efectivo = caja_efectivo
+                caja.banco_tarjeta = banco_tarjeta
+                caja.banco_transferencia = banco_transferencia
+                caja.save()
+                return JsonResponse({'success': True, 'message': 'Caja de punto de venta actualizada correctamente.'})
+            except CajaPOS.DoesNotExist:
+                return JsonResponse({'success': False, 'error': 'La caja a editar no existe.'})
+        else:
+            caja = CajaPOS.objects.create(
+                nombre=nombre,
+                usuario_asignado=usuario,
+                caja_efectivo=caja_efectivo,
+                banco_tarjeta=banco_tarjeta,
+                banco_transferencia=banco_transferencia,
+                estado='cerrada',
+                empresa=empresa_actual,
+                sucursal=sucursal
+            )
+            return JsonResponse({'success': True, 'message': 'Caja de punto de venta creada correctamente.'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
 
@@ -1499,7 +1518,11 @@ def cierre_sesion_pos_ajax(request):
             if 'sesion_caja_id' in request.session:
                 del request.session['sesion_caja_id']
 
-        return JsonResponse({'success': True, 'message': 'Corte y cierre de caja procesado correctamente.'})
+        return JsonResponse({
+            'success': True, 
+            'message': 'Corte y cierre de caja procesado correctamente.',
+            'sesion_id': sesion.id
+        })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
 
@@ -1624,3 +1647,147 @@ def obtener_articulos_sesion_ajax(request, sesion_id):
         return JsonResponse({'success': False, 'error': 'La sesión de caja no existe o no pertenece a la empresa.'}, status=404)
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def imprimir_corte_ticket(request, sesion_id):
+    from django.db.models import Sum
+    from tesoreria.models import PagoPedido
+    from decimal import Decimal
+    from django.http import Http404
+    
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("Empresa no configurada.")
+        
+    try:
+        sesion = SesionCajaPOS.objects.get(id=sesion_id, caja_pos__empresa=empresa_actual)
+    except SesionCajaPOS.DoesNotExist:
+        raise Http404("La sesión de caja no existe o no pertenece a la empresa.")
+        
+    # Calcular montos dinámicamente de los pagos aplicados
+    pagos = PagoPedido.objects.filter(pedido__sesion_caja=sesion, estado='aplicado')
+    
+    ventas_efectivo = pagos.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+    ventas_tarjeta = pagos.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito']).aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+    ventas_transferencia = pagos.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+    
+    total_ventas = ventas_efectivo + ventas_tarjeta + ventas_transferencia
+    efectivo_estimado = sesion.monto_inicial + ventas_efectivo
+    
+    # Calcular subtotal e IVA de los productos vendidos
+    from pedidos.models import DetallePedido
+    detalles = DetallePedido.objects.filter(pedido__sesion_caja=sesion)
+    
+    session_subtotal = Decimal('0.00')
+    session_iva = Decimal('0.00')
+    session_total = Decimal('0.00')
+    for d in detalles:
+        session_subtotal += d.subtotal
+        session_iva += d.iva_monto
+        session_total += d.total
+
+    # Calcular desglose de subtotales, IVAs y totales por forma de pago
+    subtotal_efectivo = Decimal('0.00')
+    iva_efectivo = Decimal('0.00')
+    total_efectivo = Decimal('0.00')
+    
+    subtotal_tarjeta = Decimal('0.00')
+    iva_tarjeta = Decimal('0.00')
+    total_tarjeta = Decimal('0.00')
+    
+    subtotal_transferencia = Decimal('0.00')
+    iva_transferencia = Decimal('0.00')
+    total_transferencia = Decimal('0.00')
+    
+    from pedidos.models import Pedido
+    pedidos_sesion = Pedido.objects.filter(sesion_caja=sesion)
+    
+    for ped in pedidos_sesion:
+        ped_subtotal = Decimal('0.00')
+        ped_iva = Decimal('0.00')
+        ped_total = Decimal('0.00')
+        for d in ped.detalles.all():
+            ped_subtotal += d.subtotal
+            ped_iva += d.iva_monto
+            ped_total += d.total
+            
+        pagos_pedido = PagoPedido.objects.filter(pedido=ped, estado='aplicado')
+        ped_pagado = sum(p.monto_mxn for p in pagos_pedido) or Decimal('0.00')
+        
+        if ped_pagado > 0:
+            for p in pagos_pedido:
+                proporcion = p.monto_mxn / ped_pagado
+                fp = p.forma_pago
+                if fp == 'efectivo':
+                    subtotal_efectivo += ped_subtotal * proporcion
+                    iva_efectivo += ped_iva * proporcion
+                    total_efectivo += ped_total * proporcion
+                elif fp in ['tarjeta_debito', 'tarjeta_credito']:
+                    subtotal_tarjeta += ped_subtotal * proporcion
+                    iva_tarjeta += ped_iva * proporcion
+                    total_tarjeta += ped_total * proporcion
+                elif fp == 'transferencia':
+                    subtotal_transferencia += ped_subtotal * proporcion
+                    iva_transferencia += ped_iva * proporcion
+                    total_transferencia += ped_total * proporcion
+    
+    if sesion.estado == 'cerrada':
+        monto_final = sesion.monto_final_efectivo
+        diferencia = monto_final - efectivo_estimado
+    else:
+        monto_final = None
+        diferencia = None
+
+    # Agrupar productos vendidos si se solicita en la URL
+    incluir_articulos = request.GET.get('incluir_articulos') == 'true'
+    articulos_data = []
+    if incluir_articulos:
+        from collections import defaultdict
+        items_map = defaultdict(lambda: {
+            'nombre': '',
+            'cantidad': 0,
+            'total': Decimal('0.00')
+        })
+        for d in detalles:
+            prod_id = d.producto.id
+            items_map[prod_id]['nombre'] = d.producto.nombre
+            items_map[prod_id]['cantidad'] += d.cantidad_solicitada
+            items_map[prod_id]['total'] += d.total
+            
+        for prod_id, info in items_map.items():
+            articulos_data.append({
+                'nombre': info['nombre'],
+                'cantidad': info['cantidad'],
+                'total': info['total']
+            })
+        # Ordenar de mayor a menor cantidad
+        articulos_data.sort(key=lambda x: x['cantidad'], reverse=True)
+        
+    context = {
+        'sesion': sesion,
+        'ventas_efectivo': ventas_efectivo,
+        'ventas_tarjeta': ventas_tarjeta,
+        'ventas_transferencia': ventas_transferencia,
+        'total_ventas': total_ventas,
+        'efectivo_estimado': efectivo_estimado,
+        'monto_final': monto_final,
+        'diferencia': diferencia,
+        'empresa': empresa_actual,
+        'session_subtotal': session_subtotal,
+        'session_iva': session_iva,
+        'session_total': session_total,
+        'subtotal_efectivo': subtotal_efectivo,
+        'iva_efectivo': iva_efectivo,
+        'total_efectivo': total_efectivo,
+        'subtotal_tarjeta': subtotal_tarjeta,
+        'iva_tarjeta': iva_tarjeta,
+        'total_tarjeta': total_tarjeta,
+        'subtotal_transferencia': subtotal_transferencia,
+        'iva_transferencia': iva_transferencia,
+        'total_transferencia': total_transferencia,
+        'incluir_articulos': incluir_articulos,
+        'articulos': articulos_data
+    }
+    
+    return render(request, 'ventas/ticket_corte.html', context)

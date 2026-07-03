@@ -40,78 +40,15 @@
             <h4 class="section-title mb-0">Cortes de Caja y Sesiones POS</h4>
             <span class="section-subtitle">Administra las cajas de tus puntos de venta y audita las sesiones de caja de tus colaboradores</span>
         </div>
-        {% if granular_sales_perms.punto_de_venta.crear %}
         <div class="d-flex flex-wrap align-items-center gap-2">
-            <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaCaja">
+            <button class="btn btn-light text-secondary btn-pro shadow-sm border" data-bs-toggle="modal" data-bs-target="#modalListadoCajas">
+                <i class="bi bi-shop me-1"></i> Cajas
+            </button>
+            {% if granular_sales_perms.punto_de_venta.crear %}
+            <button id="btnNuevaCajaTrigger" class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaCaja">
                 <i class="bi bi-plus-lg me-1"></i> Nueva Caja POS
             </button>
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- Sección 1: Cajas Registradoras (Configuración) -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white py-3 border-bottom border-light">
-                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-shop me-2 text-brand" style="color: #00b8b9;"></i>Cajas POS en la Sucursal</h5>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-pro mb-0">
-                            <thead>
-                                <tr>
-                                    <th class="text-center px-4">Acciones</th>
-                                    <th class="px-4 text-center">ID</th>
-                                    <th class="text-center">Sucursal</th>
-                                    <th class="text-center">Nombre de Caja</th>
-                                    <th class="text-center">Cajero Asignado</th>
-                                    <th class="text-center">Cuenta Efectivo</th>
-                                    <th class="text-center">Banco Tarjetas</th>
-                                    <th class="text-center">Banco Transferencias</th>
-                                    <th class="text-center">Habilitada por Admin</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for caja in cajas_pos %}
-                                <tr>
-                                    <td class="text-center px-4">
-                                        <div class="form-check form-switch d-inline-block">
-                                            <input class="form-check-input" type="checkbox" role="switch" id="switchCaja{{ caja.id }}" 
-                                                   {% if caja.estado == 'abierta' %}checked{% endif %}
-                                                   onclick="toggleCajaEstado({{ caja.id }}, this)">
-                                        </div>
-                                    </td>
-                                    <td class="px-4 text-center fw-bold text-secondary">#{{ caja.id }}</td>
-                                    <td class="text-center">{{ caja.sucursal.nombre|default:"N/A" }}</td>
-                                    <td class="text-center"><strong>{{ caja.nombre }}</strong></td>
-                                    <td class="text-center">
-                                        <span>{{ caja.username_display }}</span>
-                                    </td>
-                                    <td class="text-center">{{ caja.caja_efectivo.nombre }}</td>
-                                    <td class="text-center">{{ caja.banco_tarjeta.nombre }}</td>
-                                    <td class="text-center">{{ caja.banco_transferencia.nombre }}</td>
-                                    <td class="text-center">
-                                        {% if caja.estado == 'abierta' %}
-                                        <span class="badge-status status-open">Habilitada (Abierta)</span>
-                                        {% else %}
-                                        <span class="badge-status status-closed">Inhabilitada (Cerrada)</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="8" class="text-center py-5 text-muted">
-                                        <i class="bi bi-inboxes display-4 d-block mb-3 opacity-50"></i>
-                                        No hay cajas POS registradas para esta sucursal.
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+            {% endif %}
         </div>
     </div>
 
@@ -149,6 +86,7 @@
                                         <div class="d-flex justify-content-center gap-1">
                                             <span class="icon-action" title="Ver Detalles"
                                                   onclick="verDetallesSesion(this)"
+                                                  data-id="{{ sesion.id }}"
                                                   data-caja="{{ sesion.caja_pos.nombre|escapejs }}"
                                                   data-cajero="{{ sesion.username_display|escapejs }}"
                                                   data-sucursal="{{ sesion.caja_pos.sucursal.nombre|default:'N/A'|escapejs }}"
@@ -171,6 +109,10 @@
                                                   onclick="verArticulosSesion({{ sesion.id }}, '{{ sesion.caja_pos.nombre|escapejs }}')">
                                                 <i class="bi bi-box-seam"></i>
                                             </span>
+                                             <span class="icon-action" title="Imprimir Ticket de Corte"
+                                                   onclick="solicitarImpresion({{ sesion.id }})">
+                                                  <i class="bi bi-printer"></i>
+                                             </span>
                                         </div>
                                     </td>
                                     
@@ -274,6 +216,71 @@
     </div>
 </div>
 
+<!-- MODAL: LISTADO DE CAJAS POS -->
+<div class="modal fade" id="modalListadoCajas" tabindex="-1" aria-labelledby="modalListadoCajasLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header border-bottom bg-light py-3">
+                <h5 class="modal-title fw-bold text-dark" id="modalListadoCajasLabel">
+                    <i class="bi bi-shop me-2" style="color: #00b8b9;"></i>
+                    Cajas POS en la Sucursal
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-pro mb-0">
+                        <thead>
+                            <tr>
+                                <th class="text-center px-4" style="width: 100px;">Acciones</th>
+                                <th class="text-center">Sucursal</th>
+                                <th class="text-center">Nombre de Caja</th>
+                                <th class="text-center">Cajero Asignado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for caja in cajas_pos %}
+                            <tr>
+                                <td class="text-center px-4">
+                                    <div class="d-flex align-items-center justify-content-center gap-3">
+                                        <div class="form-check form-switch d-inline-block mb-0">
+                                            <input class="form-check-input" type="checkbox" role="switch" id="switchCaja{{ caja.id }}" 
+                                                   {% if caja.estado == 'abierta' %}checked{% endif %}
+                                                   onclick="toggleCajaEstado({{ caja.id }}, this)">
+                                        </div>
+                                        {% if granular_sales_perms.punto_de_venta.editar or granular_sales_perms.punto_de_venta.crear %}
+                                        <span class="icon-action text-decoration-none" title="Editar Caja POS"
+                                              onclick="editarCaja({{ caja.id }}, '{{ caja.nombre|escapejs }}', '{{ caja.usuario_asignado.id }}', '{{ caja.caja_efectivo.id }}', '{{ caja.banco_tarjeta.id }}', '{{ caja.banco_transferencia.id }}')">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td class="text-center">{{ caja.sucursal.nombre|default:"N/A" }}</td>
+                                <td class="text-center"><strong>{{ caja.nombre }}</strong></td>
+                                <td class="text-center">
+                                    <span>{{ caja.username_display }}</span>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center py-5 text-muted">
+                                    <i class="bi bi-inboxes display-4 d-block mb-3 opacity-50"></i>
+                                    No hay cajas POS registradas para esta sucursal.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer border-top bg-white py-3">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- MODAL: NUEVA CAJA POS -->
 <div class="modal fade" id="modalNuevaCaja" tabindex="-1" aria-labelledby="modalNuevaCajaLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -287,6 +294,7 @@
             </div>
             <form id="formNuevaCaja">
                 {% csrf_token %}
+                <input type="hidden" name="caja_id" id="cajaId" value="">
                 <div class="modal-body p-4">
                     <div class="mb-3">
                         <label for="cajaNombre" class="form-label fw-semibold small text-secondary">Nombre de la Caja</label>
@@ -335,7 +343,7 @@
                 </div>
                 <div class="modal-footer border-top bg-white py-3">
                     <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-brand text-white btn-sm px-4">Crear Caja</button>
+                    <button type="submit" id="btnSubmitNuevaCaja" class="btn btn-brand text-white btn-sm px-4">Crear Caja</button>
                 </div>
             </form>
         </div>
@@ -415,9 +423,12 @@
                     </div>
                 </div>
             </div>
-            <div class="modal-footer border-top bg-white py-3">
-                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
-            </div>
+             <div class="modal-footer border-top bg-white py-3">
+                 <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                 <button type="button" id="btnImprimirTicketModal" class="btn btn-brand text-white btn-sm shadow-sm">
+                     <i class="bi bi-printer me-1"></i> Imprimir Ticket
+                 </button>
+             </div>
         </div>
     </div>
 </div>
@@ -495,7 +506,89 @@
     </div>
 </div>
 
+<!-- MODAL: PREGUNTA INCLUSION ARTICULOS EN IMPRESION -->
+<div class="modal fade" id="modalPreguntaImpresion" tabindex="-1" aria-labelledby="modalPreguntaImpresionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-bottom bg-light py-2">
+                <h6 class="modal-title fw-bold text-dark" id="modalPreguntaImpresionLabel">
+                    <i class="bi bi-printer me-2" style="color: #00b8b9;"></i>
+                    Imprimir Ticket
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center p-3">
+                <p class="mb-3 text-secondary" style="font-size: 0.9rem;">
+                    ¿Deseas incluir el desglose detallado de los <strong>artículos vendidos</strong> en el ticket?
+                </p>
+                <div class="d-grid gap-2">
+                    <button type="button" id="btnConfirmarPrintConArticulos" class="btn btn-brand text-white btn-sm shadow-sm">
+                        <i class="bi bi-file-earmark-text me-1"></i> Sí, incluir artículos
+                    </button>
+                    <button type="button" id="btnConfirmarPrintSinArticulos" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-calculator me-1"></i> No, solo totales
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+    let sesionIdParaImprimir = null;
+    let modalPreguntaImpresion = null;
+    
+    function solicitarImpresion(sesionId) {
+        sesionIdParaImprimir = sesionId;
+        if (!modalPreguntaImpresion) {
+            modalPreguntaImpresion = new bootstrap.Modal(document.getElementById('modalPreguntaImpresion'));
+        }
+        modalPreguntaImpresion.show();
+    }
+
+    function editarCaja(cajaId, nombre, usuarioId, cajaEfId, bancoTarjId, bancoTransId) {
+        // Poner título en editar
+        document.getElementById('modalNuevaCajaLabel').innerHTML = '<i class="bi bi-pencil-square me-2" style="color: #00b8b9;"></i> Editar Caja POS';
+        document.getElementById('btnSubmitNuevaCaja').innerText = 'Guardar Cambios';
+        
+        // Asignar valores
+        document.getElementById('cajaId').value = cajaId;
+        document.getElementById('cajaNombre').value = nombre;
+        document.getElementById('cajaUsuario').value = usuarioId;
+        document.getElementById('cajaBancoEf').value = cajaEfId;
+        document.getElementById('cajaBancoTarj').value = bancoTarjId;
+        document.getElementById('cajaBancoTrans').value = bancoTransId;
+        
+        const listadoModalEl = document.getElementById('modalListadoCajas');
+        const nuevaCajaModalEl = document.getElementById('modalNuevaCaja');
+        
+        // Ajustar z-index si el listado está abierto
+        if (listadoModalEl && listadoModalEl.classList.contains('show')) {
+            nuevaCajaModalEl.style.zIndex = '1065';
+            
+            // Ajustar el backdrop de Bootstrap inmediatamente al empezar a mostrarse
+            nuevaCajaModalEl.addEventListener('show.bs.modal', function adjustBackdrop() {
+                setTimeout(() => {
+                    const backdrops = document.querySelectorAll('.modal-backdrop');
+                    if (backdrops.length > 1) {
+                        backdrops[backdrops.length - 1].style.zIndex = '1060';
+                    }
+                }, 0);
+                nuevaCajaModalEl.removeEventListener('show.bs.modal', adjustBackdrop);
+            });
+            
+            // Limpiar z-index al cerrarse
+            nuevaCajaModalEl.addEventListener('hidden.bs.modal', function resetZIndex() {
+                nuevaCajaModalEl.style.zIndex = '';
+                nuevaCajaModalEl.removeEventListener('hidden.bs.modal', resetZIndex);
+            });
+        }
+        
+        // Abrir modal de nueva caja
+        const nuevaCajaModal = new bootstrap.Modal(nuevaCajaModalEl);
+        nuevaCajaModal.show();
+    }
+
     // Configurar envío del formulario de creación de Caja POS
     document.getElementById('formNuevaCaja').addEventListener('submit', function(e) {
         e.preventDefault();
@@ -558,6 +651,12 @@
     }
     // Mostrar detalles históricos de la sesión en el modal
     function verDetallesSesion(btn) {
+        const sesionId = btn.getAttribute('data-id');
+        const printBtn = document.getElementById('btnImprimirTicketModal');
+        if (printBtn) {
+            printBtn.setAttribute('data-id', sesionId);
+        }
+        
         const caja = btn.getAttribute('data-caja');
         const cajero = btn.getAttribute('data-cajero');
         const sucursal = btn.getAttribute('data-sucursal');
@@ -786,5 +885,72 @@
             `;
         });
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const btnCon = document.getElementById('btnConfirmarPrintConArticulos');
+        const btnSin = document.getElementById('btnConfirmarPrintSinArticulos');
+        const printBtnModal = document.getElementById('btnImprimirTicketModal');
+        
+        if (btnCon) {
+            btnCon.addEventListener('click', function() {
+                if (sesionIdParaImprimir) {
+                    window.open(`/ventas/cortes-caja/imprimir/${sesionIdParaImprimir}/?incluir_articulos=true`, '_blank');
+                    if (modalPreguntaImpresion) {
+                        modalPreguntaImpresion.hide();
+                    }
+                }
+            });
+        }
+        if (btnSin) {
+            btnSin.addEventListener('click', function() {
+                if (sesionIdParaImprimir) {
+                    window.open(`/ventas/cortes-caja/imprimir/${sesionIdParaImprimir}/`, '_blank');
+                    if (modalPreguntaImpresion) {
+                        modalPreguntaImpresion.hide();
+                    }
+                }
+            });
+        }
+        if (printBtnModal) {
+            printBtnModal.addEventListener('click', function() {
+                const sesionId = this.getAttribute('data-id');
+                // Cerrar modal de detalles del turno
+                const detailsModal = bootstrap.Modal.getInstance(document.getElementById('modalVerSesion'));
+                if (detailsModal) {
+                    detailsModal.hide();
+                }
+                // Solicitar impresión
+                solicitarImpresion(sesionId);
+            });
+        }
+        const btnNuevaCaja = document.getElementById('btnNuevaCajaTrigger');
+        if (btnNuevaCaja) {
+            btnNuevaCaja.addEventListener('click', function() {
+                // Poner título en crear
+                document.getElementById('modalNuevaCajaLabel').innerHTML = '<i class="bi bi-cash-coin me-2" style="color: #00b8b9;"></i> Crear Caja POS';
+                document.getElementById('btnSubmitNuevaCaja').innerText = 'Crear Caja';
+                
+                // Limpiar valores
+                document.getElementById('cajaId').value = '';
+                document.getElementById('cajaNombre').value = '';
+                document.getElementById('cajaUsuario').value = '';
+                document.getElementById('cajaBancoEf').value = '';
+                document.getElementById('cajaBancoTarj').value = '';
+                document.getElementById('cajaBancoTrans').value = '';
+            });
+        }
+        
+        // Fix de scroll y backdrops para modales encimados
+        const modalNueva = document.getElementById('modalNuevaCaja');
+        const modalListado = document.getElementById('modalListadoCajas');
+        if (modalNueva && modalListado) {
+            modalNueva.addEventListener('hidden.bs.modal', function() {
+                if (modalListado.classList.contains('show')) {
+                    document.body.classList.add('modal-open');
+                    document.body.style.overflow = 'hidden';
+                }
+            });
+        }
+    });
 </script>
 {% endblock %}

@@ -720,6 +720,36 @@ document.addEventListener('DOMContentLoaded', function() {
             window.isSubmittingCotizacion = true;
         });
     }
+
+    // Fix de z-index y backdrops para modales encimados en cotizaciones
+    const ids = ['modalCrearProductoRapido', 'modalCrearClienteRapido'];
+    ids.forEach(id => {
+        const modalEl = document.getElementById(id);
+        if (modalEl) {
+            modalEl.addEventListener('show.bs.modal', function() {
+                const parentModal = document.getElementById('modalNuevaCotizacion');
+                if (parentModal && parentModal.classList.contains('show')) {
+                    modalEl.style.zIndex = '1065';
+                    
+                    // Modificar z-index de backdrop inmediatamente al empezar a mostrarse
+                    setTimeout(() => {
+                        const backdrops = document.querySelectorAll('.modal-backdrop');
+                        if (backdrops.length > 1) {
+                            backdrops[backdrops.length - 1].style.zIndex = '1060';
+                        }
+                    }, 0);
+                }
+            });
+            
+            modalEl.addEventListener('hidden.bs.modal', function() {
+                const parentModal = document.getElementById('modalNuevaCotizacion');
+                if (parentModal && parentModal.classList.contains('show')) {
+                    document.body.classList.add('modal-open');
+                    document.body.style.overflow = 'hidden';
+                }
+            });
+        }
+    });
 });
 
 window.aplicarListaPrecio = function() {
