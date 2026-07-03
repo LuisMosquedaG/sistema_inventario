@@ -14,7 +14,7 @@ SALES_PERMISSION_MATRIX = {
     'cotizaciones': ['ver', 'crear', 'editar', 'eliminar', 'aprobar', 'imprimir'],
     'pedidos': ['ver', 'crear', 'editar', 'imprimir', 'validar_stock', 'revision', 'reservar', 'solicitar', 'generar_solicitud_global', 'registrar_pago', 'PagarParaPedido'],
     'salidas': ['ver', 'crear', 'imprimir', 'aprobar', 'surtir_orden', 'actualizar_entrega'],
-    'punto_de_venta': ['ver', 'crear'],
+    'punto_de_venta': ['ver', 'crear', 'listas', 'desactivar_iva', 'descuento', 'hacer_corte'],
 }
 
 COSTING_PERMISSION_MATRIX = {

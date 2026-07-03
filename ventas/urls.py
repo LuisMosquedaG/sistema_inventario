@@ -44,5 +44,6 @@ urlpatterns = [
     path('pos/apertura-sesion/', views.apertura_sesion_pos_ajax, name='apertura_sesion_pos_ajax'),
     path('pos/totales-sesion/', views.obtener_totales_sesion_ajax, name='obtener_totales_sesion_ajax'),
     path('pos/cierre-sesion/', views.cierre_sesion_pos_ajax, name='cierre_sesion_pos_ajax'),
+    path('pos/cierre-sesion/<int:sesion_id>/', views.cierre_sesion_pos_por_id_ajax, name='cierre_sesion_pos_por_id_ajax'),
     path('cortes-caja/imprimir/<int:sesion_id>/', views.imprimir_corte_ticket, name='imprimir_corte_ticket'),
 ]

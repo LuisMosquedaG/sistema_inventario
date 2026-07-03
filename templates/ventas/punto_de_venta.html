@@ -274,9 +274,15 @@
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <h5 class="fw-bold text-dark mb-0"><i class="bi bi-receipt me-2 text-brand"></i>Ticket de Venta</h5>
                         {% if sesion_activa %}
-                        <button class="btn btn-sm py-1 px-3 fw-bold text-white shadow-sm" style="background-color: #00b8b9; border: none; border-radius: 8px; font-size: 0.8rem;" onclick="abrirModalCorte()">
-                            <i class="bi bi-calculator-fill me-1"></i>Hacer Corte
-                        </button>
+                            {% if not granular_sales_perms.punto_de_venta.hacer_corte %}
+                                <button class="btn btn-sm py-1 px-3 fw-bold text-white shadow-sm" style="background-color: #a0a0a0; border: none; border-radius: 8px; font-size: 0.8rem; opacity: 0.55; cursor: not-allowed;" disabled title="No tienes permisos para hacer corte de caja">
+                                    <i class="bi bi-calculator-fill me-1"></i>Hacer Corte
+                                </button>
+                            {% else %}
+                                <button class="btn btn-sm py-1 px-3 fw-bold text-white shadow-sm" style="background-color: #00b8b9; border: none; border-radius: 8px; font-size: 0.8rem;" onclick="abrirModalCorte()">
+                                    <i class="bi bi-calculator-fill me-1"></i>Hacer Corte
+                                </button>
+                            {% endif %}
                         {% endif %}
                     </div>
                     <p class="text-muted small mb-0">
@@ -362,17 +368,29 @@
                             <div class="d-flex align-items-center gap-2">
                                 <span class="small fw-bold text-secondary">Aplica IVA</span>
                                 <div class="form-check form-switch ps-0 d-flex align-items-center">
-                                    <input class="form-check-input" type="checkbox" id="switchAplicaIVA" checked style="cursor: pointer; width: 40px; height: 20px; float: none; margin-left: 0;">
+                                    {% if not granular_sales_perms.punto_de_venta.desactivar_iva %}
+                                        <input class="form-check-input" type="checkbox" id="switchAplicaIVA" checked disabled style="width: 40px; height: 20px; float: none; margin-left: 0; opacity: 0.55; pointer-events: none; cursor: not-allowed;" title="No tienes permisos para desactivar el IVA">
+                                    {% else %}
+                                        <input class="form-check-input" type="checkbox" id="switchAplicaIVA" checked style="cursor: pointer; width: 40px; height: 20px; float: none; margin-left: 0;">
+                                    {% endif %}
                                 </div>
                             </div>
                             <div class="d-flex align-items-center gap-2">
                                 <span class="small fw-bold text-secondary">Descuento</span>
                                 <div class="input-group input-group-sm" style="width: 120px;">
-                                    <input type="number" id="inputDescuentoPOS" class="form-control text-end" value="0.00" min="0" step="0.01" style="height: 25px; font-size: 0.75rem; padding: 2px 5px; border-top-left-radius: 4px; border-bottom-left-radius: 4px;">
-                                    <input type="hidden" id="tipoDescuentoPOS" value="monto">
-                                    <button type="button" id="btnTipoDescuentoPOS" class="btn py-0 px-2 fw-bold d-flex align-items-center justify-content-center text-white" style="height: 25px; font-size: 0.8rem; border: 1px solid #00b8b9; background-color: #00b8b9; border-top-right-radius: 4px; border-bottom-right-radius: 4px; margin-left: -1px;" onclick="toggleDiscountType()" title="Alternar entre Monto ($) y Porcentaje (%)">
-                                        $
-                                    </button>
+                                    {% if not granular_sales_perms.punto_de_venta.descuento %}
+                                        <input type="number" id="inputDescuentoPOS" class="form-control text-end" value="0.00" disabled style="height: 25px; font-size: 0.75rem; padding: 2px 5px; border-top-left-radius: 4px; border-bottom-left-radius: 4px; opacity: 0.55; pointer-events: none;" title="No tienes permisos para aplicar descuentos">
+                                        <input type="hidden" id="tipoDescuentoPOS" value="monto">
+                                        <button type="button" id="btnTipoDescuentoPOS" class="btn py-0 px-2 fw-bold d-flex align-items-center justify-content-center text-white" disabled style="height: 25px; font-size: 0.8rem; border: 1px solid #c0c0c0; background-color: #c0c0c0; border-top-right-radius: 4px; border-bottom-right-radius: 4px; margin-left: -1px; opacity: 0.55; pointer-events: none;">
+                                            $
+                                        </button>
+                                    {% else %}
+                                        <input type="number" id="inputDescuentoPOS" class="form-control text-end" value="0.00" min="0" step="0.01" style="height: 25px; font-size: 0.75rem; padding: 2px 5px; border-top-left-radius: 4px; border-bottom-left-radius: 4px;">
+                                        <input type="hidden" id="tipoDescuentoPOS" value="monto">
+                                        <button type="button" id="btnTipoDescuentoPOS" class="btn py-0 px-2 fw-bold d-flex align-items-center justify-content-center text-white" style="height: 25px; font-size: 0.8rem; border: 1px solid #00b8b9; background-color: #00b8b9; border-top-right-radius: 4px; border-bottom-right-radius: 4px; margin-left: -1px;" onclick="toggleDiscountType()" title="Alternar entre Monto ($) y Porcentaje (%)">
+                                            $
+                                        </button>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -1026,6 +1044,7 @@
             totalIva += lineIva;
 
             const showList = item.preciosLista && item.preciosLista.length > 0;
+            const canChangeList = {% if granular_sales_perms.punto_de_venta.listas %}true{% else %}false{% endif %};
             html += `
             <div class="cart-item-row d-flex justify-content-between align-items-center">
                 <div class="flex-grow-1 pe-3">
@@ -1033,8 +1052,8 @@
                     <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
                         <span class="small text-muted">$${item.precio.toFixed(2)} c/u</span>
                         ${showList ? `
-                            <div class="position-relative d-inline-block" style="width: auto; max-width: 175px;">
-                                <select class="form-select form-select-sm py-0 text-muted" style="font-size: 0.7rem; width: 100%; height: 20px; border-radius: 4px; line-height: 1; padding-left: 6px !important; padding-right: 20px !important; appearance: none; -webkit-appearance: none; -moz-appearance: none; background-image: none;" onchange="updateItemPriceList(${item.id}, this.value)">
+                            <div class="position-relative d-inline-block" style="width: auto; max-width: 175px; ${canChangeList ? '' : 'opacity: 0.55; pointer-events: none;'}">
+                                <select class="form-select form-select-sm py-0 text-muted" ${canChangeList ? '' : 'disabled'} style="font-size: 0.7rem; width: 100%; height: 20px; border-radius: 4px; line-height: 1; padding-left: 6px !important; padding-right: 20px !important; appearance: none; -webkit-appearance: none; -moz-appearance: none; background-image: none;" onchange="updateItemPriceList(${item.id}, this.value)">
                                     <option value="" ${item.listaSeleccionada === '' ? 'selected' : ''}>P. Base ($${item.precioBase.toFixed(2)})</option>
                                     ${item.preciosLista.map(lp => `
                                         <option value="${lp.nombre}" ${item.listaSeleccionada === lp.nombre ? 'selected' : ''}>
@@ -1144,7 +1163,8 @@
             items: keys.map(key => ({
                 producto_id: cart[key].id,
                 cantidad: cart[key].cantidad,
-                precio_unitario: cart[key].precio
+                precio_unitario: cart[key].precio,
+                lista_seleccionada: cart[key].listaSeleccionada || ''
             })),
             pagos: pagos,
             aplica_iva: aplicaIva,

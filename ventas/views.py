@@ -1054,6 +1054,34 @@ def crear_venta_pos_ajax(request):
     pagos = data.get('pagos', [])
     aplica_iva = data.get('aplica_iva', True)
 
+    # Validar permisos granulares de POS en el backend
+    # 1. Desactivar IVA
+    if not aplica_iva:
+        if not user_has_sales_permission(request, 'punto_de_venta', 'desactivar_iva'):
+            return JsonResponse({'success': False, 'error': 'No tienes permisos para desactivar el IVA.'})
+
+    # 2. Descuentos
+    from decimal import Decimal
+    descuento_val = Decimal(str(data.get('descuento', 0)))
+    if descuento_val > 0:
+        if not user_has_sales_permission(request, 'punto_de_venta', 'descuento'):
+            return JsonResponse({'success': False, 'error': 'No tienes permisos para aplicar descuentos.'})
+
+    # 3. Listas de precios manuales
+    from categorias.models import ListaPrecioCosto
+    listas_precio_globales = ListaPrecioCosto.objects.filter(empresa=empresa_actual, tipo='precio')
+    lista_activa_nombre = ""
+    for lista in listas_precio_globales:
+        if lista.esta_activa_ahora():
+            lista_activa_nombre = lista.nombre
+            break
+
+    for item in items:
+        lista_sel = item.get('lista_seleccionada', '')
+        if lista_sel and lista_sel != lista_activa_nombre:
+            if not user_has_sales_permission(request, 'punto_de_venta', 'listas'):
+                return JsonResponse({'success': False, 'error': f'No tienes permisos para cambiar listas de precios (se detectó selección manual: {lista_sel}).'})
+
     if not items:
         return JsonResponse({'success': False, 'error': 'El carrito está vacío.'})
     if not pagos:
@@ -1547,6 +1575,10 @@ def apertura_sesion_pos_ajax(request):
 
 @login_required
 def obtener_totales_sesion_ajax(request):
+    from preferencias.permissions import user_has_sales_permission
+    if not user_has_sales_permission(request, 'punto_de_venta', 'hacer_corte'):
+        return JsonResponse({'success': False, 'error': 'No tienes permisos para hacer el corte de caja.'}, status=403)
+
     empresa_actual = get_empresa_actual(request)
     sesion_id = request.session.get('sesion_caja_id')
     sesion = None
@@ -1582,6 +1614,10 @@ def obtener_totales_sesion_ajax(request):
 @login_required
 @require_POST
 def cierre_sesion_pos_ajax(request):
+    from preferencias.permissions import user_has_sales_permission
+    if not user_has_sales_permission(request, 'punto_de_venta', 'hacer_corte'):
+        return JsonResponse({'success': False, 'error': 'No tienes permisos para realizar el corte de caja.'}, status=403)
+
     empresa_actual = get_empresa_actual(request)
     sesion_id = request.session.get('sesion_caja_id')
     sesion = None
@@ -1633,6 +1669,64 @@ def cierre_sesion_pos_ajax(request):
         })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+@require_POST
+def cierre_sesion_pos_por_id_ajax(request, sesion_id):
+    from preferencias.permissions import user_has_sales_permission
+    if not user_has_sales_permission(request, 'punto_de_venta', 'hacer_corte'):
+        return JsonResponse({'success': False, 'error': 'No tienes permisos para realizar el corte de caja.'}, status=403)
+
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Empresa no encontrada.'})
+
+    from django.shortcuts import get_object_or_404
+    from django.utils import timezone
+    from decimal import Decimal
+    from django.db import transaction
+    from django.db.models import Sum
+    from tesoreria.models import PagoPedido
+    
+    sesion = get_object_or_404(SesionCajaPOS, id=sesion_id, caja_pos__empresa=empresa_actual, estado='abierta')
+
+    monto_final_str = request.POST.get('monto_final_efectivo', '0.00')
+    try:
+        monto_final = Decimal(monto_final_str)
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Monto final de efectivo inválido.'})
+
+    try:
+        # Calcular los montos dinámicos del sistema para congelarlos
+        pagos = PagoPedido.objects.filter(pedido__sesion_caja=sesion, estado='aplicado')
+        
+        ventas_efectivo = pagos.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+        ventas_tarjeta = pagos.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito']).aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+        ventas_transferencia = pagos.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+
+        with transaction.atomic():
+            # Actualizar la sesión
+            sesion.monto_final_efectivo = monto_final
+            sesion.total_ventas_efectivo = ventas_efectivo
+            sesion.total_ventas_tarjeta = ventas_tarjeta
+            sesion.total_ventas_transferencia = ventas_transferencia
+            sesion.estado = 'cerrada'
+            sesion.fecha_cierre = timezone.now()
+            sesion.save()
+
+            # Cerrar también la caja POS asociada
+            caja = sesion.caja_pos
+            caja.estado = 'cerrada'
+            caja.save()
+
+        return JsonResponse({
+            'success': True, 
+            'message': 'Corte y cierre de caja procesado correctamente.',
+            'sesion_id': sesion.id
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
 
 @login_required
 def obtener_ventas_sesion_ajax(request, sesion_id):

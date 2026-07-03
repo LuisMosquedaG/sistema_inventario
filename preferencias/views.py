@@ -559,6 +559,53 @@ def api_detalle_rol(request, rol_id):
     for p in permisos_qs:
         permisos_accion.setdefault(p.area, {}).setdefault(p.submodulo, {})[p.accion] = p.permitido
 
+    # Listado de usuarios asociados a este rol
+    usuarios_asignados = AsignacionRolUsuario.objects.filter(rol=rol, empresa=empresa_actual).select_related('usuario')
+    usuarios_data = [{
+        'id': u.usuario.id,
+        'username': u.usuario.username,
+        'nombre_completo': f"{u.usuario.first_name} {u.usuario.last_name}".strip() or u.usuario.username,
+        'email': u.usuario.email
+    } for u in usuarios_asignados]
+
+    # Listado plano de permisos activos (por módulo y acción)
+    permisos_activos = []
+    
+    # 1. Permisos a nivel módulo
+    modulos_qs = PermisoRolModulo.objects.filter(rol=rol)
+    for m in modulos_qs:
+        acciones_modulo = []
+        if m.puede_ver: acciones_modulo.append('Ver')
+        if m.puede_crear: acciones_modulo.append('Crear')
+        if m.puede_editar: acciones_modulo.append('Editar')
+        if m.puede_eliminar: acciones_modulo.append('Eliminar')
+        if m.puede_aprobar: acciones_modulo.append('Aprobar')
+        if m.puede_imprimir: acciones_modulo.append('Imprimir')
+        
+        if acciones_modulo:
+            permisos_activos.append({
+                'area': 'Módulo Acceso',
+                'submodulo': m.get_modulo_display(),
+                'accion': ", ".join(acciones_modulo)
+            })
+
+    # 2. Permisos a nivel acción granular
+    for p in permisos_qs:
+        if p.permitido:
+            accion_label = p.accion
+            if p.accion == 'PagarParaPedido':
+                accion_label = 'PagarParaPedido'
+            elif p.accion == 'desactivar_iva':
+                accion_label = 'IVA'
+            else:
+                accion_label = p.accion.replace('_', ' ').title()
+
+            permisos_activos.append({
+                'area': p.get_area_display(),
+                'submodulo': p.submodulo.replace('_', ' ').title(),
+                'accion': accion_label
+            })
+
     return JsonResponse({
         'success': True,
         'id': rol.id,
@@ -573,7 +620,9 @@ def api_detalle_rol(request, rol_id):
             'aprobar': permiso_ventas.puede_aprobar if permiso_ventas else False,
             'imprimir': permiso_ventas.puede_imprimir if permiso_ventas else False,
         },
-        'permisos_accion': permisos_accion
+        'permisos_accion': permisos_accion,
+        'usuarios': usuarios_data,
+        'permisos_activos': permisos_activos
     })
 
 
