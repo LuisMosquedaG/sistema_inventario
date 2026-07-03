@@ -17,7 +17,14 @@ class Categoria(models.Model):
     def __str__(self):
         return self.nombre
 
+def upload_to_producto_imagen(instance, filename):
+    subdominio = 'default'
+    if instance.empresa:
+        subdominio = instance.empresa.subdominio
+    return f'tenants/{subdominio}/productos/{filename}'
+
 class Producto(models.Model):
+    imagen = models.ImageField(upload_to=upload_to_producto_imagen, blank=True, null=True, verbose_name="Imagen")
     # --- 1. IDENTIFICACIÓN ---
     clave = models.CharField(max_length=100, blank=True, null=True, verbose_name="Clave")
     nombre = models.CharField(max_length=200)

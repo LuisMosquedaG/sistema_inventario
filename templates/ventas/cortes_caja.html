@@ -55,10 +55,68 @@
     <!-- Sección 2: Historial de Sesiones Abiertas y Cerradas -->
     <div class="row">
         <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white py-3 border-bottom border-light">
-                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-clock-history me-2 text-brand" style="color: #00b8b9;"></i>Historial de Turnos y Cortes</h5>
+            <!-- FILTROS DE CORTES DE CAJA -->
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body p-3">
+                    <form method="get" id="formFiltrosCortes" class="row g-2 align-items-end">
+                        <!-- 1. Búsqueda General -->
+                        <div class="col-12 col-md-4 col-lg-3">
+                            <label class="form-label small fw-bold text-secondary">Búsqueda General</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                                <input type="text" name="q" class="form-control border-start-0" placeholder="Buscar por cajero, caja, sucursal..." value="{{ filtros.q|default:'' }}">
+                            </div>
+                        </div>
+
+                        <!-- 2. Cajero -->
+                        <div class="col-12 col-md-4 col-lg-2">
+                            <label class="form-label small fw-bold text-secondary">Cajero</label>
+                            <select name="cajero" class="form-select form-select-sm" onchange="this.form.submit()">
+                                <option value="">Todos...</option>
+                                {% for u in usuarios %}
+                                    <option value="{{ u.id }}" {% if filtros.cajero|stringformat:"s" == u.id|stringformat:"s" %}selected{% endif %}>
+                                        {% if u.first_name or u.last_name %}
+                                            {{ u.first_name }} {{ u.last_name }}
+                                        {% else %}
+                                            {{ u.username }}
+                                        {% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- 3. Fecha -->
+                        <div class="col-12 col-md-4 col-lg-2">
+                            <label class="form-label small fw-bold text-secondary">Fecha</label>
+                            <input type="date" name="fecha" class="form-control form-control-sm" value="{{ filtros.fecha|default:'' }}" onchange="this.form.submit()">
+                        </div>
+
+                        <!-- 4. Estado -->
+                        <div class="col-12 col-md-4 col-lg-2">
+                            <label class="form-label small fw-bold text-secondary">Estado</label>
+                            <select name="estado" class="form-select form-select-sm" onchange="this.form.submit()">
+                                <option value="">Todos...</option>
+                                <option value="abierta" {% if filtros.estado == 'abierta' %}selected{% endif %}>Abierta</option>
+                                <option value="cerrada" {% if filtros.estado == 'cerrada' %}selected{% endif %}>Cerrada</option>
+                            </select>
+                        </div>
+
+                        <!-- 5. Sucursal -->
+                        <div class="col-12 col-md-4 col-lg-3">
+                            <label class="form-label small fw-bold text-secondary">Sucursal</label>
+                            <select name="sucursal" class="form-select form-select-sm" onchange="this.form.submit()">
+                                <option value="">Todas las sucursales...</option>
+                                {% for suc in sucursales %}
+                                    <option value="{{ suc.id }}" {% if filtros.sucursal|stringformat:"s" == suc.id|stringformat:"s" %}selected{% endif %}>{{ suc.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </form>
                 </div>
+            </div>
+
+            <!-- TABLA HISTORIAL -->
+            <div class="card border-0 shadow-sm">
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-pro mb-0">

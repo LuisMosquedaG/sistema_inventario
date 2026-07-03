@@ -514,7 +514,20 @@ def crear_producto_ajax(request):
             empresa_actual = get_empresa_actual(request)
             if not empresa_actual:
                 return JsonResponse({'success': False, 'error': 'Empresa no detectada'})
-            form = ProductoForm(request.POST)
+            
+            # Control de espacio en disco
+            imagen_file = request.FILES.get('imagen')
+            if imagen_file:
+                from panel.views import calcular_uso_disco_mb
+                uso_actual = calcular_uso_disco_mb(empresa_actual)
+                size_mb = imagen_file.size / (1024 * 1024)
+                if uso_actual + size_mb > empresa_actual.limite_espacio_disco:
+                    return JsonResponse({
+                        'success': False, 
+                        'error': f'Límite de espacio en disco excedido ({empresa_actual.limite_espacio_disco} MB). No puedes subir más archivos.'
+                    })
+
+            form = ProductoForm(request.POST, request.FILES)
             if form.is_valid():
                 producto = form.save(commit=False)
                 producto.empresa = empresa_actual
@@ -776,6 +789,7 @@ def obtener_producto_json(request, producto_id):
             'maneja_lote': producto.maneja_lote, 'maneja_serie': producto.maneja_serie,
             'tiene_iva': producto.tiene_iva,
             'test_calidad_id': producto.test_calidad.id if producto.test_calidad else "",
+            'imagen_url': producto.imagen.url if producto.imagen else '',
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=404)
@@ -788,8 +802,31 @@ def actualizar_producto_ajax(request, producto_id):
             from .forms import ProductoForm
             empresa_actual = get_empresa_actual(request)
             producto = get_object_or_404(Producto, id=producto_id, empresa=empresa_actual)
-            
-            form = ProductoForm(request.POST, instance=producto)
+
+            # Control de espacio en disco y borrado
+            imagen_file = request.FILES.get('imagen')
+            eliminar_imagen = request.POST.get('eliminar_imagen') == 'true'
+
+            if eliminar_imagen:
+                if producto.imagen:
+                    producto.imagen.delete(save=False)
+                producto.imagen = None
+
+            if imagen_file:
+                # Borrar imagen previa si existe para liberar espacio en disco
+                if producto.imagen:
+                    producto.imagen.delete(save=False)
+
+                from panel.views import calcular_uso_disco_mb
+                uso_actual = calcular_uso_disco_mb(empresa_actual)
+                size_mb = imagen_file.size / (1024 * 1024)
+                if uso_actual + size_mb > empresa_actual.limite_espacio_disco:
+                    return JsonResponse({
+                        'success': False, 
+                        'error': f'Límite de espacio en disco excedido ({empresa_actual.limite_espacio_disco} MB). No puedes subir más archivos.'
+                    })
+
+            form = ProductoForm(request.POST, request.FILES, instance=producto)
             if form.is_valid():
                 producto = form.save(commit=False)
                 # Maneja el switch manual para lote/serie ya que vienen como 'on'

@@ -941,7 +941,8 @@ def punto_de_venta(request):
             'subcategoria': prod.subcategoria or '',
             'precio_venta': float(precio_redondeado),
             'iva': float(prod.iva or 0),
-            'stock': stock
+            'stock': stock,
+            'imagen_url': prod.imagen.url if prod.imagen else ''
         })
 
     from tesoreria.models import CajaBanco
@@ -1283,7 +1284,37 @@ def cortes_caja_list(request):
     # Historial de sesiones (todas las sucursales)
     sesiones = SesionCajaPOS.objects.filter(caja_pos__empresa=empresa_actual).order_by('-fecha_apertura')
 
-    # Datos para modales de creación
+    # Aplicar filtros
+    q = request.GET.get('q', '').strip()
+    cajero_id = request.GET.get('cajero', '').strip()
+    fecha_str = request.GET.get('fecha', '').strip()
+    estado = request.GET.get('estado', '').strip()
+    sucursal_filtro_id = request.GET.get('sucursal', '').strip()
+
+    if q:
+        from django.db.models import Q
+        sesiones = sesiones.filter(
+            Q(usuario__username__icontains=q) |
+            Q(usuario__first_name__icontains=q) |
+            Q(usuario__last_name__icontains=q) |
+            Q(caja_pos__nombre__icontains=q) |
+            Q(caja_pos__sucursal__nombre__icontains=q)
+        )
+
+    if cajero_id:
+        sesiones = sesiones.filter(usuario_id=cajero_id)
+
+    if fecha_str:
+        sesiones = sesiones.filter(fecha_apertura__date=fecha_str)
+
+    if estado:
+        sesiones = sesiones.filter(estado=estado)
+
+    if sucursal_filtro_id:
+        sesiones = sesiones.filter(caja_pos__sucursal_id=sucursal_filtro_id)
+
+    # Datos para filtros y modales de creación
+    sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
     usuarios = User.objects.filter(is_active=True, username__contains=f"@{empresa_actual.subdominio}").order_by('username')
     cajas_efectivo = CajaBanco.objects.filter(empresa=empresa_actual, activo=True, tipo='caja')
     if not cajas_efectivo.exists():
@@ -1293,14 +1324,24 @@ def cortes_caja_list(request):
     if not bancos.exists():
         bancos = CajaBanco.objects.filter(empresa=empresa_actual, activo=True)
 
+    filtros = {
+        'q': q,
+        'cajero': cajero_id,
+        'fecha': fecha_str,
+        'estado': estado,
+        'sucursal': sucursal_filtro_id,
+    }
+
     contexto = {
         'cajas_pos': cajas_pos,
         'sesiones': sesiones,
         'usuarios': usuarios,
+        'sucursales': sucursales,
         'cajas_efectivo': cajas_efectivo,
         'bancos': bancos,
         'empresa': empresa_actual,
         'sucursal': sucursal,
+        'filtros': filtros,
         'section': 'cortes_caja',
     }
     return render(request, 'ventas/cortes_caja.html', contexto)

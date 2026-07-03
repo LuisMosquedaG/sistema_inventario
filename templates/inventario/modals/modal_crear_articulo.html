@@ -7,7 +7,7 @@
             </div>
             
             <div class="modal-body bg-light">
-                <form id="formCrearArticulo">
+                <form id="formCrearArticulo" enctype="multipart/form-data">
                     {% csrf_token %}
                     <input type="hidden" name="producto_id" id="productoId" value="">
                     <input type="hidden" name="sucursal" id="hiddenSucursalArticulo" value="">
@@ -233,6 +233,34 @@
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" name="tiene_iva" id="checkIVA" checked onchange="toggleIVA(); actualizarCalculosPrecios();">
                                         <label class="form-check-label small text-muted fw-bold" for="checkIVA">IVA</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 4: IMAGEN -->
+                    <div class="card border-0 shadow-sm mb-2">
+                        <div class="card-body p-2">
+                            <h6 class="text-uppercase text-muted fw-bold mb-2" style="font-size: 0.7rem; letter-spacing: 1px;">4. Imagen del Artículo</h6>
+                            <div class="row g-2 align-items-center">
+                                <div class="col-md-8">
+                                    <label class="form-label small text-muted mb-1">Subir Imagen</label>
+                                    <div class="d-flex align-items-center">
+                                        <input type="file" name="imagen" id="inputImagenArticulo" class="form-control form-control-sm" accept="image/*">
+                                        <input type="hidden" name="eliminar_imagen" id="eliminarImagenArticulo" value="false">
+                                        <button type="button" id="btnEliminarImagenArticulo" class="btn btn-outline-danger btn-sm d-none" 
+                                                style="height: 31px; width: 31px; border-radius: 0 0.25rem 0.25rem 0; display: flex; align-items: center; justify-content: center; padding: 0; margin-left: -1px;" 
+                                                onclick="eliminarFotoArticulo()"
+                                                title="Eliminar Foto">
+                                            <i class="bi bi-dash-lg" style="font-size: 1.2rem; font-weight: bold;"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 text-center">
+                                    <div id="previewImagenArticuloContainer" class="border rounded bg-white d-flex align-items-center justify-content-center" style="height: 70px; width: 100%; max-width: 120px; margin: 0 auto; overflow: hidden; position: relative;">
+                                        <span class="text-muted small" id="previewImagenArticuloPlaceholder" style="font-size: 0.7rem;">Sin Imagen</span>
+                                        <img src="" id="previewImagenArticulo" class="d-none w-100 h-100" style="object-fit: contain;">
                                     </div>
                                 </div>
                             </div>

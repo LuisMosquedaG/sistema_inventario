@@ -77,6 +77,24 @@ window.abrirNuevoArticulo = function(sucursalId = '') {
         }
     }
 
+    // Reset imagen
+    const inputImg = document.getElementById('inputImagenArticulo');
+    if (inputImg) {
+        inputImg.value = '';
+        inputImg.style.borderRadius = '';
+    }
+    const hiddenEliminar = document.getElementById('eliminarImagenArticulo');
+    if (hiddenEliminar) hiddenEliminar.value = 'false';
+    const btnDel = document.getElementById('btnEliminarImagenArticulo');
+    if (btnDel) btnDel.classList.add('d-none');
+    const imgPreview = document.getElementById('previewImagenArticulo');
+    if (imgPreview) {
+        imgPreview.src = '';
+        imgPreview.classList.add('d-none');
+    }
+    const imgPlc = document.getElementById('previewImagenArticuloPlaceholder');
+    if (imgPlc) imgPlc.classList.remove('d-none');
+
     actualizarCalculosPrecios();
     mostrarModal('modalCrearArticulo');
 }
@@ -142,6 +160,33 @@ window.cargarProductoEdicion = function(id) {
                     selTest.disabled = true;
                     selTest.value = "";
                     selTest.classList.add('bg-light');
+                }
+            }
+
+            // Cargar imagen existente si la hay
+            const inputImg = document.getElementById('inputImagenArticulo');
+            if (inputImg) inputImg.value = '';
+            const hiddenEliminar = document.getElementById('eliminarImagenArticulo');
+            if (hiddenEliminar) hiddenEliminar.value = 'false';
+            const btnDel = document.getElementById('btnEliminarImagenArticulo');
+            const imgPreview = document.getElementById('previewImagenArticulo');
+            const imgPlc = document.getElementById('previewImagenArticuloPlaceholder');
+            if (imgPreview && imgPlc) {
+                if (data.imagen_url) {
+                    imgPreview.src = data.imagen_url;
+                    imgPreview.classList.remove('d-none');
+                    imgPlc.classList.add('d-none');
+                    if (btnDel) btnDel.classList.remove('d-none');
+                    if (inputImg) {
+                        inputImg.style.borderTopRightRadius = '0';
+                        inputImg.style.borderBottomRightRadius = '0';
+                    }
+                } else {
+                    imgPreview.src = '';
+                    imgPreview.classList.add('d-none');
+                    imgPlc.classList.remove('d-none');
+                    if (btnDel) btnDel.classList.add('d-none');
+                    if (inputImg) inputImg.style.borderRadius = '';
                 }
             }
 
@@ -1344,8 +1389,65 @@ function setupCustomSelect(wrapperId, inputId, fakeId, hiddenId, onSelect) {
     }
 }
 
+window.eliminarFotoArticulo = function() {
+    const inputImg = document.getElementById('inputImagenArticulo');
+    if (inputImg) {
+        inputImg.value = '';
+        inputImg.style.borderRadius = '';
+    }
+    
+    const hiddenEliminar = document.getElementById('eliminarImagenArticulo');
+    if (hiddenEliminar) hiddenEliminar.value = 'true';
+    
+    const imgPreview = document.getElementById('previewImagenArticulo');
+    if (imgPreview) {
+        imgPreview.src = '';
+        imgPreview.classList.add('d-none');
+    }
+    
+    const imgPlc = document.getElementById('previewImagenArticuloPlaceholder');
+    if (imgPlc) imgPlc.classList.remove('d-none');
+    
+    const btnDel = document.getElementById('btnEliminarImagenArticulo');
+    if (btnDel) btnDel.classList.add('d-none');
+}
+
 // --- Inicialización ---
 document.addEventListener('DOMContentLoaded', function() {
+    // Listener para previsualización de imagen de artículo
+    const inputImg = document.getElementById('inputImagenArticulo');
+    if (inputImg) {
+        inputImg.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const preview = document.getElementById('previewImagenArticulo');
+            const placeholder = document.getElementById('previewImagenArticuloPlaceholder');
+            const btnDel = document.getElementById('btnEliminarImagenArticulo');
+            const hiddenEliminar = document.getElementById('eliminarImagenArticulo');
+            if (hiddenEliminar) hiddenEliminar.value = 'false';
+
+            if (file && preview && placeholder) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.classList.remove('d-none');
+                    placeholder.classList.add('d-none');
+                    if (btnDel) btnDel.classList.remove('d-none');
+                    if (inputImg) {
+                        inputImg.style.borderTopRightRadius = '0';
+                        inputImg.style.borderBottomRightRadius = '0';
+                    }
+                }
+                reader.readAsDataURL(file);
+            } else if (preview && placeholder) {
+                preview.src = '';
+                preview.classList.add('d-none');
+                placeholder.classList.remove('d-none');
+                if (btnDel) btnDel.classList.add('d-none');
+                if (inputImg) inputImg.style.borderRadius = '';
+            }
+        });
+    }
+
     // Inicializar buscador de Receta Padre
     setupCustomSelect(
         'wrapperRecetaPadre', 

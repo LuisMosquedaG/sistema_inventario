@@ -98,29 +98,35 @@ function cargarItemsOrdenCompra() {
                 } else {
                     inputHtml = `
                         <input type="number" name="cantidad_recibida[]" 
-                            class="form-control form-control-sm text-center input-cant-recibir" 
+                            class="form-control form-control-sm text-center input-cant-recibir mx-auto" 
+                            style="max-width: 80px;"
                             value="${cant_faltante}" 
                             min="0" max="${cant_faltante}" 
-                            onchange="recalcularFila(this, ${item.costo})" oninput="recalcularFila(this, ${item.costo})">
+                            onchange="recalcularFila(this, ${item.costo}, ${item.iva_porcentaje})" oninput="recalcularFila(this, ${item.costo}, ${item.iva_porcentaje})">
                     `;
                 }
 
-                const subtotal = (cant_faltante * item.costo).toFixed(2);
+                const subtotal = cant_faltante * item.costo;
+                const ivaMonto = subtotal * (item.iva_porcentaje / 100);
+                const total = subtotal + ivaMonto;
                 
                 const filaHtml = `
-                    <tr data-detalle-id="${item.id}" data-costo="${item.costo}" data-tipo="${item.maneja_serie ? 'serie' : (item.maneja_lote ? 'lote' : 'normal')}">
+                    <tr data-detalle-id="${item.id}" data-costo="${item.costo}" data-iva-porc="${item.iva_porcentaje}" data-tipo="${item.maneja_serie ? 'serie' : (item.maneja_lote ? 'lote' : 'normal')}">
                         <td class="ps-3">
-                            <div class="fw-semibold small text-dark">${item.nombre}</div>
+                            <div class="fw-semibold small text-dark text-truncate" style="max-width: 100%;" title="${item.nombre}">
+                                ${item.nombre}
+                            </div>
                             <input type="hidden" name="detalle_compra_id[]" value="${item.id}">
                         </td>
                         <td class="text-center small">${item.cant_ordenada}</td>
-                        <td class="text-center small text-muted">${item.cant_recibida_anterior}</td>
                         <td class="text-center">${inputHtml}</td>
                         <td class="text-end small text-muted">
                             $${parseFloat(item.costo).toFixed(2)}
                             <input type="hidden" name="costo_unitario[]" value="${item.costo}">
                         </td>
-                        <td class="text-end fw-bold small text-dark row-subtotal">$${subtotal}</td>
+                        <td class="text-end small text-dark row-subtotal">$${subtotal.toFixed(2)}</td>
+                        <td class="text-end small text-muted row-iva">$${ivaMonto.toFixed(2)}</td>
+                        <td class="text-end pe-3 fw-bold small text-dark row-total">$${total.toFixed(2)}</td>
                     </tr>
                 `;
                 tbody.insertAdjacentHTML('beforeend', filaHtml);
@@ -199,52 +205,131 @@ function recalcularFilaPorId(id) {
     const tr = document.querySelector(`tr[data-detalle-id="${id}"]`);
     if(!tr) return;
     const h = document.getElementById(`hidden-cant-${id}`);
-    const c = h ? parseFloat(h.value) : 0;
-    const sub = c * parseFloat(tr.getAttribute('data-costo'));
+    const cant = h ? parseFloat(h.value) : 0;
+    const costo = parseFloat(tr.getAttribute('data-costo'));
+    const ivaPorc = parseFloat(tr.getAttribute('data-iva-porc')) || 0;
+
+    const sub = cant * costo;
+    const iva = sub * (ivaPorc / 100);
+    const total = sub + iva;
+
     const subLabel = tr.querySelector('.row-subtotal');
     if(subLabel) subLabel.innerText = '$' + sub.toFixed(2);
+
+    const ivaLabel = tr.querySelector('.row-iva');
+    if(ivaLabel) ivaLabel.innerText = '$' + iva.toFixed(2);
+
+    const totLabel = tr.querySelector('.row-total');
+    if(totLabel) totLabel.innerText = '$' + total.toFixed(2);
+
     calcularTotalRecepcion();
 }
 
-function recalcularFila(input, costo) {
+function recalcularFila(input, costo, ivaPorc) {
     const fila = input.closest('tr');
+    const cant = parseFloat(input.value || 0);
+    const sub = cant * costo;
+    const iva = sub * (ivaPorc / 100);
+    const total = sub + iva;
+
     const subLabel = fila.querySelector('.row-subtotal');
-    if(subLabel) subLabel.innerText = '$' + (parseFloat(input.value || 0) * costo).toFixed(2);
+    if(subLabel) subLabel.innerText = '$' + sub.toFixed(2);
+
+    const ivaLabel = fila.querySelector('.row-iva');
+    if(ivaLabel) ivaLabel.innerText = '$' + iva.toFixed(2);
+
+    const totLabel = fila.querySelector('.row-total');
+    if(totLabel) totLabel.innerText = '$' + total.toFixed(2);
+
     calcularTotalRecepcion();
 }
 
 function calcularTotalRecepcion() {
-    let t = 0;
-    document.querySelectorAll('.row-subtotal').forEach(s => t += parseFloat(s.innerText.replace('$', '')));
+    let subAcum = 0;
+    let ivaAcum = 0;
+    let totAcum = 0;
+
+    document.querySelectorAll('.row-subtotal').forEach(s => subAcum += parseFloat(s.innerText.replace('$', '').replace(',', '')) || 0);
+    document.querySelectorAll('.row-iva').forEach(s => ivaAcum += parseFloat(s.innerText.replace('$', '').replace(',', '')) || 0);
+    document.querySelectorAll('.row-total').forEach(s => totAcum += parseFloat(s.innerText.replace('$', '').replace(',', '')) || 0);
+
+    const elSub = document.getElementById('recepcionSubtotal');
+    if(elSub) elSub.innerText = '$' + subAcum.toLocaleString('en-US', {minimumFractionDigits: 2});
+
+    const elIva = document.getElementById('recepcionIvaTotal');
+    if(elIva) elIva.innerText = '$' + ivaAcum.toLocaleString('en-US', {minimumFractionDigits: 2});
+
     const gt = document.getElementById('granTotalRecepcion');
-    if(gt) gt.innerText = '$' + t.toFixed(2);
+    if(gt) gt.innerText = '$' + totAcum.toLocaleString('en-US', {minimumFractionDigits: 2});
 }
 
-function verDetalleRecepcion(id) {
-    window.currentRecId = id;
+function verRecepcion(id) {
+    const tbody = document.getElementById('ver_rec_tabla_cuerpo');
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</td></tr>';
+    
     fetch(`/recepciones/api/detalle-recepcion/${id}/`)
         .then(r => r.json())
         .then(data => {
-            document.getElementById('recModalTitleText').innerText = data.folio;
-            document.getElementById('recModalFecha').innerText = data.fecha;
-            document.getElementById('recModalProveedor').innerText = data.proveedor;
-            document.getElementById('recModalTotal').innerText = `$${data.total.toFixed(2)}`;
-            const st = document.getElementById('recModalEstado');
-            st.innerText = data.estado; st.className = 'status-pill status-' + data.estado.toLowerCase();
-            document.getElementById('recModalOC').innerText = data.oc_folio.replace('OC-', '');
-            document.getElementById('recModalAlmacen').innerText = data.almacen || '-';
-            document.getElementById('recModalFactura').innerText = data.factura || '-';
-            document.getElementById('recModalPedimento').innerText = data.pedimento || '-';
-            document.getElementById('recModalAduana').innerText = data.aduana || '-';
-            document.getElementById('recModalFechaPedimento').innerText = data.fecha_pedimento || '-';
-            document.getElementById('recCardLogistica').style.display = 'block';
-            const tbody = document.getElementById('recModalTableBody');
+            if(data.error) { alert(data.error); return; }
+
+            document.getElementById('ver_rec_folio').innerText = data.folio;
+            
+            // SECCIÓN 1: DATOS DE COMPRA
+            document.getElementById('ver_rec_proveedor').innerText = data.proveedor;
+            document.getElementById('ver_rec_sucursal').innerText = data.sucursal;
+            document.getElementById('ver_rec_oc_folio').innerText = data.oc_folio;
+            document.getElementById('ver_rec_oc_fecha').innerText = data.oc_fecha;
+
+            // SECCIÓN 2: DATOS DE RECEPCIÓN
+            document.getElementById('ver_rec_almacen').innerText = data.almacen;
+            document.getElementById('ver_rec_folio_val').innerText = data.folio;
+            document.getElementById('ver_rec_fecha').innerText = data.fecha;
+            document.getElementById('ver_rec_factura').innerText = data.factura;
+            document.getElementById('ver_rec_fecha_fact').innerText = data.fecha_comprobante; 
+            document.getElementById('ver_rec_pedimento').innerText = data.pedimento;
+            document.getElementById('ver_rec_fecha_ped').innerText = data.fecha_pedimento;
+            document.getElementById('ver_rec_aduana').innerText = data.aduana;
+
+            // SECCIÓN 3: LISTADO DE ARTÍCULOS
             tbody.innerHTML = '';
-            data.detalles.forEach(d => {
-                tbody.insertAdjacentHTML('beforeend', `<tr><td class="ps-3">${d.producto}</td><td class="text-center">${d.cant}</td><td class="text-end">$${d.precio.toFixed(2)}</td><td class="text-end pe-3 fw-bold">$${d.subtotal.toFixed(2)}</td></tr>`);
-            });
-            document.getElementById('btnCancelarRecepcion').style.display = (data.estado !== 'CANCELADA') ? 'inline-block' : 'none';
-            new bootstrap.Modal(document.getElementById('modalDetalleRecepcion')).show();
+            
+            if (data.detalles && data.detalles.length > 0) {
+                data.detalles.forEach(det => {
+                    const fila = `
+                        <tr>
+                            <td class="ps-3">
+                                <div class="fw-semibold small text-dark text-truncate" style="max-width: 100%;" title="${det.producto}">
+                                    ${det.producto}
+                                </div>
+                            </td>
+                            <td class="text-center small">${det.cant}</td>
+                            <td class="text-end small text-muted">$${parseFloat(det.precio).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                            <td class="text-end small text-dark">$${parseFloat(det.subtotal).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                            <td class="text-end small text-muted">$${parseFloat(det.iva_monto || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                            <td class="text-end pe-3 fw-bold small text-dark">$${parseFloat(det.total).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                        </tr>
+                    `;
+                    tbody.insertAdjacentHTML('beforeend', fila);
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-muted fst-italic">No hay artículos en esta recepción.</td></tr>';
+            }
+
+            const elSub = document.getElementById('ver_rec_subtotal');
+            if (elSub) elSub.innerText = '$' + parseFloat(data.subtotal_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+
+            const elIva = document.getElementById('ver_rec_iva_total');
+            if (elIva) elIva.innerText = '$' + parseFloat(data.iva_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+
+            const elTotal = document.getElementById('ver_rec_gran_total');
+            if (elTotal) elTotal.innerText = '$' + parseFloat(data.gran_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+            
+            const modal = new bootstrap.Modal(document.getElementById('modalVerRecepcion'));
+            modal.show();
+        })
+        .catch(err => {
+            console.error('Error:', err);
+            alert('No se pudo cargar la información de la recepción.');
         });
 }
 
@@ -253,7 +338,15 @@ document.getElementById('formRecepcion').addEventListener('submit', function(e) 
     const btn = this.querySelector('button[type="submit"]');
     btn.disabled = true; btn.innerText = "Procesando...";
     fetch(this.action, { method: 'POST', body: new FormData(this), headers: { 'X-CSRFToken': getCookie('csrftoken') } })
-    .then(r => r.json()).then(d => { if(d.success) { alert(d.message); location.reload(); } else { throw new Error(d.error); } })
+    .then(r => r.json()).then(d => { 
+        if(d.success) { 
+            alert(d.message); 
+            // Redirigir a la URL limpia para que no se vuelva a abrir el modal por el parámetro oc_id
+            window.location.href = "/recepciones/"; 
+        } else { 
+            throw new Error(d.error); 
+        } 
+    })
     .catch(e => { alert(e.message); btn.disabled = false; btn.innerText = "Procesar Entrada"; });
 });
 
