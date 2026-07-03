@@ -26,7 +26,7 @@
                         </div>
                     </div>
 
-                    <div class="alert alert-info py-2 px-3 mb-0" style="font-size: 0.75rem;">
+                    <div class="alert alert-info py-2 px-3 mb-0" id="alertInfoCatRapida" style="font-size: 0.75rem;">
                         <i class="bi bi-info-circle-fill me-2"></i>Al guardar, la categoría estará disponible inmediatamente para asignarla al artículo.
                     </div>
                 </form>
@@ -40,14 +40,39 @@
 </div>
 
 <script>
-    function prepararNuevaCategoriaRapida() {
+    function prepararNuevaCategoriaRapida(esSubcat = false) {
         document.getElementById('formCategoriaRapida').reset();
         document.getElementById('contenedorSubcategoriasRapidas').innerHTML = "";
         
+        const modalEl = document.getElementById('modalCrearCategoriaRapida');
+        const titleEl = modalEl.querySelector('.modal-title');
+        const labelEl = modalEl.querySelector('label.form-label');
+        const inputNombre = document.getElementById('inputNombreCatRapida');
+        const submitBtn = modalEl.querySelector('.modal-footer button.btn-brand');
+        const alertEl = document.getElementById('alertInfoCatRapida');
+
         // Intentar pre-rellenar con la categoría seleccionada en el modal de producto
         const selectCatOriginal = document.getElementById('selectCategoria');
         if (selectCatOriginal && selectCatOriginal.value) {
-            document.getElementById('inputNombreCatRapida').value = selectCatOriginal.value;
+            inputNombre.value = selectCatOriginal.value;
+        }
+
+        if (esSubcat) {
+            titleEl.innerHTML = '<i class="bi bi-tags-fill me-2 text-brand"></i>Alta Rápida de Subcategoría';
+            labelEl.innerHTML = 'Categoría Seleccionada';
+            inputNombre.readOnly = true;
+            submitBtn.innerText = 'Guardar Subcategoría';
+            if (alertEl) {
+                alertEl.innerHTML = '<i class="bi bi-info-circle-fill me-2"></i>Al guardar, las subcategorías se agregarán a la categoría seleccionada y estarán listas para su uso.';
+            }
+        } else {
+            titleEl.innerHTML = '<i class="bi bi-tags-fill me-2 text-brand"></i>Alta Rápida de Categoría';
+            labelEl.innerHTML = 'Nombre de la Categoría <span class="text-danger">*</span>';
+            inputNombre.readOnly = false;
+            submitBtn.innerText = 'Guardar Categoría';
+            if (alertEl) {
+                alertEl.innerHTML = '<i class="bi bi-info-circle-fill me-2"></i>Al guardar, la categoría estará disponible inmediatamente para asignarla al artículo.';
+            }
         }
 
         agregarFilaSubcategoriaRapida();

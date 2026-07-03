@@ -125,8 +125,8 @@ def api_crear_categoria(request):
             nombre_cat = data.get('nombre')
             lista_subcats = request.POST.getlist('subcategorias[]') 
 
-            # 1. Crear Categoría asignando la empresa
-            nueva_categoria = Categoria.objects.create(
+            # 1. Crear o recuperar Categoría asignando la empresa
+            nueva_categoria, created = Categoria.objects.get_or_create(
                 nombre=nombre_cat, 
                 empresa=empresa_actual
             )
@@ -134,13 +134,13 @@ def api_crear_categoria(request):
             # 2. Crear Subcategorías asignando la empresa
             for sub_nombre in lista_subcats:
                 if sub_nombre.strip(): 
-                    Subcategoria.objects.create(
+                    Subcategoria.objects.get_or_create(
                         categoria=nueva_categoria,
                         nombre=sub_nombre.strip(),
                         empresa=empresa_actual  # <--- ASIGNAR EMPRESA A LA SUBCATEGORÍA
                     )
 
-            return JsonResponse({'success': True, 'message': 'Categoría creada correctamente.'})
+            return JsonResponse({'success': True, 'message': 'Categoría creada/actualizada correctamente.'})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Método no permitido.'})

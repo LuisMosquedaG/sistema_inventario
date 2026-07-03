@@ -1424,6 +1424,33 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // Fix de z-index y backdrops para modales encimados en inventario
+    const modalCate = document.getElementById('modalCrearCategoriaRapida');
+    if (modalCate) {
+        modalCate.addEventListener('show.bs.modal', function() {
+            const parentModal = document.getElementById('modalCrearArticulo');
+            if (parentModal && parentModal.classList.contains('show')) {
+                modalCate.style.zIndex = '1065';
+                
+                // Modificar z-index de backdrop inmediatamente al empezar a mostrarse
+                setTimeout(() => {
+                    const backdrops = document.querySelectorAll('.modal-backdrop');
+                    if (backdrops.length > 1) {
+                        backdrops[backdrops.length - 1].style.zIndex = '1060';
+                    }
+                }, 0);
+            }
+        });
+        
+        modalCate.addEventListener('hidden.bs.modal', function() {
+            const parentModal = document.getElementById('modalCrearArticulo');
+            if (parentModal && parentModal.classList.contains('show')) {
+                document.body.classList.add('modal-open');
+                document.body.style.overflow = 'hidden';
+            }
+        });
+    }
 });
 // --- FIN TRASLADOS ---
 

@@ -100,7 +100,7 @@
                                         </select>
                                         <button type="button" class="btn btn-brand btn-sm shadow-none" 
                                                 style="height: 31px; width: 31px; border-radius: 0 0.25rem 0.25rem 0; display: flex; align-items: center; justify-content: center; padding: 0; margin-left: -1px; border-left: none;" 
-                                                onclick="prepararNuevaCategoriaRapida(); new bootstrap.Modal(document.getElementById('modalCrearCategoriaRapida')).show();"
+                                                onclick="prepararNuevaCategoriaRapida(false); new bootstrap.Modal(document.getElementById('modalCrearCategoriaRapida')).show();"
                                                 title="Nueva Categoría">
                                             <i class="bi bi-plus-lg" style="font-size: 1rem;"></i>
                                         </button>
@@ -115,7 +115,7 @@
                                         </select>
                                         <button type="button" class="btn btn-brand btn-sm shadow-none" 
                                                 style="height: 31px; width: 31px; border-radius: 0 0.25rem 0.25rem 0; display: flex; align-items: center; justify-content: center; padding: 0; margin-left: -1px; border-left: none;" 
-                                                onclick="prepararNuevaCategoriaRapida(); new bootstrap.Modal(document.getElementById('modalCrearCategoriaRapida')).show();"
+                                                onclick="const selectCat = document.getElementById('selectCategoria'); if (!selectCat || !selectCat.value) { alert('⚠️ Selecciona primero una categoría para poder agregarle una subcategoría.'); } else { prepararNuevaCategoriaRapida(true); new bootstrap.Modal(document.getElementById('modalCrearCategoriaRapida')).show(); }"
                                                 title="Nueva Subcategoría">
                                             <i class="bi bi-plus-lg" style="font-size: 1rem;"></i>
                                         </button>
