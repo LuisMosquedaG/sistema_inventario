@@ -3,6 +3,16 @@
 
 {% block content %}
     <style>
+        /* Animación Elástica de Modales (Efecto Cotización/Cortes) */
+        .modal.fade .modal-dialog {
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease-out !important;
+            transform: scale(0.9) translateY(-50px) !important;
+            opacity: 0;
+        }
+        .modal.show .modal-dialog {
+            transform: scale(1) translateY(0) !important;
+            opacity: 1 !important;
+        }
         /* --- ESTILOS GENERALES (Módulo Solicitudes) --- */
         .icon-action { color: #adb5bd; font-size: 1.1rem; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; text-decoration: none !important; border: none; background: transparent; }
         .icon-action:hover { color: #00b8b9; transform: scale(1.15); }
@@ -665,9 +675,38 @@
         }
 
         function abrirAltaRapidaDesdeSolicitud() {
-            // Abrimos el modal de alta rápida sin cerrar el de solicitudes
-            const modalRapido = new bootstrap.Modal(document.getElementById('modalCrearProductoRapido'));
-            modalRapido.show();
+            const modalEl = document.getElementById('modalCrearProductoRapido');
+            const parentModal = document.getElementById('modalNuevaSolicitud');
+            
+            if (modalEl) {
+                if (parentModal && parentModal.classList.contains('show')) {
+                    modalEl.style.zIndex = '1065';
+                    
+                    // Modificar z-index de backdrop inmediatamente al empezar a mostrarse
+                    modalEl.addEventListener('show.bs.modal', function adjustBackdrop() {
+                        setTimeout(() => {
+                            const backdrops = document.querySelectorAll('.modal-backdrop');
+                            if (backdrops.length > 1) {
+                                backdrops[backdrops.length - 1].style.zIndex = '1060';
+                            }
+                        }, 0);
+                        modalEl.removeEventListener('show.bs.modal', adjustBackdrop);
+                    });
+                    
+                    // Fix de scroll y z-index al cerrarse
+                    modalEl.addEventListener('hidden.bs.modal', function resetScroll() {
+                        modalEl.style.zIndex = '';
+                        if (parentModal.classList.contains('show')) {
+                            document.body.classList.add('modal-open');
+                            document.body.style.overflow = 'hidden';
+                        }
+                        modalEl.removeEventListener('hidden.bs.modal', resetScroll);
+                    });
+                }
+                
+                const modalRapido = new bootstrap.Modal(modalEl);
+                modalRapido.show();
+            }
         }
 
         function cancelarSolicitud(id) {

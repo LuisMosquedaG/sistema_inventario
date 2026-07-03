@@ -177,9 +177,20 @@ def api_actualizar_categoria(request, id):
             # Seguridad: Verificar propiedad
             categoria = get_object_or_404(Categoria, id=id, empresa=empresa_actual)
             
+            nombre_anterior = categoria.nombre
             data = request.POST
-            categoria.nombre = data.get('nombre')
+            nombre_nuevo = data.get('nombre')
+            
+            categoria.nombre = nombre_nuevo
             categoria.save()
+            
+            # Si el nombre cambió, actualizar todos los productos correspondientes a la empresa
+            if nombre_anterior != nombre_nuevo:
+                from core.models import Producto
+                Producto.objects.filter(
+                    empresa=empresa_actual,
+                    categoria=nombre_anterior
+                ).update(categoria=nombre_nuevo)
             
             # 1. Borrar subcategorías actuales
             categoria.subcategorias.all().delete()
