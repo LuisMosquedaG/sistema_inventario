@@ -863,6 +863,8 @@
 
             // Variables de Three.js para la ola de pastillas en cuadrícula ordenada (Estilo reactivo premium)
             let scene, camera, renderer, instancedMesh;
+            let boundaryX = 46;
+            let boundaryY = 34;
             const cols = 48;
             const rows = 36;
             const numParticles = cols * rows;
@@ -940,16 +942,18 @@
                 scene.add(instancedMesh);
                 
                 const aspect = width / height;
-                const boundaryX = 46 * aspect;
-                const boundaryY = 34;
+                boundaryX = 46 * aspect;
+                boundaryY = 34;
                 
                 // Distribución en cuadrícula ordenada y simétrica
                 const spacingX = (boundaryX * 2) / (cols - 1);
                 const spacingY = (boundaryY * 2) / (rows - 1);
 
                 for (let r = 0; r < rows; r++) {
+                    // Intercalamos las filas impares desplazándolas media columna a la derecha
+                    const shiftX = (r % 2 === 1) ? (spacingX * 0.5) : 0;
                     for (let c = 0; c < cols; c++) {
-                        const x = -boundaryX + c * spacingX;
+                        const x = -boundaryX + c * spacingX + shiftX;
                         const y = -boundaryY + r * spacingY;
                         const z = 0;
                         
@@ -1012,18 +1016,34 @@
                 const q = new THREE.Quaternion();
                 
                 // Intersectar rayo del mouse con plano z = 0
+                const intersectionPoint = new THREE.Vector3(0, 0, 0);
                 if (mouse.x > -1000 && raycaster) {
                     raycaster.setFromCamera(mouse, camera);
                     const ray = raycaster.ray;
                     if (Math.abs(ray.direction.z) > 0.0001) {
                         const t = -ray.origin.z / ray.direction.z;
                         if (t >= 0) {
-                            targetMouse.copy(ray.origin).addScaledVector(ray.direction, t);
+                            intersectionPoint.copy(ray.origin).addScaledVector(ray.direction, t);
                         }
                     }
                 } else {
-                    // Por defecto apunta al centro (0, 0, 0)
-                    targetMouse.set(0, 0, 0);
+                    // Si el puntero no está en la zona, simulamos una trayectoria continua elegante (Lissajous)
+                    // que viaja de manera fluida y suave por toda la pantalla
+                    const bx = (typeof boundaryX === 'number' && !isNaN(boundaryX) && boundaryX > 0) ? boundaryX : 78;
+                    const by = (typeof boundaryY === 'number' && !isNaN(boundaryY) && boundaryY > 0) ? boundaryY : 34;
+                    const radiusX = bx * 0.55;
+                    const radiusY = by * 0.55;
+                    intersectionPoint.x = Math.sin(time * 0.6) * radiusX;
+                    intersectionPoint.y = Math.cos(time * 0.45) * radiusY;
+                }
+                
+                // Interpolación suave (lerp) del targetMouse hacia el punto de intersección
+                // Un factor de 0.06 produce una transición extremadamente fluida, líquida y premium
+                targetMouse.lerp(intersectionPoint, 0.06);
+                
+                // Registro periódico para depuración en la consola del navegador
+                if (Math.random() < 0.003) {
+                    console.log("[Particles System] targetMouse position:", targetMouse.x.toFixed(2), targetMouse.y.toFixed(2), "mouse.x:", mouse.x);
                 }
                 
                 const bgColor = new THREE.Color('#f8fafc');
