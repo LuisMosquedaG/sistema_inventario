@@ -205,19 +205,27 @@
             <td class="monto">${{ total_transferencia|floatformat:2|intcomma }}</td>
         </tr>
 
-        <!-- CONSOLIDADO -->
+        <!-- CONSOLIDADO CON DESCUENTOS -->
         <tr class="bold" style="border-top: 1px dashed #000;">
             <td colspan="2">CONSOLIDADO:</td>
         </tr>
         <tr class="bold">
-            <td style="padding-left: 10px;">Subtotal:</td>
+            <td style="padding-left: 10px;">Subtotal Original:</td>
+            <td class="monto">${{ original_subtotal|floatformat:2|intcomma }}</td>
+        </tr>
+        <tr class="bold" style="color: #dc3545;">
+            <td style="padding-left: 10px;">(-) Descuento:</td>
+            <td class="monto">-${{ total_descuentos|floatformat:2|intcomma }}</td>
+        </tr>
+        <tr class="bold">
+            <td style="padding-left: 10px;">Subtotal Neto:</td>
             <td class="monto">${{ session_subtotal|floatformat:2|intcomma }}</td>
         </tr>
         <tr class="bold">
             <td style="padding-left: 10px;">IVA:</td>
             <td class="monto">${{ session_iva|floatformat:2|intcomma }}</td>
         </tr>
-        <tr class="bold">
+        <tr class="bold" style="border-top: 1px solid #000;">
             <td style="padding-left: 10px;">TOTAL GRAL:</td>
             <td class="monto">${{ session_total|floatformat:2|intcomma }}</td>
         </tr>

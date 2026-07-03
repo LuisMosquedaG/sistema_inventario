@@ -918,6 +918,14 @@ def punto_de_venta(request):
     from almacenes.models import Inventario, Almacen
     
     almacen = Almacen.objects.filter(empresa=empresa_actual, sucursal=sucursal).first()
+    from categorias.models import ListaPrecioCosto
+    listas_precio_globales = ListaPrecioCosto.objects.filter(empresa=empresa_actual, tipo='precio')
+
+    lista_activa_nombre = ""
+    for lista in listas_precio_globales:
+        if lista.esta_activa_ahora():
+            lista_activa_nombre = lista.nombre
+            break
 
     productos_data = []
     productos = Producto.objects.filter(empresa=empresa_actual, estado='activo').order_by('nombre')
@@ -931,7 +939,36 @@ def punto_de_venta(request):
         
         import math
         precio_redondeado = math.ceil(float(prod.precio_venta or 0))
+        
+        # Obtener y normalizar precios específicos del producto
+        precios_articulo = prod.precios_lista or []
+        nombres_precios_articulo = set()
+        precios_completos = []
+        
+        for item in precios_articulo:
+            if isinstance(item, dict) and 'nombre' in item and 'monto' in item:
+                try:
+                    precios_completos.append({
+                        'nombre': item['nombre'],
+                        'monto': float(item['monto'])
+                    })
+                    nombres_precios_articulo.add(item['nombre'])
+                except (ValueError, TypeError):
+                    continue
 
+        # Calcular e integrar precios provenientes de listas globales si no están sobreescritos
+        base_venta = float(prod.precio_venta or 0)
+        for lista in listas_precio_globales:
+            if lista.nombre not in nombres_precios_articulo:
+                porc = float(lista.porcentaje_extra or 0)
+                monto_fijo = float(lista.monto_extra or 0)
+                monto_calculado = base_venta + (base_venta * (porc / 100.0)) + monto_fijo
+                precios_completos.append({
+                    'nombre': lista.nombre,
+                    'monto': float(monto_calculado)
+                })
+
+        import json
         productos_data.append({
             'id': prod.id,
             'nombre': prod.nombre,
@@ -942,7 +979,8 @@ def punto_de_venta(request):
             'precio_venta': float(precio_redondeado),
             'iva': float(prod.iva or 0),
             'stock': stock,
-            'imagen_url': prod.imagen.url if prod.imagen else ''
+            'imagen_url': prod.imagen.url if prod.imagen else '',
+            'precios_lista_json': json.dumps(precios_completos)
         })
 
     from tesoreria.models import CajaBanco
@@ -978,6 +1016,7 @@ def punto_de_venta(request):
         'subcategorias': list(subcategorias_unicas),
         'sesion_activa': sesion_activa,
         'cajas_disponibles': cajas_disponibles,
+        'lista_activa_nombre': lista_activa_nombre,
         'section': 'pos',
     }
     return render(request, 'ventas/punto_de_venta.html', contexto)
@@ -1059,14 +1098,34 @@ def crear_venta_pos_ajax(request):
 
     try:
         with transaction.atomic():
-            # 1. Calcular total_pedido
+            # 1. Calcular total_pedido aplicando el factor de descuento proporcional
+            descuento = Decimal(str(data.get('descuento', 0)))
+            descuento_tipo = data.get('descuento_tipo', 'monto')
+            
+            subtotal_original = Decimal('0.00')
+            for item in items:
+                qty = int(item.get('cantidad', 1))
+                price = Decimal(str(item.get('precio_unitario', 0)))
+                subtotal_original += qty * price
+
+            descuento_monto = Decimal('0.00')
+            if descuento > 0:
+                if descuento_tipo == 'porcentaje':
+                    descuento_monto = subtotal_original * (descuento / 100)
+                else:
+                    descuento_monto = descuento
+
+            factor = Decimal('1.00')
+            if subtotal_original > 0 and descuento_monto > 0:
+                factor = (subtotal_original - descuento_monto) / subtotal_original
+                if factor < 0:
+                    factor = Decimal('0.00')
+
             total_pedido = Decimal('0.00')
             for item in items:
                 prod_id = item.get('producto_id')
                 qty = int(item.get('cantidad', 1))
-                
-                import math
-                price = Decimal(str(math.ceil(float(item.get('precio_unitario', 0)))))
+                price = Decimal(str(item.get('precio_unitario', 0))) * factor
 
                 try:
                     producto = Producto.objects.get(id=prod_id, empresa=empresa_actual, estado='activo')
@@ -1138,6 +1197,13 @@ def crear_venta_pos_ajax(request):
             pagos_ajustados = [p for p in pagos_ajustados if p['monto'] > 0]
 
             # 3. Crear el Pedido y la Orden de Venta (Salida)
+            import json
+            notas_data = {}
+            if descuento > 0:
+                notas_data['descuento'] = float(descuento)
+                notas_data['descuento_tipo'] = descuento_tipo
+                notas_data['descuento_monto'] = float(descuento_monto)
+
             pedido = Pedido.objects.create(
                 cliente=cliente,
                 vendedor=request.user,
@@ -1145,7 +1211,8 @@ def crear_venta_pos_ajax(request):
                 sucursal=sucursal,
                 estado='completo',
                 aplica_iva=aplica_iva,
-                sesion_caja=sesion
+                sesion_caja=sesion,
+                notas=json.dumps(notas_data) if notas_data else ""
             )
 
             from django.utils import timezone
@@ -1165,7 +1232,7 @@ def crear_venta_pos_ajax(request):
             for item in items:
                 prod_id = item.get('producto_id')
                 qty = int(item.get('cantidad', 1))
-                price = Decimal(str(item.get('precio_unitario', 0)))
+                price = Decimal(str(item.get('precio_unitario', 0))) * factor
                 producto = Producto.objects.get(id=prod_id, empresa=empresa_actual, estado='activo')
 
                 if producto.tipo != 'servicio':
@@ -1717,7 +1784,7 @@ def imprimir_corte_ticket(request, sesion_id):
     efectivo_estimado = sesion.monto_inicial + ventas_efectivo
     
     # Calcular subtotal e IVA de los productos vendidos
-    from pedidos.models import DetallePedido
+    from pedidos.models import DetallePedido, Pedido
     detalles = DetallePedido.objects.filter(pedido__sesion_caja=sesion)
     
     session_subtotal = Decimal('0.00')
@@ -1727,6 +1794,21 @@ def imprimir_corte_ticket(request, sesion_id):
         session_subtotal += d.subtotal
         session_iva += d.iva_monto
         session_total += d.total
+
+    pedidos_sesion = Pedido.objects.filter(sesion_caja=sesion)
+
+    # Calcular descuentos aplicados en la sesión
+    total_descuentos = Decimal('0.00')
+    for ped in pedidos_sesion:
+        if ped.notas:
+            try:
+                import json
+                notas_data = json.loads(ped.notas)
+                if isinstance(notas_data, dict):
+                    total_descuentos += Decimal(str(notas_data.get('descuento_monto', 0.00)))
+            except Exception:
+                pass
+    original_subtotal = session_subtotal + total_descuentos
 
     # Calcular desglose de subtotales, IVAs y totales por forma de pago
     subtotal_efectivo = Decimal('0.00')
@@ -1740,9 +1822,6 @@ def imprimir_corte_ticket(request, sesion_id):
     subtotal_transferencia = Decimal('0.00')
     iva_transferencia = Decimal('0.00')
     total_transferencia = Decimal('0.00')
-    
-    from pedidos.models import Pedido
-    pedidos_sesion = Pedido.objects.filter(sesion_caja=sesion)
     
     for ped in pedidos_sesion:
         ped_subtotal = Decimal('0.00')
@@ -1818,6 +1897,8 @@ def imprimir_corte_ticket(request, sesion_id):
         'session_subtotal': session_subtotal,
         'session_iva': session_iva,
         'session_total': session_total,
+        'total_descuentos': total_descuentos,
+        'original_subtotal': original_subtotal,
         'subtotal_efectivo': subtotal_efectivo,
         'iva_efectivo': iva_efectivo,
         'total_efectivo': total_efectivo,

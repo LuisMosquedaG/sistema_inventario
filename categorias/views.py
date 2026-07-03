@@ -56,9 +56,29 @@ def api_crear_lista(request):
             porc = request.POST.get('porcentaje_extra', 0)
             monto = request.POST.get('monto_extra', 0)
 
+            dias_semana = request.POST.get('dias_semana', '')
+            hora_inicio_str = request.POST.get('hora_inicio')
+            hora_fin_str = request.POST.get('hora_fin')
+
+            from datetime import datetime
+            hora_inicio = None
+            if hora_inicio_str:
+                try:
+                    hora_inicio = datetime.strptime(hora_inicio_str.strip(), '%H:%M').time()
+                except ValueError:
+                    pass
+
+            hora_fin = None
+            if hora_fin_str:
+                try:
+                    hora_fin = datetime.strptime(hora_fin_str.strip(), '%H:%M').time()
+                except ValueError:
+                    pass
+
             ListaPrecioCosto.objects.create(
                 nombre=nombre, tipo=tipo,
                 porcentaje_extra=porc, monto_extra=monto,
+                dias_semana=dias_semana, hora_inicio=hora_inicio, hora_fin=hora_fin,
                 empresa=empresa_actual
             )
             return JsonResponse({'success': True, 'message': 'Lista creada correctamente.'})
@@ -75,7 +95,10 @@ def api_detalle_lista(request, id):
     return JsonResponse({
         'id': lista.id, 'nombre': lista.nombre, 'tipo': lista.tipo,
         'porcentaje_extra': str(lista.porcentaje_extra),
-        'monto_extra': str(lista.monto_extra)
+        'monto_extra': str(lista.monto_extra),
+        'dias_semana': lista.dias_semana or '',
+        'hora_inicio': lista.hora_inicio.strftime('%H:%M') if lista.hora_inicio else '',
+        'hora_fin': lista.hora_fin.strftime('%H:%M') if lista.hora_fin else ''
     })
 
 # --- API: ACTUALIZAR LISTA ---
@@ -90,6 +113,29 @@ def api_actualizar_lista(request, id):
             lista.tipo = request.POST.get('tipo')
             lista.porcentaje_extra = request.POST.get('porcentaje_extra', 0)
             lista.monto_extra = request.POST.get('monto_extra', 0)
+
+            dias_semana = request.POST.get('dias_semana', '')
+            hora_inicio_str = request.POST.get('hora_inicio')
+            hora_fin_str = request.POST.get('hora_fin')
+
+            from datetime import datetime
+            hora_inicio = None
+            if hora_inicio_str:
+                try:
+                    hora_inicio = datetime.strptime(hora_inicio_str.strip(), '%H:%M').time()
+                except ValueError:
+                    pass
+
+            hora_fin = None
+            if hora_fin_str:
+                try:
+                    hora_fin = datetime.strptime(hora_fin_str.strip(), '%H:%M').time()
+                except ValueError:
+                    pass
+
+            lista.dias_semana = dias_semana
+            lista.hora_inicio = hora_inicio
+            lista.hora_fin = hora_fin
             lista.save()
             return JsonResponse({'success': True, 'message': 'Lista actualizada correctamente.'})
         except Exception as e:

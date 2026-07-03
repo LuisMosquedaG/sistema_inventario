@@ -54,7 +54,8 @@
                     <thead>
                         <tr>
                             <th class="text-center" style="width: 100px;">Acciones</th>
-                            <th>Nombre</th>
+                            <th class="text-center">Nombre</th>
+                            <th class="text-center">Horario / Días</th>
                             <th class="text-center">Tipo</th>
                             <th class="text-center">Porcentaje Extra</th>
                             <th class="text-center">Monto Extra</th>
@@ -76,8 +77,20 @@
                                 </span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="text-center">
                                 <div class="text-dark">{{ l.nombre }}</div>
+                            </td>
+                            <td class="text-center">
+                                {% if l.hora_inicio and l.hora_fin %}
+                                    <div class="text-muted small" style="font-size: 0.75rem;">
+                                        {% if l.dias_semana %}
+                                            Días: <span class="fw-bold text-secondary">{{ l.dias_display }}</span> |
+                                        {% endif %}
+                                        {{ l.hora_inicio|time:"g:i A" }} - {{ l.hora_fin|time:"g:i A" }}
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted small">-</span>
+                                  {% endif %}
                             </td>
                             <td class="text-center">
                                 <span class="text-dark">
@@ -93,7 +106,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="5" class="text-center py-5">
+                            <td colspan="6" class="text-center py-5">
                                 <i class="bi bi-list-check display-6 text-muted mb-2 d-block opacity-50"></i>
                                 <span class="text-muted fst-italic small">No hay listas registradas</span>
                             </td>
@@ -152,6 +165,55 @@
                                 <span class="input-group-text bg-light"><i class="bi bi-lock-fill text-muted" id="lockMonto" style="display:none;"></i></span>
                             </div>
                         </div>
+                    <!-- Configuración de Horario Preestablecido (Opcional) -->
+                    <div class="border-top pt-3 mt-3">
+                        <h6 class="small fw-bold text-dark mb-2"><i class="bi bi-clock me-1"></i>Horario de Aplicación Automática (Opcional)</h6>
+                        
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-secondary">Hora de Inicio</label>
+                                <input type="time" name="hora_inicio" id="inputHoraInicio" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-secondary">Hora de Fin</label>
+                                <input type="time" name="hora_fin" id="inputHoraFin" class="form-control form-control-sm">
+                            </div>
+                        </div>
+
+                        <div class="mb-0">
+                            <label class="form-label small fw-bold text-secondary d-block mb-1">Días de la semana</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input day-checkbox" type="checkbox" id="day_0" value="0">
+                                    <label class="form-check-label small" for="day_0">Lu</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input day-checkbox" type="checkbox" id="day_1" value="1">
+                                    <label class="form-check-label small" for="day_1">Ma</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input day-checkbox" type="checkbox" id="day_2" value="2">
+                                    <label class="form-check-label small" for="day_2">Mi</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input day-checkbox" type="checkbox" id="day_3" value="3">
+                                    <label class="form-check-label small" for="day_3">Ju</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input day-checkbox" type="checkbox" id="day_4" value="4">
+                                    <label class="form-check-label small" for="day_4">Vi</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input day-checkbox" type="checkbox" id="day_5" value="5">
+                                    <label class="form-check-label small" for="day_5">Sá</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input day-checkbox" type="checkbox" id="day_6" value="6">
+                                    <label class="form-check-label small" for="day_6">Do</label>
+                                </div>
+                            </div>
+                            <input type="hidden" name="dias_semana" id="inputDiasSemana" value="">
+                        </div>
                     </div>
                 </form>
             </div>
@@ -188,6 +250,12 @@
         document.getElementById('formListaMaestra').reset();
         document.getElementById('listaId').value = "";
         document.getElementById('modalTitulo').innerText = "Nueva Lista";
+        document.getElementById('inputHoraInicio').value = "";
+        document.getElementById('inputHoraFin').value = "";
+        document.getElementById('inputDiasSemana').value = "";
+        document.querySelectorAll('.day-checkbox').forEach(cb => {
+            cb.checked = false;
+        });
         validarBloqueoCampos(); // Resetear bloqueos
         modalLista.show();
     }
@@ -203,6 +271,16 @@
                 document.getElementById('selectTipoLista').value = data.tipo;
                 document.getElementById('inputPorcentajeExtra').value = data.porcentaje_extra;
                 document.getElementById('inputMontoExtra').value = data.monto_extra;
+                
+                document.getElementById('inputHoraInicio').value = data.hora_inicio || '';
+                document.getElementById('inputHoraFin').value = data.hora_fin || '';
+                document.getElementById('inputDiasSemana').value = data.dias_semana || '';
+                
+                const activeDays = (data.dias_semana || '').split(',');
+                document.querySelectorAll('.day-checkbox').forEach(cb => {
+                    cb.checked = activeDays.includes(cb.value);
+                });
+                
                 validarBloqueoCampos(); // Aplicar bloqueos según datos cargados
                 modalLista.show();
             });
@@ -248,6 +326,12 @@
     }
 
     function guardarLista() {
+        const selectedDays = [];
+        document.querySelectorAll('.day-checkbox:checked').forEach(cb => {
+            selectedDays.push(cb.value);
+        });
+        document.getElementById('inputDiasSemana').value = selectedDays.join(',');
+
         const form = document.getElementById('formListaMaestra');
         const formData = new FormData(form);
         const id = document.getElementById('listaId').value;

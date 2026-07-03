@@ -144,7 +144,7 @@
             </table>
         </div>
 
-        {% if pedido.notas %}
+        {% if pedido.notas and not pedido.notas|slice:":2" == '{"' %}
         <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px;">
             <div style="font-weight: bold; color: #666; font-size: 0.8rem; margin-bottom: 5px;">NOTAS:</div>
             <div style="font-size: 0.75rem; color: #444;">{{ pedido.notas }}</div>

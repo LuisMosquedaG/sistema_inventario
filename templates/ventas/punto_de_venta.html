@@ -357,16 +357,32 @@
 
                     <!-- Totales -->
                     <div class="border-top pt-2">
-                        <!-- Aplica IVA switch -->
-                        <div class="d-flex justify-content-between align-items-center mb-3 mt-1 pb-2 border-bottom">
-                            <span class="small fw-bold text-secondary">Aplica IVA</span>
-                            <div class="form-check form-switch ps-0">
-                                <input class="form-check-input" type="checkbox" id="switchAplicaIVA" checked style="cursor: pointer; width: 40px; height: 20px; float: none; margin-left: 0;">
+                        <!-- Aplica IVA switch y Descuento -->
+                        <div class="d-flex align-items-center justify-content-between mb-3 mt-1 pb-2 border-bottom gap-2 flex-wrap">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="small fw-bold text-secondary">Aplica IVA</span>
+                                <div class="form-check form-switch ps-0 d-flex align-items-center">
+                                    <input class="form-check-input" type="checkbox" id="switchAplicaIVA" checked style="cursor: pointer; width: 40px; height: 20px; float: none; margin-left: 0;">
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="small fw-bold text-secondary">Descuento</span>
+                                <div class="input-group input-group-sm" style="width: 120px;">
+                                    <input type="number" id="inputDescuentoPOS" class="form-control text-end" value="0.00" min="0" step="0.01" style="height: 25px; font-size: 0.75rem; padding: 2px 5px; border-top-left-radius: 4px; border-bottom-left-radius: 4px;">
+                                    <input type="hidden" id="tipoDescuentoPOS" value="monto">
+                                    <button type="button" id="btnTipoDescuentoPOS" class="btn py-0 px-2 fw-bold d-flex align-items-center justify-content-center text-white" style="height: 25px; font-size: 0.8rem; border: 1px solid #00b8b9; background-color: #00b8b9; border-top-right-radius: 4px; border-bottom-right-radius: 4px; margin-left: -1px;" onclick="toggleDiscountType()" title="Alternar entre Monto ($) y Porcentaje (%)">
+                                        $
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="d-flex justify-content-between mb-1 small text-muted">
                             <span>Subtotal</span>
                             <span id="posSubtotal">$0.00</span>
+                        </div>
+                        <div id="posDescuentoRow" class="d-flex justify-content-between mb-1 small text-danger" style="display: none;">
+                            <span>Descuento</span>
+                            <span id="posDescuento">-$0.00</span>
                         </div>
                         <div class="d-flex justify-content-between mb-1 small text-muted">
                             <span>IVA (16%)</span>
@@ -419,10 +435,48 @@
     // Sesión activa
     const isSessionActive = {% if sesion_activa %}true{% else %}false{% endif %};
 
+    // Lista de precios por defecto activa por horario
+    const activeDefaultPriceList = "{{ lista_activa_nombre|escapejs }}";
+
+    // Diccionario de productos con sus listas de precios
+    const productosPOS = {
+        {% for prod in productos %}
+        "{{ prod.id }}": {
+            id: {{ prod.id }},
+            nombre: "{{ prod.nombre|escapejs }}",
+            precio_base: {{ prod.precio_venta }},
+            iva: {{ prod.iva|default:0 }},
+            precios_lista: JSON.parse('{{ prod.precios_lista_json|escapejs }}')
+        },
+        {% empty %}
+        {% endfor %}
+    };
+
     // Modelo de datos del carrito
     const cart = {};
     let currentTotalVenta = 0;
     let isManualInput = false;
+
+    // Alternar tipo de descuento (monto vs porcentaje)
+    window.toggleDiscountType = function() {
+        const typeInput = document.getElementById('tipoDescuentoPOS');
+        const btn = document.getElementById('btnTipoDescuentoPOS');
+        const discInp = document.getElementById('inputDescuentoPOS');
+        if (!typeInput || !btn || !discInp) return;
+
+        if (typeInput.value === 'monto') {
+            typeInput.value = 'porcentaje';
+            btn.innerText = '%';
+            discInp.setAttribute('max', '100');
+            let val = parseFloat(discInp.value) || 0;
+            if (val > 100) discInp.value = "100.00";
+        } else {
+            typeInput.value = 'monto';
+            btn.innerText = '$';
+            discInp.removeAttribute('max');
+        }
+        renderCart();
+    }
 
     // Inicializar primer renglón de pago al cargar, registrar eventos del Monto Recibido, buscadores y toggles
     document.addEventListener("DOMContentLoaded", () => {
@@ -446,6 +500,19 @@
         });
 
         document.getElementById('switchAplicaIVA').addEventListener('change', () => {
+            renderCart();
+        });
+
+        document.getElementById('inputDescuentoPOS').addEventListener('input', () => {
+            const discInp = document.getElementById('inputDescuentoPOS');
+            const typeInput = document.getElementById('tipoDescuentoPOS');
+            let val = parseFloat(discInp.value) || 0;
+            if (val < 0) {
+                discInp.value = "0.00";
+            }
+            if (typeInput && typeInput.value === 'porcentaje' && val > 100) {
+                discInp.value = "100.00";
+            }
             renderCart();
         });
 
@@ -819,10 +886,29 @@
             }
             cart[id].cantidad++;
         } else {
+            // Obtener precios de lista desde nuestro objeto global
+            const prodData = productosPOS[id] || {};
+            const preciosLista = prodData.precios_lista || [];
+
+            // Determinar si hay una lista de precios por defecto activa por horario
+            let listaSeleccionada = '';
+            let precioFinal = precio;
+
+            if (typeof activeDefaultPriceList !== 'undefined' && activeDefaultPriceList !== '') {
+                const lp = preciosLista.find(p => p.nombre === activeDefaultPriceList);
+                if (lp) {
+                    listaSeleccionada = activeDefaultPriceList;
+                    precioFinal = parseFloat(lp.monto) || precio;
+                }
+            }
+
             cart[id] = {
                 id: id,
                 nombre: nombre,
-                precio: precio,
+                precio: precioFinal,
+                precioBase: precio,
+                listaSeleccionada: listaSeleccionada,
+                preciosLista: preciosLista,
                 tipo: tipo,
                 stockMax: stockMax,
                 iva: ivaVal,
@@ -865,6 +951,23 @@
         }
     }
 
+    // Actualizar precio de lista del artículo
+    window.updateItemPriceList = function(id, listaNombre) {
+        const item = cart[id];
+        if (item) {
+            item.listaSeleccionada = listaNombre;
+            if (listaNombre === '') {
+                item.precio = item.precioBase;
+            } else {
+                const lp = item.preciosLista.find(p => p.nombre === listaNombre);
+                if (lp) {
+                    item.precio = parseFloat(lp.monto) || item.precioBase;
+                }
+            }
+            renderCart();
+        }
+    }
+
     // Renderizar carrito y totales
     function renderCart() {
         const cartEmpty = document.getElementById('cartEmptyMessage');
@@ -890,23 +993,61 @@
 
         let html = '';
         let subtotal = 0;
-        let totalIva = 0;
         const aplicaIvaSwitch = document.getElementById('switchAplicaIVA') ? document.getElementById('switchAplicaIVA').checked : true;
-
         keys.forEach(key => {
             const item = cart[key];
             const lineTotal = item.precio * item.cantidad;
             subtotal += lineTotal;
+        });
+
+        // Calcular descuento y factor proporcional para el IVA
+        const discountInput = document.getElementById('inputDescuentoPOS');
+        const discountType = document.getElementById('tipoDescuentoPOS') ? document.getElementById('tipoDescuentoPOS').value : 'monto';
+        const descuento = discountInput ? (parseFloat(discountInput.value) || 0) : 0;
+        
+        let descuentoMonto = 0;
+        if (discountType === 'porcentaje') {
+            descuentoMonto = subtotal * (descuento / 100);
+        } else {
+            descuentoMonto = descuento;
+        }
+
+        const subtotalConDescuento = Math.max(0, subtotal - descuentoMonto);
+        const factor = subtotal > 0 ? (subtotalConDescuento / subtotal) : 0;
+
+        let totalIva = 0;
+        keys.forEach(key => {
+            const item = cart[key];
+            const lineTotal = item.precio * item.cantidad;
+            const lineTotalDiscounted = lineTotal * factor;
 
             const itemIvaRate = aplicaIvaSwitch ? (item.iva || 0) : 0;
-            const lineIva = lineTotal * (itemIvaRate / 100);
+            const lineIva = lineTotalDiscounted * (itemIvaRate / 100);
             totalIva += lineIva;
 
+            const showList = item.preciosLista && item.preciosLista.length > 0;
             html += `
             <div class="cart-item-row d-flex justify-content-between align-items-center">
                 <div class="flex-grow-1 pe-3">
                     <h6 class="fw-bold mb-0 text-dark small text-truncate" style="max-width: 250px;">${item.nombre}</h6>
-                    <span class="small text-muted">$${item.precio.toFixed(2)} c/u</span>
+                    <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
+                        <span class="small text-muted">$${item.precio.toFixed(2)} c/u</span>
+                        ${showList ? `
+                            <div class="position-relative d-inline-block" style="width: auto; max-width: 175px;">
+                                <select class="form-select form-select-sm py-0 text-muted" style="font-size: 0.7rem; width: 100%; height: 20px; border-radius: 4px; line-height: 1; padding-left: 6px !important; padding-right: 20px !important; appearance: none; -webkit-appearance: none; -moz-appearance: none; background-image: none;" onchange="updateItemPriceList(${item.id}, this.value)">
+                                    <option value="" ${item.listaSeleccionada === '' ? 'selected' : ''}>P. Base ($${item.precioBase.toFixed(2)})</option>
+                                    ${item.preciosLista.map(lp => `
+                                        <option value="${lp.nombre}" ${item.listaSeleccionada === lp.nombre ? 'selected' : ''}>
+                                            ${lp.nombre} ($${parseFloat(lp.monto).toFixed(2)})
+                                        </option>
+                                    `).join('')}
+                                </select>
+                                <div class="position-absolute top-50 end-0 translate-middle-y d-flex align-items-center justify-content-center border-start text-muted bg-light" style="height: 18px; width: 18px; border-top-right-radius: 3px; border-bottom-right-radius: 3px; pointer-events: none; margin-right: 1px;">
+                                    <i class="bi bi-chevron-down opacity-50" style="font-size: 0.6rem;"></i>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
                 </div>
                 <div class="d-flex align-items-center gap-3">
                     <div class="quantity-control">
@@ -922,7 +1063,21 @@
 
         cartContent.innerHTML = html;
 
-        const total = Math.ceil(subtotal + totalIva);
+        // Mostrar / ocultar fila de descuento en desglose de totales
+        const descRow = document.getElementById('posDescuentoRow');
+        const descText = document.getElementById('posDescuento');
+        if (descuentoMonto > 0 && descRow && descText) {
+            if (discountType === 'porcentaje') {
+                descText.innerText = `-${descuento.toFixed(2)}% (-$${descuentoMonto.toFixed(2)})`;
+            } else {
+                descText.innerText = `-$${descuento.toFixed(2)}`;
+            }
+            descRow.style.display = 'flex';
+        } else if (descRow) {
+            descRow.style.display = 'none';
+        }
+
+        const total = Math.ceil(subtotalConDescuento + totalIva);
         currentTotalVenta = total;
 
         document.getElementById('posSubtotal').innerText = '$' + subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -980,6 +1135,9 @@
         }
 
         const aplicaIva = document.getElementById('switchAplicaIVA') ? document.getElementById('switchAplicaIVA').checked : true;
+        const discountInput = document.getElementById('inputDescuentoPOS');
+        const discountType = document.getElementById('tipoDescuentoPOS') ? document.getElementById('tipoDescuentoPOS').value : 'monto';
+        const descuento = discountInput ? (parseFloat(discountInput.value) || 0) : 0;
 
         const payload = {
             cliente_id: clienteId || null,
@@ -989,7 +1147,9 @@
                 precio_unitario: cart[key].precio
             })),
             pagos: pagos,
-            aplica_iva: aplicaIva
+            aplica_iva: aplicaIva,
+            descuento: descuento,
+            descuento_tipo: discountType
         };
 
         fetch("{% url 'crear_venta_pos_ajax' %}", {
@@ -1025,6 +1185,16 @@
                 }
                 renderCart();
                 // Limpiar pagos
+                const discountInput = document.getElementById('inputDescuentoPOS');
+                if (discountInput) {
+                    discountInput.value = "0.00";
+                    discountInput.removeAttribute('max');
+                }
+                const discountTypeInput = document.getElementById('tipoDescuentoPOS');
+                if (discountTypeInput) discountTypeInput.value = "monto";
+                const discountBtn = document.getElementById('btnTipoDescuentoPOS');
+                if (discountBtn) discountBtn.innerText = "$";
+
                 const container = document.getElementById('paymentRowsContainer');
                 container.innerHTML = '';
                 addPaymentRow();
