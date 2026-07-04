@@ -64,25 +64,24 @@ def app_permissions(request):
     # Permisos de Compras
     p_purchase_ui = {
         'proveedores': user_has_purchase_permission(request, 'proveedores', 'ver'),
-        'compras': user_has_purchase_permission(request, 'compras', 'ver'),
+        'solicitudes': user_has_purchase_permission(request, 'solicitudes', 'ver'),
+        'ordenes_compra': user_has_purchase_permission(request, 'ordenes_compra', 'ver'),
         'recepciones': user_has_purchase_permission(request, 'recepciones', 'ver'),
-        'requisiciones': user_has_purchase_permission(request, 'requisiciones', 'ver'),
     }
 
     # Permisos de Producción Granular (UI general)
     p_production_ui = {
-        'ordenes_produccion': user_has_production_permission(request, 'ordenes_produccion', 'ver'),
-        'recetas': user_has_production_permission(request, 'recetas', 'ver'),
-        'tests_calidad': user_has_production_permission(request, 'tests_calidad', 'ver'),
+        'tablero_control': user_has_production_permission(request, 'tablero_control', 'ver'),
+        'catalogos_test': user_has_production_permission(request, 'catalogos_test', 'ver'),
     }
 
     # Permisos de Inventario
     p_inventory_ui = {
-        'existencias': user_has_inventory_permission(request, 'existencias', 'ver'),
-        'almacenes': user_has_inventory_permission(request, 'almacenes', 'ver'),
+        'inventario': user_has_inventory_permission(request, 'inventario', 'ver'),
         'kardex': user_has_inventory_permission(request, 'kardex', 'ver'),
-        'traslados': user_has_inventory_permission(request, 'traslados', 'ver'),
-        'mermas': user_has_inventory_permission(request, 'mermas', 'ver'),
+        'almacenes': user_has_inventory_permission(request, 'almacenes', 'ver'),
+        'categorias': user_has_inventory_permission(request, 'categorias', 'ver'),
+        'listas': user_has_inventory_permission(request, 'listas', 'ver'),
     }
 
     # Permisos de Costeos
