@@ -538,9 +538,24 @@ def validar_pedido(request, pedido_id):
     empresa_actual = get_empresa_actual(request)
     pedido = get_object_or_404(Pedido, id=pedido_id, empresa=empresa_actual)
 
-    if pedido.estado != 'borrador':
+    if pedido.estado not in ['borrador', 'revision']:
         messages.warning(request, 'Este pedido ya ha sido procesado.')
         return redirect('dashboard_pedidos')
+
+    # Si ya estaba en revisión, deshacemos divisiones y divisiones previas para re-evaluar de cero
+    if pedido.estado == 'revision':
+        hijos = [d for d in pedido.detalles.all() if d.parent_line is not None]
+        for hijo in hijos:
+            parent = hijo.parent_line
+            if parent:
+                parent.cantidad_solicitada += hijo.cantidad_solicitada
+                parent.estado_linea = 'pendiente'
+                parent.save()
+            hijo.delete()
+
+        for detalle in pedido.detalles.all():
+            detalle.estado_linea = 'pendiente'
+            detalle.save()
 
     # 1. Diagnosticar líneas
     for detalle in pedido.detalles.all():

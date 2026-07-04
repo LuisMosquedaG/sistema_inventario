@@ -667,6 +667,11 @@
                 <!-- FOOTER -->
                 <div class="modal-footer border-top bg-white">
                     <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                    {% if granular_sales_perms.pedidos.validar_stock %}
+                    <button type="button" id="btnRevalidarStockModal" class="btn btn-light text-secondary btn-sm d-none" onclick="return revalidarStockDesdeModal(this);">
+                        Revalidar Stock
+                    </button>
+                    {% endif %}
                     <button type="button" id="btnSolicitudGlobal" class="btn btn-brand text-white btn-sm d-none" onclick="confirmarSolicitudGlobal()">
                         Generar Solicitud Global
                     </button>
@@ -1013,7 +1018,8 @@
     const permsPedidos = {
         reservar: {% if granular_sales_perms.pedidos.reservar %}true{% else %}false{% endif %},
         solicitar: {% if granular_sales_perms.pedidos.solicitar %}true{% else %}false{% endif %},
-        generar_solicitud_global: {% if granular_sales_perms.pedidos.generar_solicitud_global %}true{% else %}false{% endif %}
+        generar_solicitud_global: {% if granular_sales_perms.pedidos.generar_solicitud_global %}true{% else %}false{% endif %},
+        validar_stock: {% if granular_sales_perms.pedidos.validar_stock %}true{% else %}false{% endif %}
     };
 
     // Variables globales para el modal de pago
@@ -1671,11 +1677,29 @@
                         btnGlobal.classList.add('d-none'); btnGlobal.classList.remove('d-block');
                     }
                 }
+
+                const btnRevalidar = document.getElementById('btnRevalidarStockModal');
+                if(btnRevalidar) {
+                    btnRevalidar.dataset.pedidoId = pedidoId;
+                    if(permsPedidos.validar_stock) {
+                        btnRevalidar.classList.remove('d-none'); btnRevalidar.classList.add('d-block');
+                    } else {
+                        btnRevalidar.classList.add('d-none'); btnRevalidar.classList.remove('d-block');
+                    }
+                }
             })
             .catch(error => {
                 console.error("Error:", error);
                 tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-3">Error al cargar detalles.</td></tr>';
             });
+    }
+
+    function revalidarStockDesdeModal(btn) {
+        const pedidoId = btn.dataset.pedidoId;
+        if (!pedidoId) { alert("Error: No se pudo identificar el pedido."); return false; }
+        if (!confirm("¿Volver a validar disponibilidad de stock para este pedido?")) return false;
+        window.location.href = `/pedidos/validar/${pedidoId}/`;
+        return false;
     }
 
     function confirmarSolicitudGlobal() {
