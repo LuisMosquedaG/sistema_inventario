@@ -173,7 +173,7 @@
                                              </span>
                                              {% if sesion.estado == 'abierta' %}
                                                  {% if granular_sales_perms.punto_de_venta.hacer_corte %}
-                                                     <span class="icon-action" title="Hacer Corte" style="color: #00b8b9;"
+                                                     <span class="icon-action" title="Hacer Corte"
                                                            onclick="iniciarCorteDeCajaAdmin({{ sesion.id }}, '{{ sesion.caja_pos.nombre|escapejs }}', {{ sesion.monto_inicial }})">
                                                          <i class="bi bi-calculator-fill"></i>
                                                      </span>
@@ -981,6 +981,15 @@
                 }
             });
         }
+        
+        const modalEl = document.getElementById('modalPreguntaImpresion');
+        if (modalEl) {
+            modalEl.addEventListener('hidden.bs.modal', function() {
+                if (reloadAfterPrint) {
+                    location.reload();
+                }
+            });
+        }
         if (printBtnModal) {
             printBtnModal.addEventListener('click', function() {
                 const sesionId = this.getAttribute('data-id');
@@ -1023,6 +1032,7 @@
         }
     });
 
+    let reloadAfterPrint = false;
     let modalCorteAdminInstance = null;
     
     function iniciarCorteDeCajaAdmin(sesionId, cajaNombre, fondoInicial) {
@@ -1060,9 +1070,11 @@
         .then(r => r.json())
         .then(data => {
             if (data.success) {
-                alert("Corte de caja procesado correctamente.");
-                modalCorteAdminInstance.hide();
-                location.reload();
+                reloadAfterPrint = true;
+                if (modalCorteAdminInstance) {
+                    modalCorteAdminInstance.hide();
+                }
+                solicitarImpresion(data.sesion_id);
             } else {
                 alert("Error al procesar el corte: " + data.error);
             }

@@ -1319,66 +1319,41 @@
 <!-- MODAL: CIERRE DE TURNO / CORTE DE CAJA -->
 <div class="modal fade" id="modalCierreCaja" tabindex="-1" aria-labelledby="modalCierreCajaLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header border-bottom border-light py-3">
-                <h5 class="modal-title fw-bold text-dark" id="modalCierreCajaLabel">Realizar Corte de Caja</h5>
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+            <div class="modal-header border-bottom py-3">
+                <h5 class="modal-title fw-bold text-dark" id="modalCierreCajaLabel">
+                    <i class="bi bi-calculator-fill me-2 text-brand"></i>Realizar Corte de Caja
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="formCierreCaja">
                 {% csrf_token %}
-                <div class="modal-body p-4">
-                    <div class="alert alert-warning small mb-3">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                        Al realizar el corte se consolidarán los totales de ventas y se cerrará la sesión de cobro.
+                <div class="modal-body p-4 bg-light">
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-secondary small">Caja:</span>
+                                <strong id="cierreCajaNombre" class="text-dark small">-</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-0">
+                                <span class="text-secondary small">Fondo Inicial:</span>
+                                <strong id="cierreMontoInicial" class="text-dark small">$0.00</strong>
+                            </div>
+                        </div>
                     </div>
                     
-                    <div class="bg-light p-3 rounded mb-3" style="font-size: 0.9rem;">
-                        <div class="d-flex justify-content-between mb-2">
-                            <span class="text-secondary">Caja Registradora:</span>
-                            <span id="cierreCajaNombre" class="fw-bold text-dark">-</span>
-                        </div>
-                        <div class="d-flex justify-content-between mb-2">
-                            <span class="text-secondary">Apertura:</span>
-                            <span id="cierreAperturaFecha" class="fw-bold text-dark">-</span>
-                        </div>
-                        <hr class="my-2">
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="text-secondary">(+) Fondo Inicial:</span>
-                            <span id="cierreMontoInicial" class="fw-semibold text-dark">$0.00</span>
-                        </div>
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="text-secondary">(+) Ventas en Efectivo:</span>
-                            <span id="cierreVentasEfectivo" class="fw-semibold text-dark">$0.00</span>
-                        </div>
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="text-secondary">(=) Efectivo Estimado:</span>
-                            <span id="cierreEfectivoEstimado" class="fw-bold" style="color: #00b8b9;">$0.00</span>
-                        </div>
-                        <div class="d-flex justify-content-between mb-1 mt-2 border-top pt-2">
-                            <span class="text-secondary">(*) Ventas con Tarjeta:</span>
-                            <span id="cierreVentasTarjeta" class="fw-semibold text-dark">$0.00</span>
-                        </div>
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="text-secondary">(*) Ventas con Transferencia:</span>
-                            <span id="cierreVentasTransferencia" class="fw-semibold text-dark">$0.00</span>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="montoFinalContado" class="form-label fw-semibold small text-secondary">Efectivo Físico en Caja (Contado Real)</label>
+                    <div class="mb-0">
+                        <label class="form-label small fw-bold text-secondary">Efectivo Real en Caja (Contado)</label>
                         <div class="input-group">
-                            <span class="input-group-text bg-white border-end-0 text-secondary">$</span>
-                            <input type="number" step="0.01" min="0" class="form-control ps-1 border-start-0" id="montoFinalContado" name="monto_final_efectivo" placeholder="0.00" required>
+                            <span class="input-group-text bg-white">$</span>
+                            <input type="number" step="0.01" min="0" class="form-control text-end fw-bold" id="montoFinalContado" name="monto_final_efectivo" value="0.00" style="font-size: 1.1rem; color: #212529;" required>
                         </div>
-                    </div>
-
-                    <div class="p-2 rounded text-center fw-bold" id="cierreDiferenciaWrapper" style="display:none; font-size: 0.95rem;">
-                        Diferencia: <span id="cierreDiferenciaMonto">$0.00</span>
+                        <small class="text-muted d-block mt-1">Ingresa el total de dinero en efectivo que se encuentra físicamente en la caja.</small>
                     </div>
                 </div>
-                <div class="modal-footer border-top border-light py-3 bg-light">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-danger px-4">Confirmar y Cerrar Caja</button>
+                <div class="modal-footer border-top bg-white py-2">
+                    <button type="button" class="btn btn-light btn-sm text-secondary px-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-brand btn-sm text-white px-4">Procesar Corte</button>
                 </div>
             </form>
         </div>
@@ -1437,19 +1412,10 @@
         .then(data => {
             if (data.success) {
                 document.getElementById('cierreCajaNombre').innerText = data.caja_nombre;
-                document.getElementById('cierreAperturaFecha').innerText = data.fecha_apertura;
-                
                 document.getElementById('cierreMontoInicial').innerText = '$' + data.monto_inicial.toFixed(2);
-                document.getElementById('cierreVentasEfectivo').innerText = '$' + data.ventas_efectivo.toFixed(2);
-                document.getElementById('cierreEfectivoEstimado').innerText = '$' + data.efectivo_estimado.toFixed(2);
-                document.getElementById('cierreVentasTarjeta').innerText = '$' + data.ventas_tarjeta.toFixed(2);
-                document.getElementById('cierreVentasTransferencia').innerText = '$' + data.ventas_transferencia.toFixed(2);
                 
-                estimadoEfectivoGlobal = data.efectivo_estimado;
-                
-                // Limpiar diferencia e input
-                document.getElementById('montoFinalContado').value = '';
-                document.getElementById('cierreDiferenciaWrapper').style.display = 'none';
+                // Limpiar input
+                document.getElementById('montoFinalContado').value = '0.00';
 
                 // Mostrar modal
                 const modal = new bootstrap.Modal(document.getElementById('modalCierreCaja'));
@@ -1463,26 +1429,6 @@
             alert("Error al conectar para obtener totales del corte.");
         });
     }
-
-    // Calcular diferencias en caliente mientras el cajero cuenta
-    document.getElementById('montoFinalContado').addEventListener('input', function() {
-        const val = parseFloat(this.value) || 0;
-        const diff = val - estimadoEfectivoGlobal;
-        const wrapper = document.getElementById('cierreDiferenciaWrapper');
-        const textSpan = document.getElementById('cierreDiferenciaMonto');
-        
-        wrapper.style.display = 'block';
-        if (diff === 0) {
-            textSpan.innerText = "$0.00 (Cuadrado)";
-            wrapper.className = "p-2 rounded text-center fw-bold bg-success text-white";
-        } else if (diff > 0) {
-            textSpan.innerText = "+$" + diff.toFixed(2) + " (Sobrante)";
-            wrapper.className = "p-2 rounded text-center fw-bold bg-success text-white";
-        } else {
-            textSpan.innerText = "-$" + Math.abs(diff).toFixed(2) + " (Faltante)";
-            wrapper.className = "p-2 rounded text-center fw-bold bg-danger text-white";
-        }
-    });
 
     // Enviar el cierre de caja
     document.getElementById('formCierreCaja').addEventListener('submit', function(e) {
