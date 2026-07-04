@@ -127,6 +127,9 @@ def user_has_sales_permission(request, submodulo, accion):
     if not empresa.modulo_ventas:
         return False
 
+    if submodulo in ['punto_de_venta', 'cortes_de_caja'] and not getattr(empresa, 'modulo_pos', True):
+        return False
+
     if user.is_superuser:
         return True
 

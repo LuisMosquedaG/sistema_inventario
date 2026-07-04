@@ -19,6 +19,13 @@ from .permissions import (
 
 
 def app_permissions(request):
+    from .permissions import get_empresa_actual
+    empresa_actual = get_empresa_actual(request)
+
+    sales_matrix = SALES_PERMISSION_MATRIX
+    if empresa_actual and not getattr(empresa_actual, 'modulo_pos', True):
+        sales_matrix = {k: v for k, v in SALES_PERMISSION_MATRIX.items() if k not in ['punto_de_venta', 'cortes_de_caja']}
+
     if not request.user.is_authenticated:
         return {
             'sales_ui_permissions': {},
@@ -32,7 +39,7 @@ def app_permissions(request):
             'granular_production_perms': {},
             'granular_inventory_perms': {},
             'granular_treasury_perms': {},
-            'sales_permission_matrix': SALES_PERMISSION_MATRIX,
+            'sales_permission_matrix': sales_matrix,
             'purchases_permission_matrix': PURCHASES_PERMISSION_MATRIX,
             'production_permission_matrix': PRODUCTION_PERMISSION_MATRIX,
             'inventory_permission_matrix': INVENTORY_PERMISSION_MATRIX,
@@ -45,36 +52,40 @@ def app_permissions(request):
         'crear': user_has_module_permission(request, 'produccion', 'crear'),
         'editar': user_has_module_permission(request, 'produccion', 'editar'),
         'eliminar': user_has_module_permission(request, 'produccion', 'eliminar'),
-        'aprobar': user_has_module_permission(request, 'produccion', 'aprobar'),
-        'imprimir': user_has_module_permission(request, 'produccion', 'imprimir'),
     }
 
+    # Permisos de Tesorería
+    p_treasury_ui = {
+        'cajas_bancos': user_has_treasury_permission(request, 'cajas_bancos', 'ver'),
+        'egresos': user_has_treasury_permission(request, 'egresos', 'ver'),
+        'ingresos': user_has_treasury_permission(request, 'ingresos', 'ver'),
+    }
+
+    # Permisos de Compras
     p_purchase_ui = {
         'proveedores': user_has_purchase_permission(request, 'proveedores', 'ver'),
-        'solicitudes': user_has_purchase_permission(request, 'solicitudes', 'ver'),
-        'ordenes_compra': user_has_purchase_permission(request, 'ordenes_compra', 'ver'),
+        'compras': user_has_purchase_permission(request, 'compras', 'ver'),
         'recepciones': user_has_purchase_permission(request, 'recepciones', 'ver'),
+        'requisiciones': user_has_purchase_permission(request, 'requisiciones', 'ver'),
     }
 
+    # Permisos de Producción Granular (UI general)
     p_production_ui = {
-        'tablero_control': user_has_production_permission(request, 'tablero_control', 'ver'),
-        'catalogos_test': user_has_production_permission(request, 'catalogos_test', 'ver'),
+        'ordenes_produccion': user_has_production_permission(request, 'ordenes_produccion', 'ver'),
+        'recetas': user_has_production_permission(request, 'recetas', 'ver'),
+        'tests_calidad': user_has_production_permission(request, 'tests_calidad', 'ver'),
     }
 
+    # Permisos de Inventario
     p_inventory_ui = {
-        'inventario': user_has_inventory_permission(request, 'inventario', 'ver'),
-        'kardex': user_has_inventory_permission(request, 'kardex', 'ver'),
+        'existencias': user_has_inventory_permission(request, 'existencias', 'ver'),
         'almacenes': user_has_inventory_permission(request, 'almacenes', 'ver'),
-        'categorias': user_has_inventory_permission(request, 'categorias', 'ver'),
-        'listas': user_has_inventory_permission(request, 'listas', 'ver'),
+        'kardex': user_has_inventory_permission(request, 'kardex', 'ver'),
+        'traslados': user_has_inventory_permission(request, 'traslados', 'ver'),
+        'mermas': user_has_inventory_permission(request, 'mermas', 'ver'),
     }
 
-    p_treasury_ui = {
-        'ingresos': user_has_treasury_permission(request, 'ingresos', 'ver'),
-        'egresos': user_has_treasury_permission(request, 'egresos', 'ver'),
-        'cajas_bancos': user_has_treasury_permission(request, 'cajas_bancos', 'ver'),
-    }
-
+    # Permisos de Costeos
     p_costing_ui = {
         'costeos': user_has_module_permission(request, 'costeos', 'ver'),
     }
@@ -92,7 +103,7 @@ def app_permissions(request):
         'granular_production_perms': get_granular_production_permissions(request),
         'granular_inventory_perms': get_granular_inventory_permissions(request),
         'granular_treasury_perms': get_granular_treasury_permissions(request),
-        'sales_permission_matrix': SALES_PERMISSION_MATRIX,
+        'sales_permission_matrix': sales_matrix,
         'purchases_permission_matrix': PURCHASES_PERMISSION_MATRIX,
         'production_permission_matrix': PRODUCTION_PERMISSION_MATRIX,
         'inventory_permission_matrix': INVENTORY_PERMISSION_MATRIX,

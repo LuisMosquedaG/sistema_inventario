@@ -222,6 +222,10 @@
                                     <div class="mb-1"><i class="bi bi-calculator fs-4 {% if empresa_t.modulo_costeos %}text-brand{% else %}text-muted opacity-25{% endif %}"></i></div>
                                     <span class="small d-block" style="font-size: 0.75rem;">Costeos</span>
                                 </div>
+                                <div class="col-3 text-center">
+                                    <div class="mb-1"><i class="bi bi-shop fs-4 {% if empresa_t.modulo_pos %}text-brand{% else %}text-muted opacity-25{% endif %}"></i></div>
+                                    <span class="small d-block" style="font-size: 0.75rem;">POS</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -352,7 +356,8 @@
                                        {% if mod == 'inventarios' and empresa_t.modulo_inventarios %}checked{% endif %}
                                        {% if mod == 'produccion' and empresa_t.modulo_produccion %}checked{% endif %}
                                        {% if mod == 'tesoreria' and empresa_t.modulo_tesoreria %}checked{% endif %}
-                                       {% if mod == 'costeos' and empresa_t.modulo_costeos %}checked{% endif %}>
+                                       {% if mod == 'costeos' and empresa_t.modulo_costeos %}checked{% endif %}
+                                       {% if mod == 'pos' and empresa_t.modulo_pos %}checked{% endif %}>
                                 <label class="module-selector-label" for="switch_{{ mod }}">
                                     {% if mod == 'ventas' %}
                                         <i class="bi bi-cash-stack"></i>
@@ -375,6 +380,9 @@
                                     {% elif mod == 'costeos' %}
                                         <i class="bi bi-calculator"></i>
                                         <span>Costeos</span>
+                                    {% elif mod == 'pos' %}
+                                        <i class="bi bi-shop"></i>
+                                        <span>POS</span>
                                     {% endif %}
                                 </label>
                             </div>

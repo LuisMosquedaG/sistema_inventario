@@ -324,7 +324,7 @@ def gestion_empresa(request, empresa_id):
         'uso_actual_mb': uso_actual_mb,
         'porcentaje_uso': porcentaje_uso,
         'limite_gb': round(empresa.limite_espacio_disco / 1024, 2),
-        'modulos_lista': ['ventas', 'compras', 'recursos_humanos', 'inventarios', 'produccion', 'tesoreria', 'costeos']
+        'modulos_lista': ['ventas', 'compras', 'recursos_humanos', 'inventarios', 'produccion', 'tesoreria', 'costeos', 'pos']
     })
 
 @login_required(login_url='/login/')
@@ -341,6 +341,7 @@ def actualizar_limites_ajax(request, empresa_id):
         empresa.modulo_produccion = (request.POST.get('modulo_produccion') == 'on')
         empresa.modulo_tesoreria = (request.POST.get('modulo_tesoreria') == 'on')
         empresa.modulo_costeos = (request.POST.get('modulo_costeos') == 'on')
+        empresa.modulo_pos = (request.POST.get('modulo_pos') == 'on')
 
         # Límites
         empresa.limite_sucursales = int(request.POST.get('limite_sucursales', 5))
