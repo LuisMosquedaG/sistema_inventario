@@ -385,6 +385,9 @@ def importar_recetas_ajax(request):
                                 cantidad=item['cantidad']
                             )
                         
+                        # Recalcular costo base del padre a partir de la receta importada
+                        padre.recalcular_costo_desde_receta()
+                        
                         creadas += 1
                 except Exception as e:
                     errores.append(f"Padre '{clave_padre}': {str(e)}")
@@ -536,6 +539,7 @@ def crear_producto_ajax(request):
                 producto.maneja_lote = request.POST.get('maneja_lote') == 'on'
                 producto.maneja_serie = request.POST.get('maneja_serie') == 'on'
                 producto.tiene_iva = request.POST.get('tiene_iva') == 'on'
+                producto.mostrar_en_pos = request.POST.get('mostrar_en_pos') == 'on'
 
                 if not producto.tiene_iva:
                     producto.iva = 0.00
@@ -788,6 +792,7 @@ def obtener_producto_json(request, producto_id):
             'stock_minimo': producto.stock_minimo, 'stock_maximo': producto.stock_maximo,
             'maneja_lote': producto.maneja_lote, 'maneja_serie': producto.maneja_serie,
             'tiene_iva': producto.tiene_iva,
+            'mostrar_en_pos': producto.mostrar_en_pos,
             'test_calidad_id': producto.test_calidad.id if producto.test_calidad else "",
             'imagen_url': producto.imagen.url if producto.imagen else '',
         })
@@ -833,6 +838,7 @@ def actualizar_producto_ajax(request, producto_id):
                 producto.maneja_lote = request.POST.get('maneja_lote') == 'on'
                 producto.maneja_serie = request.POST.get('maneja_serie') == 'on'
                 producto.tiene_iva = request.POST.get('tiene_iva') == 'on'
+                producto.mostrar_en_pos = request.POST.get('mostrar_en_pos') == 'on'
                 
                 if not producto.tiene_iva:
                     producto.iva = 0.00
@@ -883,6 +889,10 @@ def guardar_receta(request):
                 for item in json.loads(data.get('componentes')):
                     if int(item.get('id')) == producto.id: continue
                     DetalleReceta.objects.create(producto_padre=producto, componente=get_object_or_404(Producto, id=item.get('id'), empresa=empresa_actual), cantidad=item.get('cant', 1))
+            
+            # Recalcular el costo base del producto padre a partir de la nueva receta
+            producto.recalcular_costo_desde_receta()
+            
             return JsonResponse({'success': True, 'message': 'Receta guardada correctamente.'})
         except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
@@ -937,13 +947,15 @@ def obtener_receta(request, producto_id):
         get_object_or_404(Producto, id=producto_id, empresa=empresa_actual)
         receta_data = []
         for r in DetalleReceta.objects.filter(producto_padre_id=producto_id):
+            imagen_url = r.componente.imagen.url if r.componente.imagen else None
             receta_data.append({
                 'id': r.componente.id, 
                 'nombre': r.componente.nombre, 
                 'cant': r.cantidad, 
                 'costo': float(r.componente.precio_costo),
                 'iva': float(r.componente.iva),
-                'tiene_iva': r.componente.tiene_iva
+                'tiene_iva': r.componente.tiene_iva,
+                'imagen_url': imagen_url
             })
         return JsonResponse(receta_data, safe=False)
     except Exception as e: return JsonResponse({'error': str(e)}, status=400)

@@ -41,10 +41,12 @@
             <span class="section-subtitle">Administra las cajas de tus puntos de venta y audita las sesiones de caja de tus colaboradores</span>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
+            {% if granular_sales_perms.cortes_de_caja.cajas %}
             <button class="btn btn-light text-secondary btn-pro shadow-sm border" data-bs-toggle="modal" data-bs-target="#modalListadoCajas">
                 <i class="bi bi-shop me-1"></i> Cajas
             </button>
-            {% if granular_sales_perms.punto_de_venta.crear %}
+            {% endif %}
+            {% if granular_sales_perms.cortes_de_caja.nueva_caja %}
             <button id="btnNuevaCajaTrigger" class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaCaja">
                 <i class="bi bi-plus-lg me-1"></i> Nueva Caja POS
             </button>
@@ -157,28 +159,34 @@
                                                   data-ventas-transferencia="{{ sesion.total_ventas_transferencia }}"
                                                   data-total-ventas="{{ sesion.total_ventas }}"
                                                   data-contado-real="{{ sesion.monto_final_efectivo|default:0 }}">
+                                                {% if granular_sales_perms.cortes_de_caja.ver %}
                                                 <i class="bi bi-eye"></i>
+                                                {% else %}
+                                                <i class="bi bi-eye text-muted" style="opacity: 0.5; cursor: not-allowed;" title="Sin permisos para ver detalles"></i>
+                                                {% endif %}
                                             </span>
+                                            {% if granular_sales_perms.cortes_de_caja.ver_ventas %}
                                             <span class="icon-action" title="Ver Ventas Realizadas"
                                                   onclick="verVentasSesion({{ sesion.id }}, '{{ sesion.caja_pos.nombre|escapejs }}')">
                                                 <i class="bi bi-receipt"></i>
                                             </span>
+                                            {% endif %}
+                                            {% if granular_sales_perms.cortes_de_caja.ver_articulos %}
                                             <span class="icon-action" title="Ver Artículos Vendidos"
                                                   onclick="verArticulosSesion({{ sesion.id }}, '{{ sesion.caja_pos.nombre|escapejs }}')">
                                                 <i class="bi bi-box-seam"></i>
                                             </span>
+                                            {% endif %}
+                                            {% if granular_sales_perms.cortes_de_caja.imprimir_articulo %}
                                              <span class="icon-action" title="Imprimir Ticket de Corte"
                                                    onclick="solicitarImpresion({{ sesion.id }})">
                                                   <i class="bi bi-printer"></i>
                                              </span>
+                                            {% endif %}
                                              {% if sesion.estado == 'abierta' %}
-                                                 {% if granular_sales_perms.punto_de_venta.hacer_corte %}
+                                                 {% if granular_sales_perms.cortes_de_caja.hacer_corte %}
                                                      <span class="icon-action" title="Hacer Corte"
                                                            onclick="iniciarCorteDeCajaAdmin({{ sesion.id }}, '{{ sesion.caja_pos.nombre|escapejs }}', {{ sesion.monto_inicial }})">
-                                                         <i class="bi bi-calculator-fill"></i>
-                                                     </span>
-                                                 {% else %}
-                                                     <span class="icon-action text-muted" style="opacity: 0.5; cursor: not-allowed;" title="No tienes permisos para hacer corte de caja">
                                                          <i class="bi bi-calculator-fill"></i>
                                                      </span>
                                                  {% endif %}
@@ -318,7 +326,7 @@
                                                    {% if caja.estado == 'abierta' %}checked{% endif %}
                                                    onclick="toggleCajaEstado({{ caja.id }}, this)">
                                         </div>
-                                        {% if granular_sales_perms.punto_de_venta.editar or granular_sales_perms.punto_de_venta.crear %}
+                                        {% if granular_sales_perms.cortes_de_caja.nueva_caja %}
                                         <span class="icon-action text-decoration-none" title="Editar Caja POS"
                                               onclick="editarCaja({{ caja.id }}, '{{ caja.nombre|escapejs }}', '{{ caja.usuario_asignado.id }}', '{{ caja.caja_efectivo.id }}', '{{ caja.banco_tarjeta.id }}', '{{ caja.banco_transferencia.id }}')">
                                             <i class="bi bi-pencil-square"></i>

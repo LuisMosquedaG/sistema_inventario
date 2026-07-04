@@ -141,6 +141,7 @@ window.cargarProductoEdicion = function(id) {
             form.querySelector('[name="maneja_lote"]').checked = data.maneja_lote || false;
             form.querySelector('[name="maneja_serie"]').checked = data.maneja_serie || false;
             form.querySelector('[name="tiene_iva"]').checked = data.tiene_iva ?? true;
+            form.querySelector('[name="mostrar_en_pos"]').checked = data.mostrar_en_pos ?? true;
             toggleIVA();
             
             const hidSuc = document.getElementById('hiddenSucursalArticulo');
@@ -543,7 +544,7 @@ window.cargarRecetaExistente = function() {
 window.agregarComponenteReceta = function() {
     const hiddenC = document.getElementById('selectComponente');
     const pId = hiddenC.value;
-    const cant = parseInt(document.getElementById('cantComponente').value) || 1;
+    const cant = parseFloat(document.getElementById('cantComponente').value) || 1.0;
     const editIndex = document.getElementById('edit_index_receta').value;
 
     if (!pId) return alert("Selecciona un componente");
@@ -554,7 +555,7 @@ window.agregarComponenteReceta = function() {
         if (existente) {
             const inp = existente.querySelector('.inp-cant-receta');
             const span = existente.querySelector('.text-center span');
-            const nuevaCant = parseInt(inp.value) + cant;
+            const nuevaCant = parseFloat(inp.value) + cant;
             inp.value = nuevaCant;
             span.innerText = nuevaCant;
             recalcularTotalesReceta();
@@ -671,7 +672,7 @@ window.recalcularTotalesReceta = function() {
     document.querySelectorAll('#tbodyRecetaEdit tr').forEach(tr => {
         const costo = parseFloat(tr.dataset.costo) || 0;
         const ivaPorc = parseFloat(tr.dataset.ivaPorc) || 0;
-        const cant = parseInt(tr.querySelector('.inp-cant-receta').value) || 0;
+        const cant = parseFloat(tr.querySelector('.inp-cant-receta').value) || 0;
         
         const subtotalFila = costo * cant;
         const ivaFila = subtotalFila * (ivaPorc / 100);
@@ -697,7 +698,7 @@ window.guardarReceta = function() {
     if (!pId) return alert("Selecciona el producto final");
     const componentes = [];
     document.querySelectorAll('#tbodyRecetaEdit tr').forEach(tr => {
-        componentes.push({ id: tr.dataset.id, cant: parseInt(tr.querySelector('.inp-cant-receta').value) });
+        componentes.push({ id: tr.dataset.id, cant: parseFloat(tr.querySelector('.inp-cant-receta').value) });
     });
     fetch(APP_URLS.api_guardar_receta, {
         method: 'POST',
@@ -711,21 +712,76 @@ window.guardarReceta = function() {
     });
 }
 
-window.abrirModalReceta = function(id, nombre) {
+window.abrirModalReceta = function(id, nombre, precioVenta = 0) {
     const t = document.getElementById('tituloRecetaModal');
     if (t) t.innerText = `Receta: ${nombre}`;
     const tbody = document.getElementById('tablaBodyRecetaUnica');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="2" class="text-center py-3"><span class="spinner-border spinner-border-sm"></span> Cargando...</td></tr>';
+    if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3"><span class="spinner-border spinner-border-sm"></span> Cargando...</td></tr>';
+    }
+
+    // Inicializar totales
+    document.getElementById('costoTotalRecetaUnica').innerText = '$0.00';
+    document.getElementById('precioVentaRecetaUnica').innerText = '$' + parseFloat(precioVenta).toFixed(2);
+    document.getElementById('margenRecetaUnica').innerText = '$0.00 (0%)';
+    document.getElementById('margenRecetaUnica').className = "fw-bold text-success mb-0";
+
     mostrarModal('modalVerReceta');
     fetch(`${APP_URLS.api_receta}${id}/`)
         .then(r => r.json())
         .then(data => {
             if (!tbody) return;
             tbody.innerHTML = '';
+            
+            let costoTotal = 0;
             if (data.length > 0) {
-                data.forEach(i => { tbody.insertAdjacentHTML('beforeend', `<tr><td class="ps-3 fw-semibold">${i.nombre}</td><td class="text-center">${i.cant} pz</td></tr>`); });
+                data.forEach(i => {
+                    const costoUnit = parseFloat(i.costo) || 0;
+                    const cantidad = parseFloat(i.cant) || 0;
+                    const subtotal = costoUnit * cantidad;
+                    costoTotal += subtotal;
+
+                    const imgHtml = i.imagen_url ? 
+                        `<div class="border rounded bg-light overflow-hidden d-flex align-items-center justify-content-center shadow-xs mx-auto" style="width: 32px; height: 32px;">
+                            <img src="${i.imagen_url}" alt="${i.nombre}" style="width: 100%; height: 100%; object-fit: contain;">
+                         </div>` : 
+                        `<div class="border rounded bg-white d-flex align-items-center justify-content-center text-muted shadow-xs mx-auto" style="width: 32px; height: 32px; font-size: 0.75rem;">
+                            <i class="bi bi-image opacity-25"></i>
+                         </div>`;
+
+                    tbody.insertAdjacentHTML('beforeend', `
+                        <tr>
+                            <td class="text-center" style="text-align: center !important; vertical-align: middle;">${imgHtml}</td>
+                            <td class="text-center fw-semibold" style="text-align: center !important; vertical-align: middle;">${i.nombre}</td>
+                            <td class="text-center" style="text-align: center !important; vertical-align: middle;">${cantidad}</td>
+                            <td class="text-center text-muted" style="text-align: center !important; vertical-align: middle;">$${costoUnit.toFixed(2)}</td>
+                            <td class="text-center fw-semibold" style="text-align: center !important; vertical-align: middle;">$${subtotal.toFixed(2)}</td>
+                        </tr>
+                    `);
+                });
+
+                // Calcular margen
+                const pVenta = parseFloat(precioVenta) || 0;
+                const margenMonto = pVenta - costoTotal;
+                let margenPorc = 0;
+                if (pVenta > 0) {
+                    margenPorc = (margenMonto / pVenta) * 100;
+                }
+
+                document.getElementById('costoTotalRecetaUnica').innerText = '$' + costoTotal.toFixed(2);
+
+                const margenEl = document.getElementById('margenRecetaUnica');
+                margenEl.innerText = `$${margenMonto.toFixed(2)} (${margenPorc.toFixed(1)}%)`;
+
+                if (margenMonto < 0) {
+                    margenEl.className = "fw-bold text-danger mb-0";
+                } else if (margenMonto === 0) {
+                    margenEl.className = "fw-bold text-secondary mb-0";
+                } else {
+                    margenEl.className = "fw-bold text-success mb-0";
+                }
             } else {
-                tbody.innerHTML = '<tr><td colspan="2" class="text-center py-3 text-muted">No tiene receta configurada.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-muted">No tiene receta configurada.</td></tr>';
             }
         });
 }

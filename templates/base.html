@@ -420,7 +420,7 @@
             {% endif %}
 
             <!-- MÓDULO: VENTAS -->
-            {% if sales_ui_permissions.clientes or sales_ui_permissions.actividades or sales_ui_permissions.cotizaciones or sales_ui_permissions.pedidos or sales_ui_permissions.salidas %}
+            {% if sales_ui_permissions.clientes or sales_ui_permissions.actividades or sales_ui_permissions.cotizaciones or sales_ui_permissions.pedidos or sales_ui_permissions.salidas or sales_ui_permissions.punto_de_venta or sales_ui_permissions.cortes_de_caja %}
             <div>
                 <a href="#submenu-ventas" data-bs-toggle="collapse" class="sidebar-link {% if '/ventas/' in request.path or '/cotizaciones/' in request.path or '/clientes/' in request.path or '/actividades/' in request.path or '/pedidos/' in request.path %}sidebar-active{% endif %}">
                     <i class="bi bi-cash-stack sidebar-icon"></i> Ventas
@@ -445,6 +445,8 @@
                         {% endif %}
                         {% if sales_ui_permissions.punto_de_venta %}
                         <li><a href="/ventas/pos/" class="sidebar-link sidebar-level-2 {% if request.path == '/ventas/pos/' %}sidebar-sub-active{% endif %}"><i class="bi bi-shop me-2 small"></i> Punto de Venta</a></li>
+                        {% endif %}
+                        {% if sales_ui_permissions.cortes_de_caja %}
                         <li><a href="/ventas/cortes-caja/" class="sidebar-link sidebar-level-2 {% if '/ventas/cortes-caja/' in request.path %}sidebar-sub-active{% endif %}"><i class="bi bi-calculator-fill me-2 small"></i> Cortes de Caja</a></li>
                         {% endif %}
                     </ul>

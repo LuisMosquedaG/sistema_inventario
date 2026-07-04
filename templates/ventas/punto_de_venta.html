@@ -274,7 +274,7 @@
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <h5 class="fw-bold text-dark mb-0"><i class="bi bi-receipt me-2 text-brand"></i>Ticket de Venta</h5>
                         {% if sesion_activa %}
-                            {% if not granular_sales_perms.punto_de_venta.hacer_corte %}
+                            {% if not granular_sales_perms.punto_de_venta.hacer_corte_pos %}
                                 <button class="btn btn-sm py-1 px-3 fw-bold text-white shadow-sm" style="background-color: #a0a0a0; border: none; border-radius: 8px; font-size: 0.8rem; opacity: 0.55; cursor: not-allowed;" disabled title="No tienes permisos para hacer corte de caja">
                                     <i class="bi bi-calculator-fill me-1"></i>Hacer Corte
                                 </button>

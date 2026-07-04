@@ -522,6 +522,8 @@
                                                                 <label class="form-check-label text-dark text-truncate w-100" style="font-size: 0.7rem;" for="perm_ventas__{{ submodulo }}__{{ p_accion }}">
                                                                     {% if p_accion == 'PagarParaPedido' %}PagarParaPedido
                                                                     {% elif p_accion == 'desactivar_iva' %}IVA
+                                                                    {% elif p_accion == 'hacer_corte_pos' %}Hascercorte
+                                                                    {% elif p_accion == 'hacer_corte' %}Hacercorte
                                                                     {% else %}{{ p_accion|cut:"_"|title }}{% endif %}
                                                                 </label>
                                                             </div>
@@ -1227,12 +1229,23 @@
                         };
                         const iconClass = iconMap[area] || 'bi-folder';
                         
-                        let itemsHtml = permsList.map(p => `
-                            <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0 py-2 border-0 border-bottom">
-                                <span class="text-secondary fw-semibold">${p.submodulo}</span>
-                                <span class="badge bg-success bg-opacity-10 text-success small">${p.accion}</span>
-                            </li>
-                        `).join('');
+                        let itemsHtml = permsList.map(p => {
+                            let actionDisplay = p.accion;
+                            if (p.accion === 'hacer_corte_pos') actionDisplay = 'Hascercorte';
+                            else if (p.accion === 'hacer_corte') actionDisplay = 'Hacercorte';
+                            else if (p.accion === 'PagarParaPedido') actionDisplay = 'PagarParaPedido';
+                            else if (p.accion === 'desactivar_iva') actionDisplay = 'IVA';
+                            else {
+                                // Cut underscore and capitalize
+                                actionDisplay = p.accion.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
+                            }
+                            return `
+                                <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0 py-2 border-0 border-bottom">
+                                    <span class="text-secondary fw-semibold">${p.submodulo}</span>
+                                    <span class="badge bg-success bg-opacity-10 text-success small">${actionDisplay}</span>
+                                </li>
+                            `;
+                        }).join('');
 
                         permsContainer.innerHTML += `
                             <div class="accordion-item border rounded mb-2 overflow-hidden bg-white shadow-sm">

@@ -14,7 +14,8 @@ SALES_PERMISSION_MATRIX = {
     'cotizaciones': ['ver', 'crear', 'editar', 'eliminar', 'aprobar', 'imprimir'],
     'pedidos': ['ver', 'crear', 'editar', 'imprimir', 'validar_stock', 'revision', 'reservar', 'solicitar', 'generar_solicitud_global', 'registrar_pago', 'PagarParaPedido'],
     'salidas': ['ver', 'crear', 'imprimir', 'aprobar', 'surtir_orden', 'actualizar_entrega'],
-    'punto_de_venta': ['ver', 'crear', 'listas', 'desactivar_iva', 'descuento', 'hacer_corte'],
+    'punto_de_venta': ['ver', 'crear', 'listas', 'desactivar_iva', 'descuento', 'hacer_corte_pos'],
+    'cortes_de_caja': ['ver', 'nueva_caja', 'cajas', 'ver_ventas', 'ver_articulos', 'imprimir_articulo', 'hacer_corte'],
 }
 
 COSTING_PERMISSION_MATRIX = {
@@ -385,6 +386,7 @@ def get_sales_ui_permissions(request):
         'pedidos': user_has_sales_permission(request, 'pedidos', 'ver'),
         'salidas': user_has_sales_permission(request, 'salidas', 'ver'),
         'punto_de_venta': user_has_sales_permission(request, 'punto_de_venta', 'ver'),
+        'cortes_de_caja': user_has_sales_permission(request, 'cortes_de_caja', 'ver'),
     }
 
 

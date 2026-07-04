@@ -7,14 +7,17 @@
             </div>
             
             <div class="modal-body p-3 bg-light">
-                <div class="card border-0 shadow-sm">
+                <div class="card border-0 shadow-sm mb-3">
                     <div class="card-body p-0">
                         <div class="table-responsive bg-white rounded">
                             <table class="table table-sm table-hover mb-0 align-middle">
                                 <thead class="table-light">
                                     <tr>
-                                        <th class="ps-3">Componente</th>
-                                        <th class="text-center">Cantidad Requerida</th>
+                                        <th class="text-center" style="text-align: center !important; width: 80px;">Imagen</th>
+                                        <th class="text-center" style="text-align: center !important;">Artículo</th>
+                                        <th class="text-center" style="text-align: center !important; width: 150px;">Cantidad Requerida</th>
+                                        <th class="text-center" style="text-align: center !important; width: 130px;">Costo Unit.</th>
+                                        <th class="text-center" style="text-align: center !important; width: 130px;">Subtotal Costo</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tablaBodyRecetaUnica"></tbody>
@@ -22,9 +25,40 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Resumen Financiero del Producto Terminado -->
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm bg-white">
+                            <div class="card-body p-3 text-center">
+                                <span class="text-secondary small fw-bold d-block mb-1">COSTO TOTAL RECETA</span>
+                                <h4 id="costoTotalRecetaUnica" class="fw-bold text-dark mb-0">$0.00</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm bg-white">
+                            <div class="card-body p-3 text-center">
+                                <span class="text-secondary small fw-bold d-block mb-1">PRECIO DE VENTA</span>
+                                <h4 id="precioVentaRecetaUnica" class="fw-bold text-brand mb-0">$0.00</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm bg-white">
+                            <div class="card-body p-3 text-center">
+                                <span class="text-secondary small fw-bold d-block mb-1">MARGEN DE GANANCIA</span>
+                                <h4 id="margenRecetaUnica" class="fw-bold text-success mb-0">$0.00 (0%)</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center text-muted mt-3" style="font-size: 0.85rem;">
+                    <i class="bi bi-info-circle-fill me-1" style="color: #00b8b9;"></i> *Los costos y precios mostrados en este desglose son sin impuestos.
+                </div>
             </div>
 
-            <div class="modal-footer border-top bg-white">
+            <div class="modal-footer border-top bg-white py-2">
                 <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>

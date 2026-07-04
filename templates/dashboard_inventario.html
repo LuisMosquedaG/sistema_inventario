@@ -255,7 +255,7 @@
 
                                     {% if p.tipo_abastecimiento == 'produccion' %}
                                         {% if granular_inventory_perms.inventario.recetas %}
-                                        <span onclick="abrirModalReceta({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action" title="Receta"><i class="bi bi-diagram-3"></i></span>
+                                        <span onclick="abrirModalReceta({{ p.id }}, '{{ p.nombre|escapejs }}', {{ p.precio_venta|default:0 }})" class="icon-action" title="Receta"><i class="bi bi-diagram-3"></i></span>
                                         {% endif %}
                                     {% endif %}
                                 </div>

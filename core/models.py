@@ -65,6 +65,11 @@ class Producto(models.Model):
     UNIDAD_OPCIONES = [
         ('H87', 'H87 (Pieza)'),
         ('E48', 'E48 (Unidad de servicio)'),
+        ('KGM', 'KGM (Kilogramo)'),
+        ('GRM', 'GRM (Gramo)'),
+        ('LTR', 'LTR (Litro)'),
+        ('MLT', 'MLT (Mililitro)'),
+        ('MTR', 'MTR (Metro)'),
     ]
     unidad_medida = models.CharField(
         max_length=50, 
@@ -87,6 +92,7 @@ class Producto(models.Model):
     
     maneja_lote = models.BooleanField(default=False, verbose_name="Maneja Lote")
     maneja_serie = models.BooleanField(default=False, verbose_name="Maneja No. Serie")
+    mostrar_en_pos = models.BooleanField(default=True, verbose_name="Mostrar en POS")
     
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     empresa = models.ForeignKey('panel.Empresa', on_delete=models.CASCADE, null=True, blank=True, verbose_name="Empresa")
@@ -145,6 +151,35 @@ class Producto(models.Model):
         
         total_valor = sum(i.cantidad * i.costo_promedio for i in inventarios)
         return total_valor / total_unidades
+
+    def save(self, *args, **kwargs):
+        # 1. Ver si existe en BD para comparar costo antes de guardar
+        old_cost = None
+        if self.pk:
+            try:
+                old_cost = Producto.objects.filter(pk=self.pk).values_list('precio_costo', flat=True).first()
+            except Exception:
+                pass
+                
+        super().save(*args, **kwargs)
+        
+        # 2. Si el costo cambió o es nuevo, y se usa en recetas, actualizar padres
+        if old_cost is None or old_cost != self.precio_costo:
+            parents = [r.producto_padre for r in self.usado_en.all()]
+            for parent in parents:
+                parent.recalcular_costo_desde_receta()
+
+    def recalcular_costo_desde_receta(self):
+        """ Recalcula el costo del producto padre en base a los componentes de su receta """
+        if self.tipo_abastecimiento == 'produccion':
+            from decimal import Decimal
+            receta = self.receta.all()
+            if receta.exists():
+                costo_total = Decimal('0.00')
+                for r in receta:
+                    costo_total += Decimal(r.componente.precio_costo) * Decimal(r.cantidad)
+                self.precio_costo = costo_total
+                self.save(update_fields=['precio_costo'])
 
 ESTADO_COMPRA_CHOICES = [
     ('borrador', 'Borrador'),
@@ -274,7 +309,7 @@ class DetalleReceta(models.Model):
     # USAMOS 'Producto' ENTRE COMILLAS PARA EVITAR ERRORES DE ORDEN
     producto_padre = models.ForeignKey('Producto', on_delete=models.CASCADE, related_name='receta', verbose_name="Producto Final (Ensamblado)")
     componente = models.ForeignKey('Producto', on_delete=models.PROTECT, related_name='usado_en', verbose_name="Componente")
-    cantidad = models.PositiveIntegerField(default=1, verbose_name="Cantidad Requerida")
+    cantidad = models.DecimalField(max_digits=12, decimal_places=4, default=1.0000, verbose_name="Cantidad Requerida")
 
     class Meta:
         unique_together = ('producto_padre', 'componente') # Evitar duplicados

@@ -928,14 +928,35 @@ def punto_de_venta(request):
             break
 
     productos_data = []
-    productos = Producto.objects.filter(empresa=empresa_actual, estado='activo').order_by('nombre')
+    productos = Producto.objects.filter(empresa=empresa_actual, estado='activo', mostrar_en_pos=True).order_by('nombre')
     
     for prod in productos:
         stock = 0
         if prod.tipo != 'servicio' and almacen:
             inv = Inventario.objects.filter(almacen=almacen, producto=prod).first()
-            if inv:
-                stock = inv.cantidad - inv.reservado
+            physical_stock = (inv.cantidad - inv.reservado) if inv else 0
+
+            from core.models import DetalleReceta
+            receta = DetalleReceta.objects.filter(producto_padre=prod)
+            if receta.exists():
+                import math
+                max_posible = None
+                for r in receta:
+                    if r.componente.tipo != 'servicio':
+                        inv_comp = Inventario.objects.filter(almacen=almacen, producto=r.componente).first()
+                        stock_disp_comp = (inv_comp.cantidad - inv_comp.reservado) if inv_comp else 0
+                        if r.cantidad > 0:
+                            posibles_con_este = float(stock_disp_comp) / float(r.cantidad)
+                            if max_posible is None or posibles_con_este < max_posible:
+                                max_posible = posibles_con_este
+                        else:
+                            posibles_con_este = 0.0
+                            if max_posible is None or posibles_con_este < max_posible:
+                                max_posible = posibles_con_este
+                
+                stock = physical_stock + (math.floor(max_posible) if max_posible is not None else 0)
+            else:
+                stock = physical_stock
         
         import math
         precio_redondeado = math.ceil(float(prod.precio_venta or 0))
@@ -989,8 +1010,8 @@ def punto_de_venta(request):
     from clientes.models import Cliente
     clientes = Cliente.objects.filter(empresa=empresa_actual, estado='activo').order_by('razon_social', 'nombre')
 
-    categorias_unicas = Producto.objects.filter(empresa=empresa_actual, estado='activo').exclude(categoria__isnull=True).exclude(categoria='').values_list('categoria', flat=True).distinct().order_by('categoria')
-    subcategorias_unicas = Producto.objects.filter(empresa=empresa_actual, estado='activo').exclude(subcategoria__isnull=True).exclude(subcategoria='').values_list('subcategoria', flat=True).distinct().order_by('subcategoria')
+    categorias_unicas = Producto.objects.filter(empresa=empresa_actual, estado='activo', mostrar_en_pos=True).exclude(categoria__isnull=True).exclude(categoria='').values_list('categoria', flat=True).distinct().order_by('categoria')
+    subcategorias_unicas = Producto.objects.filter(empresa=empresa_actual, estado='activo', mostrar_en_pos=True).exclude(subcategoria__isnull=True).exclude(subcategoria='').values_list('subcategoria', flat=True).distinct().order_by('subcategoria')
 
     from ventas.models import CajaPOS, SesionCajaPOS
     # Verificar sesión activa en base de datos
@@ -1264,10 +1285,23 @@ def crear_venta_pos_ajax(request):
                 producto = Producto.objects.get(id=prod_id, empresa=empresa_actual, estado='activo')
 
                 if producto.tipo != 'servicio':
-                    inv = Inventario.objects.filter(almacen=almacen, producto=producto).first()
-                    stock_disp = (inv.cantidad - inv.reservado) if inv else 0
-                    if stock_disp < qty:
-                        raise ValueError(f"Stock insuficiente para {producto.nombre}. Disponible: {stock_disp}, Solicitado: {qty}")
+                    from core.models import DetalleReceta
+                    receta = DetalleReceta.objects.filter(producto_padre=producto)
+                    if receta.exists():
+                        # Validar stock de todos los componentes de la receta
+                        for r in receta:
+                            if r.componente.tipo != 'servicio':
+                                cant_req = r.cantidad * qty
+                                inv_comp = Inventario.objects.filter(almacen=almacen, producto=r.componente).first()
+                                stock_disp_comp = (inv_comp.cantidad - inv_comp.reservado) if inv_comp else 0
+                                if stock_disp_comp < cant_req:
+                                    raise ValueError(f"Stock insuficiente de {r.componente.nombre} para preparar {producto.nombre}. Disponible: {stock_disp_comp}, Requerido: {cant_req}")
+                    else:
+                        # Validación tradicional de stock para producto sin receta
+                        inv = Inventario.objects.filter(almacen=almacen, producto=producto).first()
+                        stock_disp = (inv.cantidad - inv.reservado) if inv else 0
+                        if stock_disp < qty:
+                            raise ValueError(f"Stock insuficiente para {producto.nombre}. Disponible: {stock_disp}, Solicitado: {qty}")
 
                 detalle = DetallePedido.objects.create(
                     pedido=pedido,
@@ -1286,6 +1320,37 @@ def crear_venta_pos_ajax(request):
                 )
 
                 if producto.tipo != 'servicio':
+                    from core.models import DetalleReceta
+                    receta = DetalleReceta.objects.filter(producto_padre=producto)
+                    if receta.exists():
+                        # 1. Registrar entrada automática del producto final por producción
+                        Transaccion.objects.create(
+                            producto=producto,
+                            almacen=almacen,
+                            tipo='produccion',
+                            cantidad=qty,
+                            total=Decimal(qty) * producto.precio_costo,
+                            empresa=empresa_actual,
+                            usuario=request.user,
+                            referencia=f"Autoproducción POS Pedido #{pedido.id}",
+                            estado='recibida'
+                        )
+                        # 2. Registrar salida automática de cada componente consumido
+                        for r in receta:
+                            cant_req = r.cantidad * qty
+                            Transaccion.objects.create(
+                                producto=r.componente,
+                                almacen=almacen,
+                                tipo='produccion',
+                                cantidad=-cant_req,
+                                total=Decimal(cant_req) * r.componente.precio_costo,
+                                empresa=empresa_actual,
+                                usuario=request.user,
+                                referencia=f"Consumo Receta {producto.nombre} - Pedido #{pedido.id}",
+                                estado='recibida'
+                            )
+
+                    # 3. Registrar la venta del producto (deja el stock neto en 0 si era receta)
                     Transaccion.objects.create(
                         producto=producto,
                         almacen=almacen,
@@ -1355,7 +1420,7 @@ from .models import CajaPOS, SesionCajaPOS
 @login_required
 def cortes_caja_list(request):
     from preferencias.permissions import user_has_sales_permission
-    if not user_has_sales_permission(request, 'punto_de_venta', 'ver'):
+    if not user_has_sales_permission(request, 'cortes_de_caja', 'ver'):
         return render(request, 'error_sin_empresa.html', status=403)
 
     empresa_actual = get_empresa_actual(request)
@@ -1448,12 +1513,8 @@ def crear_caja_pos_ajax(request):
     from preferencias.permissions import user_has_sales_permission
     caja_id = request.POST.get('caja_id')
     
-    if caja_id:
-        if not user_has_sales_permission(request, 'punto_de_venta', 'editar') and not user_has_sales_permission(request, 'punto_de_venta', 'crear'):
-            return JsonResponse({'success': False, 'error': 'No tienes permisos para editar cajas.'})
-    else:
-        if not user_has_sales_permission(request, 'punto_de_venta', 'crear'):
-            return JsonResponse({'success': False, 'error': 'No tienes permisos para crear cajas.'})
+    if not user_has_sales_permission(request, 'cortes_de_caja', 'nueva_caja'):
+        return JsonResponse({'success': False, 'error': 'No tienes permisos para configurar cajas.'})
 
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
@@ -1517,7 +1578,7 @@ def crear_caja_pos_ajax(request):
 @require_POST
 def cambiar_estado_caja_pos_ajax(request, caja_id):
     from preferencias.permissions import user_has_sales_permission
-    if not user_has_sales_permission(request, 'punto_de_venta', 'crear'):
+    if not user_has_sales_permission(request, 'cortes_de_caja', 'cajas'):
         return JsonResponse({'success': False, 'error': 'No tienes permisos para modificar cajas.'})
 
     empresa_actual = get_empresa_actual(request)
@@ -1576,7 +1637,7 @@ def apertura_sesion_pos_ajax(request):
 @login_required
 def obtener_totales_sesion_ajax(request):
     from preferencias.permissions import user_has_sales_permission
-    if not user_has_sales_permission(request, 'punto_de_venta', 'hacer_corte'):
+    if not user_has_sales_permission(request, 'punto_de_venta', 'hacer_corte_pos'):
         return JsonResponse({'success': False, 'error': 'No tienes permisos para hacer el corte de caja.'}, status=403)
 
     empresa_actual = get_empresa_actual(request)
@@ -1615,7 +1676,7 @@ def obtener_totales_sesion_ajax(request):
 @require_POST
 def cierre_sesion_pos_ajax(request):
     from preferencias.permissions import user_has_sales_permission
-    if not user_has_sales_permission(request, 'punto_de_venta', 'hacer_corte'):
+    if not user_has_sales_permission(request, 'punto_de_venta', 'hacer_corte_pos'):
         return JsonResponse({'success': False, 'error': 'No tienes permisos para realizar el corte de caja.'}, status=403)
 
     empresa_actual = get_empresa_actual(request)
@@ -1674,7 +1735,7 @@ def cierre_sesion_pos_ajax(request):
 @require_POST
 def cierre_sesion_pos_por_id_ajax(request, sesion_id):
     from preferencias.permissions import user_has_sales_permission
-    if not user_has_sales_permission(request, 'punto_de_venta', 'hacer_corte'):
+    if not user_has_sales_permission(request, 'cortes_de_caja', 'hacer_corte'):
         return JsonResponse({'success': False, 'error': 'No tienes permisos para realizar el corte de caja.'}, status=403)
 
     empresa_actual = get_empresa_actual(request)
@@ -1730,6 +1791,10 @@ def cierre_sesion_pos_por_id_ajax(request, sesion_id):
 
 @login_required
 def obtener_ventas_sesion_ajax(request, sesion_id):
+    from preferencias.permissions import user_has_sales_permission
+    if not user_has_sales_permission(request, 'cortes_de_caja', 'ver_ventas'):
+        return JsonResponse({'success': False, 'error': 'No tienes permisos para ver ventas de la sesión.'}, status=403)
+
     from pedidos.models import Pedido
     from tesoreria.models import PagoPedido
     
@@ -1789,6 +1854,10 @@ def obtener_ventas_sesion_ajax(request, sesion_id):
 
 @login_required
 def obtener_articulos_sesion_ajax(request, sesion_id):
+    from preferencias.permissions import user_has_sales_permission
+    if not user_has_sales_permission(request, 'cortes_de_caja', 'ver_articulos'):
+        return JsonResponse({'success': False, 'error': 'No tienes permisos para ver artículos de la sesión.'}, status=403)
+
     from pedidos.models import DetallePedido
     
     empresa_actual = get_empresa_actual(request)
@@ -1852,6 +1921,11 @@ def obtener_articulos_sesion_ajax(request, sesion_id):
 
 @login_required
 def imprimir_corte_ticket(request, sesion_id):
+    from preferencias.permissions import user_has_sales_permission
+    if not user_has_sales_permission(request, 'cortes_de_caja', 'imprimir_articulo'):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("No tienes permisos para imprimir este corte.")
+
     from django.db.models import Sum
     from tesoreria.models import PagoPedido
     from decimal import Decimal
