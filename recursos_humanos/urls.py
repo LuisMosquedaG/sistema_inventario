@@ -29,6 +29,7 @@ urlpatterns = [
     path('beneficiarios/obtener/<int:id>/', views.obtener_beneficiario_json, name='obtener_beneficiario_json'),
     path('beneficiarios/editar/<int:id>/', views.editar_beneficiario_ajax, name='editar_beneficiario_ajax'),
     path('beneficiarios/eliminar/<int:id>/', views.eliminar_beneficiario_ajax, name='eliminar_beneficiario_ajax'),
+    path('beneficiarios/portal/', views.portal_beneficiarios, name='portal_beneficiarios'),
     path('beneficiarios/documentacion/obtener/<int:id>/', views.obtener_documentacion_json, name='obtener_documentacion_json'),
     path('beneficiarios/documentacion/subir/<int:id>/', views.subir_documento_ajax, name='subir_documento_ajax'),
     path('beneficiarios/documentacion/eliminar/<int:id>/', views.eliminar_documento_ajax, name='eliminar_documento_ajax'),

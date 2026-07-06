@@ -27,6 +27,8 @@ def get_empresa_actual(request):
 
 @login_required(login_url='/login/')
 def dashboard_inicio(request):
+    if hasattr(request.user, 'beneficiario'):
+        return redirect('portal_beneficiarios')
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)

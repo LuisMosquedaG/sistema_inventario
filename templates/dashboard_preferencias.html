@@ -3,6 +3,29 @@
 {% block content %}
 
 <style>
+    .btn-user-toggle {
+        background-color: #f8f9fa !important;
+        border: 1px solid #dee2e6 !important;
+        color: #adb5bd !important;
+        font-weight: 500;
+        transition: all 0.2s ease-in-out;
+    }
+    .btn-user-toggle.active {
+        background-color: #f8f9fa !important;
+        border: 1px solid #00b8b9 !important;
+        color: #00b8b9 !important;
+        font-weight: 600;
+    }
+    .btn-user-toggle:hover {
+        background-color: #e6fcf5 !important;
+        border-color: #00b8b9 !important;
+        color: #00b8b9 !important;
+    }
+    .btn-user-toggle.active:hover {
+        background-color: #e6fcf5 !important;
+        color: #00b8b9 !important;
+    }
+
     .settings-nav .nav-link {
         color: #495057;
         padding: 12px 20px;
@@ -136,9 +159,19 @@
                 <!-- SECCIÓN USUARIOS -->
                 <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
                     <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-people-fill me-2 text-secondary"></i>Gestión de Usuarios</h5>
-                    <button class="btn btn-sm btn-brand text-white" data-bs-toggle="modal" data-bs-target="#modalNuevoUsuario" onclick="prepararNuevoUsuario()">
-                        <i class="bi bi-person-plus-fill me-1"></i> Nuevo Usuario
-                    </button>
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="btn-group btn-group-sm" role="group">
+                            <a href="?section=usuarios&tipo=administrativos" class="btn btn-user-toggle {% if tipo_usuario != 'beneficiarios' %}active{% endif %}">
+                                <i class="bi bi-person-workspace me-1"></i> Administrativos
+                            </a>
+                            <a href="?section=usuarios&tipo=beneficiarios" class="btn btn-user-toggle {% if tipo_usuario == 'beneficiarios' %}active{% endif %}">
+                                <i class="bi bi-heart-fill me-1"></i> Beneficiarios
+                            </a>
+                        </div>
+                        <button class="btn btn-sm btn-brand text-white" data-bs-toggle="modal" data-bs-target="#modalNuevoUsuario" onclick="prepararNuevoUsuario()">
+                            <i class="bi bi-person-plus-fill me-1"></i> Nuevo Usuario
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body p-4">
                     <div class="table-responsive">
@@ -166,13 +199,13 @@
                                             <div>
                                                 <div class="fw-bold text-dark">{{ u.username }}</div>
                                                 <div class="text-muted small">
-                                                    {% if u.is_superuser %}Superusuario{% else %}Staff / Usuario{% endif %}
+                                                    {% if u.beneficiario %}Portal Beneficiario{% elif u.is_superuser %}Superusuario{% else %}Staff / Usuario{% endif %}
                                                 </div>
                                             </div>
                                         </div>
                                     </td>
                                     <td>{{ u.email|default:"--" }}</td>
-                                    <td>{% if u.is_superuser %}<span class="badge bg-primary">Admin</span>{% else %}<span class="badge bg-secondary">Usuario</span>{% endif %}</td>
+                                    <td>{% if u.beneficiario %}Beneficiario{% elif u.is_superuser %}Admin{% else %}Usuario{% endif %}</td>
                                     <td class="text-center">{% if u.is_active %}<span class="badge bg-success bg-opacity-10 text-success">Activo</span>{% else %}<span class="badge bg-danger bg-opacity-10 text-danger">Inactivo</span>{% endif %}</td>
                                 </tr>
                                 {% endfor %}
@@ -938,6 +971,8 @@
         document.getElementById('usuario_id_hidden').value = "";
         document.getElementById('formUsuario').reset();
         document.getElementById('inputUsername').disabled = false;
+        document.getElementById('inputRol').disabled = false;
+        document.getElementById('inputRolAcceso').disabled = false;
         document.getElementById('passHelp').classList.add('d-none');
     }
 
@@ -945,7 +980,6 @@
         prepararNuevoUsuario();
         document.getElementById('modalUsuarioTitulo').innerText = "Editar Usuario";
         document.getElementById('usuario_id_hidden').value = id;
-        document.getElementById('inputUsername').disabled = true;
         document.getElementById('passHelp').classList.remove('d-none');
 
         fetch(`/preferencias/api/usuario/${id}/`)
@@ -956,6 +990,13 @@
                     document.getElementById('inputEmail').value = data.email;
                     document.getElementById('inputRol').value = data.rol;
                     document.getElementById('inputRolAcceso').value = data.rol_acceso_id || '';
+                    if (data.es_beneficiario) {
+                        document.getElementById('inputRol').disabled = true;
+                        document.getElementById('inputRolAcceso').disabled = true;
+                    } else {
+                        document.getElementById('inputRol').disabled = false;
+                        document.getElementById('inputRolAcceso').disabled = false;
+                    }
                     new bootstrap.Modal(document.getElementById('modalNuevoUsuario')).show();
                 } else {
                     alert('Error: ' + data.error);

@@ -77,7 +77,14 @@ def dashboard_preferencias(request):
             # Solo ver usuarios que tengan el prefijo de la empresa (ej: @demo)
             qs = qs.filter(username__contains=f"@{empresa_actual.subdominio}")
             
+        tipo_usuario = request.GET.get('tipo', 'administrativos')
+        if tipo_usuario == 'beneficiarios':
+            qs = qs.filter(beneficiario__isnull=False)
+        else:
+            qs = qs.filter(beneficiario__isnull=True)
+            
         contexto['usuarios'] = qs.order_by('-id')
+        contexto['tipo_usuario'] = tipo_usuario
         contexto['roles'] = Rol.objects.filter(empresa=empresa_actual, activo=True).order_by('nombre')
     
     elif seccion_activa == 'roles':
@@ -414,7 +421,8 @@ def api_detalle_usuario(request, user_id):
         'username_corto': user.username.split('@')[0],
         'email': user.email,
         'rol': 'admin' if user.is_superuser else 'usuario',
-        'rol_acceso_id': asignacion_rol.rol_id if asignacion_rol else ''
+        'rol_acceso_id': asignacion_rol.rol_id if asignacion_rol else '',
+        'es_beneficiario': hasattr(user, 'beneficiario')
     })
 
 @login_required
@@ -428,29 +436,41 @@ def actualizar_usuario_ajax(request, user_id):
             if f"@{empresa_actual.subdominio}" not in user.username:
                 return JsonResponse({'success': False, 'error': 'Acceso denegado'})
 
+            new_username = request.POST.get('username')
+            if new_username:
+                username_completo = f"{new_username}@{empresa_actual.subdominio}"
+                if username_completo != user.username:
+                    if User.objects.filter(username=username_completo).exists():
+                        return JsonResponse({'success': False, 'error': 'El nombre de usuario ya está en uso.'})
+                    user.username = username_completo
+
             user.email = request.POST.get('email')
-            rol = request.POST.get('rol')
-            rol_acceso_id = request.POST.get('rol_acceso_id')
-            if rol == 'admin':
-                user.is_staff = True; user.is_superuser = True
-            else:
-                user.is_staff = False; user.is_superuser = False
+            es_beneficiario = hasattr(user, 'beneficiario')
+            
+            if not es_beneficiario:
+                rol = request.POST.get('rol')
+                rol_acceso_id = request.POST.get('rol_acceso_id')
+                if rol == 'admin':
+                    user.is_staff = True; user.is_superuser = True
+                else:
+                    user.is_staff = False; user.is_superuser = False
             
             passw = request.POST.get('password1')
             if passw: user.set_password(passw)
             
             user.save()
 
-            if rol_acceso_id:
-                rol_acceso = Rol.objects.filter(id=rol_acceso_id, empresa=empresa_actual, activo=True).first()
-                if rol_acceso:
-                    AsignacionRolUsuario.objects.update_or_create(
-                        usuario=user,
-                        empresa=empresa_actual,
-                        defaults={'rol': rol_acceso}
-                    )
-            else:
-                AsignacionRolUsuario.objects.filter(usuario=user, empresa=empresa_actual).delete()
+            if not es_beneficiario:
+                if rol_acceso_id:
+                    rol_acceso = Rol.objects.filter(id=rol_acceso_id, empresa=empresa_actual, activo=True).first()
+                    if rol_acceso:
+                        AsignacionRolUsuario.objects.update_or_create(
+                            usuario=user,
+                            empresa=empresa_actual,
+                            defaults={'rol': rol_acceso}
+                        )
+                else:
+                    AsignacionRolUsuario.objects.filter(usuario=user, empresa=empresa_actual).delete()
             return JsonResponse({'success': True, 'message': 'Usuario actualizado correctamente.'})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})

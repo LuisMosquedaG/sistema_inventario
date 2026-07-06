@@ -290,9 +290,17 @@
                 display: none !important;
             }
             body.sidebar-collapsed .brand-title {
+                height: 70px !important;
+                padding: 0 !important;
+                display: flex !important;
+                align-items: center !important;
                 justify-content: center !important;
-                padding-left: 0 !important;
-                padding-right: 0 !important;
+            }
+            body.sidebar-collapsed #desktopSidebarToggle {
+                position: relative !important;
+                right: auto !important;
+                top: auto !important;
+                margin: 0 auto !important;
             }
             body.sidebar-collapsed .sidebar-link {
                 font-size: 0 !important;
@@ -323,6 +331,9 @@
                 font-size: 1rem !important;
             }
             body.sidebar-collapsed .sidebar-branch-selector {
+                display: none !important;
+            }
+            body.sidebar-collapsed .empresa-name {
                 display: none !important;
             }
             body.sidebar-collapsed .sidebar-footer {
@@ -364,11 +375,18 @@
             <button class="btn-close btn-close-white" id="sidebarClose"></button>
         </div>
 
-        <div class="brand-title d-flex align-items-center justify-content-between px-3">
-            <span class="brand-text text-truncate"><span class="brand-highlight">Crossover</span><span class="brand-suite">Suite</span></span>
-            <button id="desktopSidebarToggle" class="sidebar-toggle-btn-inner btn border-0 text-white p-0 d-none d-lg-block" title="Colapsar Barra Lateral">
+        <div class="brand-title d-flex flex-column align-items-center justify-content-center px-3 py-3 position-relative">
+            <div class="d-flex align-items-center justify-content-center">
+                <span class="brand-text text-truncate"><span class="brand-highlight">Crossover</span><span class="brand-suite">Suite</span></span>
+            </div>
+            <button id="desktopSidebarToggle" class="sidebar-toggle-btn-inner btn border-0 text-white p-0 d-none d-lg-block position-absolute" style="right: 15px; top: 25px;" title="Colapsar Barra Lateral">
                 <i class="bi bi-chevron-left"></i>
             </button>
+            {% if empresa.nombre %}
+            <div class="empresa-name text-white text-truncate w-100 text-center mt-1 px-1" style="font-size: 0.72rem; font-weight: 500; opacity: 0.85;">
+                {{ empresa.nombre }}
+            </div>
+            {% endif %}
         </div>
 
 
@@ -379,6 +397,13 @@
             <div class="mt-3">
                 <a href="/panel/" class="sidebar-link text-warning {% if '/panel/' in request.path %}sidebar-active{% endif %}">
                     <i class="bi bi-hdd-network sidebar-icon"></i> Master Panel
+                </a>
+            </div>
+            {% elif request.user.beneficiario %}
+            <!-- PORTAL BENEFICIARIO: Solo ve Documentación -->
+            <div class="mt-3">
+                <a href="/recursos-humanos/beneficiarios/portal/" class="sidebar-link {% if '/portal/' in request.path %}sidebar-active{% endif %}">
+                    <i class="bi bi-file-earmark-text sidebar-icon"></i> Documentación
                 </a>
             </div>
             {% else %}
@@ -587,6 +612,7 @@
         </div>
 
         <!-- SELECTOR DE SUCURSAL (REFINADO) -->
+        {% if not request.user.beneficiario %}
         {% if sucursales_list %}
         <div class="sidebar-branch-selector px-3 mb-2">
             <div class="dropdown">
@@ -615,6 +641,7 @@
             </div>
         </div>
         {% endif %}
+        {% endif %}
 
         <!-- FOOTER (RESTAURADO) -->
         <div class="sidebar-footer d-flex justify-content-between align-items-center">
@@ -623,12 +650,14 @@
                 <span id="userNameDisplay" style="font-size: 0.85rem; font-weight: 500;" class="text-truncate">{{ user.username }}</span>
             </div>
             <div class="d-flex align-items-center">
-                {% if user.username != 'madmin@crossoversuite' %}
-                <a href="/notificaciones/historial/" class="me-3" title="Notificaciones"><i class="bi bi-bell" style="font-size: 1.1rem; color: #adb5bd;"></i></a>
-                {% endif %}
-                {% if user.username != 'madmin@crossoversuite' %}
-                    {% if user.is_superuser or user.is_staff %}
-                    <a href="/preferencias/" class="me-3" title="Preferencias"><i class="bi bi-gear" style="font-size: 1.1rem; color: #adb5bd;"></i></a>
+                {% if not request.user.beneficiario %}
+                    {% if user.username != 'madmin@crossoversuite' %}
+                    <a href="/notificaciones/historial/" class="me-3" title="Notificaciones"><i class="bi bi-bell" style="font-size: 1.1rem; color: #adb5bd;"></i></a>
+                    {% endif %}
+                    {% if user.username != 'madmin@crossoversuite' %}
+                        {% if user.is_superuser or user.is_staff %}
+                        <a href="/preferencias/" class="me-3" title="Preferencias"><i class="bi bi-gear" style="font-size: 1.1rem; color: #adb5bd;"></i></a>
+                        {% endif %}
                     {% endif %}
                 {% endif %}
                 <a href="/logout/" title="Cerrar Sesión"><i class="bi bi-door-open" style="font-size: 1.1rem;"></i></a>

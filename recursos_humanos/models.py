@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 from panel.models import Empresa
 import os
 
@@ -303,6 +304,7 @@ class Beneficiario(models.Model):
     correo = models.EmailField(verbose_name="Correo Electrónico")
     telefono = models.CharField(max_length=20, blank=True, null=True, verbose_name="Teléfono")
     
+    usuario = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='beneficiario', verbose_name="Usuario de Acceso")
     fecha_registro = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

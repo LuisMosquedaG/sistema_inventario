@@ -53,6 +53,8 @@ from django.views.generic import TemplateView
 def redirect_after_login(request):
     if request.user.username == 'madmin@crossoversuite':
         return redirect('dashboard_panel')
+    if hasattr(request.user, 'beneficiario'):
+        return redirect('portal_beneficiarios')
     return redirect('dashboard_inicio')
 
 def index_view(request):

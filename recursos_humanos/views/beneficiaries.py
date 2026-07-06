@@ -4,11 +4,12 @@ from django.http import JsonResponse
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
 from django.db.models import Q, Count
+from django.contrib.auth.models import User
 from datetime import datetime
 
 from ..models import Beneficiario, DocumentacionBeneficiario
 from preferencias.models import Sucursal
-from preferencias.permissions import require_hr_permission
+from preferencias.permissions import require_hr_permission, user_has_hr_permission
 from .utils import get_empresa_actual
 
 @login_required(login_url='/login/')
@@ -75,12 +76,20 @@ def obtener_beneficiario_json(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
         ben = Beneficiario.objects.get(id=id, empresa=empresa_actual)
+        usuario_portal = ''
+        if ben.usuario_id:
+            try:
+                usuario_portal = ben.usuario.username.split('@')[0]
+            except User.DoesNotExist:
+                ben.usuario = None
+                ben.save()
         data = {
             'id': ben.id, 'clave': ben.clave or '', 'rfc': ben.rfc, 'nombre_razon_social': ben.nombre_razon_social,
             'registro_patronal': ben.registro_patronal, 'calle': ben.calle, 'num_ext': ben.num_ext,
             'num_int': ben.num_int, 'entre_calle': ben.entre_calle, 'y_calle': ben.y_calle,
             'colonia': ben.colonia, 'cp': ben.cp, 'municipio_alcaldia': ben.municipio_alcaldia,
             'entidad_federativa': ben.entidad_federativa, 'correo': ben.correo, 'telefono': ben.telefono,
+            'usuario_portal': usuario_portal
         }
         return JsonResponse({'success': True, 'data': data})
     except Beneficiario.DoesNotExist: return JsonResponse({'success': False, 'error': 'Beneficiario no encontrado.'})
@@ -93,6 +102,18 @@ def crear_beneficiario_ajax(request):
     if not empresa_actual: return JsonResponse({'success': False, 'error': 'No se encontró la empresa.'}, status=403)
     try:
         data = request.POST; sucursal_id = request.session.get('sucursal_id')
+        usuario_portal = data.get('usuario_portal', '').strip()
+        password_portal = data.get('password_portal', '').strip()
+
+        user_obj = None
+        if usuario_portal:
+            if not password_portal:
+                return JsonResponse({'success': False, 'error': 'La contraseña es obligatoria si se define un usuario de acceso.'})
+            username_completo = f"{usuario_portal}@{empresa_actual.subdominio}"
+            if User.objects.filter(username=username_completo).exists():
+                return JsonResponse({'success': False, 'error': f'El usuario {username_completo} ya existe.'})
+            user_obj = User.objects.create_user(username=username_completo, email=data.get('correo'), password=password_portal)
+
         nuevo = Beneficiario(
             empresa=empresa_actual, sucursal_id=sucursal_id, 
             clave=data.get('clave', ''),
@@ -102,6 +123,7 @@ def crear_beneficiario_ajax(request):
             entre_calle=data.get('entre_calle'), y_calle=data.get('y_calle'), colonia=data.get('colonia'),
             cp=data.get('cp'), municipio_alcaldia=data.get('municipio_alcaldia'),
             entidad_federativa=data.get('entidad_federativa'), correo=data.get('correo'), telefono=data.get('telefono'),
+            usuario=user_obj
         )
         nuevo.save()
         return JsonResponse({'success': True, 'message': 'Beneficiario registrado correctamente.'})
@@ -115,6 +137,50 @@ def editar_beneficiario_ajax(request, id):
     try:
         ben = Beneficiario.objects.get(id=id, empresa=empresa_actual)
         data = request.POST
+        usuario_portal = data.get('usuario_portal', '').strip()
+        password_portal = data.get('password_portal', '').strip()
+
+        # LOG DE DIAGNÓSTICO
+        import json
+        try:
+            with open(r"c:\Users\luism\gemini-work\sistema_inventario\post_debug.json", "w", encoding="utf-8") as f:
+                json.dump({k: data.get(k) for k in data.keys() if 'password' not in k}, f, indent=4)
+        except Exception:
+            pass
+
+        if usuario_portal:
+            username_completo = f"{usuario_portal}@{empresa_actual.subdominio}"
+            existing_user = User.objects.filter(username=username_completo).exclude(id=ben.usuario_id).first() if ben.usuario_id else User.objects.filter(username=username_completo).first()
+            if existing_user:
+                return JsonResponse({'success': False, 'error': f'El usuario {username_completo} ya existe.'})
+            
+            user_obj = None
+            if ben.usuario_id:
+                try:
+                    user_obj = ben.usuario
+                except User.DoesNotExist:
+                    pass
+            
+            if user_obj:
+                user_obj.username = username_completo
+                user_obj.email = data.get('correo')
+                if password_portal:
+                    user_obj.set_password(password_portal)
+                user_obj.save()
+            else:
+                if not password_portal:
+                    return JsonResponse({'success': False, 'error': 'La contraseña es obligatoria para un usuario nuevo.'})
+                user_obj = User.objects.create_user(username=username_completo, email=data.get('correo'), password=password_portal)
+                ben.usuario = user_obj
+        else:
+            if ben.usuario_id:
+                try:
+                    old_user = ben.usuario
+                    old_user.delete()
+                except User.DoesNotExist:
+                    pass
+                ben.usuario = None
+
         ben.clave = data.get('clave', '')
         ben.rfc = data.get('rfc', '').upper(); ben.nombre_razon_social = data.get('nombre_razon_social')
         ben.registro_patronal = data.get('registro_patronal'); ben.calle = data.get('calle')
@@ -174,9 +240,12 @@ def optimizar_archivo(archivo_original):
     return archivo_original
 
 @login_required(login_url='/login/')
-@require_hr_permission('beneficiarios', 'ver', json_response=True)
 def obtener_documentacion_json(request, id):
     empresa_actual = get_empresa_actual(request)
+    is_self = hasattr(request.user, 'beneficiario') and request.user.beneficiario.id == id
+    if not is_self and not user_has_hr_permission(request, 'beneficiarios', 'ver'):
+        return JsonResponse({'success': False, 'error': 'No cuentas con permiso para esta acción.'}, status=403)
+        
     ben = get_object_or_404(Beneficiario, id=id, empresa=empresa_actual)
     
     anio = int(request.GET.get('anio', datetime.now().year))
@@ -257,3 +326,29 @@ def eliminar_documento_ajax(request, id):
         return JsonResponse({'success': True, 'message': 'Archivo eliminado correctamente.'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required(login_url='/login/')
+def portal_beneficiarios(request):
+    if not hasattr(request.user, 'beneficiario'):
+        return redirect('dashboard_inicio')
+        
+    empresa_actual = get_empresa_actual(request)
+    ben = request.user.beneficiario
+    
+    anio = int(request.GET.get('anio', datetime.now().year))
+    
+    anios_disponibles = list(DocumentacionBeneficiario.objects.filter(
+        beneficiario=ben
+    ).values_list('anio', flat=True).distinct().order_by('-anio'))
+    
+    if anio not in anios_disponibles:
+        anios_disponibles.append(anio)
+        anios_disponibles.sort(reverse=True)
+        
+    contexto = {
+        'beneficiario': ben,
+        'anio_seleccionado': anio,
+        'anios_disponibles': anios_disponibles,
+        'empresa': empresa_actual,
+    }
+    return render(request, 'recursos_humanos/portal_beneficiarios.html', contexto)

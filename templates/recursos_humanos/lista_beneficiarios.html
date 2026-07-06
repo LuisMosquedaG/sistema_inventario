@@ -264,6 +264,14 @@
                                     <label class="form-label-custom">Reg. Patronal</label>
                                     <input type="text" name="registro_patronal" id="inputRegPatronal" class="form-control form-control-sm">
                                 </div>
+                                <div class="col-md-6">
+                                    <label class="form-label-custom">Usuario de Acceso (Portal)</label>
+                                    <input type="text" name="usuario_portal" id="inputUsuarioPortal" class="form-control form-control-sm" placeholder="Ej. juan">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label-custom">Contraseña (Portal)</label>
+                                    <input type="password" name="password_portal" id="inputPasswordPortal" class="form-control form-control-sm" placeholder="Contraseña de acceso">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -354,6 +362,8 @@
                 document.getElementById('inputEntidad').value = data.entidad_federativa;
                 document.getElementById('inputCorreo').value = data.correo;
                 document.getElementById('inputTelefono').value = data.telefono;
+                document.getElementById('inputUsuarioPortal').value = data.usuario_portal || '';
+                document.getElementById('inputPasswordPortal').value = '';
 
                 document.getElementById('tituloModalBeneficiario').textContent = 'Editar Beneficiario';
                 new bootstrap.Modal(document.getElementById('modalNuevoBeneficiario')).show();
