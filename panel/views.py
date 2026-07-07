@@ -265,15 +265,23 @@ def actualizar_empresa(request, empresa_id):
 import os
 
 def calcular_uso_disco_mb(empresa):
-    """Calcula el espacio real ocupado por la carpeta de la empresa en media/tenants/"""
+    """Calcula el espacio real ocupado por la carpeta de la empresa en media/tenants/ y protected_media/tenants/"""
     total_bytes = 0
     from django.conf import settings
     
-    # Ruta base del tenant: media/tenants/subdominio/
+    # 1. Ruta base del tenant en media/tenants/
     tenant_path = os.path.join(settings.MEDIA_ROOT, 'tenants', empresa.subdominio)
-    
     if os.path.exists(tenant_path):
         for root, dirs, files in os.walk(tenant_path):
+            for f in files:
+                fp = os.path.join(root, f)
+                if not os.path.islink(fp):
+                    total_bytes += os.path.getsize(fp)
+                    
+    # 2. Ruta base del tenant en protected_media/tenants/
+    protected_path = os.path.join(settings.BASE_DIR, 'protected_media', 'tenants', empresa.subdominio)
+    if os.path.exists(protected_path):
+        for root, dirs, files in os.walk(protected_path):
             for f in files:
                 fp = os.path.join(root, f)
                 if not os.path.islink(fp):

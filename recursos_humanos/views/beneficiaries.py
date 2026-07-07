@@ -260,9 +260,10 @@ def obtener_documentacion_json(request, id):
         meses_data = {}
         for m in range(1, 13):
             doc = docs_existentes.filter(nombre_documento=code, mes=m).first()
+            from django.urls import reverse
             meses_data[m] = {
                 'id': doc.id if doc else None,
-                'url': doc.archivo.url if doc else None,
+                'url': reverse('descargar_documento_beneficiario', args=[doc.id]) if doc else None,
                 'nombre_archivo': doc.archivo.name.split('/')[-1] if doc else None
             }
         matrix.append({
@@ -352,3 +353,32 @@ def portal_beneficiarios(request):
         'empresa': empresa_actual,
     }
     return render(request, 'recursos_humanos/portal_beneficiarios.html', contexto)
+
+@login_required(login_url='/login/')
+def descargar_documento_beneficiario(request, doc_id):
+    from django.core.exceptions import PermissionDenied
+    from django.http import FileResponse, Http404
+    import os
+
+    empresa_actual = get_empresa_actual(request)
+    doc = get_object_or_404(DocumentacionBeneficiario, id=doc_id)
+
+    # 1. Verificar que el documento pertenezca a la empresa actual
+    if doc.empresa != empresa_actual:
+        raise PermissionDenied("Acceso denegado: este documento no pertenece a tu empresa.")
+
+    # 2. Si el usuario logueado es un Beneficiario, verificar que sea SU propio documento
+    if hasattr(request.user, 'beneficiario'):
+        if doc.beneficiario != request.user.beneficiario:
+            raise PermissionDenied("Acceso denegado: no tienes permisos para descargar este documento.")
+    else:
+        # Si es administrativo, validar que tenga permisos para ver beneficiarios
+        if not user_has_hr_permission(request, 'beneficiarios', 'ver'):
+            raise PermissionDenied("Acceso denegado: no tienes permisos de Recursos Humanos.")
+
+    # 3. Validar existencia del archivo físico
+    if not doc.archivo or not os.path.exists(doc.archivo.path):
+        raise Http404("El archivo físico no fue encontrado en el servidor.")
+
+    # 4. Servir el archivo de manera segura
+    return FileResponse(open(doc.archivo.path, 'rb'), as_attachment=True)

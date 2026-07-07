@@ -1,7 +1,11 @@
 from django.db import models
 from django.contrib.auth.models import User
 from panel.models import Empresa
+from django.core.files.storage import FileSystemStorage
+from django.conf import settings
 import os
+
+protected_storage = FileSystemStorage(location=str(settings.BASE_DIR / 'protected_media'))
 
 def upload_to_beneficiario_doc(instance, filename):
     # Organizar por subdominio de empresa / tipo de documento
@@ -330,7 +334,7 @@ class DocumentacionBeneficiario(models.Model):
     ]
     
     nombre_documento = models.CharField(max_length=50, choices=NOMBRE_DOC_CHOICES, verbose_name="Nombre del Documento")
-    archivo = models.FileField(upload_to=upload_to_beneficiario_doc, verbose_name="Archivo")
+    archivo = models.FileField(storage=protected_storage, upload_to=upload_to_beneficiario_doc, verbose_name="Archivo")
     mes = models.PositiveIntegerField(verbose_name="Mes (1-12)")
     anio = models.PositiveIntegerField(verbose_name="Año")
     fecha_subida = models.DateTimeField(auto_now_add=True)
