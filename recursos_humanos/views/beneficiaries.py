@@ -294,6 +294,13 @@ def subir_documento_ajax(request, id):
     if not archivo:
         return JsonResponse({'success': False, 'error': 'No se seleccionó ningún archivo.'})
         
+    # Validar extensión del archivo
+    import os
+    ext = os.path.splitext(archivo.name)[1].lower()
+    ALLOWED_EXTENSIONS = ['.pdf', '.xml', '.zip', '.xlsx', '.xls', '.csv', '.png', '.jpg', '.jpeg']
+    if ext not in ALLOWED_EXTENSIONS:
+        return JsonResponse({'success': False, 'error': f'Tipo de archivo no permitido. Extensiones válidas: {", ".join(ALLOWED_EXTENSIONS)}'})
+        
     try:
         # Optimización y compresión transparente
         archivo = optimizar_archivo(archivo)
