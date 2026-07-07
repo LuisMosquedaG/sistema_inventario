@@ -78,6 +78,9 @@ def dashboard_preferencias(request):
             qs = qs.filter(username__contains=f"@{empresa_actual.subdominio}")
             
         tipo_usuario = request.GET.get('tipo', 'administrativos')
+        if not getattr(empresa_actual, 'modulo_recursos_humanos', True):
+            tipo_usuario = 'administrativos'
+
         if tipo_usuario == 'beneficiarios':
             qs = qs.filter(beneficiario__isnull=False)
         else:
