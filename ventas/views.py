@@ -989,6 +989,19 @@ def punto_de_venta(request):
                     'monto': float(monto_calculado)
                 })
 
+        mods_data = []
+        if prod.permitir_modificadores:
+            for m in prod.modificadores.all().select_related('producto_modificador'):
+                mods_data.append({
+                    'id': m.id,
+                    'producto_modificador_id': m.producto_modificador.id,
+                    'nombre': m.producto_modificador.nombre,
+                    'permite_extra': m.permite_extra,
+                    'permite_sin': m.permite_sin,
+                    'precio_extra': float(m.precio_extra),
+                    'cantidad_modificadora': float(m.cantidad_modificadora)
+                })
+
         import json
         productos_data.append({
             'id': prod.id,
@@ -1001,7 +1014,8 @@ def punto_de_venta(request):
             'iva': float(prod.iva or 0),
             'stock': stock,
             'imagen_url': prod.imagen.url if prod.imagen else '',
-            'precios_lista_json': json.dumps(precios_completos)
+            'precios_lista_json': json.dumps(precios_completos),
+            'modificadores_json': json.dumps(mods_data)
         })
 
     from tesoreria.models import CajaBanco
@@ -1283,21 +1297,49 @@ def crear_venta_pos_ajax(request):
                 qty = int(item.get('cantidad', 1))
                 price = Decimal(str(item.get('precio_unitario', 0))) * factor
                 producto = Producto.objects.get(id=prod_id, empresa=empresa_actual, estado='activo')
+                modificadores = item.get('modificadores', [])
 
                 if producto.tipo != 'servicio':
-                    from core.models import DetalleReceta
+                    from core.models import DetalleReceta, ModificadorProducto
                     receta = DetalleReceta.objects.filter(producto_padre=producto)
-                    if receta.exists():
-                        # Validar stock de todos los componentes de la receta
-                        for r in receta:
-                            if r.componente.tipo != 'servicio':
-                                cant_req = r.cantidad * qty
-                                inv_comp = Inventario.objects.filter(almacen=almacen, producto=r.componente).first()
-                                stock_disp_comp = (inv_comp.cantidad - inv_comp.reservado) if inv_comp else 0
-                                if stock_disp_comp < cant_req:
-                                    raise ValueError(f"Stock insuficiente de {r.componente.nombre} para preparar {producto.nombre}. Disponible: {stock_disp_comp}, Requerido: {cant_req}")
+                    
+                    if receta.exists() or modificadores:
+                        componentes_req = {}
+                        if receta.exists():
+                            for r in receta:
+                                componentes_req[r.componente.id] = r.cantidad
+                        else:
+                            componentes_req[producto.id] = Decimal('1.0000')
+
+                        for m_item in modificadores:
+                            m_id = m_item.get('id')
+                            m_tipo = m_item.get('tipo')
+                            if m_tipo == 'sin':
+                                if m_id in componentes_req:
+                                    componentes_req[m_id] = Decimal('0.0000')
+                            elif m_tipo == 'extra':
+                                mod_obj = ModificadorProducto.objects.filter(
+                                    producto_padre=producto,
+                                    producto_modificador_id=m_id,
+                                    empresa=empresa_actual
+                                ).first()
+                                cant_extra = mod_obj.cantidad_modificadora if mod_obj else Decimal('1.0000')
+                                componentes_req[m_id] = componentes_req.get(m_id, Decimal('0.0000')) + cant_extra
+
+                        for comp_id, cant_unit in componentes_req.items():
+                            if cant_unit > 0:
+                                try:
+                                    comp_prod = Producto.objects.get(id=comp_id, empresa=empresa_actual, estado='activo')
+                                except Producto.DoesNotExist:
+                                    raise ValueError(f"El ingrediente/modificador con ID {comp_id} no existe o está inactivo.")
+                                
+                                if comp_prod.tipo != 'servicio':
+                                    cant_req = cant_unit * qty
+                                    inv_comp = Inventario.objects.filter(almacen=almacen, producto=comp_prod).first()
+                                    stock_disp_comp = (inv_comp.cantidad - inv_comp.reservado) if inv_comp else 0
+                                    if stock_disp_comp < cant_req:
+                                        raise ValueError(f"Stock insuficiente de {comp_prod.nombre} para preparar {producto.nombre}. Disponible: {stock_disp_comp}, Requerido: {cant_req}")
                     else:
-                        # Validación tradicional de stock para producto sin receta
                         inv = Inventario.objects.filter(almacen=almacen, producto=producto).first()
                         stock_disp = (inv.cantidad - inv.reservado) if inv else 0
                         if stock_disp < qty:
@@ -1309,59 +1351,65 @@ def crear_venta_pos_ajax(request):
                     cantidad_solicitada=qty,
                     cantidad_entregada=qty,
                     precio_unitario=price,
-                    estado_linea='completo'
+                    estado_linea='completo',
+                    modificadores_json=json.dumps(modificadores) if modificadores else None
                 )
 
                 DetalleOrdenVenta.objects.create(
                     orden_venta=orden_venta,
                     producto=producto,
                     cantidad=qty,
-                    precio_unitario=price
+                    precio_unitario=price,
+                    modificadores_json=json.dumps(modificadores) if modificadores else None
                 )
 
                 if producto.tipo != 'servicio':
                     from core.models import DetalleReceta
                     receta = DetalleReceta.objects.filter(producto_padre=producto)
-                    if receta.exists():
-                        # 1. Registrar entrada automática del producto final por producción
+                    if receta.exists() or modificadores:
+                        if receta.exists():
+                            Transaccion.objects.create(
+                                producto=producto,
+                                almacen=almacen,
+                                tipo='produccion',
+                                cantidad=qty,
+                                total=Decimal(qty) * producto.precio_costo,
+                                empresa=empresa_actual,
+                                usuario=request.user,
+                                referencia=f"Autoproducción POS Pedido #{pedido.id}",
+                                estado='recibida'
+                            )
+                        for comp_id, cant_unit in componentes_req.items():
+                            if cant_unit > 0:
+                                try:
+                                    comp_prod = Producto.objects.get(id=comp_id, empresa=empresa_actual, estado='activo')
+                                except Producto.DoesNotExist:
+                                    continue
+                                cant_req = cant_unit * qty
+                                Transaccion.objects.create(
+                                    producto=comp_prod,
+                                    almacen=almacen,
+                                    tipo='produccion',
+                                    cantidad=-cant_req,
+                                    total=Decimal(cant_req) * comp_prod.precio_costo,
+                                    empresa=empresa_actual,
+                                    usuario=request.user,
+                                    referencia=f"Consumo Receta {producto.nombre} con Modificadores - Pedido #{pedido.id}",
+                                    estado='recibida'
+                                )
+
+                    if receta.exists() or not modificadores:
                         Transaccion.objects.create(
                             producto=producto,
                             almacen=almacen,
-                            tipo='produccion',
-                            cantidad=qty,
-                            total=Decimal(qty) * producto.precio_costo,
+                            tipo='venta',
+                            cantidad=-qty,
+                            total=Decimal(qty) * price,
                             empresa=empresa_actual,
                             usuario=request.user,
-                            referencia=f"Autoproducción POS Pedido #{pedido.id}",
+                            referencia=f"Venta POS Pedido #{pedido.id}",
                             estado='recibida'
                         )
-                        # 2. Registrar salida automática de cada componente consumido
-                        for r in receta:
-                            cant_req = r.cantidad * qty
-                            Transaccion.objects.create(
-                                producto=r.componente,
-                                almacen=almacen,
-                                tipo='produccion',
-                                cantidad=-cant_req,
-                                total=Decimal(cant_req) * r.componente.precio_costo,
-                                empresa=empresa_actual,
-                                usuario=request.user,
-                                referencia=f"Consumo Receta {producto.nombre} - Pedido #{pedido.id}",
-                                estado='recibida'
-                            )
-
-                    # 3. Registrar la venta del producto (deja el stock neto en 0 si era receta)
-                    Transaccion.objects.create(
-                        producto=producto,
-                        almacen=almacen,
-                        tipo='venta',
-                        cantidad=-qty,
-                        total=Decimal(qty) * price,
-                        empresa=empresa_actual,
-                        usuario=request.user,
-                        referencia=f"Venta POS Pedido #{pedido.id}",
-                        estado='recibida'
-                    )
 
             # 5. Crear los registros de pago e ingreso
             for idx, p in enumerate(pagos_ajustados):
@@ -1415,7 +1463,7 @@ def crear_venta_pos_ajax(request):
 from django.contrib.auth.models import User
 from tesoreria.models import CajaBanco, PagoPedido
 from django.db.models import Sum
-from .models import CajaPOS, SesionCajaPOS
+from .models import CajaPOS, SesionCajaPOS, CorteZ
 
 @login_required
 def cortes_caja_list(request):
@@ -1441,8 +1489,9 @@ def cortes_caja_list(request):
     # Listado de cajas configuradas para esta empresa (todas las sucursales)
     cajas_pos = CajaPOS.objects.filter(empresa=empresa_actual)
     
-    # Historial de sesiones (todas las sucursales)
-    sesiones = SesionCajaPOS.objects.filter(caja_pos__empresa=empresa_actual).order_by('-fecha_apertura')
+    # Historial de sesiones (todas las sucursales) y Cortes Z (cierres diarios)
+    sesiones_qs = SesionCajaPOS.objects.filter(caja_pos__empresa=empresa_actual).order_by('-fecha_apertura')
+    cortes_z_qs = CorteZ.objects.filter(empresa=empresa_actual).order_by('-fecha_creacion')
 
     # Aplicar filtros
     q = request.GET.get('q', '').strip()
@@ -1453,25 +1502,54 @@ def cortes_caja_list(request):
 
     if q:
         from django.db.models import Q
-        sesiones = sesiones.filter(
+        sesiones_qs = sesiones_qs.filter(
             Q(usuario__username__icontains=q) |
             Q(usuario__first_name__icontains=q) |
             Q(usuario__last_name__icontains=q) |
             Q(caja_pos__nombre__icontains=q) |
             Q(caja_pos__sucursal__nombre__icontains=q)
         )
+        cortes_z_qs = cortes_z_qs.filter(
+            Q(usuario__username__icontains=q) |
+            Q(usuario__first_name__icontains=q) |
+            Q(usuario__last_name__icontains=q)
+        )
 
     if cajero_id:
-        sesiones = sesiones.filter(usuario_id=cajero_id)
+        sesiones_qs = sesiones_qs.filter(usuario_id=cajero_id)
+        cortes_z_qs = cortes_z_qs.filter(usuario_id=cajero_id)
 
     if fecha_str:
-        sesiones = sesiones.filter(fecha_apertura__date=fecha_str)
+        sesiones_qs = sesiones_qs.filter(fecha_apertura__date=fecha_str)
+        cortes_z_qs = cortes_z_qs.filter(fecha=fecha_str)
 
     if estado:
-        sesiones = sesiones.filter(estado=estado)
+        if estado == 'corte_z':
+            sesiones_qs = sesiones_qs.none()
+        elif estado in ['abierta', 'cerrada']:
+            cortes_z_qs = cortes_z_qs.none()
+        else:
+            sesiones_qs = sesiones_qs.filter(estado=estado)
+            cortes_z_qs = cortes_z_qs.none()
 
     if sucursal_filtro_id:
-        sesiones = sesiones.filter(caja_pos__sucursal_id=sucursal_filtro_id)
+        sesiones_qs = sesiones_qs.filter(caja_pos__sucursal_id=sucursal_filtro_id)
+        cortes_z_qs = cortes_z_qs.none()
+
+    # Combinar y etiquetar los registros
+    sesiones = []
+    for s in sesiones_qs:
+        s.tipo_corte = 'X'
+        s.fecha_orden = s.fecha_apertura
+        sesiones.append(s)
+
+    for cz in cortes_z_qs:
+        cz.tipo_corte = 'Z'
+        cz.fecha_orden = cz.fecha_creacion
+        sesiones.append(cz)
+
+    # Ordenar por fecha_orden descendente
+    sesiones.sort(key=lambda x: x.fecha_orden, reverse=True)
 
     # Datos para filtros y modales de creación
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
@@ -2081,3 +2159,326 @@ def imprimir_corte_ticket(request, sesion_id):
     }
     
     return render(request, 'ventas/ticket_corte.html', context)
+
+
+# ==============================================================================
+# VISTAS PARA EL CORTE Z (CIERRE DIARIO DE CAJAS)
+# ==============================================================================
+
+@login_required
+@require_POST
+def generar_corte_z_ajax(request):
+    from preferencias.permissions import user_has_sales_permission
+    if not user_has_sales_permission(request, 'cortes_de_caja', 'hacer_corte'):
+        return JsonResponse({'success': False, 'error': 'No tienes permisos para generar un Corte Z.'})
+
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Empresa no configurada.'})
+
+    fecha_str = request.POST.get('fecha')
+    if not fecha_str:
+        return JsonResponse({'success': False, 'error': 'La fecha es requerida.'})
+
+    try:
+        from datetime import datetime
+        fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Formato de fecha inválido.'})
+
+    # Verificar si ya existe un Corte Z para esta fecha y empresa
+    from django.db import IntegrityError, transaction
+    
+    if CorteZ.objects.filter(empresa=empresa_actual, fecha=fecha).exists():
+        return JsonResponse({'success': False, 'error': f'Ya se ha generado un Corte Z para la fecha {fecha.strftime("%d/%m/%Y")}.'})
+
+    # Filtrar sesiones cerradas en esa fecha de cierre que no tengan Corte Z asignado
+    sesiones_pendientes = SesionCajaPOS.objects.filter(
+        caja_pos__empresa=empresa_actual,
+        estado='cerrada',
+        fecha_cierre__date=fecha,
+        corte_z__isnull=True
+    )
+
+    if not sesiones_pendientes.exists():
+        return JsonResponse({'success': False, 'error': f'No hay turnos cerrados pendientes de Corte Z para la fecha {fecha.strftime("%d/%m/%Y")}.'})
+
+    # Consolidar totales
+    from decimal import Decimal
+    monto_inicial = Decimal('0.00')
+    monto_final_efectivo = Decimal('0.00')
+    total_efectivo = Decimal('0.00')
+    total_tarjeta = Decimal('0.00')
+    total_transferencia = Decimal('0.00')
+    total_ventas = Decimal('0.00')
+
+    for s in sesiones_pendientes:
+        monto_inicial += s.monto_inicial
+        monto_final_efectivo += s.monto_final_efectivo or Decimal('0.00')
+        total_efectivo += s.total_ventas_efectivo
+        total_tarjeta += s.total_ventas_tarjeta
+        total_transferencia += s.total_ventas_transferencia
+        total_ventas += s.total_ventas
+
+    try:
+        with transaction.atomic():
+            corte_z = CorteZ.objects.create(
+                empresa=empresa_actual,
+                fecha=fecha,
+                usuario=request.user,
+                monto_inicial=monto_inicial,
+                monto_final_efectivo=monto_final_efectivo,
+                total_efectivo=total_efectivo,
+                total_tarjeta=total_tarjeta,
+                total_transferencia=total_transferencia,
+                total_ventas=total_ventas
+            )
+            # Vincular las sesiones al nuevo Corte Z
+            sesiones_pendientes.update(corte_z=corte_z)
+            
+        return JsonResponse({'success': True, 'corte_z_id': corte_z.id})
+    except IntegrityError:
+        return JsonResponse({'success': False, 'error': 'Error de integridad al guardar el Corte Z. Posiblemente ya existe uno para esta fecha.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Error al guardar el Corte Z: {str(e)}'})
+
+
+@login_required
+def historial_cortes_z_ajax(request):
+    from preferencias.permissions import user_has_sales_permission
+    if not user_has_sales_permission(request, 'cortes_de_caja', 'ver'):
+        return JsonResponse({'success': False, 'error': 'No tienes permisos para ver el historial.'})
+
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Empresa no configurada.'})
+
+    cortes = CorteZ.objects.filter(empresa=empresa_actual).order_by('-fecha')
+    data = []
+    for c in cortes:
+        # Obtener los nombres de las cajas incluidas en este corte z
+        cajas_nombres = list(c.sesiones_corte.values_list('caja_pos__nombre', flat=True))
+        data.append({
+            'id': c.id,
+            'fecha': c.fecha.strftime('%Y-%m-%d'),
+            'fecha_formateada': c.fecha.strftime('%d/%m/%Y'),
+            'fecha_creacion': c.fecha_creacion.strftime('%d/%m/%Y %H:%M'),
+            'usuario': c.usuario.username.split('@')[0],
+            'total_efectivo': float(c.total_efectivo),
+            'total_tarjeta': float(c.total_tarjeta),
+            'total_transferencia': float(c.total_transferencia),
+            'total_ventas': float(c.total_ventas),
+            'monto_inicial': float(c.monto_inicial),
+            'monto_final_efectivo': float(c.monto_final_efectivo),
+            'cajas': ", ".join(cajas_nombres) if cajas_nombres else "Ninguna"
+        })
+
+    return JsonResponse({'success': True, 'cortes': data})
+
+
+@login_required
+def imprimir_corte_z_ticket(request, corte_z_id):
+    from preferencias.permissions import user_has_sales_permission
+    if not user_has_sales_permission(request, 'cortes_de_caja', 'imprimir_articulo'):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("No tienes permisos para imprimir este corte.")
+
+    from django.db.models import Sum
+    from tesoreria.models import PagoPedido
+    from decimal import Decimal
+    from django.http import Http404
+    
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("Empresa no configurada.")
+        
+    try:
+        corte_z = CorteZ.objects.get(id=corte_z_id, empresa=empresa_actual)
+    except CorteZ.DoesNotExist:
+        raise Http404("El Corte Z no existe o no pertenece a la empresa.")
+        
+    # Obtener todas las sesiones vinculadas
+    sesiones = corte_z.sesiones_corte.all()
+    
+    # Consolidar detalles de productos de todas las sesiones de este Corte Z
+    from pedidos.models import DetallePedido, Pedido
+    detalles = DetallePedido.objects.filter(pedido__sesion_caja__in=sesiones)
+    
+    session_subtotal = Decimal('0.00')
+    session_iva = Decimal('0.00')
+    session_total = Decimal('0.00')
+    for d in detalles:
+        session_subtotal += d.subtotal
+        session_iva += d.iva_monto
+        session_total += d.total
+
+    pedidos_sesion = Pedido.objects.filter(sesion_caja__in=sesiones)
+
+    # Calcular descuentos aplicados en las sesiones
+    total_descuentos = Decimal('0.00')
+    for ped in pedidos_sesion:
+        if ped.notas:
+            try:
+                import json
+                notas_data = json.loads(ped.notas)
+                if isinstance(notas_data, dict):
+                    total_descuentos += Decimal(str(notas_data.get('descuento_monto', 0.00)))
+            except Exception:
+                pass
+    original_subtotal = session_subtotal + total_descuentos
+
+    # Calcular desglose de subtotales, IVAs y totales por forma de pago
+    subtotal_efectivo = Decimal('0.00')
+    iva_efectivo = Decimal('0.00')
+    total_efectivo = Decimal('0.00')
+    
+    subtotal_tarjeta = Decimal('0.00')
+    iva_tarjeta = Decimal('0.00')
+    total_tarjeta = Decimal('0.00')
+    
+    subtotal_transferencia = Decimal('0.00')
+    iva_transferencia = Decimal('0.00')
+    total_transferencia = Decimal('0.00')
+    
+    for ped in pedidos_sesion:
+        ped_subtotal = Decimal('0.00')
+        ped_iva = Decimal('0.00')
+        ped_total = Decimal('0.00')
+        for d in ped.detalles.all():
+            ped_subtotal += d.subtotal
+            ped_iva += d.iva_monto
+            ped_total += d.total
+            
+        pagos_pedido = PagoPedido.objects.filter(pedido=ped, estado='aplicado')
+        ped_pagado = sum(p.monto_mxn for p in pagos_pedido) or Decimal('0.00')
+        
+        if ped_pagado > 0:
+            for p in pagos_pedido:
+                proporcion = p.monto_mxn / ped_pagado
+                fp = p.forma_pago
+                if fp == 'efectivo':
+                    subtotal_efectivo += ped_subtotal * proporcion
+                    iva_efectivo += ped_iva * proporcion
+                    total_efectivo += ped_total * proporcion
+                elif fp in ['tarjeta_debito', 'tarjeta_credito']:
+                    subtotal_tarjeta += ped_subtotal * proporcion
+                    iva_tarjeta += ped_iva * proporcion
+                    total_tarjeta += ped_total * proporcion
+                elif fp == 'transferencia':
+                    subtotal_transferencia += ped_subtotal * proporcion
+                    iva_transferencia += ped_iva * proporcion
+                    total_transferencia += ped_total * proporcion
+    
+    efectivo_estimado = corte_z.monto_inicial + corte_z.total_efectivo
+    monto_final = corte_z.monto_final_efectivo
+    diferencia = monto_final - efectivo_estimado
+
+    # Agrupar productos vendidos
+    incluir_articulos = request.GET.get('incluir_articulos') == 'true'
+    articulos_data = []
+    if incluir_articulos:
+        from collections import defaultdict
+        items_map = defaultdict(lambda: {
+            'nombre': '',
+            'cantidad': 0,
+            'total': Decimal('0.00')
+        })
+        for d in detalles:
+            prod_id = d.producto.id
+            items_map[prod_id]['nombre'] = d.producto.nombre
+            items_map[prod_id]['cantidad'] += d.cantidad_solicitada
+            items_map[prod_id]['total'] += d.total
+            
+        for prod_id, info in items_map.items():
+            articulos_data.append({
+                'nombre': info['nombre'],
+                'cantidad': info['cantidad'],
+                'total': info['total']
+            })
+        articulos_data.sort(key=lambda x: x['cantidad'], reverse=True)
+        
+    context = {
+        'corte_z': corte_z,
+        'sesiones': sesiones,
+        'ventas_efectivo': corte_z.total_efectivo,
+        'ventas_tarjeta': corte_z.total_tarjeta,
+        'ventas_transferencia': corte_z.total_transferencia,
+        'total_ventas': corte_z.total_ventas,
+        'efectivo_estimado': efectivo_estimado,
+        'monto_final': monto_final,
+        'diferencia': diferencia,
+        'empresa': empresa_actual,
+        'session_subtotal': session_subtotal,
+        'session_iva': session_iva,
+        'session_total': session_total,
+        'total_descuentos': total_descuentos,
+        'original_subtotal': original_subtotal,
+        'subtotal_efectivo': subtotal_efectivo,
+        'iva_efectivo': iva_efectivo,
+        'total_efectivo_pagos': total_efectivo,
+        'subtotal_tarjeta': subtotal_tarjeta,
+        'iva_tarjeta': iva_tarjeta,
+        'total_tarjeta_pagos': total_tarjeta,
+        'subtotal_transferencia': subtotal_transferencia,
+        'iva_transferencia': iva_transferencia,
+        'total_transferencia_pagos': total_transferencia,
+        'incluir_articulos': incluir_articulos,
+        'articulos': articulos_data
+    }
+    
+    return render(request, 'ventas/ticket_corte_z.html', context)
+
+
+@login_required
+def imprimir_pedido_ticket(request, pedido_id):
+    """Genera la vista para la impresión del ticket de venta del Pedido (Formato térmico 80mm)"""
+    import json
+    from decimal import Decimal
+    from pedidos.models import Pedido
+    
+    empresa_actual = get_empresa_actual(request)
+    pedido = get_object_or_404(Pedido, id=pedido_id, empresa=empresa_actual)
+    
+    # Limpiar nombre del vendedor (quitar @empresa si es necesario)
+    vendedor_nombre = pedido.vendedor.get_full_name()
+    if not vendedor_nombre:
+        vendedor_nombre = pedido.vendedor.username.split('@')[0]
+        
+    items_preparados = []
+    for d in pedido.detalles.all():
+        mods = []
+        if d.modificadores_json:
+            try:
+                mods_list = json.loads(d.modificadores_json)
+                for m in mods_list:
+                    tipo_lbl = "Extra" if m.get('tipo') == 'extra' else "Sin"
+                    nombre = m.get('nombre', '')
+                    mods.append(f"{tipo_lbl} {nombre}")
+            except Exception:
+                pass
+        items_preparados.append({
+            'detalle': d,
+            'nombre_producto': d.producto.nombre,
+            'cantidad': d.cantidad_solicitada,
+            'precio_unitario': d.precio_unitario,
+            'subtotal': d.subtotal,
+            'modificadores': mods
+        })
+        
+    pagos_data = []
+    for p in pedido.pagos.filter(estado='aplicado'):
+        pagos_data.append({
+            'monto': p.monto,
+            'metodo': p.caja_banco.nombre if p.caja_banco else 'Efectivo',
+            'fecha': p.fecha_registro
+        })
+        
+    context = {
+        'pedido': pedido,
+        'empresa': empresa_actual,
+        'vendedor_nombre': vendedor_nombre,
+        'items': items_preparados,
+        'pagos': pagos_data
+    }
+    return render(request, 'ventas/ticket_pedido.html', context)

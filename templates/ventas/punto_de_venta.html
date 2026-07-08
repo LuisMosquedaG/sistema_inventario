@@ -464,7 +464,8 @@
             nombre: "{{ prod.nombre|escapejs }}",
             precio_base: {{ prod.precio_venta }},
             iva: {{ prod.iva|default:0 }},
-            precios_lista: JSON.parse('{{ prod.precios_lista_json|escapejs }}')
+            precios_lista: JSON.parse('{{ prod.precios_lista_json|escapejs }}'),
+            modificadores: JSON.parse('{{ prod.modificadores_json|escapejs }}')
         },
         {% empty %}
         {% endfor %}
@@ -890,47 +891,155 @@
         });
     }
 
-    // Agregar artículo al carrito
+    let modalPersonalizacionInstancia = null;
+
+    // Intercepta agregar al carrito para ver si tiene modificadores
     function addToCart(id, nombre, precio, tipo, stockMax, ivaVal = 0) {
         if (tipo !== 'servicio' && stockMax <= 0) {
             alert(`Lo sentimos, el producto "${nombre}" está agotado.`);
             return;
         }
 
-        if (cart[id]) {
-            if (tipo !== 'servicio' && cart[id].cantidad >= stockMax) {
+        const prodData = productosPOS[id] || {};
+        const modificadores = prodData.modificadores || [];
+
+        if (modificadores.length > 0) {
+            // Abrir modal de personalización
+            document.getElementById('pers_producto_id').value = id;
+            document.getElementById('pers_nombre').value = nombre;
+            document.getElementById('pers_precio').value = precio;
+            document.getElementById('pers_tipo').value = tipo;
+            document.getElementById('pers_stock_max').value = stockMax;
+            document.getElementById('pers_iva').value = ivaVal;
+
+            document.getElementById('modalPersonalizarProductoLabel').innerText = `Personalizar: ${nombre}`;
+            
+            const tbody = document.getElementById('listaPersonalizacionCuerpo');
+            tbody.innerHTML = '';
+
+            modificadores.forEach(m => {
+                let optionsHtml = '';
+                if (m.permite_extra) {
+                    optionsHtml += `
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input mod-radio-input" type="radio" name="mod_choice_${m.id}" id="mod_extra_${m.id}" value="extra" data-id="${m.producto_modificador_id}" data-nombre="${m.nombre}" data-precio="${m.precio_extra}">
+                            <label class="form-check-label small fw-semibold text-success" for="mod_extra_${m.id}">+ Extra (+$${m.precio_extra.toFixed(2)})</label>
+                        </div>
+                    `;
+                }
+                if (m.permite_sin) {
+                    optionsHtml += `
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input mod-radio-input" type="radio" name="mod_choice_${m.id}" id="mod_sin_${m.id}" value="sin" data-id="${m.producto_modificador_id}" data-nombre="${m.nombre}" data-precio="0">
+                            <label class="form-check-label small fw-semibold text-danger" for="mod_sin_${m.id}">- Sin</label>
+                        </div>
+                    `;
+                }
+                optionsHtml += `
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input mod-radio-input" type="radio" name="mod_choice_${m.id}" id="mod_normal_${m.id}" value="normal" checked>
+                        <label class="form-check-label small text-muted" for="mod_normal_${m.id}">Normal</label>
+                    </div>
+                `;
+
+                tbody.innerHTML += `
+                    <tr class="align-middle">
+                        <td class="fw-semibold text-dark ps-2 small">${m.nombre}</td>
+                        <td class="text-end pe-2">${optionsHtml}</td>
+                    </tr>
+                `;
+            });
+
+            if (!modalPersonalizacionInstancia) {
+                modalPersonalizacionInstancia = new bootstrap.Modal(document.getElementById('modalPersonalizarProducto'));
+            }
+            modalPersonalizacionInstancia.show();
+        } else {
+            // Agregar directo
+            insertCartItem(id, nombre, precio, tipo, stockMax, ivaVal, []);
+        }
+    }
+
+    function confirmarPersonalizacion() {
+        const id = document.getElementById('pers_producto_id').value;
+        const nombre = document.getElementById('pers_nombre').value;
+        const precio = parseFloat(document.getElementById('pers_precio').value);
+        const tipo = document.getElementById('pers_tipo').value;
+        const stockMax = parseInt(document.getElementById('pers_stock_max').value);
+        const ivaVal = parseFloat(document.getElementById('pers_iva').value);
+
+        const seleccionadoModificadores = [];
+        const radios = document.querySelectorAll('.mod-radio-input');
+        
+        radios.forEach(radio => {
+            if (radio.checked && (radio.value === 'extra' || radio.value === 'sin')) {
+                seleccionadoModificadores.push({
+                    id: parseInt(radio.dataset.id),
+                    nombre: radio.dataset.nombre,
+                    tipo: radio.value,
+                    precio_extra: parseFloat(radio.dataset.precio) || 0
+                });
+            }
+        });
+
+        insertCartItem(id, nombre, precio, tipo, stockMax, ivaVal, seleccionadoModificadores);
+        
+        if (modalPersonalizacionInstancia) {
+            modalPersonalizacionInstancia.hide();
+        }
+    }
+
+    function insertCartItem(id, nombre, precioBase, tipo, stockMax, ivaVal, modificadores) {
+        // Calcular el precio unitario del item sumando los extras
+        let precioUnitario = precioBase;
+        modificadores.forEach(m => {
+            if (m.tipo === 'extra') {
+                precioUnitario += m.precio_extra;
+            }
+        });
+
+        // Generar llave única para el carrito
+        const key = id + '_' + modificadores.map(m => m.id + '-' + m.tipo).sort().join('_');
+
+        if (cart[key]) {
+            if (tipo !== 'servicio' && cart[key].cantidad >= stockMax) {
                 alert(`No puedes agregar más artículos de este producto. Stock máximo disponible: ${stockMax}`);
                 return;
             }
-            cart[id].cantidad++;
+            cart[key].cantidad++;
         } else {
-            // Obtener precios de lista desde nuestro objeto global
             const prodData = productosPOS[id] || {};
             const preciosLista = prodData.precios_lista || [];
 
             // Determinar si hay una lista de precios por defecto activa por horario
             let listaSeleccionada = '';
-            let precioFinal = precio;
+            let precioFinal = precioUnitario;
 
             if (typeof activeDefaultPriceList !== 'undefined' && activeDefaultPriceList !== '') {
                 const lp = preciosLista.find(p => p.nombre === activeDefaultPriceList);
                 if (lp) {
                     listaSeleccionada = activeDefaultPriceList;
-                    precioFinal = parseFloat(lp.monto) || precio;
+                    precioFinal = (parseFloat(lp.monto) || precioBase);
+                    modificadores.forEach(m => {
+                        if (m.tipo === 'extra') {
+                            precioFinal += m.precio_extra;
+                        }
+                    });
                 }
             }
 
-            cart[id] = {
+            cart[key] = {
                 id: id,
                 nombre: nombre,
                 precio: precioFinal,
-                precioBase: precio,
+                precioBase: precioBase,
                 listaSeleccionada: listaSeleccionada,
                 preciosLista: preciosLista,
                 tipo: tipo,
                 stockMax: stockMax,
                 iva: ivaVal,
-                cantidad: 1
+                cantidad: 1,
+                modificadores: modificadores
             };
         }
 
@@ -1045,15 +1154,26 @@
 
             const showList = item.preciosLista && item.preciosLista.length > 0;
             const canChangeList = {% if granular_sales_perms.punto_de_venta.listas %}true{% else %}false{% endif %};
+            let modsHtml = '';
+            if (item.modificadores && item.modificadores.length > 0) {
+                modsHtml = `<div class="text-muted small mt-1" style="font-size: 0.72rem; font-style: italic; line-height: 1.2;">` + 
+                           item.modificadores.map(m => {
+                               const prefix = m.tipo === 'extra' ? '<span class="text-success fw-bold">+ Extra</span>' : '<span class="text-danger fw-bold">- Sin</span>';
+                               return `${prefix} ${m.nombre}`;
+                           }).join(', ') + 
+                           `</div>`;
+            }
+
             html += `
             <div class="cart-item-row d-flex justify-content-between align-items-center">
                 <div class="flex-grow-1 pe-3">
                     <h6 class="fw-bold mb-0 text-dark small text-truncate" style="max-width: 250px;">${item.nombre}</h6>
+                    ${modsHtml}
                     <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
                         <span class="small text-muted">$${item.precio.toFixed(2)} c/u</span>
                         ${showList ? `
                             <div class="position-relative d-inline-block" style="width: auto; max-width: 175px; ${canChangeList ? '' : 'opacity: 0.55; pointer-events: none;'}">
-                                <select class="form-select form-select-sm py-0 text-muted" ${canChangeList ? '' : 'disabled'} style="font-size: 0.7rem; width: 100%; height: 20px; border-radius: 4px; line-height: 1; padding-left: 6px !important; padding-right: 20px !important; appearance: none; -webkit-appearance: none; -moz-appearance: none; background-image: none;" onchange="updateItemPriceList(${item.id}, this.value)">
+                                <select class="form-select form-select-sm py-0 text-muted" ${canChangeList ? '' : 'disabled'} style="font-size: 0.7rem; width: 100%; height: 20px; border-radius: 4px; line-height: 1; padding-left: 6px !important; padding-right: 20px !important; appearance: none; -webkit-appearance: none; -moz-appearance: none; background-image: none;" onchange="updateItemPriceList('${key}', this.value)">
                                     <option value="" ${item.listaSeleccionada === '' ? 'selected' : ''}>P. Base ($${item.precioBase.toFixed(2)})</option>
                                     ${item.preciosLista.map(lp => `
                                         <option value="${lp.nombre}" ${item.listaSeleccionada === lp.nombre ? 'selected' : ''}>
@@ -1070,12 +1190,12 @@
                 </div>
                 <div class="d-flex align-items-center gap-3">
                     <div class="quantity-control">
-                        <button class="quantity-btn" onclick="decreaseQuantity(${item.id})"><i class="bi bi-dash"></i></button>
+                        <button class="quantity-btn" onclick="decreaseQuantity('${key}')"><i class="bi bi-dash"></i></button>
                         <input type="text" class="quantity-input" value="${item.cantidad}" readonly>
-                        <button class="quantity-btn" onclick="increaseQuantity(${item.id})"><i class="bi bi-plus"></i></button>
+                        <button class="quantity-btn" onclick="increaseQuantity('${key}')"><i class="bi bi-plus"></i></button>
                     </div>
                     <span class="fw-bold text-dark small" style="width: 70px; text-align: right;">$${lineTotal.toFixed(2)}</span>
-                    <button class="btn btn-delete-pos ms-2" onclick="removeItem(${item.id})"><i class="bi bi-x-circle"></i></button>
+                    <button class="btn btn-delete-pos ms-2" onclick="removeItem('${key}')"><i class="bi bi-x-circle"></i></button>
                 </div>
             </div>`;
         });
@@ -1164,7 +1284,8 @@
                 producto_id: cart[key].id,
                 cantidad: cart[key].cantidad,
                 precio_unitario: cart[key].precio,
-                lista_seleccionada: cart[key].listaSeleccionada || ''
+                lista_seleccionada: cart[key].listaSeleccionada || '',
+                modificadores: cart[key].modificadores || []
             })),
             pagos: pagos,
             aplica_iva: aplicaIva,
@@ -1184,7 +1305,7 @@
         .then(r => r.json())
         .then(data => {
             if (data.success) {
-                // Calcular el cambio a mostrar en el alert
+                // Calcular el cambio a mostrar en el modal
                 const totalVenta = currentTotalVenta;
                 let totalIngresado = 0;
                 document.querySelectorAll('.payment-row').forEach(row => {
@@ -1192,12 +1313,13 @@
                 });
                 const cambio = Math.max(0, totalIngresado - totalVenta);
                 
-                let msg = "¡Venta registrada con éxito!\n" + data.message;
+                let cambioMsg = "";
                 if (cambio > 0) {
-                    msg += `\n\nCambio a entregar al cliente: $${cambio.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    cambioMsg = `Cambio a entregar al cliente: $${cambio.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
                 }
                 
-                alert(msg);
+                // Mostrar cambio en el modal
+                document.getElementById('txtMensajeCambioVenta').innerText = cambioMsg;
                 
                 // Limpiar carrito
                 for (const key in cart) {
@@ -1218,8 +1340,23 @@
                 const container = document.getElementById('paymentRowsContainer');
                 container.innerHTML = '';
                 addPaymentRow();
-                // Recargar stock de la página para sincronizar cantidades
-                location.reload();
+
+                // Configurar botón de impresión
+                const printBtn = document.getElementById('btnPrintTicketVentaConfirmar');
+                printBtn.onclick = function() {
+                    window.open(`/ventas/pos/imprimir-ticket/${data.pedido_id}/`, '_blank');
+                    location.reload();
+                };
+
+                // Configurar botón de cancelar/cerrar
+                const closeBtn = document.getElementById('btnPrintTicketVentaCerrar');
+                closeBtn.onclick = function() {
+                    location.reload();
+                };
+
+                // Mostrar el modal
+                const modal = new bootstrap.Modal(document.getElementById('modalPreguntaImpresionVenta'));
+                modal.show();
             } else {
                 alert("Error al procesar la venta: " + data.error);
             }
@@ -1229,6 +1366,70 @@
         });
     }
 </script>
+
+<!-- MODAL: PREGUNTA IMPRESION TICKET DE VENTA -->
+<div class="modal fade" id="modalPreguntaImpresionVenta" tabindex="-1" aria-labelledby="modalPreguntaImpresionVentaLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+            <div class="modal-header border-bottom bg-light py-2 px-3">
+                <h6 class="modal-title fw-bold text-dark" id="modalPreguntaImpresionVentaLabel">
+                    <i class="bi bi-printer-fill me-2" style="color: #00b8b9;"></i>
+                    Venta Completada
+                </h6>
+            </div>
+            <div class="modal-body text-center p-4">
+                <i class="bi bi-check-circle-fill text-success display-4 mb-3 d-block"></i>
+                <h6 class="fw-bold mb-2">¡Venta Exitosa!</h6>
+                <p id="txtMensajeCambioVenta" class="text-secondary small mb-4"></p>
+                
+                <p class="text-muted small mb-3">¿Deseas imprimir el ticket de esta venta?</p>
+                
+                <div class="d-grid gap-2">
+                    <button type="button" id="btnPrintTicketVentaConfirmar" class="btn btn-brand text-white btn-sm shadow-sm fw-bold">
+                        <i class="bi bi-printer me-1"></i> Sí, imprimir ticket
+                    </button>
+                    <button type="button" id="btnPrintTicketVentaCerrar" class="btn btn-outline-secondary btn-sm fw-bold" data-bs-dismiss="modal">
+                        No, continuar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: PERSONALIZAR PRODUCTO (MODIFICADORES) -->
+<div class="modal fade" id="modalPersonalizarProducto" tabindex="-1" aria-labelledby="modalPersonalizarProductoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-bottom bg-light">
+                <h5 class="modal-title fw-bold" id="modalPersonalizarProductoLabel">Personalizar Producto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="pers_producto_id">
+                <input type="hidden" id="pers_nombre">
+                <input type="hidden" id="pers_precio">
+                <input type="hidden" id="pers_tipo">
+                <input type="hidden" id="pers_stock_max">
+                <input type="hidden" id="pers_iva">
+                
+                <p class="text-muted small mb-3">Selecciona los extras o ingredientes a quitar para preparar tu platillo:</p>
+                
+                <div class="table-responsive border rounded bg-white mb-0">
+                    <table class="table table-hover mb-0 align-middle">
+                        <tbody id="listaPersonalizacionCuerpo">
+                            <!-- Se llena vía JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-top">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" onclick="confirmarPersonalizacion()" class="btn btn-brand btn-sm"><i class="bi bi-cart-plus me-1"></i>Agregar al Carrito</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- MODAL: APERTURA DE TURNO (OBLIGATORIO) -->
 {% if not sesion_activa %}

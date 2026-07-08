@@ -93,6 +93,7 @@ class Producto(models.Model):
     maneja_lote = models.BooleanField(default=False, verbose_name="Maneja Lote")
     maneja_serie = models.BooleanField(default=False, verbose_name="Maneja No. Serie")
     mostrar_en_pos = models.BooleanField(default=True, verbose_name="Mostrar en POS")
+    permitir_modificadores = models.BooleanField(default=False, verbose_name="Permitir Modificadores")
     
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     empresa = models.ForeignKey('panel.Empresa', on_delete=models.CASCADE, null=True, blank=True, verbose_name="Empresa")
@@ -316,3 +317,22 @@ class DetalleReceta(models.Model):
 
     def __str__(self):
         return f"{self.producto_padre.nombre} <-> {self.componente.nombre} (x{self.cantidad})"
+
+class ModificadorProducto(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
+    producto_padre = models.ForeignKey('Producto', on_delete=models.CASCADE, related_name='modificadores', verbose_name="Producto Principal")
+    producto_modificador = models.ForeignKey('Producto', on_delete=models.CASCADE, related_name='modificadores_asociados', verbose_name="Producto Modificador")
+    
+    permite_extra = models.BooleanField(default=True, verbose_name="Permite Extra (+)")
+    permite_sin = models.BooleanField(default=True, verbose_name="Permite Sin (-)")
+    
+    precio_extra = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Precio Extra")
+    cantidad_modificadora = models.DecimalField(max_digits=12, decimal_places=4, default=1.0000, verbose_name="Cantidad Modificadora")
+
+    class Meta:
+        verbose_name = "Modificador de Producto"
+        verbose_name_plural = "Modificadores de Productos"
+        unique_together = ('producto_padre', 'producto_modificador')
+
+    def __str__(self):
+        return f"Modificador {self.producto_modificador.nombre} para {self.producto_padre.nombre}"

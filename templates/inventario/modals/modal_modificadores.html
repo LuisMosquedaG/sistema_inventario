@@ -1,0 +1,274 @@
+<!-- MODAL: GESTIONAR MODIFICADORES -->
+<style>
+    .btn-delete-modifier {
+        color: #adb5bd;
+        cursor: pointer;
+        transition: color 0.2s ease, transform 0.15s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 4px;
+    }
+    .btn-delete-modifier:hover {
+        color: #dc3545 !important;
+        transform: scale(1.15);
+    }
+    .btn-edit-modifier {
+        color: #adb5bd;
+        cursor: pointer;
+        transition: color 0.2s ease, transform 0.15s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 4px;
+    }
+    .btn-edit-modifier:hover {
+        color: #00b8b9 !important;
+        transform: scale(1.15);
+    }
+</style>
+<div class="modal fade" id="modalModificadores" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-bottom bg-white py-2">
+                <h5 class="modal-title fw-bold" id="modalModificadoresLabel">
+                    <i class="bi bi-sliders me-2 text-brand"></i>Modificadores de Receta
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body p-3 bg-light">
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body p-3">
+                        <h6 class="text-uppercase text-muted fw-bold mb-2" style="font-size: 0.7rem; letter-spacing: 1px;">Agregar Modificador</h6>
+                        <form id="formModificador" class="row g-3 align-items-end">
+                            {% csrf_token %}
+                            <input type="hidden" id="modificador_padre_id" name="producto_padre_id">
+                            <input type="hidden" id="modificador_id" name="modificador_id">
+                            
+                            <div class="col-md-3 flex-grow-1">
+                                <label class="form-label small fw-bold">Producto Modificador*</label>
+                                <select class="form-select form-select-sm" id="select_modificador_id" name="producto_modificador_id" required>
+                                    <option value="">Selecciona un producto...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold">Precio Extra ($)</label>
+                                <input type="number" step="0.01" class="form-control form-control-sm" id="mod_precio_extra" name="precio_extra" value="0.00" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold">Cant. en Receta</label>
+                                <input type="number" step="0.0001" class="form-control form-control-sm" id="mod_cant_receta" name="cantidad_modificadora" value="1.0000" required>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="d-flex align-items-center gap-3 pb-1" style="height: 31px;">
+                                    <div class="form-check form-switch small mb-0">
+                                        <input class="form-check-input" type="checkbox" id="mod_permite_extra" name="permite_extra" checked>
+                                        <label class="form-check-label fw-bold" for="mod_permite_extra">Extra (+)</label>
+                                    </div>
+                                    <div class="form-check form-switch small mb-0">
+                                        <input class="form-check-input" type="checkbox" id="mod_permite_sin" name="permite_sin" checked>
+                                        <label class="form-check-label fw-bold" for="mod_permite_sin">Sin (-)</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-auto ms-2">
+                                <button type="submit" class="btn btn-sm btn-brand d-inline-flex align-items-center justify-content-center" id="btnGuardarModificador" style="width: 31px; height: 31px; padding: 0;"><i class="bi bi-plus-lg"></i></button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <h6 class="text-uppercase text-muted fw-bold mb-2" style="font-size: 0.7rem; letter-spacing: 1px;">Modificadores Configurados</h6>
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-0">
+                        <div class="table-responsive bg-white rounded">
+                            <table class="table table-sm table-hover mb-0" id="tablaModificadores">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="ps-3">Nombre</th>
+                                        <th class="text-center">Permite Extra (+)</th>
+                                        <th class="text-center">Permite Sin (-)</th>
+                                        <th class="text-end">Precio Extra</th>
+                                        <th class="text-center">Cant. Receta</th>
+                                        <th class="text-center" style="width: 80px;">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="listaModificadoresCuerpo">
+                                    <!-- Se llena vía JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer bg-white border-top py-2">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let modalModificadoresInstancia = null;
+
+    function abrirModalModificadores(productoId, productoNombre) {
+        document.getElementById('modalModificadoresLabel').innerHTML = `<i class="bi bi-sliders me-2 text-brand"></i>Modificadores para: ${productoNombre}`;
+        document.getElementById('modificador_padre_id').value = productoId;
+        document.getElementById('modificador_id').value = "";
+        
+        // Reset del formulario
+        document.getElementById('formModificador').reset();
+        document.getElementById('mod_precio_extra').value = "0.00";
+        document.getElementById('mod_cant_receta').value = "1.0000";
+        document.getElementById('mod_permite_extra').checked = true;
+        document.getElementById('mod_permite_sin').checked = true;
+
+        const btnSave = document.getElementById('btnGuardarModificador');
+        if (btnSave) {
+            btnSave.innerHTML = '<i class="bi bi-plus-lg"></i>';
+        }
+
+        cargarModificadoresDeProducto(productoId);
+
+        if (!modalModificadoresInstancia) {
+            modalModificadoresInstancia = new bootstrap.Modal(document.getElementById('modalModificadores'));
+        }
+        modalModificadoresInstancia.show();
+    }
+
+    function cargarModificadoresDeProducto(productoId) {
+        const tbody = document.getElementById('listaModificadoresCuerpo');
+        const selectMod = document.getElementById('select_modificador_id');
+        
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-muted"><div class="spinner-border spinner-border-sm text-brand" role="status"></div> Cargando modificadores...</td></tr>';
+        
+        fetch(`/inventario/modificadores/${productoId}/`)
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) {
+                alert("Error al cargar: " + data.error);
+                return;
+            }
+
+            // Llenar selector de productos disponibles
+            selectMod.innerHTML = '<option value="">Selecciona un producto...</option>';
+            data.productos_disponibles.forEach(p => {
+                selectMod.innerHTML += `<option value="${p.id}">${p.nombre}</option>`;
+            });
+
+            // Llenar tabla
+            tbody.innerHTML = '';
+            if (data.modificadores.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-muted">Este producto no tiene modificadores configurados.</td></tr>';
+                return;
+            }
+
+            data.modificadores.forEach(m => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="ps-3 align-middle fw-semibold text-dark">${m.nombre}</td>
+                        <td class="text-center align-middle text-dark">${m.permite_extra ? 'Sí' : 'No'}</td>
+                        <td class="text-center align-middle text-dark">${m.permite_sin ? 'Sí' : 'No'}</td>
+                        <td class="text-end align-middle text-dark">$${m.precio_extra.toFixed(2)}</td>
+                        <td class="text-center align-middle text-muted">${parseFloat(m.cantidad_modificadora)}</td>
+                        <td class="text-center align-middle">
+                            <span onclick="cargarEdicionModificador(${m.id}, ${m.producto_modificador_id}, ${m.precio_extra}, ${m.cantidad_modificadora}, ${m.permite_extra}, ${m.permite_sin})" class="btn-edit-modifier me-1" title="Editar">
+                                <i class="bi bi-pencil-square fs-5"></i>
+                            </span>
+                            <span onclick="eliminarModificador(${m.id}, ${productoId})" class="btn-delete-modifier" title="Eliminar">
+                                <i class="bi bi-x-circle fs-5"></i>
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            });
+        })
+        .catch(err => {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-3 text-danger">Error de conexión: ${err.message}</td></tr>`;
+        });
+    }
+
+    document.getElementById('formModificador').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const productoId = document.getElementById('modificador_padre_id').value;
+        const data = new FormData();
+        data.append('producto_padre_id', productoId);
+        data.append('modificador_id', document.getElementById('modificador_id').value);
+        data.append('producto_modificador_id', document.getElementById('select_modificador_id').value);
+        data.append('precio_extra', document.getElementById('mod_precio_extra').value);
+        data.append('cantidad_modificadora', document.getElementById('mod_cant_receta').value);
+        data.append('permite_extra', document.getElementById('mod_permite_extra').checked ? 'true' : 'false');
+        data.append('permite_sin', document.getElementById('mod_permite_sin').checked ? 'true' : 'false');
+
+        fetch('/inventario/modificadores/guardar/', {
+            method: 'POST',
+            body: data,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                // Limpiar form
+                document.getElementById('modificador_id').value = "";
+                document.getElementById('select_modificador_id').value = "";
+                document.getElementById('mod_precio_extra').value = "0.00";
+                document.getElementById('mod_cant_receta').value = "1.0000";
+                document.getElementById('mod_permite_extra').checked = true;
+                document.getElementById('mod_permite_sin').checked = true;
+
+                const btnSave = document.getElementById('btnGuardarModificador');
+                if (btnSave) {
+                    btnSave.innerHTML = '<i class="bi bi-plus-lg"></i>';
+                }
+                
+                cargarModificadoresDeProducto(productoId);
+            } else {
+                alert("Error al guardar: " + data.error);
+            }
+        })
+        .catch(err => alert("Error de red: " + err.message));
+    });
+
+    function cargarEdicionModificador(id, productoModificadorId, precioExtra, cantidadModificadora, permiteExtra, permiteSin) {
+        document.getElementById('modificador_id').value = id;
+        document.getElementById('select_modificador_id').value = productoModificadorId;
+        document.getElementById('mod_precio_extra').value = parseFloat(precioExtra).toFixed(2);
+        document.getElementById('mod_cant_receta').value = parseFloat(cantidadModificadora).toFixed(4);
+        document.getElementById('mod_permite_extra').checked = permiteExtra;
+        document.getElementById('mod_permite_sin').checked = permiteSin;
+        
+        const btnSave = document.getElementById('btnGuardarModificador');
+        if (btnSave) {
+            btnSave.innerHTML = '<i class="bi bi-check-lg"></i>';
+        }
+    }
+
+    function eliminarModificador(modificadorId, productoId) {
+        if (!confirm("¿Estás seguro de eliminar este modificador?")) return;
+
+        fetch(`/inventario/modificadores/eliminar/${modificadorId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                cargarModificadoresDeProducto(productoId);
+            } else {
+                alert("Error al eliminar: " + data.error);
+            }
+        })
+        .catch(err => alert("Error de red: " + err.message));
+    }
+</script>

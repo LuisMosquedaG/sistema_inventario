@@ -1,0 +1,177 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Ticket de Venta #{{ pedido.id }}</title>
+    <style>
+        @page {
+            size: 80mm auto;
+            margin: 0;
+        }
+        @media print {
+            body {
+                width: 80mm;
+                margin: 0;
+                padding: 0;
+            }
+            .no-print {
+                display: none;
+            }
+        }
+        body {
+            width: 76mm; /* Margen seguro para 80mm */
+            margin: 0 auto;
+            padding: 8px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 11px;
+            line-height: 1.3;
+            color: #000;
+            background-color: #fff;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .bold {
+            font-weight: bold;
+        }
+        .title {
+            font-size: 13px;
+            margin-bottom: 2px;
+            font-weight: bold;
+        }
+        .divider {
+            border-top: 1px dashed #000;
+            margin: 6px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 5px 0;
+        }
+        td {
+            padding: 2px 0;
+            vertical-align: top;
+        }
+        .monto {
+            text-align: right;
+            padding-left: 5px;
+        }
+        .no-print-btn {
+            background-color: #00b8b9;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+            margin: 10px auto;
+            display: block;
+        }
+        .modifier-item {
+            font-size: 9px;
+            color: #444;
+            padding-left: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="text-center">
+        <span class="title">{{ empresa.nombre|upper }}</span><br>
+        {% if pedido.sucursal %}
+            <span>SUCURSAL: {{ pedido.sucursal.nombre|upper }}</span><br>
+        {% endif %}
+        <span>{{ empresa.calle|default:"" }} {{ empresa.numero|default:"" }}</span><br>
+        <span>Tel: {{ empresa.telefono_contacto|default:"" }}</span><br>
+        <span class="divider" style="display:block;"></span>
+        <span class="bold">TICKET DE VENTA</span><br>
+        <span>FOLIO: PED-{{ pedido.id|stringformat:"05d" }}</span><br>
+        <span>FECHA: {{ pedido.fecha_creacion|date:"d/m/Y H:i" }}</span><br>
+        <span>CAJERO: {{ vendedor_nombre|upper }}</span><br>
+        <span>CLIENTE: {{ pedido.cliente.nombre_completo|upper }}</span>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- DETALLE DE PRODUCTOS -->
+    <table>
+        <thead>
+            <tr style="border-bottom: 1px dashed #000;">
+                <th class="bold" style="text-align: left; width: 55%;">Producto</th>
+                <th class="bold text-center" style="width: 15%;">Cant</th>
+                <th class="bold text-right" style="width: 30%;">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+                <tr>
+                    <td>
+                        {{ item.nombre_producto }}
+                        {% for mod in item.modificadores %}
+                            <div class="modifier-item">* {{ mod }}</div>
+                        {% endfor %}
+                    </td>
+                    <td class="text-center">{{ item.cantidad }}</td>
+                    <td class="text-right">${{ item.subtotal|floatformat:2|intcomma }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="divider"></div>
+
+    <!-- TOTALES -->
+    <table>
+        <tr>
+            <td class="bold">Subtotal:</td>
+            <td class="text-right">${{ pedido.calcular_subtotal|floatformat:2|intcomma }}</td>
+        </tr>
+        {% if pedido.aplica_iva %}
+        <tr>
+            <td class="bold">IVA:</td>
+            <td class="text-right">${{ pedido.calcular_iva|floatformat:2|intcomma }}</td>
+        </tr>
+        {% endif %}
+        <tr style="font-size: 12px;" class="bold">
+            <td>TOTAL:</td>
+            <td class="text-right">${{ pedido.total_pedido|floatformat:2|intcomma }}</td>
+        </tr>
+    </table>
+
+    <div class="divider"></div>
+
+    <!-- PAGOS -->
+    <div class="text-center bold" style="margin-bottom: 4px;">PAGOS RECIBIDOS</div>
+    <table>
+        {% for pago in pagos %}
+            <tr>
+                <td>{{ pago.metodo }}</td>
+                <td class="text-right">${{ pago.monto|floatformat:2|intcomma }}</td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="2" class="text-center">Sin pagos registrados</td>
+            </tr>
+        {% endfor %}
+    </table>
+
+    <div class="divider"></div>
+
+    <div class="text-center" style="margin-top: 15px; font-size: 9px;">
+        <span>¡Gracias por su compra!</span><br>
+        <span>Conserve este ticket para cualquier aclaración.</span>
+    </div>
+
+    <script>
+        // Auto iniciar impresión al cargar
+        window.onload = function() {
+            window.print();
+        }
+    </script>
+</body>
+</html>

@@ -6,7 +6,10 @@ from core.views import (
     dashboard_inventario, crear_producto_ajax, obtener_producto_json, actualizar_producto_ajax,
     api_detalle_producto_inventario,
     api_detalle_documento,
-    actualizar_precio_producto
+    actualizar_precio_producto,
+    obtener_modificadores_json,
+    guardar_modificador_ajax,
+    eliminar_modificador_ajax
 )
 # NOTA: Eliminamos 'dashboard_compras' de aquí porque ahora vive en la app 'compras'
 from ventas.views import dashboard_ventas     
@@ -143,6 +146,11 @@ urlpatterns = [
     
     path('inventario/', include('almacenes.urls')), 
     path('inventario/', include('categorias.urls')),
+    
+    # --- MODIFICADORES ---
+    path('inventario/modificadores/<int:producto_id>/', obtener_modificadores_json, name='obtener_modificadores_json'),
+    path('inventario/modificadores/guardar/', guardar_modificador_ajax, name='guardar_modificador_ajax'),
+    path('inventario/modificadores/eliminar/<int:modificador_id>/', eliminar_modificador_ajax, name='eliminar_modificador_ajax'),
 ]
 
 # Servir archivos media en desarrollo

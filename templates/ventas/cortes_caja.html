@@ -4,18 +4,33 @@
 {% block content %}
 <style>
     .badge-status {
-        font-size: 0.75rem;
-        padding: 5px 10px;
-        border-radius: 20px;
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.7rem;
+        line-height: 1;
+        padding: 0.35em 0.8em;
         font-weight: 600;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: middle;
+        border-radius: 50px;
+        letter-spacing: 0.3px;
+        transition: all 0.2s ease-in-out;
     }
     .status-open {
         background-color: #ebfbee;
         color: #2f9e44;
+        border: 1px solid #b2f2bb;
     }
     .status-closed {
         background-color: #f1f3f5;
         color: #495057;
+        border: 1px solid #e9ecef;
+    }
+    .status-corte-z {
+        background-color: #e6f7f8;
+        color: #008b8c;
+        border: 1px solid #bceae9;
     }
     .form-check-input:checked {
         background-color: #00b8b9 !important;
@@ -31,6 +46,13 @@
         transform: scale(1) translateY(0) !important;
         opacity: 1 !important;
     }
+    .nav-pills .nav-link.active {
+        background-color: #00b8b9 !important;
+        color: #fff !important;
+    }
+    .nav-pills .nav-link {
+        color: #495057;
+    }
 </style>
 
 <div class="container-fluid py-2 px-4">
@@ -44,6 +66,11 @@
             {% if granular_sales_perms.cortes_de_caja.cajas %}
             <button class="btn btn-light text-secondary btn-pro shadow-sm border" data-bs-toggle="modal" data-bs-target="#modalListadoCajas">
                 <i class="bi bi-shop me-1"></i> Cajas
+            </button>
+            {% endif %}
+            {% if granular_sales_perms.cortes_de_caja.hacer_corte %}
+            <button class="btn btn-brand text-white btn-pro shadow-sm" style="background-color: #00b8b9; border-color: #00b8b9;" onclick="abrirModalCorteZ()">
+                <i class="bi bi-calculator me-1"></i> Corte Z
             </button>
             {% endif %}
             {% if granular_sales_perms.cortes_de_caja.nueva_caja %}
@@ -100,6 +127,7 @@
                                 <option value="">Todos...</option>
                                 <option value="abierta" {% if filtros.estado == 'abierta' %}selected{% endif %}>Abierta</option>
                                 <option value="cerrada" {% if filtros.estado == 'cerrada' %}selected{% endif %}>Cerrada</option>
+                                <option value="corte_z" {% if filtros.estado == 'corte_z' %}selected{% endif %}>Corte Z</option>
                             </select>
                         </div>
 
@@ -140,6 +168,76 @@
                             </thead>
                             <tbody>
                                 {% for sesion in sesiones %}
+                                {% if sesion.tipo_corte == 'Z' %}
+                                <!-- REGISTRO DE CORTE Z -->
+                                <tr style="background-color: rgba(0, 184, 185, 0.04);">
+                                    <!-- 1. ACCIONES -->
+                                    <td class="text-center px-4">
+                                        <div class="d-flex justify-content-center gap-1">
+                                            {% if granular_sales_perms.cortes_de_caja.imprimir_articulo %}
+                                            <span class="icon-action" title="Imprimir Ticket Corte Z (Con Art.)"
+                                                  onclick="imprimirCorteZ({{ sesion.id }}, true)">
+                                                <i class="bi bi-file-earmark-text"></i>
+                                            </span>
+                                            <span class="icon-action" title="Imprimir Ticket Corte Z (Solo Totales)"
+                                                  onclick="imprimirCorteZ({{ sesion.id }}, false)">
+                                                <i class="bi bi-printer"></i>
+                                            </span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <!-- 2. SESION / CAJA -->
+                                    <td class="px-4 text-center">
+                                        <span class="fw-bold text-brand">CORTE Z</span>
+                                        <span class="text-muted d-block small">Folio: #{{ sesion.id|stringformat:"05d" }}</span>
+                                    </td>
+                                    <!-- 3. CAJERO -->
+                                    <td class="text-center">{{ sesion.username_display }}</td>
+                                    <!-- 4. FECHA/HORA TURNO -->
+                                    <td class="text-center small">
+                                        <div><strong>Corte:</strong> {{ sesion.fecha_creacion|date:"d/m/Y H:i" }}</div>
+                                    </td>
+                                    <!-- 5. FONDO INICIAL -->
+                                    <td class="text-center fw-bold text-secondary">${{ sesion.monto_inicial|floatformat:2|intcomma }}</td>
+                                    <!-- 6. VENTAS EFECTIVO -->
+                                    <td class="text-center">${{ sesion.total_efectivo|floatformat:2|intcomma }}</td>
+                                    <!-- 7. VENTAS TARJETA -->
+                                    <td class="text-center">${{ sesion.total_tarjeta|floatformat:2|intcomma }}</td>
+                                    <!-- 8. VENTAS TRANSFERENCIA -->
+                                    <td class="text-center">${{ sesion.total_transferencia|floatformat:2|intcomma }}</td>
+                                    <!-- 9. TOTAL VENTAS -->
+                                    <td class="text-center fw-bold text-dark">${{ sesion.total_ventas|floatformat:2|intcomma }}</td>
+                                    <!-- 10. CONTADO REAL -->
+                                    <td class="text-center fw-bold">${{ sesion.monto_final_efectivo|floatformat:2|intcomma }}</td>
+                                    <!-- 11. DIFERENCIA -->
+                                    <td class="text-center fw-bold">
+                                        <span id="diff-span-z-{{ sesion.id }}"></span>
+                                        <script>
+                                            (function() {
+                                                const finalEf = parseFloat("{{ sesion.monto_final_efectivo }}");
+                                                const inicial = parseFloat("{{ sesion.monto_inicial }}");
+                                                const ventas = parseFloat("{{ sesion.total_efectivo }}");
+                                                const diff = finalEf - (inicial + ventas);
+                                                const el = document.getElementById("diff-span-z-{{ sesion.id }}");
+                                                if (diff === 0) {
+                                                     el.innerHTML = "$0.00";
+                                                     el.className = "text-success";
+                                                } else if (diff > 0) {
+                                                     el.innerHTML = "+$" + diff.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                                     el.className = "text-info";
+                                                } else {
+                                                     el.innerHTML = "-$" + Math.abs(diff).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                                     el.className = "text-danger";
+                                                }
+                                            })();
+                                        </script>
+                                    </td>
+                                    <td class="text-center px-4">
+                                        <span class="badge-status status-corte-z">Corte Z</span>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <!-- REGISTRO DE SESION CORTE X -->
                                 <tr>
                                     <!-- 1. ACCIONES -->
                                     <td class="text-center px-4">
@@ -273,10 +371,14 @@
                                         {% if sesion.estado == 'abierta' %}
                                             <span class="badge-status status-open">Abierto</span>
                                         {% else %}
-                                            <span class="badge-status status-closed">Cerrado</span>
+                                            <span class="badge-status status-closed">Cerrado{% if sesion.corte_z %} Z{% endif %}</span>
+                                            {% if sesion.corte_z %}
+                                                <i class="bi bi-z-circle-fill text-secondary ms-1" style="font-size: 0.85rem;" title="Agrupado en Corte Z #{{ sesion.corte_z.id }} del {{ sesion.corte_z.fecha|date:'d/m/Y' }}"></i>
+                                            {% endif %}
                                         {% endif %}
                                     </td>
                                 </tr>
+                                {% endif %}
                                 {% empty %}
                                 <tr>
                                     <td colspan="12" class="text-center py-5 text-muted">
@@ -607,6 +709,46 @@
                         <i class="bi bi-calculator me-1"></i> No, solo totales
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CORTE Z (CIERRE DIARIO DE CAJAS) -->
+<div class="modal fade" id="modalCorteZ" tabindex="-1" aria-labelledby="modalCorteZLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header border-bottom bg-white py-2 px-4">
+                <h5 class="modal-title fw-bold text-dark" id="modalCorteZLabel">
+                    <i class="bi bi-calculator me-2 text-brand"></i>Corte Z (Cierre Diario)
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 bg-light">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-4 text-center">
+                        <i class="bi bi-calculator display-4 text-brand mb-3 opacity-75"></i>
+                        <h6 class="fw-bold mb-3">Consolidar Ventas del Día</h6>
+                        <p class="text-secondary small mb-4 mx-auto" style="max-width: 500px;">
+                            Selecciona la fecha para consolidar todas las sesiones de caja (Cortes X) que hayan cerrado ese día. Una vez generado el Corte Z, esas cajas quedarán marcadas y no podrán ser modificadas ni re-agrupadas.
+                        </p>
+                        
+                        <form id="formGenerarCorteZ" class="row g-3 justify-content-center align-items-end">
+                            <div class="col-md-7 text-start">
+                                <label class="form-label small fw-bold text-secondary mb-1">Fecha de Cierre Comercial*</label>
+                                <input type="date" id="corte_z_fecha" name="fecha" class="form-control form-control-sm text-center fw-bold" required>
+                            </div>
+                            <div class="col-md-5 text-start">
+                                <button type="submit" class="btn btn-sm btn-brand text-white w-100 fw-bold" style="height: 31px;">
+                                    <i class="bi bi-arrow-right-circle me-1"></i> Generar Corte Z
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top bg-white py-2 px-4">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -1092,7 +1234,73 @@
             console.error(err);
         });
     }
-</script>
+
+    // ----------------------------------------------------
+    // LÓGICA PARA EL CORTE Z (CIERRE DIARIO DE CAJAS)
+    // ----------------------------------------------------
+    let modalCorteZInstance = null;
+
+    function abrirModalCorteZ() {
+        // Establecer fecha de hoy por defecto en el input
+        const hoy = new Date();
+        const hoyStr = hoy.toISOString().split('T')[0];
+        document.getElementById('corte_z_fecha').value = hoyStr;
+        
+        // Inicializar y abrir modal
+        if (!modalCorteZInstance) {
+            modalCorteZInstance = new bootstrap.Modal(document.getElementById('modalCorteZ'));
+        }
+        
+        modalCorteZInstance.show();
+    }
+
+    // Event listener para el envío del formulario de generación de Corte Z
+    document.getElementById('formGenerarCorteZ').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const fecha = document.getElementById('corte_z_fecha').value;
+        if (!fecha) return;
+
+        if (!confirm(`¿Estás seguro de consolidar y generar el Corte Z para la fecha ${fecha}?`)) {
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('fecha', fecha);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch('/ventas/cortes-caja/corte-z/generar/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert('Corte Z generado exitosamente.');
+                // Preguntar si desea imprimir con desglose de artículos
+                if (confirm('¿Deseas imprimir el ticket consolidado del Corte Z con el desglose de artículos vendidos?')) {
+                    window.open(`/ventas/cortes-caja/corte-z/imprimir/${data.corte_z_id}/?incluir_articulos=true`, '_blank');
+                } else {
+                    window.open(`/ventas/cortes-caja/corte-z/imprimir/${data.corte_z_id}/`, '_blank');
+                }
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(err => {
+            alert('Error de conexión al generar el Corte Z.');
+            console.error(err);
+        });
+    });
+
+    function imprimirCorteZ(corteId, conArticulos) {
+        const url = `/ventas/cortes-caja/corte-z/imprimir/${corteId}/${conArticulos ? '?incluir_articulos=true' : ''}`;
+        window.open(url, '_blank');
+    }
+  </script>
 
 <!-- MODAL: CIERRE DE TURNO / CORTE DE CAJA DESDE HISTORIAL -->
 <div class="modal fade" id="modalCorteCajaAdmin" tabindex="-1" aria-labelledby="modalCorteCajaAdminLabel" aria-hidden="true">

@@ -145,6 +145,7 @@ class DetalleOrdenVenta(models.Model):
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, verbose_name="Producto")
     cantidad = models.PositiveIntegerField(default=1, verbose_name="Cantidad")
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Precio Unitario")
+    modificadores_json = models.TextField(blank=True, null=True, verbose_name="Modificadores Seleccionados")
 
     def __str__(self):
         return f"{self.cantidad} x {self.producto.nombre}"
@@ -198,6 +199,39 @@ class CajaPOS(models.Model):
 
 
 # ==========================================
+# MODELO: CORTE Z (CIERRE DIARIO DE CAJAS)
+# ==========================================
+class CorteZ(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
+    fecha = models.DateField(verbose_name="Fecha de Negocio")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Usuario")
+
+    # Totales Consolidados
+    total_efectivo = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Total Ventas Efectivo")
+    total_tarjeta = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Total Ventas Tarjeta")
+    total_transferencia = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Total Ventas Transferencia")
+    total_ventas = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Total Ventas General")
+
+    monto_inicial = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Total Fondo Inicial")
+    monto_final_efectivo = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Total Efectivo Real")
+
+    class Meta:
+        verbose_name = "Corte Z"
+        verbose_name_plural = "Cortes Z"
+        unique_together = ('empresa', 'fecha')
+
+    def __str__(self):
+        return f"Corte Z {self.fecha.strftime('%d/%m/%Y')} - {self.empresa.nombre}"
+
+    @property
+    def username_display(self):
+        if '@' in self.usuario.username:
+            return self.usuario.username.split('@')[0]
+        return self.usuario.username
+
+
+# ==========================================
 # MODELO: SESION DE CAJA POS
 # ==========================================
 class SesionCajaPOS(models.Model):
@@ -208,6 +242,7 @@ class SesionCajaPOS(models.Model):
 
     caja_pos = models.ForeignKey(CajaPOS, on_delete=models.CASCADE, related_name='sesiones', verbose_name="Caja POS")
     usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sesiones_pos', verbose_name="Usuario")
+    corte_z = models.ForeignKey(CorteZ, on_delete=models.SET_NULL, null=True, blank=True, related_name='sesiones_corte', verbose_name="Corte Z")
     monto_inicial = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Monto Inicial (Efectivo)")
     fecha_apertura = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Apertura")
     

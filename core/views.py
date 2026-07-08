@@ -540,6 +540,7 @@ def crear_producto_ajax(request):
                 producto.maneja_serie = request.POST.get('maneja_serie') == 'on'
                 producto.tiene_iva = request.POST.get('tiene_iva') == 'on'
                 producto.mostrar_en_pos = request.POST.get('mostrar_en_pos') == 'on'
+                producto.permitir_modificadores = request.POST.get('permitir_modificadores') == 'on'
 
                 if not producto.tiene_iva:
                     producto.iva = 0.00
@@ -793,6 +794,7 @@ def obtener_producto_json(request, producto_id):
             'maneja_lote': producto.maneja_lote, 'maneja_serie': producto.maneja_serie,
             'tiene_iva': producto.tiene_iva,
             'mostrar_en_pos': producto.mostrar_en_pos,
+            'permitir_modificadores': producto.permitir_modificadores,
             'test_calidad_id': producto.test_calidad.id if producto.test_calidad else "",
             'imagen_url': producto.imagen.url if producto.imagen else '',
         })
@@ -839,6 +841,7 @@ def actualizar_producto_ajax(request, producto_id):
                 producto.maneja_serie = request.POST.get('maneja_serie') == 'on'
                 producto.tiene_iva = request.POST.get('tiene_iva') == 'on'
                 producto.mostrar_en_pos = request.POST.get('mostrar_en_pos') == 'on'
+                producto.permitir_modificadores = request.POST.get('permitir_modificadores') == 'on'
                 
                 if not producto.tiene_iva:
                     producto.iva = 0.00
@@ -982,4 +985,109 @@ def actualizar_precio_producto(request, producto_id):
             producto.save()
             return JsonResponse({'success': True, 'message': 'Datos actualizados.'})
         except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+from decimal import Decimal
+from core.models import ModificadorProducto
+
+@login_required
+@require_inventory_permission('inventario', 'ver', json_response=True)
+def obtener_modificadores_json(request, producto_id):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Empresa no encontrada.'})
+    
+    producto = get_object_or_404(Producto, id=producto_id, empresa=empresa_actual)
+    
+    # Modificadores ya configurados
+    modificadores = ModificadorProducto.objects.filter(producto_padre=producto).select_related('producto_modificador')
+    mods_list = []
+    for m in modificadores:
+        mods_list.append({
+            'id': m.id,
+            'producto_modificador_id': m.producto_modificador.id,
+            'nombre': m.producto_modificador.nombre,
+            'permite_extra': m.permite_extra,
+            'permite_sin': m.permite_sin,
+            'precio_extra': float(m.precio_extra),
+            'cantidad_modificadora': float(m.cantidad_modificadora)
+        })
+        
+    # Todos los productos disponibles para ser modificadores (activos de la misma empresa)
+    productos_disponibles = Producto.objects.filter(empresa=empresa_actual, estado='activo').exclude(id=producto.id).order_by('nombre')
+    prods_list = [{'id': p.id, 'nombre': p.nombre} for p in productos_disponibles]
+    
+    return JsonResponse({
+        'success': True,
+        'modificadores': mods_list,
+        'productos_disponibles': prods_list
+    })
+
+@login_required
+@require_inventory_permission('inventario', 'editar', json_response=True)
+def guardar_modificador_ajax(request):
+    if request.method == 'POST':
+        try:
+            empresa_actual = get_empresa_actual(request)
+            if not empresa_actual:
+                return JsonResponse({'success': False, 'error': 'Empresa no encontrada.'})
+                
+            producto_padre_id = request.POST.get('producto_padre_id')
+            producto_modificador_id = request.POST.get('producto_modificador_id')
+            
+            permite_extra = request.POST.get('permite_extra') == 'true'
+            permite_sin = request.POST.get('permite_sin') == 'true'
+            precio_extra = Decimal(request.POST.get('precio_extra', '0.00'))
+            cantidad_modificadora = Decimal(request.POST.get('cantidad_modificadora', '1.0000'))
+            
+            producto_padre = get_object_or_404(Producto, id=producto_padre_id, empresa=empresa_actual)
+            producto_modificador = get_object_or_404(Producto, id=producto_modificador_id, empresa=empresa_actual)
+            
+            modificador_id = request.POST.get('modificador_id')
+            if modificador_id:
+                modificador = get_object_or_404(ModificadorProducto, id=modificador_id, empresa=empresa_actual)
+                modificador.producto_modificador = producto_modificador
+                modificador.permite_extra = permite_extra
+                modificador.permite_sin = permite_sin
+                modificador.precio_extra = precio_extra
+                modificador.cantidad_modificadora = cantidad_modificadora
+                modificador.save()
+            else:
+                modificador, created = ModificadorProducto.objects.get_or_create(
+                    empresa=empresa_actual,
+                    producto_padre=producto_padre,
+                    producto_modificador=producto_modificador,
+                    defaults={
+                        'permite_extra': permite_extra,
+                        'permite_sin': permite_sin,
+                        'precio_extra': precio_extra,
+                        'cantidad_modificadora': cantidad_modificadora
+                    }
+                )
+                if not created:
+                    modificador.permite_extra = permite_extra
+                    modificador.permite_sin = permite_sin
+                    modificador.precio_extra = precio_extra
+                    modificador.cantidad_modificadora = cantidad_modificadora
+                    modificador.save()
+                
+            return JsonResponse({'success': True, 'message': 'Modificador guardado exitosamente.'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+@login_required
+@require_inventory_permission('inventario', 'editar', json_response=True)
+def eliminar_modificador_ajax(request, modificador_id):
+    if request.method == 'POST':
+        try:
+            empresa_actual = get_empresa_actual(request)
+            if not empresa_actual:
+                return JsonResponse({'success': False, 'error': 'Empresa no encontrada.'})
+                
+            modificador = get_object_or_404(ModificadorProducto, id=modificador_id, empresa=empresa_actual)
+            modificador.delete()
+            return JsonResponse({'success': True, 'message': 'Modificador eliminado exitosamente.'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Método no permitido'})

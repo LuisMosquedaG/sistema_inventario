@@ -34,6 +34,7 @@ urlpatterns = [
     # 9. Punto de Venta (POS)
     path('pos/', views.punto_de_venta, name='punto_de_venta'),
     path('pos/crear-venta/', views.crear_venta_pos_ajax, name='crear_venta_pos_ajax'),
+    path('pos/imprimir-ticket/<int:pedido_id>/', views.imprimir_pedido_ticket, name='imprimir_pedido_ticket'),
     
     # 10. Cortes de Caja
     path('cortes-caja/', views.cortes_caja_list, name='cortes_caja_list'),
@@ -46,4 +47,9 @@ urlpatterns = [
     path('pos/cierre-sesion/', views.cierre_sesion_pos_ajax, name='cierre_sesion_pos_ajax'),
     path('pos/cierre-sesion/<int:sesion_id>/', views.cierre_sesion_pos_por_id_ajax, name='cierre_sesion_pos_por_id_ajax'),
     path('cortes-caja/imprimir/<int:sesion_id>/', views.imprimir_corte_ticket, name='imprimir_corte_ticket'),
+    
+    # Corte Z
+    path('cortes-caja/corte-z/generar/', views.generar_corte_z_ajax, name='generar_corte_z_ajax'),
+    path('cortes-caja/corte-z/historial/', views.historial_cortes_z_ajax, name='historial_cortes_z_ajax'),
+    path('cortes-caja/corte-z/imprimir/<int:corte_z_id>/', views.imprimir_corte_z_ticket, name='imprimir_corte_z_ticket'),
 ]

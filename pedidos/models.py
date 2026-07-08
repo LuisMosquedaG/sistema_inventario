@@ -192,6 +192,7 @@ class DetallePedido(models.Model):
     cantidad_entregada = models.PositiveIntegerField(default=0, verbose_name="Cant. Entregada")
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Precio Unitario")
     estado_linea = models.CharField(max_length=20, choices=ESTADO_LINEA_CHOICES, default='pendiente')
+    modificadores_json = models.TextField(blank=True, null=True, verbose_name="Modificadores Seleccionados")
     parent_line = models.ForeignKey(
         'self', 
         on_delete=models.CASCADE, 

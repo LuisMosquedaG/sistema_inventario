@@ -258,6 +258,9 @@
                                         <span onclick="abrirModalReceta({{ p.id }}, '{{ p.nombre|escapejs }}', {{ p.precio_venta|default:0 }})" class="icon-action" title="Receta"><i class="bi bi-diagram-3"></i></span>
                                         {% endif %}
                                     {% endif %}
+                                    {% if empresa.modulo_pos and p.permitir_modificadores %}
+                                    <span onclick="abrirModalModificadores({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action" title="Modificadores"><i class="bi bi-sliders"></i></span>
+                                    {% endif %}
                                 </div>
                             </td>
                             <td class="text-center">
@@ -390,6 +393,7 @@
 {% include "inventario/modals/modal_detalle_documento.html" %}
 {% include "inventario/modals/modal_lista_precios.html" %}
 {% include "inventario/modals/modal_traslado.html" %} {# INCLUIR EL NUEVO MODAL #}
+{% include "inventario/modals/modal_modificadores.html" %}
 
 <!-- MODAL: IMPORTAR ARTICULOS -->
 <div class="modal fade" id="modalImportarArticulos" tabindex="-1" aria-hidden="true">
