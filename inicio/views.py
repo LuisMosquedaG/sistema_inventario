@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from panel.models import Empresa
-from django.db.models import Count, Q, Sum, F
+from django.db.models import Count, Q, Sum, F, Max
 from django.utils import timezone
 from django.http import JsonResponse
 from cotizaciones.models import Cotizacion
@@ -143,20 +143,13 @@ def dashboard_inicio(request):
     meses_es = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
     
     resumen_periodo = []
-    comprobantes_ingresos_periodo = []
-    for i in range(5, -1, -1):
-        target_month = mes_actual - i
-        target_year = anio_actual
-        while target_month <= 0:
-            target_month += 12
-            target_year -= 1
-        
+    anio_corriente = ahora.year
+    for m in range(1, 13):
         # VENTAS: Pedidos que están en revisión, confirmados o completos
-        # Se toma la fecha_creacion como referencia (o podrías usar fecha_confirmacion si aplica)
         v = Pedido.objects.filter(
             empresa=empresa_actual,
-            fecha_creacion__year=target_year,
-            fecha_creacion__month=target_month,
+            fecha_creacion__year=anio_corriente,
+            fecha_creacion__month=m,
             estado__in=['revision', 'confirmado', 'completo']
         ).aggregate(
             total=Sum(F('detalles__cantidad_solicitada') * F('detalles__precio_unitario'))
@@ -165,21 +158,29 @@ def dashboard_inicio(request):
         # COMPRAS: Órdenes de compra aprobadas, recibidas o parciales
         c = OrdenCompra.objects.filter(
             empresa=empresa_actual,
-            fecha__year=target_year,
-            fecha__month=target_month,
+            fecha__year=anio_corriente,
+            fecha__month=m,
             estado__in=['aprobada', 'recibida', 'parcial']
         ).aggregate(
             total=Sum(F('detalles__cantidad') * F('detalles__precio_costo') * F('tipo_cambio'))
         )['total'] or Decimal('0.00')
 
         resumen_periodo.append({
-            'mes': meses_es[target_month - 1],
+            'mes': meses_es[m - 1],
             'ventas': float(v),
             'compras': float(c),
-            'es_actual': (i == 0)
+            'es_actual': (m == mes_actual)
         })
 
-        # --- COMPROBANTES VS INGRESOS ---
+    # --- 2. COMPROBANTES VS INGRESOS (HISTÓRICO 6 MESES TRAILING) ---
+    comprobantes_ingresos_periodo = []
+    for i in range(5, -1, -1):
+        target_month = mes_actual - i
+        target_year = anio_actual
+        while target_month <= 0:
+            target_month += 12
+            target_year -= 1
+        
         # 1. Pedidos en revisión o completo (sumando total_pedido)
         pedidos_mes = Pedido.objects.filter(
             empresa=empresa_actual,
@@ -203,10 +204,122 @@ def dashboard_inicio(request):
             'ingresos': float(total_ingresos)
         })
 
+    # --- 3. CONTRATOS: Agrupación anual (enero a diciembre del año corriente) ---
+    from recursos_humanos.models import Contrato
+    contratos_periodo = []
+    anio_corriente = ahora.year
+    for m in range(1, 13):
+        contratos_mes = Contrato.objects.filter(
+            empresa=empresa_actual,
+            vigencia_contrato__year=anio_corriente,
+            vigencia_contrato__month=m
+        )
+        total_contratos_mes = contratos_mes.aggregate(
+            total=Sum('monto_contrato')
+        )['total'] or Decimal('0.00')
+
+        contratos_periodo.append({
+            'mes': meses_es[m - 1],
+            'monto': float(total_contratos_mes)
+        })
+
+    # --- 5. OBLIGACIONES PATRONALES: ESTADOS POR CONTRATO Y SUAS POR CONTRATISTA ---
+    from recursos_humanos.models import Contrato, Contratista, ImportacionSUA
+    stats_contratos_estados = list(Contrato.objects.filter(
+        empresa=empresa_actual
+    ).values('estado').annotate(
+        total=Count('id')
+    ))
+
+    contratistas = Contratista.objects.filter(empresa=empresa_actual)
+    suas = list(ImportacionSUA.objects.filter(empresa=empresa_actual))
+    stats_suas_contratistas = []
+    stats_suas_empleados = []
+
+    for con in contratistas:
+        con_rfc_clean = con.rfc.replace('-', '').strip().upper() if con.rfc else ""
+        con_rp_clean = con.registro_patronal.replace('-', '').strip().upper() if con.registro_patronal else ""
+        con_name_clean = con.nombre_razon_social.strip().upper() if con.nombre_razon_social else ""
+        
+        total_contratista_rcv_inf = Decimal('0.00')
+        unique_nss = set()
+        for s in suas:
+            s_rfc_clean = s.rfc_empresa.replace('-', '').strip().upper() if s.rfc_empresa else ""
+            s_rp_clean = s.registro_patronal.replace('-', '').strip().upper() if s.registro_patronal else ""
+            s_name_clean = s.nombre_razon_social.strip().upper() if s.nombre_razon_social else ""
+            
+            if (con_rfc_clean and con_rfc_clean == s_rfc_clean) or \
+               (con_rp_clean and con_rp_clean == s_rp_clean) or \
+               (con_name_clean and con_name_clean == s_name_clean):
+                totales_sua = s.trabajadores.aggregate(
+                    rcv=Sum('subtotal'),
+                    inf=Sum('suma_infonavit')
+                )
+                total_contratista_rcv_inf += (totales_sua['rcv'] or Decimal('0.00')) + (totales_sua['inf'] or Decimal('0.00'))
+                
+                for t in s.trabajadores.all():
+                    if t.nss:
+                        unique_nss.add(t.nss.strip())
+                
+        stats_suas_contratistas.append({
+            'contratista': con.nombre_razon_social,
+            'monto': float(total_contratista_rcv_inf)
+        })
+        stats_suas_empleados.append({
+            'contratista': con.nombre_razon_social,
+            'cantidad': len(unique_nss)
+        })
+
+    # Ordenar por monto descendente y tomar los top 10
+    stats_suas_contratistas = sorted(stats_suas_contratistas, key=lambda x: x['monto'], reverse=True)[:10]
+    stats_suas_empleados = sorted(stats_suas_empleados, key=lambda x: x['cantidad'], reverse=True)[:10]
+
+    # Contratos más caros por contratista (top 5 max_monto)
+    contratos_caros = Contrato.objects.filter(
+        empresa=empresa_actual,
+        contratista__isnull=False
+    ).values('contratista__nombre_razon_social').annotate(
+        max_monto=Max('monto_contrato')
+    ).order_by('-max_monto')[:5]
+
+    stats_contratos_caros = []
+    for c in contratos_caros:
+        stats_contratos_caros.append({
+            'contratista': c['contratista__nombre_razon_social'],
+            'monto': float(c['max_monto'])
+        })
+
+    # Contratistas con más beneficiarios (top 5 distinct count)
+    contratistas_beneficiarios = Contrato.objects.filter(
+        empresa=empresa_actual,
+        contratista__isnull=False,
+        beneficiario__isnull=False
+    ).values('contratista__nombre_razon_social').annotate(
+        num_benef=Count('beneficiario', distinct=True)
+    ).order_by('-num_benef')[:5]
+
+    stats_contratistas_beneficiarios = []
+    for cb in contratistas_beneficiarios:
+        stats_contratistas_beneficiarios.append({
+            'contratista': cb['contratista__nombre_razon_social'],
+            'cantidad': cb['num_benef']
+        })
+
+    # Cálculo de espacio en disco real
+    from panel.views import calcular_uso_disco_mb
+    uso_actual_mb = calcular_uso_disco_mb(empresa_actual)
+    limite_mb = empresa_actual.limite_espacio_disco
+    porcentaje_uso_disco = round((uso_actual_mb / limite_mb) * 100, 1) if limite_mb > 0 else 0
+    espacio_libre_mb = max(0.0, float(limite_mb) - float(uso_actual_mb))
+
     contexto = {
         'empresa': empresa_actual,
         'username_display': username_display,
         'section': 'inicio',
+        'uso_actual_mb': uso_actual_mb,
+        'limite_espacio_disco': limite_mb,
+        'porcentaje_uso_disco': porcentaje_uso_disco,
+        'espacio_libre_mb': espacio_libre_mb,
         'stats_json': json.dumps({
             'cotizaciones': stats_cotizaciones,
             'pedidos': stats_pedidos,
@@ -219,9 +332,15 @@ def dashboard_inicio(request):
             'monetario_compras': stats_monetario_compras,
             'pareto_valor': stats_pareto_valor,
             'top_clientes': stats_top_clientes,
+            'contratos_estados': stats_contratos_estados,
+            'suas_contratistas': stats_suas_contratistas,
+            'suas_empleados': stats_suas_empleados,
+            'contratos_caros': stats_contratos_caros,
+            'contratistas_beneficiarios': stats_contratistas_beneficiarios,
         }),
         'resumen_json': json.dumps(resumen_periodo),
-        'comprobantes_ingresos_json': json.dumps(comprobantes_ingresos_periodo)
+        'comprobantes_ingresos_json': json.dumps(comprobantes_ingresos_periodo),
+        'contratos_json': json.dumps(contratos_periodo)
     }
     return render(request, 'inicio/dashboard_inicio.html', contexto)
 
@@ -283,6 +402,24 @@ def api_detalle_mes(request):
             ).order_by('-total')
             
             data = [{'entidad': d['proveedor__razon_social'], 'monto': float(d['total'])} for d in detalles]
+
+        elif tipo == 'contratos':
+            from recursos_humanos.models import Contrato
+            anio = timezone.now().year
+            detalles = Contrato.objects.filter(
+                empresa=empresa_actual,
+                vigencia_contrato__year=anio,
+                vigencia_contrato__month=mes_num
+            ).select_related('contratista').order_by('-monto_contrato')
+            
+            data = []
+            for c in detalles:
+                nombre_contratista = c.contratista.nombre_razon_social if c.contratista else "Sin Contratista"
+                folio_str = f" (Folio: {c.folio})" if c.folio else " (S/F)"
+                data.append({
+                    'entidad': f"{nombre_contratista}{folio_str}",
+                    'monto': float(c.monto_contrato)
+                })
 
         return JsonResponse({'data': data, 'mes': mes_nombre, 'anio': anio})
     except Exception as e:

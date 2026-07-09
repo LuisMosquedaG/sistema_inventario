@@ -13,7 +13,16 @@
                 </div>
                 <div class="col">
                     <h2 class="fw-bold mb-1">¡Bienvenido, {{ username_display }}!</h2>
-                    <p class="lead mb-0 opacity-75">Panel de Inicio</p>
+                    <p class="lead mb-2 opacity-75">Panel de Inicio</p>
+                    
+                    <!-- DATOS DE LA EMPRESA (CONTACTO Y DIRECCIÓN) -->
+                    <div class="d-flex flex-wrap gap-4 mt-2 text-white small opacity-90">
+                        <span class="d-flex align-items-center"><i class="bi bi-geo-alt-fill me-1"></i>
+                            {% if empresa.calle %}{{ empresa.calle }} #{{ empresa.numero|default:"" }}, {{ empresa.colonia|default:"" }}, {{ empresa.estado|default:"" }}, CP {{ empresa.cp|default:"" }}{% else %}<span class="fst-italic">Dirección no registrada</span>{% endif %}
+                        </span>
+                        <span class="d-flex align-items-center"><i class="bi bi-envelope-fill me-1"></i>{{ empresa.correo_contacto }}</span>
+                        <span class="d-flex align-items-center"><i class="bi bi-telephone-fill me-1"></i>{{ empresa.telefono_contacto|default:"--" }}</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -48,10 +57,19 @@
 
     <div class="row g-4 mb-4">
         <!-- TU ORGANIZACIÓN -->
-        <div class="col-md-6 col-lg-4">
+        <div class="{% if empresa.modulo_ventas or empresa.modulo_compras or empresa.modulo_recursos_humanos %}col-md-6 col-lg-4{% else %}col-12{% endif %}">
             <div class="card border-0 shadow-sm h-100" style="border-radius: 12px; overflow: hidden;">
                 <div class="card-header bg-white border-bottom-0 pt-4 px-4 pb-0 d-flex justify-content-between align-items-center">
-                    <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.75rem; letter-spacing: 1px;">Tu Organización</h6>
+                    <div>
+                        <h6 class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.75rem; letter-spacing: 1px;">Tu Organización</h6>
+                        {% if empresa.estado_servicio == 'activa' %}
+                            <span class="badge rounded-pill bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2" style="font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Servicio Activo</span>
+                        {% elif empresa.estado_servicio == 'suspendida' %}
+                            <span class="badge rounded-pill bg-warning bg-opacity-10 text-warning border border-warning border-opacity-50 px-2" style="font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #f08c00 !important;">Servicio Suspendido</span>
+                        {% else %}
+                            <span class="badge rounded-pill bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2" style="font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Servicio Inactivo</span>
+                        {% endif %}
+                    </div>
                     <span class="text-muted small fw-bold" style="font-size: 0.7rem;">
                         <i class="bi bi-patch-check-fill text-brand me-1"></i>Licenciamiento: 
                         {{ empresa.fecha_inicio_licencia|date:"j/n/y" }} - {{ empresa.fecha_vencimiento_licencia|date:"j/n/y" }}
@@ -66,66 +84,86 @@
                         </div>
                     {% endif %}
                     <h3 class="fw-bold text-dark mb-1">{{ empresa.nombre|default:"Sin Empresa" }}</h3>
-                    <div class="mb-2">
-                        {% if empresa.estado_servicio == 'activa' %}
-                            <span class="badge rounded-pill bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-3" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Servicio Activo</span>
-                        {% elif empresa.estado_servicio == 'suspendida' %}
-                            <span class="badge rounded-pill bg-warning bg-opacity-10 text-warning border border-warning border-opacity-50 px-3" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #f08c00 !important;">Servicio Suspendido</span>
-                        {% else %}
-                            <span class="badge rounded-pill bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-3" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Servicio Inactivo</span>
-                        {% endif %}
-                    </div>
                     <hr class="w-100 my-3 opacity-25">
-                    <div class="text-start w-100">
-                        <div class="d-flex align-items-start mb-2">
-                            <i class="bi bi-geo-alt text-brand me-2 mt-1"></i>
-                            <span class="text-muted small">
-                                {% if empresa.calle %}{{ empresa.calle }} #{{ empresa.numero|default:"" }}, {{ empresa.colonia|default:"" }}<br>{{ empresa.estado|default:"" }}, CP {{ empresa.cp|default:"" }}{% else %}<span class="fst-italic text-secondary">Dirección no registrada</span>{% endif %}
-                            </span>
+                    
+                    <!-- ESPACIO EN DISCO DURO -->
+                    <div class="w-100 text-start pt-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="text-uppercase text-muted fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;"><i class="bi bi-hdd-fill me-1 text-brand"></i>Espacio en Disco</span>
+                            <span class="fw-bold text-dark" style="font-size: 0.7rem;">{{ uso_actual_mb }} MB / {{ limite_espacio_disco }} MB</span>
                         </div>
-                        <div class="d-flex align-items-center mb-2"><i class="bi bi-envelope text-brand me-2"></i><span class="text-muted small">{{ empresa.correo_contacto }}</span></div>
-                        <div class="d-flex align-items-center"><i class="bi bi-telephone text-brand me-2"></i><span class="text-muted small">{{ empresa.telefono_contacto|default:"--" }}</span></div>
+                        <div class="progress" style="height: 6px; background-color: #e9ecef; border-radius: 3px;">
+                            <div class="progress-bar" role="progressbar" style="width: {{ porcentaje_uso_disco }}%; background-color: #00b8b9; border-radius: 3px;" aria-valuenow="{{ porcentaje_uso_disco }}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <div class="d-flex justify-content-between mt-1" style="font-size: 0.65rem;">
+                            <span class="text-muted">Uso: {{ porcentaje_uso_disco }}%</span>
+                            <span class="text-muted">Libre: {{ espacio_libre_mb|floatformat:1 }} MB</span>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
+        {% if empresa.modulo_ventas or empresa.modulo_compras or empresa.modulo_recursos_humanos %}
         <!-- RESUMEN OPERATIVO DINÁMICO (CAROUSEL CON FADE) -->
         <div class="col-md-6 col-lg-8">
             <div class="card border-0 shadow-sm h-100" style="border-radius: 12px; border-left: 4px solid #00b8b9 !important;" id="containerCarousel">
                 <div class="card-header bg-white border-bottom-0 pt-4 px-4 d-flex justify-content-between align-items-center">
                     <h5 class="fw-bold text-dark mb-0">
                         <i class="bi bi-bar-chart-line me-2 text-brand"></i>
-                        <span id="tituloCarousel">Comparativo Mensual</span>
+                        <span id="tituloCarousel">Resumen Operativo</span>
                     </h5>
                     <div class="btn-group btn-group-sm" role="group" id="indicadoresCarousel">
-                        <button type="button" class="btn btn-brand text-white" onclick="setSlide(0)" title="Histórico Mensual"><i class="bi bi-calendar3"></i></button>
-                        <button type="button" class="btn btn-light border" onclick="setSlide(1)" title="Ventas: Cobros"><i class="bi bi-cash-stack"></i></button>
-                        <button type="button" class="btn btn-light border" onclick="setSlide(2)" title="Compras: Pagos"><i class="bi bi-cart-check"></i></button>
+                        {% if empresa.modulo_ventas or empresa.modulo_compras %}
+                        <button type="button" class="btn btn-light border carousel-indicator-btn" data-slide-id="slide0" title="Histórico Mensual"><i class="bi bi-calendar3"></i></button>
+                        {% endif %}
+                        {% if empresa.modulo_ventas %}
+                        <button type="button" class="btn btn-light border carousel-indicator-btn" data-slide-id="slide1" title="Ventas: Cobros"><i class="bi bi-cash-stack"></i></button>
+                        {% endif %}
+                        {% if empresa.modulo_compras %}
+                        <button type="button" class="btn btn-light border carousel-indicator-btn" data-slide-id="slide2" title="Compras: Pagos"><i class="bi bi-cart-check"></i></button>
+                        {% endif %}
+                        {% if empresa.modulo_recursos_humanos %}
+                        <button type="button" class="btn btn-light border carousel-indicator-btn" data-slide-id="slide3" title="Contratos: Vigencia"><i class="bi bi-file-earmark-text"></i></button>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="card-body p-4">
                     <div class="carousel-wrapper">
+                        {% if empresa.modulo_ventas or empresa.modulo_compras %}
                         <!-- SLIDE 0 -->
-                        <div class="slide-carousel active" id="slide0">
+                        <div class="slide-carousel" id="slide0">
                             <canvas id="chartComparativo"></canvas>
                         </div>
+                        {% endif %}
+                        {% if empresa.modulo_ventas %}
                         <!-- SLIDE 1 -->
                         <div class="slide-carousel" id="slide1">
                             <canvas id="chartPagosVentas"></canvas>
                         </div>
+                        {% endif %}
+                        {% if empresa.modulo_compras %}
                         <!-- SLIDE 2 -->
                         <div class="slide-carousel" id="slide2">
                             <canvas id="chartPagosCompras"></canvas>
                         </div>
+                        {% endif %}
+                        {% if empresa.modulo_recursos_humanos %}
+                        <!-- SLIDE 3 -->
+                        <div class="slide-carousel" id="slide3">
+                            <canvas id="chartContratos"></canvas>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
         </div>
+        {% endif %}
     </div>
 
     <!-- 3. SECCIÓN DE INDICADORES OPERATIVOS -->
     <div class="row g-4">
+        {% if empresa.modulo_ventas %}
         <!-- MODULO VENTAS -->
         <div class="col-12">
             <div class="card border-0 shadow-sm" style="border-radius: 12px;">
@@ -164,9 +202,11 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
+        {% if empresa.modulo_compras %}
         <!-- MODULO COMPRAS -->
-        <div class="col-md-7">
+        <div class="{% if empresa.modulo_produccion %}col-md-7{% else %}col-12{% endif %}">
             <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
                 <div class="card-header bg-white border-bottom-0 pt-4 px-4">
                     <h5 class="fw-bold text-dark mb-0"><i class="bi bi-truck me-2 text-brand"></i>Módulo de Compras</h5>
@@ -185,9 +225,11 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
+        {% if empresa.modulo_produccion %}
         <!-- MODULO PRODUCCIÓN -->
-        <div class="col-md-5">
+        <div class="{% if empresa.modulo_compras %}col-md-5{% else %}col-12{% endif %}">
             <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
                 <div class="card-header bg-white border-bottom-0 pt-4 px-4">
                     <h5 class="fw-bold text-dark mb-0"><i class="bi bi-gear-fill me-2 text-brand"></i>Producción</h5>
@@ -200,9 +242,11 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
+        {% if empresa.modulo_inventarios %}
         <!-- PARETO DE VALOR (NUEVO) -->
-        <div class="col-md-7">
+        <div class="{% if empresa.modulo_ventas %}col-md-7{% else %}col-12{% endif %}">
             <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
                 <div class="card-header bg-white border-bottom-0 pt-4 px-4">
                     <h5 class="fw-bold text-dark mb-0"><i class="bi bi-box-seam me-2 text-brand"></i>Pareto de Valor</h5>
@@ -213,9 +257,11 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
+        {% if empresa.modulo_ventas %}
         <!-- TOP CLIENTES (NUEVO) -->
-        <div class="col-md-5">
+        <div class="{% if empresa.modulo_inventarios %}col-md-5{% else %}col-12{% endif %}">
             <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
                 <div class="card-header bg-white border-bottom-0 pt-4 px-4">
                     <h5 class="fw-bold text-dark mb-0"><i class="bi bi-people me-2 text-brand"></i>Top Clientes</h5>
@@ -226,6 +272,64 @@
                 </div>
             </div>
         </div>
+        {% endif %}
+
+        {% if empresa.modulo_recursos_humanos %}
+        <!-- SECCIÓN: OBLIGACIONES PATRONALES (NUEVO) -->
+        <!-- TARJETA CONTRATOS Y LICITACIONES (Grupo side-by-side de estatus y montos) -->
+        <div class="col-12">
+            <div class="card border-0 shadow-sm" style="border-radius: 12px;">
+                <div class="card-header bg-white border-bottom-0 pt-4 px-4">
+                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-file-earmark-text me-2 text-brand"></i>Contratos de Servicios Especializados</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-4">
+                        <!-- ESTADOS POR CONTRATO -->
+                        <div class="col-md-4">
+                            <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Distribución de Estatus</h6>
+                            <div style="height: 250px; position: relative;"><canvas id="chartContratosEstados"></canvas></div>
+                        </div>
+                        <!-- CONTRATOS MÁS CAROS POR CONTRATISTA -->
+                        <div class="col-md-4">
+                            <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Top 5 Contratos de Mayor Valor</h6>
+                            <div style="height: 250px; position: relative;"><canvas id="chartContratosCaros"></canvas></div>
+                        </div>
+                        <!-- CONTRATISTAS CON MÁS BENEFICIARIOS -->
+                        <div class="col-md-4">
+                            <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Top 5 con más Beneficiarios</h6>
+                            <div style="height: 250px; position: relative;"><canvas id="chartContratistasBeneficiarios"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SUAS POR CONTRATISTA -->
+        <div class="col-12">
+            <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
+                <div class="card-header bg-white border-bottom-0 pt-4 px-4">
+                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-shield-check me-2 text-brand"></i>SUAs por Contratista</h5>
+                </div>
+                <div class="card-body p-4">
+                    <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Top 10 Acumulado RCV e INF</h6>
+                    <div style="height: 250px; position: relative;"><canvas id="chartSuasContratistas"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- EMPLEADOS SUA POR CONTRATISTA -->
+        <div class="col-12">
+            <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
+                <div class="card-header bg-white border-bottom-0 pt-4 px-4">
+                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-people-fill me-2 text-brand"></i>Empleados en SUA</h5>
+                </div>
+                <div class="card-body p-4">
+                    <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Top 10 Colaboradores Únicos</h6>
+                    <div style="height: 250px; position: relative;"><canvas id="chartSuasEmpleados"></canvas></div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 
@@ -256,7 +360,8 @@
         'ganada': '#ebfbee', 'rechazada': '#fff5f5', 'cancelada': '#fff5f5', 'cancelado': '#fff5f5',
         'revision': '#fff3bf', 'pendiente': '#ff8787', 'confirmado': '#e7f5ff', 'completo': '#ebfbee',
         'completada': '#ebfbee', 'parcial': '#ffd43b', 'recibida': '#ebfbee', 'surtido': '#0ca678',
-        'en_proceso': '#e7f5ff', 'testeo': '#fff3bf', 'terminado': '#2f9e44', 'pagado': '#0ca678'
+        'en_proceso': '#e7f5ff', 'testeo': '#fff3bf', 'terminado': '#2f9e44', 'pagado': '#0ca678',
+        'vigente': '#d3f9d8', 'vencido': '#ffe3e3', 'suspendido': '#fff3bf', 'cancelado': '#f1f3f5'
     };
 
     const getColors = (labels) => labels.map(label => colorMap[label.toLowerCase()] || '#ced4da');
@@ -269,12 +374,217 @@
             ctx.font = "14px Inter"; ctx.fillStyle = "#adb5bd"; ctx.textAlign = "center";
             ctx.fillText("Sin registros", canvas.width/2, canvas.height/2); return;
         }
-        const labels = statsData.map(item => item.estado);
+        const rawLabels = statsData.map(item => item.estado);
+        const labels = rawLabels.map(l => l.charAt(0).toUpperCase() + l.slice(1).toLowerCase());
         const data = statsData.map(item => item.total);
         new Chart(ctx, {
             type: 'doughnut',
-            data: { labels: labels, datasets: [{ data: data, backgroundColor: getColors(labels), borderWidth: 1 }] },
+            data: { labels: labels, datasets: [{ data: data, backgroundColor: getColors(rawLabels), borderWidth: 1 }] },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+        });
+    }
+
+    function createSuasBarChart(canvasId, statsData) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!statsData || statsData.length === 0) {
+            ctx.font = "14px Inter"; ctx.fillStyle = "#adb5bd"; ctx.textAlign = "center";
+            ctx.fillText("Sin contratistas registrados", canvas.width/2, canvas.height/2); return;
+        }
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: statsData.map(item => item.contratista.length > 25 ? item.contratista.substring(0, 25) + '...' : item.contratista),
+                datasets: [{
+                    label: 'Suma RCV e INF',
+                    data: statsData.map(item => item.monto),
+                    backgroundColor: 'rgba(0, 184, 185, 0.15)',
+                    borderColor: '#00b8b9',
+                    borderWidth: 1.5,
+                    borderRadius: 4,
+                    barThickness: 25
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { 
+                        beginAtZero: true, 
+                        ticks: { callback: v => '$' + v.toLocaleString() } 
+                    },
+                    x: { ticks: { font: { size: 9 } } }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': $' + context.parsed.y.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function createEmpleadosBarChart(canvasId, statsData) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!statsData || statsData.length === 0) {
+            ctx.font = "14px Inter"; ctx.fillStyle = "#adb5bd"; ctx.textAlign = "center";
+            ctx.fillText("Sin contratistas registrados", canvas.width/2, canvas.height/2); return;
+        }
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: statsData.map(item => item.contratista.length > 25 ? item.contratista.substring(0, 25) + '...' : item.contratista),
+                datasets: [{
+                    label: 'Empleados Únicos',
+                    data: statsData.map(item => item.cantidad),
+                    backgroundColor: 'rgba(51, 154, 240, 0.15)',
+                    borderColor: '#339af0',
+                    borderWidth: 1.5,
+                    borderRadius: 4,
+                    barThickness: 25
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } },
+                    x: { ticks: { font: { size: 9 } } }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+
+    function createContratosCarosChart(canvasId, statsData) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!statsData || statsData.length === 0) {
+            ctx.font = "14px Inter"; ctx.fillStyle = "#adb5bd"; ctx.textAlign = "center";
+            ctx.fillText("Sin contratos registrados", canvas.width/2, canvas.height/2); return;
+        }
+        new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: statsData.map(item => item.contratista.length > 25 ? item.contratista.substring(0, 25) + '...' : item.contratista),
+                datasets: [{
+                    data: statsData.map(item => item.monto),
+                    backgroundColor: [
+                        'rgba(0, 184, 185, 0.15)', // Teal Ghost
+                        'rgba(51, 154, 240, 0.15)', // Blue Ghost
+                        'rgba(92, 124, 250, 0.15)', // Indigo Ghost
+                        'rgba(121, 80, 242, 0.15)', // Violet Ghost
+                        'rgba(240, 101, 149, 0.15)'  // Pink Ghost
+                    ],
+                    hoverBackgroundColor: [
+                        'rgba(0, 184, 185, 1)', 
+                        'rgba(51, 154, 240, 1)', 
+                        'rgba(92, 124, 250, 1)', 
+                        'rgba(121, 80, 242, 1)', 
+                        'rgba(240, 101, 149, 1)'
+                    ],
+                    borderWidth: 1,
+                    borderColor: 'rgba(0,0,0,0.05)',
+                    hoverBorderColor: '#ffffff',
+                    hoverOffset: 15
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            boxWidth: 12,
+                            font: { size: 10, weight: '500' },
+                            padding: 15,
+                            usePointStyle: true
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        padding: 10,
+                        callbacks: {
+                            label: function(context) {
+                                return context.label + ': $' + context.parsed.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function createBeneficiariosChart(canvasId, statsData) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!statsData || statsData.length === 0) {
+            ctx.font = "14px Inter"; ctx.fillStyle = "#adb5bd"; ctx.textAlign = "center";
+            ctx.fillText("Sin contratistas registrados", canvas.width/2, canvas.height/2); return;
+        }
+        new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: statsData.map(item => item.contratista.length > 25 ? item.contratista.substring(0, 25) + '...' : item.contratista),
+                datasets: [{
+                    data: statsData.map(item => item.cantidad),
+                    backgroundColor: [
+                        'rgba(0, 184, 185, 0.15)', // Teal Ghost
+                        'rgba(51, 154, 240, 0.15)', // Blue Ghost
+                        'rgba(92, 124, 250, 0.15)', // Indigo Ghost
+                        'rgba(121, 80, 242, 0.15)', // Violet Ghost
+                        'rgba(240, 101, 149, 0.15)'  // Pink Ghost
+                    ],
+                    hoverBackgroundColor: [
+                        'rgba(0, 184, 185, 1)', 
+                        'rgba(51, 154, 240, 1)', 
+                        'rgba(92, 124, 250, 1)', 
+                        'rgba(121, 80, 242, 1)', 
+                        'rgba(240, 101, 149, 1)'
+                    ],
+                    borderWidth: 1,
+                    borderColor: 'rgba(0,0,0,0.05)',
+                    hoverBorderColor: '#ffffff',
+                    hoverOffset: 15
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            boxWidth: 12,
+                            font: { size: 10, weight: '500' },
+                            padding: 15,
+                            usePointStyle: true
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        padding: 10,
+                        callbacks: {
+                            label: function(context) {
+                                return context.label + ': ' + context.parsed.toLocaleString() + ' beneficiarios';
+                            }
+                        }
+                    }
+                }
+            }
         });
     }
 
@@ -346,20 +656,29 @@
 
     // --- LÓGICA DE CAROUSEL CON FADE ---
     let currentSlide = 0;
-    const slides = ['slide0', 'slide1', 'slide2'];
-    const titulos = [
-        'Comparativo Mensual: Histórico',
-        'Ventas: Cobrado vs Pendiente',
-        'Compras: Pagado vs Pendiente'
+    const slides = [];
+    const titulos = [];
+    const mapping = [
+        { id: 'slide0', title: 'Comparativo Mensual: Histórico' },
+        { id: 'slide1', title: 'Ventas: Cobrado vs Pendiente' },
+        { id: 'slide2', title: 'Compras: Pagado vs Pendiente' },
+        { id: 'slide3', title: 'Contratos: Vigencia y Montos' }
     ];
+    mapping.forEach(m => {
+        if (document.getElementById(m.id)) {
+            slides.push(m.id);
+            titulos.push(m.title);
+        }
+    });
     let carouselInterval;
 
     function showSlide(index) {
+        if (slides.length === 0) return;
         slides.forEach((s, i) => {
             const el = document.getElementById(s);
             const indicators = document.getElementById('indicadoresCarousel');
             if (!indicators) return;
-            const btn = indicators.children[i];
+            const btn = indicators.querySelector(`[data-slide-id="${s}"]`);
             if (i === index) {
                 if(el) el.classList.add('active');
                 if(btn) {
@@ -375,7 +694,7 @@
             }
         });
         const tituloEl = document.getElementById('tituloCarousel');
-        if (tituloEl) tituloEl.innerText = titulos[index];
+        if (tituloEl && index < titulos.length) tituloEl.innerText = titulos[index];
         currentSlide = index;
     }
 
@@ -472,7 +791,10 @@
         });
     }
 
-    function nextSlide() { showSlide((currentSlide + 1) % slides.length); }
+    function nextSlide() {
+        if (slides.length === 0) return;
+        showSlide((currentSlide + 1) % slides.length);
+    }
     function setSlide(index) { 
         showSlide(index);
         stopCarousel(); 
@@ -487,103 +809,107 @@
             const stats = JSON.parse('{{ stats_json|escapejs }}');
             const resumen = JSON.parse('{{ resumen_json|escapejs }}');
             
-            const ctxComp = document.getElementById('chartComparativo').getContext('2d');
-            if (resumen.some(r => r.ventas > 0 || r.compras > 0)) {
-                new Chart(ctxComp, {
-                    type: 'line',
-                    data: {
-                        labels: resumen.map(r => r.mes),
-                        datasets: [
-                            { 
-                                label: 'Compras', 
-                                data: resumen.map(r => r.compras), 
-                                borderColor: '#ff8787',
-                                backgroundColor: 'rgba(255, 135, 135, 0.1)',
-                                fill: true,
-                                tension: 0.4,
-                                pointRadius: 4,
-                                pointBackgroundColor: '#ff8787'
-                            },
-                            { 
-                                label: 'Ventas', 
-                                data: resumen.map(r => r.ventas), 
-                                borderColor: '#00b8b9',
-                                backgroundColor: 'rgba(0, 184, 185, 0.1)',
-                                fill: true,
-                                tension: 0.4,
-                                pointRadius: 4,
-                                pointBackgroundColor: '#00b8b9'
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        interaction: { intersect: false, mode: 'index' },
-                        onClick: function(evt, elements) {
-                            // Intentamos obtener el punto exacto que se está tocando
-                            const activePoints = this.getElementsAtEventForMode(evt, 'point', { intersect: true }, true);
-                            
-                            // Si hay un punto exacto, lo usamos. Si no, usamos el más cercano (el primero de 'elements')
-                            const target = activePoints.length > 0 ? activePoints[0] : (elements.length > 0 ? elements[0] : null);
-                            
-                            if (target) {
-                                const index = target.index;
-                                const datasetIndex = target.datasetIndex;
-                                const mes = resumen[index].mes;
-                                const tipo = datasetIndex === 1 ? 'ventas' : 'compras';
+            const canvasComp = document.getElementById('chartComparativo');
+            if (canvasComp) {
+                const ctxComp = canvasComp.getContext('2d');
+                if (resumen.some(r => r.ventas > 0 || r.compras > 0)) {
+                    new Chart(ctxComp, {
+                        type: 'line',
+                        data: {
+                            labels: resumen.map(r => r.mes),
+                            datasets: [
+                                { 
+                                    label: 'Compras', 
+                                    data: resumen.map(r => r.compras), 
+                                    borderColor: '#ff8787',
+                                    backgroundColor: 'rgba(255, 135, 135, 0.1)',
+                                    fill: true,
+                                    tension: 0.4,
+                                    pointRadius: 4,
+                                    pointBackgroundColor: '#ff8787'
+                                },
+                                { 
+                                    label: 'Ventas', 
+                                    data: resumen.map(r => r.ventas), 
+                                    borderColor: '#00b8b9',
+                                    backgroundColor: 'rgba(0, 184, 185, 0.1)',
+                                    fill: true,
+                                    tension: 0.4,
+                                    pointRadius: 4,
+                                    pointBackgroundColor: '#00b8b9'
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            interaction: { intersect: false, mode: 'index' },
+                            onClick: function(evt, elements) {
+                                // Intentamos obtener el punto exacto que se está tocando
+                                const activePoints = this.getElementsAtEventForMode(evt, 'point', { intersect: true }, true);
                                 
-                                // Mostrar Modal
-                                const modal = new bootstrap.Modal(document.getElementById('modalDetalleMes'));
-                                document.getElementById('modalDetalleMesLabel').innerText = `Detalle de ${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`;
-                                document.getElementById('modalDetalleMesSub').innerText = `${mes}`;
-                                document.getElementById('modalDetalleMesContent').innerHTML = '<div class="text-center p-4"><div class="spinner-border text-brand" role="status"></div></div>';
-                                modal.show();
-
-                                // Fetch Datos
-                                fetch(`{% url "api_detalle_mes" %}?tipo=${tipo}&mes=${mes}`)
-                                    .then(response => response.json())
-                                    .then(data => {
-                                        let html = `
-                                            <div class="d-flex justify-content-between pb-2 mb-2 border-bottom text-muted fw-bold pe-3" style="font-size: 0.75rem; letter-spacing: 0.5px;">
-                                                <span>${tipo === 'ventas' ? 'CLIENTE' : 'PROVEEDOR'}</span>
-                                                <span>TOTAL</span>
-                                            </div>
-                                            <div class="list-group list-group-flush">`;
-                                        
-                                        if (data.data.length === 0) {
-                                            html += '<div class="text-center p-3 text-muted fst-italic">No hay registros para este periodo</div>';
-                                        } else {
-                                            data.data.forEach(item => {
-                                                html += `
-                                                    <div class="list-group-item d-flex justify-content-between align-items-center border-0 ps-0 pe-3 py-2">
-                                                        <div class="text-secondary small">${item.entidad}</div>
-                                                        <div class="text-dark small">$${item.monto.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
-                                                    </div>`;
-                                            });
-                                        }
-                                        html += '</div>';
-                                        document.getElementById('modalDetalleMesContent').innerHTML = html;
-                                    })
-                                    .catch(err => {
-                                        document.getElementById('modalDetalleMesContent').innerHTML = `<div class="alert alert-danger small">Error de conexión: ${err.message}</div>`;
-                                    });
+                                // Si hay un punto exacto, lo usamos. Si no, usamos el más cercano (el primero de 'elements')
+                                const target = activePoints.length > 0 ? activePoints[0] : (elements.length > 0 ? elements[0] : null);
+                                
+                                if (target) {
+                                    const index = target.index;
+                                    const datasetIndex = target.datasetIndex;
+                                    const mes = resumen[index].mes;
+                                    const tipo = datasetIndex === 1 ? 'ventas' : 'compras';
+                                    
+                                    // Mostrar Modal
+                                    const modal = new bootstrap.Modal(document.getElementById('modalDetalleMes'));
+                                    document.getElementById('modalDetalleMesLabel').innerText = `Detalle de ${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`;
+                                    document.getElementById('modalDetalleMesSub').innerText = `${mes}`;
+                                    document.getElementById('modalDetalleMesContent').innerHTML = '<div class="text-center p-4"><div class="spinner-border text-brand" role="status"></div></div>';
+                                    modal.show();
+    
+                                    // Fetch Datos
+                                    fetch(`{% url "api_detalle_mes" %}?tipo=${tipo}&mes=${mes}`)
+                                        .then(response => response.json())
+                                        .then(data => {
+                                            let html = `
+                                                <div class="d-flex justify-content-between pb-2 mb-2 border-bottom text-muted fw-bold pe-3" style="font-size: 0.75rem; letter-spacing: 0.5px;">
+                                                    <span>${tipo === 'ventas' ? 'CLIENTE' : 'PROVEEDOR'}</span>
+                                                    <span>TOTAL</span>
+                                                </div>
+                                                <div class="list-group list-group-flush">`;
+                                            
+                                            if (data.data.length === 0) {
+                                                html += '<div class="text-center p-3 text-muted fst-italic">No hay registros para este periodo</div>';
+                                            } else {
+                                                data.data.forEach(item => {
+                                                    html += `
+                                                        <div class="list-group-item d-flex justify-content-between align-items-center border-0 ps-0 pe-3 py-2">
+                                                            <div class="text-secondary small">${item.entidad}</div>
+                                                            <div class="text-dark small">$${item.monto.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
+                                                        </div>`;
+                                                });
+                                            }
+                                            html += '</div>';
+                                            document.getElementById('modalDetalleMesContent').innerHTML = html;
+                                        })
+                                        .catch(err => {
+                                            document.getElementById('modalDetalleMesContent').innerHTML = `<div class="alert alert-danger small">Error de conexión: ${err.message}</div>`;
+                                        });
+                                }
+                            },
+                            scales: { 
+                                y: { 
+                                    beginAtZero: true, 
+                                    ticks: { callback: v => '$' + v.toLocaleString() } 
+                                } 
+                            },
+                            plugins: { 
+                                legend: { position: 'top', labels: { boxWidth: 12, font: { size: 10 } } },
+                                tooltip: { callbacks: { label: function(context) { return context.dataset.label + ': $' + context.parsed.y.toLocaleString(); } } }
                             }
-                        },
-                        scales: { 
-                            y: { 
-                                beginAtZero: true, 
-                                ticks: { callback: v => '$' + v.toLocaleString() } 
-                            } 
-                        },
-                        plugins: { 
-                            legend: { position: 'top', labels: { boxWidth: 12, font: { size: 10 } } },
-                            tooltip: { callbacks: { label: function(context) { return context.dataset.label + ': $' + context.parsed.y.toLocaleString(); } } }
                         }
-                    }
-                });
-            } else {
-                ctxComp.font = "14px Inter"; ctxComp.fillStyle = "#adb5bd"; ctxComp.textAlign = "center";
-                ctxComp.fillText("Sin datos financieros este periodo", ctxComp.canvas.width/2, ctxComp.canvas.height/2);
+                    });
+                } else {
+                    const ctxComp = canvasComp.getContext('2d');
+                    ctxComp.font = "14px Inter"; ctxComp.fillStyle = "#adb5bd"; ctxComp.textAlign = "center";
+                    ctxComp.fillText("Sin datos financieros este periodo", ctxComp.canvas.width/2, ctxComp.canvas.height/2);
+                }
             }
 
             createDoughnutChart('chartCotizaciones', stats.cotizaciones);
@@ -601,60 +927,171 @@
             // --- NUEVAS GRÁFICAS ---
             createParetoChart('chartPareto', stats.pareto_valor);
             createTopClientesChart('chartTopClientes', stats.top_clientes);
+            createDoughnutChart('chartContratosEstados', stats.contratos_estados);
+            createSuasBarChart('chartSuasContratistas', stats.suas_contratistas);
+            createEmpleadosBarChart('chartSuasEmpleados', stats.suas_empleados);
+            createContratosCarosChart('chartContratosCaros', stats.contratos_caros);
+            createBeneficiariosChart('chartContratistasBeneficiarios', stats.contratistas_beneficiarios);
 
             // --- GRÁFICA COMPROBANTES VS INGRESOS ---
-            const comprobantesIngresosData = JSON.parse('{{ comprobantes_ingresos_json|escapejs }}');
-            const ctxCI = document.getElementById('chartComprobantesIngresos').getContext('2d');
-            new Chart(ctxCI, {
-                type: 'line',
-                data: {
-                    labels: comprobantesIngresosData.map(d => d.mes),
-                    datasets: [
-                        {
-                            label: 'Ventas',
-                            data: comprobantesIngresosData.map(d => d.comprobantes),
-                            borderColor: '#339af0', // Azul
-                            backgroundColor: 'rgba(51, 154, 240, 0.1)',
-                            fill: false,
-                            tension: 0.1,
-                            pointRadius: 5,
-                            pointHoverRadius: 7,
-                            pointBackgroundColor: '#339af0'
-                        },
-                        {
-                            label: 'Ingresos',
-                            data: comprobantesIngresosData.map(d => d.ingresos),
-                            borderColor: '#2f9e44', // Verde
-                            backgroundColor: 'rgba(47, 158, 68, 0.1)',
-                            fill: false,
-                            tension: 0.1,
-                            pointRadius: 5,
-                            pointHoverRadius: 7,
-                            pointBackgroundColor: '#2f9e44'
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: { intersect: false, mode: 'index' },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: { callback: v => '$' + v.toLocaleString() }
-                        }
+            const canvasCI = document.getElementById('chartComprobantesIngresos');
+            if (canvasCI) {
+                const comprobantesIngresosData = JSON.parse('{{ comprobantes_ingresos_json|escapejs }}');
+                const ctxCI = canvasCI.getContext('2d');
+                new Chart(ctxCI, {
+                    type: 'line',
+                    data: {
+                        labels: comprobantesIngresosData.map(d => d.mes),
+                        datasets: [
+                            {
+                                label: 'Ventas',
+                                data: comprobantesIngresosData.map(d => d.comprobantes),
+                                borderColor: '#339af0', // Azul
+                                backgroundColor: 'rgba(51, 154, 240, 0.1)',
+                                fill: false,
+                                tension: 0.1,
+                                pointRadius: 5,
+                                pointHoverRadius: 7,
+                                pointBackgroundColor: '#339af0'
+                            },
+                            {
+                                label: 'Ingresos',
+                                data: comprobantesIngresosData.map(d => d.ingresos),
+                                borderColor: '#2f9e44', // Verde
+                                backgroundColor: 'rgba(47, 158, 68, 0.1)',
+                                fill: false,
+                                tension: 0.1,
+                                pointRadius: 5,
+                                pointHoverRadius: 7,
+                                pointBackgroundColor: '#2f9e44'
+                            }
+                        ]
                     },
-                    plugins: {
-                        legend: { position: 'top', labels: { boxWidth: 12, font: { size: 10 } } },
-                        tooltip: { callbacks: { label: function(context) { return context.dataset.label + ': $' + context.parsed.y.toLocaleString(); } } }
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { intersect: false, mode: 'index' },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { callback: v => '$' + v.toLocaleString() }
+                            }
+                        },
+                        plugins: {
+                            legend: { position: 'top', labels: { boxWidth: 12, font: { size: 10 } } },
+                            tooltip: { callbacks: { label: function(context) { return context.dataset.label + ': $' + context.parsed.y.toLocaleString(); } } }
+                        }
                     }
-                }
-            });
+                });
+            }
 
-            startCarousel();
-            const container = document.getElementById('containerCarousel');
-            container.addEventListener('mouseenter', stopCarousel);
-            container.addEventListener('mouseleave', startCarousel);
+            // --- GRÁFICA DE CONTRATOS POR VIGENCIA ---
+            const canvasContrato = document.getElementById('chartContratos');
+            if (canvasContrato) {
+                const contratosData = JSON.parse('{{ contratos_json|escapejs }}');
+                const ctxContrato = canvasContrato.getContext('2d');
+                new Chart(ctxContrato, {
+                    type: 'line',
+                    data: {
+                        labels: contratosData.map(d => d.mes),
+                        datasets: [{
+                            label: 'Monto Contratos',
+                            data: contratosData.map(d => d.monto),
+                            borderColor: '#00b8b9',
+                            backgroundColor: 'rgba(0, 184, 185, 0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            pointBackgroundColor: '#00b8b9',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { intersect: false, mode: 'index' },
+                        onClick: function(evt, elements) {
+                            const activePoints = this.getElementsAtEventForMode(evt, 'point', { intersect: true }, true);
+                            const target = activePoints.length > 0 ? activePoints[0] : (elements.length > 0 ? elements[0] : null);
+                            
+                            if (target) {
+                                const index = target.index;
+                                const mes = contratosData[index].mes;
+                                
+                                // Mostrar Modal
+                                const modal = new bootstrap.Modal(document.getElementById('modalDetalleMes'));
+                                document.getElementById('modalDetalleMesLabel').innerText = `Detalle de Contratos`;
+                                document.getElementById('modalDetalleMesSub').innerText = `${mes}`;
+                                document.getElementById('modalDetalleMesContent').innerHTML = '<div class="text-center p-4"><div class="spinner-border text-brand" role="status"></div></div>';
+                                modal.show();
+
+                                // Fetch Datos
+                                fetch(`{% url "api_detalle_mes" %}?tipo=contratos&mes=${mes}`)
+                                    .then(response => response.json())
+                                    .then(data => {
+                                        let html = `
+                                            <div class="d-flex justify-content-between pb-2 mb-2 border-bottom text-muted fw-bold pe-3" style="font-size: 0.75rem; letter-spacing: 0.5px;">
+                                                <span>CONTRATISTA (FOLIO)</span>
+                                                <span>MONTO</span>
+                                            </div>
+                                            <div class="list-group list-group-flush">`;
+                                        
+                                        if (data.data.length === 0) {
+                                            html += '<div class="text-center p-3 text-muted fst-italic">No hay contratos vigentes para este periodo</div>';
+                                        } else {
+                                            data.data.forEach(item => {
+                                                html += `
+                                                    <div class="list-group-item d-flex justify-content-between align-items-center border-0 ps-0 pe-3 py-2">
+                                                        <div class="text-secondary small">${item.entidad}</div>
+                                                        <div class="text-dark small">$${item.monto.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
+                                                    </div>`;
+                                            });
+                                        }
+                                        html += '</div>';
+                                        document.getElementById('modalDetalleMesContent').innerHTML = html;
+                                    })
+                                    .catch(err => {
+                                        document.getElementById('modalDetalleMesContent').innerHTML = `<div class="alert alert-danger small">Error de conexión: ${err.message}</div>`;
+                                    });
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { callback: v => '$' + v.toLocaleString() }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { callbacks: { label: function(context) { return context.dataset.label + ': $' + context.parsed.y.toLocaleString(); } } }
+                        }
+                    }
+                });
+            }
+
+            // Bind carousel indicators dynamically
+            const indicators = document.getElementById('indicadoresCarousel');
+            if (indicators && slides.length > 0) {
+                slides.forEach((s, index) => {
+                    const btn = indicators.querySelector(`[data-slide-id="${s}"]`);
+                    if (btn) {
+                        btn.addEventListener('click', function() {
+                            setSlide(index);
+                        });
+                    }
+                });
+            }
+
+            if (slides.length > 0) {
+                showSlide(0);
+                startCarousel();
+                const container = document.getElementById('containerCarousel');
+                if (container) {
+                    container.addEventListener('mouseenter', stopCarousel);
+                    container.addEventListener('mouseleave', startCarousel);
+                }
+            }
 
         } catch (e) { console.error("Error al inicializar gráficas:", e); }
     });
