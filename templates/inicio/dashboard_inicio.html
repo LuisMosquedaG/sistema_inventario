@@ -1288,7 +1288,7 @@
                     select.classList.add('open');
                 });
 
-                options.forEach(opt => {
+                options.forEach((opt, idx) => {
                     opt.addEventListener('click', function(e) {
                         e.stopPropagation();
                         const valText = this.getAttribute('data-value');
@@ -1303,6 +1303,10 @@
                         select.classList.remove('open');
                         updateVisibility(input, fake);
                         onSelect(valId);
+
+                        if (typeof resetContratistaRotation === 'function') {
+                            resetContratistaRotation(idx);
+                        }
                     });
                 });
 
@@ -1540,6 +1544,45 @@
 
             // Cargar datos al iniciar
             loadNightingaleGlobalData();
+
+            // --- CAROUSEL ROTATIVO DE CONTRATISTAS (CADA 5 SEGUNDOS) ---
+            let contratistaRotationInterval = null;
+            let currentRotationIndex = 0;
+
+            window.startContratistaRotation = function() {
+                if (contratistaRotationInterval) {
+                    clearInterval(contratistaRotationInterval);
+                }
+                contratistaRotationInterval = setInterval(() => {
+                    const wrapper = document.getElementById('wrapperContratistaNightingale');
+                    if (!wrapper) return;
+
+                    const selectDiv = wrapper.querySelector('.custom-select');
+                    // Si el selector está abierto por el usuario, no cambiar contratista automáticamente
+                    if (selectDiv && selectDiv.classList.contains('open')) {
+                        return;
+                    }
+
+                    const options = Array.from(wrapper.querySelectorAll('.custom-option'));
+                    if (options.length <= 1) return;
+
+                    currentRotationIndex = (currentRotationIndex + 1) % options.length;
+                    const nextOption = options[currentRotationIndex];
+                    if (nextOption) {
+                        nextOption.click();
+                    }
+                }, 5000);
+            };
+
+            window.resetContratistaRotation = function(newIndex = -1) {
+                if (newIndex !== -1) {
+                    currentRotationIndex = newIndex;
+                }
+                window.startContratistaRotation();
+            };
+
+            // Iniciar rotación de contratistas al cargar
+            window.startContratistaRotation();
 
             // Bind carousel indicators dynamically
             const indicators = document.getElementById('indicadoresCarousel');
