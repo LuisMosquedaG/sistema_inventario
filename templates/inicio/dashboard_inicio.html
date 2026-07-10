@@ -304,6 +304,87 @@
             </div>
         </div>
 
+        <!-- ANÁLISIS DE CONTRATOS POR CONTRATISTA (ROSA DE NIGHTINGALE) -->
+        <style>
+            #wrapperContratistaNightingale .real-input-layer,
+            #wrapperContratistaNightingale .fake-input-layer {
+                font-size: 0.75rem !important;
+                font-weight: 400 !important;
+            }
+        </style>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
+                <div class="card-header bg-white border-bottom-0 pt-4 px-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                    <h5 class="fw-bold text-dark mb-0" style="font-size: 0.95rem;">
+                        <i class="bi bi-pie-chart-fill me-2 text-brand"></i>Contratos por Contratista (Rosa de Nightingale)
+                    </h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="small fw-bold text-muted mb-0">Contratista:</label>
+                        <div class="custom-select-wrapper" id="wrapperContratistaNightingale" style="min-width: 160px; max-width: 220px; text-align: left;">
+                            <div class="custom-select">
+                                <div class="custom-select__trigger" style="border-radius: 8px; min-height: 31px; height: 31px;">
+                                    <div id="contratista_display_fake" class="fake-input-layer" title="" style="line-height: 31px; padding: 0 10px;">
+                                        <span class="text-muted" style="font-size: 0.75rem; font-weight:400;">Seleccionar...</span>
+                                    </div>
+                                    <input type="text" id="contratista_busqueda" autocomplete="off" class="real-input-layer" placeholder="" style="height: 31px; padding: 0 10px; font-size: 0.75rem;">
+                                    <input type="hidden" id="selectContratistaNightingale" value="">
+                                </div>
+                                <div class="custom-options" style="max-height: 200px; overflow-y: auto; z-index: 1050;">
+                                    {% for c in contratistas %}
+                                    <span class="custom-option text-start" data-id="{{ c.id }}" data-value="{{ c.nombre_razon_social }}" data-search="{{ c.nombre_razon_social }}" title="{{ c.nombre_razon_social }}" style="font-size: 0.75rem;">
+                                        {{ c.nombre_razon_social }}
+                                    </span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-3">
+                    <div class="row align-items-center g-2">
+                        <div class="col-8">
+                            <div style="height: 300px; position: relative; width: 100%;">
+                                <canvas id="chartNightingaleRose"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div id="nightingaleLegendList" class="d-flex flex-column gap-2 overflow-auto" style="max-height: 280px; font-size: 0.7rem; border-left: 1px solid rgba(0,0,0,0.05); padding-left: 10px;">
+                                <p class="text-muted small fst-italic text-center py-5">Seleccione un contratista</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ANÁLISIS GLOBAL DE CONTRATOS POR CONTRATISTA (ROSA DE NIGHTINGALE GLOBAL) -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
+                <div class="card-header bg-white border-bottom-0 pt-4 px-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                    <h5 class="fw-bold text-dark mb-0" style="font-size: 0.95rem;">
+                        <i class="bi bi-pie-chart-fill me-2 text-brand"></i>Distribución Total por Contratista
+                    </h5>
+                    <span class="badge bg-light text-secondary border p-2" style="font-size: 0.75rem;">Consolidado</span>
+                </div>
+                <div class="card-body p-3">
+                    <div class="row align-items-center g-2">
+                        <div class="col-8">
+                            <div style="height: 300px; position: relative; width: 100%;">
+                                <canvas id="chartNightingaleRoseGlobal"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div id="nightingaleGlobalLegendList" class="d-flex flex-column gap-2 overflow-auto" style="max-height: 280px; font-size: 0.7rem; border-left: 1px solid rgba(0,0,0,0.05); padding-left: 10px;">
+                                <div class="text-center py-5">
+                                    <div class="spinner-border text-brand" role="status" style="width: 1.5rem; height: 1.5rem;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- SUAS POR CONTRATISTA -->
         <div class="col-12">
             <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
@@ -1069,6 +1150,396 @@
                     }
                 });
             }
+
+            // --- GRÁFICA ROSA DE NIGHTINGALE (CONTRATOS POR CONTRATISTA) ---
+            const canvasNightingale = document.getElementById('chartNightingaleRose');
+            let chartNightingale = null;
+
+            function renderNightingaleRoseChart(dataList) {
+                if (!canvasNightingale) return;
+                
+                if (chartNightingale) {
+                    chartNightingale.destroy();
+                }
+
+                if (dataList.length === 0) {
+                    const ctx = canvasNightingale.getContext('2d');
+                    ctx.clearRect(0, 0, canvasNightingale.width, canvasNightingale.height);
+                    ctx.font = "14px Inter";
+                    ctx.fillStyle = "#adb5bd";
+                    ctx.textAlign = "center";
+                    ctx.fillText("Sin contratos vigentes para este contratista", canvasNightingale.width / 2, canvasNightingale.height / 2);
+                    return;
+                }
+
+                const baseColors = [
+                    'rgba(0, 184, 185, 0.75)',   // Turquesa principal
+                    'rgba(51, 154, 240, 0.75)',   // Azul
+                    'rgba(47, 158, 68, 0.75)',    // Verde
+                    'rgba(240, 140, 0, 0.75)',    // Naranja
+                    'rgba(130, 80, 223, 0.75)',   // Violeta
+                    'rgba(230, 73, 128, 0.75)',   // Rosa
+                    'rgba(18, 184, 134, 0.75)',   // Verde menta
+                    'rgba(252, 196, 25, 0.75)'    // Amarillo
+                ];
+                
+                const hoverColors = baseColors.map(c => c.replace('0.75', '0.9'));
+
+                const labels = dataList.map(item => item.label);
+                const values = dataList.map(item => item.monto);
+                const colors = dataList.map((_, i) => baseColors[i % baseColors.length]);
+                const hovers = dataList.map((_, i) => hoverColors[i % hoverColors.length]);
+
+                const ctx = canvasNightingale.getContext('2d');
+                chartNightingale = new Chart(ctx, {
+                    type: 'polarArea',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: values,
+                            backgroundColor: colors,
+                            hoverBackgroundColor: hovers,
+                            borderWidth: 2,
+                            borderColor: '#ffffff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            r: {
+                                ticks: {
+                                    display: false
+                                },
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const idx = context.dataIndex;
+                                        const item = dataList[idx];
+                                        return ` ${item.label}: $${item.monto.toLocaleString(undefined, {minimumFractionDigits: 2})} (${item.porcentaje}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // --- INICIALIZACIÓN DEL CUSTOM SELECT DE CONTRATISTA ---
+            function updateVisibility(input, fake) {
+                if (document.activeElement === input || input.value) {
+                    fake.style.display = 'none';
+                    input.style.display = 'block';
+                } else {
+                    fake.style.display = 'block';
+                    input.style.display = 'none';
+                }
+            }
+
+            const setupCustomSelect = (wrapperId, inputId, fakeId, hiddenId, onSelect) => {
+                const wrapper = document.getElementById(wrapperId);
+                if (!wrapper) return;
+                const select = wrapper.querySelector('.custom-select');
+                const input = document.getElementById(inputId);
+                const fake = document.getElementById(fakeId);
+                const hidden = document.getElementById(hiddenId);
+                const options = wrapper.querySelectorAll('.custom-option');
+
+                let lastSelectedText = "";
+
+                updateVisibility(input, fake);
+
+                input.addEventListener('focus', () => { 
+                    lastSelectedText = input.value;
+                    input.value = "";
+                    options.forEach(opt => opt.style.display = 'flex');
+                    select.classList.add('open'); 
+                    updateVisibility(input, fake); 
+                });
+                
+                input.addEventListener('blur', () => {
+                    setTimeout(() => {
+                        if (hidden.value && !input.value) {
+                            input.value = lastSelectedText;
+                            fake.innerHTML = `<span class="text-dark" style="font-size: 0.75rem; font-weight: 400;">${lastSelectedText}</span>`;
+                        }
+                        select.classList.remove('open');
+                        updateVisibility(input, fake);
+                    }, 200);
+                });
+
+                input.addEventListener('input', function() {
+                    fake.innerHTML = `<span style="font-size: 0.75rem; font-weight: 400;">${this.value}</span>`;
+                    updateVisibility(input, fake);
+                    const term = this.value.toLowerCase();
+                    options.forEach(opt => {
+                        const search = (opt.getAttribute('data-search') || opt.getAttribute('data-value') || '').toLowerCase();
+                        opt.style.display = search.includes(term) ? 'flex' : 'none';
+                    });
+                    select.classList.add('open');
+                });
+
+                options.forEach(opt => {
+                    opt.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const valText = this.getAttribute('data-value');
+                        const valId = this.getAttribute('data-id') || '';
+                        
+                        input.value = valText; 
+                        lastSelectedText = valText;
+                        fake.innerHTML = `<span class="text-dark" style="font-size: 0.75rem; font-weight: 400;">${valText}</span>`;
+                        fake.setAttribute('title', valText);
+                        hidden.value = valId;
+
+                        select.classList.remove('open');
+                        updateVisibility(input, fake);
+                        onSelect(valId);
+                    });
+                });
+
+                window.addEventListener('click', (e) => { 
+                    if (!wrapper.contains(e.target)) {
+                        select.classList.remove('open'); 
+                    }
+                });
+            };
+
+            function fetchNightingaleData(contratistaId) {
+                const legendContainer = document.getElementById('nightingaleLegendList');
+                
+                if (!contratistaId) {
+                    if (chartNightingale) {
+                        chartNightingale.destroy();
+                        chartNightingale = null;
+                    }
+                    if (legendContainer) {
+                        legendContainer.innerHTML = '<p class="text-muted small fst-italic text-center py-5">Seleccione un contratista</p>';
+                    }
+                    return;
+                }
+
+                if (legendContainer) {
+                    legendContainer.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-brand" role="status"></div></div>';
+                }
+
+                fetch(`{% url "api_contratos_nightingale" %}?contratista_id=${contratistaId}`)
+                    .then(r => r.json())
+                    .then(res => {
+                        const data = res.data || [];
+                        
+                        renderNightingaleRoseChart(data);
+
+                        if (legendContainer) {
+                            if (data.length === 0) {
+                                legendContainer.innerHTML = '<p class="text-muted small fst-italic text-center py-5">Sin contratos vigentes</p>';
+                            } else {
+                                const baseColors = [
+                                    'rgba(0, 184, 185, 0.75)',
+                                    'rgba(51, 154, 240, 0.75)',
+                                    'rgba(47, 158, 68, 0.75)',
+                                    'rgba(240, 140, 0, 0.75)',
+                                    'rgba(130, 80, 223, 0.75)',
+                                    'rgba(230, 73, 128, 0.75)',
+                                    'rgba(18, 184, 134, 0.75)',
+                                    'rgba(252, 196, 25, 0.75)'
+                                ];
+
+                                let html = '';
+                                data.forEach((item, index) => {
+                                    const color = baseColors[index % baseColors.length];
+                                    html += `
+                                        <div class="d-flex align-items-center w-100 mb-1" style="font-size: 0.7rem; gap: 6px;">
+                                            <span class="rounded-circle d-inline-block" style="width: 8px; height: 8px; background-color: ${color}; flex-shrink: 0;"></span>
+                                            <span class="text-secondary text-truncate flex-grow-1 min-w-0" title="${item.label}" style="min-width: 0;">${item.label}</span>
+                                            <span class="fw-bold text-dark ms-auto" style="flex-shrink: 0;">${item.porcentaje}%</span>
+                                        </div>
+                                    `;
+                                });
+                                legendContainer.innerHTML = html;
+                            }
+                        }
+                    })
+                    .catch(err => {
+                        if (legendContainer) {
+                            legendContainer.innerHTML = `<div class="alert alert-danger small">Error: ${err.message}</div>`;
+                        }
+                    });
+            }
+
+            setupCustomSelect(
+                'wrapperContratistaNightingale', 
+                'contratista_busqueda', 
+                'contratista_display_fake', 
+                'selectContratistaNightingale', 
+                fetchNightingaleData
+            );
+
+            // Auto-seleccionar primer contratista si existe
+            const wrapperContr = document.getElementById('wrapperContratistaNightingale');
+            if (wrapperContr) {
+                const firstOption = wrapperContr.querySelector('.custom-option');
+                if (firstOption) {
+                    firstOption.click();
+                }
+            }
+
+            // --- FUNCIÓN PARA SELECCIONAR CONTRATISTA DESDE LA GRÁFICA GLOBAL ---
+            window.selectContratistaByName = function(name) {
+                const wrapper = document.getElementById('wrapperContratistaNightingale');
+                if (!wrapper) return;
+                
+                const options = wrapper.querySelectorAll('.custom-option');
+                let foundOption = null;
+                options.forEach(opt => {
+                    if (opt.getAttribute('data-value').trim() === name.trim()) {
+                        foundOption = opt;
+                    }
+                });
+
+                if (foundOption) {
+                    foundOption.click();
+                }
+            };
+
+            // --- GRÁFICA DE ROSA DE NIGHTINGALE GLOBAL (TODOS LOS CONTRATISTAS) ---
+            let chartNightingaleGlobal = null;
+            
+            function renderNightingaleRoseChartGlobal(dataList) {
+                const canvasNightingaleGlobal = document.getElementById('chartNightingaleRoseGlobal');
+                if (!canvasNightingaleGlobal) return;
+                
+                if (chartNightingaleGlobal) {
+                    chartNightingaleGlobal.destroy();
+                }
+
+                const labels = dataList.map(item => item.label);
+                const values = dataList.map(item => item.monto);
+                
+                const baseColors = [
+                    'rgba(0, 184, 185, 0.75)',
+                    'rgba(51, 154, 240, 0.75)',
+                    'rgba(47, 158, 68, 0.75)',
+                    'rgba(240, 140, 0, 0.75)',
+                    'rgba(130, 80, 223, 0.75)',
+                    'rgba(230, 73, 128, 0.75)',
+                    'rgba(18, 184, 134, 0.75)',
+                    'rgba(252, 196, 25, 0.75)'
+                ];
+                
+                const colors = dataList.map((_, index) => baseColors[index % baseColors.length]);
+                const hovers = dataList.map((_, index) => baseColors[index % baseColors.length].replace('0.75', '0.9'));
+
+                const ctx = canvasNightingaleGlobal.getContext('2d');
+                chartNightingaleGlobal = new Chart(ctx, {
+                    type: 'polarArea',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: values,
+                            backgroundColor: colors,
+                            hoverBackgroundColor: hovers,
+                            borderWidth: 2,
+                            borderColor: '#ffffff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        onClick: function(event, elements) {
+                            if (elements && elements.length > 0) {
+                                const activeElement = elements[0];
+                                const index = activeElement.index;
+                                const label = chartNightingaleGlobal.data.labels[index];
+                                window.selectContratistaByName(label);
+                            }
+                        },
+                        scales: {
+                            r: {
+                                ticks: {
+                                    display: false
+                                },
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const idx = context.dataIndex;
+                                        const item = dataList[idx];
+                                        return ` ${item.label}: $${item.monto.toLocaleString(undefined, {minimumFractionDigits: 2})} (${item.porcentaje}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            function loadNightingaleGlobalData() {
+                const legendContainerGlobal = document.getElementById('nightingaleGlobalLegendList');
+                if (!legendContainerGlobal) return;
+                
+                fetch('{% url "api_contratos_totales_contratistas" %}')
+                    .then(r => r.json())
+                    .then(res => {
+                        const data = res.data || [];
+                        
+                        renderNightingaleRoseChartGlobal(data);
+
+                        if (data.length === 0) {
+                            legendContainerGlobal.innerHTML = '<p class="text-muted small fst-italic text-center py-5">Sin contratos vigentes</p>';
+                        } else {
+                            const baseColors = [
+                                'rgba(0, 184, 185, 0.75)',
+                                'rgba(51, 154, 240, 0.75)',
+                                'rgba(47, 158, 68, 0.75)',
+                                'rgba(240, 140, 0, 0.75)',
+                                'rgba(130, 80, 223, 0.75)',
+                                'rgba(230, 73, 128, 0.75)',
+                                'rgba(18, 184, 134, 0.75)',
+                                'rgba(252, 196, 25, 0.75)'
+                            ];
+
+                            let html = '';
+                            data.forEach((item, index) => {
+                                const color = baseColors[index % baseColors.length];
+                                const safeName = item.label.replace(/'/g, "\\'");
+                                html += `
+                                    <div class="d-flex align-items-center w-100 mb-1" 
+                                         style="font-size: 0.7rem; gap: 6px; cursor: pointer;" 
+                                         onclick="window.selectContratistaByName('${safeName}')"
+                                         title="Ver contratos de ${item.label}">
+                                        <span class="rounded-circle d-inline-block" style="width: 8px; height: 8px; background-color: ${color}; flex-shrink: 0;"></span>
+                                        <span class="text-secondary text-truncate flex-grow-1 min-w-0" style="min-width: 0;">${item.label}</span>
+                                        <span class="fw-bold text-dark ms-auto" style="flex-shrink: 0;">${item.porcentaje}%</span>
+                                    </div>
+                                `;
+                            });
+                            legendContainerGlobal.innerHTML = html;
+                        }
+                    })
+                    .catch(err => {
+                        legendContainerGlobal.innerHTML = `<div class="alert alert-danger small">Error: ${err.message}</div>`;
+                    });
+            }
+
+            // Cargar datos al iniciar
+            loadNightingaleGlobalData();
 
             // Bind carousel indicators dynamically
             const indicators = document.getElementById('indicadoresCarousel');

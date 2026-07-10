@@ -316,6 +316,7 @@ def dashboard_inicio(request):
         'empresa': empresa_actual,
         'username_display': username_display,
         'section': 'inicio',
+        'contratistas': contratistas,
         'uso_actual_mb': uso_actual_mb,
         'limite_espacio_disco': limite_mb,
         'porcentaje_uso_disco': porcentaje_uso_disco,
@@ -422,5 +423,80 @@ def api_detalle_mes(request):
                 })
 
         return JsonResponse({'data': data, 'mes': mes_nombre, 'anio': anio})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required(login_url='/login/')
+def api_contratos_nightingale(request):
+    try:
+        empresa_actual = get_empresa_actual(request)
+        if not empresa_actual:
+            return JsonResponse({'error': 'Empresa no encontrada'}, status=403)
+        
+        contratista_id = request.GET.get('contratista_id')
+        if not contratista_id:
+            return JsonResponse({'error': 'Debe especificar el contratista_id'}, status=400)
+            
+        from recursos_humanos.models import Contrato
+        contratos = Contrato.objects.filter(
+            empresa=empresa_actual,
+            contratista_id=contratista_id,
+            estado='vigente'
+        ).select_related('beneficiario').order_by('-monto_contrato')
+        
+        total_monto = sum(float(c.monto_contrato) for c in contratos)
+        data = []
+        for c in contratos:
+            benef_str = f" ({c.beneficiario.nombre_razon_social})" if c.beneficiario else ""
+            folio_str = c.folio if c.folio else f"Folio: S/F (#{c.id})"
+            porcentaje = (float(c.monto_contrato) / total_monto * 100) if total_monto > 0 else 0
+            
+            data.append({
+                'label': f"{folio_str}{benef_str}",
+                'monto': float(c.monto_contrato),
+                'porcentaje': round(porcentaje, 1),
+                'objeto': c.objeto_contrato or ''
+            })
+            
+        return JsonResponse({'data': data})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def api_contratos_totales_contratistas(request):
+    try:
+        empresa_actual = get_empresa_actual(request)
+        if not empresa_actual:
+            return JsonResponse({'error': 'No se encontró la empresa actual'}, status=403)
+            
+        from recursos_humanos.models import Contrato
+        contratos = Contrato.objects.filter(
+            empresa=empresa_actual,
+            estado='vigente',
+            contratista__isnull=False
+        ).select_related('contratista')
+        
+        # Agrupar montos por contratista
+        from collections import defaultdict
+        monto_por_contratista = defaultdict(float)
+        for c in contratos:
+            nombre = c.contratista.nombre_razon_social
+            monto_por_contratista[nombre] += float(c.monto_contrato)
+            
+        total_monto = sum(monto_por_contratista.values())
+        data = []
+        for nombre, monto in monto_por_contratista.items():
+            porcentaje = (monto / total_monto * 100) if total_monto > 0 else 0
+            data.append({
+                'label': nombre,
+                'monto': monto,
+                'porcentaje': round(porcentaje, 1)
+            })
+            
+        # Ordenar por monto descendente
+        data.sort(key=lambda x: x['monto'], reverse=True)
+        
+        return JsonResponse({'data': data})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
