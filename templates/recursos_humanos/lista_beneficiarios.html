@@ -266,7 +266,10 @@
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label-custom">Usuario de Acceso (Portal)</label>
-                                    <input type="text" name="usuario_portal" id="inputUsuarioPortal" class="form-control form-control-sm" placeholder="Ej. juan">
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" name="usuario_portal" id="inputUsuarioPortal" class="form-control" placeholder="Ej. juan">
+                                        <span class="input-group-text bg-light text-muted" id="dispPrefijoPortal">@{{ empresa.subdominio }}</span>
+                                    </div>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label-custom">Contraseña (Portal)</label>
