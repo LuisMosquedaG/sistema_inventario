@@ -333,11 +333,18 @@ class DocumentacionBeneficiario(models.Model):
         ('OTROS', 'Otros'),
     ]
     
+    STATUS_DOC_CHOICES = [
+        ('revision', 'En Revisión'),
+        ('aprobado', 'Aprobado'),
+        ('rechazado', 'Rechazado'),
+    ]
+    
     nombre_documento = models.CharField(max_length=50, choices=NOMBRE_DOC_CHOICES, verbose_name="Nombre del Documento")
     archivo = models.FileField(storage=protected_storage, upload_to=upload_to_beneficiario_doc, verbose_name="Archivo")
     mes = models.PositiveIntegerField(verbose_name="Mes (1-12)")
     anio = models.PositiveIntegerField(verbose_name="Año")
     fecha_subida = models.DateTimeField(auto_now_add=True)
+    estatus = models.CharField(max_length=20, choices=STATUS_DOC_CHOICES, default='revision', verbose_name="Estatus")
 
     def __str__(self):
         return f"{self.beneficiario.nombre_razon_social} - {self.nombre_documento} ({self.mes}/{self.anio})"

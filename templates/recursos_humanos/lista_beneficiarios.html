@@ -30,6 +30,110 @@
 
     .modal-body-gray::-webkit-scrollbar { width: 6px; }
     .modal-body-gray::-webkit-scrollbar-thumb { background-color: #dee2e6; border-radius: 4px; }
+
+    /* Estilos de la Matriz de Documentos (iguales al portal del beneficiario) */
+    .document-cell {
+        position: relative;
+        background-color: transparent;
+        width: 100%;
+        height: 50px;
+        overflow: hidden;
+        box-sizing: border-box;
+    }
+    
+    table.table-matrix th:not(:first-child) {
+        width: 100px;
+        min-width: 100px;
+    }
+
+    .watermark-icon {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3.15rem;
+        z-index: 1;
+        pointer-events: none;
+        line-height: 1;
+        transition: all 0.15s ease-in-out;
+    }
+
+    .z-index-2 {
+        position: relative;
+        z-index: 2;
+    }
+    
+    /* Colores de Fondo de Celda por Estatus */
+    .cell-revision {
+        background-color: #fff9db !important; /* Amarillo claro */
+    }
+    
+    .cell-aprobado {
+        background-color: #ebfbee !important; /* Verde claro */
+    }
+    
+    .cell-rechazado {
+        background-color: #fff5f5 !important; /* Rojo claro */
+    }
+    
+    .cell-vacio {
+        background-color: #ffffff !important; /* Blanco */
+        cursor: pointer;
+        transition: background-color 0.15s ease-in-out;
+    }
+    .cell-vacio:hover {
+        background-color: #f8f9fa !important;
+    }
+    
+    /* Hover muy suave en toda la fila de la matriz */
+    table.table-matrix.table-hover tbody tr:hover > * {
+        box-shadow: inset 0 0 0 9999px rgba(0, 0, 0, 0.02) !important; /* Gris extremadamente tenue en toda la fila */
+        background-image: none !important;
+    }
+    
+    /* Resaltado de columna en hover */
+    .col-highlight {
+        box-shadow: inset 0 0 0 9999px rgba(0, 0, 0, 0.02) !important;
+    }
+
+    /* Ancho del modal expandido para evitar scrollbar horizontal de meses */
+    #modalDocumentacion .modal-dialog {
+        max-width: 95% !important;
+        width: 1500px !important;
+    }
+
+    /* Botón flotante redondo para eliminar documento */
+    .btn-delete-doc {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background-color: rgba(255, 255, 255, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #adb5bd;
+        border: 1px solid #dee2e6;
+        transition: all 0.15s ease-in-out;
+        font-size: 0.65rem;
+        cursor: pointer;
+        z-index: 3;
+        pointer-events: auto;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .btn-delete-doc:hover {
+        background-color: #fff5f5;
+        color: #e03131;
+        border-color: #ffc9c9;
+        transform: scale(1.1);
+        box-shadow: 0 2px 5px rgba(224, 49, 49, 0.15);
+    }
 </style>
 
 <div class="container-fluid py-2 px-4">
@@ -448,33 +552,39 @@
 
             <div class="modal-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-bordered table-sm mb-0" style="font-size: 0.75rem;">
-                        <thead class="bg-light text-center">
+                    <table class="table table-bordered table-hover align-middle mb-0 table-matrix" style="font-size: 0.75rem;">
+                        <thead class="table-light text-center">
                             <tr>
-                                <th class="align-middle px-3 py-2 text-start" style="width: 200px; background-color: #f1f3f5;">Documento</th>
-                                <th style="width: 70px;">Ene</th>
-                                <th style="width: 70px;">Feb</th>
-                                <th style="width: 70px;">Mar</th>
-                                <th style="width: 70px;">Abr</th>
-                                <th style="width: 70px;">May</th>
-                                <th style="width: 70px;">Jun</th>
-                                <th style="width: 70px;">Jul</th>
-                                <th style="width: 70px;">Ago</th>
-                                <th style="width: 70px;">Sep</th>
-                                <th style="width: 70px;">Oct</th>
-                                <th style="width: 70px;">Nov</th>
-                                <th style="width: 70px;">Dic</th>
+                                <th class="align-middle px-3 py-3 text-start" style="width: 250px; min-width: 250px; font-weight: 600; color: #495057;">Documento</th>
+                                <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Enero</th>
+                                <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Febrero</th>
+                                <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Marzo</th>
+                                <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Abril</th>
+                                <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Mayo</th>
+                                <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Junio</th>
+                                <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Julio</th>
+                                <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Agosto</th>
+                                <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Septiembre</th>
+                                <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Octubre</th>
+                                <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Noviembre</th>
+                                <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Diciembre</th>
                             </tr>
                         </thead>
                         <tbody id="bodyMatrizDoc">
                             <!-- Se llena vía AJAX -->
                         </tbody>
+                        <tfoot id="footMatrizDoc" class="table-light">
+                            <!-- Se llena vía AJAX con los conteos mensuales -->
+                        </tfoot>
                     </table>
                 </div>
             </div>
             <div class="modal-footer bg-light border-top-0 py-2">
-                <small class="text-muted"><i class="bi bi-info-circle me-1"></i> Haz clic en una celda para subir o ver el documento del mes.</small>
-                <button type="button" class="btn btn-secondary btn-sm ms-auto" data-bs-dismiss="modal">Cerrar</button>
+                <div class="d-flex flex-column gap-1">
+                    <small class="text-muted"><i class="bi bi-info-circle me-1"></i> Haz clic en una celda para subir o ver el documento del mes.</small>
+                    <small class="text-muted"><i class="bi bi-info-circle me-1"></i> Significado de siglas: A = Aprobado, R = Rechazado, ER = En revisión, SD = Sin documento</small>
+                </div>
+                <button type="button" class="btn btn-light text-secondary btn-sm ms-auto" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -495,52 +605,107 @@
     }
 
     function getIconByFilename(filename) {
-        if (!filename) return 'bi-file-earmark text-secondary';
+        if (!filename) return 'bi-file-earmark';
         const ext = filename.split('.').pop().toLowerCase();
-        if (ext === 'pdf') return 'bi-file-earmark-pdf text-danger';
-        if (['xlsx', 'xls', 'csv'].includes(ext)) return 'bi-file-earmark-excel text-success';
-        if (['docx', 'doc'].includes(ext)) return 'bi-file-earmark-word text-primary';
-        if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) return 'bi-file-earmark-image text-info';
-        return 'bi-file-earmark text-secondary';
+        if (ext === 'pdf') return 'bi-file-earmark-pdf';
+        if (['xlsx', 'xls', 'csv'].includes(ext)) return 'bi-file-earmark-excel';
+        if (['docx', 'doc'].includes(ext)) return 'bi-file-earmark-word';
+        if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) return 'bi-file-earmark-image';
+        return 'bi-file-earmark';
     }
 
     function cargarMatrizDocumentos() {
         const anio = document.getElementById('selectAnioDoc').value;
         const body = document.getElementById('bodyMatrizDoc');
+        const foot = document.getElementById('footMatrizDoc');
         body.innerHTML = '<tr><td colspan="13" class="text-center py-4"><div class="spinner-border spinner-border-sm text-brand"></div> Cargando...</td></tr>';
+        if (foot) foot.innerHTML = '';
 
         fetch(`/recursos-humanos/beneficiarios/documentacion/obtener/${currentBenId}/?anio=${anio}`)
         .then(r => r.json())
         .then(data => {
             if(data.success) {
                 document.getElementById('nombreBeneficiarioDoc').textContent = data.beneficiario;
+                
+                // Inicializar contadores por mes (1 al 12)
+                const conteos = {
+                    aprobados: Array(13).fill(0),
+                    rechazados: Array(13).fill(0),
+                    revision: Array(13).fill(0),
+                    vacio: Array(13).fill(0)
+                };
+
                 let html = '';
                 data.matrix.forEach(row => {
                     html += `<tr>
-                        <td class="fw-bold px-3 py-2 bg-white">${row.nombre}</td>`;
+                        <td class="fw-bold px-3 py-3 align-middle bg-white text-dark" style="font-size: 0.85rem;">${row.nombre}</td>`;
                     for(let m=1; m<=12; m++) {
                         const doc = row.meses[m];
                         if(doc.id) {
                             const iconClass = getIconByFilename(doc.nombre_archivo);
-                            html += `<td class="text-center align-middle p-0" style="background-color: #f8fdfb;">
-                                <div class="d-flex justify-content-center align-items-center gap-1">
-                                    <a href="${doc.url}" target="_blank" class="p-2" title="Ver archivo: ${doc.nombre_archivo}">
-                                        <i class="bi ${iconClass} fs-5"></i>
-                                    </a>
-                                    <span class="text-danger p-2 cursor-pointer opacity-50 hover-opacity-100" onclick="eliminarDoc(${doc.id})" title="Eliminar">
-                                        <i class="bi bi-x-circle small"></i>
-                                    </span>
-                                </div>
+                            
+                            let cellClass = '';
+                            let watermarkColor = 'rgba(108, 117, 125, 0.08)';
+                            
+                            if (doc.estatus === 'revision') {
+                                conteos.revision[m]++;
+                                cellClass = 'cell-revision';
+                                watermarkColor = 'rgba(240, 140, 0, 0.12)';
+                            } else if (doc.estatus === 'aprobado') {
+                                conteos.aprobados[m]++;
+                                cellClass = 'cell-aprobado';
+                                watermarkColor = 'rgba(47, 158, 68, 0.12)';
+                            } else if (doc.estatus === 'rechazado') {
+                                conteos.rechazados[m]++;
+                                cellClass = 'cell-rechazado';
+                                watermarkColor = 'rgba(224, 49, 49, 0.12)';
+                            }
+                            
+                            html += `<td class="align-middle p-0 ${cellClass}" style="width: 100px; height: 50px;">
+                                <a href="${doc.url}" target="_blank" class="text-decoration-none d-block document-cell p-0" title="Ver archivo: ${doc.nombre_archivo}">
+                                    <!-- Icono del tipo de documento de fondo (marca de agua del color del estatus) -->
+                                    <div class="watermark-icon" style="color: ${watermarkColor};">
+                                        <i class="bi ${iconClass}"></i>
+                                    </div>
+                                    
+                                    <!-- Contenido flotante -->
+                                    <div class="position-absolute w-100 h-100 top-0 left-0 p-1.5 z-index-2 pointer-events-none">
+                                        <!-- Botón redondo de eliminar (tache / x) -->
+                                        <span class="btn-delete-doc" onclick="event.stopPropagation(); event.preventDefault(); eliminarDoc(${doc.id})" title="Eliminar documento">
+                                            <i class="bi bi-x-lg"></i>
+                                        </span>
+                                    </div>
+                                </a>
                             </td>`;
                         } else {
-                            html += `<td class="text-center align-middle p-0 cursor-pointer hover-bg-light" onclick="prepararSubida('${row.codigo}', ${m})">
-                                <span class="text-muted opacity-25 p-2 d-block"><i class="bi bi-plus-circle"></i></span>
+                            conteos.vacio[m]++;
+                            html += `<td class="text-center align-middle p-0 cursor-pointer cell-vacio" onclick="prepararSubida('${row.codigo}', ${m})" style="width: 100px; height: 50px;">
+                                <div class="document-cell d-flex align-items-center justify-content-center">
+                                    <span class="text-muted opacity-25" style="font-size: 0.85rem;"><i class="bi bi-plus-lg"></i></span>
+                                </div>
                             </td>`;
                         }
                     }
                     html += `</tr>`;
                 });
                 body.innerHTML = html;
+
+                // Generar los conteos en el footer (una sola fila con celdas de dos líneas)
+                if (foot) {
+                    let footHtml = `<tr style="border-top: 2px solid #dee2e6;">
+                        <td class="fw-bold px-3 py-1.5 text-dark text-start align-middle" style="font-size: 0.72rem; background-color: #f8f9fa;">
+                            <i class="bi bi-grid-1x2 me-1 text-muted"></i> Resumen de Documentos
+                        </td>`;
+                    for (let m = 1; m <= 12; m++) {
+                        footHtml += `<td class="text-center align-middle py-1.5" style="font-size: 0.68rem; background-color: #f8f9fa; color: #495057; white-space: nowrap; font-weight: 500; line-height: 1.3;">
+                            <div>A:${conteos.aprobados[m]} <span class="text-muted opacity-30 mx-0.5">·</span> R:${conteos.rechazados[m]}</div>
+                            <div>ER:${conteos.revision[m]} <span class="text-muted opacity-30 mx-0.5">·</span> SD:${conteos.vacio[m]}</div>
+                        </td>`;
+                    }
+                    footHtml += `</tr>`;
+                    
+                    foot.innerHTML = footHtml;
+                }
             }
         });
     }
@@ -589,6 +754,34 @@
             });
         }
     }
+
+    // Event delegation para iluminar la columna correspondiente en la matriz del modal
+    document.addEventListener("DOMContentLoaded", function() {
+        const table = document.querySelector(".table-matrix");
+        if (table) {
+            table.addEventListener("mouseover", function(e) {
+                const cell = e.target.closest("td, th");
+                if (!cell) return;
+                const index = cell.cellIndex;
+                if (index > 0) {
+                    table.querySelectorAll(`tr > *:nth-child(${index + 1})`).forEach(c => {
+                        c.classList.add("col-highlight");
+                    });
+                }
+            });
+            
+            table.addEventListener("mouseout", function(e) {
+                const cell = e.target.closest("td, th");
+                if (!cell) return;
+                const index = cell.cellIndex;
+                if (index > 0) {
+                    table.querySelectorAll(`tr > *:nth-child(${index + 1})`).forEach(c => {
+                        c.classList.remove("col-highlight");
+                    });
+                }
+            });
+        }
+    });
 </script>
 
 <style>

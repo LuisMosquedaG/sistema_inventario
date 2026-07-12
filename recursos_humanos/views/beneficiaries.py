@@ -264,7 +264,9 @@ def obtener_documentacion_json(request, id):
             meses_data[m] = {
                 'id': doc.id if doc else None,
                 'url': reverse('descargar_documento_beneficiario', args=[doc.id]) if doc else None,
-                'nombre_archivo': doc.archivo.name.split('/')[-1] if doc else None
+                'nombre_archivo': doc.archivo.name.split('/')[-1] if doc else None,
+                'estatus': doc.estatus if doc else None,
+                'estatus_display': doc.get_estatus_display() if doc else None
             }
         matrix.append({
             'codigo': code,
@@ -311,11 +313,12 @@ def subir_documento_ajax(request, id):
             nombre_documento=codigo,
             mes=mes,
             anio=anio,
-            defaults={'empresa': empresa_actual, 'archivo': archivo}
+            defaults={'empresa': empresa_actual, 'archivo': archivo, 'estatus': 'revision'}
         )
         
         if not created:
             doc.archivo = archivo
+            doc.estatus = 'revision'
             doc.save()
             
         return JsonResponse({'success': True, 'message': 'Archivo subido correctamente.'})
@@ -389,3 +392,34 @@ def descargar_documento_beneficiario(request, doc_id):
 
     # 4. Servir el archivo de manera segura
     return FileResponse(open(doc.archivo.path, 'rb'), as_attachment=True)
+
+@login_required(login_url='/login/')
+@require_POST
+def cambiar_estatus_documento_ajax(request, doc_id):
+    empresa_actual = get_empresa_actual(request)
+    doc = get_object_or_404(DocumentacionBeneficiario, id=doc_id)
+    
+    if doc.empresa != empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Acceso denegado: este documento no pertenece a tu empresa.'}, status=403)
+        
+    is_beneficiary = hasattr(request.user, 'beneficiario')
+    if is_beneficiary:
+        if doc.beneficiario != request.user.beneficiario:
+            return JsonResponse({'success': False, 'error': 'Acceso denegado: no tienes permisos sobre este documento.'}, status=403)
+    else:
+        if not user_has_hr_permission(request, 'beneficiarios', 'editar'):
+            return JsonResponse({'success': False, 'error': 'Acceso denegado: no cuentas con permisos de edición.'}, status=403)
+            
+    nuevo_estatus = request.POST.get('estatus')
+    if nuevo_estatus not in ['aprobado', 'rechazado', 'revision']:
+        return JsonResponse({'success': False, 'error': 'Estatus inválido.'})
+        
+    doc.estatus = nuevo_estatus
+    doc.save()
+    
+    return JsonResponse({
+        'success': True,
+        'message': f'Documento marcado como {doc.get_estatus_display()} correctamente.',
+        'estatus': doc.estatus,
+        'estatus_display': doc.get_estatus_display()
+    })

@@ -34,6 +34,7 @@ urlpatterns = [
     path('beneficiarios/documentacion/subir/<int:id>/', views.subir_documento_ajax, name='subir_documento_ajax'),
     path('beneficiarios/documentacion/eliminar/<int:id>/', views.eliminar_documento_ajax, name='eliminar_documento_ajax'),
     path('beneficiarios/documentacion/descargar/<int:doc_id>/', views.descargar_documento_beneficiario, name='descargar_documento_beneficiario'),
+    path('beneficiarios/documentacion/cambiar-estatus/<int:doc_id>/', views.cambiar_estatus_documento_ajax, name='cambiar_estatus_documento_ajax'),
     path('sua/', views.lista_sua, name='lista_sua'),
     path('sua/importar/', views.importar_sua_ajax, name='importar_sua_ajax'),
     path('sua/obtener/<int:id>/', views.obtener_registro_sua_json, name='obtener_registro_sua_json'),
