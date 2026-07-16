@@ -112,6 +112,17 @@
             padding-left: 0.8rem;
         }
 
+        .toggle-pass {
+            cursor: pointer;
+            padding-right: 0.8rem;
+            padding-left: 0.4rem !important;
+            transition: color 0.15s ease;
+        }
+
+        .toggle-pass:hover {
+            color: #475569 !important;
+        }
+
         .form-control {
             background: transparent;
             border: none;
@@ -208,6 +219,9 @@
                 <div class="input-group">
                     <span class="input-group-text"><i class="bi bi-key"></i></span>
                     <input type="password" name="password" id="id_password" class="form-control" placeholder="••••••••" required>
+                    <span class="input-group-text toggle-pass" id="togglePassword">
+                        <i class="bi bi-eye"></i>
+                    </span>
                 </div>
             </div>
 
@@ -231,6 +245,27 @@
             Soporte: <a href="mailto:soporte@crossovermx.com" class="link-brand">soporte@crossovermx.com</a>
         </p>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const togglePassword = document.getElementById('togglePassword');
+            const passwordInput = document.getElementById('id_password');
+            
+            if (togglePassword && passwordInput) {
+                togglePassword.addEventListener('click', function() {
+                    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                    passwordInput.setAttribute('type', type);
+                    
+                    const icon = this.querySelector('i');
+                    if (type === 'password') {
+                        icon.className = 'bi bi-eye';
+                    } else {
+                        icon.className = 'bi bi-eye-slash';
+                    }
+                });
+            }
+        });
+    </script>
 
 </body>
 </html>
