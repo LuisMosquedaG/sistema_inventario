@@ -172,6 +172,7 @@ class Contrato(models.Model):
         ('vencido', 'Vencido'),
         ('suspendido', 'Suspendido'),
         ('cancelado', 'Cancelado'),
+        ('cerrado', 'Cerrado'),
     ]
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
@@ -195,10 +196,53 @@ class Contrato(models.Model):
 
     num_estimado_trabajadores = models.IntegerField(default=0, verbose_name="Número Estimado de Trabajadores")
 
+    version = models.CharField(max_length=20, default='1', verbose_name="Versión")
+    estado_vigencia = models.CharField(max_length=20, choices=[('vigente', 'Vigente'), ('vencido', 'Vencido')], default='vigente', verbose_name="Estado de Vigencia")
+    estado_periodicidad = models.CharField(max_length=20, choices=[('vigente', 'Vigente'), ('cerrado', 'Cerrado')], default='vigente', verbose_name="Estado de Periodicidad")
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='vigente', verbose_name="Estado")
     notas = models.TextField(blank=True, null=True, verbose_name="Notas/Observaciones")
 
     fecha_registro = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        # Auto-calcular 'estado_vigencia' y 'estado_periodicidad' de forma independiente en base a sus respectivas fechas
+        import datetime
+        today = datetime.date.today()
+        
+        # 1. Vigencia global (Vigencia de contrato)
+        if self.vigencia_contrato and self.vigencia_contrato < today:
+            self.estado_vigencia = 'vencido'
+        else:
+            self.estado_vigencia = 'vigente'
+
+        # 2. Periodicidad individual (Fecha de término)
+        if self.fecha_fin and self.fecha_fin < today:
+            self.estado_periodicidad = 'cerrado'
+        else:
+            self.estado_periodicidad = 'vigente'
+
+        # Sincronizar el campo 'estado' legado para mantener compatibilidad
+        if self.estado_periodicidad == 'cerrado':
+            self.estado = 'cerrado'
+        elif self.estado_vigencia == 'vencido':
+            self.estado = 'vencido'
+        else:
+            self.estado = 'vigente'
+
+        super().save(*args, **kwargs)
+
+        # 3. Auto-secuenciar Versión cronológicamente si el folio existe
+        if self.folio:
+            contratos_folio = Contrato.objects.filter(
+                empresa=self.empresa,
+                folio__iexact=self.folio.strip()
+            ).order_by('fecha_inicio')
+            
+            for idx, con in enumerate(contratos_folio, start=1):
+                Contrato.objects.filter(id=con.id).update(version=str(idx))
+                if con.id == self.id:
+                    self.version = str(idx)
+
     def __str__(self):
         return f"{self.folio or 'S/F'} - {self.beneficiario or 'Sin beneficiario'}"
 

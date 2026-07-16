@@ -253,5 +253,63 @@ class SISUBExportTest(TestCase):
         self.assertIn("Aguinaldo (Gravado)", headers)
         self.assertIn("Aguinaldo (Exento)", headers)
 
+class ContratoEstadosYVersionesTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa de Prueba",
+            subdominio="prueba",
+            usuario_admin="admin",
+            correo_contacto="prueba@test.com"
+        )
+        self.contratista = Contratista.objects.create(
+            empresa=self.empresa,
+            rfc="CON010101AAA",
+            nombre_razon_social="Contratista Prueba",
+            correo="contratista@test.com"
+        )
 
+    def test_contrato_estados_y_versiones(self):
+        import datetime
+        today = datetime.date.today()
+        past_date = today - datetime.timedelta(days=10)
+        future_date = today + datetime.timedelta(days=10)
 
+        # 1. Contrato vigente en fechas y periodicidad
+        contrato_vigente = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            fecha_inicio=past_date,
+            fecha_fin=future_date,
+            version="1",
+            estado_periodicidad="vigente"
+        )
+        self.assertEqual(contrato_vigente.estado_vigencia, 'vigente')
+        self.assertEqual(contrato_vigente.estado, 'vigente')
+        self.assertEqual(contrato_vigente.version, '1')
+
+        # 2. Contrato con periodicidad cerrado (se auto-calcula por fecha_fin en el pasado)
+        contrato_cerrado = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            fecha_inicio=past_date - datetime.timedelta(days=5),
+            fecha_fin=past_date,
+            version="2",
+            estado_periodicidad="vigente"
+        )
+        self.assertEqual(contrato_cerrado.estado_periodicidad, 'cerrado')
+        self.assertEqual(contrato_cerrado.estado, 'cerrado')
+        self.assertEqual(contrato_cerrado.version, '2')
+
+        # 3. Contrato vencido en fechas (vigencia_contrato y fecha_fin en el pasado)
+        contrato_vencido = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            fecha_inicio=past_date - datetime.timedelta(days=10),
+            fecha_fin=past_date,
+            vigencia_contrato=past_date,
+            version="1",
+            estado_periodicidad="vigente"
+        )
+        self.assertEqual(contrato_vencido.estado_vigencia, 'vencido')
+        self.assertEqual(contrato_vencido.estado_periodicidad, 'cerrado')
+        self.assertEqual(contrato_vencido.estado, 'cerrado')

@@ -18,11 +18,87 @@ from .utils import get_empresa_actual
 @require_hr_permission('contratos', 'ver')
 def lista_contratos(request):
     empresa_actual = get_empresa_actual(request)
+    import datetime as dt
+    today = dt.date.today()
+    
+    # 1. Sincronizar estado_vigencia
+    # Vencidos
+    Contrato.objects.filter(
+        empresa=empresa_actual,
+        vigencia_contrato__lt=today
+    ).exclude(
+        estado_vigencia='vencido'
+    ).update(
+        estado_vigencia='vencido'
+    )
+    # Vigentes (si la fecha es futura o es nula, restauramos a 'vigente')
+    Contrato.objects.filter(
+        empresa=empresa_actual
+    ).filter(
+        Q(vigencia_contrato__gte=today) | Q(vigencia_contrato__isnull=True)
+    ).filter(
+        estado_vigencia='vencido'
+    ).update(
+        estado_vigencia='vigente'
+    )
+
+    # 2. Sincronizar estado_periodicidad
+    # Cerrados
+    Contrato.objects.filter(
+        empresa=empresa_actual,
+        fecha_fin__lt=today
+    ).exclude(
+        estado_periodicidad='cerrado'
+    ).update(
+        estado_periodicidad='cerrado'
+    )
+    # Vigentes (si la fecha es futura o es nula, restauramos a 'vigente')
+    Contrato.objects.filter(
+        empresa=empresa_actual
+    ).filter(
+        Q(fecha_fin__gte=today) | Q(fecha_fin__isnull=True)
+    ).filter(
+        estado_periodicidad='cerrado'
+    ).update(
+        estado_periodicidad='vigente'
+    )
+
+    # 3. Sincronizar campo legacy 'estado' para compatibilidad
+    Contrato.objects.filter(
+        empresa=empresa_actual,
+        estado_periodicidad='cerrado'
+    ).exclude(
+        estado='cerrado'
+    ).update(
+        estado='cerrado'
+    )
+
+    Contrato.objects.filter(
+        empresa=empresa_actual,
+        estado_vigencia='vencido'
+    ).exclude(
+        estado__in=['cerrado', 'vencido']
+    ).update(
+        estado='vencido'
+    )
+
+    Contrato.objects.filter(
+        empresa=empresa_actual,
+        estado_vigencia='vigente',
+        estado_periodicidad='vigente'
+    ).exclude(
+        estado='vigente'
+    ).update(
+        estado='vigente'
+    )
+
     contratos = Contrato.objects.filter(empresa=empresa_actual).prefetch_related('empleados', 'empleados__sucursal').order_by('-fecha_inicio')
     
     q = request.GET.get('q', '')
     empleado_id = request.GET.get('empleado_id', '')
     estado = request.GET.get('estado', '')
+    estado_vigencia = request.GET.get('estado_vigencia', '')
+    estado_periodicidad = request.GET.get('estado_periodicidad', '')
     sucursal_id = request.GET.get('sucursal', '')
 
     if q:
@@ -40,6 +116,10 @@ def lista_contratos(request):
     
     if estado:
         contratos = contratos.filter(estado=estado)
+    if estado_vigencia:
+        contratos = contratos.filter(estado_vigencia=estado_vigencia)
+    if estado_periodicidad:
+        contratos = contratos.filter(estado_periodicidad=estado_periodicidad)
             
     if sucursal_id:
         contratos = contratos.filter(sucursal_id=sucursal_id)
@@ -74,6 +154,8 @@ def lista_contratos(request):
             'contratista_id': contratista_id,
             'empleado_id': empleado_id,
             'estado': estado,
+            'estado_vigencia': estado_vigencia,
+            'estado_periodicidad': estado_periodicidad,
             'sucursal': sucursal_id
         }
     })
@@ -90,6 +172,7 @@ def obtener_contrato_json(request, id):
             'contratista': con.contratista_id,
             'beneficiario': con.beneficiario_id,
             'folio': con.folio,
+            'version': con.version,
             'tipo_contrato': con.tipo_contrato,
             'objeto_contrato': con.objeto_contrato,
             'monto_contrato': str(con.monto_contrato),
@@ -98,6 +181,8 @@ def obtener_contrato_json(request, id):
             'vigencia_contrato': con.vigencia_contrato.isoformat() if con.vigencia_contrato else '',
             'num_estimado_trabajadores': con.num_estimado_trabajadores,
             'estado': con.estado,
+            'estado_vigencia': con.estado_vigencia,
+            'estado_periodicidad': con.estado_periodicidad,
             'notas': con.notas,
         }
         return JsonResponse({'success': True, 'data': data})
@@ -121,6 +206,7 @@ def crear_contrato_ajax(request):
                 contratista_id=data.get('contratista') or None,
                 beneficiario_id=data.get('beneficiario') or None,
                 folio=data.get('folio'),
+                version=data.get('version', '1'),
                 tipo_contrato=data.get('tipo_contrato'),
                 objeto_contrato=data.get('objeto_contrato'),
                 monto_contrato=Decimal(data.get('monto_contrato') or '0'),
@@ -128,7 +214,8 @@ def crear_contrato_ajax(request):
                 fecha_fin=data.get('fecha_fin') or None,
                 vigencia_contrato=data.get('vigencia_contrato') or None,
                 num_estimado_trabajadores=int(data.get('num_estimado_trabajadores') or 0),
-                estado=data.get('estado', 'vigente'),
+                estado_periodicidad=data.get('estado_periodicidad', 'vigente'),
+                estado_vigencia=data.get('estado_vigencia', 'vigente'),
                 notas=data.get('notas', '')
             )
             nuevo_contrato.save()
@@ -154,6 +241,7 @@ def editar_contrato_ajax(request, id):
             con.contratista_id = data.get('contratista') or None
             con.beneficiario_id = data.get('beneficiario') or None
             con.folio = data.get('folio')
+            con.version = data.get('version', '1')
             con.tipo_contrato = data.get('tipo_contrato')
             con.objeto_contrato = data.get('objeto_contrato')
             con.monto_contrato = Decimal(data.get('monto_contrato') or '0')
@@ -161,7 +249,8 @@ def editar_contrato_ajax(request, id):
             con.fecha_fin = data.get('fecha_fin') or None
             con.vigencia_contrato = data.get('vigencia_contrato') or None
             con.num_estimado_trabajadores = int(data.get('num_estimado_trabajadores') or 0)
-            con.estado = data.get('estado')
+            con.estado_periodicidad = data.get('estado_periodicidad', 'vigente')
+            con.estado_vigencia = data.get('estado_vigencia', 'vigente')
             con.notas = data.get('notas', '')
             con.save()
             
