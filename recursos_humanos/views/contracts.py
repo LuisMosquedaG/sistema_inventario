@@ -43,13 +43,12 @@ def lista_contratos(request):
             is_latest = (idx == total_contratos)
             
             # Vigencia
-            if not is_latest:
+            if con.vigencia_contrato and con.vigencia_contrato < today:
+                est_vig = 'vencido'
+            elif not is_latest:
                 est_vig = 'cerrado'
             else:
-                if con.vigencia_contrato and con.vigencia_contrato < today:
-                    est_vig = 'vencido'
-                else:
-                    est_vig = 'vigente'
+                est_vig = 'vigente'
                 
             # Periodicidad: las versiones anteriores se cierran automáticamente
             if not is_latest:
@@ -61,10 +60,10 @@ def lista_contratos(request):
                     est_per = 'vigente'
                     
             # Legacy estado
-            if est_per == 'cerrado' or est_vig == 'cerrado':
-                est_legacy = 'cerrado'
-            elif est_vig == 'vencido':
+            if est_vig == 'vencido':
                 est_legacy = 'vencido'
+            elif est_per == 'cerrado' or est_vig == 'cerrado':
+                est_legacy = 'cerrado'
             else:
                 est_legacy = 'vigente'
                 

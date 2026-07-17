@@ -221,11 +221,11 @@ class Contrato(models.Model):
         else:
             self.estado_periodicidad = 'vigente'
 
-        # Sincronizar el campo 'estado' legado para mantener compatibilidad
-        if self.estado_periodicidad == 'cerrado':
-            self.estado = 'cerrado'
-        elif self.estado_vigencia == 'vencido':
+        # Sincronizar el campo 'estado' legado para mantener compatibilidad (Precedencia: vencido > cerrado > vigente)
+        if self.estado_vigencia == 'vencido':
             self.estado = 'vencido'
+        elif self.estado_periodicidad == 'cerrado' or self.estado_vigencia == 'cerrado':
+            self.estado = 'cerrado'
         else:
             self.estado = 'vigente'
 
@@ -243,14 +243,13 @@ class Contrato(models.Model):
                 version_str = str(idx)
                 is_latest = (idx == total_contratos)
                 
-                # Calcular vigencia para esta versión: versiones anteriores se marcan como cerrado
-                if not is_latest:
+                # Calcular vigencia para esta versión (Regla 3: Vencido si ya pasó la fecha de vigencia, sin importar la versión)
+                if con.vigencia_contrato and con.vigencia_contrato < today:
+                    est_vig = 'vencido'
+                elif not is_latest:
                     est_vig = 'cerrado'
                 else:
-                    if con.vigencia_contrato and con.vigencia_contrato < today:
-                        est_vig = 'vencido'
-                    else:
-                        est_vig = 'vigente'
+                    est_vig = 'vigente'
                     
                 # Calcular periodicidad: si no es la última versión, se cierra automáticamente
                 if not is_latest:
@@ -261,11 +260,11 @@ class Contrato(models.Model):
                     else:
                         est_per = 'vigente'
                         
-                # Sincronizar el campo legacy 'estado'
-                if est_per == 'cerrado' or est_vig == 'cerrado':
-                    est_legacy = 'cerrado'
-                elif est_vig == 'vencido':
+                # Sincronizar el campo legacy 'estado' (Vencido tiene máxima precedencia)
+                if est_vig == 'vencido':
                     est_legacy = 'vencido'
+                elif est_per == 'cerrado' or est_vig == 'cerrado':
+                    est_legacy = 'cerrado'
                 else:
                     est_legacy = 'vigente'
                     

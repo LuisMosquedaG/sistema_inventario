@@ -312,4 +312,4 @@ class ContratoEstadosYVersionesTest(TestCase):
         )
         self.assertEqual(contrato_vencido.estado_vigencia, 'vencido')
         self.assertEqual(contrato_vencido.estado_periodicidad, 'cerrado')
-        self.assertEqual(contrato_vencido.estado, 'cerrado')
+        self.assertEqual(contrato_vencido.estado, 'vencido')
