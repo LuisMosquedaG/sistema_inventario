@@ -320,6 +320,73 @@ def exportar_sua_excel(request, id):
         return response
     except ImportacionSUA.DoesNotExist: return HttpResponse("No se encontró la importación", status=404)
 
+def obtener_rango_fechas_periodo(periodo_str, tipo_sua):
+    import re
+    import datetime
+    
+    p_upper = (periodo_str or "").upper().strip()
+    
+    # Extraer el año
+    m_anio = re.search(r'\b(20\d{2})\b', p_upper)
+    anio = int(m_anio.group(1)) if m_anio else datetime.date.today().year
+    
+    meses_es = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", 
+                "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
+                
+    mes_detectado = None
+    for idx, mes_nom in enumerate(meses_es, start=1):
+        if mes_nom in p_upper:
+            mes_detectado = idx
+            break
+            
+    # Si no se detectó por nombre, buscar si hay algún número de 1 o 2 dígitos que sea un mes válido (1 al 12)
+    if not mes_detectado:
+        nums = [int(n) for n in re.findall(r'\b(\d{1,2})\b', p_upper)]
+        valid_months = [n for n in nums if 1 <= n <= 12]
+        if valid_months:
+            mes_detectado = valid_months[0]
+            
+    # Caso mensual
+    if tipo_sua == 'mensual' and mes_detectado:
+        start_date = datetime.date(anio, mes_detectado, 1)
+        if mes_detectado == 12:
+            end_date = datetime.date(anio + 1, 1, 1) - datetime.timedelta(days=1)
+        else:
+            end_date = datetime.date(anio, mes_detectado + 1, 1) - datetime.timedelta(days=1)
+        return start_date, end_date
+        
+    # Caso bimestral
+    # Si detectamos un mes, podemos deducir el bimestre (Ene/Feb=1, Mar/Abr=2, May/Jun=3, Jul/Ago=4, Sep/Oct=5, Nov/Dic=6)
+    if mes_detectado:
+        bim = (mes_detectado - 1) // 2 + 1
+    else:
+        m_bim = re.search(r'BIMESTRE\s*(\d)', p_upper)
+        if m_bim:
+            bim = int(m_bim.group(1))
+        else:
+            m_num = re.search(r'\b([1-6])\b', p_upper)
+            bim = int(m_num.group(1)) if m_num else 1
+        
+    if 1 <= bim <= 6:
+        start_month = (bim - 1) * 2 + 1
+        end_month = bim * 2
+        start_date = datetime.date(anio, start_month, 1)
+        if end_month == 12:
+            end_date = datetime.date(anio + 1, 1, 1) - datetime.timedelta(days=1)
+        else:
+            end_date = datetime.date(anio, end_month + 1, 1) - datetime.timedelta(days=1)
+        return start_date, end_date
+        
+    if mes_detectado:
+        start_date = datetime.date(anio, mes_detectado, 1)
+        if mes_detectado == 12:
+            end_date = datetime.date(anio + 1, 1, 1) - datetime.timedelta(days=1)
+        else:
+            end_date = datetime.date(anio, mes_detectado + 1, 1) - datetime.timedelta(days=1)
+        return start_date, end_date
+        
+    return datetime.date(anio, 1, 1), datetime.date(anio, 12, 31)
+
 @login_required(login_url='/login/')
 @require_POST
 @require_hr_permission('empleados', 'crear', json_response=True)
@@ -331,9 +398,11 @@ def alta_empleados_sua_ajax(request, id):
         creados = 0; actualizados = 0; vinculados_a_contrato = 0
         beneficiarios_map = {b.clave.strip().upper(): b for b in Beneficiario.objects.filter(empresa=empresa_actual) if b.clave}
         
-        # Pre-cache de contratos vigentes para búsqueda rápida
-        # Filtramos por empresa y estado vigente
-        contratos_vigentes = list(Contrato.objects.filter(empresa=empresa_actual, estado='vigente'))
+        # Calcular el rango de fechas de la cédula SUA
+        sua_start, sua_end = obtener_rango_fechas_periodo(importacion.periodo, importacion.tipo)
+
+        # Buscar todos los contratos de la empresa
+        contratos_candidatos = list(Contrato.objects.filter(empresa=empresa_actual))
 
         rfc_reporte = re.sub(r'[^A-Z0-9]', '', (importacion.rfc_empresa or '').upper()).strip()[:13]
         rp_reporte = re.sub(r'[^A-Z0-9]', '', (importacion.registro_patronal or '').upper()).strip()
@@ -376,22 +445,26 @@ def alta_empleados_sua_ajax(request, id):
                     if t.clave_ubicacion: empleado.clave_ubicacion = t.clave_ubicacion
                     empleado.save(); actualizados += 1
                 
-                # --- VINCULACIÓN AUTOMÁTICA CON CONTRATO ---
+                # --- VINCULACIÓN AUTOMÁTICA CON CONTRATO DE ACUERDO AL PERIODO ---
                 if beneficiario_obj:
-                    # Buscamos contratos que coincidan con este beneficiario
-                    # El ancla fuerte es el Beneficiario (vía clave de ubicación en el SUA)
-                    for c_v in contratos_vigentes:
+                    # Buscamos contratos que coincidan con este beneficiario y se traslapen cronológicamente con la cédula
+                    for c_v in contratos_candidatos:
                         if c_v.beneficiario_id == beneficiario_obj.id:
-                            # Verificamos que el contratista coincida por objeto o por RFC/Registro
-                            # para evitar cruces erróneos si hay múltiples contratistas con el mismo beneficiario
+                            # Verificamos coincidencia de contratista
                             match_contratista = (
                                 c_v.contratista_id == contratista_obj.id or
                                 (c_v.contratista and (c_v.contratista.rfc == rfc_reporte or c_v.contratista.registro_patronal == rp_reporte))
                             )
                             if match_contratista:
-                                c_v.empleados.add(empleado)
-                                vinculados_a_contrato += 1
-                                break
+                                # Verificación de traslape de fechas
+                                # El contrato y el periodo del SUA se traslapan si:
+                                # c_v.fecha_inicio <= sua_end y (c_v.fecha_fin es nulo o c_v.fecha_fin >= sua_start)
+                                start_ok = c_v.fecha_inicio <= sua_end
+                                end_ok = (c_v.fecha_fin is None or c_v.fecha_fin >= sua_start)
+                                if start_ok and end_ok:
+                                    c_v.empleados.add(empleado)
+                                    vinculados_a_contrato += 1
+                                    break
 
         return JsonResponse({'success': True, 'message': f'Proceso completado: {creados} nuevos, {actualizados} actualizados. {vinculados_a_contrato} vinculaciones a contratos realizadas. Contratista: {contratista_obj.nombre_razon_social}'})
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})

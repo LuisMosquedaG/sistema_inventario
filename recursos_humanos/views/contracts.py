@@ -95,6 +95,9 @@ def lista_contratos(request):
     contratos = Contrato.objects.filter(empresa=empresa_actual).prefetch_related('empleados', 'empleados__sucursal').order_by('-fecha_inicio')
     
     q = request.GET.get('q', '')
+    folio = request.GET.get('folio', '')
+    beneficiario_id = request.GET.get('beneficiario_id', '')
+    contratista_id = request.GET.get('contratista_id', '')
     empleado_id = request.GET.get('empleado_id', '')
     estado = request.GET.get('estado', '')
     estado_vigencia = request.GET.get('estado_vigencia', '')
@@ -110,6 +113,15 @@ def lista_contratos(request):
             Q(empleados__apellido_paterno__icontains=q) |
             Q(notas__icontains=q)
         ).distinct()
+    
+    if folio:
+        contratos = contratos.filter(folio__icontains=folio)
+        
+    if beneficiario_id:
+        contratos = contratos.filter(beneficiario_id=beneficiario_id)
+        
+    if contratista_id:
+        contratos = contratos.filter(contratista_id=contratista_id)
     
     if empleado_id:
         contratos = contratos.filter(empleados__id=empleado_id)
@@ -135,10 +147,6 @@ def lista_contratos(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    # Re-obtener parámetros para el dict de filtros
-    folio = request.GET.get('folio', '')
-    beneficiario_id = request.GET.get('beneficiario_id', '')
-    contratista_id = request.GET.get('contratista_id', '')
 
     return render(request, 'recursos_humanos/lista_contratos.html', {
         'page_obj': page_obj,
@@ -394,21 +402,41 @@ def importar_contratos_ajax(request):
             except:
                 num_trabajadores = 0
 
-            Contrato.objects.create(
+            fecha_inicio_val = f_inicio or datetime.now().date()
+            
+            # Evitar duplicados: verificar si ya existe un contrato para el mismo folio, vigencia y periodo (inicio y fin)
+            contrato_existente = Contrato.objects.filter(
                 empresa=empresa_actual,
-                sucursal_id=sucursal_id,
-                beneficiario=beneficiario,
-                contratista=contratista,
                 folio=folio,
-                tipo_contrato=tipo_contrato,
-                objeto_contrato=objeto,
-                monto_contrato=monto,
                 vigencia_contrato=vigencia,
-                fecha_inicio=f_inicio or datetime.now().date(),
-                fecha_fin=f_fin,
-                num_estimado_trabajadores=num_trabajadores,
-                estado='vigente'
-            )
+                fecha_inicio=fecha_inicio_val,
+                fecha_fin=f_fin
+            ).first()
+
+            if contrato_existente:
+                contrato_existente.beneficiario = beneficiario
+                contrato_existente.contratista = contratista
+                contrato_existente.tipo_contrato = tipo_contrato
+                contrato_existente.objeto_contrato = objeto
+                contrato_existente.monto_contrato = monto
+                contrato_existente.num_estimado_trabajadores = num_trabajadores
+                contrato_existente.save()
+            else:
+                Contrato.objects.create(
+                    empresa=empresa_actual,
+                    sucursal_id=sucursal_id,
+                    beneficiario=beneficiario,
+                    contratista=contratista,
+                    folio=folio,
+                    tipo_contrato=tipo_contrato,
+                    objeto_contrato=objeto,
+                    monto_contrato=monto,
+                    vigencia_contrato=vigencia,
+                    fecha_inicio=fecha_inicio_val,
+                    fecha_fin=f_fin,
+                    num_estimado_trabajadores=num_trabajadores,
+                    estado='vigente'
+                )
             count += 1
 
         return JsonResponse({
