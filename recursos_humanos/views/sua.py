@@ -42,8 +42,26 @@ def lista_sua(request):
 
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
     
+    # Ordenar importaciones cronológicamente (de la más reciente a la más vieja)
+    importaciones_list = list(importaciones)
+    meses_es = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+    
+    def get_periodo_sort_key(imp):
+        parts = imp.periodo.split('-')
+        if len(parts) == 2:
+            mes_str, anio_str = parts
+            try:
+                anio = int(anio_str)
+                mes = meses_es.index(mes_str.capitalize()) + 1
+                return (anio, mes)
+            except (ValueError, IndexError):
+                pass
+        return (imp.fecha_importacion.year, imp.fecha_importacion.month)
+        
+    importaciones_list.sort(key=get_periodo_sort_key, reverse=True)
+
     # PAGINACIÓN
-    paginator = Paginator(importaciones, 20)
+    paginator = Paginator(importaciones_list, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 

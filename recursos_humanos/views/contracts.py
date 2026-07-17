@@ -21,19 +21,20 @@ def lista_contratos(request):
     import datetime as dt
     today = dt.date.today()
     
-    # 1. Agrupar contratos de la empresa actual por folio y sincronizar estados/versiones
+    # 1. Agrupar contratos de la empresa actual por folio y contratista, y sincronizar estados/versiones
     from django.db.models.functions import Lower
-    folios = Contrato.objects.filter(
+    grupos_folios = Contrato.objects.filter(
         empresa=empresa_actual
     ).exclude(
         Q(folio__isnull=True) | Q(folio='')
     ).annotate(
         folio_lower=Lower('folio')
-    ).values_list('folio_lower', flat=True).distinct()
+    ).values_list('folio_lower', 'contratista_id').distinct()
     
-    for f_lower in folios:
+    for f_lower, c_id in grupos_folios:
         contratos_folio = Contrato.objects.filter(
             empresa=empresa_actual,
+            contratista_id=c_id,
             folio__iexact=f_lower
         ).order_by('fecha_inicio')
         
@@ -162,7 +163,7 @@ def lista_contratos(request):
         estado='vigente'
     )
 
-    contratos = Contrato.objects.filter(empresa=empresa_actual).prefetch_related('empleados', 'empleados__sucursal').order_by('-fecha_inicio')
+    contratos = Contrato.objects.filter(empresa=empresa_actual).prefetch_related('empleados', 'empleados__sucursal').order_by('-vigencia_contrato', '-fecha_fin')
     
     q = request.GET.get('q', '')
     folio = request.GET.get('folio', '')
@@ -477,6 +478,7 @@ def importar_contratos_ajax(request):
             # Evitar duplicados: verificar si ya existe un contrato para el mismo folio, vigencia y periodo (inicio y fin)
             contrato_existente = Contrato.objects.filter(
                 empresa=empresa_actual,
+                contratista=contratista,
                 folio=folio,
                 vigencia_contrato=vigencia,
                 fecha_inicio=fecha_inicio_val,

@@ -235,6 +235,7 @@ class Contrato(models.Model):
         if self.folio:
             contratos_folio = Contrato.objects.filter(
                 empresa=self.empresa,
+                contratista=self.contratista,
                 folio__iexact=self.folio.strip()
             ).order_by('fecha_inicio')
             

@@ -313,3 +313,68 @@ class ContratoEstadosYVersionesTest(TestCase):
         self.assertEqual(contrato_vencido.estado_vigencia, 'vencido')
         self.assertEqual(contrato_vencido.estado_periodicidad, 'cerrado')
         self.assertEqual(contrato_vencido.estado, 'vencido')
+
+    def test_contrato_versionamiento_por_contratista(self):
+        import datetime
+        today = datetime.date.today()
+        future_date = today + datetime.timedelta(days=10)
+
+        # Crear un contratista B
+        contratista_b = Contratista.objects.create(
+            empresa=self.empresa,
+            rfc="CON020202BBB",
+            nombre_razon_social="Contratista B",
+            correo="contratistab@test.com"
+        )
+
+        # 1. Contrato Contratista A, Folio 'FOL-123'
+        c_a1 = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            folio="FOL-123",
+            fecha_inicio=today,
+            fecha_fin=future_date,
+            vigencia_contrato=future_date
+        )
+
+        # 2. Contrato Contratista B, Folio 'FOL-123' (Mismo folio, diferente contratista)
+        c_b1 = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=contratista_b,
+            folio="FOL-123",
+            fecha_inicio=today,
+            fecha_fin=future_date,
+            vigencia_contrato=future_date
+        )
+
+        # Ambos deben ser Version 1 y vigentes
+        c_a1.refresh_from_db()
+        c_b1.refresh_from_db()
+        self.assertEqual(c_a1.version, '1')
+        self.assertEqual(c_a1.estado_vigencia, 'vigente')
+        self.assertEqual(c_b1.version, '1')
+        self.assertEqual(c_b1.estado_vigencia, 'vigente')
+
+        # 3. Crear otra versión para Contratista A, Folio 'FOL-123'
+        c_a2 = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            folio="FOL-123",
+            fecha_inicio=future_date + datetime.timedelta(days=1),
+            fecha_fin=future_date + datetime.timedelta(days=10),
+            vigencia_contrato=future_date + datetime.timedelta(days=10)
+        )
+
+        c_a1.refresh_from_db()
+        c_a2.refresh_from_db()
+        c_b1.refresh_from_db()
+
+        # Contratista A: c_a1 debe cerrarse (version 1), c_a2 debe ser vigente (version 2)
+        self.assertEqual(c_a1.version, '1')
+        self.assertEqual(c_a1.estado_vigencia, 'cerrado')
+        self.assertEqual(c_a2.version, '2')
+        self.assertEqual(c_a2.estado_vigencia, 'vigente')
+
+        # Contratista B: c_b1 no debe verse afectado (sigue vigente y version 1)
+        self.assertEqual(c_b1.version, '1')
+        self.assertEqual(c_b1.estado_vigencia, 'vigente')
