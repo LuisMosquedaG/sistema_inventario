@@ -14,6 +14,7 @@ from tesoreria.models import PagoPedido, PagoCompra, Ingreso
 from clientes.models import Cliente
 from decimal import Decimal
 import json
+import datetime
 
 def get_empresa_actual(request):
     username = request.user.username
@@ -209,11 +210,21 @@ def dashboard_inicio(request):
     contratos_periodo = []
     anio_corriente = ahora.year
     for m in range(1, 13):
+        start_of_month = datetime.date(anio_corriente, m, 1)
+        if m == 12:
+            end_of_month = datetime.date(anio_corriente, 12, 31)
+        else:
+            end_of_month = datetime.date(anio_corriente, m + 1, 1) - datetime.timedelta(days=1)
+
         contratos_mes = Contrato.objects.filter(
             empresa=empresa_actual,
-            vigencia_contrato__year=anio_corriente,
-            vigencia_contrato__month=m
+            fecha_inicio__lte=end_of_month
+        ).filter(
+            Q(vigencia_contrato__isnull=True) | Q(vigencia_contrato__gte=start_of_month)
+        ).exclude(
+            estado_vigencia='cerrado'
         )
+        
         total_contratos_mes = contratos_mes.aggregate(
             total=Sum('monto_contrato')
         )['total'] or Decimal('0.00')
@@ -225,11 +236,25 @@ def dashboard_inicio(request):
 
     # --- 5. OBLIGACIONES PATRONALES: ESTADOS POR CONTRATO Y SUAS POR CONTRATISTA ---
     from recursos_humanos.models import Contrato, Contratista, ImportacionSUA
-    stats_contratos_estados = list(Contrato.objects.filter(
+    stats_contratos_estados_raw = Contrato.objects.filter(
         empresa=empresa_actual
-    ).values('estado').annotate(
+    ).values('estado_vigencia').annotate(
         total=Count('id')
-    ))
+    )
+    stats_contratos_estados = [
+        {'estado': item['estado_vigencia'], 'total': item['total']}
+        for item in stats_contratos_estados_raw
+    ]
+
+    stats_contratos_periodicidad_raw = Contrato.objects.filter(
+        empresa=empresa_actual
+    ).values('estado_periodicidad').annotate(
+        total=Count('id')
+    )
+    stats_contratos_periodicidad = [
+        {'estado': item['estado_periodicidad'], 'total': item['total']}
+        for item in stats_contratos_periodicidad_raw
+    ]
 
     contratistas = Contratista.objects.filter(empresa=empresa_actual)
     suas = list(ImportacionSUA.objects.filter(empresa=empresa_actual))
@@ -334,6 +359,7 @@ def dashboard_inicio(request):
             'pareto_valor': stats_pareto_valor,
             'top_clientes': stats_top_clientes,
             'contratos_estados': stats_contratos_estados,
+            'contratos_periodicidad': stats_contratos_periodicidad,
             'suas_contratistas': stats_suas_contratistas,
             'suas_empleados': stats_suas_empleados,
             'contratos_caros': stats_contratos_caros,
@@ -406,11 +432,22 @@ def api_detalle_mes(request):
 
         elif tipo == 'contratos':
             from recursos_humanos.models import Contrato
+            import datetime
             anio = timezone.now().year
+            
+            start_of_month = datetime.date(anio, mes_num, 1)
+            if mes_num == 12:
+                end_of_month = datetime.date(anio, 12, 31)
+            else:
+                end_of_month = datetime.date(anio, mes_num + 1, 1) - datetime.timedelta(days=1)
+
             detalles = Contrato.objects.filter(
                 empresa=empresa_actual,
-                vigencia_contrato__year=anio,
-                vigencia_contrato__month=mes_num
+                fecha_inicio__lte=end_of_month
+            ).filter(
+                Q(vigencia_contrato__isnull=True) | Q(vigencia_contrato__gte=start_of_month)
+            ).exclude(
+                estado_vigencia='cerrado'
             ).select_related('contratista').order_by('-monto_contrato')
             
             data = []

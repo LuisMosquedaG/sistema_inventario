@@ -285,17 +285,22 @@
                 <div class="card-body p-4">
                     <div class="row g-4">
                         <!-- ESTADOS POR CONTRATO -->
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Distribución de Estatus</h6>
                             <div style="height: 250px; position: relative;"><canvas id="chartContratosEstados"></canvas></div>
                         </div>
+                        <!-- ESTATUS POR PERIODICIDAD -->
+                        <div class="col-md-3">
+                            <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Estatus por Periodicidad</h6>
+                            <div style="height: 250px; position: relative;"><canvas id="chartContratosPeriodicidad"></canvas></div>
+                        </div>
                         <!-- CONTRATOS MÁS CAROS POR CONTRATISTA -->
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Top 5 Contratos de Mayor Valor</h6>
                             <div style="height: 250px; position: relative;"><canvas id="chartContratosCaros"></canvas></div>
                         </div>
                         <!-- CONTRATISTAS CON MÁS BENEFICIARIOS -->
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <h6 class="text-center text-muted small text-uppercase fw-bold mb-3">Top 5 con más Beneficiarios</h6>
                             <div style="height: 250px; position: relative;"><canvas id="chartContratistasBeneficiarios"></canvas></div>
                         </div>
@@ -1009,6 +1014,7 @@
             createParetoChart('chartPareto', stats.pareto_valor);
             createTopClientesChart('chartTopClientes', stats.top_clientes);
             createDoughnutChart('chartContratosEstados', stats.contratos_estados);
+            createDoughnutChart('chartContratosPeriodicidad', stats.contratos_periodicidad);
             createSuasBarChart('chartSuasContratistas', stats.suas_contratistas);
             createEmpleadosBarChart('chartSuasEmpleados', stats.suas_empleados);
             createContratosCarosChart('chartContratosCaros', stats.contratos_caros);
