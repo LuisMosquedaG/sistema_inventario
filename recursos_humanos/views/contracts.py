@@ -21,19 +21,81 @@ def lista_contratos(request):
     import datetime as dt
     today = dt.date.today()
     
-    # 1. Sincronizar estado_vigencia
-    # Vencidos
+    # 1. Agrupar contratos de la empresa actual por folio y sincronizar estados/versiones
+    from django.db.models.functions import Lower
+    folios = Contrato.objects.filter(
+        empresa=empresa_actual
+    ).exclude(
+        Q(folio__isnull=True) | Q(folio='')
+    ).annotate(
+        folio_lower=Lower('folio')
+    ).values_list('folio_lower', flat=True).distinct()
+    
+    for f_lower in folios:
+        contratos_folio = Contrato.objects.filter(
+            empresa=empresa_actual,
+            folio__iexact=f_lower
+        ).order_by('fecha_inicio')
+        
+        total_contratos = len(contratos_folio)
+        for idx, con in enumerate(contratos_folio, start=1):
+            version_str = str(idx)
+            is_latest = (idx == total_contratos)
+            
+            # Vigencia
+            if not is_latest:
+                est_vig = 'cerrado'
+            else:
+                if con.vigencia_contrato and con.vigencia_contrato < today:
+                    est_vig = 'vencido'
+                else:
+                    est_vig = 'vigente'
+                
+            # Periodicidad: las versiones anteriores se cierran automáticamente
+            if not is_latest:
+                est_per = 'cerrado'
+            else:
+                if con.fecha_fin and con.fecha_fin < today:
+                    est_per = 'cerrado'
+                else:
+                    est_per = 'vigente'
+                    
+            # Legacy estado
+            if est_per == 'cerrado' or est_vig == 'cerrado':
+                est_legacy = 'cerrado'
+            elif est_vig == 'vencido':
+                est_legacy = 'vencido'
+            else:
+                est_legacy = 'vigente'
+                
+            if (con.version != version_str or 
+                con.estado_vigencia != est_vig or 
+                con.estado_periodicidad != est_per or 
+                con.estado != est_legacy):
+                Contrato.objects.filter(id=con.id).update(
+                    version=version_str,
+                    estado_vigencia=est_vig,
+                    estado_periodicidad=est_per,
+                    estado=est_legacy
+                )
+
+    # 2. Sincronizar estados para contratos sin folio (huérfanos)
     Contrato.objects.filter(
-        empresa=empresa_actual,
+        empresa=empresa_actual
+    ).filter(
+        Q(folio__isnull=True) | Q(folio='')
+    ).filter(
         vigencia_contrato__lt=today
     ).exclude(
         estado_vigencia='vencido'
     ).update(
         estado_vigencia='vencido'
     )
-    # Vigentes (si la fecha es futura o es nula, restauramos a 'vigente')
+    
     Contrato.objects.filter(
         empresa=empresa_actual
+    ).filter(
+        Q(folio__isnull=True) | Q(folio='')
     ).filter(
         Q(vigencia_contrato__gte=today) | Q(vigencia_contrato__isnull=True)
     ).filter(
@@ -42,19 +104,22 @@ def lista_contratos(request):
         estado_vigencia='vigente'
     )
 
-    # 2. Sincronizar estado_periodicidad
-    # Cerrados
     Contrato.objects.filter(
-        empresa=empresa_actual,
+        empresa=empresa_actual
+    ).filter(
+        Q(folio__isnull=True) | Q(folio='')
+    ).filter(
         fecha_fin__lt=today
     ).exclude(
         estado_periodicidad='cerrado'
     ).update(
         estado_periodicidad='cerrado'
     )
-    # Vigentes (si la fecha es futura o es nula, restauramos a 'vigente')
+    
     Contrato.objects.filter(
         empresa=empresa_actual
+    ).filter(
+        Q(folio__isnull=True) | Q(folio='')
     ).filter(
         Q(fecha_fin__gte=today) | Q(fecha_fin__isnull=True)
     ).filter(
@@ -63,10 +128,12 @@ def lista_contratos(request):
         estado_periodicidad='vigente'
     )
 
-    # 3. Sincronizar campo legacy 'estado' para compatibilidad
+    # Sincronizar el estado legacy para huérfanos
     Contrato.objects.filter(
         empresa=empresa_actual,
         estado_periodicidad='cerrado'
+    ).filter(
+        Q(folio__isnull=True) | Q(folio='')
     ).exclude(
         estado='cerrado'
     ).update(
@@ -76,6 +143,8 @@ def lista_contratos(request):
     Contrato.objects.filter(
         empresa=empresa_actual,
         estado_vigencia='vencido'
+    ).filter(
+        Q(folio__isnull=True) | Q(folio='')
     ).exclude(
         estado__in=['cerrado', 'vencido']
     ).update(
@@ -86,6 +155,8 @@ def lista_contratos(request):
         empresa=empresa_actual,
         estado_vigencia='vigente',
         estado_periodicidad='vigente'
+    ).filter(
+        Q(folio__isnull=True) | Q(folio='')
     ).exclude(
         estado='vigente'
     ).update(

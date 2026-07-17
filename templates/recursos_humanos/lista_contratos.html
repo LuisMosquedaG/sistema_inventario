@@ -197,6 +197,7 @@
                         <option value="">Todos...</option>
                         <option value="vigente" {% if filtros.estado_vigencia == 'vigente' %}selected{% endif %}>Vigente</option>
                         <option value="vencido" {% if filtros.estado_vigencia == 'vencido' %}selected{% endif %}>Vencido</option>
+                        <option value="cerrado" {% if filtros.estado_vigencia == 'cerrado' %}selected{% endif %}>Cerrado</option>
                     </select>
                 </div>
                 <!-- 8. Periodicidad -->
@@ -431,6 +432,7 @@
                                      <select name="estado_vigencia" id="inputEstadoVigencia" class="form-select form-select-sm">
                                          <option value="vigente">Vigente</option>
                                          <option value="vencido">Vencido</option>
+                                         <option value="cerrado">Cerrado</option>
                                      </select>
                                  </div>
                                  <div class="col-md-6">

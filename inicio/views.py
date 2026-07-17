@@ -442,7 +442,7 @@ def api_contratos_nightingale(request):
         contratos = Contrato.objects.filter(
             empresa=empresa_actual,
             contratista_id=contratista_id,
-            estado='vigente'
+            estado_vigencia='vigente'
         ).select_related('beneficiario').order_by('-monto_contrato')
         
         total_monto = sum(float(c.monto_contrato) for c in contratos)
@@ -473,7 +473,7 @@ def api_contratos_totales_contratistas(request):
         from recursos_humanos.models import Contrato
         contratos = Contrato.objects.filter(
             empresa=empresa_actual,
-            estado='vigente',
+            estado_vigencia='vigente',
             contratista__isnull=False
         ).select_related('contratista')
         

@@ -197,7 +197,7 @@ class Contrato(models.Model):
     num_estimado_trabajadores = models.IntegerField(default=0, verbose_name="Número Estimado de Trabajadores")
 
     version = models.CharField(max_length=20, default='1', verbose_name="Versión")
-    estado_vigencia = models.CharField(max_length=20, choices=[('vigente', 'Vigente'), ('vencido', 'Vencido')], default='vigente', verbose_name="Estado de Vigencia")
+    estado_vigencia = models.CharField(max_length=20, choices=[('vigente', 'Vigente'), ('vencido', 'Vencido'), ('cerrado', 'Cerrado')], default='vigente', verbose_name="Estado de Vigencia")
     estado_periodicidad = models.CharField(max_length=20, choices=[('vigente', 'Vigente'), ('cerrado', 'Cerrado')], default='vigente', verbose_name="Estado de Periodicidad")
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='vigente', verbose_name="Estado")
     notas = models.TextField(blank=True, null=True, verbose_name="Notas/Observaciones")
@@ -231,17 +231,56 @@ class Contrato(models.Model):
 
         super().save(*args, **kwargs)
 
-        # 3. Auto-secuenciar Versión cronológicamente si el folio existe
+        # 3. Auto-secuenciar Versión cronológicamente y cerrar versiones anteriores automáticamente
         if self.folio:
             contratos_folio = Contrato.objects.filter(
                 empresa=self.empresa,
                 folio__iexact=self.folio.strip()
             ).order_by('fecha_inicio')
             
+            total_contratos = len(contratos_folio)
             for idx, con in enumerate(contratos_folio, start=1):
-                Contrato.objects.filter(id=con.id).update(version=str(idx))
+                version_str = str(idx)
+                is_latest = (idx == total_contratos)
+                
+                # Calcular vigencia para esta versión: versiones anteriores se marcan como cerrado
+                if not is_latest:
+                    est_vig = 'cerrado'
+                else:
+                    if con.vigencia_contrato and con.vigencia_contrato < today:
+                        est_vig = 'vencido'
+                    else:
+                        est_vig = 'vigente'
+                    
+                # Calcular periodicidad: si no es la última versión, se cierra automáticamente
+                if not is_latest:
+                    est_per = 'cerrado'
+                else:
+                    if con.fecha_fin and con.fecha_fin < today:
+                        est_per = 'cerrado'
+                    else:
+                        est_per = 'vigente'
+                        
+                # Sincronizar el campo legacy 'estado'
+                if est_per == 'cerrado' or est_vig == 'cerrado':
+                    est_legacy = 'cerrado'
+                elif est_vig == 'vencido':
+                    est_legacy = 'vencido'
+                else:
+                    est_legacy = 'vigente'
+                    
+                Contrato.objects.filter(id=con.id).update(
+                    version=version_str,
+                    estado_vigencia=est_vig,
+                    estado_periodicidad=est_per,
+                    estado=est_legacy
+                )
+                
                 if con.id == self.id:
-                    self.version = str(idx)
+                    self.version = version_str
+                    self.estado_vigencia = est_vig
+                    self.estado_periodicidad = est_per
+                    self.estado = est_legacy
 
     def __str__(self):
         return f"{self.folio or 'S/F'} - {self.beneficiario or 'Sin beneficiario'}"
