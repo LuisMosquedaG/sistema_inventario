@@ -73,6 +73,7 @@ def obtener_nomina_json(request, id):
         def safe_decimal(val): return str(val) if val is not None else '0.00'
         data = {
             'id': nom.id, 'empleado': nom.empleado_id or '', 'periodo': nom.periodo, 'uso_cfdi': nom.uso_cfdi, 'uuid': nom.uuid or '', 'tipo_nomina': nom.tipo_nomina, 'serie': nom.serie or '', 'folio': nom.folio or '', 'fecha_emision': nom.fecha_emision.strftime('%Y-%m-%dT%H:%M') if nom.fecha_emision else '', 'fecha_certificacion': nom.fecha_certificacion.strftime('%Y-%m-%dT%H:%M') if nom.fecha_certificacion else '', 'fecha_pago': nom.fecha_pago.isoformat() if nom.fecha_pago else '', 'fecha_inicial_pago': nom.fecha_inicial_pago.isoformat() if nom.fecha_inicial_pago else '', 'fecha_final_pago': nom.fecha_final_pago.isoformat() if nom.fecha_final_pago else '', 'dias_pagados': safe_decimal(nom.dias_pagados), 'rfc': nom.rfc, 'curp': nom.curp, 'nss': nom.nss, 'nombre': nom.nombre, 'rfc_contratista': nom.rfc_contratista or '', 'sdi': safe_decimal(nom.sdi), 'sbc': safe_decimal(nom.sbc), 'vacaciones_exento': safe_decimal(nom.vacaciones_exento), 'vacaciones_dignas_exento': safe_decimal(nom.vacaciones_dignas_exento), 'aguinaldo_exento': safe_decimal(nom.aguinaldo_exento), 'sueldo_gravado': safe_decimal(nom.sueldo_gravado), 'vacaciones_gravado': safe_decimal(nom.vacaciones_gravado), 'vacaciones_dignas_gravado': safe_decimal(nom.vacaciones_dignas_gravado), 'aguinaldo_gravado': safe_decimal(nom.aguinaldo_gravado),
+            'percepciones_detalladas': nom.percepciones_detalladas or {},
         }
         return JsonResponse({'success': True, 'data': data})
     except Nomina.DoesNotExist: return JsonResponse({'success': False, 'error': 'Registro de nómina no encontrado.'})
@@ -85,8 +86,49 @@ def crear_nomina_ajax(request):
     try:
         data = request.POST; sucursal_id = request.session.get('sucursal_id'); empleado_id = data.get('empleado')
         empleado = Empleado.objects.get(id=empleado_id, empresa=empresa_actual) if empleado_id else None
+        
+        sat_codes = [
+            "001", "002", "003", "004", "005", "006", "009", "010", "011", "012", "013", "014", "015", "019", "020", "021", "022", "023", "024", "025", "026", "027", "028", "029", "030", "031", "032", "033", "034", "035", "036", "037", "038", "039", "044", "045", "046", "047", "048", "049", "050", "051", "052", "053", "054", "055", "056", "057"
+        ]
+        percepciones_detalladas_dict = {}
+        for code in sat_codes:
+            grav = data.get(f'p_{code}_gravado', '0')
+            exen = data.get(f'p_{code}_exento', '0')
+            try: g_val = float(grav)
+            except: g_val = 0.0
+            try: e_val = float(exen)
+            except: e_val = 0.0
+            if g_val > 0 or e_val > 0:
+                percepciones_detalladas_dict[code] = {'gravado': g_val, 'exento': e_val}
+        
+        # Sincronizar campos legacy
+        sueldo_gravado = Decimal(str(percepciones_detalladas_dict.get('001', {}).get('gravado', 0)))
+        vacaciones_gravado = Decimal(str(percepciones_detalladas_dict.get('021', {}).get('gravado', 0)))
+        vacaciones_exento = Decimal(str(percepciones_detalladas_dict.get('021', {}).get('exento', 0)))
+        aguinaldo_gravado = Decimal(str(percepciones_detalladas_dict.get('002', {}).get('gravado', 0)))
+        aguinaldo_exento = Decimal(str(percepciones_detalladas_dict.get('002', {}).get('exento', 0)))
+        
+        # Si se editan los legacy directamente en un formulario antiguo o fallback
+        if not percepciones_detalladas_dict:
+            sueldo_gravado = Decimal(data.get('sueldo_gravado', '0'))
+            vacaciones_gravado = Decimal(data.get('vacaciones_gravado', '0'))
+            vacaciones_exento = Decimal(data.get('vacaciones_exento', '0'))
+            aguinaldo_gravado = Decimal(data.get('aguinaldo_gravado', '0'))
+            aguinaldo_exento = Decimal(data.get('aguinaldo_exento', '0'))
+            
+            # Re-poblar el dict de percepciones
+            if sueldo_gravado > 0:
+                percepciones_detalladas_dict['001'] = {'gravado': float(sueldo_gravado), 'exento': 0.0}
+            if aguinaldo_gravado > 0 or aguinaldo_exento > 0:
+                percepciones_detalladas_dict['002'] = {'gravado': float(aguinaldo_gravado), 'exento': float(aguinaldo_exento)}
+            if vacaciones_gravado > 0 or vacaciones_exento > 0:
+                percepciones_detalladas_dict['021'] = {'gravado': float(vacaciones_gravado), 'exento': float(vacaciones_exento)}
+
+        vacaciones_dignas_gravado = Decimal(data.get('vacaciones_dignas_gravado', '0'))
+        vacaciones_dignas_exento = Decimal(data.get('vacaciones_dignas_exento', '0'))
+        
         nueva_nom = Nomina(
-            empresa=empresa_actual, sucursal_id=sucursal_id, empleado=empleado, periodo=data.get('periodo'), uso_cfdi=data.get('uso_cfdi', 'CN01'), uuid=data.get('uuid'), tipo_nomina=data.get('tipo_nomina', 'O'), serie=data.get('serie'), folio=data.get('folio'), fecha_emision=data.get('fecha_emision') or None, fecha_certificacion=data.get('fecha_certificacion') or None, fecha_pago=data.get('fecha_pago') or None, fecha_inicial_pago=data.get('fecha_inicial_pago') or None, fecha_final_pago=data.get('fecha_final_pago') or None, dias_pagados=Decimal(data.get('dias_pagados', '0')), rfc=data.get('rfc', '').upper(), curp=data.get('curp', '').upper(), nss=data.get('nss', ''), nombre=data.get('nombre', ''), rfc_contratista=data.get('rfc_contratista', '').upper(), sdi=Decimal(data.get('sdi', '0')), sbc=Decimal(data.get('sbc', '0')), vacaciones_exento=Decimal(data.get('vacaciones_exento', '0')), vacaciones_dignas_exento=Decimal(data.get('vacaciones_dignas_exento', '0')), aguinaldo_exento=Decimal(data.get('aguinaldo_exento', '0')), sueldo_gravado=Decimal(data.get('sueldo_gravado', '0')), vacaciones_gravado=Decimal(data.get('vacaciones_gravado', '0')), vacaciones_dignas_gravado=Decimal(data.get('vacaciones_dignas_gravado', '0')), aguinaldo_gravado=Decimal(data.get('aguinaldo_gravado', '0')),
+            empresa=empresa_actual, sucursal_id=sucursal_id, empleado=empleado, periodo=data.get('periodo'), uso_cfdi=data.get('uso_cfdi', 'CN01'), uuid=data.get('uuid'), tipo_nomina=data.get('tipo_nomina', 'O'), serie=data.get('serie'), folio=data.get('folio'), fecha_emision=data.get('fecha_emision') or None, fecha_certificacion=data.get('fecha_certificacion') or None, fecha_pago=data.get('fecha_pago') or None, fecha_inicial_pago=data.get('fecha_inicial_pago') or None, fecha_final_pago=data.get('fecha_final_pago') or None, dias_pagados=Decimal(data.get('dias_pagados', '0')), rfc=data.get('rfc', '').upper(), curp=data.get('curp', '').upper(), nss=data.get('nss', ''), nombre=data.get('nombre', ''), rfc_contratista=data.get('rfc_contratista', '').upper(), sdi=Decimal(data.get('sdi', '0')), sbc=Decimal(data.get('sbc', '0')), vacaciones_exento=vacaciones_exento, vacaciones_dignas_exento=vacaciones_dignas_exento, aguinaldo_exento=aguinaldo_exento, sueldo_gravado=sueldo_gravado, vacaciones_gravado=vacaciones_gravado, vacaciones_dignas_gravado=vacaciones_dignas_gravado, aguinaldo_gravado=aguinaldo_gravado, percepciones_detalladas=percepciones_detalladas_dict,
         )
         nueva_nom.save(); return JsonResponse({'success': True, 'message': 'Nómina registrada correctamente.'})
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
@@ -97,7 +139,48 @@ def editar_nomina_ajax(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
         nom = Nomina.objects.get(id=id, empresa=empresa_actual); data = request.POST
-        nom.empleado_id = data.get('empleado') or None; nom.periodo = data.get('periodo'); nom.uso_cfdi = data.get('uso_cfdi', 'CN01'); nom.uuid = data.get('uuid'); nom.tipo_nomina = data.get('tipo_nomina'); nom.serie = data.get('serie'); nom.folio = data.get('folio'); nom.fecha_emision = data.get('fecha_emision') or None; nom.fecha_certificacion = data.get('fecha_certificacion') or None; nom.fecha_pago = data.get('fecha_pago') or None; nom.fecha_inicial_pago = data.get('fecha_inicial_pago') or None; nom.fecha_final_pago = data.get('fecha_final_pago') or None; nom.dias_pagados = Decimal(data.get('dias_pagados', '0')); nom.rfc = data.get('rfc', '').upper(); nom.curp = data.get('curp', '').upper(); nom.nss = data.get('nss', ''); nom.nombre = data.get('nombre', ''); nom.rfc_contratista = data.get('rfc_contratista', '').upper(); nom.sdi = Decimal(data.get('sdi', '0')); nom.sbc = Decimal(data.get('sbc', '0')); nom.vacaciones_exento = Decimal(data.get('vacaciones_exento', '0')); nom.vacaciones_dignas_exento = Decimal(data.get('vacaciones_dignas_exento', '0')); nom.aguinaldo_exento = Decimal(data.get('aguinaldo_exento', '0')); nom.sueldo_gravado = Decimal(data.get('sueldo_gravado', '0')); nom.vacaciones_gravado = Decimal(data.get('vacaciones_gravado', '0')); nom.vacaciones_dignas_gravado = Decimal(data.get('vacaciones_dignas_gravado', '0')); nom.aguinaldo_gravado = Decimal(data.get('aguinaldo_gravado', '0'))
+        nom.empleado_id = data.get('empleado') or None; nom.periodo = data.get('periodo'); nom.uso_cfdi = data.get('uso_cfdi', 'CN01'); nom.uuid = data.get('uuid'); nom.tipo_nomina = data.get('tipo_nomina'); nom.serie = data.get('serie'); nom.folio = data.get('folio'); nom.fecha_emision = data.get('fecha_emision') or None; nom.fecha_certificacion = data.get('fecha_certificacion') or None; nom.fecha_pago = data.get('fecha_pago') or None; nom.fecha_inicial_pago = data.get('fecha_inicial_pago') or None; nom.fecha_final_pago = data.get('fecha_final_pago') or None; nom.dias_pagados = Decimal(data.get('dias_pagados', '0')); nom.rfc = data.get('rfc', '').upper(); nom.curp = data.get('curp', '').upper(); nom.nss = data.get('nss', ''); nom.nombre = data.get('nombre', ''); nom.rfc_contratista = data.get('rfc_contratista', '').upper(); nom.sdi = Decimal(data.get('sdi', '0')); nom.sbc = Decimal(data.get('sbc', '0'))
+        
+        sat_codes = [
+            "001", "002", "003", "004", "005", "006", "009", "010", "011", "012", "013", "014", "015", "019", "020", "021", "022", "023", "024", "025", "026", "027", "028", "029", "030", "031", "032", "033", "034", "035", "036", "037", "038", "039", "044", "045", "046", "047", "048", "049", "050", "051", "052", "053", "054", "055", "056", "057"
+        ]
+        percepciones_detalladas_dict = {}
+        for code in sat_codes:
+            grav = data.get(f'p_{code}_gravado', '0')
+            exen = data.get(f'p_{code}_exento', '0')
+            try: g_val = float(grav)
+            except: g_val = 0.0
+            try: e_val = float(exen)
+            except: e_val = 0.0
+            if g_val > 0 or e_val > 0:
+                percepciones_detalladas_dict[code] = {'gravado': g_val, 'exento': e_val}
+        
+        # Sincronizar campos legacy
+        nom.sueldo_gravado = Decimal(str(percepciones_detalladas_dict.get('001', {}).get('gravado', 0)))
+        nom.vacaciones_gravado = Decimal(str(percepciones_detalladas_dict.get('021', {}).get('gravado', 0)))
+        nom.vacaciones_exento = Decimal(str(percepciones_detalladas_dict.get('021', {}).get('exento', 0)))
+        nom.aguinaldo_gravado = Decimal(str(percepciones_detalladas_dict.get('002', {}).get('gravado', 0)))
+        nom.aguinaldo_exento = Decimal(str(percepciones_detalladas_dict.get('002', {}).get('exento', 0)))
+        
+        # Si se editan los legacy directamente en un formulario antiguo o fallback
+        if not percepciones_detalladas_dict:
+            nom.sueldo_gravado = Decimal(data.get('sueldo_gravado', '0'))
+            nom.vacaciones_gravado = Decimal(data.get('vacaciones_gravado', '0'))
+            nom.vacaciones_exento = Decimal(data.get('vacaciones_exento', '0'))
+            nom.aguinaldo_gravado = Decimal(data.get('aguinaldo_gravado', '0'))
+            nom.aguinaldo_exento = Decimal(data.get('aguinaldo_exento', '0'))
+            
+            # Re-poblar el dict de percepciones
+            if nom.sueldo_gravado > 0:
+                percepciones_detalladas_dict['001'] = {'gravado': float(nom.sueldo_gravado), 'exento': 0.0}
+            if nom.aguinaldo_gravado > 0 or nom.aguinaldo_exento > 0:
+                percepciones_detalladas_dict['002'] = {'gravado': float(nom.aguinaldo_gravado), 'exento': float(nom.aguinaldo_exento)}
+            if nom.vacaciones_gravado > 0 or nom.vacaciones_exento > 0:
+                percepciones_detalladas_dict['021'] = {'gravado': float(nom.vacaciones_gravado), 'exento': float(nom.vacaciones_exento)}
+
+        nom.vacaciones_dignas_gravado = Decimal(data.get('vacaciones_dignas_gravado', '0'))
+        nom.vacaciones_dignas_exento = Decimal(data.get('vacaciones_dignas_exento', '0'))
+        nom.percepciones_detalladas = percepciones_detalladas_dict
         nom.save(); return JsonResponse({'success': True, 'message': 'Nómina actualizada correctamente.'})
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
 
@@ -177,16 +260,76 @@ def exportar_nominas_excel(request):
     wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Nominas"
     from openpyxl.styles import Font, Alignment
     h_font = Font(bold=True)
+    
+    CONCEPTOS_SAT = {
+        "001": "Sueldos y Salarios (001)",
+        "002": "Aguinaldo (002)",
+        "003": "PTU (003)",
+        "004": "Reembolso Gastos Medicos (004)",
+        "005": "Fondo de Ahorro (005)",
+        "006": "Caja de ahorro (006)",
+        "009": "Contribuciones Cargo Trabajador (009)",
+        "010": "Premios puntualidad (010)",
+        "011": "Prima Seguro de vida (011)",
+        "012": "Seguro Gastos Medicos Mayores (012)",
+        "013": "Cuotas Sindicales (013)",
+        "014": "Subsidios incapacidad (014)",
+        "015": "Becas (015)",
+        "019": "Horas extra (019)",
+        "020": "Prima dominical (020)",
+        "021": "Prima vacacional (021)",
+        "022": "Prima antiguedad (022)",
+        "023": "Pagos separacion (023)",
+        "024": "Seguro retiro (024)",
+        "025": "Indemnizaciones (025)",
+        "026": "Reembolso funeral (026)",
+        "027": "Seguridad social patronal (027)",
+        "028": "Comisiones (028)",
+        "029": "Vales despensa (029)",
+        "030": "Vales restaurante (030)",
+        "031": "Vales gasolina (031)",
+        "032": "Vales ropa (032)",
+        "033": "Ayuda renta (033)",
+        "034": "Ayuda utiles (034)",
+        "035": "Ayuda anteojos (035)",
+        "036": "Ayuda transporte (036)",
+        "037": "Ayuda funeral (037)",
+        "038": "Otros ingresos salarios (038)",
+        "039": "Jubilaciones retiro (039)",
+        "044": "Jubilaciones parcialidades (044)",
+        "045": "Ingresos acciones (045)",
+        "046": "Ingresos asimilados (046)",
+        "047": "Alimentacion (047)",
+        "048": "Habitacion (048)",
+        "049": "Premios asistencia (049)",
+        "050": "Viaticos (050)",
+        "051": "Jubilacion parcialidades extre (051)",
+        "052": "Jubilacion parcialidades laudo (052)",
+        "053": "Jubilacion exhibicion laudo (053)",
+        "054": "Dias descanso laborados (054)",
+        "055": "Dias descanso obligatorios (055)",
+        "056": "Prevision social (056)",
+        "057": "Premios concursos (057)"
+    }
+    
     headers = [
         "Folio", "Serie", "UUID", "Uso CFDI", "Tipo Nomina", "Periodo", 
         "Fecha Emision", "Fecha Certificacion", "Fecha Pago", "Fecha Inicial", "Fecha Final", 
         "Dias Pagados", "Colaborador", "RFC", "CURP", "NSS", "RFC Contratista", "SDI", "SBC",
         "Sueldo (Gravado)", "Vacaciones (Gravado)", "Vacaciones (Exento)", 
         "Vacaciones Dignas (Gravado)", "Vacaciones Dignas (Exento)", 
-        "Aguinaldo (Gravado)", "Aguinaldo (Exento)", "Sucursal"
+        "Aguinaldo (Gravado)", "Aguinaldo (Exento)"
     ]
+    
+    for code in sorted(CONCEPTOS_SAT.keys()):
+        headers.append(f"{CONCEPTOS_SAT[code]} - Gravado")
+        headers.append(f"{CONCEPTOS_SAT[code]} - Exento")
+        
+    headers.append("Sucursal")
+    
     for i, h in enumerate(headers, 1):
         c = ws.cell(row=1, column=i, value=h); c.font = h_font; c.alignment = Alignment(horizontal="center")
+        
     for r_idx, nom in enumerate(nominas, 2):
         data = [
             nom.folio, nom.serie, nom.uuid, nom.uso_cfdi, "O" if nom.tipo_nomina=='O' else "E", nom.periodo, 
@@ -194,9 +337,19 @@ def exportar_nominas_excel(request):
             nom.dias_pagados, nom.nombre, nom.rfc, nom.curp, nom.nss, nom.rfc_contratista, nom.sdi, nom.sbc,
             nom.sueldo_gravado, nom.vacaciones_gravado, nom.vacaciones_exento, 
             nom.vacaciones_dignas_gravado, nom.vacaciones_dignas_exento, 
-            nom.aguinaldo_gravado, nom.aguinaldo_exento,
-            nom.sucursal.nombre if nom.sucursal else "General"
+            nom.aguinaldo_gravado, nom.aguinaldo_exento
         ]
+        
+        concept_data = nom.percepciones_detalladas or {}
+        for code in sorted(CONCEPTOS_SAT.keys()):
+            vals = concept_data.get(code, {})
+            gravado = vals.get('gravado', 0.0)
+            exento = vals.get('exento', 0.0)
+            data.append(Decimal(str(gravado)))
+            data.append(Decimal(str(exento)))
+            
+        data.append(nom.sucursal.nombre if nom.sucursal else "General")
+        
         for c_idx, val in enumerate(data, 1):
             cl = ws.cell(row=r_idx, column=c_idx, value=val)
             if isinstance(val, (datetime, date)):
@@ -281,7 +434,7 @@ def exportar_sisub_trabajadores(request, id):
             continue
             
         key = (worker_key, bim)
-        per = (r.vacaciones_exento or 0) + (r.vacaciones_dignas_exento or 0) + (r.aguinaldo_exento or 0) + (r.sueldo_gravado or 0) + (r.vacaciones_gravado or 0) + (r.vacaciones_dignas_gravado or 0) + (r.aguinaldo_gravado or 0)
+        per = r.total_percepciones
         
         if key not in grouped_data:
             con = emp_map.get(n) or emp_map.get(curp) or emp_map.get(name)

@@ -176,11 +176,14 @@ class SATService:
             vacaciones_dignas_gravado = Decimal('0.00')
             aguinaldo_gravado = Decimal('0.00')
 
+            percepciones_detalladas_dict = {}
+
             percepciones_node = nomina_node.find('.//{*}Percepciones')
             if percepciones_node is not None:
                 for perc in percepciones_node.findall('.//{*}Percepcion'):
                     tipo = get_attr(perc, 'TipoPercepcion', '')
-                    concepto = get_attr(perc, 'Concepto', '').upper()
+                    if not tipo:
+                        continue
                     
                     try:
                         imp_gravado = Decimal(get_attr(perc, 'ImporteGravado', '0'))
@@ -192,16 +195,26 @@ class SATService:
                     except:
                         imp_exento = Decimal('0.00')
                     
+                    # Sum to our detailed dict
+                    if tipo not in percepciones_detalladas_dict:
+                        percepciones_detalladas_dict[tipo] = {'gravado': 0.0, 'exento': 0.0}
+                    
+                    percepciones_detalladas_dict[tipo]['gravado'] += float(imp_gravado)
+                    percepciones_detalladas_dict[tipo]['exento'] += float(imp_exento)
+
                     # Clasificar las percepciones
+                    concepto = get_attr(perc, 'Concepto', '').upper()
                     if "AGUINALDO" in concepto or tipo == '002':
                         aguinaldo_gravado += imp_gravado
                         aguinaldo_exento += imp_exento
                     elif "VACACIONES DIGNAS" in concepto:
                         vacaciones_dignas_gravado += imp_gravado
                         vacaciones_dignas_exento += imp_exento
-                    elif "VACACIONES" in concepto:
+                    elif "VACACIONES" in concepto or tipo == '021':
                         vacaciones_gravado += imp_gravado
                         vacaciones_exento += imp_exento
+                    elif tipo == '001':
+                        sueldo_gravado += imp_gravado
                     else:
                         # Por defecto, sumamos el importe gravado al sueldo
                         sueldo_gravado += imp_gravado
@@ -232,6 +245,7 @@ class SATService:
                     'vacaciones_gravado': vacaciones_gravado,
                     'vacaciones_dignas_gravado': vacaciones_dignas_gravado,
                     'aguinaldo_gravado': aguinaldo_gravado,
+                    'percepciones_detalladas': percepciones_detalladas_dict,
                 }
             )
             return True

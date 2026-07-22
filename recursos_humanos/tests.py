@@ -65,6 +65,47 @@ class XMLPayrollParsingTest(TestCase):
         self.assertEqual(nomina.vacaciones_exento, Decimal('0.00'))
         self.assertEqual(nomina.vacaciones_dignas_gravado, Decimal('0.00'))
         self.assertEqual(nomina.vacaciones_dignas_exento, Decimal('150.00'))
+        
+        # Verificar JSON detallado y total_percepciones
+        self.assertEqual(nomina.percepciones_detalladas.get('001', {}).get('gravado'), 1450.0)
+        self.assertEqual(nomina.percepciones_detalladas.get('001', {}).get('exento'), 150.0)
+        self.assertEqual(nomina.percepciones_detalladas.get('002', {}).get('exento'), 500.0)
+        self.assertEqual(nomina.total_percepciones, Decimal('2100.00'))
+
+    def test_crear_editar_nomina_percepciones_detalladas(self):
+        # Iniciar sesión / crear datos mínimos
+        from django.test import Client
+        client = Client()
+        client.force_login(User.objects.create_superuser(username="test_admin@prueba", email="test@test.com", password="pwd"))
+        
+        # Test creation via AJAX
+        post_data = {
+            'periodo': 'Bimestre 1 2026',
+            'nombre': 'JUAN PEREZ',
+            'rfc': 'XAXX010101000',
+            'curp': 'XAXX010101HDFRXX01',
+            'nss': '12345678901',
+            'p_001_gravado': '1500.00',
+            'p_001_exento': '0.00',
+            'p_029_gravado': '0.00',
+            'p_029_exento': '300.00'
+        }
+        
+        # Simular sesión de sucursal
+        session = client.session
+        session['sucursal_id'] = None
+        session.save()
+        
+        response = client.post('/recursos-humanos/nomina/crear/', post_data)
+        self.assertEqual(response.status_code, 200)
+        resp_json = response.json()
+        self.assertTrue(resp_json['success'])
+        
+        # Verificar que se guardó correctamente
+        nomina = Nomina.objects.get(nombre='JUAN PEREZ')
+        self.assertEqual(nomina.sueldo_gravado, Decimal('1500.00')) # Sincronizado a legacy
+        self.assertEqual(nomina.percepciones_detalladas.get('029', {}).get('exento'), 300.0)
+        self.assertEqual(nomina.total_percepciones, Decimal('1800.00'))
 
 class SISUBExportTest(TestCase):
     def setUp(self):

@@ -595,6 +595,28 @@ class Nomina(models.Model):
     vacaciones_gravado = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Vacaciones (Gravado)")
     vacaciones_dignas_gravado = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Vacaciones Dignas (Gravado)")
     aguinaldo_gravado = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Aguinaldo (Gravado)")
+    percepciones_detalladas = models.JSONField(default=dict, blank=True, verbose_name="Detalle de Percepciones SAT")
+
+    @property
+    def total_percepciones(self):
+        from decimal import Decimal
+        total = Decimal('0.00')
+        if self.percepciones_detalladas:
+            for code, values in self.percepciones_detalladas.items():
+                try:
+                    total += Decimal(str(values.get('gravado', 0) or 0))
+                except:
+                    pass
+                try:
+                    total += Decimal(str(values.get('exento', 0) or 0))
+                except:
+                    pass
+        else:
+            # Fallback to legacy fields
+            total += (self.vacaciones_exento or 0) + (self.vacaciones_dignas_exento or 0) + (self.aguinaldo_exento or 0) + \
+                     (self.sueldo_gravado or 0) + (self.vacaciones_gravado or 0) + (self.vacaciones_dignas_gravado or 0) + \
+                     (self.aguinaldo_gravado or 0)
+        return total
 
     def __str__(self):
         return f"Nómina {self.folio or self.id} - {self.nombre} ({self.periodo})"
@@ -642,6 +664,7 @@ class SolicitudDescargaSAT(models.Model):
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
     contratista = models.ForeignKey(Contratista, on_delete=models.CASCADE, null=True, blank=True)
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     id_solicitud = models.CharField(max_length=100, verbose_name="ID de Solicitud SAT")
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()

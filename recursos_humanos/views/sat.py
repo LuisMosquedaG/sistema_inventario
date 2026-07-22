@@ -91,6 +91,7 @@ def solicitar_descarga_sat_ajax(request):
         SolicitudDescargaSAT.objects.create(
             empresa=empresa_actual,
             contratista=contratista,
+            usuario=request.user,
             id_solicitud=id_solicitud,
             fecha_inicio=f_inicio.date(),
             fecha_fin=f_fin.date(),
@@ -121,11 +122,17 @@ def verificar_fiel_contratista_ajax(request, contratista_id):
 @login_required(login_url='/login/')
 def listar_solicitudes_sat_ajax(request):
     empresa_actual = get_empresa_actual(request)
-    solicitudes = SolicitudDescargaSAT.objects.filter(empresa=empresa_actual).order_by('-fecha_creacion')[:10]
+    solicitudes = SolicitudDescargaSAT.objects.filter(empresa=empresa_actual).select_related('usuario').order_by('-fecha_creacion')[:10]
     data = []
     for s in solicitudes:
+        usuario_str = s.usuario.username.split('@')[0] if s.usuario else "Sistema"
         data.append({
-            'id': s.id, 'id_solicitud': s.id_solicitud, 'periodo': f"{s.fecha_inicio} al {s.fecha_fin}", 'estado': s.estado, 'fecha': s.fecha_creacion.strftime('%d/%m/%Y %H:%M')
+            'id': s.id,
+            'id_solicitud': s.id_solicitud,
+            'periodo': f"{s.fecha_inicio} al {s.fecha_fin}",
+            'estado': s.estado,
+            'fecha': s.fecha_creacion.strftime('%d/%m/%Y %H:%M'),
+            'usuario': usuario_str
         })
     return JsonResponse({'solicitudes': data})
 
