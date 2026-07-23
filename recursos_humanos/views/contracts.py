@@ -13,6 +13,7 @@ from ..models import Empleado, Contrato, Contratista, Beneficiario
 from preferencias.models import Sucursal
 from preferencias.permissions import require_hr_permission
 from .utils import get_empresa_actual
+from notificaciones.utils import crear_notificacion
 
 @login_required(login_url='/login/')
 @require_hr_permission('contratos', 'ver')
@@ -295,7 +296,8 @@ def crear_contrato_ajax(request):
                 num_estimado_trabajadores=int(data.get('num_estimado_trabajadores') or 0),
                 estado_periodicidad=data.get('estado_periodicidad', 'vigente'),
                 estado_vigencia=data.get('estado_vigencia', 'vigente'),
-                notas=data.get('notas', '')
+                notas=data.get('notas', ''),
+                creado_por=request.user
             )
             nuevo_contrato.save()
             
@@ -303,6 +305,13 @@ def crear_contrato_ajax(request):
             if empleados_ids:
                 nuevo_contrato.empleados.set(empleados_ids)
                 
+            crear_notificacion(
+                empresa=empresa_actual,
+                actor=request.user,
+                mensaje=f'creó el contrato folio {nuevo_contrato.folio}',
+                link='/recursos-humanos/contratos/',
+                propietario=request.user
+            )
             return JsonResponse({'success': True, 'message': 'Contrato registrado correctamente.'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
@@ -336,6 +345,13 @@ def editar_contrato_ajax(request, id):
             empleados_ids = request.POST.getlist('empleados[]') or request.POST.getlist('empleados')
             con.empleados.set(empleados_ids)
             
+            crear_notificacion(
+                empresa=empresa_actual,
+                actor=request.user,
+                mensaje=f'editó el contrato folio {con.folio}',
+                link='/recursos-humanos/contratos/',
+                propietario=con.creado_por or request.user
+            )
             return JsonResponse({'success': True, 'message': 'Contrato actualizado correctamente.'})
     except Contrato.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Contrato no encontrado.'})
@@ -349,6 +365,13 @@ def eliminar_contrato_ajax(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
         con = Contrato.objects.get(id=id, empresa=empresa_actual)
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'eliminó el contrato folio {con.folio}',
+            link='/recursos-humanos/contratos/',
+            propietario=con.creado_por or request.user
+        )
         con.delete()
         return JsonResponse({'success': True, 'message': 'Contrato eliminado correctamente.'})
     except Contrato.DoesNotExist:

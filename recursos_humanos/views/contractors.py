@@ -15,6 +15,7 @@ from ..models import Empleado, Contrato, Contratista, Beneficiario, ImportacionS
 from preferencias.models import Sucursal
 from preferencias.permissions import require_hr_permission
 from .utils import get_empresa_actual
+from notificaciones.utils import crear_notificacion
 
 @login_required(login_url='/login/')
 @require_hr_permission('contratistas', 'ver')
@@ -114,8 +115,16 @@ def crear_contratista_ajax(request):
             nombre_notario_publico=data.get('nombre_notario_publico'), num_notario_publico=data.get('num_notario_publico'),
             fecha_escritura_publica=data.get('fecha_escritura_publica') or None, folio_mercantil=data.get('folio_mercantil'),
             numero_stps=data.get('numero_stps'),
+            creado_por=request.user,
         )
         nuevo.save()
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'creó al contratista {nuevo.nombre_razon_social}',
+            link='/recursos-humanos/contratistas/',
+            propietario=request.user
+        )
         return JsonResponse({'success': True, 'message': 'Contratista registrado correctamente.'})
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
 
@@ -142,6 +151,13 @@ def editar_contratista_ajax(request, id):
         cont.num_notario_publico = data.get('num_notario_publico'); cont.fecha_escritura_publica = data.get('fecha_escritura_publica') or None
         cont.folio_mercantil = data.get('folio_mercantil'); cont.numero_stps = data.get('numero_stps')
         cont.save()
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'editó al contratista {cont.nombre_razon_social}',
+            link='/recursos-humanos/contratistas/',
+            propietario=cont.creado_por or request.user
+        )
         return JsonResponse({'success': True, 'message': 'Contratista actualizado correctamente.'})
     except Contratista.DoesNotExist: return JsonResponse({'success': False, 'error': 'Contratista no encontrado.'})
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
@@ -154,6 +170,13 @@ def eliminar_contratista_ajax(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
         cont = Contratista.objects.get(id=id, empresa=empresa_actual)
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'eliminó al contratista {cont.nombre_razon_social}',
+            link='/recursos-humanos/contratistas/',
+            propietario=cont.creado_por or request.user
+        )
         cont.delete()
         return JsonResponse({'success': True, 'message': 'Contratista eliminado correctamente.'})
     except Contratista.DoesNotExist:

@@ -20,6 +20,7 @@ from ..models import Empleado, Contrato, Contratista, Beneficiario, ImportacionS
 from preferencias.models import Sucursal
 from preferencias.permissions import require_hr_permission, user_has_hr_permission
 from .utils import get_empresa_actual, limpiar_basura_header
+from notificaciones.utils import crear_notificacion
 
 @login_required(login_url='/login/')
 @require_hr_permission('sua', 'ver')
@@ -171,7 +172,8 @@ def importar_sua_ajax(request):
                 entidad=limpiar_basura_header(entidad_val), area_geografica=limpiar_basura_header(area_val),
                 delegacion_imss=limpiar_basura_header(deleg_val), subdelegacion_imss=limpiar_basura_header(subdeleg_val),
                 municipio_alcaldia=limpiar_basura_header(mun_alc_val), prima_rt=prima_val,
-                periodo=periodo_final, tipo=tipo_importacion
+                periodo=periodo_final, tipo=tipo_importacion,
+                creado_por=request.user
             )
 
             current_worker_info = None; stop_workers = False
@@ -280,6 +282,13 @@ def importar_sua_ajax(request):
             unique_count = len(nss_encontrados)
             msg_val = f" Advertencia: Se detectaron {unique_count} trabajadores únicos pero el reporte indica un total de {total_reporte}." if total_reporte > 0 and unique_count != total_reporte else ""
 
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'importó reporte SUA {importacion.periodo}',
+            link='/recursos-humanos/sua/',
+            propietario=request.user
+        )
         return JsonResponse({'success': True, 'message': f'Importación exitosa: {created_count} registros procesados.{msg_val}'})
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
 
@@ -316,7 +325,15 @@ def eliminar_sua_ajax(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
         imp = ImportacionSUA.objects.get(id=id, empresa=empresa_actual)
-        imp.delete(); return JsonResponse({'success': True, 'message': 'Registro eliminado correctamente.'})
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'eliminó reporte SUA {imp.periodo}',
+            link='/recursos-humanos/sua/',
+            propietario=imp.creado_por or request.user
+        )
+        imp.delete()
+        return JsonResponse({'success': True, 'message': 'Registro eliminado correctamente.'})
     except ImportacionSUA.DoesNotExist: return JsonResponse({'success': False, 'error': 'No se encontró la importación.'})
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
 
@@ -531,7 +548,7 @@ def alta_empleados_sua_ajax(request, id):
         contratista_obj = Contratista.objects.filter(Q(empresa=empresa_actual) & filtros_or).first()
         status_cont = "Existente"
         if not contratista_obj:
-            contratista_obj = Contratista.objects.create(empresa=empresa_actual, sucursal_id=sucursal_id, registro_patronal=rp_reporte, nombre_razon_social=nombre_reporte, rfc=rfc_reporte or "POR_DEFINIR", calle=importacion.domicilio, cp=importacion.cp, entidad_federativa=importacion.entidad, correo=f"contacto@{rp_reporte or 'empresa'}.com")
+            contratista_obj = Contratista.objects.create(empresa=empresa_actual, sucursal_id=sucursal_id, registro_patronal=rp_reporte, nombre_razon_social=nombre_reporte, rfc=rfc_reporte or "POR_DEFINIR", calle=importacion.domicilio, cp=importacion.cp, entidad_federativa=importacion.entidad, correo=f"contacto@{rp_reporte or 'empresa'}.com", creado_por=request.user)
             status_cont = "NUEVO REGISTRO"
         else:
             save_needed = False
@@ -551,7 +568,7 @@ def alta_empleados_sua_ajax(request, id):
 
                 if not empleado:
                     audit_nota = f"Importado el día {importacion.fecha_importacion.strftime('%d/%m/%Y')} de la cédula {importacion.periodo} del contratista {importacion.nombre_razon_social}"
-                    empleado = Empleado(empresa=empresa_actual, sucursal_id=sucursal_id, nss=nss_clean, curp=curp_clean, nombre=nombres, apellido_paterno=paterno, apellido_materno=materno, sdi=t.sdi, contratista=contratista_obj, beneficiario=beneficiario_obj, puesto="", departamento="General", clave_ubicacion=t.clave_ubicacion, notas=audit_nota, estado='activo')
+                    empleado = Empleado(empresa=empresa_actual, sucursal_id=sucursal_id, nss=nss_clean, curp=curp_clean, nombre=nombres, apellido_paterno=paterno, apellido_materno=materno, sdi=t.sdi, contratista=contratista_obj, beneficiario=beneficiario_obj, puesto="", departamento="General", clave_ubicacion=t.clave_ubicacion, notas=audit_nota, estado='activo', creado_por=request.user)
                     empleado.save(); creados += 1
                 else:
                     empleado.sdi = t.sdi
@@ -572,8 +589,6 @@ def alta_empleados_sua_ajax(request, id):
                             )
                             if match_contratista:
                                 # Verificación de traslape de fechas
-                                # El contrato y el periodo del SUA se traslapan si:
-                                # c_v.fecha_inicio <= sua_end y (c_v.fecha_fin es nulo o c_v.fecha_fin >= sua_start)
                                 start_ok = c_v.fecha_inicio <= sua_end
                                 end_ok = (c_v.fecha_fin is None or c_v.fecha_fin >= sua_start)
                                 if start_ok and end_ok:
@@ -581,5 +596,12 @@ def alta_empleados_sua_ajax(request, id):
                                     vinculados_a_contrato += 1
                                     break
 
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje='realizó alta masiva de empleados desde SUA',
+            link='/recursos-humanos/empleados/',
+            propietario=request.user
+        )
         return JsonResponse({'success': True, 'message': f'Proceso completado: {creados} nuevos, {actualizados} actualizados. {vinculados_a_contrato} vinculaciones a contratos realizadas. Contratista: {contratista_obj.nombre_razon_social}'})
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})

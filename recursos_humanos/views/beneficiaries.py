@@ -11,6 +11,7 @@ from ..models import Beneficiario, DocumentacionBeneficiario
 from preferencias.models import Sucursal
 from preferencias.permissions import require_hr_permission, user_has_hr_permission
 from .utils import get_empresa_actual
+from notificaciones.utils import crear_notificacion
 
 @login_required(login_url='/login/')
 @require_hr_permission('beneficiarios', 'ver')
@@ -123,9 +124,17 @@ def crear_beneficiario_ajax(request):
             entre_calle=data.get('entre_calle'), y_calle=data.get('y_calle'), colonia=data.get('colonia'),
             cp=data.get('cp'), municipio_alcaldia=data.get('municipio_alcaldia'),
             entidad_federativa=data.get('entidad_federativa'), correo=data.get('correo'), telefono=data.get('telefono'),
-            usuario=user_obj
+            usuario=user_obj,
+            creado_por=request.user
         )
         nuevo.save()
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'creó al beneficiario {nuevo.nombre_razon_social}',
+            link='/recursos-humanos/beneficiarios/',
+            propietario=request.user
+        )
         return JsonResponse({'success': True, 'message': 'Beneficiario registrado correctamente.'})
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
 
@@ -190,6 +199,13 @@ def editar_beneficiario_ajax(request, id):
         ben.municipio_alcaldia = data.get('municipio_alcaldia'); ben.entidad_federativa = data.get('entidad_federativa')
         ben.correo = data.get('correo'); ben.telefono = data.get('telefono')
         ben.save()
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'editó al beneficiario {ben.nombre_razon_social}',
+            link='/recursos-humanos/beneficiarios/',
+            propietario=ben.creado_por or request.user
+        )
         return JsonResponse({'success': True, 'message': 'Beneficiario actualizado correctamente.'})
     except Beneficiario.DoesNotExist: return JsonResponse({'success': False, 'error': 'Beneficiario no encontrado.'})
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
@@ -202,6 +218,13 @@ def eliminar_beneficiario_ajax(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
         ben = Beneficiario.objects.get(id=id, empresa=empresa_actual)
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'eliminó al beneficiario {ben.nombre_razon_social}',
+            link='/recursos-humanos/beneficiarios/',
+            propietario=ben.creado_por or request.user
+        )
         ben.delete()
         return JsonResponse({'success': True, 'message': 'Beneficiario eliminado correctamente.'})
     except Beneficiario.DoesNotExist:

@@ -473,3 +473,58 @@ class SUAExportTest(TestCase):
         content = response.content.decode('utf-8-sig')
         self.assertIn("REPORTE DE INTEGRACIÓN SUA", content)
         self.assertIn("Pedro Perez", content)
+
+
+class HRNotificationTest(TestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        from panel.models import Empresa
+        
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa de Prueba",
+            subdominio="prueba",
+            usuario_admin="admin",
+            correo_contacto="prueba@test.com"
+        )
+        self.empresa.modulo_recursos_humanos = True
+        self.empresa.save()
+        
+        self.admin = User.objects.create_superuser(
+            username="admin@prueba",
+            email="admin@prueba.com",
+            password="password"
+        )
+        self.normal_user = User.objects.create_user(
+            username="user1@prueba",
+            email="user1@prueba.com",
+            password="password"
+        )
+        
+    def test_crear_empleado_generates_notification(self):
+        from notificaciones.models import Notificacion
+        self.client.login(username="admin@prueba", password="password")
+        from django.urls import reverse
+        url = reverse('crear_empleado_ajax')
+        
+        response = self.client.post(url, {
+            'num_empleado': 'EMP-001',
+            'nombre': 'Juan',
+            'apellido_paterno': 'Perez',
+            'curp': 'CURP000000HDFRXX01',
+            'rfc': 'RFC0000000XXX',
+            'nss': '12345678901',
+            'salario_diario_ordinario': '200.00',
+            'sbc': '200.00',
+            'sdi': '200.00',
+            'forma_pago': 'quincenal',
+            'tipo_salario': 'fijo'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['success'])
+        
+        notifs = Notificacion.objects.filter(empresa=self.empresa)
+        self.assertEqual(notifs.count(), 1)
+        notif = notifs.first()
+        self.assertEqual(notif.actor, self.admin)
+        self.assertEqual(notif.propietario_recurso, self.admin)
+        self.assertIn("creó al empleado Juan Perez", notif.mensaje)

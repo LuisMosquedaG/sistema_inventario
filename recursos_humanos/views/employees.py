@@ -10,6 +10,7 @@ from ..models import Empleado, Contrato, Contratista, Beneficiario
 from preferencias.models import Sucursal
 from preferencias.permissions import require_hr_permission
 from .utils import get_empresa_actual
+from notificaciones.utils import crear_notificacion
 
 @login_required(login_url='/login/')
 @require_hr_permission('empleados', 'ver')
@@ -239,6 +240,14 @@ def editar_empleado_ajax(request, id):
         else:
             emp.contratos_asignados.clear()
 
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'editó al empleado {emp.nombre} {emp.apellido_paterno}',
+            link='/recursos-humanos/empleados/',
+            propietario=emp.creado_por or request.user
+        )
+
         return JsonResponse({'success': True, 'message': 'Empleado actualizado correctamente.'})
     except Empleado.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Empleado no encontrado.'})
@@ -253,6 +262,13 @@ def eliminar_empleado_ajax(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
         emp = Empleado.objects.get(id=id, empresa=empresa_actual)
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'eliminó al empleado {emp.nombre} {emp.apellido_paterno}',
+            link='/recursos-humanos/empleados/',
+            propietario=emp.creado_por or request.user
+        )
         emp.delete()
         return JsonResponse({'success': True, 'message': 'Empleado eliminado correctamente.'})
     except Empleado.DoesNotExist:
@@ -334,6 +350,7 @@ def crear_empleado_ajax(request):
             tipo_cuenta=data.get('tipo_cuenta'),
             tarjeta_nomina=(data.get('tarjeta_nomina') == 'on'),
             num_tarjeta=data.get('num_tarjeta'),
+            creado_por=request.user,
         )
         nuevo_empleado.save()
 
@@ -344,6 +361,14 @@ def crear_empleado_ajax(request):
                 contrato.empleados.add(nuevo_empleado)
             except Contrato.DoesNotExist:
                 pass
+
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'creó al empleado {nuevo_empleado.nombre} {nuevo_empleado.apellido_paterno}',
+            link='/recursos-humanos/empleados/',
+            propietario=request.user
+        )
 
         return JsonResponse({'success': True, 'message': 'Empleado registrado correctamente.'})
     except Exception as e:

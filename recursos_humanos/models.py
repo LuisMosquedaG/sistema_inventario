@@ -77,6 +77,7 @@ class Empleado(models.Model):
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
     sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
+    creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='empleados_creados', verbose_name="Creado por")
     
     # 1. IDENTIFICACIÓN Y DATOS PERSONALES
     num_empleado = models.CharField(max_length=20, default="", verbose_name="Número de Empleado")
@@ -177,6 +178,7 @@ class Contrato(models.Model):
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
     sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
+    creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='contratos_creados', verbose_name="Creado por")
 
     # 1. Colaboradores, Organización y Contratante
     empleados = models.ManyToManyField(Empleado, related_name='contratos_asignados', verbose_name="Colaboradores")
@@ -321,6 +323,7 @@ class Contratista(models.Model):
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
     sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
+    creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='contratistas_creados', verbose_name="Creado por")
     
     # Datos Identificación
     clave = models.CharField(max_length=50, blank=True, null=True, verbose_name="Clave")
@@ -368,6 +371,7 @@ class Contratista(models.Model):
 class Beneficiario(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
     sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
+    creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='beneficiarios_creados', verbose_name="Creado por")
     
     # Datos Identificación
     clave = models.CharField(max_length=50, blank=True, null=True, verbose_name="Clave")
@@ -451,6 +455,7 @@ def eliminar_archivo_fisico_beneficiario(sender, instance, **kwargs):
 class ImportacionSUA(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
     sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
+    creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='sua_creados', verbose_name="Creado por")
     
     # 1.1 Sección Empresa
     registro_patronal = models.CharField(max_length=100, blank=True, null=True)
@@ -560,6 +565,7 @@ class Nomina(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
     empleado = models.ForeignKey(Empleado, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Empleado", related_name="nominas")
     sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
+    creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='nominas_creadas', verbose_name="Creado por")
 
     # 1. Datos de timbrado
     periodo = models.CharField(max_length=100, verbose_name="Periodo")

@@ -16,6 +16,7 @@ from ..models import Empleado, Contrato, Contratista, Nomina, Beneficiario, Impo
 from preferencias.models import Sucursal
 from preferencias.permissions import require_hr_permission
 from .utils import get_empresa_actual
+from notificaciones.utils import crear_notificacion
 
 @login_required(login_url='/login/')
 @require_hr_permission('nomina', 'ver')
@@ -129,8 +130,17 @@ def crear_nomina_ajax(request):
         
         nueva_nom = Nomina(
             empresa=empresa_actual, sucursal_id=sucursal_id, empleado=empleado, periodo=data.get('periodo'), uso_cfdi=data.get('uso_cfdi', 'CN01'), uuid=data.get('uuid'), tipo_nomina=data.get('tipo_nomina', 'O'), serie=data.get('serie'), folio=data.get('folio'), fecha_emision=data.get('fecha_emision') or None, fecha_certificacion=data.get('fecha_certificacion') or None, fecha_pago=data.get('fecha_pago') or None, fecha_inicial_pago=data.get('fecha_inicial_pago') or None, fecha_final_pago=data.get('fecha_final_pago') or None, dias_pagados=Decimal(data.get('dias_pagados', '0')), rfc=data.get('rfc', '').upper(), curp=data.get('curp', '').upper(), nss=data.get('nss', ''), nombre=data.get('nombre', ''), rfc_contratista=data.get('rfc_contratista', '').upper(), sdi=Decimal(data.get('sdi', '0')), sbc=Decimal(data.get('sbc', '0')), vacaciones_exento=vacaciones_exento, vacaciones_dignas_exento=vacaciones_dignas_exento, aguinaldo_exento=aguinaldo_exento, sueldo_gravado=sueldo_gravado, vacaciones_gravado=vacaciones_gravado, vacaciones_dignas_gravado=vacaciones_dignas_gravado, aguinaldo_gravado=aguinaldo_gravado, percepciones_detalladas=percepciones_detalladas_dict,
+            creado_por=request.user
         )
-        nueva_nom.save(); return JsonResponse({'success': True, 'message': 'Nómina registrada correctamente.'})
+        nueva_nom.save()
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'creó el recibo de nómina {nueva_nom.nombre} - {nueva_nom.periodo}',
+            link='/recursos-humanos/nomina/',
+            propietario=request.user
+        )
+        return JsonResponse({'success': True, 'message': 'Nómina registrada correctamente.'})
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required(login_url='/login/')
@@ -181,7 +191,15 @@ def editar_nomina_ajax(request, id):
         nom.vacaciones_dignas_gravado = Decimal(data.get('vacaciones_dignas_gravado', '0'))
         nom.vacaciones_dignas_exento = Decimal(data.get('vacaciones_dignas_exento', '0'))
         nom.percepciones_detalladas = percepciones_detalladas_dict
-        nom.save(); return JsonResponse({'success': True, 'message': 'Nómina actualizada correctamente.'})
+        nom.save()
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'editó el recibo de nómina {nom.nombre} - {nom.periodo}',
+            link='/recursos-humanos/nomina/',
+            propietario=nom.creado_por or request.user
+        )
+        return JsonResponse({'success': True, 'message': 'Nómina actualizada correctamente.'})
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required(login_url='/login/')
@@ -189,7 +207,15 @@ def editar_nomina_ajax(request, id):
 def eliminar_nomina_ajax(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
-        nom = Nomina.objects.get(id=id, empresa=empresa_actual); nom.delete()
+        nom = Nomina.objects.get(id=id, empresa=empresa_actual)
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'eliminó el recibo de nómina {nom.nombre} - {nom.periodo}',
+            link='/recursos-humanos/nomina/',
+            propietario=nom.creado_por or request.user
+        )
+        nom.delete()
         return JsonResponse({'success': True, 'message': 'Registro de nómina eliminado correctamente.'})
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
 
@@ -220,9 +246,17 @@ def importar_nomina_ajax(request):
             empleado = Empleado.objects.filter(empresa=empresa_actual, curp=curp_f, nss=nss_f).first()
             tipo_nom = 'E' if 'EXTRAORDINARIA' in str(get_val(row,'Tipo nomina','O')).upper() else 'O'
             nueva_nom = Nomina(
-                empresa=empresa_actual, sucursal_id=sucursal_id, empleado=empleado, periodo=str(get_val(row,'Periodo','')), uso_cfdi=str(get_val(row,'Uso CFDI','CN01')), uuid=str(get_val(row,'UUID','')), tipo_nomina=tipo_nom, serie=str(get_val(row,'Serie','')), folio=str(get_val(row,'Folio','')), fecha_pago=to_d(get_val(row,'Fecha pago')), rfc=str(get_val(row,'RFC receptor','')), curp=curp_f, nss=nss_f, nombre=str(get_val(row,'Razon receptor','')), rfc_contratista=str(get_val(row,'RFC emisor','')), sdi=to_dec(get_val(row,'Salario diario integrado')), sbc=to_dec(get_val(row,'Salario base cot apor')), sueldo_gravado=to_dec(get_val(row,'001/P001/Gravado/SUELDO'))
+                empresa=empresa_actual, sucursal_id=sucursal_id, empleado=empleado, periodo=str(get_val(row,'Periodo','')), uso_cfdi=str(get_val(row,'Uso CFDI','CN01')), uuid=str(get_val(row,'UUID','')), tipo_nomina=tipo_nom, serie=str(get_val(row,'Serie','')), folio=str(get_val(row,'Folio','')), fecha_pago=to_d(get_val(row,'Fecha pago')), rfc=str(get_val(row,'RFC receptor','')), curp=curp_f, nss=nss_f, nombre=str(get_val(row,'Razon receptor','')), rfc_contratista=str(get_val(row,'RFC emisor','')), sdi=to_dec(get_val(row,'Salario diario integrado')), sbc=to_dec(get_val(row,'Salario base cot apor')), sueldo_gravado=to_dec(get_val(row,'001/P001/Gravado/SUELDO')),
+                creado_por=request.user
             )
             nueva_nom.save(); count += 1
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje='importó recibos de nómina',
+            link='/recursos-humanos/nomina/',
+            propietario=request.user
+        )
         return JsonResponse({'success': True, 'message': f'Se importaron {count} registros.'})
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
 
