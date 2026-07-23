@@ -164,6 +164,7 @@ def eliminar_contratista_ajax(request, id):
 @login_required(login_url='/login/')
 @require_POST
 @transaction.atomic
+@require_hr_permission('contratistas', 'importador', json_response=True)
 def importar_contratistas_ajax(request):
     """Cargador de contratistas desde Excel."""
     empresa_actual = get_empresa_actual(request)
@@ -242,6 +243,7 @@ def importar_contratistas_ajax(request):
         return JsonResponse({'status': 'error', 'message': f'Error al procesar el archivo: {str(e)}'})
 
 @login_required(login_url='/login/')
+@require_hr_permission('contratistas', 'reporte_contratos')
 def exportar_sisub_contratos(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
@@ -330,7 +332,7 @@ def exportar_sisub_contratos(request, id):
     except Exception as e: return HttpResponse(f"Error al generar reporte: {str(e)}", status=500)
 
 @login_required(login_url='/login/')
-@require_hr_permission('contratistas', 'ver')
+@require_hr_permission('contratistas', 'reporte_informacion')
 def exportar_icsoe(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
@@ -421,6 +423,7 @@ def exportar_icsoe(request, id):
     except Exception as e: return HttpResponse(str(e), status=500)
 
 @login_required(login_url='/login/')
+@require_hr_permission('contratistas', 'reporte_carga_trabajadores')
 def exportar_carga_trabajadores(request, id):
     empresa_actual = get_empresa_actual(request)
     contratista = get_object_or_404(Contratista, id=id, empresa=empresa_actual)

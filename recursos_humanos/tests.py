@@ -419,3 +419,57 @@ class ContratoEstadosYVersionesTest(TestCase):
         # Contratista B: c_b1 no debe verse afectado (sigue vigente y version 1)
         self.assertEqual(c_b1.version, '1')
         self.assertEqual(c_b1.estado_vigencia, 'vigente')
+
+
+class SUAExportTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa de Prueba",
+            subdominio="prueba",
+            usuario_admin="admin",
+            correo_contacto="prueba@test.com"
+        )
+        self.empresa.modulo_recursos_humanos = True
+        self.empresa.save()
+        
+        self.user = User.objects.create_superuser(
+            username="admin@prueba",
+            email="admin@prueba.com",
+            password="password"
+        )
+        
+        from recursos_humanos.models import ImportacionSUA, TrabajadorSUA
+        self.importacion = ImportacionSUA.objects.create(
+            empresa=self.empresa,
+            periodo="MAYO 2026",
+            tipo="mensual",
+            rfc_empresa="CON010101AAA",
+            nombre_razon_social="Contratista A",
+            registro_patronal="A1234567890"
+        )
+        TrabajadorSUA.objects.create(
+            importacion=self.importacion,
+            nss="12345678901",
+            nombre="Pedro Perez",
+            rfc_curp="PEPE000000HDFRXX01",
+            sdi=Decimal('185.50')
+        )
+        
+    def test_exportar_sua_excel_xlsx(self):
+        self.client.login(username="admin@prueba", password="password")
+        from django.urls import reverse
+        url = reverse('exportar_sua_excel', args=[self.importacion.id])
+        response = self.client.get(url, {'formato': 'excel'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+    def test_exportar_sua_excel_csv(self):
+        self.client.login(username="admin@prueba", password="password")
+        from django.urls import reverse
+        url = reverse('exportar_sua_excel', args=[self.importacion.id])
+        response = self.client.get(url, {'formato': 'csv'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'text/csv')
+        content = response.content.decode('utf-8-sig')
+        self.assertIn("REPORTE DE INTEGRACIÓN SUA", content)
+        self.assertIn("Pedro Perez", content)

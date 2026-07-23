@@ -104,12 +104,14 @@
             <span class="section-subtitle">Gestión masiva de importaciones y reportes de cuotas</span>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
+            {% if granular_hr_perms.sua.importar %}
             <button class="btn btn-brand text-white btn-pro shadow-sm" onclick="abrirModalImportar('bimestral')">
                 + Sua bim
             </button>
             <button class="btn btn-brand text-white btn-pro shadow-sm" onclick="abrirModalImportar('mensual')">
                 + Sua men
             </button>
+            {% endif %}
         </div>
     </div>
 
@@ -163,18 +165,24 @@
                         <tr>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center gap-1">
+                                    {% if granular_hr_perms.sua.alta_empleados %}
                                     <span class="icon-action icon-action-alta" title="Alta de Empleados" onclick="altaEmpleadosSUA({{ imp.id }})">
                                         <i class="bi bi-person-plus"></i>
                                     </span>
-                                    <span class="icon-action icon-action-success" title="Exportar Excel" onclick="location.href='{% url 'exportar_sua_excel' imp.id %}'">
+                                    {% endif %}
+                                    {% if granular_hr_perms.sua.exportar_excel %}
+                                    <span class="icon-action icon-action-success" title="Exportar Excel" onclick="abrirModalExportarSUA({{ imp.id }})">
                                         <i class="bi bi-file-earmark-excel"></i>
                                     </span>
+                                    {% endif %}
                                     <span class="icon-action" title="Ver Detalle" onclick="verDetalleImportacion({{ imp.id }})">
                                         <i class="bi bi-eye"></i>
                                     </span>
+                                    {% if granular_hr_perms.sua.eliminar %}
                                     <span class="icon-action icon-action-danger" title="Eliminar" onclick="eliminarImportacionSUA({{ imp.id }})">
                                         <i class="bi bi-x-circle"></i>
                                     </span>
+                                    {% endif %}
                                 </div>
                             </td>
                             <td class="text-center text-muted small">{{ imp.registro_patronal }}</td>
@@ -303,6 +311,28 @@
             </div>
             <div class="modal-footer bg-white border-top py-2">
                 <button type="button" class="btn btn-light text-secondary btn-sm px-4" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div><!-- MODAL: EXPORTAR SUA -->
+<div class="modal fade" id="modalExportarSUA" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 12px;">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h6 class="modal-title fw-bold">Exportar Reporte SUA</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <input type="hidden" id="export_sua_id">
+                <p class="text-muted small mb-0">Seleccione el formato en el que desea descargar el archivo de integración.</p>
+            </div>
+            <div class="modal-footer border-top-0 pt-0 d-flex gap-2">
+                <button type="button" class="btn btn-brand text-white btn-sm flex-grow-1 fw-bold" onclick="generarReporteSUA('excel')">
+                    <i class="bi bi-file-earmark-excel me-1"></i> Excel
+                </button>
+                <button type="button" class="btn btn-light border text-secondary btn-sm flex-grow-1 fw-bold" onclick="generarReporteSUA('csv')">
+                    <i class="bi bi-file-earmark-spreadsheet me-1"></i> CSV
+                </button>
             </div>
         </div>
     </div>
@@ -570,6 +600,23 @@
                 alert('Error: ' + data.error);
             }
         });
+    }
+
+    function abrirModalExportarSUA(id) {
+        const input = document.getElementById('export_sua_id');
+        if (input) input.value = id;
+        const modalEl = document.getElementById('modalExportarSUA');
+        if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+
+    function generarReporteSUA(formato = 'excel') {
+        const id = document.getElementById('export_sua_id').value;
+        if (!id) { alert("ID de importación no encontrado"); return; }
+        
+        const modalEl = document.getElementById('modalExportarSUA');
+        bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+        
+        window.location.href = `/recursos-humanos/sua/exportar/${id}/?formato=${formato}`;
     }
 
     document.getElementById('formImportarSUA').addEventListener('submit', function(e) {

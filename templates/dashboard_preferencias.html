@@ -523,6 +523,7 @@
                         <h6 class="text-uppercase text-muted fw-bold mb-3 ps-1" style="font-size: 0.75rem; letter-spacing: 1px;">Permisos por Módulo</h6>
                         
                         <!-- MÓDULO VENTAS -->
+                        {% if empresa.modulo_ventas %}
                         <div class="card border-0 shadow-sm mb-3 rounded-3 overflow-hidden">
                             <button class="btn btn-sm btn-light border-0 w-100 d-flex justify-content-between align-items-center px-3 py-3 collapsed" 
                                     type="button" data-bs-toggle="collapse" data-bs-target="#collapseModuloVentas">
@@ -572,8 +573,10 @@
                                 </div>
                             </div>
                         </div>
+                        {% endif %}
 
                         <!-- MÓDULO COMPRAS -->
+                        {% if empresa.modulo_compras %}
                         <div class="card border-0 shadow-sm mb-3 rounded-3 overflow-hidden">
                             <button class="btn btn-sm btn-light border-0 w-100 d-flex justify-content-between align-items-center px-3 py-3 collapsed" 
                                     type="button" data-bs-toggle="collapse" data-bs-target="#collapseModuloCompras">
@@ -620,8 +623,10 @@
                                 </div>
                             </div>
                         </div>
+                        {% endif %}
 
                         <!-- MÓDULO TESORERÍA (DESPLEGABLE MAESTRO) -->
+                        {% if empresa.modulo_tesoreria %}
                         <div class="card border-0 shadow-sm mb-3 rounded-3 overflow-hidden">
                             <button class="btn btn-sm btn-light border-0 w-100 d-flex justify-content-between align-items-center px-3 py-3 collapsed" 
                                     type="button" data-bs-toggle="collapse" data-bs-target="#collapseModuloTesoreria">
@@ -668,8 +673,10 @@
                                 </div>
                             </div>
                         </div>
+                        {% endif %}
 
                         <!-- MÓDULO PRODUCCIÓN -->
+                        {% if empresa.modulo_produccion %}
                         <div class="card border-0 shadow-sm mb-3 rounded-3 overflow-hidden">
                             <button class="btn btn-sm btn-light border-0 w-100 d-flex justify-content-between align-items-center px-3 py-3 collapsed" 
                                     type="button" data-bs-toggle="collapse" data-bs-target="#collapseModuloProduccion">
@@ -715,9 +722,11 @@
                                 </div>
                             </div>
                         </div>
+                        {% endif %}
 
                         <!-- MÓDULO INVENTARIOS -->
-                        <div class="card border-0 shadow-sm mb-0 rounded-3 overflow-hidden">
+                        {% if empresa.modulo_inventarios %}
+                        <div class="card border-0 shadow-sm mb-3 rounded-3 overflow-hidden">
                             <button class="btn btn-sm btn-light border-0 w-100 d-flex justify-content-between align-items-center px-3 py-3 collapsed" 
                                     type="button" data-bs-toggle="collapse" data-bs-target="#collapseModuloInventario">
                                 <span class="fw-bold text-dark"><i class="bi bi-box-seam me-2" style="color: #00b8b9;"></i> MÓDULO INVENTARIOS</span>
@@ -762,6 +771,56 @@
                                 </div>
                             </div>
                         </div>
+                        {% endif %}
+
+                        <!-- MÓDULO RECURSOS HUMANOS -->
+                        {% if empresa.modulo_recursos_humanos %}
+                        <div class="card border-0 shadow-sm mb-0 rounded-3 overflow-hidden">
+                            <button class="btn btn-sm btn-light border-0 w-100 d-flex justify-content-between align-items-center px-3 py-3 collapsed" 
+                                    type="button" data-bs-toggle="collapse" data-bs-target="#collapseModuloRecursosHumanos">
+                                <span class="fw-bold text-dark"><i class="bi bi-people me-2" style="color: #00b8b9;"></i> MÓDULO RECURSOS HUMANOS</span>
+                                <i class="bi bi-chevron-down small text-muted"></i>
+                            </button>
+                            <div id="collapseModuloRecursosHumanos" class="collapse border-top bg-white">
+                                <div class="p-3">
+                                    <div class="d-flex gap-2 mb-2">
+                                        <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2" style="font-size: 0.6rem;" onclick="marcarTodosPermisosHR(true)">Marcar Todo</button>
+                                        <button type="button" class="btn btn-xs btn-outline-secondary" style="font-size: 0.6rem;" onclick="marcarTodosPermisosHR(false)">Limpiar Todo</button>
+                                    </div>
+                                    <div class="row g-2">
+                                        {% for submodulo, acciones in hr_permission_matrix.items %}
+                                        <div class="col-12">
+                                            <div class="p-2 border rounded shadow-sm bg-light">
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <h6 class="fw-bold text-uppercase text-muted mb-0" style="font-size: 0.65rem; letter-spacing: 0.5px;">{{ submodulo|cut:"_"|title }}</h6>
+                                                    <div class="btn-group">
+                                                        <button type="button" class="btn btn-link text-decoration-none p-0 text-secondary fw-bold" style="font-size: 0.55rem;" onclick="toggleSubmoduloPermisos('{{ submodulo }}', true)">TODO</button>
+                                                        <span class="mx-1 text-muted" style="font-size: 0.55rem;">|</span>
+                                                        <button type="button" class="btn btn-link text-decoration-none p-0 text-secondary fw-bold" style="font-size: 0.55rem;" onclick="toggleSubmoduloPermisos('{{ submodulo }}', false)">LIMPIAR</button>
+                                                    </div>
+                                                </div>
+                                                <div class="row row-cols-2 row-cols-md-6 g-1">
+                                                    {% for p_accion in acciones %}
+                                                    <div class="col">
+                                                        <div class="form-check mb-0">
+                                                            <input class="form-check-input permiso-accion permiso-submodulo-{{ submodulo }}" type="checkbox"
+                                                                   style="width: 0.8rem; height: 0.8rem;"
+                                                                   name="perm_recursos_humanos__{{ submodulo }}__{{ p_accion }}" id="perm_recursos_humanos__{{ submodulo }}__{{ p_accion }}">
+                                                            <label class="form-check-label text-dark text-truncate w-100" style="font-size: 0.7rem;" for="perm_recursos_humanos__{{ submodulo }}__{{ p_accion }}">
+                                                                {{ p_accion|cut:"_"|title }}
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                 </form>
             </div>
@@ -1360,6 +1419,10 @@
 
     function marcarTodosPermisosTesoreria(valor) {
         document.querySelectorAll('.permiso-submodulo-ingresos, .permiso-submodulo-egresos, .permiso-submodulo-cajas_bancos').forEach(el => { el.checked = valor; });
+    }
+
+    function marcarTodosPermisosHR(valor) {
+        document.querySelectorAll('.permiso-submodulo-empleados, .permiso-submodulo-contratos, .permiso-submodulo-contratistas, .permiso-submodulo-beneficiarios, .permiso-submodulo-sua, .permiso-submodulo-nomina').forEach(el => { el.checked = valor; });
     }
 
     function toggleSubmoduloPermisos(submodulo, valor) {

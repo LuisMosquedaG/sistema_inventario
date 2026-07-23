@@ -124,12 +124,16 @@
             <span class="section-subtitle">Gestión de contratos laborales</span>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
+            {% if granular_hr_perms.contratos.importador %}
             <button class="btn btn-light text-secondary btn-pro shadow-sm border" data-bs-toggle="modal" data-bs-target="#modalImportarContratos">
                 <i class="bi bi-upload me-1"></i> Importador
             </button>
+            {% endif %}
+            {% if granular_hr_perms.contratos.crear %}
             <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoContrato" onclick="prepararNuevoContrato()">
                 <i class="bi bi-plus-lg me-1"></i> Nuevo Contrato
             </button>
+            {% endif %}
         </div>
     </div>
 
@@ -236,12 +240,16 @@
                         <tr>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center gap-1">
+                                    {% if granular_hr_perms.contratos.editar %}
                                     <span class="icon-action" title="Editar Contrato" onclick="editarContrato({{ c.id }})">
                                         <i class="bi bi-pencil-square"></i>
                                     </span>
+                                    {% endif %}
+                                    {% if granular_hr_perms.contratos.eliminar %}
                                     <span class="icon-action icon-action-danger" title="Eliminar Contrato" onclick="eliminarContrato({{ c.id }})">
                                         <i class="bi bi-x-circle"></i>
                                     </span>
+                                    {% endif %}
                                 </div>
                             </td>
                              <td class="text-center">

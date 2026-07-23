@@ -62,12 +62,16 @@
             <span class="section-subtitle">Directorio de contratistas y registros legales</span>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
+            {% if granular_hr_perms.contratistas.importador %}
             <button class="btn btn-light text-secondary btn-pro shadow-sm border" data-bs-toggle="modal" data-bs-target="#modalImportarContratistas">
                 <i class="bi bi-upload me-1"></i> Importador
             </button>
+            {% endif %}
+            {% if granular_hr_perms.contratistas.crear %}
             <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoContratista" onclick="prepararNuevoContratista()">
                 <i class="bi bi-plus-lg me-1"></i> Nuevo Contratista
             </button>
+            {% endif %}
         </div>
     </div>
 
@@ -134,35 +138,47 @@
                         <tr>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center gap-1">
+                                    {% if granular_hr_perms.contratistas.editar %}
                                     <span class="icon-action" title="Editar Contratista" onclick="editarContratista({{ c.id }})">
                                         <i class="bi bi-pencil-square"></i>
                                     </span>
+                                    {% endif %}
+                                    {% if granular_hr_perms.contratistas.reporte_contratos %}
                                     <span class="icon-action" title="Contratos (SISUB)" onclick="abrirModalSISUBContratos({{ c.id }})">
                                         <div style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
                                             <i class="bi bi-file-earmark"></i>
                                             <span style="position: absolute; font-size: 0.55rem; font-weight: 900; top: 56%; left: 50%; transform: translate(-50%, -50%);">C</span>
                                         </div>
                                     </span>
+                                    {% endif %}
+                                    {% if granular_hr_perms.contratistas.reporte_informacion %}
                                     <span class="icon-action" title="Información (ICSOE)" onclick="abrirModalICSOE({{ c.id }})">
                                         <div style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
                                             <i class="bi bi-file-earmark"></i>
                                             <span style="position: absolute; font-size: 0.55rem; font-weight: 900; top: 56%; left: 50%; transform: translate(-50%, -50%);">I</span>
                                         </div>
                                     </span>
+                                    {% endif %}
+                                    {% if granular_hr_perms.contratistas.reporte_trabajadores %}
                                     <span class="icon-action" title="Trabajadores (SISUB)" onclick="abrirModalSISUBTrabajadores({{ c.id }})">
                                         <div style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
                                             <i class="bi bi-file-earmark"></i>
                                             <span style="position: absolute; font-size: 0.55rem; font-weight: 900; top: 56%; left: 50%; transform: translate(-50%, -50%);">T</span>
                                         </div>
                                     </span>
+                                    {% endif %}
+                                    {% if granular_hr_perms.contratistas.reporte_carga_trabajadores %}
                                     <span class="icon-action" title="Carga Trabajadores" onclick="abrirModalCargaTrabajadores({{ c.id }})">
                                         <div style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
                                             <i class="bi bi-file-earmark-arrow-down"></i>
                                         </div>
                                     </span>
+                                    {% endif %}
+                                    {% if granular_hr_perms.contratistas.eliminar %}
                                     <span class="icon-action icon-action-danger" title="Eliminar Contratista" onclick="eliminarContratista({{ c.id }})">
                                         <i class="bi bi-x-circle"></i>
                                     </span>
+                                    {% endif %}
                                 </div>
                             </td>
                             <td class="text-center">

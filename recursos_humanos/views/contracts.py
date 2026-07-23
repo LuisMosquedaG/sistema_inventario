@@ -359,6 +359,7 @@ def eliminar_contrato_ajax(request, id):
 @login_required(login_url='/login/')
 @require_POST
 @transaction.atomic
+@require_hr_permission('contratos', 'importador', json_response=True)
 def importar_contratos_ajax(request):
     """Cargador de contratos y beneficiarios desde Excel."""
     empresa_actual = get_empresa_actual(request)

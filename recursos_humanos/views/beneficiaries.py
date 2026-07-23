@@ -243,7 +243,7 @@ def optimizar_archivo(archivo_original):
 def obtener_documentacion_json(request, id):
     empresa_actual = get_empresa_actual(request)
     is_self = hasattr(request.user, 'beneficiario') and request.user.beneficiario.id == id
-    if not is_self and not user_has_hr_permission(request, 'beneficiarios', 'ver'):
+    if not is_self and not user_has_hr_permission(request, 'beneficiarios', 'documentacion'):
         return JsonResponse({'success': False, 'error': 'No cuentas con permiso para esta acción.'}, status=403)
         
     ben = get_object_or_404(Beneficiario, id=id, empresa=empresa_actual)
@@ -283,7 +283,7 @@ def obtener_documentacion_json(request, id):
 
 @login_required(login_url='/login/')
 @require_POST
-@require_hr_permission('beneficiarios', 'editar', json_response=True)
+@require_hr_permission('beneficiarios', 'documentacion_subir', json_response=True)
 def subir_documento_ajax(request, id):
     empresa_actual = get_empresa_actual(request)
     ben = get_object_or_404(Beneficiario, id=id, empresa=empresa_actual)
@@ -327,7 +327,7 @@ def subir_documento_ajax(request, id):
 
 @login_required(login_url='/login/')
 @require_POST
-@require_hr_permission('beneficiarios', 'editar', json_response=True)
+@require_hr_permission('beneficiarios', 'documentacion_eliminar', json_response=True)
 def eliminar_documento_ajax(request, id):
     # En este caso 'id' es el ID de DocumentacionBeneficiario
     empresa_actual = get_empresa_actual(request)
@@ -382,8 +382,8 @@ def descargar_documento_beneficiario(request, doc_id):
         if doc.beneficiario != request.user.beneficiario:
             raise PermissionDenied("Acceso denegado: no tienes permisos para descargar este documento.")
     else:
-        # Si es administrativo, validar que tenga permisos para ver beneficiarios
-        if not user_has_hr_permission(request, 'beneficiarios', 'ver'):
+        # Si es administrativo, validar que tenga permisos para descargar documentos
+        if not user_has_hr_permission(request, 'beneficiarios', 'documentacion_descargar'):
             raise PermissionDenied("Acceso denegado: no tienes permisos de Recursos Humanos.")
 
     # 3. Validar existencia del archivo físico

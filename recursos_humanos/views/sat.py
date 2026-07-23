@@ -9,9 +9,11 @@ from ..models import Contratista, FielContratista, SolicitudDescargaSAT
 from .utils import get_empresa_actual
 from ..security_utils import get_master_key, cifrar_archivos_fiel
 from ..sat_service import SATService
+from preferencias.permissions import require_hr_permission
 
 @login_required(login_url='/login/')
 @require_POST
+@require_hr_permission('nomina', 'xml_sat', json_response=True)
 def diagnostico_fiel_ajax(request):
     """Extrae información de un certificado .cer para diagnóstico."""
     archivo_cer = request.FILES.get('archivo_cer')
@@ -24,6 +26,7 @@ def diagnostico_fiel_ajax(request):
 @login_required(login_url='/login/')
 @require_POST
 @transaction.atomic
+@require_hr_permission('nomina', 'xml_sat', json_response=True)
 def solicitar_descarga_sat_ajax(request):
     """Envía una solicitud real al Web Service del SAT."""
     empresa_actual = get_empresa_actual(request)
@@ -109,6 +112,7 @@ def solicitar_descarga_sat_ajax(request):
         return JsonResponse({'status': 'error', 'message': f'Error del SAT o Servidor: {err_detail}'})
 
 @login_required(login_url='/login/')
+@require_hr_permission('nomina', 'xml_sat', json_response=True)
 def verificar_fiel_contratista_ajax(request, contratista_id):
     empresa_actual = get_empresa_actual(request)
     contratista = get_object_or_404(Contratista, id=contratista_id, empresa=empresa_actual)
@@ -120,6 +124,7 @@ def verificar_fiel_contratista_ajax(request, contratista_id):
     })
 
 @login_required(login_url='/login/')
+@require_hr_permission('nomina', 'xml_sat', json_response=True)
 def listar_solicitudes_sat_ajax(request):
     empresa_actual = get_empresa_actual(request)
     solicitudes = SolicitudDescargaSAT.objects.filter(empresa=empresa_actual).select_related('usuario').order_by('-fecha_creacion')[:10]
@@ -138,6 +143,7 @@ def listar_solicitudes_sat_ajax(request):
 
 @login_required(login_url='/login/')
 @require_POST
+@require_hr_permission('nomina', 'xml_sat', json_response=True)
 def verificar_estatus_sat_ajax(request, solicitud_id):
     empresa_actual = get_empresa_actual(request)
     solicitud = get_object_or_404(SolicitudDescargaSAT, id=solicitud_id, empresa=empresa_actual)
@@ -153,6 +159,7 @@ def verificar_estatus_sat_ajax(request, solicitud_id):
 
 @login_required(login_url='/login/')
 @require_POST
+@require_hr_permission('nomina', 'xml_sat', json_response=True)
 def integrar_xml_sat_ajax(request, solicitud_id):
     empresa_actual = get_empresa_actual(request)
     solicitud = get_object_or_404(SolicitudDescargaSAT, id=solicitud_id, empresa=empresa_actual)

@@ -144,9 +144,11 @@
             <span class="section-subtitle">Directorio de beneficiarios y registros fiscales</span>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
+            {% if granular_hr_perms.beneficiarios.crear %}
             <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoBeneficiario" onclick="prepararNuevoBeneficiario()">
                 <i class="bi bi-plus-lg me-1"></i> Nuevo Beneficiario
             </button>
+            {% endif %}
         </div>
     </div>
 
@@ -224,15 +226,21 @@
                         <tr>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center gap-1">
+                                    {% if granular_hr_perms.beneficiarios.documentacion %}
                                     <span class="icon-action" title="Documentación" onclick="abrirModalDocumentacion({{ b.id }})">
                                         <i class="bi bi-file-earmark-check"></i>
                                     </span>
+                                    {% endif %}
+                                    {% if granular_hr_perms.beneficiarios.editar %}
                                     <span class="icon-action" title="Editar Beneficiario" onclick="editarBeneficiario({{ b.id }})">
                                         <i class="bi bi-pencil-square"></i>
                                     </span>
+                                    {% endif %}
+                                    {% if granular_hr_perms.beneficiarios.eliminar %}
                                     <span class="icon-action icon-action-danger" title="Eliminar Beneficiario" onclick="eliminarBeneficiario({{ b.id }})">
                                         <i class="bi bi-x-circle"></i>
                                     </span>
+                                    {% endif %}
                                 </div>
                             </td>
                             <td class="text-center">
@@ -594,6 +602,10 @@
 <input type="file" id="inputFileDoc" style="display: none;" onchange="ejecutarSubidaDoc()">
 
 <script>
+    const CAN_UPLOAD_DOC = {% if granular_hr_perms.beneficiarios.documentacion_subir %}true{% else %}false{% endif %};
+    const CAN_DELETE_DOC = {% if granular_hr_perms.beneficiarios.documentacion_eliminar %}true{% else %}false{% endif %};
+    const CAN_DOWNLOAD_DOC = {% if granular_hr_perms.beneficiarios.documentacion_descargar %}true{% else %}false{% endif %};
+
     let currentBenId = null;
     let currentDocCode = null;
     let currentMonth = null;
@@ -661,8 +673,19 @@
                                 watermarkColor = 'rgba(224, 49, 49, 0.12)';
                             }
                             
+                            const startTag = CAN_DOWNLOAD_DOC 
+                                ? `<a href="${doc.url}" target="_blank" class="text-decoration-none d-block document-cell p-0" title="Ver archivo: ${doc.nombre_archivo}">`
+                                : `<div class="d-block document-cell p-0" title="No tienes permiso para descargar/ver">`;
+                            const endTag = CAN_DOWNLOAD_DOC ? `</a>` : `</div>`;
+                            
+                            const deleteBtn = CAN_DELETE_DOC
+                                ? `<span class="btn-delete-doc" onclick="event.stopPropagation(); event.preventDefault(); eliminarDoc(${doc.id})" title="Eliminar documento">
+                                    <i class="bi bi-x-lg"></i>
+                                   </span>`
+                                : '';
+
                             html += `<td class="align-middle p-0 ${cellClass}" style="width: 100px; height: 50px;">
-                                <a href="${doc.url}" target="_blank" class="text-decoration-none d-block document-cell p-0" title="Ver archivo: ${doc.nombre_archivo}">
+                                ${startTag}
                                     <!-- Icono del tipo de documento de fondo (marca de agua del color del estatus) -->
                                     <div class="watermark-icon" style="color: ${watermarkColor};">
                                         <i class="bi ${iconClass}"></i>
@@ -671,19 +694,25 @@
                                     <!-- Contenido flotante -->
                                     <div class="position-absolute w-100 h-100 top-0 left-0 p-1.5 z-index-2 pointer-events-none">
                                         <!-- Botón redondo de eliminar (tache / x) -->
-                                        <span class="btn-delete-doc" onclick="event.stopPropagation(); event.preventDefault(); eliminarDoc(${doc.id})" title="Eliminar documento">
-                                            <i class="bi bi-x-lg"></i>
-                                        </span>
+                                        ${deleteBtn}
                                     </div>
-                                </a>
+                                ${endTag}
                             </td>`;
                         } else {
                             conteos.vacio[m]++;
-                            html += `<td class="text-center align-middle p-0 cursor-pointer cell-vacio" onclick="prepararSubida('${row.codigo}', ${m})" style="width: 100px; height: 50px;">
-                                <div class="document-cell d-flex align-items-center justify-content-center">
-                                    <span class="text-muted opacity-25" style="font-size: 0.85rem;"><i class="bi bi-plus-lg"></i></span>
-                                </div>
-                            </td>`;
+                            if (CAN_UPLOAD_DOC) {
+                                html += `<td class="text-center align-middle p-0 cursor-pointer cell-vacio" onclick="prepararSubida('${row.codigo}', ${m})" style="width: 100px; height: 50px;">
+                                    <div class="document-cell d-flex align-items-center justify-content-center">
+                                        <span class="text-muted opacity-25" style="font-size: 0.85rem;"><i class="bi bi-plus-lg"></i></span>
+                                    </div>
+                                </td>`;
+                            } else {
+                                html += `<td class="text-center align-middle p-0 cell-vacio" style="width: 100px; height: 50px;">
+                                    <div class="document-cell d-flex align-items-center justify-content-center">
+                                        <span class="text-muted opacity-25" style="font-size: 0.85rem;"><i class="bi bi-dash"></i></span>
+                                    </div>
+                                </td>`;
+                            }
                         }
                     }
                     html += `</tr>`;

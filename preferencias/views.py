@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction # <--- ESTE FALTABA
 from django.utils import timezone
 from .models import Moneda, Rol, PermisoRolModulo, AsignacionRolUsuario, PermisoRolAccion, Sucursal
-from .permissions import SALES_PERMISSION_MATRIX, PURCHASES_PERMISSION_MATRIX, PRODUCTION_PERMISSION_MATRIX, INVENTORY_PERMISSION_MATRIX, TREASURY_PERMISSION_MATRIX
+from .permissions import SALES_PERMISSION_MATRIX, PURCHASES_PERMISSION_MATRIX, PRODUCTION_PERMISSION_MATRIX, INVENTORY_PERMISSION_MATRIX, TREASURY_PERMISSION_MATRIX, HR_PERMISSION_MATRIX
 from panel.models import Empresa
 import csv
 import io
@@ -64,6 +64,7 @@ def dashboard_preferencias(request):
         'production_permission_matrix': PRODUCTION_PERMISSION_MATRIX,
         'inventory_permission_matrix': INVENTORY_PERMISSION_MATRIX,
         'treasury_permission_matrix': TREASURY_PERMISSION_MATRIX,
+        'hr_permission_matrix': HR_PERMISSION_MATRIX,
     }
 
     if seccion_activa == 'usuarios':
@@ -553,13 +554,24 @@ def crear_rol_ajax(request):
                     permitido=(request.POST.get(key) == 'on')
                 )
 
-        from .permissions import TREASURY_PERMISSION_MATRIX
+        from .permissions import TREASURY_PERMISSION_MATRIX, HR_PERMISSION_MATRIX
         for submodulo, acciones in TREASURY_PERMISSION_MATRIX.items():
             for accion in acciones:
                 key = f"perm_tesoreria__{submodulo}__{accion}"
                 PermisoRolAccion.objects.create(
                     rol=rol,
                     area='tesoreria',
+                    submodulo=submodulo,
+                    accion=accion,
+                    permitido=(request.POST.get(key) == 'on')
+                )
+
+        for submodulo, acciones in HR_PERMISSION_MATRIX.items():
+            for accion in acciones:
+                key = f"perm_recursos_humanos__{submodulo}__{accion}"
+                PermisoRolAccion.objects.create(
+                    rol=rol,
+                    area='recursos_humanos',
                     submodulo=submodulo,
                     accion=accion,
                     permitido=(request.POST.get(key) == 'on')
@@ -712,12 +724,21 @@ def actualizar_rol_ajax(request, rol_id):
                 permiso_accion.permitido = (request.POST.get(key) == 'on')
                 permiso_accion.save()
 
-        from .permissions import TREASURY_PERMISSION_MATRIX
+        from .permissions import TREASURY_PERMISSION_MATRIX, HR_PERMISSION_MATRIX
         for submodulo, acciones in TREASURY_PERMISSION_MATRIX.items():
             for accion in acciones:
                 key = f"perm_tesoreria__{submodulo}__{accion}"
                 permiso_accion, _ = PermisoRolAccion.objects.get_or_create(
                     rol=rol, area='tesoreria', submodulo=submodulo, accion=accion
+                )
+                permiso_accion.permitido = (request.POST.get(key) == 'on')
+                permiso_accion.save()
+
+        for submodulo, acciones in HR_PERMISSION_MATRIX.items():
+            for accion in acciones:
+                key = f"perm_recursos_humanos__{submodulo}__{accion}"
+                permiso_accion, _ = PermisoRolAccion.objects.get_or_create(
+                    rol=rol, area='recursos_humanos', submodulo=submodulo, accion=accion
                 )
                 permiso_accion.permitido = (request.POST.get(key) == 'on')
                 permiso_accion.save()

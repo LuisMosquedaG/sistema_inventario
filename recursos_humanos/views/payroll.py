@@ -195,6 +195,7 @@ def eliminar_nomina_ajax(request, id):
 
 @login_required(login_url='/login/')
 @require_POST
+@require_hr_permission('nomina', 'importador', json_response=True)
 def importar_nomina_ajax(request):
     empresa_actual = get_empresa_actual(request); archivo = request.FILES.get('archivo')
     if not archivo: return JsonResponse({'success': False, 'error': 'No se proporcionó ningún archivo.'})
@@ -245,6 +246,7 @@ def actualizar_datos_trabajadores_nomina_ajax(request):
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required(login_url='/login/')
+@require_hr_permission('nomina', 'exportador')
 def exportar_nominas_excel(request):
     empresa_actual = get_empresa_actual(request)
     nominas = Nomina.objects.filter(empresa=empresa_actual).select_related('empleado', 'sucursal')
@@ -359,6 +361,7 @@ def exportar_nominas_excel(request):
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); response['Content-Disposition'] = 'attachment; filename="Listado_Nominas.xlsx"'; wb.save(response); return response
 
 @login_required(login_url='/login/')
+@require_hr_permission('contratistas', 'reporte_trabajadores')
 def exportar_sisub_trabajadores(request, id):
     empresa_actual = get_empresa_actual(request); contratista = get_object_or_404(Contratista, id=id, empresa=empresa_actual)
     cuat = int(request.GET.get('cuatrimestre', 1)); anio_val = request.GET.get('anio', ''); formato = request.GET.get('formato', 'excel')

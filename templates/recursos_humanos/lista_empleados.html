@@ -161,9 +161,11 @@
             <span class="section-subtitle">Módulo de Recursos Humanos</span>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
+            {% if granular_hr_perms.empleados.crear %}
             <button class="btn btn-brand text-white btn-sm px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoEmpleado" onclick="prepararNuevoEmpleado('{{ filtros.sucursal }}')">
                 <i class="bi bi-plus-lg me-1"></i> Nuevo Empleado
             </button>
+            {% endif %}
         </div>
     </div>
 
@@ -249,15 +251,19 @@
                         <tr>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center gap-1">
+                                    {% if granular_hr_perms.empleados.editar %}
                                     <span class="icon-action" title="Editar Empleado" onclick="editarEmpleado({{ empleado.id }})">
                                         <i class="bi bi-pencil-square"></i>
                                     </span>
+                                    {% endif %}
                                     <span class="icon-action" title="Ver Expediente">
                                         <i class="bi bi-eye"></i>
                                     </span>
+                                    {% if granular_hr_perms.empleados.eliminar %}
                                     <span class="icon-action icon-action-danger" title="Eliminar Empleado" onclick="eliminarEmpleado({{ empleado.id }})">
                                         <i class="bi bi-x-circle"></i>
                                     </span>
+                                    {% endif %}
                                 </div>
                             </td>
                             <td class="text-center">

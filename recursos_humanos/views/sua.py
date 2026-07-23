@@ -8,6 +8,7 @@ from django.db.models import Q
 from decimal import Decimal
 import re
 import csv
+import openpyxl
 from datetime import datetime
 
 try:
@@ -17,7 +18,7 @@ except ImportError:
 
 from ..models import Empleado, Contrato, Contratista, Beneficiario, ImportacionSUA, TrabajadorSUA
 from preferencias.models import Sucursal
-from preferencias.permissions import require_hr_permission
+from preferencias.permissions import require_hr_permission, user_has_hr_permission
 from .utils import get_empresa_actual, limpiar_basura_header
 
 @login_required(login_url='/login/')
@@ -320,23 +321,119 @@ def eliminar_sua_ajax(request, id):
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required(login_url='/login/')
-@require_hr_permission('sua', 'ver')
+@require_hr_permission('sua', 'exportar_excel')
 def exportar_sua_excel(request, id):
     empresa_actual = get_empresa_actual(request)
+    formato = request.GET.get('formato', 'excel').lower()
     try:
         imp = ImportacionSUA.objects.get(id=id, empresa=empresa_actual)
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="SUA_{imp.periodo}_{imp.registro_patronal}.csv"'
-        response.write(u'\ufeff'.encode('utf8')); writer = csv.writer(response)
-        writer.writerow(['REPORTE DE INTEGRACIÓN SUA']); writer.writerow(['Empresa', imp.nombre_razon_social]); writer.writerow(['Registro Patronal', imp.registro_patronal]); writer.writerow(['Periodo', imp.periodo]); writer.writerow(['Tipo', imp.get_tipo_display()]); writer.writerow([])
-        if imp.tipo == 'mensual': headers = ['NSS', 'Nombre', 'RFC/CURP', 'Ubicación', 'Movimiento', 'Fecha Mov.', 'Días', 'SDI', 'Lic.', 'Inc.', 'Aus.', 'C.F.', 'Exc. Pat.', 'Exc. Obr.', 'P.D. Pat.', 'P.D. Obr.', 'G.M.P. Pat.', 'G.M.P. Obr.', 'R.T.', 'I.V. Pat.', 'I.V. Obr.', 'G.P.S.', 'Patronal', 'Obrera', 'Subtotal']
-        else: headers = ['NSS', 'Nombre', 'RFC/CURP', 'Ubicación', 'Movimiento', 'Fecha Mov.', 'Días', 'SDI', 'Lic.', 'Inc.', 'Aus.', 'Retiro', 'Patronal RCV', 'Obrera RCV', 'Suma RCV', 'Ap. Pat. Infonavit', '%/$ /FD', 'Amortización', 'Suma Infonavit', 'Total General', 'Créd. Vivienda', 'Tipo Mov. Crédito', 'Fecha Mov. Crédito']
-        writer.writerow(headers)
+        
+        meta_rows = [
+            ['REPORTE DE INTEGRACIÓN SUA'],
+            ['Empresa', imp.nombre_razon_social],
+            ['Registro Patronal', imp.registro_patronal],
+            ['Periodo', imp.periodo],
+            ['Tipo', imp.get_tipo_display()],
+            []
+        ]
+        
+        if imp.tipo == 'mensual': 
+            headers = ['NSS', 'Nombre', 'RFC/CURP', 'Ubicación', 'Movimiento', 'Fecha Mov.', 'Días', 'SDI', 'Lic.', 'Inc.', 'Aus.', 'C.F.', 'Exc. Pat.', 'Exc. Obr.', 'P.D. Pat.', 'P.D. Obr.', 'G.M.P. Pat.', 'G.M.P. Obr.', 'R.T.', 'I.V. Pat.', 'I.V. Obr.', 'G.P.S.', 'Patronal', 'Obrera', 'Subtotal']
+        else: 
+            headers = ['NSS', 'Nombre', 'RFC/CURP', 'Ubicación', 'Movimiento', 'Fecha Mov.', 'Días', 'SDI', 'Lic.', 'Inc.', 'Aus.', 'Retiro', 'Patronal RCV', 'Obrera RCV', 'Suma RCV', 'Ap. Pat. Infonavit', '%/$ /FD', 'Amortización', 'Suma Infonavit', 'Total General', 'Créd. Vivienda', 'Tipo Mov. Crédito', 'Fecha Mov. Crédito']
+            
+        data_rows = []
         for t in imp.trabajadores.all().order_by('id'):
-            if imp.tipo == 'mensual': writer.writerow([t.nss, t.nombre, t.rfc_curp, t.clave_ubicacion, t.clave_mov, t.fecha_mov, t.dias, t.sdi, t.licencias, t.incapacidades, t.ausentismos, t.cuota_fija, t.excedente_patronal, t.excedente_obrera, t.prestaciones_dinero_patronal, t.prestaciones_dinero_obrera, t.gastos_medicos_patronal, t.gastos_medicos_obrera, t.riesgo_trabajo_cuota, t.invalidez_vida_patronal, t.invalidez_vida_obrera, t.guarderias_ps, t.imss_patronal, t.imss_obrera, t.imss_subtotal])
-            else: writer.writerow([t.nss, t.nombre, t.rfc_curp, t.clave_ubicacion, t.clave_mov, t.fecha_mov, t.dias, t.sdi, t.licencias, t.incapacidades, t.ausentismos, t.retiro, t.patronal, t.obrera, t.subtotal, t.aportacion_patronal, t.tipo_valor_infonavit, t.amortizacion, t.suma_infonavit, t.total_general, t.cred_vivienda, t.tipo_mov_credito, t.fecha_mov_credito])
-        return response
-    except ImportacionSUA.DoesNotExist: return HttpResponse("No se encontró la importación", status=404)
+            if imp.tipo == 'mensual': 
+                data_rows.append([t.nss, t.nombre, t.rfc_curp, t.clave_ubicacion, t.clave_mov, t.fecha_mov, t.dias, t.sdi, t.licencias, t.incapacidades, t.ausentismos, t.cuota_fija, t.excedente_patronal, t.excedente_obrera, t.prestaciones_dinero_patronal, t.prestaciones_dinero_obrera, t.gastos_medicos_patronal, t.gastos_medicos_obrera, t.riesgo_trabajo_cuota, t.invalidez_vida_patronal, t.invalidez_vida_obrera, t.guarderias_ps, t.imss_patronal, t.imss_obrera, t.imss_subtotal])
+            else: 
+                data_rows.append([t.nss, t.nombre, t.rfc_curp, t.clave_ubicacion, t.clave_mov, t.fecha_mov, t.dias, t.sdi, t.licencias, t.incapacidades, t.ausentismos, t.retiro, t.patronal, t.obrera, t.subtotal, t.aportacion_patronal, t.tipo_valor_infonavit, t.amortizacion, t.suma_infonavit, t.total_general, t.cred_vivienda, t.tipo_mov_credito, t.fecha_mov_credito])
+
+        if formato == 'csv':
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = f'attachment; filename="SUA_{imp.periodo}_{imp.registro_patronal}.csv"'
+            response.write(u'\ufeff'.encode('utf8'))
+            writer = csv.writer(response)
+            for row in meta_rows:
+                writer.writerow(row)
+            writer.writerow(headers)
+            writer.writerows(data_rows)
+            return response
+        else:
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "SUA Reporte"
+            
+            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+            title_font = Font(name='Calibri', size=14, bold=True, color='000000')
+            meta_font = Font(name='Calibri', size=11, bold=True)
+            header_font = Font(name='Calibri', size=11, bold=True, color='FFFFFF')
+            data_font = Font(name='Calibri', size=11)
+            
+            header_fill = PatternFill(start_color='00b8b9', end_color='00b8b9', fill_type='solid')
+            meta_fill = PatternFill(start_color='F2F2F2', end_color='F2F2F2', fill_type='solid')
+            
+            thin_border = Border(
+                left=Side(style='thin', color='D3D3D3'),
+                right=Side(style='thin', color='D3D3D3'),
+                top=Side(style='thin', color='D3D3D3'),
+                bottom=Side(style='thin', color='D3D3D3')
+            )
+            
+            ws.append(['REPORTE DE INTEGRACIÓN SUA'])
+            ws.cell(row=1, column=1).font = title_font
+            
+            ws.append(['Empresa', imp.nombre_razon_social])
+            ws.append(['Registro Patronal', imp.registro_patronal])
+            ws.append(['Periodo', imp.periodo])
+            ws.append(['Tipo', imp.get_tipo_display()])
+            ws.append([])
+            
+            for r in range(2, 6):
+                ws.cell(row=r, column=1).font = meta_font
+                ws.cell(row=r, column=1).fill = meta_fill
+                ws.cell(row=r, column=2).font = data_font
+            
+            ws.append(headers)
+            header_row_idx = 7
+            for c in range(1, len(headers) + 1):
+                cell = ws.cell(row=header_row_idx, column=c)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+                cell.border = thin_border
+            
+            current_row = 8
+            for row_data in data_rows:
+                ws.append(row_data)
+                for c in range(1, len(headers) + 1):
+                    cell = ws.cell(row=current_row, column=c)
+                    cell.font = data_font
+                    cell.border = thin_border
+                    if imp.tipo == 'mensual':
+                        if c in [7, 8, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]:
+                            cell.number_format = '$#,##0.00'
+                    else:
+                        if c in [7, 8, 12, 13, 14, 15, 18, 19, 20]:
+                            cell.number_format = '$#,##0.00'
+                current_row += 1
+                
+            from openpyxl.utils import get_column_letter
+            for col in ws.columns:
+                max_len = 0
+                for cell in col:
+                    if cell.value:
+                        max_len = max(max_len, len(str(cell.value)))
+                col_letter = get_column_letter(col[0].column)
+                ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+                
+            response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename="SUA_{imp.periodo}_{imp.registro_patronal}.xlsx"'
+            wb.save(response)
+            return response
+            
+    except ImportacionSUA.DoesNotExist: 
+        return HttpResponse("No se encontró la importación", status=404)
 
 def obtener_rango_fechas_periodo(periodo_str, tipo_sua):
     import re
@@ -407,7 +504,7 @@ def obtener_rango_fechas_periodo(periodo_str, tipo_sua):
 
 @login_required(login_url='/login/')
 @require_POST
-@require_hr_permission('empleados', 'crear', json_response=True)
+@require_hr_permission('sua', 'alta_empleados', json_response=True)
 def alta_empleados_sua_ajax(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
