@@ -510,6 +510,7 @@ class HRNotificationTest(TestCase):
             'num_empleado': 'EMP-001',
             'nombre': 'Juan',
             'apellido_paterno': 'Perez',
+            'apellido_materno': 'Gomez',
             'curp': 'CURP000000HDFRXX01',
             'rfc': 'RFC0000000XXX',
             'nss': '12345678901',
@@ -517,7 +518,23 @@ class HRNotificationTest(TestCase):
             'sbc': '200.00',
             'sdi': '200.00',
             'forma_pago': 'quincenal',
-            'tipo_salario': 'fijo'
+            'tipo_salario': 'fijo',
+            'puesto': 'Puesto de Prueba',
+            'departamento': 'Dept de Prueba',
+            'estado': 'activo',
+            'clave_ubicacion': 'BEN01',
+            'genero': 'H',
+            'estado_civil': 'soltero',
+            'correo_personal': 'test@test.com',
+            'telefono_movil': '1234567890',
+            'nacionalidad': 'Mexicana',
+            'riesgo_trabajo': 'I',
+            'tipo_trabajador': 'base',
+            'tipo_contrato': '01',
+            'jornada': 'diurna',
+            'unidad_monetaria': 'MXN',
+            'clave_percepcion_sat': '001',
+            'tipo_cuenta': 'tarjeta'
         })
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()['success'])
@@ -528,3 +545,122 @@ class HRNotificationTest(TestCase):
         self.assertEqual(notif.actor, self.admin)
         self.assertEqual(notif.propietario_recurso, self.admin)
         self.assertIn("creó al empleado Juan Perez", notif.mensaje)
+
+
+class ICSOEExportTest(TestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        from panel.models import Empresa
+        from recursos_humanos.models import Contratista, Beneficiario, Contrato, ImportacionSUA, TrabajadorSUA
+        
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa de Prueba",
+            subdominio="prueba",
+            usuario_admin="admin",
+            correo_contacto="prueba@test.com"
+        )
+        self.empresa.modulo_recursos_humanos = True
+        self.empresa.save()
+        
+        self.admin = User.objects.create_superuser(
+            username="admin@prueba",
+            email="admin@prueba.com",
+            password="password"
+        )
+        
+        # Crear contratista
+        self.contratista = Contratista.objects.create(
+            empresa=self.empresa,
+            rfc="CON010101AAA",
+            nombre_razon_social="Contratista A",
+            correo="contratista@test.com",
+            registro_patronal="A1234567890"
+        )
+        
+        # Crear beneficiarios
+        self.beneficiario1 = Beneficiario.objects.create(
+            empresa=self.empresa,
+            rfc="BEN010101AAA",
+            nombre_razon_social="Beneficiario 1",
+            clave="BEN01",
+            correo="b1@test.com"
+        )
+        self.beneficiario2 = Beneficiario.objects.create(
+            empresa=self.empresa,
+            rfc="BEN020202BBB",
+            nombre_razon_social="Beneficiario 2",
+            clave="BEN02",
+            correo="b2@test.com"
+        )
+        
+        # Crear contrato vinculado a beneficiario1
+        import datetime
+        self.contrato = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            beneficiario=self.beneficiario1,
+            folio="CONTRATO-001",
+            fecha_inicio=datetime.date(2026, 1, 1),
+            fecha_fin=datetime.date(2026, 12, 31),
+            vigencia_contrato=datetime.date(2026, 12, 31)
+        )
+        
+        # Crear importación de SUA bimestral
+        self.importacion = ImportacionSUA.objects.create(
+            empresa=self.empresa,
+            periodo="ABRIL 2026",
+            tipo="bimestral",
+            rfc_empresa="CON010101AAA",
+            nombre_razon_social="Contratista A",
+            registro_patronal="A1234567890"
+        )
+        
+        # Trabajador 1 (tiene beneficiario del contrato BEN01, no tiene crédito)
+        TrabajadorSUA.objects.create(
+            importacion=self.importacion,
+            nss="11111111111",
+            nombre="Juan Perez",
+            clave_ubicacion="BEN01",
+            aportacion_patronal=Decimal('500.00'),
+            tipo_valor_infonavit='-',
+            amortizacion=Decimal('0.00')
+        )
+        # Trabajador 2 (tiene beneficiario del contrato BEN01, tiene crédito)
+        TrabajadorSUA.objects.create(
+            importacion=self.importacion,
+            nss="22222222222",
+            nombre="Maria Gomez",
+            clave_ubicacion="BEN01",
+            aportacion_patronal=Decimal('600.00'),
+            tipo_valor_infonavit='FD',
+            amortizacion=Decimal('150.00')
+        )
+        # Trabajador 3 (tiene beneficiario de otro contrato BEN02, no vinculado)
+        TrabajadorSUA.objects.create(
+            importacion=self.importacion,
+            nss="33333333333",
+            nombre="Pedro Ruiz",
+            clave_ubicacion="BEN02",
+            aportacion_patronal=Decimal('800.00'),
+            tipo_valor_infonavit='-',
+            amortizacion=Decimal('0.00')
+        )
+
+    def test_exportar_icsoe_calculations(self):
+        self.client.login(username="admin@prueba", password="password")
+        from django.urls import reverse
+        url = reverse('exportar_icsoe', args=[self.contratista.id])
+        
+        # Cuatrimestre 1 (Ene-Abr 2026), formato CSV
+        response = self.client.get(url, {'cuatrimestre': '1', 'anio': '2026', 'formato': 'csv'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'text/csv')
+        
+        # Decodificar contenido
+        content = response.content.decode('utf-8-sig')
+        # Verificar que solo sume los trabajadores con clave BEN01 (Juan y Maria)
+        self.assertIn("500", content)
+        self.assertIn("600", content)
+        self.assertIn("150", content)
+        # No debe haber 800 de Pedro
+        self.assertNotIn("800", content)

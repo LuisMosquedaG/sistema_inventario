@@ -376,16 +376,16 @@ def exportar_icsoe(request, id):
             if rfc_input_clean == rfc_rep_clean or rfc_input_clean in rfc_rep_clean or rfc_rep_clean in rfc_input_clean:
                 importaciones_validas.append(imp)
         
-        contratos_vigentes = Contrato.objects.filter(contratista=contratista, empresa=empresa_actual, estado='vigente')
-        folios_consolidado = ", ".join([c.folio for c in contratos_vigentes if c.folio]) or contratista.folio_mercantil
-        empleados_nss_qs = Empleado.objects.filter(empresa=empresa_actual, contratos_asignados__in=contratos_vigentes).values_list('nss', flat=True).distinct()
-        nss_con_contrato = set(re.sub(r'[^0-9]', '', str(n)) for n in empleados_nss_qs if n)
+        contratos = Contrato.objects.filter(contratista=contratista, empresa=empresa_actual)
+        beneficiarios_ids = contratos.values_list('beneficiario_id', flat=True).distinct()
+        beneficiarios = Beneficiario.objects.filter(id__in=beneficiarios_ids, empresa=empresa_actual)
+        claves_beneficiarios = set((b.clave or '').strip().upper() for b in beneficiarios if b.clave)
 
         total_sin_credito = total_con_credito = total_amortizaciones = Decimal('0')
         for imp in importaciones_validas:
             for t in imp.trabajadores.all():
-                nss_t_clean = re.sub(r'[^0-9]', '', str(t.nss))
-                if nss_t_clean in nss_con_contrato:
+                clave_t = (t.clave_ubicacion or '').strip().upper()
+                if clave_t in claves_beneficiarios:
                     val_inf = (t.tipo_valor_infonavit or '').strip()
                     if not val_inf or val_inf == '-': total_sin_credito += t.aportacion_patronal
                     else: total_con_credito += t.aportacion_patronal
