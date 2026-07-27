@@ -401,15 +401,95 @@ def exportar_sisub_trabajadores(request, id):
     cuat = int(request.GET.get('cuatrimestre', 1)); anio_val = request.GET.get('anio', ''); formato = request.GET.get('formato', 'excel')
     if not anio_val: return HttpResponse("Año requerido", status=400)
     anio = int(anio_val); meses_filtro = {1:[1,2,3,4], 2:[5,6,7,8], 3:[9,10,11,12]}.get(cuat)
-    contratos = Contrato.objects.filter(contratista=contratista, empresa=empresa_actual, estado='vigente').prefetch_related('empleados', 'beneficiario')
+    
+    import datetime
+    if cuat == 1:
+        cuat_start = datetime.date(anio, 1, 1)
+        cuat_end = datetime.date(anio, 4, 30)
+    elif cuat == 2:
+        cuat_start = datetime.date(anio, 5, 1)
+        cuat_end = datetime.date(anio, 8, 31)
+    else:
+        cuat_start = datetime.date(anio, 9, 1)
+        cuat_end = datetime.date(anio, 12, 31)
+
+    contratos = Contrato.objects.filter(
+        contratista=contratista,
+        empresa=empresa_actual,
+        fecha_inicio__lte=cuat_end
+    ).filter(
+        Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=cuat_start)
+    ).prefetch_related('empleados', 'beneficiario')
     emp_map = {}
     for c in contratos:
         for e in c.empleados.all():
-            n = re.sub(r'[^0-9]', '', e.nss) if e.nss else ""; curp = re.sub(r'[^A-Z0-9]', '', (e.curp or '').upper()); name = f"{e.nombre} {e.apellido_paterno} {e.apellido_materno}".strip().upper()
+            n = re.sub(r'[^0-9]', '', e.nss) if e.nss else ""
+            curp = re.sub(r'[^A-Z0-9]', '', (e.curp or '').upper())
+            n1 = f"{e.nombre} {e.apellido_paterno} {e.apellido_materno}".strip().upper()
+            n2 = f"{e.apellido_paterno} {e.apellido_materno} {e.nombre}".strip().upper()
             if n: emp_map[n] = c
             if curp: emp_map[curp] = c
-            if name: emp_map[name] = c
-    recibos = [r for r in Nomina.objects.filter(empresa=empresa_actual, fecha_pago__year=anio, fecha_pago__month__in=meses_filtro) if emp_map.get(re.sub(r'[^0-9]','',r.nss or '')) or emp_map.get(re.sub(r'[^A-Z0-9]','',(r.curp or '').upper())) or emp_map.get((r.nombre or '').strip().upper())]
+            if n1: emp_map[n1] = c
+            if n2: emp_map[n2] = c
+
+    # Buscar todas las nóminas de este periodo en la empresa
+    nominas_cuat = Nomina.objects.filter(
+        empresa=empresa_actual
+    ).filter(
+        Q(fecha_pago__year=anio, fecha_pago__month__in=meses_filtro) |
+        Q(fecha_pago__isnull=True, fecha_final_pago__year=anio, fecha_final_pago__month__in=meses_filtro) |
+        Q(fecha_pago__isnull=True, fecha_final_pago__isnull=True, fecha_inicial_pago__year=anio, fecha_inicial_pago__month__in=meses_filtro)
+    )
+
+    rfc_clean_input = re.sub(r'[^A-Z0-9]', '', contratista.rfc.upper())
+    
+    recibos = []
+    for r in nominas_cuat:
+        n_clean = re.sub(r'[^0-9]','',r.nss or '')
+        curp_clean = re.sub(r'[^A-Z0-9]','',(r.curp or '').upper())
+        name_clean = (r.nombre or '').strip().upper()
+        
+        # 1. ¿Coincide el RFC de contratista de la nómina?
+        rfc_nom_clean = re.sub(r'[^A-Z0-9]', '', (r.rfc_contratista or '').upper())
+        match_rfc = False
+        if rfc_nom_clean:
+            match_rfc = (rfc_nom_clean == rfc_clean_input or rfc_clean_input in rfc_nom_clean or rfc_nom_clean in rfc_clean_input)
+        
+        # 2. ¿Coincide el empleado con la lista del contrato?
+        con = emp_map.get(n_clean) or emp_map.get(curp_clean) or emp_map.get(name_clean)
+        
+        # 3. Si no coincide con contrato directo pero pertenece al contratista, resolver el contrato candidato
+        if not con:
+            empleado = None
+            if n_clean: 
+                empleado = Empleado.objects.filter(empresa=empresa_actual, nss=n_clean).first()
+            if not empleado and curp_clean: 
+                empleado = Empleado.objects.filter(empresa=empresa_actual, curp=curp_clean).first()
+            if not empleado and name_clean:
+                # Búsqueda por nombres formateados
+                for e_cand in Empleado.objects.filter(empresa=empresa_actual):
+                    n1 = f"{e_cand.nombre} {e_cand.apellido_paterno} {e_cand.apellido_materno}".strip().upper()
+                    n2 = f"{e_cand.apellido_paterno} {e_cand.apellido_materno} {e_cand.nombre}".strip().upper()
+                    if name_clean in (n1, n2) or n1 in name_clean or n2 in name_clean:
+                        empleado = e_cand
+                        break
+            
+            if empleado and empleado.contratista == contratista:
+                candidate_con = None
+                if empleado.beneficiario:
+                    candidate_con = contratos.filter(beneficiario=empleado.beneficiario).first()
+                if not candidate_con:
+                    candidate_con = contratos.first()
+                
+                if candidate_con:
+                    con = candidate_con
+                    if n_clean: emp_map[n_clean] = con
+                    if curp_clean: emp_map[curp_clean] = con
+                    if name_clean: emp_map[name_clean] = con
+
+        # Para que sea incluido, debe estar asociado a algún contrato activo
+        if con:
+            recibos.append(r)
     
     rfc_clean_input = re.sub(r'[^A-Z0-9]', '', contratista.rfc.upper())
     sua_data = {}
@@ -445,25 +525,34 @@ def exportar_sisub_trabajadores(request, id):
                         if tc: ultimo_sdi_trabajador[tc] = sdi_val
                         if tm: ultimo_sdi_trabajador[tm] = sdi_val
                     
-                    v = {'sdi': sdi_val, 'inc': 0}
-                    try: v['inc'] = int(float(ts.incapacidades or 0))
-                    except: pass
-                    if tn: sua_data[(tn, bim)] = v
-                    if tc: sua_data[(tc, bim)] = v
-                    if tm: sua_data[(tm, bim)] = v
+                    inc_val = 0
+                    try:
+                        inc_val = int(float(ts.incapacidades or 0))
+                    except:
+                        pass
+                    
+                    for key_sua in [(tn, bim), (tc, bim), (tm, bim)]:
+                        if not key_sua[0]:
+                            continue
+                        if key_sua not in sua_data:
+                            sua_data[key_sua] = {'sdi': sdi_val, 'inc': 0}
+                        sua_data[key_sua]['inc'] += inc_val
+                        if sdi_val and sdi_val > 0:
+                            sua_data[key_sua]['sdi'] = sdi_val
 
 
 
-    headers = ["cuatrimestre que declara", "anio que se declara", "bimestre", "Registro Federal de Contribuyente del sujeto obligado", "Numero de contrato", "Registro Patronal ante el IMSS", "Numero de Seguro Social del trabajador", "Calle (centro del trabajo)", "Numero exterior (centro del trabajo)", "Numero interior (centro de trabajo)", "Colonia (centro de trabajo)", "Codigo Postal (centro de trabajo)", "Municipio o Alcaldia (centro de trabajo)", "Entidad federativa (centro de trabajo)", "Monto Percepciones variables", "Monto Percepciones fijas", "Dias de Incapacidad", "Percepciones no integrables al SBA", "salario no excedente (VSM)"]
+    headers = ["cuatrimestre que declara", "año que se declara", "bimestre", "Registro Federal de Contribuyente del sujeto obligado", "Numero de contrato", "Registro Patronal ante el IMSS", "Numero de Seguro Social del trabajador", "Calle (centro del trabajo)", "Numero exterior (centro del trabajo)", "Numero interior (centro de trabajo)", "Colonia (centro de trabajo)", "Codigo Postal (centro de trabajo)", "Municipio o Alcaldia (centro de trabajo)", "Entidad federativa (centro de trabajo)", "Monto Percepciones variables", "Monto Percepciones fijas", "Dias de Incapacidad", "Percepciones no integrables al SBA", "salario no excedente (VSM)"]
     
     grouped_data = {}
     for r in recibos:
         n = re.sub(r'[^0-9]','',r.nss or '')
         curp = re.sub(r'[^A-Z0-9]','',(r.curp or '').upper())
         name = (r.nombre or '').strip().upper()
-        if not r.fecha_pago:
+        f_ref = r.fecha_pago or r.fecha_final_pago or r.fecha_inicial_pago
+        if not f_ref:
             continue
-        bim = (r.fecha_pago.month + 1) // 2
+        bim = (f_ref.month + 1) // 2
         
         # Clave única del trabajador en este bimestre
         worker_key = n if n else (curp if curp else name)
@@ -515,22 +604,56 @@ def exportar_sisub_trabajadores(request, id):
                 'cp': ben.cp if ben else '',
                 'municipio': ben.municipio_alcaldia if ben else '',
                 'entidad': ben.entidad_federativa if ben else '',
-                'percepciones': Decimal('0.00'),
+                'percepciones_variables': Decimal('0.00'),
+                'percepciones_fijas': Decimal('0.00'),
                 'incapacidades': s['inc'],
                 'sdi': sdi_val
             }
             
-        grouped_data[key]['percepciones'] += per
+        # Calcular percepciones fijas y variables para esta nómina
+        variables_codes = {'019', '020', '028', '038', '054', '056'}
+        per_var = Decimal('0.00')
+        per_fij = Decimal('0.00')
+        
+        # Obtener el SDI/SBC resuelto para el cálculo del límite del periodo
+        sdi_val = grouped_data[key]['sdi']
+        limit_sbc = Decimal('0.10') * sdi_val * Decimal(str(r.dias_pagados or 0))
+        
+        if r.percepciones_detalladas:
+            for code, values in r.percepciones_detalladas.items():
+                code_norm = code.strip().zfill(3)
+                g_val = Decimal(str(values.get('gravado', 0) or 0))
+                e_val = Decimal(str(values.get('exento', 0) or 0))
+                total_code = g_val + e_val
+                
+                if code_norm in {'010', '049'}:
+                    if total_code > limit_sbc:
+                        per_var += total_code
+                    else:
+                        per_fij += total_code
+                elif code_norm in variables_codes:
+                    per_var += total_code
+                else:
+                    per_fij += total_code
+        else:
+            legacy_total = (r.vacaciones_exento or 0) + (r.vacaciones_dignas_exento or 0) + (r.aguinaldo_exento or 0) + \
+                           (r.sueldo_gravado or 0) + (r.vacaciones_gravado or 0) + (r.vacaciones_dignas_gravado or 0) + \
+                           (r.aguinaldo_gravado or 0)
+            per_fij = Decimal(str(legacy_total))
+
+        grouped_data[key]['percepciones_variables'] += per_var
+        grouped_data[key]['percepciones_fijas'] += per_fij
 
     data_rows = []
     for key in sorted(grouped_data.keys(), key=lambda x: (x[1], x[0])):
         d = grouped_data[key]
-        per_rounded = int(Decimal(d['percepciones']).quantize(Decimal('1'), ROUND_HALF_UP))
+        per_var_rounded = int(Decimal(d['percepciones_variables']).quantize(Decimal('1'), ROUND_HALF_UP))
+        per_fij_rounded = int(Decimal(d['percepciones_fijas']).quantize(Decimal('1'), ROUND_HALF_UP))
         data_rows.append([
             d['cuat'], d['anio'], d['bim'], d['contratista_rfc'], d['contrato_folio'],
             d['registro_patronal'], d['nss'], d['calle'], d['num_ext'], d['num_int'],
-            d['colonia'], d['cp'], d['municipio'], d['entidad'], 0,
-            per_rounded, d['incapacidades'], 0, d['sdi']
+            d['colonia'], d['cp'], d['municipio'], d['entidad'], 
+            per_var_rounded, per_fij_rounded, d['incapacidades'], 0, d['sdi']
         ])
 
     if formato == 'csv':

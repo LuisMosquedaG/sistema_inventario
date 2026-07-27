@@ -172,6 +172,70 @@ class SISUBExportTest(TestCase):
         # Si tiene el error de ben.calle, responderá con error 500 (o lanzará una excepción en tests)
         self.assertEqual(response.status_code, 200)
 
+    def test_exportar_sisub_incluye_contrato_no_vigente(self):
+        # Cambiar el contrato a estado 'vencido'
+        self.contrato.estado = 'vencido'
+        self.contrato.save()
+
+        self.client.login(username="admin@prueba", password="password")
+        from django.urls import reverse
+        url = reverse('exportar_sisub_trabajadores', args=[self.contratista.id])
+        response = self.client.get(url, {'cuatrimestre': 2, 'anio': 2026, 'formato': 'csv'})
+        self.assertEqual(response.status_code, 200)
+
+        # Analizar el contenido del CSV
+        content = response.content.decode('utf-8-sig')
+        lines = [line.strip() for line in content.splitlines() if line.strip()]
+        
+        # Deben haber 2 líneas (cabecera + datos) porque el contrato 'vencido' fue incluido debido a las fechas
+        self.assertEqual(len(lines), 2)
+        row_data = lines[1].split(',')
+        self.assertEqual(row_data[6], '12345678901') # NSS del trabajador
+
+    def test_exportar_sisub_fallback_matching(self):
+        # Crear un empleado que pertenece al contratista, pero no está asignado al contrato ManyToMany
+        empleado_fallback = Empleado.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            num_empleado="E002",
+            nss="98765432101",
+            curp="JUAN000000HDFRXX02",
+            rfc="JUAN000000XX2",
+            nombre="Juan",
+            apellido_paterno="Gomez",
+            estado="activo"
+        )
+        # Crear recibo de nómina para este empleado en Junio 2026 (Cuatrimestre 2)
+        Nomina.objects.create(
+            empresa=self.empresa,
+            empleado=None,  # Para forzar la búsqueda en BD por NSS/CURP
+            periodo="SAT Bimestre 3 2026",
+            fecha_pago="2026-06-15",
+            rfc="JUAN000000XX2",
+            curp="JUAN000000HDFRXX02",
+            nss="98765432101",
+            nombre="Juan Gomez",
+            sueldo_gravado=Decimal('800.00'),
+            dias_pagados=Decimal('15.00')
+        )
+
+        self.client.login(username="admin@prueba", password="password")
+        from django.urls import reverse
+        url = reverse('exportar_sisub_trabajadores', args=[self.contratista.id])
+        response = self.client.get(url, {'cuatrimestre': 2, 'anio': 2026, 'formato': 'csv'})
+        self.assertEqual(response.status_code, 200)
+
+        # Analizar el contenido del CSV
+        content = response.content.decode('utf-8-sig')
+        lines = [line.strip() for line in content.splitlines() if line.strip()]
+        
+        # Debe incluir ambos trabajadores (Pedro Perez y Juan Gomez)
+        self.assertEqual(len(lines), 3)
+        
+        # Verificar que el NSS de Juan Gomez (98765432101) esté presente
+        nss_list = [line.split(',')[6] for line in lines[1:]]
+        self.assertIn('98765432101', nss_list)
+
     def test_exportar_sisub_consolida_percepciones(self):
         # Crear segunda nomina en el mismo bimestre (Junio 2026 -> Bimestre 3)
         Nomina.objects.create(
@@ -251,6 +315,82 @@ class SISUBExportTest(TestCase):
         # La segunda línea (datos) debe tener el SDI de Mayo (185.50) en lugar del 0.00 de Junio
         row_data = lines[1].split(',')
         self.assertEqual(Decimal(row_data[18]), Decimal('185.50'))
+
+    def test_exportar_sisub_suma_incapacidades(self):
+        from recursos_humanos.models import ImportacionSUA, TrabajadorSUA
+        
+        # Crear importación de SUA para Mayo 2026 con 5 incapacidades
+        sua_mayo = ImportacionSUA.objects.create(
+            empresa=self.empresa,
+            periodo="MAYO 2026",
+            tipo="mensual",
+            rfc_empresa="CON010101AAA"
+        )
+        TrabajadorSUA.objects.create(
+            importacion=sua_mayo,
+            nss="12-34-56-7890-1",  # Con guiones para probar normalización
+            nombre="Pedro Perez",
+            rfc_curp="PEPE000000HDFRXX01",
+            incapacidades=5,
+            sdi=Decimal('185.50')
+        )
+        
+        # Crear importación de SUA para Junio 2026 con 3 incapacidades
+        sua_junio = ImportacionSUA.objects.create(
+            empresa=self.empresa,
+            periodo="JUNIO 2026",
+            tipo="mensual",
+            rfc_empresa="CON010101AAA"
+        )
+        TrabajadorSUA.objects.create(
+            importacion=sua_junio,
+            nss="12345678901",
+            nombre="Pedro Perez",
+            rfc_curp="PEPE000000HDFRXX01",
+            incapacidades=3,
+            sdi=Decimal('185.50')
+        )
+        
+        self.client.login(username="admin@prueba", password="password")
+        from django.urls import reverse
+        url = reverse('exportar_sisub_trabajadores', args=[self.contratista.id])
+        response = self.client.get(url, {'cuatrimestre': 2, 'anio': 2026, 'formato': 'csv'})
+        
+        self.assertEqual(response.status_code, 200)
+        
+        content = response.content.decode('utf-8-sig')
+        lines = [line.strip() for line in content.splitlines() if line.strip()]
+        
+        row_data = lines[1].split(',')
+        # Columna 16 (0-indexed) de incapacidades debe ser la suma (5 + 3 = 8)
+        self.assertEqual(int(row_data[16]), 8)
+
+    def test_exportar_sisub_percepciones_fijas_variables(self):
+        # Crear un recibo de nómina con percepciones detalladas en Junio 2026 (Cuatrimestre 2)
+        # Percepciones fijas: '001' (gravado 1000, exento 100) -> Total 1100
+        # Percepciones variables: '010' (gravado 500), '019' (exento 200) -> Total 700
+        self.nomina.percepciones_detalladas = {
+            '001': {'gravado': 1000.0, 'exento': 100.0},
+            '010': {'gravado': 500.0, 'exento': 0.0},
+            '019': {'gravado': 0.0, 'exento': 200.0}
+        }
+        self.nomina.save()
+        
+        self.client.login(username="admin@prueba", password="password")
+        from django.urls import reverse
+        url = reverse('exportar_sisub_trabajadores', args=[self.contratista.id])
+        response = self.client.get(url, {'cuatrimestre': 2, 'anio': 2026, 'formato': 'csv'})
+        
+        self.assertEqual(response.status_code, 200)
+        
+        content = response.content.decode('utf-8-sig')
+        lines = [line.strip() for line in content.splitlines() if line.strip()]
+        
+        row_data = lines[1].split(',')
+        # Columna 14 (variables): 500 + 200 = 700
+        self.assertEqual(row_data[14], '700')
+        # Columna 15 (fijas): 1000 + 100 = 1100
+        self.assertEqual(row_data[15], '1100')
 
     def test_exportar_nominas_excel(self):
         # Crear un recibo con percepciones para exportar
