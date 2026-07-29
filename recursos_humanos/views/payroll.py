@@ -516,7 +516,60 @@ def exportar_sisub_trabajadores(request, id):
 
     headers = ["cuatrimestre que declara", "año que se declara", "bimestre", "Registro Federal de Contribuyente del sujeto obligado", "Numero de contrato", "Registro Patronal ante el IMSS", "Numero de Seguro Social del trabajador", "Calle (centro del trabajo)", "Numero exterior (centro del trabajo)", "Numero interior (centro de trabajo)", "Colonia (centro de trabajo)", "Codigo Postal (centro de trabajo)", "Municipio o Alcaldia (centro de trabajo)", "Entidad federativa (centro de trabajo)", "Monto Percepciones variables", "Monto Percepciones fijas", "Dias de Incapacidad", "Percepciones no integrables al SBA", "salario no excedente (VSM)"]
     
+    CONCEPTOS_SAT = {
+        "001": "Sueldos y Salarios",
+        "002": "Aguinaldo",
+        "003": "PTU",
+        "004": "Reembolso Gastos Medicos",
+        "005": "Fondo de Ahorro",
+        "006": "Caja de ahorro",
+        "009": "Contribuciones Cargo Trabajador",
+        "010": "Premios puntualidad",
+        "011": "Prima Seguro de vida",
+        "012": "Seguro Gastos Medicos Mayores",
+        "013": "Cuotas Sindicales",
+        "014": "Subsidios incapacidad",
+        "015": "Becas",
+        "019": "Horas extra",
+        "020": "Prima dominical",
+        "021": "Prima vacacional",
+        "022": "Prima antiguedad",
+        "023": "Pagos separacion",
+        "024": "Seguro retiro",
+        "025": "Indemnizaciones",
+        "026": "Reembolso funeral",
+        "027": "Seguridad social patronal",
+        "028": "Comisiones",
+        "029": "Vales despensa",
+        "030": "Vales restaurante",
+        "031": "Vales gasolina",
+        "032": "Vales ropa",
+        "033": "Ayuda renta",
+        "034": "Ayuda utiles",
+        "035": "Ayuda anteojos",
+        "036": "Ayuda transporte",
+        "037": "Ayuda funeral",
+        "038": "Otros ingresos salarios",
+        "039": "Jubilaciones retiro",
+        "044": "Jubilaciones parcialidades",
+        "045": "Ingresos acciones",
+        "046": "Ingresos asimilados",
+        "047": "Alimentacion",
+        "048": "Habitacion",
+        "049": "Premios asistencia",
+        "050": "Viaticos",
+        "051": "Jubilacion parcialidades extre",
+        "052": "Jubilacion parcialidades laudo",
+        "053": "Jubilacion exhibicion laudo",
+        "054": "Dias descanso laborados",
+        "055": "Dias descanso obligatorios",
+        "056": "Prevision social",
+        "057": "Premios concursos"
+    }
+
     grouped_data = {}
+    detalle_rows = []
+    
     for r in recibos:
         n = re.sub(r'[^0-9]','',r.nss or '')
         curp = re.sub(r'[^A-Z0-9]','',(r.curp or '').upper())
@@ -595,6 +648,11 @@ def exportar_sisub_trabajadores(request, id):
         uma_val = Decimal(str(empresa_actual.uma or '117.31'))
         limit_uma = Decimal('0.40') * uma_val * Decimal(str(r.dias_pagados or 30))
         
+        con = emp_map.get(n) or emp_map.get(curp) or emp_map.get(name)
+        con_folio = con.folio if con and con.folio else "S/F"
+        periodo_str = r.fecha_final_pago.strftime('%m/%d/%Y') if r.fecha_final_pago else ''
+        nom_ref = f"{r.serie or ''} {r.folio or ''}".strip() or str(r.id)
+
         if r.percepciones_detalladas:
             for code, values in r.percepciones_detalladas.items():
                 code_norm = code.strip().zfill(3)
@@ -602,23 +660,50 @@ def exportar_sisub_trabajadores(request, id):
                 e_val = Decimal(str(values.get('exento', 0) or 0))
                 total_code = g_val + e_val
                 
+                v_contrib = Decimal('0.00')
+                f_contrib = Decimal('0.00')
+                clasif = ""
+                
                 if code_norm == '029':
                     if total_code > limit_uma:
-                        per_var += (total_code - limit_uma)
+                        v_contrib = total_code - limit_uma
+                        clasif = "Variable (Excedente UMA)"
+                    else:
+                        clasif = "Exento (No integra)"
                 elif code_norm in {'010', '049'}:
                     if total_code > limit_sbc:
-                        per_var += total_code
+                        v_contrib = total_code
+                        clasif = "Variable (Excede 10% SBC)"
                     else:
-                        per_fij += total_code
+                        f_contrib = total_code
+                        clasif = "Fijo (Dentro de 10% SBC)"
                 elif code_norm in variables_codes:
-                    per_var += total_code
+                    v_contrib = total_code
+                    clasif = "Variable (SAT Variable)"
                 else:
-                    per_fij += total_code
+                    f_contrib = total_code
+                    clasif = "Fijo (SAT Fijo)"
+                
+                per_var += v_contrib
+                per_fij += f_contrib
+                
+                detalle_rows.append([
+                    bim, r.nss, r.nombre, con_folio, nom_ref, periodo_str, float(r.dias_pagados or 0),
+                    code_norm, CONCEPTOS_SAT.get(code_norm, "Concepto no especificado"),
+                    float(g_val), float(e_val), float(total_code), clasif, float(f_contrib), float(v_contrib)
+                ])
         else:
             legacy_total = (r.vacaciones_exento or 0) + (r.vacaciones_dignas_exento or 0) + (r.aguinaldo_exento or 0) + \
                            (r.sueldo_gravado or 0) + (r.vacaciones_gravado or 0) + (r.vacaciones_dignas_gravado or 0) + \
                            (r.aguinaldo_gravado or 0)
             per_fij = Decimal(str(legacy_total))
+            detalle_rows.append([
+                bim, r.nss, r.nombre, con_folio, nom_ref, periodo_str, float(r.dias_pagados or 0),
+                "LEG", "Sueldos y Vacaciones (Legacy)",
+                float(r.sueldo_gravado or 0), 
+                float((r.vacaciones_exento or 0) + (r.vacaciones_dignas_exento or 0) + (r.aguinaldo_exento or 0)),
+                float(legacy_total), "Fijo (Legacy)", float(legacy_total), 0.0
+            ])
 
         grouped_data[key]['percepciones_variables'] += per_var
         grouped_data[key]['percepciones_fijas'] += per_fij
@@ -656,4 +741,32 @@ def exportar_sisub_trabajadores(request, id):
                 if c_i == 19: cl.number_format = '#,##0.00'
                 cl.border = br
         for i in range(1, 20): ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = 22
+        
+        # --- NUEVA HOJA EXTRA: DETALLE ---
+        ws_det = wb.create_sheet(title="Detalle")
+        headers_det = [
+            "Bimestre", "NSS del Trabajador", "Nombre del Trabajador", "Folio de Contrato", 
+            "Ref Nómina", "Periodo Pago", "Días Pagados", "Código SAT", "Concepto SAT", 
+            "Importe Gravado", "Importe Exento", "Importe Total", "Clasificación", 
+            "Monto Fijo Integrado", "Monto Variable Integrado"
+        ]
+        
+        for col_idx, h in enumerate(headers_det, 1):
+            cl = ws_det.cell(row=1, column=col_idx, value=h)
+            cl.fill = fb; cl.font = Font(bold=True, color="FFFFFF"); cl.alignment = Alignment(horizontal="center"); cl.border = br
+            
+        for row_idx, rd in enumerate(detalle_rows, 2):
+            for col_idx, v in enumerate(rd, 1):
+                cl = ws_det.cell(row=row_idx, column=col_idx, value=v)
+                cl.border = br
+                if col_idx in [10, 11, 12, 14, 15]:
+                    cl.number_format = '$#,##0.00'
+                elif col_idx == 7:
+                    cl.number_format = '0.0'
+                elif col_idx in [1, 8]:
+                    cl.alignment = Alignment(horizontal="center")
+                    
+        for col_idx in range(1, len(headers_det) + 1):
+            ws_det.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = 22
+            
         resp = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); resp['Content-Disposition'] = f'attachment; filename="SISUB_TRABAJADORES_{contratista.rfc}.xlsx"'; wb.save(resp); return resp
