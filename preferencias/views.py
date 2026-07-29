@@ -833,3 +833,19 @@ def eliminar_sucursal_ajax(request, sucursal_id):
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+@login_required
+@require_POST
+def actualizar_obligaciones_patronales_ajax(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual or not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Acceso denegado'})
+    try:
+        uma_val = request.POST.get('uma')
+        if not uma_val:
+            return JsonResponse({'success': False, 'error': 'El valor de la UMA es requerido.'})
+        empresa_actual.uma = Decimal(uma_val)
+        empresa_actual.save()
+        return JsonResponse({'success': True, 'message': 'Obligaciones Patronales actualizadas correctamente.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

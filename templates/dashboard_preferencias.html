@@ -131,17 +131,20 @@
                         
                         <!-- General (Acordeón) -->
                         <div>
-                            <a class="nav-link {% if seccion == 'monedas' %}active{% endif %}" href="#menuGeneral" data-bs-toggle="collapse">
+                            <a class="nav-link {% if seccion == 'monedas' or seccion == 'datos' or seccion == 'obligaciones_patronales' %}active{% endif %}" href="#menuGeneral" data-bs-toggle="collapse">
                                 <i class="bi bi-sliders"></i> General
                                 <i class="bi bi-chevron-down ms-auto small"></i>
                             </a>
-                            <div class="collapse {% if seccion == 'monedas' or seccion == 'datos' %}show{% endif %}" id="menuGeneral">
+                            <div class="collapse {% if seccion == 'monedas' or seccion == 'datos' or seccion == 'obligaciones_patronales' %}show{% endif %}" id="menuGeneral">
                                 <a href="?section=monedas" class="sub-nav-link {% if seccion == 'monedas' %}active{% endif %}">
                                     <i class="bi bi-currency-exchange me-2"></i> Tipos de Moneda
                                 </a>
                                 {% if user.is_staff %}
                                 <a href="?section=datos" class="sub-nav-link {% if seccion == 'datos' %}active{% endif %}">
                                     <i class="bi bi-database-fill-gear me-2"></i> Datos
+                                </a>
+                                <a href="?section=obligaciones_patronales" class="sub-nav-link {% if seccion == 'obligaciones_patronales' %}active{% endif %}">
+                                    <i class="bi bi-file-earmark-medical me-2"></i> Obligaciones Patronales
                                 </a>
                                 {% endif %}
                             </div>
@@ -399,6 +402,30 @@
                             </div>
                         </div>
                     </div>
+                {% elif seccion == 'obligaciones_patronales' %}
+                <!-- SECCIÓN OBLIGACIONES PATRONALES -->
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-file-earmark-medical me-2 text-secondary"></i>Obligaciones Patronales</h5>
+                </div>
+                <div class="card-body p-4">
+                    <form id="formObligacionesPatronales">
+                        {% csrf_token %}
+                        <div class="card border shadow-sm p-4 rounded-3" style="max-width: 500px;">
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-dark" for="inputUMA">Valor de la UMA (Unidad de Medida y Actualización)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" step="0.01" class="form-control" id="inputUMA" name="uma" value="{{ empresa.uma|default:'117.31' }}" required>
+                                </div>
+                                <div class="form-text text-muted">
+                                    Este valor se utiliza para calcular los límites de integración de percepciones en el reporte SISUB de trabajadores (por ejemplo, el tope del 40% mensual para vales de despensa).
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-brand text-white w-100 fw-bold">
+                                <i class="bi bi-save me-2"></i>Guardar Configuración
+                            </button>
+                        </div>
+                    </form>
                 </div>
                 {% endif %}
 
@@ -1428,6 +1455,30 @@
     function toggleSubmoduloPermisos(submodulo, valor) {
         document.querySelectorAll(`.permiso-submodulo-${submodulo}`).forEach(el => { el.checked = valor; });
     }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const formOP = document.getElementById('formObligacionesPatronales');
+        if (formOP) {
+            formOP.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(this);
+                fetch('/preferencias/actualizar-obligaciones-patronales/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-CSRFToken': '{{ csrf_token }}', 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                });
+            });
+        }
+    });
 </script>
 
 {% endblock %}

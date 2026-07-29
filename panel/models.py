@@ -51,6 +51,8 @@ class Empresa(models.Model):
     modulo_costeos = models.BooleanField(default=True, verbose_name="Módulo Costeos")
     modulo_pos = models.BooleanField(default=True, verbose_name="Módulo POS")
 
+    uma = models.DecimalField(max_digits=10, decimal_places=2, default=117.31, verbose_name="UMA")
+
     # Licenciamiento
     fecha_inicio_licencia = models.DateField(null=True, blank=True, verbose_name="Inicio de Licencia")
     fecha_vencimiento_licencia = models.DateField(null=True, blank=True, verbose_name="Vencimiento de Licencia")

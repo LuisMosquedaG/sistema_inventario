@@ -591,6 +591,10 @@ def exportar_sisub_trabajadores(request, id):
         sdi_val = grouped_data[key]['sdi']
         limit_sbc = Decimal('0.10') * sdi_val * Decimal(str(r.dias_pagados or 0))
         
+        # Obtener el UMA de la empresa para vales de despensa (código 029)
+        uma_val = Decimal(str(empresa_actual.uma or '117.31'))
+        limit_uma = Decimal('0.40') * uma_val * Decimal(str(r.dias_pagados or 30))
+        
         if r.percepciones_detalladas:
             for code, values in r.percepciones_detalladas.items():
                 code_norm = code.strip().zfill(3)
@@ -598,7 +602,13 @@ def exportar_sisub_trabajadores(request, id):
                 e_val = Decimal(str(values.get('exento', 0) or 0))
                 total_code = g_val + e_val
                 
-                if code_norm in {'010', '049'}:
+                if code_norm == '029':
+                    if total_code > limit_uma:
+                        per_var += (total_code - limit_uma)
+                        per_fij += limit_uma
+                    else:
+                        per_fij += total_code
+                elif code_norm in {'010', '049'}:
                     if total_code > limit_sbc:
                         per_var += total_code
                     else:

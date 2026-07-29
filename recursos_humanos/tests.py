@@ -417,6 +417,32 @@ class SISUBExportTest(TestCase):
         row_on = lines_on[1].split(',')
         self.assertEqual(row_on[14], '700') # Debe mostrar la suma real
 
+    def test_exportar_sisub_vales_despensa_uma_split(self):
+        self.empresa.uma = Decimal('117.31')
+        self.empresa.save()
+        
+        self.nomina.dias_pagados = Decimal('31.00')
+        self.nomina.percepciones_detalladas = {
+            '029': {'gravado': 5000.00, 'exento': 0.0}
+        }
+        self.nomina.save()
+        
+        self.client.login(username="admin@prueba", password="password")
+        from django.urls import reverse
+        url = reverse('exportar_sisub_trabajadores', args=[self.contratista.id])
+        response = self.client.get(url, {'cuatrimestre': 2, 'anio': 2026, 'formato': 'csv'})
+        
+        self.assertEqual(response.status_code, 200)
+        
+        content = response.content.decode('utf-8-sig')
+        lines = [line.strip() for line in content.splitlines() if line.strip()]
+        
+        row_data = lines[1].split(',')
+        # Columna 14 (variables): 5000 - (0.40 * 117.31 * 31) = 3545.36 -> rounded = 3545
+        self.assertEqual(row_data[14], '3545')
+        # Columna 15 (fijas): 0.40 * 117.31 * 31 = 1454.64 -> rounded = 1455
+        self.assertEqual(row_data[15], '1455')
+
     def test_exportar_sisub_contratos(self):
         import datetime
         # Configurar primer contrato
