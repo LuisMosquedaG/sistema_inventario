@@ -299,17 +299,26 @@ def exportar_sisub_contratos(request, id):
             fecha_inicio__lte=cuat_end
         ).filter(
             Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=cuat_start)
-        ).select_related('beneficiario').prefetch_related('empleados')
+        ).select_related('beneficiario').prefetch_related('empleados').order_by('folio')
 
         headers = ['Cuatrimestre', 'Año', 'RFC Sujeto', 'Folio', 'Tipo', 'Objeto', 'Monto', 'Vigencia', 'Inicio', 'Termino', 'Trabajadores', 'RFC Ben', 'Nombre Ben', 'RegPat Ben', 'Calle', 'Ext', 'Int', 'Entre', 'Y', 'Colonia', 'CP', 'Mun', 'Edo', 'Email', 'Tel']
         
         data_rows = []
         for con in contratos:
             ben = con.beneficiario
+            t_display = con.get_tipo_contrato_display()
+            if con.tipo_contrato == '01':
+                t_display = "Contrato de trabajo por tiempo indeterminado"
+            elif t_display and ' - ' in t_display:
+                t_display = t_display.split(' - ', 1)[1]
+                
             data_rows.append([
-                cuatrimestre, anio, contratista.rfc, con.folio, con.get_tipo_contrato_display(), 
-                con.objeto_contrato, con.monto_contrato, str(con.vigencia_contrato or ''), 
-                str(con.fecha_inicio or ''), str(con.fecha_fin or ''), con.empleados.count(), 
+                cuatrimestre, anio, contratista.rfc, con.folio, t_display, 
+                con.objeto_contrato, con.monto_contrato, 
+                con.vigencia_contrato.strftime('%d/%m/%Y') if con.vigencia_contrato else '',
+                con.fecha_inicio.strftime('%d/%m/%Y') if con.fecha_inicio else '', 
+                con.fecha_fin.strftime('%d/%m/%Y') if con.fecha_fin else '', 
+                con.empleados.count(), 
                 ben.rfc if ben else '', ben.nombre_razon_social if ben else '', ben.registro_patronal if ben else '', 
                 ben.calle if ben else '', ben.num_ext if ben else '', ben.num_int if ben else '', 
                 ben.entre_calle if ben else '', ben.y_calle if ben else '', ben.colonia if ben else '', 

@@ -399,6 +399,7 @@ def exportar_nominas_excel(request):
 def exportar_sisub_trabajadores(request, id):
     empresa_actual = get_empresa_actual(request); contratista = get_object_or_404(Contratista, id=id, empresa=empresa_actual)
     cuat = int(request.GET.get('cuatrimestre', 1)); anio_val = request.GET.get('anio', ''); formato = request.GET.get('formato', 'excel')
+    incluir_var = request.GET.get('percepciones_var', '1') == '1'
     if not anio_val: return HttpResponse("Año requerido", status=400)
     anio = int(anio_val); meses_filtro = {1:[1,2,3,4], 2:[5,6,7,8], 3:[9,10,11,12]}.get(cuat)
     
@@ -458,35 +459,6 @@ def exportar_sisub_trabajadores(request, id):
         # 2. ¿Coincide el empleado con la lista del contrato?
         con = emp_map.get(n_clean) or emp_map.get(curp_clean) or emp_map.get(name_clean)
         
-        # 3. Si no coincide con contrato directo pero pertenece al contratista, resolver el contrato candidato
-        if not con:
-            empleado = None
-            if n_clean: 
-                empleado = Empleado.objects.filter(empresa=empresa_actual, nss=n_clean).first()
-            if not empleado and curp_clean: 
-                empleado = Empleado.objects.filter(empresa=empresa_actual, curp=curp_clean).first()
-            if not empleado and name_clean:
-                # Búsqueda por nombres formateados
-                for e_cand in Empleado.objects.filter(empresa=empresa_actual):
-                    n1 = f"{e_cand.nombre} {e_cand.apellido_paterno} {e_cand.apellido_materno}".strip().upper()
-                    n2 = f"{e_cand.apellido_paterno} {e_cand.apellido_materno} {e_cand.nombre}".strip().upper()
-                    if name_clean in (n1, n2) or n1 in name_clean or n2 in name_clean:
-                        empleado = e_cand
-                        break
-            
-            if empleado and empleado.contratista == contratista:
-                candidate_con = None
-                if empleado.beneficiario:
-                    candidate_con = contratos.filter(beneficiario=empleado.beneficiario).first()
-                if not candidate_con:
-                    candidate_con = contratos.first()
-                
-                if candidate_con:
-                    con = candidate_con
-                    if n_clean: emp_map[n_clean] = con
-                    if curp_clean: emp_map[curp_clean] = con
-                    if name_clean: emp_map[name_clean] = con
-
         # Para que sea incluido, debe estar asociado a algún contrato activo
         if con:
             recibos.append(r)
@@ -647,7 +619,11 @@ def exportar_sisub_trabajadores(request, id):
     data_rows = []
     for key in sorted(grouped_data.keys(), key=lambda x: (x[1], x[0])):
         d = grouped_data[key]
-        per_var_rounded = int(Decimal(d['percepciones_variables']).quantize(Decimal('1'), ROUND_HALF_UP))
+        if incluir_var:
+            per_var_rounded = int(Decimal(d['percepciones_variables']).quantize(Decimal('1'), ROUND_HALF_UP))
+        else:
+            per_var_rounded = 0
+            
         per_fij_rounded = int(Decimal(d['percepciones_fijas']).quantize(Decimal('1'), ROUND_HALF_UP))
         data_rows.append([
             d['cuat'], d['anio'], d['bim'], d['contratista_rfc'], d['contrato_folio'],

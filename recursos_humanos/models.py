@@ -209,6 +209,25 @@ class Contrato(models.Model):
     def save(self, *args, **kwargs):
         # Auto-calcular 'estado_vigencia' y 'estado_periodicidad' de forma independiente en base a sus respectivas fechas
         import datetime
+        
+        def parse_date_safely(val):
+            if not val:
+                return None
+            if isinstance(val, str):
+                val_clean = val.strip()
+                if not val_clean:
+                    return None
+                for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%Y-%m-%d %H:%M:%S'):
+                    try:
+                        return datetime.datetime.strptime(val_clean, fmt).date()
+                    except ValueError:
+                        continue
+            return val
+
+        self.fecha_inicio = parse_date_safely(self.fecha_inicio)
+        self.fecha_fin = parse_date_safely(self.fecha_fin)
+        self.vigencia_contrato = parse_date_safely(self.vigencia_contrato)
+
         today = datetime.date.today()
         
         # 1. Vigencia global (Vigencia de contrato)

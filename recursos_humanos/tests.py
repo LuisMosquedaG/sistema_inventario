@@ -192,7 +192,7 @@ class SISUBExportTest(TestCase):
         row_data = lines[1].split(',')
         self.assertEqual(row_data[6], '12345678901') # NSS del trabajador
 
-    def test_exportar_sisub_fallback_matching(self):
+    def test_exportar_sisub_only_assigned_workers(self):
         # Crear un empleado que pertenece al contratista, pero no está asignado al contrato ManyToMany
         empleado_fallback = Empleado.objects.create(
             empresa=self.empresa,
@@ -208,7 +208,7 @@ class SISUBExportTest(TestCase):
         # Crear recibo de nómina para este empleado en Junio 2026 (Cuatrimestre 2)
         Nomina.objects.create(
             empresa=self.empresa,
-            empleado=None,  # Para forzar la búsqueda en BD por NSS/CURP
+            empleado=None,
             periodo="SAT Bimestre 3 2026",
             fecha_pago="2026-06-15",
             rfc="JUAN000000XX2",
@@ -229,12 +229,12 @@ class SISUBExportTest(TestCase):
         content = response.content.decode('utf-8-sig')
         lines = [line.strip() for line in content.splitlines() if line.strip()]
         
-        # Debe incluir ambos trabajadores (Pedro Perez y Juan Gomez)
-        self.assertEqual(len(lines), 3)
+        # No debe incluir a Juan Gomez porque no está asignado al contrato (solo Pedro Perez + cabecera = 2 líneas)
+        self.assertEqual(len(lines), 2)
         
-        # Verificar que el NSS de Juan Gomez (98765432101) esté presente
+        # Verificar que el NSS de Juan Gomez (98765432101) NO esté presente
         nss_list = [line.split(',')[6] for line in lines[1:]]
-        self.assertIn('98765432101', nss_list)
+        self.assertNotIn('98765432101', nss_list)
 
     def test_exportar_sisub_consolida_percepciones(self):
         # Crear segunda nomina en el mismo bimestre (Junio 2026 -> Bimestre 3)
@@ -391,6 +391,103 @@ class SISUBExportTest(TestCase):
         self.assertEqual(row_data[14], '700')
         # Columna 15 (fijas): 1000 + 100 = 1100
         self.assertEqual(row_data[15], '1100')
+
+    def test_exportar_sisub_percepciones_variables_switch(self):
+        self.nomina.percepciones_detalladas = {
+            '010': {'gravado': 500.0, 'exento': 0.0},
+            '019': {'gravado': 0.0, 'exento': 200.0}
+        }
+        self.nomina.save()
+        
+        self.client.login(username="admin@prueba", password="password")
+        from django.urls import reverse
+        url = reverse('exportar_sisub_trabajadores', args=[self.contratista.id])
+        
+        # 1. Con switch apagado (percepciones_var = '0')
+        response_off = self.client.get(url, {'cuatrimestre': 2, 'anio': 2026, 'formato': 'csv', 'percepciones_var': '0'})
+        self.assertEqual(response_off.status_code, 200)
+        lines_off = [l.strip() for l in response_off.content.decode('utf-8-sig').splitlines() if l.strip()]
+        row_off = lines_off[1].split(',')
+        self.assertEqual(row_off[14], '0')  # Debe mostrar 0 en columna O
+        
+        # 2. Con switch encendido (percepciones_var = '1')
+        response_on = self.client.get(url, {'cuatrimestre': 2, 'anio': 2026, 'formato': 'csv', 'percepciones_var': '1'})
+        self.assertEqual(response_on.status_code, 200)
+        lines_on = [l.strip() for l in response_on.content.decode('utf-8-sig').splitlines() if l.strip()]
+        row_on = lines_on[1].split(',')
+        self.assertEqual(row_on[14], '700') # Debe mostrar la suma real
+
+    def test_exportar_sisub_contratos(self):
+        import datetime
+        # Configurar primer contrato
+        self.contrato.folio = 'CON-002'
+        self.contrato.fecha_inicio = datetime.date(2026, 6, 15)
+        self.contrato.fecha_fin = datetime.date(2026, 8, 30)
+        self.contrato.vigencia_contrato = datetime.date(2026, 8, 31)
+        self.contrato.save()
+        
+        # Crear segundo contrato (debe ir primero en ordenamiento por folio)
+        contrato_2 = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            beneficiario=None,
+            folio='CON-001',
+            tipo_contrato='01',
+            fecha_inicio=datetime.date(2026, 5, 10),
+            fecha_fin=datetime.date(2026, 6, 20),
+            vigencia_contrato=datetime.date(2026, 7, 1),
+            estado="vigente"
+        )
+        
+        self.client.login(username="admin@prueba", password="password")
+        from django.urls import reverse
+        url = reverse('exportar_sisub_contratos', args=[self.contratista.id])
+        response = self.client.get(url, {'cuatrimestre': 2, 'anio': 2026, 'formato': 'csv'})
+        
+        self.assertEqual(response.status_code, 200)
+        
+        # Analizar el contenido del CSV
+        content = response.content.decode('utf-8-sig')
+        lines = [line.strip() for line in content.splitlines() if line.strip()]
+        
+        self.assertEqual(len(lines), 3)
+        
+        row_1 = lines[1].split(',')
+        row_2 = lines[2].split(',')
+        
+        # Verificar ordenamiento por folio
+        self.assertEqual(row_1[3], 'CON-001')
+        self.assertEqual(row_2[3], 'CON-002')
+        
+        # Verificar que el tipo de contrato para el código 01 haya perdido el prefijo
+        self.assertEqual(row_1[4], 'Contrato de trabajo por tiempo indeterminado')
+        
+        # Verificar formato de fecha dd/mm/aaaa en Vigencia, Inicio, Término
+        self.assertEqual(row_1[7], '01/07/2026')
+        self.assertEqual(row_1[8], '10/05/2026')
+        self.assertEqual(row_1[9], '20/06/2026')
+
+    def test_contrato_save_string_dates(self):
+        import datetime
+        con = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            beneficiario=None,
+            folio="CON-TEST-STR",
+            tipo_contrato="01",
+            fecha_inicio="2026-06-01",
+            fecha_fin="2026-12-31",
+            vigencia_contrato="2027-01-01",
+            estado="vigente"
+        )
+        self.assertIsInstance(con.fecha_inicio, datetime.date)
+        self.assertEqual(con.fecha_inicio, datetime.date(2026, 6, 1))
+        
+        self.assertIsInstance(con.fecha_fin, datetime.date)
+        self.assertEqual(con.fecha_fin, datetime.date(2026, 12, 31))
+        
+        self.assertIsInstance(con.vigencia_contrato, datetime.date)
+        self.assertEqual(con.vigencia_contrato, datetime.date(2027, 1, 1))
 
     def test_exportar_nominas_excel(self):
         # Crear un recibo con percepciones para exportar
