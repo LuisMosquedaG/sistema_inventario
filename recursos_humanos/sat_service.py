@@ -215,9 +215,6 @@ class SATService:
                         vacaciones_exento += imp_exento
                     elif tipo == '001':
                         sueldo_gravado += imp_gravado
-                    else:
-                        # Por defecto, sumamos el importe gravado al sueldo
-                        sueldo_gravado += imp_gravado
 
             Nomina.objects.update_or_create(
                 empresa=empresa_actual,

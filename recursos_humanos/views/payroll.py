@@ -605,9 +605,6 @@ def exportar_sisub_trabajadores(request, id):
                 if code_norm == '029':
                     if total_code > limit_uma:
                         per_var += (total_code - limit_uma)
-                        per_fij += limit_uma
-                    else:
-                        per_fij += total_code
                 elif code_norm in {'010', '049'}:
                     if total_code > limit_sbc:
                         per_var += total_code

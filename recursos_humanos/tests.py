@@ -440,8 +440,8 @@ class SISUBExportTest(TestCase):
         row_data = lines[1].split(',')
         # Columna 14 (variables): 5000 - (0.40 * 117.31 * 31) = 3545.36 -> rounded = 3545
         self.assertEqual(row_data[14], '3545')
-        # Columna 15 (fijas): 0.40 * 117.31 * 31 = 1454.64 -> rounded = 1455
-        self.assertEqual(row_data[15], '1455')
+        # Columna 15 (fijas): 0 ya que los vales no integran a fijas en ningún caso
+        self.assertEqual(row_data[15], '0')
 
     def test_exportar_sisub_contratos(self):
         import datetime
