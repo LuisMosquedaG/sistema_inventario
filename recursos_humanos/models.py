@@ -621,6 +621,8 @@ class Nomina(models.Model):
     vacaciones_dignas_gravado = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Vacaciones Dignas (Gravado)")
     aguinaldo_gravado = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Aguinaldo (Gravado)")
     percepciones_detalladas = models.JSONField(default=dict, blank=True, verbose_name="Detalle de Percepciones SAT")
+    deducciones_detalladas = models.JSONField(default=dict, blank=True, verbose_name="Detalle de Deducciones SAT")
+    retiros_ahorro_excedido = models.BooleanField(default=False, verbose_name="Más de 2 retiros de Fondo de Ahorro")
 
     @property
     def total_percepciones(self):

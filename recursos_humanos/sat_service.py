@@ -216,6 +216,22 @@ class SATService:
                     elif tipo == '001':
                         sueldo_gravado += imp_gravado
 
+            deducciones_detalladas_dict = {}
+            deducciones_node = nomina_node.find('.//{*}Deducciones')
+            if deducciones_node is not None:
+                for ded in deducciones_node.findall('.//{*}Deduccion'):
+                    tipo = get_attr(ded, 'TipoDeduccion', '')
+                    if not tipo:
+                        continue
+                    try:
+                        imp_ded = Decimal(get_attr(ded, 'Importe', '0'))
+                    except:
+                        imp_ded = Decimal('0.00')
+                    
+                    if tipo not in deducciones_detalladas_dict:
+                        deducciones_detalladas_dict[tipo] = {'importe': 0.0}
+                    deducciones_detalladas_dict[tipo]['importe'] += float(imp_ded)
+
             Nomina.objects.update_or_create(
                 empresa=empresa_actual,
                 uuid=uuid_val,
@@ -243,6 +259,7 @@ class SATService:
                     'vacaciones_dignas_gravado': vacaciones_dignas_gravado,
                     'aguinaldo_gravado': aguinaldo_gravado,
                     'percepciones_detalladas': percepciones_detalladas_dict,
+                    'deducciones_detalladas': deducciones_detalladas_dict,
                 }
             )
             return True

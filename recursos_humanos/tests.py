@@ -442,6 +442,116 @@ class SISUBExportTest(TestCase):
         self.assertEqual(row_data[14], '3545')
         # Columna 15 (fijas): 0 ya que los vales no integran a fijas en ningún caso
         self.assertEqual(row_data[15], '0')
+        # Columna 17 (no integrables): 0.40 * 117.31 * 31 = 1454.64 -> rounded = 1455
+        self.assertEqual(row_data[17], '1455')
+
+    def test_exportar_sisub_conceptos_especiales(self):
+        import datetime
+        from django.urls import reverse
+        self.client.login(username="admin@prueba", password="password")
+        url = reverse('exportar_sisub_trabajadores', args=[self.contratista.id])
+
+        # --- CASO 1: PTU a tiempo (Mayo 2026, Bimestre 3) ---
+        self.nomina.fecha_pago = datetime.date(2026, 5, 15)
+        self.nomina.fecha_inicial_pago = datetime.date(2026, 5, 1)
+        self.nomina.fecha_final_pago = datetime.date(2026, 5, 15)
+        self.nomina.dias_pagados = 15
+        self.nomina.sdi = 200.00  # Límite PTU = 90 * 200 = 18000
+        self.nomina.percepciones_detalladas = {
+            '003': {'gravado': 25000.00, 'exento': 0.0}
+        }
+        self.nomina.deducciones_detalladas = {}
+        self.nomina.save()
+        
+        response = self.client.get(url, {'cuatrimestre': 2, 'anio': 2026, 'formato': 'csv'})
+        self.assertEqual(response.status_code, 200)
+        row = response.content.decode('utf-8-sig').splitlines()[1].split(',')
+        self.assertEqual(row[14], '7000')  # var: 25000 - 18000 = 7000
+        self.assertEqual(row[17], '18000') # no_int: 18000
+
+        # --- CASO 2: PTU fuera de plazo (Junio 2026) ---
+        self.nomina.fecha_pago = datetime.date(2026, 6, 15)
+        self.nomina.fecha_inicial_pago = datetime.date(2026, 6, 1)
+        self.nomina.fecha_final_pago = datetime.date(2026, 6, 15)
+        self.nomina.percepciones_detalladas = {
+            '003': {'gravado': 25000.00, 'exento': 0.0}
+        }
+        self.nomina.save()
+        
+        response = self.client.get(url, {'cuatrimestre': 2, 'anio': 2026, 'formato': 'csv'})
+        row = response.content.decode('utf-8-sig').splitlines()[1].split(',')
+        self.assertEqual(row[14], '25000') # var: todo integra por fuera de plazo
+        self.assertEqual(row[17], '0')     # no_int: 0
+
+        # --- CASO 3: Fondo de Ahorro sin excedentes (Junio 2026) ---
+        self.nomina.fecha_pago = datetime.date(2026, 6, 15)
+        self.nomina.fecha_inicial_pago = datetime.date(2026, 6, 1)
+        self.nomina.fecha_final_pago = datetime.date(2026, 6, 15)
+        self.nomina.percepciones_detalladas = {
+            '005': {'gravado': 0.0, 'exento': 1000.00}
+        }
+        self.nomina.deducciones_detalladas = {
+            '005': {'importe': 1000.00}
+        }
+        self.nomina.retiros_ahorro_excedido = False
+        self.nomina.save()
+        
+        response = self.client.get(url, {'cuatrimestre': 2, 'anio': 2026, 'formato': 'csv'})
+        row = response.content.decode('utf-8-sig').splitlines()[1].split(',')
+        self.assertEqual(row[14], '0')     # var: 0
+        self.assertEqual(row[17], '1000')  # no_int: 1000
+
+        # --- CASO 4: Fondo de Ahorro con excedentes patronal (Junio 2026) ---
+        self.nomina.percepciones_detalladas = {
+            '005': {'gravado': 0.0, 'exento': 1500.00}
+        }
+        self.nomina.deducciones_detalladas = {
+            '005': {'importe': 1000.00}
+        }
+        self.nomina.save()
+        
+        response = self.client.get(url, {'cuatrimestre': 2, 'anio': 2026, 'formato': 'csv'})
+        row = response.content.decode('utf-8-sig').splitlines()[1].split(',')
+        self.assertEqual(row[14], '500')    # var: 1500 - 1000 = 500
+        self.assertEqual(row[17], '1000')   # no_int: 1000
+
+        # --- CASO 5: Fondo de Ahorro con retiros excedidos (Junio 2026) ---
+        self.nomina.retiros_ahorro_excedido = True
+        self.nomina.save()
+        
+        response = self.client.get(url, {'cuatrimestre': 2, 'anio': 2026, 'formato': 'csv'})
+        row = response.content.decode('utf-8-sig').splitlines()[1].split(',')
+        self.assertEqual(row[14], '1500')   # var: todo integra
+        self.assertEqual(row[17], '0')      # no_int: 0
+
+        # --- CASO 6: Alimentación onerosa (Descuento >= 20% UMA) (Junio 2026) ---
+        # UMA = 117.31. Dias = 15. Min discount = 0.20 * 117.31 * 15 = 351.93
+        self.nomina.retiros_ahorro_excedido = False
+        self.nomina.dias_pagados = 15
+        self.nomina.percepciones_detalladas = {
+            '047': {'gravado': 3000.00, 'exento': 0.0}
+        }
+        self.nomina.deducciones_detalladas = {
+            '007': {'importe': 360.00}  # 360 >= 351.93
+        }
+        self.nomina.save()
+        
+        response = self.client.get(url, {'cuatrimestre': 2, 'anio': 2026, 'formato': 'csv'})
+        row = response.content.decode('utf-8-sig').splitlines()[1].split(',')
+        self.assertEqual(row[15], '0')     # fijas: 0
+        self.assertEqual(row[17], '3000')  # no_int: 3000
+
+        # --- CASO 7: Alimentación no onerosa (Descuento < 20% UMA) (Junio 2026) ---
+        self.nomina.deducciones_detalladas = {
+            '007': {'importe': 300.00}  # 300 < 351.93
+        }
+        self.nomina.save()
+        
+        response = self.client.get(url, {'cuatrimestre': 2, 'anio': 2026, 'formato': 'csv'})
+        row = response.content.decode('utf-8-sig').splitlines()[1].split(',')
+        self.assertEqual(row[15], '3000')  # fijas: 3000 (integra completo)
+        self.assertEqual(row[17], '0')     # no_int: 0
+
 
     def test_exportar_sisub_contratos(self):
         import datetime

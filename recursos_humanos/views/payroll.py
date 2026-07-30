@@ -613,6 +613,9 @@ def exportar_sisub_trabajadores(request, id):
                     
                     if empleado and empleado.sdi and empleado.sdi > 0:
                         sdi_val = empleado.sdi
+                    
+                    if (not sdi_val or sdi_val == 0) and r.sdi and r.sdi > 0:
+                        sdi_val = r.sdi
             
             grouped_data[key] = {
                 'cuat': cuat,
@@ -631,6 +634,7 @@ def exportar_sisub_trabajadores(request, id):
                 'entidad': ben.entidad_federativa if ben else '',
                 'percepciones_variables': Decimal('0.00'),
                 'percepciones_fijas': Decimal('0.00'),
+                'percepciones_no_integrables': Decimal('0.00'),
                 'incapacidades': s['inc'],
                 'sdi': sdi_val
             }
@@ -639,6 +643,7 @@ def exportar_sisub_trabajadores(request, id):
         variables_codes = {'019', '020', '028', '038', '054', '056'}
         per_var = Decimal('0.00')
         per_fij = Decimal('0.00')
+        per_no_int = Decimal('0.00')
         
         # Obtener el SDI/SBC resuelto para el cálculo del límite del periodo
         sdi_val = grouped_data[key]['sdi']
@@ -662,14 +667,70 @@ def exportar_sisub_trabajadores(request, id):
                 
                 v_contrib = Decimal('0.00')
                 f_contrib = Decimal('0.00')
+                no_int_contrib = Decimal('0.00')
                 clasif = ""
                 
                 if code_norm == '029':
                     if total_code > limit_uma:
                         v_contrib = total_code - limit_uma
+                        no_int_contrib = limit_uma
                         clasif = "Variable (Excedente UMA)"
                     else:
-                        clasif = "Exento (No integra)"
+                        no_int_contrib = total_code
+                        clasif = "No Integrable (Dentro de UMA)"
+                elif code_norm == '003':  # PTU
+                    pago_fecha = r.fecha_pago or r.fecha_final_pago
+                    fuera_de_plazo = True
+                    if pago_fecha and pago_fecha.month in [4, 5]:
+                        fuera_de_plazo = False
+                    
+                    if fuera_de_plazo:
+                        v_contrib = total_code
+                        no_int_contrib = Decimal('0.00')
+                        clasif = "Variable (PTU fuera de plazo)"
+                    else:
+                        limite_ptu = Decimal('90.00') * sdi_val
+                        if total_code > limite_ptu:
+                            v_contrib = total_code - limite_ptu
+                            no_int_contrib = limite_ptu
+                            clasif = "Variable (PTU excede 3 meses)"
+                        else:
+                            v_contrib = Decimal('0.00')
+                            no_int_contrib = total_code
+                            clasif = "No Integrable (PTU dentro de límite)"
+                elif code_norm == '005':  # Fondo de Ahorro
+                    ahorro_excedido = getattr(r, 'retiros_ahorro_excedido', False)
+                    if ahorro_excedido:
+                        v_contrib = total_code
+                        no_int_contrib = Decimal('0.00')
+                        clasif = "Variable (Fondo Ahorro >2 retiros)"
+                    else:
+                        ded_dict = r.deducciones_detalladas or {}
+                        ded_ahorro = Decimal(str(ded_dict.get('005', {}).get('importe', 0) or 0))
+                        
+                        if total_code > ded_ahorro:
+                            v_contrib = total_code - ded_ahorro
+                            no_int_contrib = ded_ahorro
+                            clasif = "Variable (Exceso aportación patrón)"
+                        else:
+                            v_contrib = Decimal('0.00')
+                            no_int_contrib = total_code
+                            clasif = "No Integrable (Fondo Ahorro)"
+                elif code_norm == '047':  # Alimentación
+                    ded_dict = r.deducciones_detalladas or {}
+                    ded_alimentacion = Decimal(str(ded_dict.get('007', {}).get('importe', 0) or 0))
+                    descuento_min = Decimal('0.20') * uma_val * Decimal(str(r.dias_pagados or 30))
+                    
+                    if ded_alimentacion >= descuento_min:
+                        v_contrib = Decimal('0.00')
+                        f_contrib = Decimal('0.00')
+                        no_int_contrib = total_code
+                        clasif = "No Integrable (Alimentación >=20% UMA)"
+                    else:
+                        v_contrib = Decimal('0.00')
+                        f_contrib = total_code
+                        no_int_contrib = Decimal('0.00')
+                        clasif = "Fijo (Alimentación integra)"
                 elif code_norm in {'010', '049'}:
                     if total_code > limit_sbc:
                         v_contrib = total_code
@@ -686,11 +747,12 @@ def exportar_sisub_trabajadores(request, id):
                 
                 per_var += v_contrib
                 per_fij += f_contrib
+                per_no_int += no_int_contrib
                 
                 detalle_rows.append([
                     bim, r.nss, r.nombre, con_folio, nom_ref, periodo_str, float(r.dias_pagados or 0),
                     code_norm, CONCEPTOS_SAT.get(code_norm, "Concepto no especificado"),
-                    float(g_val), float(e_val), float(total_code), clasif, float(f_contrib), float(v_contrib)
+                    float(g_val), float(e_val), float(total_code), clasif, float(f_contrib), float(v_contrib), float(no_int_contrib)
                 ])
         else:
             legacy_total = (r.vacaciones_exento or 0) + (r.vacaciones_dignas_exento or 0) + (r.aguinaldo_exento or 0) + \
@@ -702,11 +764,12 @@ def exportar_sisub_trabajadores(request, id):
                 "LEG", "Sueldos y Vacaciones (Legacy)",
                 float(r.sueldo_gravado or 0), 
                 float((r.vacaciones_exento or 0) + (r.vacaciones_dignas_exento or 0) + (r.aguinaldo_exento or 0)),
-                float(legacy_total), "Fijo (Legacy)", float(legacy_total), 0.0
+                float(legacy_total), "Fijo (Legacy)", float(legacy_total), 0.0, 0.0
             ])
 
         grouped_data[key]['percepciones_variables'] += per_var
         grouped_data[key]['percepciones_fijas'] += per_fij
+        grouped_data[key]['percepciones_no_integrables'] += per_no_int
 
     data_rows = []
     for key in sorted(grouped_data.keys(), key=lambda x: (x[1], x[0])):
@@ -717,11 +780,12 @@ def exportar_sisub_trabajadores(request, id):
             per_var_rounded = 0
             
         per_fij_rounded = int(Decimal(d['percepciones_fijas']).quantize(Decimal('1'), ROUND_HALF_UP))
+        per_no_int_rounded = int(Decimal(d['percepciones_no_integrables']).quantize(Decimal('1'), ROUND_HALF_UP))
         data_rows.append([
             d['cuat'], d['anio'], d['bim'], d['contratista_rfc'], d['contrato_folio'],
             d['registro_patronal'], d['nss'], d['calle'], d['num_ext'], d['num_int'],
             d['colonia'], d['cp'], d['municipio'], d['entidad'], 
-            per_var_rounded, per_fij_rounded, d['incapacidades'], 0, d['sdi']
+            per_var_rounded, per_fij_rounded, d['incapacidades'], per_no_int_rounded, d['sdi']
         ])
 
     if formato == 'csv':
@@ -748,7 +812,7 @@ def exportar_sisub_trabajadores(request, id):
             "Bimestre", "NSS del Trabajador", "Nombre del Trabajador", "Folio de Contrato", 
             "Ref Nómina", "Periodo Pago", "Días Pagados", "Código SAT", "Concepto SAT", 
             "Importe Gravado", "Importe Exento", "Importe Total", "Clasificación", 
-            "Monto Fijo Integrado", "Monto Variable Integrado"
+            "Monto Fijo Integrado", "Monto Variable Integrado", "Monto No Integrable"
         ]
         
         for col_idx, h in enumerate(headers_det, 1):
@@ -759,7 +823,7 @@ def exportar_sisub_trabajadores(request, id):
             for col_idx, v in enumerate(rd, 1):
                 cl = ws_det.cell(row=row_idx, column=col_idx, value=v)
                 cl.border = br
-                if col_idx in [10, 11, 12, 14, 15]:
+                if col_idx in [10, 11, 12, 14, 15, 16]:
                     cl.number_format = '$#,##0.00'
                 elif col_idx == 7:
                     cl.number_format = '0.0'
