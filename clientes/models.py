@@ -3,8 +3,8 @@ from panel.models import Empresa  # <--- IMPORTANTE
 
 class Cliente(models.Model):
     # 1. Datos de la Persona
-    nombre = models.CharField(max_length=100, verbose_name="Nombre")
-    apellidos = models.CharField(max_length=100, verbose_name="Apellidos")
+    nombre = models.CharField(max_length=100, blank=True, null=True, verbose_name="Nombre")
+    apellidos = models.CharField(max_length=100, blank=True, null=True, verbose_name="Apellidos")
     
     # --- NUEVO CAMPO: MULTI-TENANCY ---
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Empresa (Tenant)")
@@ -75,7 +75,12 @@ class Cliente(models.Model):
         """Devuelve Razón Social si existe, sino Nombre + Apellidos"""
         if self.razon_social:
             return self.razon_social
-        return f"{self.nombre} {self.apellidos}".strip()
+        parts = []
+        if self.nombre and self.nombre != 'None':
+            parts.append(self.nombre)
+        if self.apellidos and self.apellidos != 'None':
+            parts.append(self.apellidos)
+        return " ".join(parts).strip() or "Sin nombre"
 
     class Meta:
         verbose_name = "Cliente"
@@ -102,3 +107,15 @@ class ContactoCliente(models.Model):
     class Meta:
         verbose_name = "Contacto"
         verbose_name_plural = "Contactos"
+
+
+class Credito(models.Model):
+    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='creditos', verbose_name="Cliente")
+    pedido = models.ForeignKey('pedidos.Pedido', on_delete=models.CASCADE, related_name='creditos', verbose_name="Pedido")
+    monto_total = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Monto Total")
+    saldo = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Saldo Pendiente")
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Empresa")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
+
+    def __str__(self):
+        return f"Crédito PED-{self.pedido.id:04d} - Saldo: ${self.saldo}"

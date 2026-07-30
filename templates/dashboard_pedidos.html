@@ -53,6 +53,7 @@
         .pay-pendiente { background-color: #fff5f5; color: #e03131; border-color: #ffc9c9; }
         .pay-parcial { background-color: #fff9db; color: #f08c00; border-color: #ffec99; }
         .pay-pagado { background-color: #ebfbee; color: #2f9e44; border-color: #b2f2bb; }
+        .pay-credito { background-color: #f3f0ff; color: #7048e8; border-color: #d0bfff; }
 
         /* ESTILOS ESPECÍFICOS */
         .fila-hija { background-color: #fafafa; border-left: 4px solid #ff9800; }
@@ -444,6 +445,8 @@
                                         <span class="pay-pill pay-parcial">Pago parcial</span>
                                     {% elif p.pago_estado == 'pagado' %}
                                         <span class="pay-pill pay-pagado">Pagado</span>
+                                    {% elif p.pago_estado == 'credito' %}
+                                        <span class="pay-pill pay-credito">Crédito</span>
                                     {% endif %}
                                 </td>
 

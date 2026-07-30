@@ -282,12 +282,19 @@ def dashboard_clientes(request):
     todos_los_productos = Producto.objects.filter(empresa=empresa_actual)
     form = ClienteForm()
     
+    from tesoreria.models import CajaBanco
+    from preferencias.models import Moneda
+    cajas = CajaBanco.objects.filter(empresa=empresa_actual, activo=True)
+    monedas = Moneda.objects.filter(empresa=empresa_actual)
+    
     contexto = {
         'page_obj': page_obj,
         'todos_los_clientes': Cliente.objects.filter(empresa=empresa_actual), # Para el selector de filtro
         'productos': todos_los_productos,
         'form': form,
-        'filtros': filtros
+        'filtros': filtros,
+        'cajas': cajas,
+        'monedas': monedas,
     }
     return render(request, 'dashboard_clientes.html', contexto)
 
@@ -441,3 +448,28 @@ def guardar_contactos_cliente(request, cliente_id):
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False})
+
+
+@login_required(login_url='/login/')
+@require_sales_permission('clientes', 'ver')
+def api_creditos_cliente(request, cliente_id):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'No se pudo detectar tu empresa.'}, status=403)
+        
+    cliente = get_object_or_404(Cliente, id=cliente_id, empresa=empresa_actual)
+    from clientes.models import Credito
+    
+    creditos = Credito.objects.filter(cliente=cliente, saldo__gt=0, empresa=empresa_actual).order_by('-fecha_creacion')
+    
+    data = []
+    for c in creditos:
+        data.append({
+            'pedido_id': c.pedido.id,
+            'folio': f"PED-{c.pedido.id:04d}",
+            'fecha_pedido': c.pedido.fecha_creacion.strftime('%d/%m/%Y'),
+            'total_pedido': float(c.pedido.total_pedido),
+            'monto_credito': float(c.monto_total),
+            'saldo_pendiente': float(c.saldo),
+        })
+    return JsonResponse({'success': True, 'creditos': data})

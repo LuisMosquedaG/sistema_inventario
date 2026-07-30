@@ -104,6 +104,10 @@ class Pedido(models.Model):
     @property
     def pago_estado(self):
         """Calcula el estado de pago basado en los abonos registrados"""
+        # Si el pedido tiene un crédito activo (con saldo > 0), su estado es 'credito'
+        if self.creditos.filter(saldo__gt=0).exists():
+            return 'credito'
+
         total = self.total_pedido
         pagado = self.total_pagado
         

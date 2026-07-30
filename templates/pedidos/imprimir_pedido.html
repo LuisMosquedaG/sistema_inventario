@@ -92,7 +92,7 @@
                 <div class="info-item"><span class="info-label">Vendedor:</span> <span class="info-value">{{ vendedor_nombre }}</span></div>
                 <div class="info-item"><span class="info-label">Estado:</span> <span class="info-value">{{ pedido.get_estado_display }}</span></div>
                 <div class="info-item"><span class="info-label">Estado Pago:</span> <span class="info-value">
-                    {% if pedido.pago_estado == 'pendiente' %}Pendiente{% elif pedido.pago_estado == 'parcial' %}Parcial{% elif pedido.pago_estado == 'pagado' %}Pagado{% else %}{{ pedido.pago_estado|title }}{% endif %}
+                    {% if pedido.pago_estado == 'pendiente' %}Pendiente{% elif pedido.pago_estado == 'parcial' %}Parcial{% elif pedido.pago_estado == 'pagado' %}Pagado{% elif pedido.pago_estado == 'credito' %}Crédito{% else %}{{ pedido.pago_estado|title }}{% endif %}
                 </span></div>
             </div>
         </div>

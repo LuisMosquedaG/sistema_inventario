@@ -22,7 +22,8 @@ from cotizaciones.views import (
 from clientes.views import (
     dashboard_clientes, crear_cliente, obtener_cliente_json, actualizar_cliente, 
     obtener_contactos_cliente, guardar_contactos_cliente,
-    descargar_plantilla_clientes, importar_clientes_ajax, exportar_clientes_excel
+    descargar_plantilla_clientes, importar_clientes_ajax, exportar_clientes_excel,
+    api_creditos_cliente
 )
 from preferencias.views import (
     dashboard_preferencias, crear_usuario_ajax, crear_moneda_ajax,
@@ -117,6 +118,7 @@ urlpatterns = [
     path('clientes/actualizar/<int:cliente_id>/', actualizar_cliente, name='actualizar_cliente'),
     path('api/clientes/<int:cliente_id>/contactos/', obtener_contactos_cliente, name='obtener_contactos'),
     path('api/clientes/guardar/<int:cliente_id>/', guardar_contactos_cliente, name='guardar_contactos'),
+    path('api/clientes/<int:cliente_id>/creditos/', api_creditos_cliente, name='api_creditos_cliente'),
     path('clientes/plantilla/', descargar_plantilla_clientes, name='descargar_plantilla_clientes'),
     path('clientes/importar/', importar_clientes_ajax, name='importar_clientes_ajax'),
     path('clientes/exportar/', exportar_clientes_excel, name='exportar_clientes_excel'),

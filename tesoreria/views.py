@@ -408,6 +408,17 @@ def api_registrar_pago_pedido(request):
                 sucursal=sucursal_obj
             )
             
+            # --- ACTUALIZAR CRÉDITO DEL PEDIDO ---
+            from clientes.models import Credito
+            credito_obj = Credito.objects.filter(pedido=pedido, saldo__gt=0).first()
+            if credito_obj:
+                nuevo_saldo = pedido.saldo_pendiente
+                if nuevo_saldo <= 0:
+                    credito_obj.delete()
+                else:
+                    credito_obj.saldo = nuevo_saldo
+                    credito_obj.save()
+            
             # --- NOTIFICACIÓN ---
             crear_notificacion(
                 empresa=empresa_actual,

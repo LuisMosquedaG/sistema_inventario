@@ -1204,17 +1204,31 @@ def crear_venta_pos_ajax(request):
 
             # 2. Validar y procesar pagos
             total_pagos_ingresados = Decimal('0.00')
+            monto_credito = Decimal('0.00')
             for p in pagos:
-                total_pagos_ingresados += Decimal(str(p.get('monto', 0)))
+                if p.get('forma_pago') == 'credito':
+                    monto_credito += Decimal(str(p.get('monto', 0)))
+                else:
+                    total_pagos_ingresados += Decimal(str(p.get('monto', 0)))
 
-            if total_pagos_ingresados < total_pedido:
-                raise ValueError(f"El monto total pagado (${total_pagos_ingresados}) es menor al total de la venta (${total_pedido}).")
+            if total_pagos_ingresados + monto_credito < total_pedido:
+                raise ValueError(f"El monto total pagado y a crédito (${total_pagos_ingresados + monto_credito}) es menor al total de la venta (${total_pedido}).")
 
-            cambio = total_pagos_ingresados - total_pedido
+            # Si el monto pagado excede el pedido, primero ajustamos la parte a crédito
+            cambio = (total_pagos_ingresados + monto_credito) - total_pedido
+            if cambio > 0 and monto_credito > 0:
+                if monto_credito >= cambio:
+                    monto_credito -= cambio
+                    cambio = Decimal('0')
+                else:
+                    cambio -= monto_credito
+                    monto_credito = Decimal('0')
 
             pagos_ajustados = []
             for p in pagos:
                 fp = p.get('forma_pago')
+                if fp == 'credito':
+                    continue
                 db_fp = fp
                 if fp == 'efectivo':
                     caja_banco = sesion.caja_pos.caja_efectivo
@@ -1290,6 +1304,17 @@ def crear_venta_pos_ajax(request):
                 almacen=almacen,
                 fecha_surtido=timezone.now()
             )
+
+            # Si hay porción de crédito, registrar el documento de Cuenta por Cobrar
+            if monto_credito > 0:
+                from clientes.models import Credito
+                Credito.objects.create(
+                    cliente=cliente,
+                    pedido=pedido,
+                    monto_total=monto_credito,
+                    saldo=monto_credito,
+                    empresa=empresa_actual
+                )
 
             # 4. Crear DetallePedido, DetalleOrdenVenta y Transaccion
             for item in items:
