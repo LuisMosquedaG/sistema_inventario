@@ -650,7 +650,7 @@ def exportar_sisub_trabajadores(request, id):
         
         con = emp_map.get(n) or emp_map.get(curp) or emp_map.get(name)
         con_folio = con.folio if con and con.folio else "S/F"
-        periodo_str = r.fecha_final_pago.strftime('%m/%d/%Y') if r.fecha_final_pago else ''
+        periodo_str = r.fecha_pago.strftime('%d/%m/%Y') if r.fecha_pago else (r.fecha_final_pago.strftime('%d/%m/%Y') if r.fecha_final_pago else '')
         nom_ref = f"{r.serie or ''} {r.folio or ''}".strip() or str(r.id)
 
         if r.percepciones_detalladas:
