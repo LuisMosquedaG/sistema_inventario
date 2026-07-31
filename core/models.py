@@ -92,6 +92,7 @@ class Producto(models.Model):
     
     maneja_lote = models.BooleanField(default=False, verbose_name="Maneja Lote")
     maneja_serie = models.BooleanField(default=False, verbose_name="Maneja No. Serie")
+    maneja_caducidad = models.BooleanField(default=False, verbose_name="Maneja Caducidad")
     mostrar_en_pos = models.BooleanField(default=True, verbose_name="Mostrar en POS")
     permitir_modificadores = models.BooleanField(default=False, verbose_name="Permitir Modificadores")
     

@@ -150,11 +150,14 @@ def procesar_recepcion_servicio(data_post, empresa_actual, usuario=None):
                             lote=extra.get('lote'),
                             cantidad_lote=extra.get('cantidad_lote', 0),
                             serie=extra.get('serie'),
+                            fecha_caducidad=extra.get('fecha_caducidad'),
                             almacen=almacen  # <--- ASIGNAR ALMACÉN INICIAL
                         )
                         # Capturar el primero para el Kardex
                         if extra['tipo'] == 'lote' and not lote_kardex:
                             lote_kardex = extra.get('lote')
+                        if extra['tipo'] == 'caducidad' and not lote_kardex:
+                            lote_kardex = extra.get('fecha_caducidad')
                         if extra['tipo'] == 'serie' and not serie_kardex:
                             serie_kardex = extra.get('serie')
                 except json.JSONDecodeError: pass

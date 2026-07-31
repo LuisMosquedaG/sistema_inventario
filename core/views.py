@@ -538,6 +538,7 @@ def crear_producto_ajax(request):
                 # Manejo manual de switches
                 producto.maneja_lote = request.POST.get('maneja_lote') == 'on'
                 producto.maneja_serie = request.POST.get('maneja_serie') == 'on'
+                producto.maneja_caducidad = request.POST.get('maneja_caducidad') == 'on'
                 producto.tiene_iva = request.POST.get('tiene_iva') == 'on'
                 producto.mostrar_en_pos = request.POST.get('mostrar_en_pos') == 'on'
                 producto.permitir_modificadores = request.POST.get('permitir_modificadores') == 'on'
@@ -580,73 +581,129 @@ def dashboard_inventario(request):
     stock_status = request.GET.get('existencias')
     categoria_id = request.GET.get('categoria')
 
-    productos_qs = Producto.objects.filter(empresa=empresa_actual)
-
-    # NOTA: El filtrado por sucursal/almacén NO debe reducir el catálogo de productos.
-    # Solo debe afectar a las cantidades que se muestran en las columnas de Stock.
-    # El filtrado de la lista (QuerySet) solo se aplica para búsqueda, estado o categoría.
-
-    if q:
-        productos_qs = productos_qs.filter(
-            Q(nombre__icontains=q) | Q(marca__icontains=q) | Q(modelo__icontains=q) |
-            Q(categoria__icontains=q) | Q(subcategoria__icontains=q)
+    if vista == 'lotes_y_caducidades':
+        from recepciones.models import DetalleRecepcionExtra
+        extras_qs = DetalleRecepcionExtra.objects.filter(
+            producto__empresa=empresa_actual,
+            cantidad_lote__gt=0
+        ).select_related('producto', 'almacen')
+        
+        if sucursal_id:
+            extras_qs = extras_qs.filter(almacen__sucursal_id=sucursal_id)
+        if almacen_id:
+            extras_qs = extras_qs.filter(almacen_id=almacen_id)
+            
+        if q:
+            extras_qs = extras_qs.filter(
+                Q(producto__nombre__icontains=q) | Q(lote__icontains=q) | Q(producto__clave__icontains=q)
+            )
+        if estado:
+            extras_qs = extras_qs.filter(producto__estado=estado)
+        if categoria_id:
+            extras_qs = extras_qs.filter(producto__categoria=categoria_id)
+            
+        extras_qs = extras_qs.order_by('producto__nombre', 'fecha_caducidad', 'lote')
+        
+        # Calcular totales consolidados
+        totales_resumen = extras_qs.aggregate(
+            total_stock_fisico=Sum('cantidad_lote')
         )
-    if estado:
-        productos_qs = productos_qs.filter(estado=estado)
-
-    if categoria_id:
-        productos_qs = productos_qs.filter(categoria=categoria_id)
-
-    # 1. PRECIO PROMEDIO VENTA (GLOBAL)
-    avg_venta_subquery = DetalleOrdenVenta.objects.filter(producto=OuterRef('pk')).values('producto').annotate(promedio=Avg('precio_unitario')).values('promedio')[:1]
-    # 2. PRECIO MÁXIMO VENTA (GLOBAL)
-    max_precio_venta = DetalleOrdenVenta.objects.filter(producto=OuterRef('pk')).order_by('-precio_unitario').values('precio_unitario')[:1]
-    # 3. COSTO MÁXIMO COMPRA (GLOBAL, EN PESOS)
-    max_costo_compra = DetalleRecepcion.objects.filter(producto=OuterRef('pk')).annotate(costo_pesos=ExpressionWrapper(F('costo_unitario') * F('recepcion__tipo_cambio'), output_field=DecimalField(max_digits=10, decimal_places=2))).order_by('-costo_pesos').values('costo_pesos')[:1]
-    # 4. COSTO PROMEDIO COMPRAS (GLOBAL, EN PESOS)
-    costo_promedio_subquery = DetalleRecepcion.objects.filter(producto=OuterRef('pk')).annotate(costo_pesos=ExpressionWrapper(F('costo_unitario') * F('recepcion__tipo_cambio'), output_field=FloatField())).values('producto').annotate(promedio_historico=Avg('costo_pesos')).values('promedio_historico')[:1]
-
-    # 5. VALOR TOTAL INVENTARIO (POR ALMACÉN SI SE FILTRA)
-    inv_val_filter = Q(producto=OuterRef('pk'), cantidad__gt=0)
-    if sucursal_id:
-        inv_val_filter &= Q(sucursal_id=sucursal_id)
-    if almacen_id:
-        inv_val_filter &= Q(almacen_id=almacen_id)
-    costo_inventario_subquery = Inventario.objects.filter(inv_val_filter).values('producto').annotate(valor_total=Sum(ExpressionWrapper(F('cantidad') * F('costo_promedio'), output_field=FloatField()))).values('valor_total')[:1]
-
-    # 6. STOCK FISICO Y RESERVADO (DINÁMICO)
-    def get_stock_sub(field):
-        qs = Inventario.objects.filter(producto=OuterRef('pk'))
-        if sucursal_id: qs = qs.filter(sucursal_id=sucursal_id)
-        if almacen_id: qs = qs.filter(almacen_id=almacen_id)
-        return qs.values('producto').annotate(total=Sum(field)).values('total')[:1]
-
-    productos = productos_qs.annotate(
-        precio_promedio_venta=Subquery(avg_venta_subquery),
-        precio_max_venta=Subquery(max_precio_venta),
-        costo_max_compra=Subquery(max_costo_compra),
-        costo_promedio_anotado=Subquery(costo_promedio_subquery),
-        costo_inventario_anotado=Subquery(costo_inventario_subquery),
-        stock_fisico=Subquery(get_stock_sub('cantidad')),
-        stock_res=Subquery(get_stock_sub('reservado'))
-    ).annotate(
-        stock_disponible_anotado=ExpressionWrapper(
-            Coalesce(F('stock_fisico'), 0) - Coalesce(F('stock_res'), 0),
-            output_field=IntegerField()
+        total_costo_agg = extras_qs.aggregate(
+            total_costo=Sum(ExpressionWrapper(F('cantidad_lote') * F('producto__precio_costo'), output_field=FloatField()))
         )
-    )
+        resumen_totales = {
+            'costo_inventario': total_costo_agg.get('total_costo') or 0.0,
+            'stock_fisico': totales_resumen.get('total_stock_fisico') or 0,
+            'stock_reservado': 0,
+            'stock_disponible': totales_resumen.get('total_stock_fisico') or 0,
+        }
+        
+        # --- PAGINACIÓN ---
+        paginator = Paginator(extras_qs, 20)
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+    else:
+        productos_qs = Producto.objects.filter(empresa=empresa_actual)
 
-    if stock_status == 'con':
-        productos = productos.filter(stock_fisico__gt=0)
-    elif stock_status == 'sin':
-        productos = productos.filter(Q(stock_fisico__lte=0) | Q(stock_fisico__isnull=True))
+        # NOTA: El filtrado por sucursal/almacén NO debe reducir el catálogo de productos.
+        # Solo debe afectar a las cantidades que se muestran en las columnas de Stock.
+        # El filtrado de la lista (QuerySet) solo se aplica para búsqueda, estado o categoría.
 
-    productos = productos.order_by('nombre')
-    
-    # --- PAGINACIÓN ---
-    paginator = Paginator(productos, 20)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+        if q:
+            productos_qs = productos_qs.filter(
+                Q(nombre__icontains=q) | Q(marca__icontains=q) | Q(modelo__icontains=q) |
+                Q(categoria__icontains=q) | Q(subcategoria__icontains=q)
+            )
+        if estado:
+            productos_qs = productos_qs.filter(estado=estado)
+
+        if categoria_id:
+            productos_qs = productos_qs.filter(categoria=categoria_id)
+
+        # 1. PRECIO PROMEDIO VENTA (GLOBAL)
+        avg_venta_subquery = DetalleOrdenVenta.objects.filter(producto=OuterRef('pk')).values('producto').annotate(promedio=Avg('precio_unitario')).values('promedio')[:1]
+        # 2. PRECIO MÁXIMO VENTA (GLOBAL)
+        max_precio_venta = DetalleOrdenVenta.objects.filter(producto=OuterRef('pk')).order_by('-precio_unitario').values('precio_unitario')[:1]
+        # 3. COSTO MÁXIMO COMPRA (GLOBAL, EN PESOS)
+        max_costo_compra = DetalleRecepcion.objects.filter(producto=OuterRef('pk')).annotate(costo_pesos=ExpressionWrapper(F('costo_unitario') * F('recepcion__tipo_cambio'), output_field=DecimalField(max_digits=10, decimal_places=2))).order_by('-costo_pesos').values('costo_pesos')[:1]
+        # 4. COSTO PROMEDIO COMPRAS (GLOBAL, EN PESOS)
+        costo_promedio_subquery = DetalleRecepcion.objects.filter(producto=OuterRef('pk')).annotate(costo_pesos=ExpressionWrapper(F('costo_unitario') * F('recepcion__tipo_cambio'), output_field=FloatField())).values('producto').annotate(promedio_historico=Avg('costo_pesos')).values('promedio_historico')[:1]
+
+        # 5. VALOR TOTAL INVENTARIO (POR ALMACÉN SI SE FILTRA)
+        inv_val_filter = Q(producto=OuterRef('pk'), cantidad__gt=0)
+        if sucursal_id:
+            inv_val_filter &= Q(sucursal_id=sucursal_id)
+        if almacen_id:
+            inv_val_filter &= Q(almacen_id=almacen_id)
+        costo_inventario_subquery = Inventario.objects.filter(inv_val_filter).values('producto').annotate(valor_total=Sum(ExpressionWrapper(F('cantidad') * F('costo_promedio'), output_field=FloatField()))).values('valor_total')[:1]
+
+        # 6. STOCK FISICO Y RESERVADO (DINÁMICO)
+        def get_stock_sub(field):
+            qs = Inventario.objects.filter(producto=OuterRef('pk'))
+            if sucursal_id: qs = qs.filter(sucursal_id=sucursal_id)
+            if almacen_id: qs = qs.filter(almacen_id=almacen_id)
+            return qs.values('producto').annotate(total=Sum(field)).values('total')[:1]
+
+        productos = productos_qs.annotate(
+            precio_promedio_venta=Subquery(avg_venta_subquery),
+            precio_max_venta=Subquery(max_precio_venta),
+            costo_max_compra=Subquery(max_costo_compra),
+            costo_promedio_anotado=Subquery(costo_promedio_subquery),
+            costo_inventario_anotado=Subquery(costo_inventario_subquery),
+            stock_fisico=Subquery(get_stock_sub('cantidad')),
+            stock_res=Subquery(get_stock_sub('reservado'))
+        ).annotate(
+            stock_disponible_anotado=ExpressionWrapper(
+                Coalesce(F('stock_fisico'), 0) - Coalesce(F('stock_res'), 0),
+                output_field=IntegerField()
+            )
+        )
+
+        if stock_status == 'con':
+            productos = productos.filter(stock_fisico__gt=0)
+        elif stock_status == 'sin':
+            productos = productos.filter(Q(stock_fisico__lte=0) | Q(stock_fisico__isnull=True))
+
+        productos = productos.order_by('nombre')
+        
+        # Calcular totales consolidados (del total de productos filtrados, no solo de la página)
+        totales_resumen = productos.aggregate(
+            total_costo_inventario=Sum('costo_inventario_anotado'),
+            total_stock_fisico=Sum('stock_fisico'),
+            total_stock_reservado=Sum('stock_res'),
+            total_stock_disponible=Sum('stock_disponible_anotado')
+        )
+        resumen_totales = {
+            'costo_inventario': totales_resumen.get('total_costo_inventario') or 0.0,
+            'stock_fisico': totales_resumen.get('total_stock_fisico') or 0,
+            'stock_reservado': totales_resumen.get('total_stock_reservado') or 0,
+            'stock_disponible': totales_resumen.get('total_stock_disponible') or 0,
+        }
+        
+        # --- PAGINACIÓN ---
+        paginator = Paginator(productos, 20)
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
 
     from preferencias.models import Sucursal
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
@@ -670,8 +727,26 @@ def dashboard_inventario(request):
     # Monedas para conversión en modal
     monedas = Moneda.objects.filter(empresa=empresa_actual)
 
+    # 5 artículos próximos a caducar
+    from recepciones.models import DetalleRecepcionExtra
+    proximos_caducar_qs = DetalleRecepcionExtra.objects.filter(
+        producto__empresa=empresa_actual,
+        cantidad_lote__gt=0,
+        fecha_caducidad__isnull=False
+    ).select_related('producto', 'almacen')
+    
+    if sucursal_id:
+        proximos_caducar_qs = proximos_caducar_qs.filter(almacen__sucursal_id=sucursal_id)
+    if almacen_id:
+        proximos_caducar_qs = proximos_caducar_qs.filter(almacen_id=almacen_id)
+        
+    proximos_caducar = proximos_caducar_qs.annotate(
+        costo_valorizado=ExpressionWrapper(F('cantidad_lote') * F('producto__precio_costo'), output_field=FloatField())
+    ).order_by('fecha_caducidad')[:5]
+
     contexto = {
         'page_obj': page_obj,
+        'proximos_caducar': proximos_caducar,
         'almacenes': almacenes,
         'almacenes_todos': almacenes_todos,
         'sucursales': sucursales,
@@ -680,6 +755,7 @@ def dashboard_inventario(request):
         'productos_padre_receta': productos_padre_receta,
         'productos_componentes_receta': productos_componentes_receta,
         'monedas': monedas,
+        'resumen_totales': resumen_totales,
         'filtros': {
             'sucursal': sucursal_id or '',
             'almacen': almacen_id or '', 
@@ -792,6 +868,7 @@ def obtener_producto_json(request, producto_id):
             'listas_maestras': list(listas_maestras),
             'stock_minimo': producto.stock_minimo, 'stock_maximo': producto.stock_maximo,
             'maneja_lote': producto.maneja_lote, 'maneja_serie': producto.maneja_serie,
+            'maneja_caducidad': producto.maneja_caducidad,
             'tiene_iva': producto.tiene_iva,
             'mostrar_en_pos': producto.mostrar_en_pos,
             'permitir_modificadores': producto.permitir_modificadores,
@@ -839,6 +916,7 @@ def actualizar_producto_ajax(request, producto_id):
                 # Maneja el switch manual para lote/serie ya que vienen como 'on'
                 producto.maneja_lote = request.POST.get('maneja_lote') == 'on'
                 producto.maneja_serie = request.POST.get('maneja_serie') == 'on'
+                producto.maneja_caducidad = request.POST.get('maneja_caducidad') == 'on'
                 producto.tiene_iva = request.POST.get('tiene_iva') == 'on'
                 producto.mostrar_en_pos = request.POST.get('mostrar_en_pos') == 'on'
                 producto.permitir_modificadores = request.POST.get('permitir_modificadores') == 'on'

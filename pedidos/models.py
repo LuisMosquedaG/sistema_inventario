@@ -155,6 +155,7 @@ class Pedido(models.Model):
             'listo': 'Listo p/enviar',
             'transito': 'En tránsito',
             'entregado': 'Entregado',
+            'cancelado': 'Cancelado',
         }
         return mapping.get(orden.estado_entrega, orden.get_estado_entrega_display())
 
@@ -170,6 +171,7 @@ class Pedido(models.Model):
         if 'listo' in status: return "status-revision"
         if 'tránsito' in status: return "status-pendiente"
         if 'entregado' in status: return "status-completo"
+        if 'cancelado' in status: return "status-cancelado"
         return "status-borrador"
 
 

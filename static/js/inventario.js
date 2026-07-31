@@ -140,6 +140,7 @@ window.cargarProductoEdicion = function(id) {
             form.querySelector('[name="stock_maximo"]').value = data.stock_maximo || 1000;
             form.querySelector('[name="maneja_lote"]').checked = data.maneja_lote || false;
             form.querySelector('[name="maneja_serie"]').checked = data.maneja_serie || false;
+            form.querySelector('[name="maneja_caducidad"]').checked = data.maneja_caducidad || false;
             form.querySelector('[name="tiene_iva"]').checked = data.tiene_iva ?? true;
             form.querySelector('[name="mostrar_en_pos"]').checked = data.mostrar_en_pos ?? true;
             form.querySelector('[name="permitir_modificadores"]').checked = data.permitir_modificadores || false;

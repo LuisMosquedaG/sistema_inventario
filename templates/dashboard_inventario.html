@@ -189,6 +189,7 @@
                     <select name="vista" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="existencias" {% if filtros.vista == 'existencias' %}selected{% endif %}>Existencias</option>
                         <option value="productos" {% if filtros.vista == 'productos' %}selected{% endif %}>Productos</option>
+                        <option value="lotes_y_caducidades" {% if filtros.vista == 'lotes_y_caducidades' %}selected{% endif %}>Lotes y Caducidades</option>
                     </select>
                 </div>
                 <div class="col-12" style="width: 14%;">
@@ -220,117 +221,193 @@
                 <table class="table table-pro mb-0">
                     <thead>
                         <tr>
-                            <th class="text-center" style="width: 100px;">Acciones</th>
-                            <th class="text-center" style="width: 60px;">Imagen</th>
-                            <th class="text-center">Nombre</th>
-                            <th class="text-center">Categoría / Subcategoría</th>
-                            <th class="text-center">Marca / Modelo</th>
-                            {% if filtros.vista == 'existencias' %}
-                                <th class="text-center">Stock</th>
-                                <th class="text-center">Costos</th>
-                                <th class="text-center">Precios</th>
-                                <th class="text-center">Costo Inv.</th>
+                            {% if filtros.vista == 'lotes_y_caducidades' %}
+                                <th class="text-center" style="width: 100px;">Acciones</th>
+                                <th class="text-center" style="width: 60px;">Imagen</th>
+                                <th class="text-center">Nombre</th>
+                                <th class="text-center">Lote</th>
+                                <th class="text-center">Fecha de Caducidad</th>
+                                <th class="text-center">Existencias</th>
+                                <th class="text-center">Reservado</th>
+                                <th class="text-center">Disponible</th>
+                                <th class="text-center">Estado</th>
                             {% else %}
-                                <th class="text-center">Abastecimiento</th>
+                                <th class="text-center" style="width: 100px;">Acciones</th>
+                                <th class="text-center" style="width: 60px;">Imagen</th>
+                                <th class="text-center">Nombre</th>
+                                <th class="text-center">Categoría / Subcategoría</th>
+                                <th class="text-center">Marca / Modelo</th>
+                                {% if filtros.vista == 'existencias' %}
+                                    <th class="text-center">Stock</th>
+                                    <th class="text-center">Costos</th>
+                                    <th class="text-center">Precios</th>
+                                    <th class="text-center">Costo Inv.</th>
+                                {% else %}
+                                    <th class="text-center">Abastecimiento</th>
+                                {% endif %}
+                                <th class="text-center">Estado</th>
                             {% endif %}
-                            <th class="text-center">Estado</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for p in page_obj %}
                         <tr>
-                            <td class="text-center">
-                                <div class="d-flex justify-content-center gap-1">
-                                    {% if granular_inventory_perms.inventario.editar %}
-                                    <span onclick="cargarProductoEdicion({{ p.id }})" class="icon-action" title="Editar"><i class="bi bi-pencil-square"></i></span>
-                                    {% endif %}
-                                    
-                                    {% if granular_inventory_perms.inventario.precios %}
-                                    <span onclick="abrirModalPrecios({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action" title="Precios"><i class="bi bi-tags"></i></span>
-                                    {% endif %}
-
-                                    {% if granular_inventory_perms.inventario.existencias %}
-                                    <span onclick="abrirModalReservas({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action" title="Reservas"><i class="bi bi-calendar-check"></i></span>
-                                    {% endif %}
-
-                                    {% if p.tipo_abastecimiento == 'produccion' %}
-                                        {% if granular_inventory_perms.inventario.recetas %}
-                                        <span onclick="abrirModalReceta({{ p.id }}, '{{ p.nombre|escapejs }}', {{ p.precio_venta|default:0 }})" class="icon-action" title="Receta"><i class="bi bi-diagram-3"></i></span>
+                            {% if filtros.vista == 'lotes_y_caducidades' %}
+                                <!-- Vista de Lotes y Caducidades -->
+                                <td class="text-center">
+                                    <div class="d-flex justify-content-center gap-1">
+                                        {% if granular_inventory_perms.inventario.editar %}
+                                        <span onclick="cargarProductoEdicion({{ p.producto.id }})" class="icon-action" title="Editar"><i class="bi bi-pencil-square"></i></span>
                                         {% endif %}
-                                    {% endif %}
-                                    {% if empresa.modulo_pos and p.permitir_modificadores %}
-                                    <span onclick="abrirModalModificadores({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action" title="Modificadores"><i class="bi bi-sliders"></i></span>
-                                    {% endif %}
-                                </div>
-                            </td>
-                            <td class="text-center">
-                                {% if p.imagen %}
-                                    <div class="border rounded bg-light overflow-hidden d-flex align-items-center justify-content-center shadow-xs mx-auto" style="width: 32px; height: 32px; flex-shrink: 0;">
-                                        <img src="{{ p.imagen.url }}" alt="{{ p.nombre }}" style="width: 100%; height: 100%; object-fit: contain;">
+                                        
+                                        {% if granular_inventory_perms.inventario.precios %}
+                                        <span onclick="abrirModalPrecios({{ p.producto.id }}, '{{ p.producto.nombre|escapejs }}')" class="icon-action" title="Precios"><i class="bi bi-tags"></i></span>
+                                        {% endif %}
+
+                                        {% if granular_inventory_perms.inventario.existencias %}
+                                        <span onclick="abrirModalReservas({{ p.producto.id }}, '{{ p.producto.nombre|escapejs }}')" class="icon-action" title="Reservas"><i class="bi bi-calendar-check"></i></span>
+                                        {% endif %}
+
+                                        {% if p.producto.tipo_abastecimiento == 'produccion' %}
+                                            {% if granular_inventory_perms.inventario.recetas %}
+                                            <span onclick="abrirModalReceta({{ p.producto.id }}, '{{ p.producto.nombre|escapejs }}', {{ p.producto.precio_venta|default:0 }})" class="icon-action" title="Receta"><i class="bi bi-diagram-3"></i></span>
+                                            {% endif %}
+                                        {% endif %}
                                     </div>
-                                {% else %}
-                                    <div class="border rounded bg-white d-flex align-items-center justify-content-center text-muted shadow-xs mx-auto" style="width: 32px; height: 32px; flex-shrink: 0; font-size: 0.75rem;" title="Sin Imagen">
-                                        <i class="bi bi-image opacity-25"></i>
-                                    </div>
-                                {% endif %}
-                            </td>
-                            <td class="text-center">
-                                <div class="fw-bold text-dark text-truncate mx-auto" 
-                                     style="max-width: {% if filtros.vista == 'productos' %}350px{% else %}180px{% endif %};" 
-                                     title="{{ p.nombre }}">
-                                    {{ p.nombre }}
-                                </div>
-                                <div class="text-muted small">Tipo: {{ p.tipo }}</div>
-                            </td>
-                            <td class="text-center">
-                                <div class="small fw-semibold">{{ p.categoria|default:"--" }}</div>
-                                <div class="text-muted small" style="font-size:0.75rem;">{{ p.subcategoria|default:"--" }}</div>
-                            </td>
-                            <td class="text-center">
-                                <div class="small text-truncate mx-auto" 
-                                     style="max-width: {% if filtros.vista == 'productos' %}350px{% else %}150px{% endif %};" 
-                                     title="{{ p.marca|default:'' }}">
-                                    {{ p.marca|default:"--" }}
-                                </div>
-                                <div class="text-muted small text-truncate mx-auto" 
-                                     style="font-size:0.75rem; max-width: {% if filtros.vista == 'productos' %}350px{% else %}180px{% endif %};" 
-                                     title="{{ p.modelo|default:'' }}">
-                                    {{ p.modelo|default:"--" }}
-                                </div>
-                            </td>
-                            {% if filtros.vista == 'existencias' %}
-                                <td class="text-center">
-                                    <div class="text-muted small">Exist: <span class="{% if p.stock_fisico < p.stock_minimo %}text-danger{% else %}text-success{% endif %} fw-bold">{{ p.stock_fisico|default:0 }}</span></div>
-                                    <div class="text-muted small">Reser: <span class="text-warning fw-bold">{{ p.stock_res|default:0 }}</span></div>
-                                    <div class="text-muted small">Dispo: <span class="text-success fw-bold">{{ p.stock_disponible_anotado|default:0 }}</span></div>
-                                </td>
-                                <td class="text-center small text-muted">
-                                    <div>Actual: ${{ p.precio_costo|floatformat:2|intcomma|default:"-" }}</div>
-                                    <div>Prom: ${{ p.costo_promedio_anotado|floatformat:2|intcomma|default:"-" }}</div>
-                                    <div>Max: ${{ p.costo_max_compra|floatformat:2|intcomma|default:"-" }}</div>
-                                </td>
-                                <td class="text-center small text-muted">
-                                    <div>Actual: ${{ p.precio_venta|floatformat:2|intcomma|default:"-" }}</div>
-                                    <div>Prom: ${{ p.precio_promedio_venta|floatformat:2|intcomma|default:"-" }}</div>
-                                    <div>Max: ${{ p.precio_max_venta|floatformat:2|intcomma|default:"-" }}</div>
                                 </td>
                                 <td class="text-center">
-                                    <div class="text-muted small">${{ p.costo_inventario_anotado|floatformat:2|intcomma|default:"0.00" }}</div>
+                                    {% if p.producto.imagen %}
+                                        <div class="border rounded bg-light overflow-hidden d-flex align-items-center justify-content-center shadow-xs mx-auto" style="width: 32px; height: 32px; flex-shrink: 0;">
+                                            <img src="{{ p.producto.imagen.url }}" alt="{{ p.producto.nombre }}" style="width: 100%; height: 100%; object-fit: contain;">
+                                        </div>
+                                    {% else %}
+                                        <div class="border rounded bg-white d-flex align-items-center justify-content-center text-muted shadow-xs mx-auto" style="width: 32px; height: 32px; flex-shrink: 0; font-size: 0.75rem;" title="Sin Imagen">
+                                            <i class="bi bi-image opacity-25"></i>
+                                        </div>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <div class="fw-bold text-dark text-truncate mx-auto" style="max-width: 180px;" title="{{ p.producto.nombre }}">
+                                        {{ p.producto.nombre }}
+                                    </div>
+                                    <div class="text-muted small">Clave: {{ p.producto.clave|default:"--" }}</div>
+                                    <div class="text-muted small" style="font-size: 0.7rem;"><i class="bi bi-house-door me-1"></i>{{ p.almacen.nombre|default:"--" }}</div>
+                                </td>
+                                <td class="text-center small text-muted">
+                                    {{ p.lote|default:"--" }}
+                                </td>
+                                <td class="text-center small text-muted">
+                                    {% if p.fecha_caducidad %}{{ p.fecha_caducidad|date:"Y-m-d" }}{% else %}--{% endif %}
+                                </td>
+                                <td class="text-center small text-muted">
+                                    {{ p.cantidad_lote }} u.
+                                </td>
+                                <td class="text-center small text-muted">
+                                    0 u.
+                                </td>
+                                <td class="text-center small text-muted">
+                                    {{ p.cantidad_lote }} u.
+                                </td>
+                                <td class="text-center">
+                                    <span class="status-pill status-{{ p.producto.estado|lower }}">
+                                        {{ p.producto.get_estado_display }}
+                                    </span>
                                 </td>
                             {% else %}
+                                <!-- Vista Estándar (Existencias o Productos) -->
                                 <td class="text-center">
-                                    <div class="small text-uppercase fw-semibold text-secondary">{{ p.tipo_abastecimiento }}</div>
+                                    <div class="d-flex justify-content-center gap-1">
+                                        {% if granular_inventory_perms.inventario.editar %}
+                                        <span onclick="cargarProductoEdicion({{ p.id }})" class="icon-action" title="Editar"><i class="bi bi-pencil-square"></i></span>
+                                        {% endif %}
+                                        
+                                        {% if granular_inventory_perms.inventario.precios %}
+                                        <span onclick="abrirModalPrecios({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action" title="Precios"><i class="bi bi-tags"></i></span>
+                                        {% endif %}
+
+                                        {% if granular_inventory_perms.inventario.existencias %}
+                                        <span onclick="abrirModalReservas({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action" title="Reservas"><i class="bi bi-calendar-check"></i></span>
+                                        {% endif %}
+
+                                        {% if p.tipo_abastecimiento == 'produccion' %}
+                                            {% if granular_inventory_perms.inventario.recetas %}
+                                            <span onclick="abrirModalReceta({{ p.id }}, '{{ p.nombre|escapejs }}', {{ p.precio_venta|default:0 }})" class="icon-action" title="Receta"><i class="bi bi-diagram-3"></i></span>
+                                            {% endif %}
+                                        {% endif %}
+                                        {% if empresa.modulo_pos and p.permitir_modificadores %}
+                                        <span onclick="abrirModalModificadores({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action" title="Modificadores"><i class="bi bi-sliders"></i></span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    {% if p.imagen %}
+                                        <div class="border rounded bg-light overflow-hidden d-flex align-items-center justify-content-center shadow-xs mx-auto" style="width: 32px; height: 32px; flex-shrink: 0;">
+                                            <img src="{{ p.imagen.url }}" alt="{{ p.nombre }}" style="width: 100%; height: 100%; object-fit: contain;">
+                                        </div>
+                                    {% else %}
+                                        <div class="border rounded bg-white d-flex align-items-center justify-content-center text-muted shadow-xs mx-auto" style="width: 32px; height: 32px; flex-shrink: 0; font-size: 0.75rem;" title="Sin Imagen">
+                                            <i class="bi bi-image opacity-25"></i>
+                                        </div>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <div class="fw-bold text-dark text-truncate mx-auto" 
+                                         style="max-width: {% if filtros.vista == 'productos' %}350px{% else %}180px{% endif %};" 
+                                         title="{{ p.nombre }}">
+                                        {{ p.nombre }}
+                                    </div>
+                                    <div class="text-muted small">Tipo: {{ p.tipo }}</div>
+                                </td>
+                                <td class="text-center">
+                                    <div class="small fw-semibold">{{ p.categoria|default:"--" }}</div>
+                                    <div class="text-muted small" style="font-size:0.75rem;">{{ p.subcategoria|default:"--" }}</div>
+                                </td>
+                                <td class="text-center">
+                                    <div class="small text-truncate mx-auto" 
+                                         style="max-width: {% if filtros.vista == 'productos' %}350px{% else %}150px{% endif %};" 
+                                         title="{{ p.marca|default:'' }}">
+                                        {{ p.marca|default:"--" }}
+                                    </div>
+                                    <div class="text-muted small text-truncate mx-auto" 
+                                         style="font-size:0.75rem; max-width: {% if filtros.vista == 'productos' %}350px{% else %}180px{% endif %};" 
+                                         title="{{ p.modelo|default:'' }}">
+                                        {{ p.modelo|default:"--" }}
+                                    </div>
+                                </td>
+                                {% if filtros.vista == 'existencias' %}
+                                    <td class="text-center">
+                                        <div class="text-muted small">Exist: <span class="{% if p.stock_fisico < p.stock_minimo %}text-danger{% else %}text-success{% endif %} fw-bold">{{ p.stock_fisico|default:0 }}</span></div>
+                                        <div class="text-muted small">Reser: <span class="text-warning fw-bold">{{ p.stock_res|default:0 }}</span></div>
+                                        <div class="text-muted small">Dispo: <span class="text-success fw-bold">{{ p.stock_disponible_anotado|default:0 }}</span></div>
+                                    </td>
+                                    <td class="text-center small text-muted">
+                                        <div>Actual: ${{ p.precio_costo|floatformat:2|intcomma|default:"-" }}</div>
+                                        <div>Prom: ${{ p.costo_promedio_anotado|floatformat:2|intcomma|default:"-" }}</div>
+                                        <div>Max: ${{ p.costo_max_compra|floatformat:2|intcomma|default:"-" }}</div>
+                                    </td>
+                                    <td class="text-center small text-muted">
+                                        <div>Actual: ${{ p.precio_venta|floatformat:2|intcomma|default:"-" }}</div>
+                                        <div>Prom: ${{ p.precio_promedio_venta|floatformat:2|intcomma|default:"-" }}</div>
+                                        <div>Max: ${{ p.precio_max_venta|floatformat:2|intcomma|default:"-" }}</div>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="text-muted small">${{ p.costo_inventario_anotado|floatformat:2|intcomma|default:"0.00" }}</div>
+                                    </td>
+                                {% else %}
+                                    <td class="text-center">
+                                        <div class="small text-uppercase fw-semibold text-secondary">{{ p.tipo_abastecimiento }}</div>
+                                    </td>
+                                {% endif %}
+                                <td class="text-center">
+                                    <span class="status-pill status-{{ p.estado|lower }}">
+                                        {{ p.get_estado_display }}
+                                    </span>
                                 </td>
                             {% endif %}
-                            <td class="text-center">
-                                <span class="status-pill status-{{ p.estado|lower }}">
-                                    {{ p.get_estado_display }}
-                                </span>
-                            </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="{% if filtros.vista == 'existencias' %}10{% else %}7{% endif %}" class="text-center py-5">
+                            <td colspan="{% if filtros.vista == 'existencias' %}10{% elif filtros.vista == 'lotes_y_caducidades' %}9{% else %}7{% endif %}" class="text-center py-5">
                                 <i class="bi bi-inbox display-6 text-muted mb-2 d-block"></i>
                                 <span class="text-muted fst-italic small">No hay artículos que coincidan con los filtros</span>
                             </td>
@@ -382,6 +459,82 @@
             </div>
         </div>
     </div>
+
+    <!-- Sección de Totales Consolidados -->
+    {% if filtros.vista == 'existencias' or filtros.vista == 'lotes_y_caducidades' %}
+    <div class="d-flex flex-wrap gap-4 align-items-stretch mt-4 mb-4">
+        <!-- Tarjeta 1: Resumen de Totales -->
+        <div class="card shadow-sm border-0 animate__animated animate__fadeIn flex-grow-1" style="border-radius: 12px; background: #fff; max-width: 380px; min-width: 280px; margin-right: 0;">
+            <div class="card-body p-3">
+                <h6 class="fw-bold text-dark mb-3 d-flex align-items-center" style="font-size: 0.9rem; letter-spacing: 0.2px;">
+                    <i class="bi bi-calculator me-2" style="color: #00b8b9;"></i>
+                    Resumen de Totales
+                </h6>
+                <ul class="list-group list-group-flush" style="font-size: 0.85rem;">
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2 bg-transparent border-0">
+                        <span class="text-muted">Existencia</span>
+                        <span class="text-muted">{{ resumen_totales.stock_fisico|intcomma }} u.</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2 bg-transparent border-0" style="border-top: 1px dashed #eee !important;">
+                        <span class="text-muted">Retenido</span>
+                        <span class="text-muted">{{ resumen_totales.stock_reservado|intcomma }} u.</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2 bg-transparent border-0" style="border-top: 1px dashed #eee !important;">
+                        <span class="text-muted">Disponibilidad</span>
+                        <span class="text-muted">{{ resumen_totales.stock_disponible|intcomma }} u.</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2 bg-transparent border-0" style="border-top: 1px dashed #eee !important;">
+                        <span class="text-muted">Costo total de inventario</span>
+                        <span class="text-muted">${{ resumen_totales.costo_inventario|floatformat:2|intcomma }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Tarjeta 2: Próximos a Caducar (Doble de tamaño) -->
+        <div class="card shadow-sm border-0 animate__animated animate__fadeIn flex-grow-1" style="border-radius: 12px; background: #fff; max-width: 760px; min-width: 320px; flex: 2 1 600px;">
+            <div class="card-body p-3">
+                <h6 class="fw-bold text-dark mb-3 d-flex align-items-center" style="font-size: 0.9rem; letter-spacing: 0.2px;">
+                    <i class="bi bi-calendar-x me-2" style="color: #00b8b9;"></i>
+                    Artículos Próximos a Caducar
+                </h6>
+                {% if proximos_caducar %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 align-middle" style="font-size: 0.8rem;">
+                        <thead>
+                            <tr class="text-secondary">
+                                <th style="width: 35%;">Nombre</th>
+                                <th style="width: 15%;">Lote</th>
+                                <th class="text-center" style="width: 20%;">Caducidad</th>
+                                <th class="text-center" style="width: 15%;">Piezas</th>
+                                <th class="text-end" style="width: 15%;">Costo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in proximos_caducar %}
+                            <tr>
+                                <td class="fw-bold text-dark text-truncate" style="max-width: 180px;" title="{{ item.producto.nombre }}">{{ item.producto.nombre }}</td>
+                                <td class="small text-muted">{{ item.lote|default:"--" }}</td>
+                                <td class="text-center small text-muted">
+                                    {% if item.fecha_caducidad %}{{ item.fecha_caducidad|date:"Y-m-d" }}{% else %}--{% endif %}
+                                </td>
+                                <td class="text-center small text-muted">{{ item.cantidad_lote }} u.</td>
+                                <td class="text-end small text-muted">${{ item.costo_valorizado|floatformat:2|intcomma }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4 text-muted small">
+                    <i class="bi bi-shield-check text-success display-6 mb-2 d-block"></i>
+                    No hay artículos con fecha de caducidad cercana o activa.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- MODALES -->

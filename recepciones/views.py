@@ -381,6 +381,7 @@ def obtener_items_orden_compra(request, oc_id):
                 'iva_porcentaje': float(det.producto.iva or 0),
                 'maneja_lote': det.producto.maneja_lote,
                 'maneja_serie': det.producto.maneja_serie,
+                'maneja_caducidad': det.producto.maneja_caducidad,
             })
 
         return JsonResponse(data)

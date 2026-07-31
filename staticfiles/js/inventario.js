@@ -140,8 +140,10 @@ window.cargarProductoEdicion = function(id) {
             form.querySelector('[name="stock_maximo"]').value = data.stock_maximo || 1000;
             form.querySelector('[name="maneja_lote"]').checked = data.maneja_lote || false;
             form.querySelector('[name="maneja_serie"]').checked = data.maneja_serie || false;
+            form.querySelector('[name="maneja_caducidad"]').checked = data.maneja_caducidad || false;
             form.querySelector('[name="tiene_iva"]').checked = data.tiene_iva ?? true;
             form.querySelector('[name="mostrar_en_pos"]').checked = data.mostrar_en_pos ?? true;
+            form.querySelector('[name="permitir_modificadores"]').checked = data.permitir_modificadores || false;
             toggleIVA();
             
             const hidSuc = document.getElementById('hiddenSucursalArticulo');
@@ -512,8 +514,8 @@ window.cargarRecetaExistente = function() {
                         <tr data-id="${i.id}" data-costo="${costo}" data-iva-porc="${ivaPorc}">
                             <td class="ps-3">${i.nombre}</td>
                             <td class="text-center">
-                                <span class="small text-dark">${cant}</span>
-                                <input type="hidden" class="inp-cant-receta" value="${cant}">
+                                <span class="small text-dark">${parseFloat(cant).toFixed(4)}</span>
+                                <input type="hidden" class="inp-cant-receta" value="${parseFloat(cant).toFixed(4)}">
                             </td>
                             <td class="text-end text-muted small">$${costo.toFixed(2)}</td>
                             <td class="text-end subtotal-fila">$${subtotal.toFixed(2)}</td>
@@ -556,8 +558,8 @@ window.agregarComponenteReceta = function() {
             const inp = existente.querySelector('.inp-cant-receta');
             const span = existente.querySelector('.text-center span');
             const nuevaCant = parseFloat(inp.value) + cant;
-            inp.value = nuevaCant;
-            span.innerText = nuevaCant;
+            inp.value = nuevaCant.toFixed(4);
+            span.innerText = nuevaCant.toFixed(4);
             recalcularTotalesReceta();
             resetBuscadorComponente();
             return;
@@ -580,8 +582,8 @@ window.agregarComponenteReceta = function() {
             const filaHtml = `
                 <td class="ps-3">${data.nombre}</td>
                 <td class="text-center">
-                    <span class="small text-dark">${cant}</span>
-                    <input type="hidden" class="inp-cant-receta" value="${cant}">
+                    <span class="small text-dark">${cant.toFixed(4)}</span>
+                    <input type="hidden" class="inp-cant-receta" value="${cant.toFixed(4)}">
                 </td>
                 <td class="text-end text-muted small">$${costo.toFixed(2)}</td>
                 <td class="text-end subtotal-fila">$${subtotal.toFixed(2)}</td>

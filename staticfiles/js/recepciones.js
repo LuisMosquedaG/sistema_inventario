@@ -85,15 +85,15 @@ function cargarItemsOrdenCompra() {
                     `;
                     setTimeout(() => { for(let i=0; i<cant_faltante; i++) agregarFilaSerie(item.id); }, 100);
 
-                } else if (item.maneja_lote) {
+                } else if (item.maneja_lote || item.maneja_caducidad) {
                     inputHtml = `
                         <div class="lote-container">
-                            <div id="lista-lotes-${item.id}" class="lote-serie-container"></div>
+                            <div id="lista-extras-${item.id}" class="lote-serie-container"></div>
                             <input type="hidden" name="cantidad_recibida[]" class="hidden-cant" id="hidden-cant-${item.id}" value="0">
                             <input type="hidden" name="extra_data_${item.id}" id="extra-data-${item.id}">
                         </div>
                     `;
-                    setTimeout(() => agregarFilaLote(item.id), 100);
+                    setTimeout(() => agregarFilaExtras(item.id, item.maneja_lote, item.maneja_caducidad), 100);
 
                 } else {
                     inputHtml = `
@@ -111,7 +111,7 @@ function cargarItemsOrdenCompra() {
                 const total = subtotal + ivaMonto;
                 
                 const filaHtml = `
-                    <tr data-detalle-id="${item.id}" data-costo="${item.costo}" data-iva-porc="${item.iva_porcentaje}" data-tipo="${item.maneja_serie ? 'serie' : (item.maneja_lote ? 'lote' : 'normal')}">
+                    <tr data-detalle-id="${item.id}" data-costo="${item.costo}" data-iva-porc="${item.iva_porcentaje}" data-tipo="${item.maneja_serie ? 'serie' : (item.maneja_lote ? 'lote' : (item.maneja_caducidad ? 'caducidad' : 'normal'))}">
                         <td class="ps-3">
                             <div class="fw-semibold small text-dark text-truncate" style="max-width: 100%;" title="${item.nombre}">
                                 ${item.nombre}
@@ -170,29 +170,54 @@ function actualizarContadoresSeries(id) {
     recalcularFilaPorId(id);
 }
 
-// --- LOTES ---
-function agregarFilaLote(id) {
-    const container = document.getElementById(`lista-lotes-${id}`);
+// --- LOTES Y CADUCIDADES UNIFICADOS ---
+function agregarFilaExtras(id, manejaLote, manejaCaducidad) {
+    const container = document.getElementById(`lista-extras-${id}`);
     if(!container) return;
     const div = document.createElement('div');
     div.className = 'item-row';
-    div.innerHTML = `
-        <input type="text" class="form-control form-control-sm input-lote-nombre" placeholder="Lote" style="flex:3;" oninput="actualizarContadoresLotes(${id})">
-        <input type="number" class="form-control form-control-sm input-lote-cant" placeholder="0" style="flex:1;" min="1" oninput="actualizarContadoresLotes(${id})">
-        <button class="btn btn-sm btn-add-custom" style="width:32px; height:32px;" type="button" onclick="agregarFilaLote(${id})"><i class="bi bi-plus"></i></button>
-        <button class="btn btn-sm btn-outline-danger" style="width:32px; height:32px;" type="button" onclick="this.closest('.item-row').remove(); actualizarContadoresLotes(${id});"><i class="bi bi-x-lg"></i></button>
+    
+    let inputsHtml = '';
+    if (manejaLote) {
+        inputsHtml += `<input type="text" class="form-control form-control-sm input-lote-nombre" placeholder="Lote" style="flex:3;" oninput="actualizarContadoresExtras(${id}, ${manejaLote}, ${manejaCaducidad})">`;
+    }
+    if (manejaCaducidad) {
+        inputsHtml += `<input type="date" class="form-control form-control-sm input-caducidad-fecha" style="flex:3;" onchange="actualizarContadoresExtras(${id}, ${manejaLote}, ${manejaCaducidad})">`;
+    }
+    
+    inputsHtml += `
+        <input type="number" class="form-control form-control-sm input-lote-cant" placeholder="0" style="flex:1;" min="1" oninput="actualizarContadoresExtras(${id}, ${manejaLote}, ${manejaCaducidad})">
+        <button class="btn btn-sm btn-add-custom" style="width:32px; height:32px;" type="button" onclick="agregarFilaExtras(${id}, ${manejaLote}, ${manejaCaducidad})"><i class="bi bi-plus"></i></button>
+        <button class="btn btn-sm btn-outline-danger" style="width:32px; height:32px;" type="button" onclick="this.closest('.item-row').remove(); actualizarContadoresExtras(${id}, ${manejaLote}, ${manejaCaducidad});"><i class="bi bi-x-lg"></i></button>
     `;
+    div.innerHTML = inputsHtml;
     container.appendChild(div);
-    actualizarContadoresLotes(id);
+    actualizarContadoresExtras(id, manejaLote, manejaCaducidad);
 }
 
-function actualizarContadoresLotes(id) {
-    const rows = document.querySelectorAll(`#lista-lotes-${id} .item-row`);
+function actualizarContadoresExtras(id, manejaLote, manejaCaducidad) {
+    const rows = document.querySelectorAll(`#lista-extras-${id} .item-row`);
     let t = 0; const d = [];
     rows.forEach(r => {
-        const n = r.querySelector('.input-lote-nombre').value;
-        const c = parseInt(r.querySelector('.input-lote-cant').value) || 0;
-        t += c; if(n && c > 0) d.push({ tipo: 'lote', lote: n, cantidad_lote: c });
+        const inputLote = r.querySelector('.input-lote-nombre');
+        const inputFecha = r.querySelector('.input-caducidad-fecha');
+        const inputCant = r.querySelector('.input-lote-cant');
+
+        const loteVal = inputLote ? inputLote.value : null;
+        const fechaVal = inputFecha ? inputFecha.value : null;
+        const cantVal = inputCant ? parseInt(inputCant.value) || 0 : 0;
+
+        t += cantVal;
+        
+        if (cantVal > 0 && (loteVal || fechaVal)) {
+            const itemType = manejaLote ? 'lote' : 'caducidad';
+            d.push({
+                tipo: itemType,
+                lote: loteVal,
+                fecha_caducidad: fechaVal,
+                cantidad_lote: cantVal
+            });
+        }
     });
     const h = document.getElementById(`hidden-cant-${id}`);
     if(h) h.value = t;

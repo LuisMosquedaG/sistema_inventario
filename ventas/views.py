@@ -1760,6 +1760,9 @@ def obtener_totales_sesion_ajax(request):
     ventas_efectivo = pagos.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
     ventas_tarjeta = pagos.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito']).aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
     ventas_transferencia = pagos.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+    
+    from clientes.models import Credito
+    ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
 
     efectivo_estimado = sesion.monto_inicial + ventas_efectivo
 
@@ -1770,6 +1773,7 @@ def obtener_totales_sesion_ajax(request):
         'ventas_efectivo': float(ventas_efectivo),
         'ventas_tarjeta': float(ventas_tarjeta),
         'ventas_transferencia': float(ventas_transferencia),
+        'ventas_credito': float(ventas_credito),
         'efectivo_estimado': float(efectivo_estimado),
         'fecha_apertura': sesion.fecha_apertura.strftime('%Y-%m-%d %H:%M:%S')
     })
@@ -1798,7 +1802,7 @@ def cierre_sesion_pos_ajax(request):
         monto_final = Decimal(monto_final_str)
     except Exception:
         return JsonResponse({'success': False, 'error': 'Monto final de efectivo inválido.'})
-
+    
     try:
         # Calcular los montos dinámicos del sistema para congelarlos
         pagos = PagoPedido.objects.filter(pedido__sesion_caja=sesion, estado='aplicado')
@@ -1806,6 +1810,9 @@ def cierre_sesion_pos_ajax(request):
         ventas_efectivo = pagos.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
         ventas_tarjeta = pagos.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito']).aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
         ventas_transferencia = pagos.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+        
+        from clientes.models import Credito
+        ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
 
         with transaction.atomic():
             # Actualizar la sesión
@@ -1813,6 +1820,7 @@ def cierre_sesion_pos_ajax(request):
             sesion.total_ventas_efectivo = ventas_efectivo
             sesion.total_ventas_tarjeta = ventas_tarjeta
             sesion.total_ventas_transferencia = ventas_transferencia
+            sesion.total_ventas_credito = ventas_credito
             sesion.estado = 'cerrada'
             sesion.fecha_cierre = timezone.now()
             sesion.save()
@@ -1859,7 +1867,6 @@ def cierre_sesion_pos_por_id_ajax(request, sesion_id):
         monto_final = Decimal(monto_final_str)
     except Exception:
         return JsonResponse({'success': False, 'error': 'Monto final de efectivo inválido.'})
-
     try:
         # Calcular los montos dinámicos del sistema para congelarlos
         pagos = PagoPedido.objects.filter(pedido__sesion_caja=sesion, estado='aplicado')
@@ -1867,6 +1874,9 @@ def cierre_sesion_pos_por_id_ajax(request, sesion_id):
         ventas_efectivo = pagos.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
         ventas_tarjeta = pagos.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito']).aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
         ventas_transferencia = pagos.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+        
+        from clientes.models import Credito
+        ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
 
         with transaction.atomic():
             # Actualizar la sesión
@@ -1874,6 +1884,7 @@ def cierre_sesion_pos_por_id_ajax(request, sesion_id):
             sesion.total_ventas_efectivo = ventas_efectivo
             sesion.total_ventas_tarjeta = ventas_tarjeta
             sesion.total_ventas_transferencia = ventas_transferencia
+            sesion.total_ventas_credito = ventas_credito
             sesion.estado = 'cerrada'
             sesion.fecha_cierre = timezone.now()
             sesion.save()
@@ -1928,9 +1939,10 @@ def obtener_ventas_sesion_ajax(request, sesion_id):
                 p_subtotal += d.subtotal
                 p_iva += d.iva_monto
                 
-            total_subtotal += p_subtotal
-            total_iva += p_iva
-            total_final += p.total_pedido
+            if p.estado != 'cancelado':
+                total_subtotal += p_subtotal
+                total_iva += p_iva
+                total_final += p.total_pedido
                 
             ventas_data.append({
                 'id': p.id,
@@ -1940,6 +1952,7 @@ def obtener_ventas_sesion_ajax(request, sesion_id):
                 'iva': float(p_iva),
                 'total': float(p.total_pedido),
                 'estado': p.get_estado_display(),
+                'estado_raw': p.estado,
                 'pagos': desglose_pagos
             })
             
@@ -2051,12 +2064,15 @@ def imprimir_corte_ticket(request, sesion_id):
     ventas_tarjeta = pagos.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito']).aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
     ventas_transferencia = pagos.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
     
-    total_ventas = ventas_efectivo + ventas_tarjeta + ventas_transferencia
+    from clientes.models import Credito
+    ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
+    
+    total_ventas = ventas_efectivo + ventas_tarjeta + ventas_transferencia + ventas_credito
     efectivo_estimado = sesion.monto_inicial + ventas_efectivo
     
     # Calcular subtotal e IVA de los productos vendidos
     from pedidos.models import DetallePedido, Pedido
-    detalles = DetallePedido.objects.filter(pedido__sesion_caja=sesion)
+    detalles = DetallePedido.objects.filter(pedido__sesion_caja=sesion).exclude(pedido__estado='cancelado')
     
     session_subtotal = Decimal('0.00')
     session_iva = Decimal('0.00')
@@ -2066,7 +2082,7 @@ def imprimir_corte_ticket(request, sesion_id):
         session_iva += d.iva_monto
         session_total += d.total
 
-    pedidos_sesion = Pedido.objects.filter(sesion_caja=sesion)
+    pedidos_sesion = Pedido.objects.filter(sesion_caja=sesion).exclude(estado='cancelado')
 
     # Calcular descuentos aplicados en la sesión
     total_descuentos = Decimal('0.00')
@@ -2094,6 +2110,10 @@ def imprimir_corte_ticket(request, sesion_id):
     iva_transferencia = Decimal('0.00')
     total_transferencia = Decimal('0.00')
     
+    subtotal_credito = Decimal('0.00')
+    iva_credito = Decimal('0.00')
+    total_credito = Decimal('0.00')
+    
     for ped in pedidos_sesion:
         ped_subtotal = Decimal('0.00')
         ped_iva = Decimal('0.00')
@@ -2104,24 +2124,35 @@ def imprimir_corte_ticket(request, sesion_id):
             ped_total += d.total
             
         pagos_pedido = PagoPedido.objects.filter(pedido=ped, estado='aplicado')
-        ped_pagado = sum(p.monto_mxn for p in pagos_pedido) or Decimal('0.00')
+        ped_pagado_efectivo = sum(p.monto_mxn for p in pagos_pedido.filter(forma_pago='efectivo')) or Decimal('0.00')
+        ped_pagado_tarjeta = sum(p.monto_mxn for p in pagos_pedido.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito'])) or Decimal('0.00')
+        ped_pagado_transferencia = sum(p.monto_mxn for p in pagos_pedido.filter(forma_pago='transferencia')) or Decimal('0.00')
         
-        if ped_pagado > 0:
-            for p in pagos_pedido:
-                proporcion = p.monto_mxn / ped_pagado
-                fp = p.forma_pago
-                if fp == 'efectivo':
-                    subtotal_efectivo += ped_subtotal * proporcion
-                    iva_efectivo += ped_iva * proporcion
-                    total_efectivo += ped_total * proporcion
-                elif fp in ['tarjeta_debito', 'tarjeta_credito']:
-                    subtotal_tarjeta += ped_subtotal * proporcion
-                    iva_tarjeta += ped_iva * proporcion
-                    total_tarjeta += ped_total * proporcion
-                elif fp == 'transferencia':
-                    subtotal_transferencia += ped_subtotal * proporcion
-                    iva_transferencia += ped_iva * proporcion
-                    total_transferencia += ped_total * proporcion
+        ped_pagado_credito = Credito.objects.filter(pedido=ped).aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
+        
+        ped_mapped_total = ped_pagado_efectivo + ped_pagado_tarjeta + ped_pagado_transferencia + ped_pagado_credito
+        
+        if ped_mapped_total > 0:
+            if ped_pagado_efectivo > 0:
+                prop = ped_pagado_efectivo / ped_mapped_total
+                subtotal_efectivo += ped_subtotal * prop
+                iva_efectivo += ped_iva * prop
+                total_efectivo += ped_total * prop
+            if ped_pagado_tarjeta > 0:
+                prop = ped_pagado_tarjeta / ped_mapped_total
+                subtotal_tarjeta += ped_subtotal * prop
+                iva_tarjeta += ped_iva * prop
+                total_tarjeta += ped_total * prop
+            if ped_pagado_transferencia > 0:
+                prop = ped_pagado_transferencia / ped_mapped_total
+                subtotal_transferencia += ped_subtotal * prop
+                iva_transferencia += ped_iva * prop
+                total_transferencia += ped_total * prop
+            if ped_pagado_credito > 0:
+                prop = ped_pagado_credito / ped_mapped_total
+                subtotal_credito += ped_subtotal * prop
+                iva_credito += ped_iva * prop
+                total_credito += ped_total * prop
     
     if sesion.estado == 'cerrada':
         monto_final = sesion.monto_final_efectivo
@@ -2160,6 +2191,7 @@ def imprimir_corte_ticket(request, sesion_id):
         'ventas_efectivo': ventas_efectivo,
         'ventas_tarjeta': ventas_tarjeta,
         'ventas_transferencia': ventas_transferencia,
+        'ventas_credito': ventas_credito,
         'total_ventas': total_ventas,
         'efectivo_estimado': efectivo_estimado,
         'monto_final': monto_final,
@@ -2179,6 +2211,9 @@ def imprimir_corte_ticket(request, sesion_id):
         'subtotal_transferencia': subtotal_transferencia,
         'iva_transferencia': iva_transferencia,
         'total_transferencia': total_transferencia,
+        'subtotal_credito': subtotal_credito,
+        'iva_credito': iva_credito,
+        'total_credito': total_credito,
         'incluir_articulos': incluir_articulos,
         'articulos': articulos_data
     }
@@ -2235,6 +2270,7 @@ def generar_corte_z_ajax(request):
     total_efectivo = Decimal('0.00')
     total_tarjeta = Decimal('0.00')
     total_transferencia = Decimal('0.00')
+    total_credito = Decimal('0.00')
     total_ventas = Decimal('0.00')
 
     for s in sesiones_pendientes:
@@ -2243,6 +2279,7 @@ def generar_corte_z_ajax(request):
         total_efectivo += s.total_ventas_efectivo
         total_tarjeta += s.total_ventas_tarjeta
         total_transferencia += s.total_ventas_transferencia
+        total_credito += s.total_ventas_credito
         total_ventas += s.total_ventas
 
     try:
@@ -2256,6 +2293,7 @@ def generar_corte_z_ajax(request):
                 total_efectivo=total_efectivo,
                 total_tarjeta=total_tarjeta,
                 total_transferencia=total_transferencia,
+                total_credito=total_credito,
                 total_ventas=total_ventas
             )
             # Vincular las sesiones al nuevo Corte Z
@@ -2292,6 +2330,7 @@ def historial_cortes_z_ajax(request):
             'total_efectivo': float(c.total_efectivo),
             'total_tarjeta': float(c.total_tarjeta),
             'total_transferencia': float(c.total_transferencia),
+            'total_credito': float(c.total_credito),
             'total_ventas': float(c.total_ventas),
             'monto_inicial': float(c.monto_inicial),
             'monto_final_efectivo': float(c.monto_final_efectivo),
@@ -2328,7 +2367,7 @@ def imprimir_corte_z_ticket(request, corte_z_id):
     
     # Consolidar detalles de productos de todas las sesiones de este Corte Z
     from pedidos.models import DetallePedido, Pedido
-    detalles = DetallePedido.objects.filter(pedido__sesion_caja__in=sesiones)
+    detalles = DetallePedido.objects.filter(pedido__sesion_caja__in=sesiones).exclude(pedido__estado='cancelado')
     
     session_subtotal = Decimal('0.00')
     session_iva = Decimal('0.00')
@@ -2338,7 +2377,7 @@ def imprimir_corte_z_ticket(request, corte_z_id):
         session_iva += d.iva_monto
         session_total += d.total
 
-    pedidos_sesion = Pedido.objects.filter(sesion_caja__in=sesiones)
+    pedidos_sesion = Pedido.objects.filter(sesion_caja__in=sesiones).exclude(estado='cancelado')
 
     # Calcular descuentos aplicados en las sesiones
     total_descuentos = Decimal('0.00')
@@ -2366,6 +2405,10 @@ def imprimir_corte_z_ticket(request, corte_z_id):
     iva_transferencia = Decimal('0.00')
     total_transferencia = Decimal('0.00')
     
+    subtotal_credito = Decimal('0.00')
+    iva_credito = Decimal('0.00')
+    total_credito = Decimal('0.00')
+    
     for ped in pedidos_sesion:
         ped_subtotal = Decimal('0.00')
         ped_iva = Decimal('0.00')
@@ -2376,24 +2419,36 @@ def imprimir_corte_z_ticket(request, corte_z_id):
             ped_total += d.total
             
         pagos_pedido = PagoPedido.objects.filter(pedido=ped, estado='aplicado')
-        ped_pagado = sum(p.monto_mxn for p in pagos_pedido) or Decimal('0.00')
+        ped_pagado_efectivo = sum(p.monto_mxn for p in pagos_pedido.filter(forma_pago='efectivo')) or Decimal('0.00')
+        ped_pagado_tarjeta = sum(p.monto_mxn for p in pagos_pedido.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito'])) or Decimal('0.00')
+        ped_pagado_transferencia = sum(p.monto_mxn for p in pagos_pedido.filter(forma_pago='transferencia')) or Decimal('0.00')
         
-        if ped_pagado > 0:
-            for p in pagos_pedido:
-                proporcion = p.monto_mxn / ped_pagado
-                fp = p.forma_pago
-                if fp == 'efectivo':
-                    subtotal_efectivo += ped_subtotal * proporcion
-                    iva_efectivo += ped_iva * proporcion
-                    total_efectivo += ped_total * proporcion
-                elif fp in ['tarjeta_debito', 'tarjeta_credito']:
-                    subtotal_tarjeta += ped_subtotal * proporcion
-                    iva_tarjeta += ped_iva * proporcion
-                    total_tarjeta += ped_total * proporcion
-                elif fp == 'transferencia':
-                    subtotal_transferencia += ped_subtotal * proporcion
-                    iva_transferencia += ped_iva * proporcion
-                    total_transferencia += ped_total * proporcion
+        from clientes.models import Credito
+        ped_pagado_credito = Credito.objects.filter(pedido=ped).aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
+        
+        ped_mapped_total = ped_pagado_efectivo + ped_pagado_tarjeta + ped_pagado_transferencia + ped_pagado_credito
+        
+        if ped_mapped_total > 0:
+            if ped_pagado_efectivo > 0:
+                prop = ped_pagado_efectivo / ped_mapped_total
+                subtotal_efectivo += ped_subtotal * prop
+                iva_efectivo += ped_iva * prop
+                total_efectivo += ped_total * prop
+            if ped_pagado_tarjeta > 0:
+                prop = ped_pagado_tarjeta / ped_mapped_total
+                subtotal_tarjeta += ped_subtotal * prop
+                iva_tarjeta += ped_iva * prop
+                total_tarjeta += ped_total * prop
+            if ped_pagado_transferencia > 0:
+                prop = ped_pagado_transferencia / ped_mapped_total
+                subtotal_transferencia += ped_subtotal * prop
+                iva_transferencia += ped_iva * prop
+                total_transferencia += ped_total * prop
+            if ped_pagado_credito > 0:
+                prop = ped_pagado_credito / ped_mapped_total
+                subtotal_credito += ped_subtotal * prop
+                iva_credito += ped_iva * prop
+                total_credito += ped_total * prop
     
     efectivo_estimado = corte_z.monto_inicial + corte_z.total_efectivo
     monto_final = corte_z.monto_final_efectivo
@@ -2429,6 +2484,7 @@ def imprimir_corte_z_ticket(request, corte_z_id):
         'ventas_efectivo': corte_z.total_efectivo,
         'ventas_tarjeta': corte_z.total_tarjeta,
         'ventas_transferencia': corte_z.total_transferencia,
+        'ventas_credito': corte_z.total_credito,
         'total_ventas': corte_z.total_ventas,
         'efectivo_estimado': efectivo_estimado,
         'monto_final': monto_final,
@@ -2448,6 +2504,9 @@ def imprimir_corte_z_ticket(request, corte_z_id):
         'subtotal_transferencia': subtotal_transferencia,
         'iva_transferencia': iva_transferencia,
         'total_transferencia_pagos': total_transferencia,
+        'subtotal_credito': subtotal_credito,
+        'iva_credito': iva_credito,
+        'total_credito_pagos': total_credito,
         'incluir_articulos': incluir_articulos,
         'articulos': articulos_data
     }
@@ -2507,3 +2566,103 @@ def imprimir_pedido_ticket(request, pedido_id):
         'pagos': pagos_data
     }
     return render(request, 'ventas/ticket_pedido.html', context)
+
+@login_required(login_url='/login/')
+@require_POST
+@require_sales_permission('cortes_de_caja', 'hacer_corte', json_response=True)
+def api_devolucion_pedido(request, pedido_id):
+    from django.db import transaction
+    from django.db.models import Sum, Q
+    from django.utils import timezone
+    from decimal import Decimal
+    from pedidos.models import Pedido
+    from tesoreria.models import PagoPedido, Ingreso
+    from clientes.models import Credito
+    from core.models import Transaccion
+    from notificaciones.utils import crear_notificacion
+    from django.shortcuts import get_object_or_404
+    
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Empresa no encontrada.'})
+        
+    try:
+        pedido = get_object_or_404(Pedido, id=pedido_id, empresa=empresa_actual)
+        if pedido.estado == 'cancelado':
+            return JsonResponse({'success': False, 'error': 'Este pedido ya está cancelado/devuelto.'})
+            
+        with transaction.atomic():
+            # 1. Cancelar pagos e ingresos
+            pagos = PagoPedido.objects.filter(pedido=pedido, estado='aplicado')
+            for pago in pagos:
+                pago.estado = 'cancelado'
+                pago.motivo_cancelacion = 'Devolución de Pedido'
+                pago.save()
+                
+                # Cancelar ingresos correspondientes en tesorería
+                Ingreso.objects.filter(pago_pedido=pago, empresa=empresa_actual).update(
+                    estado='cancelado',
+                    motivo_cancelacion='Devolución de Pedido'
+                )
+                
+            # Eliminar créditos asociados
+            Credito.objects.filter(pedido=pedido, empresa=empresa_actual).delete()
+            
+            # 2. Cancelar pedido y partidas
+            pedido.estado = 'cancelado'
+            pedido.save()
+            
+            for det in pedido.detalles.all():
+                det.cantidad_entregada = 0
+                det.estado_linea = 'pendiente'
+                det.save()
+                
+            # Cancelar órdenes de venta (OS) y envío
+            ordenes = pedido.ordenes_venta.all()
+            folios_ordenes = []
+            for orden in ordenes:
+                orden.estado = 'cancelado'
+                orden.estado_entrega = 'cancelado'
+                orden.save()
+                folios_ordenes.append(orden.folio_display)
+                
+            # 3. Regresar producto al almacén (revertir transacciones)
+            query_ref = Q(referencia__in=folios_ordenes) | Q(referencia__contains=f"Pedido #{pedido.id}")
+            transacciones = Transaccion.objects.filter(query_ref, empresa=empresa_actual)
+            
+            for trans in transacciones:
+                Transaccion.objects.create(
+                    producto=trans.producto,
+                    almacen=trans.almacen,
+                    tipo='ajuste',
+                    cantidad=-trans.cantidad,
+                    total=-trans.total,
+                    empresa=empresa_actual,
+                    usuario=request.user,
+                    referencia=f"Devolución Pedido #{pedido.id}",
+                    estado='recibida'
+                )
+                
+            # 4. Actualizar totales de la sesión de caja si ya estaba cerrada
+            sesion = pedido.sesion_caja
+            if sesion and sesion.estado == 'cerrada':
+                pagos_restantes = PagoPedido.objects.filter(pedido__sesion_caja=sesion, estado='aplicado')
+                sesion.total_ventas_efectivo = pagos_restantes.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+                sesion.total_ventas_tarjeta = pagos_restantes.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito']).aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+                sesion.total_ventas_transferencia = pagos_restantes.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+                
+                from clientes.models import Credito
+                sesion.total_ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
+                sesion.save()
+                
+            # 5. Notificación del sistema
+            crear_notificacion(
+                empresa=empresa_actual,
+                mensaje=f"Se ha procesado la DEVOLUCIÓN del Pedido PED-{pedido.id:04d} por ${pedido.total_pedido:,.2f}.",
+                actor=request.user,
+                propietario=pedido.vendedor
+            )
+            
+        return JsonResponse({'success': True, 'message': 'Devolución procesada correctamente.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

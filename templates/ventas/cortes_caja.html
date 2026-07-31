@@ -32,6 +32,28 @@
         color: #008b8c;
         border: 1px solid #bceae9;
     }
+    
+    /* ESTILOS DE ESTADOS DEL PEDIDO (COPIADOS DEL MÓDULO PEDIDOS) */
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.72rem;
+        line-height: 1;
+        padding: 0.4em 0.85em;
+        font-weight: 600;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: middle;
+        border-radius: 50px;
+        letter-spacing: 0.3px;
+    }
+    .status-borrador { background-color: #f1f3f5; color: #495057; border: 1px solid #dee2e6; }
+    .status-revision { background-color: #fff3bf; color: #f08c00; border: 1px solid #ffec99; }
+    .status-pendiente { background-color: #fff4e6; color: #d9480f; border: 1px solid #ffe8cc; }
+    .status-confirmado { background-color: #e7f5ff; color: #1971c2; border: 1px solid #d0ebff; }
+    .status-completo { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
+    .status-cancelado { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
+
     .form-check-input:checked {
         background-color: #00b8b9 !important;
         border-color: #00b8b9 !important;
@@ -52,6 +74,30 @@
     }
     .nav-pills .nav-link {
         color: #495057;
+    }
+    .icon-action-danger {
+        color: #adb5bd;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        text-decoration: none !important;
+        border: none !important;
+        background: transparent !important;
+        outline: none !important;
+        padding: 0 !important;
+    }
+    .icon-action-danger:hover {
+        color: #dc3545 !important;
+        transform: scale(1.15);
+    }
+    .icon-action-danger:active {
+        transform: scale(0.95);
     }
 </style>
 
@@ -255,6 +301,7 @@
                                                   data-ventas-efectivo="{{ sesion.total_ventas_efectivo }}"
                                                   data-ventas-tarjeta="{{ sesion.total_ventas_tarjeta }}"
                                                   data-ventas-transferencia="{{ sesion.total_ventas_transferencia }}"
+                                                  data-ventas-credito="{{ sesion.total_ventas_credito }}"
                                                   data-total-ventas="{{ sesion.total_ventas }}"
                                                   data-contado-real="{{ sesion.monto_final_efectivo|default:0 }}">
                                                 {% if granular_sales_perms.cortes_de_caja.ver %}
@@ -585,6 +632,10 @@
                         <span class="text-secondary">(+) Ventas Transferencia:</span>
                         <span id="verSesionVentasTransferencia" class="fw-semibold text-dark">$0.00</span>
                     </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-secondary">(+) Ventas Crédito:</span>
+                        <span id="verSesionVentasCredito" class="fw-semibold text-dark">$0.00</span>
+                    </div>
                     <div class="d-flex justify-content-between mb-1 border-top pt-2 mt-2">
                         <span class="text-secondary fw-bold">(=) Total Ventas:</span>
                         <span id="verSesionTotalVentas" class="fw-bold text-dark">$0.00</span>
@@ -615,7 +666,7 @@
 
 <!-- MODAL: VENTAS REALIZADAS EN LA SESION -->
 <div class="modal fade" id="modalVentasSesion" tabindex="-1" aria-labelledby="modalVentasSesionLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header border-bottom bg-light py-3">
                 <h5 class="modal-title fw-bold text-dark" id="modalVentasSesionLabel">
@@ -630,12 +681,13 @@
                         <thead>
                             <tr>
                                 <th class="text-center" style="width: 10%;">Acciones</th>
-                                <th class="text-center" style="width: 13%;">Folio</th>
-                                <th class="text-center" style="width: 17%;">Fecha/Hora</th>
-                                <th class="text-center" style="width: 24%;">Cliente</th>
-                                <th class="text-center" style="width: 12%;">Subtotal</th>
-                                <th class="text-center" style="width: 12%;">IVA</th>
-                                <th class="text-center" style="width: 12%;">Total</th>
+                                <th class="text-center" style="width: 10%;">Folio</th>
+                                <th class="text-center" style="width: 15%;">Fecha/Hora</th>
+                                <th class="text-center" style="width: 21%;">Cliente</th>
+                                <th class="text-center" style="width: 11%;">Subtotal</th>
+                                <th class="text-center" style="width: 11%;">IVA</th>
+                                <th class="text-center" style="width: 11%;">Total</th>
+                                <th class="text-center" style="width: 11%;">Estado</th>
                             </tr>
                         </thead>
                         <tbody id="tbodyVentasSesion">
@@ -889,6 +941,7 @@
         const ventasEfectivo = parseFloat(btn.getAttribute('data-ventas-efectivo')) || 0;
         const ventasTarjeta = parseFloat(btn.getAttribute('data-ventas-tarjeta')) || 0;
         const ventasTransferencia = parseFloat(btn.getAttribute('data-ventas-transferencia')) || 0;
+        const ventasCredito = parseFloat(btn.getAttribute('data-ventas-credito')) || 0;
         const totalVentas = parseFloat(btn.getAttribute('data-total-ventas')) || 0;
         const contadoReal = parseFloat(btn.getAttribute('data-contado-real')) || 0;
         
@@ -916,6 +969,7 @@
         document.getElementById('verSesionVentasEfectivo').innerText = '$' + ventasEfectivo.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         document.getElementById('verSesionVentasTarjeta').innerText = '$' + ventasTarjeta.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         document.getElementById('verSesionVentasTransferencia').innerText = '$' + ventasTransferencia.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('verSesionVentasCredito').innerText = '$' + ventasCredito.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         document.getElementById('verSesionTotalVentas').innerText = '$' + totalVentas.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         
         const estimadoEf = montoInicial + ventasEfectivo;
@@ -938,13 +992,18 @@
         const modal = new bootstrap.Modal(document.getElementById('modalVerSesion'));
         modal.show();
     }
+    let currentSesionId = null;
+    let currentCajaNombre = "";
+
     // Consultar y renderizar las ventas realizadas durante un turno
     function verVentasSesion(sesionId, cajaNombre) {
+        currentSesionId = sesionId;
+        currentCajaNombre = cajaNombre;
         document.getElementById('nombreCajaVentas').innerText = cajaNombre;
         const tbody = document.getElementById('tbodyVentasSesion');
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="text-center py-4">
+                <td colspan="8" class="text-center py-4">
                     <div class="spinner-border spinner-border-sm text-brand" style="color: #00b8b9;" role="status">
                         <span class="visually-hidden">Cargando...</span>
                     </div>
@@ -969,7 +1028,7 @@
                 if (data.ventas.length === 0) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="7" class="text-center py-4 text-muted small">
+                            <td colspan="8" class="text-center py-4 text-muted small">
                                 <i class="bi bi-inboxes d-block fs-4 mb-2 opacity-50"></i>
                                 No se registraron ventas durante este turno.
                             </td>
@@ -979,21 +1038,52 @@
                     let html = '';
                     data.ventas.forEach(v => {
                         const folioFormatted = 'PED-' + String(v.id).padStart(4, '0');
-                        html += `
-                            <tr>
-                                <td class="text-center">
-                                    <span onclick="verPedido(${v.id})" class="icon-action" title="Ver Detalle">
-                                        <i class="bi bi-eye"></i>
-                                    </span>
-                                </td>
-                                <td class="text-center text-secondary">${folioFormatted}</td>
-                                <td class="text-center small text-secondary">${v.fecha}</td>
-                                <td class="text-center text-secondary">${v.cliente}</td>
-                                <td class="text-center text-secondary">$${v.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                                <td class="text-center text-secondary">$${v.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                                <td class="text-center text-secondary">$${v.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                            </tr>
-                        `;
+                        if (v.estado_raw === 'cancelado') {
+                            html += `
+                                <tr class="table-light text-muted opacity-75">
+                                    <td class="text-center">
+                                        <span onclick="verPedido(${v.id})" class="icon-action" title="Ver Detalle">
+                                            <i class="bi bi-eye"></i>
+                                        </span>
+                                    </td>
+                                    <td class="text-center text-decoration-line-through">${folioFormatted}</td>
+                                    <td class="text-center small text-decoration-line-through">${v.fecha}</td>
+                                    <td class="text-center text-decoration-line-through">${v.cliente}</td>
+                                    <td class="text-center text-decoration-line-through">$${v.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    <td class="text-center text-decoration-line-through">$${v.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    <td class="text-center text-decoration-line-through">$${v.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    <td class="text-center"><span class="status-pill status-cancelado">Devolución</span></td>
+                                </tr>
+                            `;
+                        } else {
+                            let statusClass = 'status-borrador';
+                            if (v.estado_raw === 'completo') statusClass = 'status-completo';
+                            else if (v.estado_raw === 'pendiente') statusClass = 'status-pendiente';
+                            else if (v.estado_raw === 'revision') statusClass = 'status-revision';
+                            else if (v.estado_raw === 'confirmado') statusClass = 'status-confirmado';
+                            badgeHtml = `<span class="status-pill ${statusClass}">${v.estado}</span>`;
+                            html += `
+                                <tr>
+                                    <td class="text-center">
+                                        <span onclick="verPedido(${v.id})" class="icon-action" title="Ver Detalle">
+                                            <i class="bi bi-eye"></i>
+                                        </span>
+                                        {% if granular_sales_perms.cortes_de_caja.hacer_corte %}
+                                        <span onclick="confirmarDevolucion(${v.id})" class="icon-action-danger ms-1" title="Devolución/Cancelar Venta">
+                                            <i class="bi bi-arrow-counterclockwise"></i>
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center text-secondary">${folioFormatted}</td>
+                                    <td class="text-center small text-secondary">${v.fecha}</td>
+                                    <td class="text-center text-secondary">${v.cliente}</td>
+                                    <td class="text-center text-secondary">$${v.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    <td class="text-center text-secondary">$${v.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    <td class="text-center text-secondary">$${v.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    <td class="text-center">${badgeHtml}</td>
+                                </tr>
+                            `;
+                        }
                     });
                     
                     // Fila de totales en una sola línea
@@ -1003,6 +1093,7 @@
                             <td class="text-center py-2">$${data.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                             <td class="text-center py-2">$${data.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                             <td class="text-center py-2">$${data.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td></td>
                         </tr>
                     `;
                     tbody.innerHTML = html;
@@ -1010,7 +1101,7 @@
             } else {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="7" class="text-center py-4 text-danger small">
+                        <td colspan="8" class="text-center py-4 text-danger small">
                             Error al cargar ventas: ${data.error}
                         </td>
                     </tr>
@@ -1021,11 +1112,43 @@
             console.error('Error:', error);
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="7" class="text-center py-4 text-danger small">
+                    <td colspan="8" class="text-center py-4 text-danger small">
                         Ocurrió un error al consultar las ventas del turno.
                     </td>
                 </tr>
             `;
+        });
+    }
+
+    function confirmarDevolucion(pedidoId) {
+        if (!confirm("¿Estás seguro de que deseas procesar la devolución de este pedido?\n\nEsta acción:\n1. Cancelará todos los ingresos relacionados.\n2. Devolverá los productos al stock del almacén.\n3. Cancelará el pedido y su estado de envío.\n\nEsta operación no se puede deshacer.")) {
+            return;
+        }
+
+        fetch(`/ventas/cortes-caja/devolucion-pedido/${pedidoId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert("Devolución procesada correctamente.");
+                // Refrescar el modal de ventas de la sesión activa
+                if (currentSesionId !== null) {
+                    verVentasSesion(currentSesionId, currentCajaNombre);
+                } else {
+                    location.reload();
+                }
+            } else {
+                alert("Error al procesar la devolución: " + data.error);
+            }
+        })
+        .catch(error => {
+            console.error("Error al procesar devolución:", error);
+            alert("Ocurrió un error de conexión al procesar la devolución.");
         });
     }
     // Consultar y renderizar los artículos vendidos durante un turno

@@ -192,6 +192,178 @@ class CreditoPOSTestCase(TestCase):
         self.assertFalse(Credito.objects.filter(pedido=pedido).exists())
         
         # Verify Pedido payment status is now 'pagado'
-        pedido = Pedido.objects.get(id=pedido.id)
         self.assertEqual(pedido.pago_estado, 'pagado')
         self.assertEqual(pedido.saldo_pendiente, Decimal('0.00'))
+
+    def test_devolucion_pedido_corte_caja(self):
+        import json
+        from core.models import Transaccion
+        from ventas.models import OrdenVenta
+        
+        # 1. POS checkout with cash payment
+        payload = {
+            'cliente_id': self.cliente.id,
+            'items': [{
+                'producto_id': self.producto.id,
+                'cantidad': 2,
+                'precio_unitario': 150.00,
+                'lista_seleccionada': '',
+                'modificadores': []
+            }],
+            'pagos': [
+                {'forma_pago': 'efectivo', 'monto': 300.00}
+            ],
+            'aplica_iva': False,
+            'descuento': 0,
+            'descuento_tipo': 'monto'
+        }
+        
+        self.user.is_superuser = True
+        self.user.save()
+        
+        response = self.client.post(
+            '/ventas/pos/crear-venta/',
+            data=json.dumps(payload),
+            content_type='application/json',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertTrue(data['success'])
+        
+        pedido = Pedido.objects.latest('id')
+        pago = PagoPedido.objects.get(pedido=pedido)
+        self.assertEqual(pago.estado, 'aplicado')
+        
+        # Verify initial stock was reduced by 2 (10 - 2 = 8)
+        from almacenes.models import Inventario
+        inv = Inventario.objects.get(producto=self.producto, almacen=self.almacen)
+        self.assertEqual(inv.cantidad, 8)
+        
+        # Verify associated delivery (OrdenVenta)
+        ov = OrdenVenta.objects.get(pedido_origen=pedido)
+        self.assertEqual(ov.estado, 'surtido')
+        self.assertEqual(ov.estado_entrega, 'entregado')
+        
+        # 2. Run the devolucion POST view
+        devolucion_url = f'/ventas/cortes-caja/devolucion-pedido/{pedido.id}/'
+        response = self.client.post(
+            devolucion_url,
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertTrue(data['success'])
+        
+        # 3. Verify order cancelation & refund status
+        pedido.refresh_from_db()
+        self.assertEqual(pedido.estado, 'cancelado')
+        self.assertEqual(pedido.pago_estado, 'pendiente')
+        
+        pago.refresh_from_db()
+        self.assertEqual(pago.estado, 'cancelado')
+        
+        ov.refresh_from_db()
+        self.assertEqual(ov.estado, 'cancelado')
+        self.assertEqual(ov.estado_entrega, 'cancelado')
+        
+        # Verify stock returned to 10
+        inv.refresh_from_db()
+        self.assertEqual(inv.cantidad, 10)
+        
+        # Verify that session totals exclude the canceled order
+        # Calculate expected session totals
+        response = self.client.get(
+            f'/ventas/cortes-caja/ventas-sesion/{self.sesion.id}/',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertTrue(data['success'])
+        self.assertEqual(data['total'], 0.0)
+
+    def test_corte_caja_y_corte_z_con_credito(self):
+        import json
+        from ventas.models import CorteZ
+        
+        # Make a sale with credit
+        payload = {
+            'cliente_id': self.cliente.id,
+            'items': [{
+                'producto_id': self.producto.id,
+                'cantidad': 1,
+                'precio_unitario': 150.00,
+                'lista_seleccionada': '',
+                'modificadores': []
+            }],
+            'pagos': [
+                {'forma_pago': 'credito', 'monto': 150.00}
+            ],
+            'aplica_iva': False,
+            'descuento': 0,
+            'descuento_tipo': 'monto'
+        }
+        
+        self.user.is_superuser = True
+        self.user.save()
+        
+        # Post the POS sale
+        response = self.client.post(
+            '/ventas/pos/crear-venta/',
+            data=json.dumps(payload),
+            content_type='application/json',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        
+        # Set session variable for active box session
+        session = self.client.session
+        session['sesion_caja_id'] = self.sesion.id
+        session['sucursal_id'] = self.sucursal.id
+        session['empresa_id'] = self.empresa.id
+        session.save()
+
+        # 1. Assert AJAX session totals returns credit
+        response = self.client.get(
+            '/ventas/pos/totales-sesion/',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertTrue(data['success'])
+        self.assertEqual(data['ventas_credito'], 150.0)
+
+        # 2. Close session
+        response = self.client.post(
+            '/ventas/pos/cierre-sesion/',
+            data={'monto_final_efectivo': 100.00},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertTrue(data['success'])
+
+        self.sesion.refresh_from_db()
+        self.assertEqual(self.sesion.estado, 'cerrada')
+        self.assertEqual(self.sesion.total_ventas_credito, Decimal('150.00'))
+
+        # 3. Generate Corte Z
+        from django.utils import timezone
+        fecha_negocio = timezone.localdate(self.sesion.fecha_cierre).strftime('%Y-%m-%d')
+        response = self.client.post(
+            '/ventas/cortes-caja/corte-z/generar/',
+            data={'fecha': fecha_negocio},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        if not data.get('success'):
+            print("Corte Z generation failed with error:", data.get('error'))
+        self.assertTrue(data['success'])
+
+        # Verify Corte Z total credit sum
+        corte_z = CorteZ.objects.latest('id')
+        self.assertEqual(corte_z.total_credito, Decimal('150.00'))
+        self.assertEqual(corte_z.total_ventas, Decimal('150.00'))
+
+

@@ -23,6 +23,7 @@ class OrdenVenta(models.Model):
         ('listo', 'Listo para enviar'),
         ('transito', 'En tránsito'),
         ('entregado', 'Entregado'),
+        ('cancelado', 'Cancelado'),
     )
 
     # REFERENCIAS
@@ -211,6 +212,7 @@ class CorteZ(models.Model):
     total_efectivo = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Total Ventas Efectivo")
     total_tarjeta = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Total Ventas Tarjeta")
     total_transferencia = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Total Ventas Transferencia")
+    total_credito = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Total Ventas Crédito")
     total_ventas = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Total Ventas General")
 
     monto_inicial = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Total Fondo Inicial")
@@ -255,6 +257,7 @@ class SesionCajaPOS(models.Model):
     total_ventas_efectivo = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Ventas Efectivo")
     total_ventas_tarjeta = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Ventas Tarjeta")
     total_ventas_transferencia = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Ventas Transferencia")
+    total_ventas_credito = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Ventas Crédito")
     
     class Meta:
         verbose_name = "Sesión de Caja POS"
@@ -271,4 +274,4 @@ class SesionCajaPOS(models.Model):
 
     @property
     def total_ventas(self):
-        return self.total_ventas_efectivo + self.total_ventas_tarjeta + self.total_ventas_transferencia
+        return self.total_ventas_efectivo + self.total_ventas_tarjeta + self.total_ventas_transferencia + self.total_ventas_credito

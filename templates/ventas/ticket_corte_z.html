@@ -145,6 +145,10 @@
             <td>Ventas Transferencia:</td>
             <td class="monto">${{ ventas_transferencia|floatformat:2|intcomma }}</td>
         </tr>
+        <tr>
+            <td>Ventas Crédito:</td>
+            <td class="monto">${{ ventas_credito|floatformat:2|intcomma }}</td>
+        </tr>
         <tr class="bold">
             <td>TOTAL VENTAS:</td>
             <td class="monto">${{ total_ventas|floatformat:2|intcomma }}</td>
@@ -205,6 +209,23 @@
         <tr>
             <td style="padding-left: 10px;">Total:</td>
             <td class="monto">${{ total_transferencia_pagos|floatformat:2|intcomma }}</td>
+        </tr>
+
+        <!-- CRÉDITO -->
+        <tr class="bold" style="border-top: 1px dotted #ccc;">
+            <td colspan="2">CRÉDITO:</td>
+        </tr>
+        <tr>
+            <td style="padding-left: 10px;">Subtotal:</td>
+            <td class="monto">${{ subtotal_credito|floatformat:2|intcomma }}</td>
+        </tr>
+        <tr>
+            <td style="padding-left: 10px;">IVA:</td>
+            <td class="monto">${{ iva_credito|floatformat:2|intcomma }}</td>
+        </tr>
+        <tr>
+            <td style="padding-left: 10px;">Total:</td>
+            <td class="monto">${{ total_credito_pagos|floatformat:2|intcomma }}</td>
         </tr>
 
         <!-- CONSOLIDADO CON DESCUENTOS -->
