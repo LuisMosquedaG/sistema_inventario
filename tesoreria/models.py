@@ -37,13 +37,14 @@ class PagoPedido(models.Model):
         ('tarjeta_credito', 'Tarjeta de Crédito'),
         ('transferencia', 'Transferencia'),
         ('compensacion', 'Compensación'),
+        ('credito', 'Crédito'),
     ]
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
     pedido = models.ForeignKey('pedidos.Pedido', on_delete=models.CASCADE, related_name='pagos', verbose_name="Pedido")
-    fecha_pago = models.DateField(verbose_name="Fecha de Pago")
+    fecha_pago = models.DateField(verbose_name="Fecha de Pago", null=True, blank=True)
     forma_pago = models.CharField(max_length=20, choices=FORMA_PAGO_CHOICES, verbose_name="Forma de Pago")
-    caja_banco = models.ForeignKey(CajaBanco, on_delete=models.PROTECT, verbose_name="Caja/Banco")
+    caja_banco = models.ForeignKey(CajaBanco, on_delete=models.PROTECT, verbose_name="Caja/Banco", null=True, blank=True)
     referencia = models.CharField(max_length=100, blank=True, null=True, verbose_name="Referencia")
     moneda = models.ForeignKey(Moneda, on_delete=models.PROTECT, verbose_name="Moneda")
     tipo_cambio = models.DecimalField(max_digits=10, decimal_places=4, default=1.0, verbose_name="Tipo de Cambio")
@@ -72,7 +73,7 @@ class Ingreso(models.Model):
     tipo_cambio = models.DecimalField(max_digits=10, decimal_places=4, default=1.0, verbose_name="Tipo de Cambio")
     monto_mxn = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Monto MXN")
     forma_pago = models.CharField(max_length=20, choices=PagoPedido.FORMA_PAGO_CHOICES, verbose_name="Forma de Pago")
-    caja_banco = models.ForeignKey(CajaBanco, on_delete=models.PROTECT, verbose_name="Caja/Banco")
+    caja_banco = models.ForeignKey(CajaBanco, on_delete=models.PROTECT, verbose_name="Caja/Banco", null=True, blank=True)
     referencia = models.CharField(max_length=100, blank=True, null=True, verbose_name="Referencia")
     
     # Vínculos opcionales

@@ -7,13 +7,13 @@ from pedidos.models import Pedido
 from tesoreria.models import CajaBanco, PagoPedido
 from preferencias.models import Moneda, Sucursal
 from core.models import Producto
-from almacenes.models import Almacen
+from almacenes.models import Almacen, Inventario
 from ventas.models import CajaPOS, SesionCajaPOS
 
 class CreditoPOSTestCase(TestCase):
     def setUp(self):
         # Create standard entities
-        self.empresa = Empresa.objects.create(nombre="Test Empresa")
+        self.empresa = Empresa.objects.create(nombre="Test Empresa", subdominio="prueba")
         self.moneda = Moneda.objects.create(nombre="Peso Mexicano", siglas="MXN", empresa=self.empresa)
         self.sucursal = Sucursal.objects.create(nombre="Test Sucursal", empresa=self.empresa)
         self.almacen = Almacen.objects.create(nombre="Almacen POS", empresa=self.empresa, sucursal=self.sucursal)
@@ -24,7 +24,7 @@ class CreditoPOSTestCase(TestCase):
             estado="activo",
             empresa=self.empresa
         )
-        self.user = User.objects.create_user(username="testuser", password="password")
+        self.user = User.objects.create_user(username="testuser@prueba", password="password")
         
         # Configure CajaBanco accounts
         self.caja_efectivo = CajaBanco.objects.create(
@@ -76,8 +76,17 @@ class CreditoPOSTestCase(TestCase):
             estado="activo"
         )
         
+        # Create inventory stock
+        Inventario.objects.create(
+            producto=self.producto,
+            almacen=self.almacen,
+            cantidad=10,
+            empresa=self.empresa,
+            sucursal=self.sucursal
+        )
+        
         self.client = Client()
-        self.client.login(username="testuser", password="password")
+        self.client.login(username="testuser@prueba", password="password")
         
         # Set session variable for sucursal_id and empresa_id
         session = self.client.session
@@ -113,7 +122,7 @@ class CreditoPOSTestCase(TestCase):
         
         # Call the pos checkout view
         response = self.client.post(
-            '/ventas/punto-de-venta/crear-ajax/',
+            '/ventas/pos/crear-venta/',
             data=json.dumps(payload),
             content_type='application/json',
             HTTP_X_REQUESTED_WITH='XMLHttpRequest'
@@ -121,6 +130,8 @@ class CreditoPOSTestCase(TestCase):
         
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
+        if not data.get('success'):
+            print("POS Checkout failed with error:", data.get('error'))
         self.assertTrue(data['success'])
         
         # Check that Pedido was created
@@ -154,7 +165,8 @@ class CreditoPOSTestCase(TestCase):
             'tipo_cambio': 1.0,
             'fecha_pago': '2026-07-30',
             'forma_pago': 'efectivo',
-            'referencia': 'Abono 1'
+            'referencia': 'Abono 1',
+            'es_abono_credito': 'true'
         }
         response = self.client.post('/tesoreria/api/registrar-pago-pedido/', data=pago_payload)
         self.assertEqual(response.status_code, 200)

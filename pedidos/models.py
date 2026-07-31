@@ -87,7 +87,7 @@ class Pedido(models.Model):
     
     @property
     def total_pagado(self):
-        """Suma de todos los pagos registrados para este pedido"""
+        """Suma de todos los pagos aplicados para este pedido (efectivo, transferéncia, crédito, etc.)."""
         from django.db.models import Sum
         total = self.pagos.filter(estado='aplicado').aggregate(Sum('monto'))['monto__sum']
         return total or Decimal('0')

@@ -1086,7 +1086,11 @@ def api_info_pago_pedido(request, pedido_id):
     """Devuelve los datos necesarios para el modal de pago de un pedido"""
     empresa_actual = get_empresa_actual(request)
     pedido = get_object_or_404(Pedido, id=pedido_id, empresa=empresa_actual)
-    
+
+    # Crédito activo vinculado al pedido
+    from clientes.models import Credito
+    credito_obj = Credito.objects.filter(pedido=pedido, saldo__gt=0).first()
+
     data = {
         'id': pedido.id,
         'cliente_nombre': pedido.cliente.nombre_completo,
@@ -1095,8 +1099,13 @@ def api_info_pago_pedido(request, pedido_id):
         'total_pedido': float(pedido.total_pedido),
         'total_pagado': float(pedido.total_pagado),
         'saldo_pendiente': float(pedido.saldo_pendiente),
+        # Información de crédito activo
+        'tiene_credito': credito_obj is not None,
+        'saldo_credito': float(credito_obj.saldo) if credito_obj else 0,
+        'monto_credito': float(credito_obj.monto_total) if credito_obj else 0,
     }
     return JsonResponse(data)
+
 
 @login_required(login_url='/login/')
 @require_sales_permission('pedidos', 'editar', json_response=True)

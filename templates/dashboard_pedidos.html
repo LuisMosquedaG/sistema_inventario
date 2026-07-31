@@ -891,6 +891,7 @@
                 <form id="formRegistrarPago" method="post" action="{% url 'api_registrar_pago_pedido' %}" novalidate>
                     {% csrf_token %}
                     <input type="hidden" name="pedido_id" id="pago_pedido_id">
+                    <input type="hidden" name="es_abono_credito" id="pago_es_abono_credito" value="false">
                     <div class="modal-body p-3 bg-light">
                         
                         <!-- SECCIÓN 1: DATOS DEL CLIENTE Y PEDIDO -->
@@ -919,21 +920,22 @@
                             <div class="card-body p-3">
                                 <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Detalles del Pago</h6>
                                 <div class="row g-3">
-                                    <div class="col-md-4">
+                                    <div class="col-md-4" id="wrapper_fecha_pago">
                                         <label class="form-label small fw-bold text-secondary">Fecha de Pago</label>
                                         <input type="date" name="fecha_pago" id="pago_fecha" class="form-control form-control-sm" required value="{{ hoy|date:'Y-m-d' }}">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold text-secondary">Forma de Pago</label>
-                                        <select name="forma_pago" class="form-select form-select-sm" required>
+                                        <select name="forma_pago" id="pago_forma_pago" class="form-select form-select-sm" required>
                                             <option value="efectivo">Efectivo</option>
                                             <option value="tarjeta_debito">Tarjeta de Débito</option>
                                             <option value="tarjeta_credito">Tarjeta de Crédito</option>
                                             <option value="transferencia">Transferencia</option>
                                             <option value="compensacion">Compensación</option>
+                                            <option value="credito">Crédito</option>
                                         </select>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-4" id="wrapper_tipo_destino">
                                         <label class="form-label small fw-bold text-secondary">Tipo (Caja/Banco)</label>
                                         <select id="pago_tipo_destino" class="form-select form-select-sm" onchange="filtrarDestinosPago(this.value)">
                                             <option value="">Seleccionar...</option>
@@ -942,7 +944,7 @@
                                         </select>
                                     </div>
 
-                                    <div class="col-md-6">
+                                    <div class="col-md-6" id="wrapper_cuenta_destino">
                                         <label class="form-label small fw-bold text-secondary">Cuenta de Destino</label>
                                         <select name="caja_banco_id" id="pago_caja_banco" class="form-select form-select-sm" required disabled>
                                             <option value="">Selecciona tipo primero...</option>
@@ -987,6 +989,24 @@
                                         <div class="col-4 text-center">
                                             <span class="d-block small text-muted text-uppercase fw-bold" style="font-size: 0.6rem;">Nuevo Saldo</span>
                                             <span class="text-dark" id="pago_restante_display" style="font-weight: 400;">$0.00</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- SECCIÓN DE CRÉDITO (visible solo si hay crédito activo) -->
+                                    <div id="pago_credito_wrapper" class="mt-3 pt-2 border-top" style="display:none;">
+                                        <div class="d-flex align-items-center mb-1">
+                                            <i class="bi bi-credit-card-2-front me-2" style="color:#00b8b9;"></i>
+                                            <span class="small text-muted fw-bold text-uppercase" style="font-size:0.65rem; letter-spacing:1px;">Crédito Activo</span>
+                                        </div>
+                                        <div class="row g-2">
+                                            <div class="col-6 text-center border-end">
+                                                <span class="d-block small text-muted text-uppercase fw-bold" style="font-size: 0.6rem;">Monto Crédito</span>
+                                                <span class="fw-bold" id="pago_monto_credito_display" style="color:#e67e22;">$0.00</span>
+                                            </div>
+                                            <div class="col-6 text-center">
+                                                <span class="d-block small text-muted text-uppercase fw-bold" style="font-size: 0.6rem;">Saldo Crédito</span>
+                                                <span class="fw-bold" id="pago_saldo_credito_display" style="color:#e74c3c;">$0.00</span>
+                                            </div>
                                         </div>
                                     </div>
                                     
@@ -1046,13 +1066,35 @@
                 document.getElementById('pago_total_display').innerText = fmt(data.total_pedido);
                 document.getElementById('pago_saldo_display').innerText = fmt(data.saldo_pendiente);
                 document.getElementById('pago_restante_display').innerText = fmt(0);
-                
-                document.getElementById('pago_monto').value = data.saldo_pendiente.toFixed(2);
+
+                // --- Sección de Crédito Activo ---
+                const creditoWrapper = document.getElementById('pago_credito_wrapper');
+                if (data.tiene_credito) {
+                    creditoWrapper.style.display = '';
+                    document.getElementById('pago_monto_credito_display').innerText = fmt(data.monto_credito);
+                    document.getElementById('pago_saldo_credito_display').innerText = fmt(data.saldo_credito);
+                    // Pre-llenar el abono con el saldo de crédito pendiente
+                    document.getElementById('pago_monto').value = data.saldo_credito.toFixed(2);
+                    document.getElementById('pago_es_abono_credito').value = "true";
+                } else {
+                    creditoWrapper.style.display = 'none';
+                    document.getElementById('pago_monto').value = data.saldo_pendiente.toFixed(2);
+                    document.getElementById('pago_es_abono_credito').value = "false";
+                }
                 
                 // Reset form
                 document.getElementById('pago_tipo_destino').value = "";
                 filtrarDestinosPago("");
-                
+                // Reset forma de pago y restaurar visibilidad de campos
+                const formaPagoSel = document.getElementById('pago_forma_pago');
+                if (formaPagoSel) {
+                    formaPagoSel.value = "efectivo";
+                    document.getElementById('wrapper_fecha_pago').style.display = '';
+                    document.getElementById('wrapper_tipo_destino').style.display = '';
+                    document.getElementById('wrapper_cuenta_destino').style.display = '';
+                    document.getElementById('pago_fecha').setAttribute('required', '');
+                }
+
                 const modal = new bootstrap.Modal(document.getElementById('modalRegistrarPago'));
                 modal.show();
                 actualizarConversion();
@@ -1107,6 +1149,38 @@
             document.getElementById('pago_tipo_cambio').value = "1.0000";
         }
     }
+
+    function toggleCamposPago() {
+        const formaPago = document.getElementById('pago_forma_pago').value;
+        const esCredito = formaPago === 'credito';
+
+        const wrapperFecha = document.getElementById('wrapper_fecha_pago');
+        const wrapperTipo = document.getElementById('wrapper_tipo_destino');
+        const wrapperCuenta = document.getElementById('wrapper_cuenta_destino');
+        const inputFecha = document.getElementById('pago_fecha');
+        const selectCajaBanco = document.getElementById('pago_caja_banco');
+
+        if (esCredito) {
+            wrapperFecha.style.display = 'none';
+            wrapperTipo.style.display = 'none';
+            wrapperCuenta.style.display = 'none';
+            inputFecha.removeAttribute('required');
+            selectCajaBanco.removeAttribute('required');
+            selectCajaBanco.disabled = true;
+        } else {
+            wrapperFecha.style.display = '';
+            wrapperTipo.style.display = '';
+            wrapperCuenta.style.display = '';
+            inputFecha.setAttribute('required', '');
+            const tipoDestino = document.getElementById('pago_tipo_destino').value;
+            if (tipoDestino !== '') {
+                selectCajaBanco.setAttribute('required', '');
+                selectCajaBanco.disabled = false;
+            }
+        }
+    }
+
+    document.getElementById('pago_forma_pago').addEventListener('change', toggleCamposPago);
 
     document.getElementById('formRegistrarPago').addEventListener('submit', function(e) {
         e.preventDefault();

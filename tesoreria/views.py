@@ -351,23 +351,33 @@ def api_cancelar_ingreso(request, id):
 def api_registrar_pago_pedido(request):
     if request.method == 'POST':
         try:
+            from datetime import date
             empresa_actual = get_empresa_actual(request)
             pedido_id = request.POST.get('pedido_id')
             pedido = get_object_or_404(Pedido, id=pedido_id, empresa=empresa_actual)
-            
-            caja_banco_id = request.POST.get('caja_banco_id')
-            caja_banco = get_object_or_404(CajaBanco, id=caja_banco_id, empresa=empresa_actual)
-            
+
+            forma_pago = request.POST.get('forma_pago')
+            es_credito = (forma_pago == 'credito')
+            es_abono_credito = (request.POST.get('es_abono_credito') == 'true')
+
             moneda_id = request.POST.get('moneda_id')
             moneda = get_object_or_404(Moneda, id=moneda_id, empresa=empresa_actual)
-            
+
             monto = float(request.POST.get('monto', 0))
             tipo_cambio = float(request.POST.get('tipo_cambio', 1.0))
             monto_mxn = monto * tipo_cambio
-            fecha_pago = request.POST.get('fecha_pago')
-            forma_pago = request.POST.get('forma_pago')
             referencia = request.POST.get('referencia', '')
-            
+
+            # --- CAJA/BANCO y FECHA solo para pagos NO crédito ---
+            caja_banco = None
+            fecha_pago = None
+            if not es_credito:
+                caja_banco_id = request.POST.get('caja_banco_id')
+                caja_banco = get_object_or_404(CajaBanco, id=caja_banco_id, empresa=empresa_actual)
+                fecha_pago = request.POST.get('fecha_pago')
+            else:
+                fecha_pago = date.today().isoformat()
+
             # --- OBTENER SUCURSAL DE SESIÓN ---
             from preferencias.models import Sucursal
             sucursal_id = request.session.get('sucursal_id')
@@ -391,34 +401,55 @@ def api_registrar_pago_pedido(request):
                 monto_mxn=monto_mxn,
                 sucursal=sucursal_obj
             )
-            
-            # --- REGISTRO EN INGRESOS ---
-            Ingreso.objects.create(
-                empresa=empresa_actual,
-                fecha=fecha_pago,
-                concepto=f"Pago de Pedido PED-{pedido.id:04d} - {pedido.cliente.nombre_completo}",
-                monto=monto,
-                moneda=moneda,
-                tipo_cambio=tipo_cambio,
-                monto_mxn=monto_mxn,
-                forma_pago=forma_pago,
-                caja_banco=caja_banco,
-                referencia=referencia,
-                pago_pedido=pago,
-                sucursal=sucursal_obj
-            )
-            
-            # --- ACTUALIZAR CRÉDITO DEL PEDIDO ---
+
+            # --- REGISTRO EN INGRESOS (solo pagos en efectivo/transferencia/etc.) ---
+            if not es_credito:
+                Ingreso.objects.create(
+                    empresa=empresa_actual,
+                    fecha=fecha_pago,
+                    concepto=f"Pago de Pedido PED-{pedido.id:04d} - {pedido.cliente.nombre_completo}",
+                    monto=monto,
+                    moneda=moneda,
+                    tipo_cambio=tipo_cambio,
+                    monto_mxn=monto_mxn,
+                    forma_pago=forma_pago,
+                    caja_banco=caja_banco,
+                    referencia=referencia,
+                    pago_pedido=pago,
+                    sucursal=sucursal_obj
+                )
+
+            # --- CRÉDITO: crear o actualizar registro ---
             from clientes.models import Credito
-            credito_obj = Credito.objects.filter(pedido=pedido, saldo__gt=0).first()
-            if credito_obj:
-                nuevo_saldo = pedido.saldo_pendiente
-                if nuevo_saldo <= 0:
-                    credito_obj.delete()
+            from decimal import Decimal as D
+            if es_credito:
+                # monto_total = el monto dado a crédito (no el total del pedido)
+                monto_credito = D(str(monto))
+                credito_existente = Credito.objects.filter(pedido=pedido).first()
+                if credito_existente:
+                    # Sumar al crédito existente (pueden hacerse varios abonos a crédito)
+                    credito_existente.monto_total += monto_credito
+                    credito_existente.saldo += monto_credito
+                    credito_existente.save()
                 else:
-                    credito_obj.saldo = nuevo_saldo
-                    credito_obj.save()
-            
+                    Credito.objects.create(
+                        empresa=empresa_actual,
+                        cliente=pedido.cliente,
+                        pedido=pedido,
+                        monto_total=monto_credito,
+                        saldo=monto_credito,
+                    )
+            elif es_abono_credito:
+                # Si es un abono para liquidar/pagar un crédito existente
+                credito_obj = Credito.objects.filter(pedido=pedido, saldo__gt=0).first()
+                if credito_obj:
+                    nuevo_saldo = credito_obj.saldo - D(str(monto))
+                    if nuevo_saldo <= 0:
+                        credito_obj.delete()
+                    else:
+                        credito_obj.saldo = nuevo_saldo
+                        credito_obj.save()
+
             # --- NOTIFICACIÓN ---
             crear_notificacion(
                 empresa=empresa_actual,
@@ -426,7 +457,7 @@ def api_registrar_pago_pedido(request):
                 actor=request.user,
                 propietario=pedido.vendedor
             )
-            
+
             return JsonResponse({'success': True, 'message': 'Pago registrado correctamente.'})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
