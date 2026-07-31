@@ -808,6 +808,7 @@
 </div>
 
 <script>
+    const canMakeRefund = {% if granular_sales_perms.cortes_de_caja.hacer_corte %}true{% else %}false{% endif %};
     let sesionIdParaImprimir = null;
     let modalPreguntaImpresion = null;
     
@@ -1000,7 +1001,21 @@
         currentSesionId = sesionId;
         currentCajaNombre = cajaNombre;
         document.getElementById('nombreCajaVentas').innerText = cajaNombre;
+        
+        // Abrir el modal usando el singleton para evitar instancias duplicadas
+        const modalEl = document.getElementById('modalVentasSesion');
+        let modal = bootstrap.Modal.getInstance(modalEl);
+        if (!modal) {
+            modal = new bootstrap.Modal(modalEl);
+        }
+        modal.show();
+
+        cargarTablaVentasSesion(sesionId);
+    }
+
+    function cargarTablaVentasSesion(sesionId) {
         const tbody = document.getElementById('tbodyVentasSesion');
+        if (!tbody) return;
         tbody.innerHTML = `
             <tr>
                 <td colspan="8" class="text-center py-4">
@@ -1011,10 +1026,6 @@
                 </td>
             </tr>
         `;
-        
-        // Abrir el modal inmediatamente
-        const modal = new bootstrap.Modal(document.getElementById('modalVentasSesion'));
-        modal.show();
 
         fetch(`/ventas/cortes-caja/ventas-sesion/${sesionId}/`, {
             method: 'GET',
@@ -1061,7 +1072,7 @@
                             else if (v.estado_raw === 'pendiente') statusClass = 'status-pendiente';
                             else if (v.estado_raw === 'revision') statusClass = 'status-revision';
                             else if (v.estado_raw === 'confirmado') statusClass = 'status-confirmado';
-                            badgeHtml = `<span class="status-pill ${statusClass}">${v.estado}</span>`;
+                            let badgeHtml = `<span class="status-pill ${statusClass}">${v.estado}</span>`;
                             html += `
                                 <tr>
                                     <td class="text-center">
@@ -1138,7 +1149,7 @@
                 alert("Devolución procesada correctamente.");
                 // Refrescar el modal de ventas de la sesión activa
                 if (currentSesionId !== null) {
-                    verVentasSesion(currentSesionId, currentCajaNombre);
+                    cargarTablaVentasSesion(currentSesionId);
                 } else {
                     location.reload();
                 }
@@ -1433,10 +1444,13 @@
     function verPedido(id) {
         const tbody = document.getElementById('ver_pedido_tabla_cuerpo');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="${canMakeRefund ? 7 : 6}" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</td></tr>`;
         
         const modalEl = document.getElementById('modalVerPedido');
-        const modal = new bootstrap.Modal(modalEl);
+        let modal = bootstrap.Modal.getInstance(modalEl);
+        if (!modal) {
+            modal = new bootstrap.Modal(modalEl);
+        }
         modal.show();
 
         fetch(`/pedidos/api/ver/${id}/`)
@@ -1455,9 +1469,24 @@
                 document.getElementById('ver_pedido_contacto_tel').innerText = data.contacto_tel;
                 document.getElementById('ver_pedido_contacto_email').innerText = data.contacto_email;
 
+                const actionsHdr = document.querySelector('.ver-pedido-acciones-hdr');
+                if (actionsHdr) {
+                    actionsHdr.style.display = canMakeRefund ? '' : 'none';
+                }
+
                 tbody.innerHTML = '';
                 if (data.detalles && data.detalles.length > 0) {
                     data.detalles.forEach(det => {
+                        let actionsCell = '';
+                        if (canMakeRefund) {
+                            actionsCell = `
+                                <td class="text-center">
+                                    <span class="icon-action icon-action-danger" onclick="devolverPartida(${det.id}, ${det.solicitado}, ${id})" title="Devolución de Partida">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </span>
+                                </td>
+                            `;
+                        }
                         tbody.insertAdjacentHTML('beforeend', `
                             <tr>
                                 <td class="ps-3 fw-semibold small text-dark">${det.producto}</td>
@@ -1466,11 +1495,12 @@
                                 <td class="text-end small text-dark">$${parseFloat(det.subtotal).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                                 <td class="text-end small text-muted">$${parseFloat(det.iva_monto).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                                 <td class="text-end pe-3 fw-bold small text-dark">$${parseFloat(det.total).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                ${actionsCell}
                             </tr>
                         `);
                     });
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-muted fst-italic">No hay artículos en este pedido.</td></tr>';
+                    tbody.innerHTML = `<tr><td colspan="${canMakeRefund ? 7 : 6}" class="text-center py-3 text-muted fst-italic">No hay artículos en este pedido.</td></tr>`;
                 }
 
                 const elSub = document.getElementById('ver_pedido_subtotal');
@@ -1484,9 +1514,90 @@
             })
             .catch(error => {
                 console.error("Error al cargar pedido:", error);
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-3">Error al cargar datos.</td></tr>';
+                tbody.innerHTML = `<tr><td colspan="${canMakeRefund ? 7 : 6}" class="text-center text-danger py-3">Error al cargar datos.</td></tr>`;
             });
     }
+
+    function devolverPartida(detalleId, cantMax, pedidoId) {
+        if (cantMax <= 0) {
+            alert("No hay piezas disponibles para devolver.");
+            return;
+        }
+        const cantStr = prompt(`¿Cuántas piezas deseas devolver de este artículo?\n\nCantidad disponible para devolver: ${cantMax}`, cantMax);
+        if (cantStr === null) return;
+        const cant = parseInt(cantStr);
+        if (isNaN(cant) || cant <= 0 || cant > cantMax) {
+            alert(`Cantidad inválida. Debe ser un número entero entre 1 y ${cantMax}.`);
+            return;
+        }
+        
+        if (!confirm(`¿Confirmas la devolución de ${cant} unidad(es) de este artículo?\n\nEsta acción:\n1. Devolverá el stock al almacén.\n2. Ajustará el cobro e ingresos del pedido.\n3. Cancelará la venta total si la cantidad de todos los artículos llega a 0.`)) {
+            return;
+        }
+        
+        fetch(`/ventas/cortes-caja/devolucion-partida/${detalleId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ cantidad: cant })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message || "Devolución de partida procesada correctamente.");
+                
+                // Cerrar modal
+                const modalEl = document.getElementById('modalVerPedido');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+                
+                // Refrescar tabla / sesión
+                if (currentSesionId !== null) {
+                    cargarTablaVentasSesion(currentSesionId);
+                } else {
+                    location.reload();
+                }
+            } else {
+                alert("Error: " + data.error);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Ocurrió un error al procesar la devolución.");
+        });
+    }
+
+    // Gestionar z-index y backdrops para el modal de ver detalle cuando se abre encima de las ventas de sesión
+    document.addEventListener('DOMContentLoaded', () => {
+        const verPedidoEl = document.getElementById('modalVerPedido');
+        const ventasSesionEl = document.getElementById('modalVentasSesion');
+        
+        if (verPedidoEl && ventasSesionEl) {
+            verPedidoEl.addEventListener('show.bs.modal', () => {
+                if (ventasSesionEl.classList.contains('show')) {
+                    verPedidoEl.style.zIndex = '1065';
+                    setTimeout(() => {
+                        const backdrops = document.querySelectorAll('.modal-backdrop');
+                        if (backdrops.length > 1) {
+                            backdrops[backdrops.length - 1].style.zIndex = '1060';
+                        }
+                    }, 0);
+                }
+            });
+            
+            verPedidoEl.addEventListener('hidden.bs.modal', () => {
+                verPedidoEl.style.zIndex = '';
+                // Restaurar el scroll y la clase de Bootstrap al modal padre si sigue abierto
+                if (ventasSesionEl.classList.contains('show')) {
+                    document.body.classList.add('modal-open');
+                    document.body.style.overflow = 'hidden';
+                }
+            });
+        }
+    });
   </script>
 
 <!-- MODAL: CIERRE DE TURNO / CORTE DE CAJA DESDE HISTORIAL -->

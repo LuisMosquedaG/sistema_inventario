@@ -1044,6 +1044,7 @@ def obtener_pedido_json(request, pedido_id):
 
         for det in pedido.detalles.all():
             data['detalles'].append({
+                'id': det.id,
                 'producto': det.producto.nombre,
                 'solicitado': det.cantidad_solicitada,
                 'precio': str(det.precio_unitario),

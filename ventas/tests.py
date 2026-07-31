@@ -366,4 +366,81 @@ class CreditoPOSTestCase(TestCase):
         self.assertEqual(corte_z.total_credito, Decimal('150.00'))
         self.assertEqual(corte_z.total_ventas, Decimal('150.00'))
 
+    def test_devolucion_partida_corte_caja(self):
+        import json
+        from core.models import Transaccion
+        from ventas.models import OrdenVenta
+        from tesoreria.models import PagoPedido
+        from pedidos.models import Pedido
+        from decimal import Decimal
+        
+        # 1. POS checkout with cash payment (qty 3, price 100.00, total 300.00)
+        payload = {
+            'cliente_id': self.cliente.id,
+            'items': [{
+                'producto_id': self.producto.id,
+                'cantidad': 3,
+                'precio_unitario': 100.00,
+                'lista_seleccionada': '',
+                'modificadores': []
+            }],
+            'pagos': [
+                {'forma_pago': 'efectivo', 'monto': 300.00}
+            ],
+            'aplica_iva': False,
+            'descuento': 0,
+            'descuento_tipo': 'monto'
+        }
+        
+        self.user.is_superuser = True
+        self.user.save()
+        
+        response = self.client.post(
+            '/ventas/pos/crear-venta/',
+            data=json.dumps(payload),
+            content_type='application/json',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertTrue(data['success'])
+        
+        pedido = Pedido.objects.latest('id')
+        detalle = pedido.detalles.get(producto=self.producto)
+        self.assertEqual(detalle.cantidad_solicitada, 3)
+        self.assertEqual(detalle.cantidad_entregada, 3)
+        
+        pago = PagoPedido.objects.get(pedido=pedido)
+        self.assertEqual(pago.monto, 300.00)
+        
+        from almacenes.models import Inventario
+        inv = Inventario.objects.get(producto=self.producto, almacen=self.almacen)
+        # initial stock was 10. now 10 - 3 = 7
+        self.assertEqual(inv.cantidad, 7)
+        
+        # 2. Revert 1 item via item-level refund
+        response = self.client.post(
+            f'/ventas/cortes-caja/devolucion-partida/{detalle.id}/',
+            data=json.dumps({'cantidad': 1}),
+            content_type='application/json',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertTrue(data['success'])
+        
+        # 3. Verify changes
+        detalle.refresh_from_db()
+        self.assertEqual(detalle.cantidad_solicitada, 2)
+        self.assertEqual(detalle.cantidad_entregada, 2)
+        
+        pago.refresh_from_db()
+        # 300.00 - 100.00 = 200.00
+        self.assertEqual(pago.monto, Decimal('200.00'))
+        
+        inv.refresh_from_db()
+        # 7 + 1 = 8
+        self.assertEqual(inv.cantidad, 8)
+
+
 

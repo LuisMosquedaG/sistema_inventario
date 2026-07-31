@@ -2666,3 +2666,235 @@ def api_devolucion_pedido(request, pedido_id):
         return JsonResponse({'success': True, 'message': 'Devolución procesada correctamente.'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required(login_url='/login/')
+@require_POST
+@require_sales_permission('cortes_de_caja', 'hacer_corte', json_response=True)
+def api_devolucion_partida(request, detalle_id):
+    from django.db import transaction
+    from django.db.models import Sum
+    from django.shortcuts import get_object_or_404
+    from decimal import Decimal
+    from pedidos.models import DetallePedido
+    from core.models import Transaccion
+    from tesoreria.models import PagoPedido
+    from clientes.models import Credito
+    from ventas.models import DetalleOrdenVenta
+    from notificaciones.utils import crear_notificacion
+    
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Empresa no encontrada.'})
+        
+    try:
+        detalle = get_object_or_404(DetallePedido, id=detalle_id, pedido__empresa=empresa_actual)
+        pedido = detalle.pedido
+        
+        if pedido.estado == 'cancelado':
+            return JsonResponse({'success': False, 'error': 'El pedido al que pertenece esta partida ya está cancelado/devuelto.'})
+            
+        import json
+        cant_a_devolver = 0
+        if request.body:
+            try:
+                body = json.loads(request.body)
+                cant_a_devolver = int(body.get('cantidad', 0))
+            except Exception:
+                pass
+        if not cant_a_devolver:
+            cant_a_devolver = int(request.POST.get('cantidad', 0))
+            
+        if cant_a_devolver <= 0:
+            return JsonResponse({'success': False, 'error': 'La cantidad a devolver debe ser mayor a 0.'})
+            
+        if cant_a_devolver > detalle.cantidad_solicitada:
+            return JsonResponse({'success': False, 'error': f'No puedes devolver más de la cantidad solicitada actual ({detalle.cantidad_solicitada}).'})
+            
+        with transaction.atomic():
+            # Precio unitario con IVA (monto total original / cantidad_solicitada original)
+            precio_unitario_con_iva = detalle.total / Decimal(str(detalle.cantidad_solicitada))
+            monto_reembolso = precio_unitario_con_iva * Decimal(str(cant_a_devolver))
+            
+            # 1. Regresar producto al almacén
+            folios_ordenes = [o.folio_display for o in pedido.ordenes_venta.all()]
+            original_trans = Transaccion.objects.filter(
+                referencia__in=folios_ordenes,
+                producto=detalle.producto,
+                empresa=empresa_actual
+            ).first()
+            
+            almacen = None
+            extras_to_return = []
+            if original_trans:
+                almacen = original_trans.almacen
+                if original_trans.extras_data:
+                    remaining_to_return = cant_a_devolver
+                    for item in original_trans.extras_data:
+                        if remaining_to_return <= 0:
+                            break
+                        eid = item.get('id')
+                        qty_used = item.get('qty', 1)
+                        qty_to_ret = min(remaining_to_return, qty_used)
+                        extras_to_return.append({'id': eid, 'qty': qty_to_ret})
+                        remaining_to_return -= qty_to_ret
+            else:
+                from almacenes.models import Almacen
+                almacen = Almacen.objects.filter(sucursal=pedido.sucursal, empresa=empresa_actual).first()
+                if not almacen:
+                    almacen = Almacen.objects.filter(empresa=empresa_actual).first()
+            
+            if not almacen:
+                return JsonResponse({'success': False, 'error': 'No se encontró un almacén válido para devolver los productos.'})
+                
+            # Crear transacción de ajuste positivo
+            trans_ref = f"Devolución Partida PED-{pedido.id:04d}"
+            Transaccion.objects.create(
+                producto=detalle.producto,
+                almacen=almacen,
+                tipo='ajuste',
+                cantidad=cant_a_devolver,
+                total=Decimal(str(cant_a_devolver)) * detalle.precio_unitario,
+                empresa=empresa_actual,
+                usuario=request.user,
+                referencia=trans_ref,
+                extras_data=extras_to_return if extras_to_return else None,
+                estado='recibida'
+            )
+            
+            # Devolver lotes/series a su estado anterior si aplica
+            if extras_to_return:
+                from recepciones.models import DetalleRecepcionExtra
+                for item in extras_to_return:
+                    eid = item.get('id')
+                    qty = Decimal(str(item.get('qty', 1)))
+                    try:
+                        extra = DetalleRecepcionExtra.objects.get(id=eid)
+                        if extra.tipo == 'serie':
+                            extra.almacen = almacen
+                            extra.save()
+                        else:
+                            extra.cantidad_lote = extra.cantidad_lote + qty
+                            extra.save()
+                    except DetalleRecepcionExtra.DoesNotExist:
+                        pass
+                        
+            # 2. Actualizar DetallePedido
+            detalle.cantidad_solicitada -= cant_a_devolver
+            detalle.cantidad_entregada = max(0, detalle.cantidad_entregada - cant_a_devolver)
+            if detalle.cantidad_solicitada == 0:
+                detalle.estado_linea = 'pendiente'
+            detalle.save()
+            
+            # 3. Actualizar DetalleOrdenVenta
+            detalles_ov = DetalleOrdenVenta.objects.filter(
+                orden_venta__pedido_origen=pedido,
+                producto=detalle.producto,
+                orden_venta__estado='surtido'
+            )
+            remaining_to_deduct = cant_a_devolver
+            for dov in detalles_ov:
+                if remaining_to_deduct <= 0:
+                    break
+                if dov.cantidad > remaining_to_deduct:
+                    dov.cantidad -= remaining_to_deduct
+                    dov.save()
+                    remaining_to_deduct = 0
+                else:
+                    remaining_to_deduct -= dov.cantidad
+                    dov.delete()
+                    
+            for orden in pedido.ordenes_venta.all():
+                if not orden.detalles.exists():
+                    orden.estado = 'cancelado'
+                    orden.estado_entrega = 'cancelado'
+                    orden.save()
+                    
+            # 4. Cancelación total si ya no quedan artículos solicitados
+            all_details_zero = not pedido.detalles.exclude(cantidad_solicitada=0).exists()
+            if all_details_zero:
+                pedido.estado = 'cancelado'
+                pedido.save()
+                
+                for orden in pedido.ordenes_venta.all():
+                    if orden.estado != 'cancelado':
+                        orden.estado = 'cancelado'
+                        orden.estado_entrega = 'cancelado'
+                        orden.save()
+                        
+            # 5. Descontar de los pagos aplicados
+            reembolso_pendiente = monto_reembolso
+            pagos = PagoPedido.objects.filter(pedido=pedido, estado='aplicado').order_by('-id')
+            for p in pagos:
+                if reembolso_pendiente <= 0:
+                    break
+                if p.monto >= reembolso_pendiente:
+                    p.monto -= reembolso_pendiente
+                    p.monto_mxn -= reembolso_pendiente * p.tipo_cambio
+                    if p.monto == 0:
+                        p.estado = 'cancelado'
+                        p.motivo_cancelacion = f'Devolución de partida {detalle.producto.nombre}'
+                    p.save()
+                    
+                    try:
+                        ing = p.ingreso_vinc
+                        if ing:
+                            ing.monto = p.monto
+                            ing.monto_mxn = p.monto_mxn
+                            if ing.monto == 0:
+                                ing.estado = 'cancelado'
+                                ing.motivo_cancelacion = f'Devolución de partida {detalle.producto.nombre}'
+                            ing.save()
+                    except Exception:
+                        pass
+                    reembolso_pendiente = Decimal('0.00')
+                else:
+                    reembolso_pendiente -= p.monto
+                    p.monto = Decimal('0.00')
+                    p.monto_mxn = Decimal('0.00')
+                    p.estado = 'cancelado'
+                    p.motivo_cancelacion = f'Devolución de partida {detalle.producto.nombre}'
+                    p.save()
+                    
+                    try:
+                        ing = p.ingreso_vinc
+                        if ing:
+                            ing.monto = Decimal('0.00')
+                            ing.monto_mxn = Decimal('0.00')
+                            ing.estado = 'cancelado'
+                            ing.motivo_cancelacion = f'Devolución de partida {detalle.producto.nombre}'
+                            ing.save()
+                    except Exception:
+                        pass
+                        
+            # 6. Actualizar Crédito
+            creditos = Credito.objects.filter(pedido=pedido, empresa=empresa_actual)
+            for cred in creditos:
+                cred.monto_total = max(Decimal('0.00'), cred.monto_total - monto_reembolso)
+                cred.saldo = max(Decimal('0.00'), cred.saldo - monto_reembolso)
+                if cred.monto_total == 0:
+                    cred.delete()
+                else:
+                    cred.save()
+                    
+            # 7. Actualizar totales de la sesión de caja
+            sesion = pedido.sesion_caja
+            if sesion and sesion.estado == 'cerrada':
+                pagos_restantes = PagoPedido.objects.filter(pedido__sesion_caja=sesion, estado='aplicado')
+                sesion.total_ventas_efectivo = pagos_restantes.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+                sesion.total_ventas_tarjeta = pagos_restantes.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito']).aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+                sesion.total_ventas_transferencia = pagos_restantes.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+                
+                sesion.total_ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
+                sesion.save()
+                
+            # 8. Notificar
+            crear_notificacion(
+                empresa=empresa_actual,
+                mensaje=f"Se ha procesado la devolución de {cant_a_devolver} unidades del producto {detalle.producto.nombre} en el Pedido PED-{pedido.id:04d} por ${monto_reembolso:,.2f}.",
+                actor=request.user,
+                propietario=pedido.vendedor
+            )
+            
+        return JsonResponse({'success': True, 'message': 'Devolución de partida procesada correctamente.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

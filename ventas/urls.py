@@ -53,4 +53,5 @@ urlpatterns = [
     path('cortes-caja/corte-z/historial/', views.historial_cortes_z_ajax, name='historial_cortes_z_ajax'),
     path('cortes-caja/corte-z/imprimir/<int:corte_z_id>/', views.imprimir_corte_z_ticket, name='imprimir_corte_z_ticket'),
     path('cortes-caja/devolucion-pedido/<int:pedido_id>/', views.api_devolucion_pedido, name='api_devolucion_pedido'),
+    path('cortes-caja/devolucion-partida/<int:detalle_id>/', views.api_devolucion_partida, name='api_devolucion_partida'),
 ]
