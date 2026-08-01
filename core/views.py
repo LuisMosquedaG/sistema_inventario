@@ -550,7 +550,34 @@ def crear_producto_ajax(request):
                 if test_id:
                     from produccion.models import Test
                     producto.test_calidad = Test.objects.filter(id=test_id, empresa=empresa_actual).first()
-                producto.save()
+
+                # Validación de códigos de barras adicionales
+                from django.db import transaction
+                from core.models import CodigoBarrasAdicional, Producto
+                barcodes_list = request.POST.getlist('barcodes_adicionales')
+                for code in barcodes_list:
+                    code_clean = code.strip()
+                    if not code_clean:
+                        continue
+                    
+                    qs_dupe = CodigoBarrasAdicional.objects.filter(codigo=code_clean)
+                    dupe = qs_dupe.first()
+                    if dupe:
+                        return JsonResponse({'success': False, 'error': f'El código de barras "{code_clean}" ya está registrado en el artículo "{dupe.producto.nombre}".'})
+                    
+                    qs_prod = Producto.objects.filter(clave=code_clean)
+                    dupe_prod = qs_prod.first()
+                    if dupe_prod:
+                        return JsonResponse({'success': False, 'error': f'El código de barras "{code_clean}" ya es la clave principal de otro artículo: "{dupe_prod.nombre}".'})
+
+                with transaction.atomic():
+                    producto.save()
+                    # Guardar códigos de barras adicionales
+                    for code in barcodes_list:
+                        code_clean = code.strip()
+                        if code_clean:
+                            CodigoBarrasAdicional.objects.create(producto=producto, codigo=code_clean)
+
                 return JsonResponse({'success': True, 'message': 'Artículo creado correctamente.'})
             else:
                 return JsonResponse({'success': False, 'error': form.errors})
@@ -874,6 +901,7 @@ def obtener_producto_json(request, producto_id):
             'permitir_modificadores': producto.permitir_modificadores,
             'test_calidad_id': producto.test_calidad.id if producto.test_calidad else "",
             'imagen_url': producto.imagen.url if producto.imagen else '',
+            'barcodes': list(producto.barcodes.values_list('codigo', flat=True)),
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=404)
@@ -931,7 +959,38 @@ def actualizar_producto_ajax(request, producto_id):
                 else:
                     producto.test_calidad = None
                 
-                producto.save()
+                # Validación de códigos de barras adicionales
+                from django.db import transaction
+                from core.models import CodigoBarrasAdicional, Producto
+                barcodes_list = request.POST.getlist('barcodes_adicionales')
+                for code in barcodes_list:
+                    code_clean = code.strip()
+                    if not code_clean:
+                        continue
+                    
+                    qs_dupe = CodigoBarrasAdicional.objects.filter(codigo=code_clean)
+                    if producto.id:
+                        qs_dupe = qs_dupe.exclude(producto_id=producto.id)
+                    dupe = qs_dupe.first()
+                    if dupe:
+                        return JsonResponse({'success': False, 'error': f'El código de barras "{code_clean}" ya está registrado en el artículo "{dupe.producto.nombre}".'})
+                    
+                    qs_prod = Producto.objects.filter(clave=code_clean)
+                    if producto.id:
+                        qs_prod = qs_prod.exclude(id=producto.id)
+                    dupe_prod = qs_prod.first()
+                    if dupe_prod:
+                        return JsonResponse({'success': False, 'error': f'El código de barras "{code_clean}" ya es la clave principal de otro artículo: "{dupe_prod.nombre}".'})
+
+                with transaction.atomic():
+                    producto.save()
+                    # Eliminar códigos previos y guardar nuevos
+                    producto.barcodes.all().delete()
+                    for code in barcodes_list:
+                        code_clean = code.strip()
+                        if code_clean:
+                            CodigoBarrasAdicional.objects.create(producto=producto, codigo=code_clean)
+
                 return JsonResponse({'success': True, 'message': 'Artículo actualizado correctamente.'})
             else:
                 return JsonResponse({'success': False, 'error': form.errors})

@@ -1015,7 +1015,8 @@ def punto_de_venta(request):
             'stock': stock,
             'imagen_url': prod.imagen.url if prod.imagen else '',
             'precios_lista_json': json.dumps(precios_completos),
-            'modificadores_json': json.dumps(mods_data)
+            'modificadores_json': json.dumps(mods_data),
+            'barcodes_json': json.dumps(list(prod.barcodes.values_list('codigo', flat=True)))
         })
 
     from tesoreria.models import CajaBanco

@@ -283,6 +283,29 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- SECCIÓN 5: CÓDIGOS DE BARRAS ALTERNATIVOS -->
+                    <div class="card border-0 shadow-sm mb-2">
+                        <div class="card-body p-2">
+                            <h6 class="text-uppercase text-muted fw-bold mb-2" style="font-size: 0.7rem; letter-spacing: 1px;">5. Códigos de Barras Alternativos</h6>
+                            <div class="row g-2 align-items-center">
+                                <div class="col-md-8">
+                                    <label class="form-label small text-muted mb-1">Escanear o ingresar código de barras</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" id="inputBarcodeAlternativo" class="form-control" placeholder="Ej. 7501055300010" onkeydown="if(event.key === 'Enter') { event.preventDefault(); agregarBarcodeLista(); }">
+                                        <button type="button" class="btn btn-brand btn-sm text-white px-3" onclick="agregarBarcodeLista()">Agregar</button>
+                                    </div>
+                                </div>
+                                <div class="col-12 mt-2">
+                                    <div id="barcodesContainer" class="d-flex flex-wrap gap-2 py-1">
+                                        <!-- Aquí se renderizarán los chips -->
+                                    </div>
+                                    <!-- Inputs ocultos para envío del formulario -->
+                                    <div id="barcodesHiddenInputs"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </form>
             </div>
 

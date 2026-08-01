@@ -476,7 +476,8 @@
             categoria: "{{ prod.categoria|escapejs }}",
             subcategoria: "{{ prod.subcategoria|escapejs }}",
             precios_lista: JSON.parse('{{ prod.precios_lista_json|escapejs }}'),
-            modificadores: JSON.parse('{{ prod.modificadores_json|escapejs }}')
+            modificadores: JSON.parse('{{ prod.modificadores_json|escapejs }}'),
+            barcodes: JSON.parse('{{ prod.barcodes_json|escapejs }}')
         },
         {% empty %}
         {% endfor %}
@@ -809,6 +810,65 @@
         }
     });
 
+    // Escuchador para Enter (Lector de códigos de barras)
+    document.getElementById('posSearch').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            const query = this.value.trim().toLowerCase();
+            if (query.length > 0) {
+                // 1. Buscar coincidencia exacta por SKU/Clave o códigos alternativos
+                let encontradoId = null;
+                for (const id in productosPOS) {
+                    const prod = productosPOS[id];
+                    const matchesExactSku = prod.sku && prod.sku.toLowerCase() === query;
+                    const matchesExactBarcode = prod.barcodes && prod.barcodes.some(b => b.toLowerCase() === query);
+                    
+                    if (matchesExactSku || matchesExactBarcode) {
+                        encontradoId = id;
+                        break;
+                    }
+                }
+                
+                // 2. Si no hay coincidencia exacta por SKU/Código, pero solo hay 1 coincidencia en el resultado de búsqueda
+                if (!encontradoId) {
+                    const items = document.querySelectorAll('#posSearchResults .search-result-item');
+                    if (items.length === 1) {
+                        items[0].click();
+                        this.value = '';
+                        document.getElementById('posSearchResults').style.display = 'none';
+                        e.preventDefault();
+                        return;
+                    }
+                }
+                
+                if (encontradoId) {
+                    selectSearchResult(encontradoId);
+                    this.value = '';
+                    document.getElementById('posSearchResults').style.display = 'none';
+                    e.preventDefault();
+                }
+            }
+        }
+    });
+
+    // Escuchador global de teclado para enfocar automáticamente el buscador del POS
+    document.addEventListener('keydown', function(e) {
+        // Ignorar si el usuario ya está escribiendo en algún campo de entrada
+        const activeTag = document.activeElement.tagName;
+        if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') {
+            return;
+        }
+        
+        // Evitar teclas de control, atajos de teclado o teclas de navegación
+        if (e.key.length > 1 || e.ctrlKey || e.altKey || e.metaKey) {
+            return;
+        }
+        
+        const searchInput = document.getElementById('posSearch');
+        if (searchInput) {
+            searchInput.focus();
+        }
+    });
+
     // Filtros por Tipo de Producto de Venta
 
     // Filtros por Tipo de Producto
@@ -902,7 +962,8 @@
         
         for (const id in productosPOS) {
             const prod = productosPOS[id];
-            const matchesQuery = prod.nombre.toLowerCase().includes(query) || (prod.sku && prod.sku.toLowerCase().includes(query));
+            const matchesBarcode = prod.barcodes && prod.barcodes.some(b => b.toLowerCase().includes(query));
+            const matchesQuery = prod.nombre.toLowerCase().includes(query) || (prod.sku && prod.sku.toLowerCase().includes(query)) || matchesBarcode;
             const matchesType = (activeType === 'todos' || prod.tipo === activeType);
             const matchesCategory = (activeCategory === 'todas' || (prod.categoria && prod.categoria.toLowerCase() === activeCategory));
             const matchesSubcategory = (activeSubcategory === 'todas' || (prod.subcategoria && prod.subcategoria.toLowerCase() === activeSubcategory));

@@ -203,4 +203,83 @@ class LotesYCaducidadesTestCase(TestCase):
         self.assertContains(response, "5 u.")
         self.assertContains(response, "$100.00")
 
+class MultiBarcodeTestCase(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa Test Multibarcode",
+            subdominio="testbarcode",
+            modulo_inventarios=True
+        )
+        self.user = User.objects.create_superuser(username="admin@testbarcode", password="password")
+        self.client = Client()
+        self.client.force_login(self.user)
+        
+        session = self.client.session
+        session['empresa_id'] = self.empresa.id
+        session.save()
+
+    def test_crear_y_obtener_producto_con_barcodes(self):
+        import json
+        from core.models import CodigoBarrasAdicional
+        
+        payload = {
+            'nombre': 'Coca Cola 600ml',
+            'clave': 'COCA-600',
+            'tipo': 'producto',
+            'precio_costo': '15.00',
+            'precio_venta': '20.00',
+            'stock_minimo': '5',
+            'stock_maximo': '100',
+            'barcodes_adicionales': ['7501055300010', '7501055300027']
+        }
+        
+        # 1. Create product
+        response = self.client.post('/inventario/api/crear-producto/', data=payload, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertTrue(data['success'])
+        
+        producto = Producto.objects.get(clave='COCA-600')
+        self.assertEqual(producto.nombre, 'Coca Cola 600ml')
+        
+        # Verify barcodes are saved
+        barcodes = list(producto.barcodes.values_list('codigo', flat=True))
+        self.assertEqual(len(barcodes), 2)
+        self.assertIn('7501055300010', barcodes)
+        self.assertIn('7501055300027', barcodes)
+        
+        # 2. Retrieve product JSON
+        response = self.client.get(f'/inventario/api/producto/{producto.id}/', HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(response.status_code, 200)
+        prod_json = json.loads(response.content)
+        self.assertEqual(len(prod_json['barcodes']), 2)
+        self.assertIn('7501055300010', prod_json['barcodes'])
+        
+        # 3. Try to update product with duplicate barcode (different product)
+        # First, create another product
+        prod_b = Producto.objects.create(
+            clave='PEPSI-600',
+            nombre='Pepsi 600ml',
+            precio_costo=10.00,
+            precio_venta=15.00,
+            empresa=self.empresa
+        )
+        
+        # Try to assign '7501055300010' to Pepsi
+        payload_b = {
+            'nombre': 'Pepsi 600ml',
+            'clave': 'PEPSI-600',
+            'tipo': 'producto',
+            'precio_costo': '10.00',
+            'precio_venta': '15.00',
+            'stock_minimo': '5',
+            'stock_maximo': '100',
+            'barcodes_adicionales': ['7501055300010']
+        }
+        response = self.client.post(f'/inventario/api/actualizar-producto/{prod_b.id}/', data=payload_b, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(response.status_code, 200)
+        data_b = json.loads(response.content)
+        self.assertFalse(data_b['success'])
+        self.assertIn('ya está registrado en el artículo "Coca Cola 600ml"', data_b['error'])
+
 

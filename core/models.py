@@ -337,3 +337,14 @@ class ModificadorProducto(models.Model):
 
     def __str__(self):
         return f"Modificador {self.producto_modificador.nombre} para {self.producto_padre.nombre}"
+
+class CodigoBarrasAdicional(models.Model):
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='barcodes', verbose_name="Producto")
+    codigo = models.CharField(max_length=100, unique=True, verbose_name="Código de Barras")
+
+    class Meta:
+        verbose_name = "Código de Barras Adicional"
+        verbose_name_plural = "Códigos de Barras Adicionales"
+
+    def __str__(self):
+        return f"{self.codigo} -> {self.producto.nombre}"

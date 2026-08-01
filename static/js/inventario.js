@@ -40,6 +40,12 @@ window.abrirNuevoArticulo = function(sucursalId = '') {
         if (claveInput) claveInput.value = '';
     }
     
+    // Limpiar códigos de barras alternativos
+    activeProductBarcodes = [];
+    renderBarcodeChips();
+    const barcodeInput = document.getElementById('inputBarcodeAlternativo');
+    if (barcodeInput) barcodeInput.value = '';
+    
     const idField = document.getElementById('productoId');
     if (idField) idField.value = '';
 
@@ -114,6 +120,12 @@ window.cargarProductoEdicion = function(id) {
             document.getElementById('productoId').value = data.id;
             const claveInput = document.getElementById('inputClave');
             if (claveInput) claveInput.value = data.clave || '';
+
+            // Cargar códigos de barras alternativos
+            activeProductBarcodes = data.barcodes || [];
+            renderBarcodeChips();
+            const barcodeInput = document.getElementById('inputBarcodeAlternativo');
+            if (barcodeInput) barcodeInput.value = '';
             
             form.querySelector('[name="nombre"]').value = data.nombre || '';
             form.querySelector('[name="descripcion"]').value = data.descripcion || '';
@@ -1616,3 +1628,53 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // --- Funciones generales (como las de edición de artículo, etc.) ---
 // ... (mantener otras funciones existentes) ...
+
+// --- GESTIÓN DE CÓDIGOS DE BARRAS ALTERNATIVOS ---
+let activeProductBarcodes = [];
+
+window.agregarBarcodeLista = function() {
+    const input = document.getElementById('inputBarcodeAlternativo');
+    if (!input) return;
+    const value = input.value.trim();
+    if (!value) return;
+    
+    // Validar si ya está en la lista actual
+    if (activeProductBarcodes.includes(value)) {
+        alert("Este código de barras ya está en la lista temporaria.");
+        return;
+    }
+    
+    activeProductBarcodes.push(value);
+    input.value = '';
+    renderBarcodeChips();
+};
+
+window.removerBarcodeLista = function(code) {
+    activeProductBarcodes = activeProductBarcodes.filter(c => c !== code);
+    renderBarcodeChips();
+};
+
+window.renderBarcodeChips = function() {
+    const container = document.getElementById('barcodesContainer');
+    const hiddenContainer = document.getElementById('barcodesHiddenInputs');
+    if (!container || !hiddenContainer) return;
+    
+    container.innerHTML = '';
+    hiddenContainer.innerHTML = '';
+    
+    activeProductBarcodes.forEach(code => {
+        // Chip visible
+        const chip = document.createElement('span');
+        chip.className = 'badge bg-secondary d-flex align-items-center gap-1 py-1 px-2';
+        chip.style.fontSize = '0.8rem';
+        chip.innerHTML = `${code} <i class="bi bi-x-circle cursor-pointer text-white opacity-75 hover-opacity-100" onclick="removerBarcodeLista('${code}')"></i>`;
+        container.appendChild(chip);
+        
+        // Input oculto para envío de formulario
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'barcodes_adicionales';
+        hiddenInput.value = code;
+        hiddenContainer.appendChild(hiddenInput);
+    });
+};
