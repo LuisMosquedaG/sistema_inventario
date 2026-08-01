@@ -850,24 +850,99 @@
         }
     });
 
-    // Escuchador global de teclado para enfocar automáticamente el buscador del POS
+    // Buffer global para el lector de códigos de barras (escaneo en segundo plano)
+    let globalBarcodeBuffer = "";
+    let lastKeyTime = Date.now();
+
     document.addEventListener('keydown', function(e) {
-        // Ignorar si el usuario ya está escribiendo en algún campo de entrada
+        // Ignorar si el usuario ya está enfocado en algún campo de entrada
         const activeTag = document.activeElement.tagName;
         if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') {
             return;
         }
-        
+
+        // Si presionan Enter, procesamos el buffer
+        if (e.key === 'Enter') {
+            if (globalBarcodeBuffer.length > 0) {
+                const query = globalBarcodeBuffer.trim().toLowerCase();
+                globalBarcodeBuffer = ""; // Limpiar buffer
+                
+                if (!isSessionActive) {
+                    alert("⚠️ Debes abrir el turno de caja antes de poder registrar ventas.");
+                    e.preventDefault();
+                    return;
+                }
+
+                // Buscar coincidencia exacta por SKU/Clave o códigos alternativos
+                let encontradoId = null;
+                for (const id in productosPOS) {
+                    const prod = productosPOS[id];
+                    const matchesExactSku = prod.sku && prod.sku.toLowerCase() === query;
+                    const matchesExactBarcode = prod.barcodes && prod.barcodes.some(b => b.toLowerCase() === query);
+                    
+                    if (matchesExactSku || matchesExactBarcode) {
+                        encontradoId = id;
+                        break;
+                    }
+                }
+
+                if (encontradoId) {
+                    // Reproducir bip de confirmación
+                    playScanBeep();
+                    selectSearchResult(encontradoId);
+                    e.preventDefault();
+                } else {
+                    // Si no se encuentra, ponerlo en el buscador para dar retroalimentación visual al usuario
+                    const searchInput = document.getElementById('posSearch');
+                    if (searchInput) {
+                        searchInput.focus();
+                        searchInput.value = query;
+                        applyAllFilters();
+                    }
+                    e.preventDefault();
+                }
+            }
+            return;
+        }
+
         // Evitar teclas de control, atajos de teclado o teclas de navegación
         if (e.key.length > 1 || e.ctrlKey || e.altKey || e.metaKey) {
             return;
         }
-        
-        const searchInput = document.getElementById('posSearch');
-        if (searchInput) {
-            searchInput.focus();
+
+        // Control de tiempo para limpiar el buffer si es escritura manual muy lenta (más de 1.5s entre teclas)
+        const now = Date.now();
+        if (now - lastKeyTime > 1500) {
+            globalBarcodeBuffer = "";
         }
+        lastKeyTime = now;
+
+        // Acumular el carácter en el buffer
+        globalBarcodeBuffer += e.key;
     });
+
+    // Función para reproducir el tono de escaneo (pitido de Honeywell/Zebra)
+    function playScanBeep() {
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.value = 1200; // Pitido agudo de 1200 Hz
+            gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime); // Volumen suave (8%)
+            
+            oscillator.start();
+            // Pitido corto de 80ms
+            gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.08);
+            oscillator.stop(audioCtx.currentTime + 0.08);
+        } catch (e) {
+            console.warn("AudioContext no soportado o bloqueado por el navegador");
+        }
+    }
 
     // Filtros por Tipo de Producto de Venta
 
