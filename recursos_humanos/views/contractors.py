@@ -201,11 +201,22 @@ def importar_contratistas_ajax(request):
     try:
         wb = openpyxl.load_workbook(file, data_only=True)
         sheet = wb.active
-        headers = [str(cell.value).strip() if cell.value else "" for cell in sheet[1]]
+        
+        # Buscar en qué fila se encuentran los encabezados reales (ej. "Registro Federal de Contribuyente")
+        header_row_idx = 1
+        for r_idx, row_cells in enumerate(sheet.iter_rows(max_row=10), 1):
+            row_vals = [str(cell.value).strip().lower() if cell.value else "" for cell in row_cells]
+            if any(h in row_vals for h in ["registro federal de contribuyente", "rfc", "nombre denominacion o razon social", "cuatrimestre que declara"]):
+                header_row_idx = r_idx
+                break
+        
+        # Obtener y normalizar encabezados
+        headers = [str(cell.value).strip() if cell.value else "" for cell in sheet[header_row_idx]]
+        headers_norm = [h.strip().lower() for h in headers]
         
         def get_val(row, header_name, default=None):
             try:
-                idx = headers.index(header_name)
+                idx = headers_norm.index(header_name.strip().lower())
                 val = row[idx].value
                 return val if val is not None else default
             except (ValueError, IndexError):
@@ -222,7 +233,7 @@ def importar_contratistas_ajax(request):
         sucursal_id = request.session.get('sucursal_id')
         count = 0
         
-        for row in sheet.iter_rows(min_row=2):
+        for row in sheet.iter_rows(min_row=header_row_idx + 1):
             rfc = str(get_val(row, 'Registro Federal de Contribuyente', '')).strip().upper()
             if not rfc:
                 continue

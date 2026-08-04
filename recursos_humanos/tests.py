@@ -1039,3 +1039,77 @@ class ICSOEExportTest(TestCase):
         self.assertIn("150", content)
         # No debe haber 800 de Pedro
         self.assertNotIn("800", content)
+
+class ImportarContratistasTest(TestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        from panel.models import Empresa
+        
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa Importadora",
+            subdominio="importadora",
+            modulo_recursos_humanos=True
+        )
+        self.user = User.objects.create_superuser(username="admin@importadora", password="password")
+        self.client = Client()
+        self.client.force_login(self.user)
+        
+        session = self.client.session
+        session['empresa_id'] = self.empresa.id
+        session.save()
+
+    def test_importar_contratistas_template_con_titulos(self):
+        import openpyxl
+        import io
+        from django.urls import reverse
+        from recursos_humanos.models import Contratista
+        
+        # Crear un archivo Excel en memoria simulando el formato generado con títulos arriba (los encabezados reales en la fila 3)
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Sujeto Obligado"
+        
+        # Fila 1: Título agrupador
+        ws.append(["a-Datos Generales", "", "", "", "", ""])
+        # Fila 2: Sub-agrupador
+        ws.append(["Periodo", "b-Datos de identificacion", "", "", "", ""])
+        # Fila 3: Encabezados reales
+        headers = [
+            "cuatrimestre que declara", 
+            "anio que se declara", 
+            "Registro Federal de Contribuyente", 
+            "Nombre denominacion o razon social", 
+            "Correo electronico", 
+            "Registro patronal"
+        ]
+        ws.append(headers)
+        # Fila 4: Datos
+        data = [
+            "1", 
+            "2026", 
+            "CON990909XYZ", 
+            "Contratista Importado S.A.", 
+            "importado@test.com", 
+            "A999999999"
+        ]
+        ws.append(data)
+        
+        # Guardar en memoria
+        excel_file = io.BytesIO()
+        wb.save(excel_file)
+        excel_file.seek(0)
+        
+        # Realizar la petición POST
+        url = reverse('importar_contratistas_ajax')
+        response = self.client.post(url, {'archivo': excel_file}, format='multipart')
+        self.assertEqual(response.status_code, 200)
+        
+        resp_json = response.json()
+        self.assertEqual(resp_json['status'], 'success')
+        self.assertIn("Se registraron/actualizaron 1 contratistas", resp_json['message'])
+        
+        # Verificar en base de datos
+        contratista = Contratista.objects.get(rfc="CON990909XYZ")
+        self.assertEqual(contratista.nombre_razon_social, "Contratista Importado S.A.")
+        self.assertEqual(contratista.correo, "importado@test.com")
+        self.assertEqual(contratista.registro_patronal, "A999999999")
