@@ -413,7 +413,7 @@ def exportar_icsoe(request, id):
             contratista.y_calle, contratista.colonia, contratista.cp, contratista.municipio_alcaldia, 
             contratista.entidad_federativa, contratista.representante_legal, contratista.administrador_unico, 
             contratista.num_escritura, contratista.nombre_notario_publico, contratista.num_notario_publico, 
-            str(contratista.fecha_escritura_publica) if contratista.fecha_escritura_publica else '', 
+            contratista.fecha_escritura_publica.strftime('%d/%m/%Y') if contratista.fecha_escritura_publica else '', 
             contratista.folio_mercantil, 
             total_sin_credito_red, total_con_credito_red, total_amortizaciones_red, 
             contratista.numero_stps
@@ -421,7 +421,7 @@ def exportar_icsoe(request, id):
 
         if formato == 'csv':
             response = HttpResponse(content_type='text/csv')
-            response['Content-Disposition'] = f'attachment; filename="ICSOE_INFO_{rfc_input_clean}_{anio}_C{cuat}.csv"'
+            response['Content-Disposition'] = f'attachment; filename="SUJETO_OBLIGADO_SISUB_{rfc_input_clean}_{anio}_C{cuat}.csv"'
             response.write(u'\ufeff'.encode('utf8'))
             writer = csv.writer(response)
             writer.writerow(headers)
@@ -430,7 +430,7 @@ def exportar_icsoe(request, id):
         else:
             from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
             from openpyxl.utils import get_column_letter
-            wb = openpyxl.Workbook(); ws = wb.active; ws.title = "ICSOE Informativo"
+            wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Sujeto Obligado (SISUB)"
             fill_brand = PatternFill(start_color="00b8b9", end_color="00b8b9", fill_type="solid")
             fill_gray = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
             fill_light = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
@@ -450,7 +450,7 @@ def exportar_icsoe(request, id):
             for col_idx in range(1, 28): ws.cell(row=4, column=col_idx).border = border
             ws.merge_cells('A1:AA1'); c1 = ws['A1']; c1.alignment = Alignment(horizontal="center")
             response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-            response['Content-Disposition'] = f'attachment; filename="ICSOE_INFO_{rfc_input_clean}_{anio}_C{cuat}.xlsx"'; wb.save(response)
+            response['Content-Disposition'] = f'attachment; filename="SUJETO_OBLIGADO_SISUB_{rfc_input_clean}_{anio}_C{cuat}.xlsx"'; wb.save(response)
             return response
     except Exception as e: return HttpResponse(str(e), status=500)
 
@@ -552,7 +552,7 @@ def exportar_carga_trabajadores(request, id):
     # Generar Reporte
     if formato == 'csv':
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="Carga_Trabajadores_{contratista.rfc}{filename_suffix}_{anio}_C{cuat}.csv"'
+        response['Content-Disposition'] = f'attachment; filename="Carga_Trabajadores_ICSOE_{contratista.rfc}{filename_suffix}_{anio}_C{cuat}.csv"'
         response.write(u'\ufeff'.encode('utf-8'))
         
         writer = csv.writer(response)
@@ -569,7 +569,7 @@ def exportar_carga_trabajadores(request, id):
         
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = "Carga Trabajadores"
+        ws.title = "Carga trabajadores (ICSOE)"
         
         headers = ['NSS(11 dígitos)', 'CURP(18 caracteres)', 'Salario base de cotización(numérico con 2 decimales)']
         for i, h in enumerate(headers, 1):
@@ -588,7 +588,7 @@ def exportar_carga_trabajadores(request, id):
             ws.column_dimensions[get_column_letter(i)].width = 30
             
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = f'attachment; filename="Carga_Trabajadores_{contratista.rfc}{filename_suffix}_{anio}_C{cuat}.xlsx"'
+        response['Content-Disposition'] = f'attachment; filename="Carga_Trabajadores_ICSOE_{contratista.rfc}{filename_suffix}_{anio}_C{cuat}.xlsx"'
         wb.save(response)
         return response
 

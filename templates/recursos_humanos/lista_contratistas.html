@@ -152,10 +152,10 @@
                                     </span>
                                     {% endif %}
                                     {% if granular_hr_perms.contratistas.reporte_informacion %}
-                                    <span class="icon-action" title="Información (ICSOE)" onclick="abrirModalICSOE({{ c.id }})">
+                                    <span class="icon-action" title="Sujeto Obligado (SISUB)" onclick="abrirModalICSOE({{ c.id }})">
                                         <div style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
                                             <i class="bi bi-file-earmark"></i>
-                                            <span style="position: absolute; font-size: 0.55rem; font-weight: 900; top: 56%; left: 50%; transform: translate(-50%, -50%);">I</span>
+                                            <span style="position: absolute; font-size: 0.55rem; font-weight: 900; top: 56%; left: 50%; transform: translate(-50%, -50%);">S</span>
                                         </div>
                                     </span>
                                     {% endif %}
@@ -168,7 +168,7 @@
                                     </span>
                                     {% endif %}
                                     {% if granular_hr_perms.contratistas.reporte_carga_trabajadores %}
-                                    <span class="icon-action" title="Carga Trabajadores" onclick="abrirModalCargaTrabajadores({{ c.id }})">
+                                    <span class="icon-action" title="Carga trabajadores (ICSOE)" onclick="abrirModalCargaTrabajadores({{ c.id }})">
                                         <div style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
                                             <i class="bi bi-file-earmark-arrow-down"></i>
                                         </div>
@@ -525,7 +525,7 @@
     <div class="modal-dialog modal-sm modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header border-bottom-0 pb-0">
-                <h6 class="modal-title fw-bold">Periodo Reporte ICSOE</h6>
+                <h6 class="modal-title fw-bold">Sujeto Obligado (SISUB)</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -562,7 +562,7 @@
     <div class="modal-dialog modal-sm modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header border-bottom-0 pb-0">
-                <h6 class="modal-title fw-bold">Carga Trabajadores</h6>
+                <h6 class="modal-title fw-bold">Carga trabajadores (ICSOE)</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
