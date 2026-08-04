@@ -567,10 +567,17 @@ def exportar_sisub_trabajadores(request, id):
         "057": "Premios concursos"
     }
 
+    # Ordenar los recibos cronológicamente para aplicar límites acumulativos mensuales en orden
+    def get_pago_date(rc):
+        return rc.fecha_pago or rc.fecha_final_pago or rc.fecha_inicial_pago or datetime.date.min
+    recibos_sorted = list(recibos)
+    recibos_sorted.sort(key=get_pago_date)
+
     grouped_data = {}
     detalle_rows = []
+    monthly_exento_used = {}
     
-    for r in recibos:
+    for r in recibos_sorted:
         n = re.sub(r'[^0-9]','',r.nss or '')
         curp = re.sub(r'[^A-Z0-9]','',(r.curp or '').upper())
         name = (r.nombre or '').strip().upper()
@@ -649,9 +656,13 @@ def exportar_sisub_trabajadores(request, id):
         sdi_val = grouped_data[key]['sdi']
         limit_sbc = Decimal('0.10') * sdi_val * Decimal(str(r.dias_pagados or 0))
         
-        # Obtener el UMA de la empresa para vales de despensa (código 029)
-        uma_val = Decimal(str(empresa_actual.uma or '117.31'))
-        limit_uma = Decimal('0.40') * uma_val * Decimal(str(r.dias_pagados or 30))
+        # Calcular el límite de vales de despensa mensual (no prorrateado por días del recibo)
+        import calendar
+        month_key = (worker_key, f_ref.year, f_ref.month)
+        if month_key not in monthly_exento_used:
+            monthly_exento_used[month_key] = Decimal('0.00')
+        days_in_month = calendar.monthrange(f_ref.year, f_ref.month)[1]
+        limit_uma = Decimal('0.40') * uma_val * Decimal(str(days_in_month))
         
         con = emp_map.get(n) or emp_map.get(curp) or emp_map.get(name)
         con_folio = con.folio if con and con.folio else "S/F"
@@ -671,13 +682,16 @@ def exportar_sisub_trabajadores(request, id):
                 clasif = ""
                 
                 if code_norm == '029':
-                    if total_code > limit_uma:
-                        v_contrib = total_code - limit_uma
-                        no_int_contrib = limit_uma
-                        clasif = "Variable (Excedente UMA)"
+                    remaining_limit = max(Decimal('0.00'), limit_uma - monthly_exento_used[month_key])
+                    if total_code > remaining_limit:
+                        v_contrib = total_code - remaining_limit
+                        no_int_contrib = remaining_limit
+                        monthly_exento_used[month_key] += remaining_limit
+                        clasif = "Variable (Excedente UMA del mes)"
                     else:
                         no_int_contrib = total_code
-                        clasif = "No Integrable (Dentro de UMA)"
+                        monthly_exento_used[month_key] += total_code
+                        clasif = "No Integrable (Dentro de UMA del mes)"
                 elif code_norm == '003':  # PTU
                     pago_fecha = r.fecha_pago or r.fecha_final_pago
                     fuera_de_plazo = True

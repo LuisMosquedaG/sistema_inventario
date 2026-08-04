@@ -421,6 +421,8 @@ class SISUBExportTest(TestCase):
         self.empresa.uma = Decimal('117.31')
         self.empresa.save()
         
+        import datetime
+        self.nomina.fecha_pago = datetime.date(2026, 5, 15)  # Mayo tiene 31 días
         self.nomina.dias_pagados = Decimal('31.00')
         self.nomina.percepciones_detalladas = {
             '029': {'gravado': 5000.00, 'exento': 0.0}
