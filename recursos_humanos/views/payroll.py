@@ -658,6 +658,7 @@ def exportar_sisub_trabajadores(request, id):
         
         # Calcular el límite de vales de despensa mensual (no prorrateado por días del recibo)
         import calendar
+        uma_val = Decimal(str(empresa_actual.uma or '117.31'))
         month_key = (worker_key, f_ref.year, f_ref.month)
         if month_key not in monthly_exento_used:
             monthly_exento_used[month_key] = Decimal('0.00')
