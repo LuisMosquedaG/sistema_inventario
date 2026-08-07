@@ -1113,3 +1113,80 @@ class ImportarContratistasTest(TestCase):
         self.assertEqual(contratista.nombre_razon_social, "Contratista Importado S.A.")
         self.assertEqual(contratista.correo, "importado@test.com")
         self.assertEqual(contratista.registro_patronal, "A999999999")
+
+        # Verificar notificación
+        from notificaciones.models import Notificacion
+        notifs = Notificacion.objects.filter(empresa=self.empresa)
+        self.assertEqual(notifs.count(), 1)
+        notif = notifs.first()
+        self.assertEqual(notif.actor, self.user)
+        self.assertIn("importó de forma masiva 1 contratistas (nuevos: 1, actualizados: 0)", notif.mensaje)
+
+    def test_importar_contratos_generates_notification(self):
+        import openpyxl
+        import io
+        from django.urls import reverse
+        from decimal import Decimal
+        from recursos_humanos.models import Contrato, Beneficiario
+        from notificaciones.models import Notificacion
+        
+        # Crear un archivo Excel en memoria para contratos
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Contratos"
+        
+        headers = [
+            "Registro Federal de Contribuyentes",  # RFC Beneficiario
+            "Registro Federal de Contribuyente del sujeto obligado",  # RFC Contratista
+            "Objeto del contrato",
+            "Nombre denominacion o razon social",  # Nombre Beneficiario
+            "Registro Patronal ante el IMSS",
+            "Calle", "Numero exterior", "Numero interior", "Entre calle", "Y calle", "Colonia",
+            "Codigo Postal", "Municipio o Alcaldia", "Entidad Federativa", "Correo electronico",
+            "telefono (numero extension)", "Numero de contrato", "Tipo de contrato", "Monto del contrato",
+            "Vigencia (del contrato)", "Fecha de inicio (del contrato)", "Fecha de termino (del contrato)",
+            "Numero estimado mensual de trabajadores que se pondran a disposicion (del contrato)"
+        ]
+        ws.append(headers)
+        
+        # Registro 1
+        data = [
+            "BEN111111AAA",
+            "CON222222BBB",
+            "Servicios de Limpieza Especializada",
+            "Beneficiario Limpieza S.A.",
+            "B12345678",
+            "Calle Falsa", "123", "", "Entre 1", "Y 2", "Centro",
+            "06000", "Cuauhtemoc", "CDMX", "limpieza@test.com",
+            "5555555555", "CON-LIM-01", "indeterminado", "50000.00",
+            "2026-12-31", "2026-01-01", "2026-12-31", "5"
+        ]
+        ws.append(data)
+        
+        # Guardar en memoria
+        excel_file = io.BytesIO()
+        wb.save(excel_file)
+        excel_file.seek(0)
+        
+        # Realizar la petición POST
+        url = reverse('importar_contratos_ajax')
+        response = self.client.post(url, {'archivo': excel_file}, format='multipart')
+        self.assertEqual(response.status_code, 200)
+        
+        resp_json = response.json()
+        self.assertEqual(resp_json['status'], 'success')
+        self.assertIn("Se registraron 1 contratos", resp_json['message'])
+        
+        # Verificar en base de datos
+        contrato = Contrato.objects.get(folio="CON-LIM-01")
+        self.assertEqual(contrato.monto_contrato, Decimal("50000.00"))
+        
+        beneficiario = Beneficiario.objects.get(rfc="BEN111111AAA")
+        self.assertEqual(beneficiario.nombre_razon_social, "Beneficiario Limpieza S.A.")
+        
+        # Verificar notificación
+        notifs = Notificacion.objects.filter(empresa=self.empresa)
+        self.assertEqual(notifs.count(), 1)
+        notif = notifs.first()
+        self.assertEqual(notif.actor, self.user)
+        self.assertIn("importó de forma masiva 1 contratos (nuevos: 1, actualizados: 0) y creó 1 beneficiarios", notif.mensaje)

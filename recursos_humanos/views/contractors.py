@@ -231,14 +231,15 @@ def importar_contratistas_ajax(request):
             return None
 
         sucursal_id = request.session.get('sucursal_id')
-        count = 0
+        contractors_created = 0
+        contractors_updated = 0
         
         for row in sheet.iter_rows(min_row=header_row_idx + 1):
             rfc = str(get_val(row, 'Registro Federal de Contribuyente', '')).strip().upper()
             if not rfc:
                 continue
 
-            Contratista.objects.update_or_create(
+            obj, created = Contratista.objects.update_or_create(
                 empresa=empresa_actual,
                 rfc=rfc,
                 defaults={
@@ -266,11 +267,24 @@ def importar_contratistas_ajax(request):
                     'numero_stps': str(get_val(row, 'Numero de registro ante la Secretaria de Trabajo y Prevision Social', '')).strip(),
                 }
             )
-            count += 1
+            if created:
+                contractors_created += 1
+            else:
+                contractors_updated += 1
+
+        total_count = contractors_created + contractors_updated
+        if total_count > 0:
+            crear_notificacion(
+                empresa=empresa_actual,
+                actor=request.user,
+                mensaje=f'importó de forma masiva {total_count} contratistas (nuevos: {contractors_created}, actualizados: {contractors_updated})',
+                link='/recursos-humanos/contratistas/',
+                propietario=request.user
+            )
 
         return JsonResponse({
             'status': 'success', 
-            'message': f'Proceso completado. Se registraron/actualizaron {count} contratistas.'
+            'message': f'Proceso completado. Se registraron/actualizaron {total_count} contratistas.'
         })
         
     except Exception as e:

@@ -430,7 +430,9 @@ def importar_contratos_ajax(request):
         }
 
         sucursal_id = request.session.get('sucursal_id')
-        count = 0
+        contracts_created = 0
+        contracts_updated = 0
+        beneficiaries_created = 0
         
         for row in sheet.iter_rows(min_row=2):
             rfc_beneficiario = str(get_val(row, 'Registro Federal de Contribuyentes', '')).strip().upper()
@@ -478,6 +480,7 @@ def importar_contratos_ajax(request):
                 if not beneficiario.clave:
                     beneficiario.clave = f"BEN-{beneficiario.id}"
                     beneficiario.save()
+                beneficiaries_created += 1
 
             folio = str(get_val(row, 'Numero de contrato', '')).strip()
             tipo_raw = str(get_val(row, 'Tipo de contrato', '01')).strip().lower()
@@ -517,6 +520,7 @@ def importar_contratos_ajax(request):
                 contrato_existente.monto_contrato = monto
                 contrato_existente.num_estimado_trabajadores = num_trabajadores
                 contrato_existente.save()
+                contracts_updated += 1
             else:
                 Contrato.objects.create(
                     empresa=empresa_actual,
@@ -533,11 +537,24 @@ def importar_contratos_ajax(request):
                     num_estimado_trabajadores=num_trabajadores,
                     estado='vigente'
                 )
-            count += 1
+                contracts_created += 1
+
+        total_contracts = contracts_created + contracts_updated
+        if total_contracts > 0 or beneficiaries_created > 0:
+            msg = f'importó de forma masiva {total_contracts} contratos (nuevos: {contracts_created}, actualizados: {contracts_updated})'
+            if beneficiaries_created > 0:
+                msg += f' y creó {beneficiaries_created} beneficiarios'
+            crear_notificacion(
+                empresa=empresa_actual,
+                actor=request.user,
+                mensaje=msg,
+                link='/recursos-humanos/contratos/',
+                propietario=request.user
+            )
 
         return JsonResponse({
             'status': 'success', 
-            'message': f'Proceso completado. Se registraron {count} contratos.'
+            'message': f'Proceso completado. Se registraron {total_contracts} contratos.'
         })
         
     except Exception as e:
