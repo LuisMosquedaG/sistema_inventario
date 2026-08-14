@@ -497,6 +497,18 @@ def exportar_carga_trabajadores(request, id):
     }
     meses_filtro = cuat_meses_map.get(cuat, [1, 2, 3, 4])
     
+    import datetime as dt
+    anio_int = int(anio)
+    if cuat == 1:
+        cuat_start = dt.date(anio_int, 1, 1)
+        cuat_end = dt.date(anio_int, 4, 30)
+    elif cuat == 2:
+        cuat_start = dt.date(anio_int, 5, 1)
+        cuat_end = dt.date(anio_int, 8, 31)
+    else:
+        cuat_start = dt.date(anio_int, 9, 1)
+        cuat_end = dt.date(anio_int, 12, 31)
+    
     # RFC limpio para búsqueda
     rfc_clean_input = re.sub(r'[^A-Z0-9]', '', contratista.rfc.upper())
 
@@ -537,10 +549,39 @@ def exportar_carga_trabajadores(request, id):
                 if len(curp_ts) == 18:
                     empleado = Empleado.objects.filter(empresa=empresa_actual, curp=curp_ts).first()
             
-            if empleado and empleado.beneficiario:
-                # Filtrar por beneficiario si se seleccionó uno específico
-                if beneficiario_id and beneficiario_id != 'todos' and str(empleado.beneficiario_id) != str(beneficiario_id):
+            if empleado:
+                # Obtener beneficiario(s) asociado(s) al empleado
+                beneficiarios_del_empleado = set()
+                
+                # a. De su perfil de Empleado
+                if empleado.beneficiario_id:
+                    beneficiarios_del_empleado.add(empleado.beneficiario_id)
+                
+                # b. De sus contratos activos con este contratista en este cuatrimestre
+                contratos_emp = Contrato.objects.filter(
+                    empleados=empleado,
+                    contratista=contratista,
+                    empresa=empresa_actual,
+                    fecha_inicio__lte=cuat_end
+                ).filter(
+                    Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=cuat_start)
+                )
+                for con in contratos_emp:
+                    if con.beneficiario_id:
+                        beneficiarios_del_empleado.add(con.beneficiario_id)
+                
+                # Si no tiene ningún beneficiario asociado, no se puede reportar para ICSOE
+                if not beneficiarios_del_empleado:
                     continue
+                
+                # Filtrar por beneficiario si se seleccionó uno específico
+                if beneficiario_id and beneficiario_id != 'todos':
+                    try:
+                        ben_id_int = int(beneficiario_id)
+                        if ben_id_int not in beneficiarios_del_empleado:
+                            continue
+                    except ValueError:
+                        continue
 
                 # Extraer CURP: priorizar Empleado, luego ts.rfc_curp
                 curp_final = empleado.curp
