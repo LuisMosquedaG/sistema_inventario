@@ -803,6 +803,44 @@ def exportar_sisub_trabajadores(request, id):
             per_var_rounded, per_fij_rounded, d['incapacidades'], per_no_int_rounded, d['sdi']
         ])
 
+    def contract_sort_key(item):
+        folio = str(item[4] or '').strip()
+        bim = item[2]
+        nss = str(item[6] or '').strip()
+        if not folio or folio.upper() == "S/F":
+            c_key = (2, 0, "")
+        else:
+            try:
+                c_key = (0, int(folio), "")
+            except ValueError:
+                match = re.search(r'\d+', folio)
+                if match:
+                    c_key = (1, int(match.group()), folio)
+                else:
+                    c_key = (1, 0, folio)
+        return (c_key, bim, nss)
+
+    data_rows.sort(key=contract_sort_key)
+
+    def detalle_sort_key(item):
+        folio = str(item[3] or '').strip()
+        bim = item[0]
+        nss = str(item[1] or '').strip()
+        if not folio or folio.upper() == "S/F":
+            c_key = (2, 0, "")
+        else:
+            try:
+                c_key = (0, int(folio), "")
+            except ValueError:
+                match = re.search(r'\d+', folio)
+                if match:
+                    c_key = (1, int(match.group()), folio)
+                else:
+                    c_key = (1, 0, folio)
+        return (c_key, bim, nss)
+
+    detalle_rows.sort(key=detalle_sort_key)
+
     if formato == 'csv':
         resp = HttpResponse(content_type='text/csv'); resp['Content-Disposition'] = f'attachment; filename="SISUB_TRABAJADORES_{contratista.rfc}.csv"'; resp.write(u'\ufeff'.encode('utf8')); w = csv.writer(resp); w.writerow(headers); w.writerows(data_rows); return resp
     else:

@@ -1190,3 +1190,262 @@ class ImportarContratistasTest(TestCase):
         notif = notifs.first()
         self.assertEqual(notif.actor, self.user)
         self.assertIn("importó de forma masiva 1 contratos (nuevos: 1, actualizados: 0) y creó 1 beneficiarios", notif.mensaje)
+
+
+class CargaTrabajadoresICSOETest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa de Prueba",
+            subdominio="prueba",
+            usuario_admin="admin",
+            correo_contacto="prueba@test.com"
+        )
+        self.empresa.modulo_recursos_humanos = True
+        self.empresa.save()
+
+        self.user = User.objects.create_superuser(
+            username="admin@prueba",
+            email="admin@prueba.com",
+            password="password"
+        )
+        
+        self.contratista = Contratista.objects.create(
+            empresa=self.empresa,
+            nombre_razon_social="Contratista S.A.",
+            rfc="CON111111AAA"
+        )
+        
+        self.beneficiario = Beneficiario.objects.create(
+            empresa=self.empresa,
+            nombre_razon_social="Beneficiario S.A.",
+            rfc="BEN111111AAA"
+        )
+        
+        import datetime
+        self.contrato = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            beneficiario=self.beneficiario,
+            folio="CON-TEST-100",
+            fecha_inicio=datetime.date(2026, 1, 1),
+            fecha_fin=datetime.date(2026, 4, 30),
+            monto_contrato=10000.00
+        )
+        
+        # Empleado 1: tiene el beneficiario directamente asignado en su perfil
+        self.empleado_directo = Empleado.objects.create(
+            empresa=self.empresa,
+            nombre="Juan",
+            apellido_paterno="Perez",
+            nss="11111111111",
+            curp="CURP11111111111111",
+            contratista=self.contratista,
+            beneficiario=self.beneficiario
+        )
+        
+        # Empleado 2: no tiene el beneficiario asignado en su perfil, pero está asignado al contrato con el beneficiario
+        self.empleado_contrato = Empleado.objects.create(
+            empresa=self.empresa,
+            nombre="Pedro",
+            apellido_paterno="Gomez",
+            nss="22222222222",
+            curp="CURP22222222222222",
+            contratista=self.contratista
+        )
+        self.contrato.empleados.add(self.empleado_contrato)
+        
+        # Crear importación SUA
+        from recursos_humanos.models import ImportacionSUA, TrabajadorSUA
+        self.importacion = ImportacionSUA.objects.create(
+            empresa=self.empresa,
+            periodo="Enero 2026",
+            tipo="bimestral",
+            rfc_empresa="CON111111AAA",
+            nombre_razon_social="Contratista S.A."
+        )
+        
+        # Trabajador 1 (Juan Perez)
+        TrabajadorSUA.objects.create(
+            importacion=self.importacion,
+            nss="11111111111",
+            rfc_curp="CURP11111111111111",
+            nombre="Juan Perez",
+            sdi=100.00
+        )
+        
+        # Trabajador 2 (Pedro Gomez)
+        TrabajadorSUA.objects.create(
+            importacion=self.importacion,
+            nss="22222222222",
+            rfc_curp="CURP22222222222222",
+            nombre="Pedro Gomez",
+            sdi=200.00
+        )
+        
+    def test_exportar_carga_trabajadores_resolves_beneficiary_from_contract(self):
+        self.client.force_login(self.user)
+        
+        # Simular sesión de la empresa
+        session = self.client.session
+        session['empresa_id'] = self.empresa.id
+        session.save()
+        
+        # Petición al reporte para el primer cuatrimestre de 2026
+        url = reverse('exportar_carga_trabajadores', args=[self.contratista.id])
+        response = self.client.get(url, {'cuatrimestre': 1, 'anio': 2026, 'formato': 'csv'})
+        self.assertEqual(response.status_code, 200)
+        
+        content = response.content.decode('utf-8')
+        # Ambos trabajadores (NSS 11111111111 y NSS 22222222222) deben estar presentes en el archivo CSV
+        self.assertIn("11111111111", content)
+        self.assertIn("22222222222", content)
+
+
+class SisubTrabajadoresSortTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa de Prueba",
+            subdominio="prueba",
+            usuario_admin="admin",
+            correo_contacto="prueba@test.com"
+        )
+        self.empresa.modulo_recursos_humanos = True
+        self.empresa.save()
+
+        self.user = User.objects.create_superuser(
+            username="admin@prueba",
+            email="admin@prueba.com",
+            password="password"
+        )
+        
+        self.contratista = Contratista.objects.create(
+            empresa=self.empresa,
+            nombre_razon_social="Contratista S.A.",
+            rfc="CON111111AAA"
+        )
+        
+        self.beneficiario = Beneficiario.objects.create(
+            empresa=self.empresa,
+            nombre_razon_social="Beneficiario S.A.",
+            rfc="BEN111111AAA"
+        )
+        
+        import datetime
+        # Contrato con folio 10
+        self.contrato_10 = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            beneficiario=self.beneficiario,
+            folio="10",
+            fecha_inicio=datetime.date(2026, 1, 1),
+            fecha_fin=datetime.date(2026, 4, 30),
+            monto_contrato=10000.00
+        )
+        
+        # Contrato con folio 2
+        self.contrato_2 = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            beneficiario=self.beneficiario,
+            folio="2",
+            fecha_inicio=datetime.date(2026, 1, 1),
+            fecha_fin=datetime.date(2026, 4, 30),
+            monto_contrato=10000.00
+        )
+        
+        # Contrato con folio 1
+        self.contrato_1 = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            beneficiario=self.beneficiario,
+            folio="1",
+            fecha_inicio=datetime.date(2026, 1, 1),
+            fecha_fin=datetime.date(2026, 4, 30),
+            monto_contrato=10000.00
+        )
+        
+        self.emp1 = Empleado.objects.create(
+            empresa=self.empresa,
+            nombre="Juan",
+            apellido_paterno="Perez",
+            nss="11111111111",
+            curp="CURP11111111111111",
+            contratista=self.contratista
+        )
+        self.contrato_1.empleados.add(self.emp1)
+        
+        self.emp2 = Empleado.objects.create(
+            empresa=self.empresa,
+            nombre="Pedro",
+            apellido_paterno="Gomez",
+            nss="22222222222",
+            curp="CURP22222222222222",
+            contratista=self.contratista
+        )
+        self.contrato_2.empleados.add(self.emp2)
+
+        self.emp10 = Empleado.objects.create(
+            empresa=self.empresa,
+            nombre="Maria",
+            apellido_paterno="Lopez",
+            nss="33333333333",
+            curp="CURP33333333333333",
+            contratista=self.contratista
+        )
+        self.contrato_10.empleados.add(self.emp10)
+
+        # Crear Nominas para cada empleado
+        Nomina.objects.create(
+            empresa=self.empresa,
+            nss="11111111111",
+            nombre="Juan Perez",
+            fecha_pago=datetime.date(2026, 1, 15),
+            total_percepciones=1000.00
+        )
+        Nomina.objects.create(
+            empresa=self.empresa,
+            nss="22222222222",
+            nombre="Pedro Gomez",
+            fecha_pago=datetime.date(2026, 1, 15),
+            total_percepciones=2000.00
+        )
+        Nomina.objects.create(
+            empresa=self.empresa,
+            nss="33333333333",
+            nombre="Maria Lopez",
+            fecha_pago=datetime.date(2026, 1, 15),
+            total_percepciones=3000.00
+        )
+
+    def test_exportar_sisub_trabajadores_sorted_by_contract_number(self):
+        self.client.force_login(self.user)
+        session = self.client.session
+        session['empresa_id'] = self.empresa.id
+        session.save()
+        
+        url = reverse('exportar_sisub_trabajadores', args=[self.contratista.id])
+        response = self.client.get(url, {'cuatrimestre': 1, 'anio': 2026, 'formato': 'csv'})
+        self.assertEqual(response.status_code, 200)
+        
+        content = response.content.decode('utf-8')
+        lines = content.split('\r\n')
+        # Filter out empty lines
+        lines = [line for line in lines if line.strip()]
+        
+        # Header is at index 0
+        # Line 1 should be contract '1'
+        # Line 2 should be contract '2'
+        # Line 3 should be contract '10'
+        
+        self.assertIn("CON-TEST-100", lines[1]) # Pedido de test anterior
+        # Let's check remaining lines
+        found_folios = []
+        for line in lines[2:]:
+            # contract folio is the 5th value (index 4) in comma separated values
+            parts = line.split(',')
+            if len(parts) > 4:
+                found_folios.append(parts[4])
+        
+        self.assertEqual(found_folios, ["1", "2", "10"])
+
+
