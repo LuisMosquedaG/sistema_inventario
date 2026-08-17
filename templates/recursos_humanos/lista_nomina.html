@@ -419,7 +419,7 @@
                                     <div class="row g-3">
                                         <div class="col-md-4">
                                             <label class="form-label-custom">Periodo <span class="text-danger">*</span></label>
-                                            <input type="text" name="periodo" class="form-control form-control-sm" required placeholder="Ej: Mayo 2024">
+                                            <input type="text" name="periodo" class="form-control form-control-sm" placeholder="Ej: Mayo 2024">
                                         </div>
                                         <div class="col-md-4">
                                             <label class="form-label-custom">Uso de CFDI</label>
@@ -502,15 +502,15 @@
                                         </div>
                                         <div class="col-md-3">
                                             <label class="form-label-custom">RFC <span class="text-danger">*</span></label>
-                                            <input type="text" name="rfc" id="nom_rfc" class="form-control form-control-sm" required maxlength="13">
+                                            <input type="text" name="rfc" id="nom_rfc" class="form-control form-control-sm" maxlength="13">
                                         </div>
                                         <div class="col-md-3">
                                             <label class="form-label-custom">CURP <span class="text-danger">*</span></label>
-                                            <input type="text" name="curp" id="nom_curp" class="form-control form-control-sm" required maxlength="18">
+                                            <input type="text" name="curp" id="nom_curp" class="form-control form-control-sm" maxlength="18">
                                         </div>
                                         <div class="col-md-3">
                                             <label class="form-label-custom">NSS <span class="text-danger">*</span></label>
-                                            <input type="text" name="nss" id="nom_nss" class="form-control form-control-sm" required maxlength="11">
+                                            <input type="text" name="nss" id="nom_nss" class="form-control form-control-sm" maxlength="11">
                                         </div>
                                         <div class="col-md-3">
                                             <label class="form-label-custom">RFC (Contratista)</label>
@@ -820,6 +820,43 @@
     document.getElementById('formNomina').addEventListener('submit', async function(e) {
         e.preventDefault();
         var formData = new FormData(e.target);
+        var f = e.target;
+        
+        // Manual validation to avoid silent HTML5 block on hidden tabs
+        var periodo = formData.get('periodo');
+        var rfc = formData.get('rfc');
+        var curp = formData.get('curp');
+        var nss = formData.get('nss');
+        
+        if (!periodo || !periodo.trim()) {
+            alert("El campo 'Periodo' es obligatorio.");
+            var tabEl = document.getElementById('timbrado-tab');
+            if (tabEl) bootstrap.Tab.getOrCreateInstance(tabEl).show();
+            f['periodo'].focus();
+            return;
+        }
+        if (!rfc || !rfc.trim()) {
+            alert("El campo 'RFC' es obligatorio.");
+            var tabEl = document.getElementById('trabajador-tab');
+            if (tabEl) bootstrap.Tab.getOrCreateInstance(tabEl).show();
+            f['rfc'].focus();
+            return;
+        }
+        if (!curp || !curp.trim()) {
+            alert("El campo 'CURP' es obligatorio.");
+            var tabEl = document.getElementById('trabajador-tab');
+            if (tabEl) bootstrap.Tab.getOrCreateInstance(tabEl).show();
+            f['curp'].focus();
+            return;
+        }
+        if (!nss || !nss.trim()) {
+            alert("El campo 'NSS' es obligatorio.");
+            var tabEl = document.getElementById('trabajador-tab');
+            if (tabEl) bootstrap.Tab.getOrCreateInstance(tabEl).show();
+            f['nss'].focus();
+            return;
+        }
+
         var id = document.getElementById('nomina_id').value;
         var url = id ? '/recursos-humanos/nomina/editar/' + id + '/' : '/recursos-humanos/nomina/crear/';
 

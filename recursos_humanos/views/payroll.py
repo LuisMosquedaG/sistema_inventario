@@ -151,8 +151,6 @@ def editar_nomina_ajax(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
         nom = Nomina.objects.get(id=id, empresa=empresa_actual); data = request.POST
-        with open('nomina_edit_debug.log', 'w', encoding='utf-8') as debug_file:
-            debug_file.write(f"ID: {id}\nPOST: {data.dict()}\n")
         nom.empleado_id = data.get('empleado') or None; nom.periodo = data.get('periodo'); nom.uso_cfdi = data.get('uso_cfdi', 'CN01'); nom.uuid = data.get('uuid'); nom.tipo_nomina = data.get('tipo_nomina'); nom.serie = data.get('serie'); nom.folio = data.get('folio'); nom.fecha_emision = data.get('fecha_emision') or None; nom.fecha_certificacion = data.get('fecha_certificacion') or None; nom.fecha_pago = data.get('fecha_pago') or None; nom.fecha_inicial_pago = data.get('fecha_inicial_pago') or None; nom.fecha_final_pago = data.get('fecha_final_pago') or None; nom.dias_pagados = Decimal(data.get('dias_pagados', '0')); nom.rfc = data.get('rfc', '').upper(); nom.curp = data.get('curp', '').upper(); nom.nss = data.get('nss', ''); nom.nombre = data.get('nombre', ''); nom.rfc_contratista = data.get('rfc_contratista', '').upper(); nom.sdi = Decimal(data.get('sdi', '0')); nom.sbc = Decimal(data.get('sbc', '0')); nom.estado = data.get('estado', 'vigente')
         
         sat_codes = [
