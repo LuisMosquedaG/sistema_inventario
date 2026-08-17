@@ -1,9 +1,10 @@
-from django.test import TestCase
+from django.test import TestCase, Client
+from django.urls import reverse
 from decimal import Decimal
 from unittest.mock import patch
 from django.contrib.auth.models import User
 from panel.models import Empresa
-from recursos_humanos.models import Nomina, Empleado, Contrato, Contratista
+from recursos_humanos.models import Nomina, Empleado, Contrato, Contratista, Beneficiario
 from recursos_humanos.sat_service import SATService
 
 class XMLPayrollParsingTest(TestCase):
@@ -1448,21 +1449,21 @@ class SisubTrabajadoresSortTest(TestCase):
             nss="11111111111",
             nombre="Juan Perez",
             fecha_pago=datetime.date(2026, 1, 15),
-            total_percepciones=1000.00
+            sueldo_gravado=Decimal("1000.00")
         )
         Nomina.objects.create(
             empresa=self.empresa,
             nss="22222222222",
             nombre="Pedro Gomez",
             fecha_pago=datetime.date(2026, 1, 15),
-            total_percepciones=2000.00
+            sueldo_gravado=Decimal("2000.00")
         )
         Nomina.objects.create(
             empresa=self.empresa,
             nss="33333333333",
             nombre="Maria Lopez",
             fecha_pago=datetime.date(2026, 1, 15),
-            total_percepciones=3000.00
+            sueldo_gravado=Decimal("3000.00")
         )
 
     def test_exportar_sisub_trabajadores_sorted_by_contract_number(self):
@@ -1485,10 +1486,9 @@ class SisubTrabajadoresSortTest(TestCase):
         # Line 2 should be contract '2'
         # Line 3 should be contract '10'
         
-        self.assertIn("CON-TEST-100", lines[1]) # Pedido de test anterior
-        # Let's check remaining lines
+        # Let's check all data lines
         found_folios = []
-        for line in lines[2:]:
+        for line in lines[1:]:
             # contract folio is the 5th value (index 4) in comma separated values
             parts = line.split(',')
             if len(parts) > 4:
