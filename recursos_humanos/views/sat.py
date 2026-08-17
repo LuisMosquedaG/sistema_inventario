@@ -98,6 +98,7 @@ def solicitar_descarga_sat_ajax(request):
             id_solicitud=id_solicitud,
             fecha_inicio=f_inicio.date(),
             fecha_fin=f_fin.date(),
+            estatus_cfdi=estatus,
             estado='solicitada'
         )
 
@@ -136,6 +137,7 @@ def listar_solicitudes_sat_ajax(request):
             'id_solicitud': s.id_solicitud,
             'periodo': f"{s.fecha_inicio} al {s.fecha_fin}",
             'estado': s.estado,
+            'estatus_cfdi': s.get_estatus_cfdi_display(),
             'fecha': s.fecha_creacion.strftime('%d/%m/%Y %H:%M'),
             'usuario': usuario_str
         })
@@ -170,7 +172,7 @@ def integrar_xml_sat_ajax(request, solicitud_id):
         res = sat_service.verificar_estatus(solicitud.id_solicitud, password)
         paquetes = res.get('paquetes', [])
         if not paquetes: return JsonResponse({'status': 'error', 'message': 'No se encontraron paquetes para descargar.'})
-        count, archivos_encontrados = sat_service.descargar_e_integrar(solicitud.id_solicitud, paquetes, password, empresa_actual, request.session.get('sucursal_id'))
+        count, archivos_encontrados = sat_service.descargar_e_integrar(solicitud.id_solicitud, paquetes, password, empresa_actual, request.session.get('sucursal_id'), estatus_cfdi=solicitud.estatus_cfdi)
         if count > 0:
             solicitud.estado = 'procesada'; solicitud.save()
             return JsonResponse({'status': 'success', 'message': f'Integración exitosa. Se procesaron {count} XMLs de nómina reales.'})

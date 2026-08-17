@@ -581,10 +581,16 @@ class Nomina(models.Model):
         ('E', 'E - Nómina extraordinaria'),
     ]
 
+    ESTADO_NOMINA_CHOICES = [
+        ('vigente', 'Vigente'),
+        ('cancelado', 'Cancelado'),
+    ]
+
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
     empleado = models.ForeignKey(Empleado, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Empleado", related_name="nominas")
     sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
     creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='nominas_creadas', verbose_name="Creado por")
+    estado = models.CharField(max_length=20, choices=ESTADO_NOMINA_CHOICES, default='vigente', verbose_name="Estado")
 
     # 1. Datos de timbrado
     periodo = models.CharField(max_length=100, verbose_name="Periodo")
@@ -697,6 +703,7 @@ class SolicitudDescargaSAT(models.Model):
     fecha_fin = models.DateField()
     tipo_comprobante = models.CharField(max_length=20, default="Nomina")
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='solicitada')
+    estatus_cfdi = models.CharField(max_length=20, default='vigente', verbose_name="Estatus CFDI Solicitado")
     mensaje_error = models.TextField(blank=True, null=True)
     
     fecha_creacion = models.DateTimeField(auto_now_add=True)

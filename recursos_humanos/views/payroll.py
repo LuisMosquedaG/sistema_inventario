@@ -74,6 +74,7 @@ def obtener_nomina_json(request, id):
         def safe_decimal(val): return str(val) if val is not None else '0.00'
         data = {
             'id': nom.id, 'empleado': nom.empleado_id or '', 'periodo': nom.periodo, 'uso_cfdi': nom.uso_cfdi, 'uuid': nom.uuid or '', 'tipo_nomina': nom.tipo_nomina, 'serie': nom.serie or '', 'folio': nom.folio or '', 'fecha_emision': nom.fecha_emision.strftime('%Y-%m-%dT%H:%M') if nom.fecha_emision else '', 'fecha_certificacion': nom.fecha_certificacion.strftime('%Y-%m-%dT%H:%M') if nom.fecha_certificacion else '', 'fecha_pago': nom.fecha_pago.isoformat() if nom.fecha_pago else '', 'fecha_inicial_pago': nom.fecha_inicial_pago.isoformat() if nom.fecha_inicial_pago else '', 'fecha_final_pago': nom.fecha_final_pago.isoformat() if nom.fecha_final_pago else '', 'dias_pagados': safe_decimal(nom.dias_pagados), 'rfc': nom.rfc, 'curp': nom.curp, 'nss': nom.nss, 'nombre': nom.nombre, 'rfc_contratista': nom.rfc_contratista or '', 'sdi': safe_decimal(nom.sdi), 'sbc': safe_decimal(nom.sbc), 'vacaciones_exento': safe_decimal(nom.vacaciones_exento), 'vacaciones_dignas_exento': safe_decimal(nom.vacaciones_dignas_exento), 'aguinaldo_exento': safe_decimal(nom.aguinaldo_exento), 'sueldo_gravado': safe_decimal(nom.sueldo_gravado), 'vacaciones_gravado': safe_decimal(nom.vacaciones_gravado), 'vacaciones_dignas_gravado': safe_decimal(nom.vacaciones_dignas_gravado), 'aguinaldo_gravado': safe_decimal(nom.aguinaldo_gravado),
+            'estado': nom.estado,
             'percepciones_detalladas': nom.percepciones_detalladas or {},
         }
         return JsonResponse({'success': True, 'data': data})
@@ -130,6 +131,7 @@ def crear_nomina_ajax(request):
         
         nueva_nom = Nomina(
             empresa=empresa_actual, sucursal_id=sucursal_id, empleado=empleado, periodo=data.get('periodo'), uso_cfdi=data.get('uso_cfdi', 'CN01'), uuid=data.get('uuid'), tipo_nomina=data.get('tipo_nomina', 'O'), serie=data.get('serie'), folio=data.get('folio'), fecha_emision=data.get('fecha_emision') or None, fecha_certificacion=data.get('fecha_certificacion') or None, fecha_pago=data.get('fecha_pago') or None, fecha_inicial_pago=data.get('fecha_inicial_pago') or None, fecha_final_pago=data.get('fecha_final_pago') or None, dias_pagados=Decimal(data.get('dias_pagados', '0')), rfc=data.get('rfc', '').upper(), curp=data.get('curp', '').upper(), nss=data.get('nss', ''), nombre=data.get('nombre', ''), rfc_contratista=data.get('rfc_contratista', '').upper(), sdi=Decimal(data.get('sdi', '0')), sbc=Decimal(data.get('sbc', '0')), vacaciones_exento=vacaciones_exento, vacaciones_dignas_exento=vacaciones_dignas_exento, aguinaldo_exento=aguinaldo_exento, sueldo_gravado=sueldo_gravado, vacaciones_gravado=vacaciones_gravado, vacaciones_dignas_gravado=vacaciones_dignas_gravado, aguinaldo_gravado=aguinaldo_gravado, percepciones_detalladas=percepciones_detalladas_dict,
+            estado=data.get('estado', 'vigente'),
             creado_por=request.user
         )
         nueva_nom.save()
@@ -149,7 +151,7 @@ def editar_nomina_ajax(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
         nom = Nomina.objects.get(id=id, empresa=empresa_actual); data = request.POST
-        nom.empleado_id = data.get('empleado') or None; nom.periodo = data.get('periodo'); nom.uso_cfdi = data.get('uso_cfdi', 'CN01'); nom.uuid = data.get('uuid'); nom.tipo_nomina = data.get('tipo_nomina'); nom.serie = data.get('serie'); nom.folio = data.get('folio'); nom.fecha_emision = data.get('fecha_emision') or None; nom.fecha_certificacion = data.get('fecha_certificacion') or None; nom.fecha_pago = data.get('fecha_pago') or None; nom.fecha_inicial_pago = data.get('fecha_inicial_pago') or None; nom.fecha_final_pago = data.get('fecha_final_pago') or None; nom.dias_pagados = Decimal(data.get('dias_pagados', '0')); nom.rfc = data.get('rfc', '').upper(); nom.curp = data.get('curp', '').upper(); nom.nss = data.get('nss', ''); nom.nombre = data.get('nombre', ''); nom.rfc_contratista = data.get('rfc_contratista', '').upper(); nom.sdi = Decimal(data.get('sdi', '0')); nom.sbc = Decimal(data.get('sbc', '0'))
+        nom.empleado_id = data.get('empleado') or None; nom.periodo = data.get('periodo'); nom.uso_cfdi = data.get('uso_cfdi', 'CN01'); nom.uuid = data.get('uuid'); nom.tipo_nomina = data.get('tipo_nomina'); nom.serie = data.get('serie'); nom.folio = data.get('folio'); nom.fecha_emision = data.get('fecha_emision') or None; nom.fecha_certificacion = data.get('fecha_certificacion') or None; nom.fecha_pago = data.get('fecha_pago') or None; nom.fecha_inicial_pago = data.get('fecha_inicial_pago') or None; nom.fecha_final_pago = data.get('fecha_final_pago') or None; nom.dias_pagados = Decimal(data.get('dias_pagados', '0')); nom.rfc = data.get('rfc', '').upper(); nom.curp = data.get('curp', '').upper(); nom.nss = data.get('nss', ''); nom.nombre = data.get('nombre', ''); nom.rfc_contratista = data.get('rfc_contratista', '').upper(); nom.sdi = Decimal(data.get('sdi', '0')); nom.sbc = Decimal(data.get('sbc', '0')); nom.estado = data.get('estado', 'vigente')
         
         sat_codes = [
             "001", "002", "003", "004", "005", "006", "009", "010", "011", "012", "013", "014", "015", "019", "020", "021", "022", "023", "024", "025", "026", "027", "028", "029", "030", "031", "032", "033", "034", "035", "036", "037", "038", "039", "044", "045", "046", "047", "048", "049", "050", "051", "052", "053", "054", "055", "056", "057"
@@ -245,8 +247,14 @@ def importar_nomina_ajax(request):
             if not curp_f or not nss_f: continue
             empleado = Empleado.objects.filter(empresa=empresa_actual, curp=curp_f, nss=nss_f).first()
             tipo_nom = 'E' if 'EXTRAORDINARIA' in str(get_val(row,'Tipo nomina','O')).upper() else 'O'
+            estado_val = str(get_val(row, 'Estado', 'vigente')).strip().lower()
+            if not estado_val or estado_val not in ['vigente', 'cancelado']:
+                estado_val = str(get_val(row, 'Estatus', 'vigente')).strip().lower()
+            if estado_val not in ['vigente', 'cancelado']:
+                estado_val = 'vigente'
             nueva_nom = Nomina(
                 empresa=empresa_actual, sucursal_id=sucursal_id, empleado=empleado, periodo=str(get_val(row,'Periodo','')), uso_cfdi=str(get_val(row,'Uso CFDI','CN01')), uuid=str(get_val(row,'UUID','')), tipo_nomina=tipo_nom, serie=str(get_val(row,'Serie','')), folio=str(get_val(row,'Folio','')), fecha_pago=to_d(get_val(row,'Fecha pago')), rfc=str(get_val(row,'RFC receptor','')), curp=curp_f, nss=nss_f, nombre=str(get_val(row,'Razon receptor','')), rfc_contratista=str(get_val(row,'RFC emisor','')), sdi=to_dec(get_val(row,'Salario diario integrado')), sbc=to_dec(get_val(row,'Salario base cot apor')), sueldo_gravado=to_dec(get_val(row,'001/P001/Gravado/SUELDO')),
+                estado=estado_val,
                 creado_por=request.user
             )
             nueva_nom.save(); count += 1
@@ -349,7 +357,7 @@ def exportar_nominas_excel(request):
     }
     
     headers = [
-        "Folio", "Serie", "UUID", "Uso CFDI", "Tipo Nomina", "Periodo", 
+        "Folio", "Serie", "UUID", "Uso CFDI", "Tipo Nomina", "Estado", "Periodo", 
         "Fecha Emision", "Fecha Certificacion", "Fecha Pago", "Fecha Inicial", "Fecha Final", 
         "Dias Pagados", "Colaborador", "RFC", "CURP", "NSS", "RFC Contratista", "SDI", "SBC",
         "Sueldo (Gravado)", "Vacaciones (Gravado)", "Vacaciones (Exento)", 
@@ -368,7 +376,7 @@ def exportar_nominas_excel(request):
         
     for r_idx, nom in enumerate(nominas, 2):
         data = [
-            nom.folio, nom.serie, nom.uuid, nom.uso_cfdi, "O" if nom.tipo_nomina=='O' else "E", nom.periodo, 
+            nom.folio, nom.serie, nom.uuid, nom.uso_cfdi, "O" if nom.tipo_nomina=='O' else "E", nom.get_estado_display(), nom.periodo, 
             nom.fecha_emision, nom.fecha_certificacion, nom.fecha_pago, nom.fecha_inicial_pago, nom.fecha_final_pago, 
             nom.dias_pagados, nom.nombre, nom.rfc, nom.curp, nom.nss, nom.rfc_contratista, nom.sdi, nom.sbc,
             nom.sueldo_gravado, nom.vacaciones_gravado, nom.vacaciones_exento, 
@@ -433,9 +441,11 @@ def exportar_sisub_trabajadores(request, id):
             if n1: emp_map[n1] = c
             if n2: emp_map[n2] = c
 
-    # Buscar todas las nóminas de este periodo en la empresa
+    # Buscar todas las nóminas de este periodo en la empresa que NO estén canceladas
     nominas_cuat = Nomina.objects.filter(
         empresa=empresa_actual
+    ).exclude(
+        estado='cancelado'
     ).filter(
         Q(fecha_pago__year=anio, fecha_pago__month__in=meses_filtro) |
         Q(fecha_pago__isnull=True, fecha_final_pago__year=anio, fecha_final_pago__month__in=meses_filtro) |

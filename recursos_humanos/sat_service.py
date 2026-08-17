@@ -87,7 +87,7 @@ class SATService:
             'paquetes': res.get('IdsPaquetes', [])
         }
 
-    def descargar_e_integrar(self, id_solicitud, paquetes, password, empresa_actual, sucursal_id=None):
+    def descargar_e_integrar(self, id_solicitud, paquetes, password, empresa_actual, sucursal_id=None, estatus_cfdi='vigente'):
         signer = self.get_signer(password)
         sat = SAT(signer=signer)
         count = 0
@@ -96,12 +96,12 @@ class SATService:
             _, zip_b64 = sat.recover_comprobante_download(id_paquete=p_id)
             if zip_b64:
                 zip_bytes = base64.b64decode(zip_b64)
-                c, f = self._procesar_zip_xml(zip_bytes, empresa_actual, sucursal_id)
+                c, f = self._procesar_zip_xml(zip_bytes, empresa_actual, sucursal_id, estatus_cfdi=estatus_cfdi)
                 count += c
                 all_files.extend(f)
         return count, all_files
 
-    def _procesar_zip_xml(self, zip_bytes, empresa_actual, sucursal_id):
+    def _procesar_zip_xml(self, zip_bytes, empresa_actual, sucursal_id, estatus_cfdi='vigente'):
         count = 0
         files_list = []
         with zipfile.ZipFile(io.BytesIO(zip_bytes)) as z:
@@ -109,11 +109,11 @@ class SATService:
                 files_list.append(xml_name)
                 if xml_name.lower().endswith('.xml') and not xml_name.endswith('/'):
                     with z.open(xml_name) as f:
-                        if self._parsear_y_guardar_xml(f.read(), empresa_actual, sucursal_id):
+                        if self._parsear_y_guardar_xml(f.read(), empresa_actual, sucursal_id, estatus_cfdi=estatus_cfdi):
                             count += 1
         return count, files_list
 
-    def _parsear_y_guardar_xml(self, xml_content, empresa_actual, sucursal_id):
+    def _parsear_y_guardar_xml(self, xml_content, empresa_actual, sucursal_id, estatus_cfdi='vigente'):
         """Lógica robusta para extraer datos de Nómina de un CFDI."""
         try:
             # Usamos lxml para búsqueda manual por si satcfdi no encuentra el nodo
@@ -238,6 +238,7 @@ class SATService:
                 defaults={
                     'sucursal_id': sucursal_id,
                     'empleado': empleado,
+                    'estado': estatus_cfdi,
                     'periodo': f"SAT Bimestre {(f_pago.month + 1) // 2} {f_pago.year}" if f_pago else "SAT S/F",
                     'tipo_nomina': get_attr(nomina_node, 'TipoNomina', 'O'),
                     'folio': get_attr(root, 'Folio'),

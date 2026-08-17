@@ -85,6 +85,8 @@
     .status-terminada { background-color: #e6fcf5; color: #0ca678; border: 1px solid #96f2d7; }
     .status-procesada { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
     .status-error { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
+    .status-vigente { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
+    .status-cancelado { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
 
     /* ==========================================
     ESTILO MODAL
@@ -301,11 +303,18 @@
                                 <span class="text-muted small">{{ nom.fecha_pago|date:"d/m/Y"|default:"--" }}</span>
                             </td>
                             <td class="text-center">
-                                {% if nom.tipo_nomina == 'O' %}
-                                    <span class="status-pill status-ordinaria">Ordinaria</span>
-                                {% else %}
-                                    <span class="status-pill status-extraordinaria">Extraordinaria</span>
-                                {% endif %}
+                                <div class="d-flex align-items-center justify-content-center gap-1">
+                                    {% if nom.tipo_nomina == 'O' %}
+                                        <span class="status-pill status-ordinaria">Ordinaria</span>
+                                    {% else %}
+                                        <span class="status-pill status-extraordinaria">Extraordinaria</span>
+                                    {% endif %}
+                                    {% if nom.estado == 'cancelado' %}
+                                        <span class="status-pill status-cancelado rounded-circle p-0 d-inline-flex align-items-center justify-content-center shadow-sm" title="Cancelado" style="width: 20px; height: 20px;"><i class="bi bi-x-lg" style="font-size: 0.65rem; -webkit-text-stroke: 0.5px;"></i></span>
+                                    {% else %}
+                                        <span class="status-pill status-vigente rounded-circle p-0 d-inline-flex align-items-center justify-content-center shadow-sm" title="Vigente" style="width: 20px; height: 20px;"><i class="bi bi-check-lg" style="font-size: 0.65rem; -webkit-text-stroke: 0.5px;"></i></span>
+                                    {% endif %}
+                                </div>
                             </td>
                         </tr>
                         {% empty %}
@@ -453,13 +462,20 @@
                                             <label class="form-label-custom">Fecha Pago</label>
                                             <input type="date" name="fecha_pago" class="form-control form-control-sm">
                                         </div>
-                                        <div class="col-md-6">
+                                        <div class="col-md-4">
                                             <label class="form-label-custom">Fecha Inicial Pago</label>
                                             <input type="date" name="fecha_inicial_pago" class="form-control form-control-sm">
                                         </div>
-                                        <div class="col-md-6">
+                                        <div class="col-md-4">
                                             <label class="form-label-custom">Fecha Final Pago</label>
                                             <input type="date" name="fecha_final_pago" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label-custom">Estado CFDI</label>
+                                            <select name="estado" class="form-select form-select-sm">
+                                                <option value="vigente" selected>Vigente</option>
+                                                <option value="cancelado">Cancelado</option>
+                                            </select>
                                         </div>
                                     </div>
                                 </div>
@@ -755,14 +771,14 @@
                 var fields = [
                     'periodo', 'uso_cfdi', 'uuid', 'tipo_nomina', 'serie', 'folio',
                     'fecha_emision', 'fecha_certificacion', 'fecha_pago', 
-                    'fecha_inicial_pago', 'fecha_final_pago', 'dias_pagados',
+                    'fecha_inicial_pago', 'fecha_final_pago', 'dias_pagados', 'estado',
                     'empleado', 'nombre', 'rfc', 'curp', 'nss', 'rfc_contratista', 'sdi', 'sbc',
                     'vacaciones_exento', 'vacaciones_dignas_exento', 'aguinaldo_exento',
                     'sueldo_gravado', 'vacaciones_gravado', 'vacaciones_dignas_gravado', 'aguinaldo_gravado'
                 ];
 
                 fields.forEach(function(field) {
-                    if (f[field]) f[field].value = d[field] || (field.includes('fecha') ? '' : (field === 'tipo_nomina' ? 'O' : '0'));
+                    if (f[field]) f[field].value = d[field] || (field.includes('fecha') ? '' : (field === 'tipo_nomina' ? 'O' : (field === 'estado' ? 'vigente' : '0')));
                 });
 
                 // Limpiar inputs detallados primero
@@ -935,13 +951,20 @@
                                                     <input type="password" name="password_fiel" class="form-control border-start-0" placeholder="Escriba la clave privada" required>
                                                 </div>
                                             </div>
-                                            <div class="col-md-6">
+                                            <div class="col-md-4">
                                                 <label class="form-label-custom">Fecha Inicio</label>
                                                 <input type="date" name="fecha_inicio" class="form-control form-control-sm" required>
                                             </div>
-                                            <div class="col-md-6">
+                                            <div class="col-md-4">
                                                 <label class="form-label-custom">Fecha Fin</label>
                                                 <input type="date" name="fecha_fin" class="form-control form-control-sm" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label-custom">Estatus CFDI</label>
+                                                <select name="estatus" class="form-select form-select-sm">
+                                                    <option value="vigente" selected>Vigentes</option>
+                                                    <option value="cancelado">Cancelados</option>
+                                                </select>
                                             </div>
                                         </div>
                                     </div>
@@ -956,16 +979,17 @@
                                             <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
                                                 <thead class="bg-light">
                                                     <tr>
-                                                        <th class="text-center" style="width: 20%;">Acción</th>
-                                                        <th class="text-center" style="width: 20%;">Periodo</th>
-                                                        <th class="text-center" style="width: 20%;">Usuario</th>
-                                                        <th class="text-center" style="width: 20%;">ID Solicitud</th>
-                                                        <th class="text-center" style="width: 20%;">Estado</th>
+                                                        <th class="text-center" style="width: 15%;">Acción</th>
+                                                        <th class="text-center" style="width: 25%;">Periodo</th>
+                                                        <th class="text-center" style="width: 15%;">Usuario</th>
+                                                        <th class="text-center" style="width: 15%;">Tipo CFDI</th>
+                                                        <th class="text-center" style="width: 15%;">ID Solicitud</th>
+                                                        <th class="text-center" style="width: 15%;">Estado</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody id="listaSolicitudesSAT">
                                                     <tr>
-                                                        <td colspan="5" class="text-center py-3 text-muted">No hay solicitudes previas</td>
+                                                        <td colspan="6" class="text-center py-3 text-muted">No hay solicitudes previas</td>
                                                     </tr>
                                                 </tbody>
                                             </table>
@@ -1075,7 +1099,7 @@
             const tbody = document.getElementById('listaSolicitudesSAT');
             tbody.innerHTML = '';
             if (!data.solicitudes || data.solicitudes.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-muted">No hay solicitudes previas</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-muted">No hay solicitudes previas</td></tr>';
                 return;
             }
             data.solicitudes.forEach(s => {
@@ -1096,6 +1120,7 @@
                         <td class="text-center align-middle">${accionHtml}</td>
                         <td class="text-center align-middle">${s.periodo}</td>
                         <td class="text-center align-middle">${s.usuario || 'Sistema'}</td>
+                        <td class="text-center align-middle"><span class="badge bg-light text-dark text-uppercase" style="font-size: 0.65rem;">${s.estatus_cfdi}</span></td>
                         <td class="text-center align-middle">${s.id_solicitud}</td>
                         <td class="text-center align-middle"><span class="status-pill status-pill-xs ${statusClass}">${estadoTexto}</span></td>
                     </tr>

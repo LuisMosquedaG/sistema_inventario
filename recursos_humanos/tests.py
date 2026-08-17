@@ -554,6 +554,54 @@ class SISUBExportTest(TestCase):
         self.assertEqual(row[15], '3000')  # fijas: 3000 (integra completo)
         self.assertEqual(row[17], '0')     # no_int: 0
 
+    def test_exportar_sisub_excluye_cancelados(self):
+        import datetime
+        from django.urls import reverse
+        self.client.login(username="admin@prueba", password="password")
+        url = reverse('exportar_sisub_trabajadores', args=[self.contratista.id])
+
+        # Crear una nómina vigente para el empleado
+        Nomina.objects.create(
+            empresa=self.empresa,
+            empleado=self.empleado,
+            periodo="Mayo 2026",
+            tipo_nomina="O",
+            fecha_pago=datetime.date(2026, 5, 15),
+            fecha_inicial_pago=datetime.date(2026, 5, 1),
+            fecha_final_pago=datetime.date(2026, 5, 15),
+            dias_pagados=15,
+            sdi=150.00,
+            nss=self.empleado.nss,
+            curp=self.empleado.curp,
+            nombre=f"{self.empleado.nombre} {self.empleado.apellido_paterno} {self.empleado.apellido_materno}".upper(),
+            sueldo_gravado=Decimal("5000.00"),
+            estado="vigente"
+        )
+
+        # Crear una nómina CANCELADA para el empleado en el mismo periodo
+        Nomina.objects.create(
+            empresa=self.empresa,
+            empleado=self.empleado,
+            periodo="Mayo 2026",
+            tipo_nomina="O",
+            fecha_pago=datetime.date(2026, 5, 15),
+            fecha_inicial_pago=datetime.date(2026, 5, 1),
+            fecha_final_pago=datetime.date(2026, 5, 15),
+            dias_pagados=15,
+            sdi=150.00,
+            nss=self.empleado.nss,
+            curp=self.empleado.curp,
+            nombre=f"{self.empleado.nombre} {self.empleado.apellido_paterno} {self.empleado.apellido_materno}".upper(),
+            sueldo_gravado=Decimal("99999.00"), # Importe muy alto para detectar si se suma por error
+            estado="cancelado"
+        )
+
+        response = self.client.get(url, {'cuatrimestre': 2, 'anio': 2026, 'formato': 'csv'})
+        self.assertEqual(response.status_code, 200)
+        
+        content_str = response.content.decode('utf-8-sig')
+        # Verificar que el sueldo gravado del cancelado (99999) NO esté en el reporte
+        self.assertNotIn("99999", content_str)
 
     def test_exportar_sisub_contratos(self):
         import datetime
