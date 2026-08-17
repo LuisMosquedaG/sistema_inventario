@@ -603,7 +603,8 @@
 </div>
 
 <script>
-    var csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    var csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+    var csrftoken = csrfInput ? csrfInput.value : '';
 
     const CONCEPTOS_SAT = [
         { code: "001", name: "Sueldos, Salarios Rayas y Jornales" },
@@ -690,31 +691,34 @@
     }
 
     // LISTENER PARA DIAGNÓSTICO DE FIEL
-    document.querySelector('input[name="archivo_cer"]').addEventListener('change', function() {
-        if (!this.files || !this.files[0]) return;
-        
-        const formData = new FormData();
-        formData.append('archivo_cer', this.files[0]);
-        
-        fetch("{% url 'diagnostico_fiel_ajax' %}", {
-            method: 'POST',
-            body: formData,
-            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
-        })
-        .then(r => r.json())
-        .then(res => {
-            const container = document.getElementById('diagFielContainer');
-            if (res.success) {
-                container.style.display = 'block';
-                document.getElementById('diagRFC').innerText = res.rfc;
-                document.getElementById('diagVence').innerText = new Date(res.valido_hasta).toLocaleDateString();
-                document.getElementById('diagTipo').innerText = res.es_fiel ? 'FIEL (Correcto)' : 'SELLOS (Incorrecto)';
-                document.getElementById('diagTipo').className = res.es_fiel ? 'col-6 fw-bold text-success' : 'col-6 fw-bold text-danger';
-            } else {
-                container.style.display = 'none';
-            }
+    var archivoCerInput = document.querySelector('input[name="archivo_cer"]');
+    if (archivoCerInput) {
+        archivoCerInput.addEventListener('change', function() {
+            if (!this.files || !this.files[0]) return;
+            
+            const formData = new FormData();
+            formData.append('archivo_cer', this.files[0]);
+            
+            fetch("{% url 'diagnostico_fiel_ajax' %}", {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            })
+            .then(r => r.json())
+            .then(res => {
+                const container = document.getElementById('diagFielContainer');
+                if (res.success) {
+                    container.style.display = 'block';
+                    document.getElementById('diagRFC').innerText = res.rfc;
+                    document.getElementById('diagVence').innerText = new Date(res.valido_hasta).toLocaleDateString();
+                    document.getElementById('diagTipo').innerText = res.es_fiel ? 'FIEL (Correcto)' : 'SELLOS (Incorrecto)';
+                    document.getElementById('diagTipo').className = res.es_fiel ? 'col-6 fw-bold text-success' : 'col-6 fw-bold text-danger';
+                } else {
+                    container.style.display = 'none';
+                }
+            });
         });
-    });
+    }
 
     function getModalNomina() {
         var el = document.getElementById('modalNuevaNomina');
@@ -1102,9 +1106,12 @@
 
 <script>
     // Al abrir el modal, cargamos las solicitudes
-    document.getElementById('modalDescargaXML').addEventListener('show.bs.modal', function () {
-        cargarSolicitudesSAT();
-    });
+    var modalDescargaXML = document.getElementById('modalDescargaXML');
+    if (modalDescargaXML) {
+        modalDescargaXML.addEventListener('show.bs.modal', function () {
+            cargarSolicitudesSAT();
+        });
+    }
 
     function checkFielStatus(contratistaId) {
         const badge = document.getElementById('fielBadgeStatus');
@@ -1167,46 +1174,49 @@
     }
 
 
-    document.getElementById('formDescargaSAT').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const btn = document.getElementById('btnProcesarSAT');
-        const progress = document.getElementById('satProgress');
-        
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Enviando...';
-        progress.style.display = 'block';
-        
-        const formData = new FormData(this);
-        
-        fetch("/recursos-humanos/sat/solicitar/", {
-            method: 'POST',
-            body: formData,
-            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
-        })
-        .then(r => r.json())
-        .then(data => {
-            progress.style.display = 'none';
-            if (data.status === 'success') {
-                alert(data.message);
-                cargarSolicitudesSAT();
-                // Limpiar contraseña
-                document.querySelector('input[name="password_fiel"]').value = '';
+    var formDescargaSAT = document.getElementById('formDescargaSAT');
+    if (formDescargaSAT) {
+        formDescargaSAT.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btnProcesarSAT');
+            const progress = document.getElementById('satProgress');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Enviando...';
+            progress.style.display = 'block';
+            
+            const formData = new FormData(this);
+            
+            fetch("/recursos-humanos/sat/solicitar/", {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                progress.style.display = 'none';
+                if (data.status === 'success') {
+                    alert(data.message);
+                    cargarSolicitudesSAT();
+                    // Limpiar contraseña
+                    document.querySelector('input[name="password_fiel"]').value = '';
+                    btn.disabled = false;
+                    btn.innerHTML = 'Enviar Solicitud';
+                } else {
+                    alert('Error: ' + data.message);
+                    btn.disabled = false;
+                    btn.innerHTML = 'Enviar Solicitud';
+                }
+            })
+            .catch(err => {
+                progress.style.display = 'none';
+                console.error(err);
+                alert("Ocurrió un error al procesar la solicitud.");
                 btn.disabled = false;
                 btn.innerHTML = 'Enviar Solicitud';
-            } else {
-                alert('Error: ' + data.message);
-                btn.disabled = false;
-                btn.innerHTML = 'Enviar Solicitud';
-            }
-        })
-        .catch(err => {
-            progress.style.display = 'none';
-            console.error(err);
-            alert("Ocurrió un error al procesar la solicitud.");
-            btn.disabled = false;
-            btn.innerHTML = 'Enviar Solicitud';
+            });
         });
-    });
+    }
 
     function integrarXML(btn, solicitudId) {
         const passwordInput = document.querySelector('input[name="password_fiel"]');
