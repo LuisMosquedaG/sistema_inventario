@@ -226,7 +226,12 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label-custom mb-1" style="font-size: 0.65rem;">RFC Contratista</label>
-                    <input type="text" name="rfc_contratista" class="form-control form-control-sm" placeholder="RFC" value="{{ filtros.rfc_contratista|default:'' }}" onchange="this.form.submit()">
+                    <select name="rfc_contratista" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todos los contratistas</option>
+                        {% for c in contratistas %}
+                        <option value="{{ c.rfc }}" {% if filtros.rfc_contratista == c.rfc %}selected{% endif %}>{{ c.nombre_razon_social }} ({{ c.rfc }})</option>
+                        {% endfor %}
+                    </select>
                 </div>
                 <div class="col-md-1">
                     <label class="form-label-custom mb-1" style="font-size: 0.65rem;">Fecha Pago</label>
@@ -966,6 +971,9 @@
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" id="fiel-tab" data-bs-toggle="tab" data-bs-target="#tabFiel" type="button" role="tab">2. Configurar FIEL</button>
                         </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="cargar-xml-tab" data-bs-toggle="tab" data-bs-target="#tabCargarXML" type="button" role="tab">3. Cargar XML</button>
+                        </li>
                     </ul>
 
                     <div class="modal-body-gray p-4">
@@ -1084,6 +1092,52 @@
                                 </div>
                             </div>
 
+                            <!-- TAB: CARGAR XML DIRECTO -->
+                            <div class="tab-pane fade" id="tabCargarXML" role="tabpanel">
+                                <div class="card card-section border-0 shadow-sm mb-3">
+                                    <div class="card-body p-3 bg-white rounded-3">
+                                        <p class="text-muted small mb-4">Seleccione archivos XML de nómina individuales o un archivo comprimido (.zip) que contenga los XML. El sistema los procesará e integrará automáticamente.</p>
+                                        
+                                        <div class="row g-3 mb-4">
+                                            <div class="col-md-6">
+                                                <label class="form-label-custom">Estatus CFDI de las Nóminas a Cargar</label>
+                                                <select id="xml_carga_estatus" class="form-select form-select-sm">
+                                                    <option value="vigente" selected>Vigentes</option>
+                                                    <option value="cancelado">Cancelados</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label-custom">Sucursal (Opcional)</label>
+                                                <select id="xml_carga_sucursal" class="form-select form-select-sm">
+                                                    <option value="">Seleccione una sucursal...</option>
+                                                    {% for s in sucursales %}
+                                                        <option value="{{ s.id }}">{{ s.nombre }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="import-zone" onclick="document.getElementById('archivos_xml_directos').click()">
+                                            <i class="bi bi-file-earmark-code" style="font-size: 2.5rem; color: #00b8b9;"></i>
+                                            <span class="fw-bold text-dark d-block">Haga clic para subir archivos XML o ZIP</span>
+                                            <span class="text-muted small" id="xmlCargaFileNameDisplay">Seleccione uno o más archivos .xml o un .zip</span>
+                                            <input type="file" id="archivos_xml_directos" hidden accept=".xml,.zip" multiple onchange="updateXmlCargaFileName(this)">
+                                        </div>
+
+                                        <div id="xmlCargaProgress" class="mt-4" style="display: none;">
+                                            <div class="progress" style="height: 10px;">
+                                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-brand" role="progressbar" style="width: 100%"></div>
+                                            </div>
+                                            <p class="text-center small text-muted mt-2 mb-0" id="xmlCargaProgressText">Procesando archivos, por favor espere...</p>
+                                        </div>
+
+                                        <div class="alert alert-info mt-3 py-2" style="font-size: 0.7rem;">
+                                            <i class="bi bi-info-circle me-1"></i> El sistema leerá el UUID, RFC del emisor/receptor, percepciones, deducciones y asociará los recibos con tus empleados registrados.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                     </div>
                     
                     <div id="satProgress" class="mx-4 mb-4" style="display: none;">
@@ -1110,7 +1164,106 @@
     if (modalDescargaXML) {
         modalDescargaXML.addEventListener('show.bs.modal', function () {
             cargarSolicitudesSAT();
+            var reqTab = document.getElementById('solicitud-tab');
+            if (reqTab) {
+                bootstrap.Tab.getOrCreateInstance(reqTab).show();
+            }
         });
+    }
+
+    // Cambiar dinámicamente el botón del pie según la pestaña seleccionada en el modal SAT
+    var satTabs = document.getElementById('satTabs');
+    if (satTabs) {
+        satTabs.addEventListener('shown.bs.tab', function (event) {
+            var activeTabId = event.target.id;
+            var btn = document.getElementById('btnProcesarSAT');
+            if (btn) {
+                if (activeTabId === 'cargar-xml-tab') {
+                    btn.textContent = 'Subir e Importar';
+                    btn.type = 'button';
+                    btn.setAttribute('onclick', 'subirXMLDirecto()');
+                } else {
+                    btn.textContent = 'Enviar Solicitud';
+                    btn.type = 'submit';
+                    btn.removeAttribute('onclick');
+                }
+            }
+        });
+    }
+
+    function updateXmlCargaFileName(input) {
+        var display = document.getElementById('xmlCargaFileNameDisplay');
+        if (!display) return;
+        if (input.files && input.files.length > 0) {
+            if (input.files.length === 1) {
+                display.textContent = input.files[0].name;
+            } else {
+                display.textContent = input.files.length + ' archivos seleccionados';
+            }
+            display.classList.remove('text-muted');
+            display.classList.add('text-brand', 'fw-bold');
+        } else {
+            display.textContent = 'Seleccione uno o más archivos .xml o un .zip';
+            display.classList.remove('text-brand', 'fw-bold');
+            display.classList.add('text-muted');
+        }
+    }
+
+    async function subirXMLDirecto() {
+        var fileInput = document.getElementById('archivos_xml_directos');
+        var estatusSelect = document.getElementById('xml_carga_estatus');
+        var sucursalSelect = document.getElementById('xml_carga_sucursal');
+        var progress = document.getElementById('xmlCargaProgress');
+        var btn = document.getElementById('btnProcesarSAT');
+
+        if (!fileInput || !fileInput.files.length) {
+            alert('Por favor seleccione al menos un archivo XML o un ZIP.');
+            return;
+        }
+
+        var formData = new FormData();
+        for (var i = 0; i < fileInput.files.length; i++) {
+            formData.append('archivos', fileInput.files[i]);
+        }
+        formData.append('estatus', estatusSelect ? estatusSelect.value : 'vigente');
+        formData.append('sucursal', sucursalSelect ? sucursalSelect.value : '');
+
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Cargando...';
+        }
+        if (progress) {
+            progress.style.display = 'block';
+        }
+
+        try {
+            var response = await fetch('/recursos-humanos/sat/cargar-xml/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrftoken },
+                body: formData
+            });
+            var result = await response.json();
+
+            if (progress) progress.style.display = 'none';
+
+            if (result.status === 'success') {
+                alert(result.message);
+                location.reload();
+            } else {
+                alert("Error al cargar: " + result.message);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Subir e Importar';
+                }
+            }
+        } catch (error) {
+            if (progress) progress.style.display = 'none';
+            alert("Error de conexión con el servidor");
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Subir e Importar';
+            }
+        }
     }
 
     function checkFielStatus(contratistaId) {

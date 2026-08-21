@@ -167,12 +167,22 @@
                 <!-- 2. Razón Social -->
                 <div class="col-12 col-md-2">
                     <label class="form-label small fw-bold text-secondary mb-1">Razón Social</label>
-                    <input type="text" name="razon_social" class="form-control form-control-sm" placeholder="Empresa..." value="{{ filtros.razon_social|default:'' }}">
+                    <select name="razon_social" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todas...</option>
+                        {% for rs in razones_sociales_unicas %}
+                        <option value="{{ rs }}" {% if filtros.razon_social == rs %}selected{% endif %}>{{ rs }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
                 <!-- 3. RFC -->
                 <div class="col-12 col-md-1">
                     <label class="form-label small fw-bold text-secondary mb-1">RFC</label>
-                    <input type="text" name="rfc" class="form-control form-control-sm" placeholder="RFC..." value="{{ filtros.rfc|default:'' }}">
+                    <select name="rfc" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todos...</option>
+                        {% for r in rfcs_unicos %}
+                        <option value="{{ r }}" {% if filtros.rfc == r %}selected{% endif %}>{{ r }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
                 <!-- 4. Clave -->
                 <div class="col-12 col-md-1">
@@ -187,7 +197,12 @@
                 <!-- 6. Reg. Patronal -->
                 <div class="col-12 col-md-2">
                     <label class="form-label small fw-bold text-secondary mb-1">Reg. Patronal</label>
-                    <input type="text" name="reg_patronal" class="form-control form-control-sm" placeholder="Registro..." value="{{ filtros.reg_patronal|default:'' }}">
+                    <select name="reg_patronal" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todos...</option>
+                        {% for rp in reg_patronales_unicos %}
+                        <option value="{{ rp }}" {% if filtros.reg_patronal == rp %}selected{% endif %}>{{ rp }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
                 <!-- 7. Sucursal -->
                 <div class="col-12 col-md-2">

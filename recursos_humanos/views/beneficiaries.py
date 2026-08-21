@@ -25,7 +25,9 @@ def lista_beneficiarios(request):
     f_clave = request.GET.get('clave', '')
     f_cont = request.GET.get('contacto', '')
     f_rp = request.GET.get('reg_patronal', '')
-    sucursal_id = request.GET.get('sucursal', '')
+    sucursal_id = request.GET.get('sucursal')
+    if sucursal_id is None:
+        sucursal_id = str(request.session.get('sucursal_id') or '')
 
     if q:
         beneficiarios = beneficiarios.filter(
@@ -50,6 +52,11 @@ def lista_beneficiarios(request):
 
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
     
+    # Obtener valores únicos para los filtros desplegables de beneficiarios
+    razones_sociales_unicas = Beneficiario.objects.filter(empresa=empresa_actual).exclude(nombre_razon_social='').values_list('nombre_razon_social', flat=True).distinct().order_by('nombre_razon_social')
+    rfcs_unicos = Beneficiario.objects.filter(empresa=empresa_actual).exclude(rfc='').values_list('rfc', flat=True).distinct().order_by('rfc')
+    reg_patronales_unicos = Beneficiario.objects.filter(empresa=empresa_actual).exclude(registro_patronal='').values_list('registro_patronal', flat=True).distinct().order_by('registro_patronal')
+
     # PAGINACIÓN
     paginator = Paginator(beneficiarios, 20)
     page_number = request.GET.get('page')
@@ -60,6 +67,9 @@ def lista_beneficiarios(request):
         'sucursales': sucursales, 
         'empresa': empresa_actual, 
         'anios_lista': [2024, 2025, 2026],
+        'razones_sociales_unicas': razones_sociales_unicas,
+        'rfcs_unicos': rfcs_unicos,
+        'reg_patronales_unicos': reg_patronales_unicos,
         'filtros': {
             'q': q, 
             'razon_social': f_razon, 

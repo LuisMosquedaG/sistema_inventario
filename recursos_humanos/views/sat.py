@@ -180,3 +180,76 @@ def integrar_xml_sat_ajax(request, solicitud_id):
             lista_archivos = ", ".join(archivos_encontrados[:5]) + ("..." if len(archivos_encontrados) > 5 else "")
             return JsonResponse({'status': 'success', 'message': f'Se procesaron 0 XMLs de nómina. Archivos encontrados: {lista_archivos}. Verifique que el periodo contenga CFDI de Nómina.'})
     except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
+
+@login_required(login_url='/login/')
+@require_POST
+@require_hr_permission('nomina', 'xml_sat', json_response=True)
+def cargar_xml_directo_ajax(request):
+    """Procesa y carga archivos XML o un lote en ZIP directamente en el sistema."""
+    import zipfile
+    import io
+
+    empresa_actual = get_empresa_actual(request)
+    estatus_cfdi = request.POST.get('estatus', 'vigente')
+    sucursal_id_str = request.POST.get('sucursal')
+    sucursal_id = int(sucursal_id_str) if (sucursal_id_str and sucursal_id_str.isdigit()) else None
+
+    archivos = request.FILES.getlist('archivos')
+    if not archivos:
+        return JsonResponse({'status': 'error', 'message': 'No se seleccionaron archivos para cargar.'})
+
+    count = 0
+    errores = []
+
+    for f in archivos:
+        filename = f.name.lower()
+        if filename.endswith('.zip'):
+            try:
+                zip_data = f.read()
+                with zipfile.ZipFile(io.BytesIO(zip_data)) as z:
+                    for xml_name in z.namelist():
+                        if xml_name.lower().endswith('.xml') and not xml_name.endswith('/'):
+                            try:
+                                with z.open(xml_name) as xml_file:
+                                    if SATService._parsear_y_guardar_xml(
+                                        xml_file.read(),
+                                        empresa_actual,
+                                        sucursal_id,
+                                        estatus_cfdi=estatus_cfdi
+                                    ):
+                                        count += 1
+                            except Exception as parse_err:
+                                errores.append(f"Error en {xml_name}: {str(parse_err)}")
+            except Exception as zip_err:
+                errores.append(f"Error al procesar el archivo ZIP {f.name}: {str(zip_err)}")
+        elif filename.endswith('.xml'):
+            try:
+                xml_data = f.read()
+                if SATService._parsear_y_guardar_xml(
+                    xml_data,
+                    empresa_actual,
+                    sucursal_id,
+                    estatus_cfdi=estatus_cfdi
+                ):
+                    count += 1
+                else:
+                    errores.append(f"El archivo {f.name} no es un CFDI de nómina válido o no tiene nodo de Nómina.")
+            except Exception as xml_err:
+                errores.append(f"Error al procesar el archivo XML {f.name}: {str(xml_err)}")
+        else:
+            errores.append(f"El archivo {f.name} tiene un formato no admitido. Use solo .xml o .zip")
+
+    if count > 0:
+        msg = f"Se cargaron e integraron con éxito {count} recibo(s) de nómina."
+        if errores:
+            msg += f" Ocurrieron algunos errores: {', '.join(errores[:3])}"
+            if len(errores) > 3:
+                msg += " ..."
+        return JsonResponse({'status': 'success', 'message': msg})
+    else:
+        err_msg = "No se pudo procesar ningún archivo de nómina."
+        if errores:
+            err_msg += f" Detalles: {', '.join(errores[:3])}"
+            if len(errores) > 3:
+                err_msg += " ..."
+        return JsonResponse({'status': 'error', 'message': err_msg})

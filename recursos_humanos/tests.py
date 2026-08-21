@@ -1497,3 +1497,310 @@ class SisubTrabajadoresSortTest(TestCase):
         self.assertEqual(found_folios, ["1", "2", "10"])
 
 
+class CargarXMLDirectoTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa Prueba Upload",
+            subdominio="pruebaupload",
+            usuario_admin="admin",
+            correo_contacto="upload@test.com"
+        )
+        self.empresa.modulo_recursos_humanos = True
+        self.empresa.save()
+
+        self.user = User.objects.create_superuser(
+            username="admin@pruebaupload",
+            email="admin@pruebaupload.com",
+            password="password"
+        )
+        self.client.force_login(self.user)
+        session = self.client.session
+        session['empresa_id'] = self.empresa.id
+        session.save()
+
+        self.xml_content = """<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/3" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" xmlns:nomina12="http://www.sat.gob.mx/nomina12" Version="3.3" Total="1500.00" Folio="888" Serie="N" Fecha="2026-07-15T12:30:00">
+  <cfdi:Emisor Rfc="CON010101AAA"/>
+  <cfdi:Receptor Rfc="EMP001122XX3" Nombre="JUAN VALENZUELA"/>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital UUID="f08b8b2e-2222-3333-4444-555566667777" FechaTimbrado="2026-07-15T12:35:45"/>
+    <nomina12:Nomina FechaPago="2026-07-15" FechaInicialPago="2026-07-01" FechaFinalPago="2026-07-15" NumDiasPagados="15.00" TipoNomina="O">
+      <nomina12:Receptor Curp="JUAN000000HDFRXX02" NumSeguridadSocial="98765432101"/>
+    </nomina12:Nomina>
+  </cfdi:Complemento>
+</cfdi:Comprobante>"""
+
+    @patch('recursos_humanos.sat_service.CFDI')
+    def test_cargar_xml_directo_xml_unico(self, mock_cfdi):
+        mock_cfdi.from_string.return_value = "mock_cfdi"
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        import datetime
+        
+        xml_file = SimpleUploadedFile("nomina_directo.xml", self.xml_content.encode('utf-8'), content_type="text/xml")
+        url = reverse('cargar_xml_directo_ajax')
+        
+        response = self.client.post(url, {
+            'archivos': [xml_file],
+            'estatus': 'vigente',
+            'sucursal': ''
+        })
+        
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'success')
+        self.assertIn("Se cargaron e integraron con éxito 1", data['message'])
+        
+        # Verify it exists in database
+        nomina = Nomina.objects.get(uuid="f08b8b2e-2222-3333-4444-555566667777", empresa=self.empresa)
+        self.assertEqual(nomina.folio, "888")
+        self.assertEqual(nomina.estado, "vigente")
+        self.assertIsNotNone(nomina.fecha_emision)
+        self.assertIsNotNone(nomina.fecha_certificacion)
+        self.assertEqual(nomina.fecha_pago, datetime.date(2026, 7, 15))
+        self.assertEqual(nomina.fecha_inicial_pago, datetime.date(2026, 7, 1))
+        self.assertEqual(nomina.fecha_final_pago, datetime.date(2026, 7, 15))
+
+    @patch('recursos_humanos.sat_service.CFDI')
+    def test_cargar_xml_directo_zip(self, mock_cfdi):
+        mock_cfdi.from_string.return_value = "mock_cfdi"
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        import zipfile
+        import io
+        import datetime
+        
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w') as z:
+            z.writestr("dentro_del_lote.xml", self.xml_content)
+        zip_buffer.seek(0)
+        
+        zip_file = SimpleUploadedFile("lote_nominas.zip", zip_buffer.read(), content_type="application/zip")
+        url = reverse('cargar_xml_directo_ajax')
+        
+        response = self.client.post(url, {
+            'archivos': [zip_file],
+            'estatus': 'cancelado',
+            'sucursal': ''
+        })
+        
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'success')
+        self.assertIn("Se cargaron e integraron con éxito 1", data['message'])
+        
+        # Verify it exists in database
+        nomina = Nomina.objects.get(uuid="f08b8b2e-2222-3333-4444-555566667777", empresa=self.empresa)
+        self.assertEqual(nomina.estado, "cancelado")
+        self.assertIsNotNone(nomina.fecha_emision)
+        self.assertIsNotNone(nomina.fecha_certificacion)
+        self.assertEqual(nomina.fecha_pago, datetime.date(2026, 7, 15))
+        self.assertEqual(nomina.fecha_inicial_pago, datetime.date(2026, 7, 1))
+        self.assertEqual(nomina.fecha_final_pago, datetime.date(2026, 7, 15))
+
+
+class SUAFilterDropdownsTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa SUA Test",
+            subdominio="suatest",
+            usuario_admin="admin",
+            correo_contacto="sua@test.com"
+        )
+        self.empresa.modulo_recursos_humanos = True
+        self.empresa.save()
+
+        self.user = User.objects.create_superuser(
+            username="admin@suatest",
+            email="admin@suatest.com",
+            password="password"
+        )
+        self.client.force_login(self.user)
+        session = self.client.session
+        session['empresa_id'] = self.empresa.id
+        session.save()
+
+        from recursos_humanos.models import ImportacionSUA
+        ImportacionSUA.objects.create(
+            empresa=self.empresa,
+            registro_patronal="RP999888777",
+            nombre_razon_social="RAZON SOCIAL DE PRUEBA",
+            periodo="Julio-2026",
+            tipo="mensual"
+        )
+
+    def test_lista_sua_dropdown_context(self):
+        url = reverse('lista_sua')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify that unique registry patronals and business names are in the context
+        self.assertIn('reg_patronales_unicos', response.context)
+        self.assertIn('razones_sociales_unicas', response.context)
+        
+        reg_pats = list(response.context['reg_patronales_unicos'])
+        razones = list(response.context['razones_sociales_unicas'])
+        
+        self.assertEqual(reg_pats, ["RP999888777"])
+        self.assertEqual(razones, ["RAZON SOCIAL DE PRUEBA"])
+
+
+class BeneficiarioFilterDropdownsTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa Beneficiario Test",
+            subdominio="bentest",
+            usuario_admin="admin",
+            correo_contacto="ben@test.com"
+        )
+        self.empresa.modulo_recursos_humanos = True
+        self.empresa.save()
+
+        self.user = User.objects.create_superuser(
+            username="admin@bentest",
+            email="admin@bentest.com",
+            password="password"
+        )
+        self.client.force_login(self.user)
+        session = self.client.session
+        session['empresa_id'] = self.empresa.id
+        session.save()
+
+        from recursos_humanos.models import Beneficiario
+        Beneficiario.objects.create(
+            empresa=self.empresa,
+            nombre_razon_social="RAZON SOCIAL BENEFICIARIO",
+            rfc="RFCBEN9998887",
+            registro_patronal="RPBEN888999"
+        )
+
+    def test_lista_beneficiarios_dropdown_context(self):
+        url = reverse('lista_beneficiarios')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify context options
+        self.assertIn('razones_sociales_unicas', response.context)
+        self.assertIn('rfcs_unicos', response.context)
+        self.assertIn('reg_patronales_unicos', response.context)
+        
+        razones = list(response.context['razones_sociales_unicas'])
+        rfcs = list(response.context['rfcs_unicos'])
+        reg_pats = list(response.context['reg_patronales_unicos'])
+        
+        self.assertEqual(razones, ["RAZON SOCIAL BENEFICIARIO"])
+        self.assertEqual(rfcs, ["RFCBEN9998887"])
+        self.assertEqual(reg_pats, ["RPBEN888999"])
+
+
+class ContratistaFilterDropdownsTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa Contratista Test",
+            subdominio="conttest",
+            usuario_admin="admin",
+            correo_contacto="con@test.com"
+        )
+        self.empresa.modulo_recursos_humanos = True
+        self.empresa.save()
+
+        self.user = User.objects.create_superuser(
+            username="admin@conttest",
+            email="admin@conttest.com",
+            password="password"
+        )
+        self.client.force_login(self.user)
+        session = self.client.session
+        session['empresa_id'] = self.empresa.id
+        session.save()
+
+        from recursos_humanos.models import Contratista
+        Contratista.objects.create(
+            empresa=self.empresa,
+            nombre_razon_social="RAZON SOCIAL CONTRATISTA",
+            rfc="RFCCON9998887",
+            registro_patronal="RPCON888999",
+            correo="con@test.com"
+        )
+
+    def test_lista_contratistas_dropdown_context(self):
+        url = reverse('lista_contratistas')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify context options
+        self.assertIn('razones_sociales_unicas', response.context)
+        self.assertIn('rfcs_unicos', response.context)
+        self.assertIn('reg_patronales_unicos', response.context)
+        
+        razones = list(response.context['razones_sociales_unicas'])
+        rfcs = list(response.context['rfcs_unicos'])
+        reg_pats = list(response.context['reg_patronales_unicos'])
+        
+        self.assertEqual(razones, ["RAZON SOCIAL CONTRATISTA"])
+        self.assertEqual(rfcs, ["RFCCON9998887"])
+        self.assertEqual(reg_pats, ["RPCON888999"])
+
+
+class DefaultSucursalFilterTest(TestCase):
+    def setUp(self):
+        from preferencias.models import Sucursal
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa Sucursal Test",
+            subdominio="suctest",
+            usuario_admin="admin",
+            correo_contacto="suc@test.com"
+        )
+        self.empresa.modulo_recursos_humanos = True
+        self.empresa.save()
+
+        self.sucursal = Sucursal.objects.create(
+            empresa=self.empresa,
+            nombre="Sucursal Norte"
+        )
+
+        self.user = User.objects.create_superuser(
+            username="admin@suctest",
+            email="admin@suctest.com",
+            password="password"
+        )
+        self.client.force_login(self.user)
+        session = self.client.session
+        session['empresa_id'] = self.empresa.id
+        session['sucursal_id'] = self.sucursal.id
+        session.save()
+
+    def test_default_sucursal_in_all_submodules(self):
+        views_to_test = [
+            'lista_empleados',
+            'lista_contratos',
+            'lista_contratistas',
+            'lista_beneficiarios',
+            'lista_sua',
+            'lista_nomina'
+        ]
+
+        for view_name in views_to_test:
+            url = reverse(view_name)
+            
+            # Scenario A: First load (no sucursal parameter in query string)
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, 200, f"Error in view {view_name}")
+            self.assertEqual(
+                response.context['filtros']['sucursal'],
+                str(self.sucursal.id),
+                f"Sucursal was not defaulted to session sucursal in view {view_name}"
+            )
+
+            # Scenario B: Explicit selection of "Todas" (sucursal="" in query string)
+            response = self.client.get(url, {'sucursal': ''})
+            self.assertEqual(response.status_code, 200, f"Error in view {view_name} with explicit Todas")
+            self.assertEqual(
+                response.context['filtros']['sucursal'],
+                '',
+                f"Explicit 'Todas' was ignored in view {view_name}"
+            )
+
+
+
+
+
+
+

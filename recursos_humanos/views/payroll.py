@@ -34,7 +34,11 @@ def lista_nomina(request):
     f_colaborador = request.GET.get('colaborador', '').strip()
     f_rfc_contratista = request.GET.get('rfc_contratista', '').strip()
     f_fecha_pago = request.GET.get('fecha_pago', '').strip()
-    f_sucursal = request.GET.get('sucursal', '').strip()
+    f_sucursal = request.GET.get('sucursal')
+    if f_sucursal is None:
+        f_sucursal = str(request.session.get('sucursal_id') or '')
+    else:
+        f_sucursal = f_sucursal.strip()
 
     if q:
         nominas = nominas.filter(

@@ -24,7 +24,9 @@ def lista_empleados(request):
     f_empleado = request.GET.get('empleado', '')
     f_contratista = request.GET.get('contratista', '')
     f_beneficiario = request.GET.get('beneficiario', '')
-    f_sucursal = request.GET.get('sucursal', '')
+    f_sucursal = request.GET.get('sucursal')
+    if f_sucursal is None:
+        f_sucursal = str(request.session.get('sucursal_id') or '')
     f_estado = request.GET.get('estado', '')
 
     # Aplicar Filtros

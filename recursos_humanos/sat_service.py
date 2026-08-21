@@ -109,11 +109,12 @@ class SATService:
                 files_list.append(xml_name)
                 if xml_name.lower().endswith('.xml') and not xml_name.endswith('/'):
                     with z.open(xml_name) as f:
-                        if self._parsear_y_guardar_xml(f.read(), empresa_actual, sucursal_id, estatus_cfdi=estatus_cfdi):
+                        if SATService._parsear_y_guardar_xml(f.read(), empresa_actual, sucursal_id, estatus_cfdi=estatus_cfdi):
                             count += 1
         return count, files_list
 
-    def _parsear_y_guardar_xml(self, xml_content, empresa_actual, sucursal_id, estatus_cfdi='vigente'):
+    @staticmethod
+    def _parsear_y_guardar_xml(xml_content, empresa_actual, sucursal_id, estatus_cfdi='vigente'):
         """Lógica robusta para extraer datos de Nómina de un CFDI."""
         try:
             # Usamos lxml para búsqueda manual por si satcfdi no encuentra el nodo
@@ -149,12 +150,41 @@ class SATService:
             f_ini_str = get_attr(nomina_node, 'FechaInicialPago')
             f_fin_str = get_attr(nomina_node, 'FechaFinalPago')
             
-            try:
-                f_pago = datetime.strptime(f_pago_str, '%Y-%m-%d').date() if f_pago_str else None
-                f_ini = datetime.strptime(f_ini_str, '%Y-%m-%d').date() if f_ini_str else None
-                f_fin = datetime.strptime(f_fin_str, '%Y-%m-%d').date() if f_fin_str else None
-            except:
-                f_pago = f_ini = f_fin = None
+            def parse_date(d_str):
+                if not d_str: return None
+                try:
+                    return datetime.strptime(d_str[:10], '%Y-%m-%d').date()
+                except:
+                    return None
+            
+            f_pago = parse_date(f_pago_str)
+            f_ini = parse_date(f_ini_str)
+            f_fin = parse_date(f_fin_str)
+
+            # Extraer fecha de emision y fecha de timbrado (certificacion)
+            def parse_datetime(dt_str):
+                if not dt_str: return None
+                dt = None
+                try:
+                    dt = datetime.fromisoformat(dt_str)
+                except:
+                    for fmt in ('%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S'):
+                        try:
+                            dt = datetime.strptime(dt_str, fmt)
+                            break
+                        except:
+                            continue
+                if dt:
+                    from django.utils import timezone
+                    if timezone.is_naive(dt):
+                        return timezone.make_aware(dt)
+                    return dt
+                return None
+
+            fecha_emision_str = root.get('Fecha')
+            fecha_cert_str = timbre.get('FechaTimbrado')
+            fecha_emision = parse_datetime(fecha_emision_str)
+            fecha_certificacion = parse_datetime(fecha_cert_str)
 
             dias = Decimal(get_attr(nomina_node, 'NumDiasPagados', '0'))
             
@@ -243,6 +273,8 @@ class SATService:
                     'tipo_nomina': get_attr(nomina_node, 'TipoNomina', 'O'),
                     'folio': get_attr(root, 'Folio'),
                     'serie': get_attr(root, 'Serie'),
+                    'fecha_emision': fecha_emision,
+                    'fecha_certificacion': fecha_certificacion,
                     'fecha_pago': f_pago,
                     'fecha_inicial_pago': f_ini,
                     'fecha_final_pago': f_fin,

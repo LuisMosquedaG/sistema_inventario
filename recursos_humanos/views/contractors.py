@@ -27,7 +27,9 @@ def lista_contratistas(request):
     f_razon = request.GET.get('razon_social', '')
     f_rfc = request.GET.get('rfc', '')
     f_rp = request.GET.get('reg_patronal', '')
-    sucursal_id = request.GET.get('sucursal', '')
+    sucursal_id = request.GET.get('sucursal')
+    if sucursal_id is None:
+        sucursal_id = str(request.session.get('sucursal_id') or '')
 
     if q:
         contratistas = contratistas.filter(
@@ -49,6 +51,11 @@ def lista_contratistas(request):
 
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
     
+    # Obtener valores únicos para los filtros desplegables de contratistas
+    razones_sociales_unicas = Contratista.objects.filter(empresa=empresa_actual).exclude(nombre_razon_social='').values_list('nombre_razon_social', flat=True).distinct().order_by('nombre_razon_social')
+    rfcs_unicos = Contratista.objects.filter(empresa=empresa_actual).exclude(rfc='').values_list('rfc', flat=True).distinct().order_by('rfc')
+    reg_patronales_unicos = Contratista.objects.filter(empresa=empresa_actual).exclude(registro_patronal='').values_list('registro_patronal', flat=True).distinct().order_by('registro_patronal')
+
     # PAGINACIÓN
     paginator = Paginator(contratistas, 20)
     page_number = request.GET.get('page')
@@ -58,6 +65,9 @@ def lista_contratistas(request):
         'page_obj': page_obj,
         'sucursales': sucursales,
         'empresa': empresa_actual,
+        'razones_sociales_unicas': razones_sociales_unicas,
+        'rfcs_unicos': rfcs_unicos,
+        'reg_patronales_unicos': reg_patronales_unicos,
         'filtros': {
             'q': q,
             'razon_social': f_razon,

@@ -57,4 +57,5 @@ urlpatterns = [
     path('sat/verificar-estatus/<int:solicitud_id>/', views.verificar_estatus_sat_ajax, name='verificar_estatus_sat_ajax'),
     path('sat/solicitudes/lista/', views.listar_solicitudes_sat_ajax, name='listar_solicitudes_sat_ajax'),
     path('sat/integrar/<int:solicitud_id>/', views.integrar_xml_sat_ajax, name='integrar_xml_sat_ajax'),
+    path('sat/cargar-xml/', views.cargar_xml_directo_ajax, name='cargar_xml_directo_ajax'),
 ]

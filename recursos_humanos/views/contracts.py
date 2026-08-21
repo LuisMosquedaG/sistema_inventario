@@ -174,7 +174,9 @@ def lista_contratos(request):
     estado = request.GET.get('estado', '')
     estado_vigencia = request.GET.get('estado_vigencia', '')
     estado_periodicidad = request.GET.get('estado_periodicidad', '')
-    sucursal_id = request.GET.get('sucursal', '')
+    sucursal_id = request.GET.get('sucursal')
+    if sucursal_id is None:
+        sucursal_id = str(request.session.get('sucursal_id') or '')
 
     if q:
         contratos = contratos.filter(

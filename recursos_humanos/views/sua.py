@@ -31,7 +31,9 @@ def lista_sua(request):
     q_reg_pat = request.GET.get('reg_patronal', '')
     q_razon = request.GET.get('razon_social', '')
     q_periodo = request.GET.get('periodo', '')
-    sucursal_id = request.GET.get('sucursal', '')
+    sucursal_id = request.GET.get('sucursal')
+    if sucursal_id is None:
+        sucursal_id = str(request.session.get('sucursal_id') or '')
 
     if q_reg_pat:
         importaciones = importaciones.filter(registro_patronal__icontains=q_reg_pat)
@@ -43,6 +45,10 @@ def lista_sua(request):
         importaciones = importaciones.filter(sucursal_id=sucursal_id)
 
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
+    
+    # Obtener valores únicos para los filtros desplegables
+    reg_patronales_unicos = ImportacionSUA.objects.filter(empresa=empresa_actual).exclude(registro_patronal='').values_list('registro_patronal', flat=True).distinct().order_by('registro_patronal')
+    razones_sociales_unicas = ImportacionSUA.objects.filter(empresa=empresa_actual).exclude(nombre_razon_social='').values_list('nombre_razon_social', flat=True).distinct().order_by('nombre_razon_social')
     
     # Ordenar importaciones cronológicamente (de la más reciente a la más vieja)
     importaciones_list = list(importaciones)
@@ -70,7 +76,9 @@ def lista_sua(request):
     return render(request, 'recursos_humanos/lista_sua.html', {
         'page_obj': page_obj, 
         'sucursales': sucursales, 
-        'empresa': empresa_actual, 
+        'empresa': empresa_actual,
+        'reg_patronales_unicos': reg_patronales_unicos,
+        'razones_sociales_unicas': razones_sociales_unicas,
         'filtros': {
             'reg_patronal': q_reg_pat, 
             'razon_social': q_razon, 
