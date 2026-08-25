@@ -1242,6 +1242,14 @@
                 headers: { 'X-CSRFToken': csrftoken },
                 body: formData
             });
+
+            if (!response.ok) {
+                if (response.status === 413) {
+                    throw new Error("El archivo es demasiado grande para el servidor (límite de tamaño excedido). Intente subir archivos más pequeños o divida el archivo ZIP.");
+                }
+                throw new Error("El servidor respondió con código de estado " + response.status);
+            }
+
             var result = await response.json();
 
             if (progress) progress.style.display = 'none';
@@ -1257,8 +1265,9 @@
                 }
             }
         } catch (error) {
+            console.error(error);
             if (progress) progress.style.display = 'none';
-            alert("Error de conexión con el servidor");
+            alert("Error al cargar: " + error.message);
             if (btn) {
                 btn.disabled = false;
                 btn.textContent = 'Subir e Importar';
