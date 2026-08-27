@@ -1,0 +1,392 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    .document-cell {
+        position: relative;
+        background-color: transparent;
+        width: 100%;
+        height: 50px;
+        overflow: hidden;
+        box-sizing: border-box;
+        cursor: pointer;
+    }
+    
+    table.table-matrix th:not(:first-child) {
+        width: 100px;
+        min-width: 100px;
+    }
+
+    .watermark-icon {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3.15rem;
+        z-index: 1;
+        pointer-events: none;
+        line-height: 1;
+        transition: all 0.15s ease-in-out;
+    }
+
+    .z-index-2 {
+        position: relative;
+        z-index: 2;
+    }
+    
+    /* Colores de Fondo de Celda por Estatus */
+    .cell-revision {
+        background-color: #fff9db !important; /* Amarillo claro */
+    }
+    
+    .cell-aprobado {
+        background-color: #ebfbee !important; /* Verde claro */
+    }
+    
+    .cell-rechazado {
+        background-color: #fff5f5 !important; /* Rojo claro */
+    }
+    
+    .cell-vacio {
+        background-color: #ffffff !important; /* Blanco */
+    }
+    
+    /* Hover muy suave en toda la fila de la matriz */
+    table.table-matrix.table-hover tbody tr:hover > * {
+        box-shadow: inset 0 0 0 9999px rgba(0, 0, 0, 0.02) !important;
+        background-image: none !important;
+    }
+    
+    /* Resaltado de columna en hover */
+    .col-highlight {
+        box-shadow: inset 0 0 0 9999px rgba(0, 0, 0, 0.02) !important;
+    }
+    
+    .btn-delete-doc-prov {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background-color: rgba(255, 255, 255, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #adb5bd;
+        border: 1px solid #dee2e6;
+        transition: all 0.15s ease-in-out;
+        font-size: 0.65rem;
+        cursor: pointer;
+        z-index: 3;
+        pointer-events: auto;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .btn-delete-doc-prov:hover {
+        background-color: #fff5f5;
+        color: #e03131;
+        border-color: #ffc9c9;
+        transform: scale(1.1);
+        box-shadow: 0 2px 5px rgba(224, 49, 49, 0.15);
+    }
+</style>
+<div class="container-fluid py-4">
+    <!-- CABECERA -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-3 overflow-hidden bg-white">
+                <div class="card-body p-4 border-start border-5 border-brand" style="border-left-color: var(--brand-color) !important;">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3" style="color: var(--brand-color);">
+                                <i class="bi bi-folder-check fs-2"></i>
+                            </div>
+                            <div>
+                                <h4 class="fw-bold mb-1 text-dark">Portal de Documentación</h4>
+                                <p class="text-muted mb-0 small">Bienvenido, <strong class="text-brand">{{ proveedor.nombre_razon_social }}</strong>. Aquí puedes consultar y descargar tu documentación mensual.</p>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <label class="small fw-bold text-secondary mb-0">Año fiscal:</label>
+                            <select id="selectAnioDoc" class="form-select form-select-sm border fw-bold text-dark rounded" style="width: 100px; cursor: pointer;" onchange="cargarMatrizDocumentos()">
+                                {% for y in anios_disponibles %}
+                                    <option value="{{ y }}" {% if y == anio_seleccionado %}selected{% endif %}>{{ y }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TABLA DE DOCUMENTOS -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-3 bg-white">
+                <div class="card-header bg-white py-3 border-bottom">
+                    <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-file-earmark-spreadsheet me-2 text-muted"></i>Documentos por Mes</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover align-middle mb-0 table-matrix" style="font-size: 0.8rem;">
+                            <thead class="table-light text-center">
+                                <tr>
+                                    <th class="align-middle px-3 py-3 text-start" style="width: 250px; min-width: 250px; font-weight: 600; color: #495057;">Documento</th>
+                                    <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Enero</th>
+                                    <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Febrero</th>
+                                    <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Marzo</th>
+                                    <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Abril</th>
+                                    <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Mayo</th>
+                                    <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Junio</th>
+                                    <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Julio</th>
+                                    <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Agosto</th>
+                                    <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Septiembre</th>
+                                    <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Octubre</th>
+                                    <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Noviembre</th>
+                                    <th class="align-middle py-3" style="width: 100px; font-weight: 500;">Diciembre</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bodyMatrizDoc">
+                                <!-- Se llena vía AJAX -->
+                            </tbody>
+                            <tfoot id="footMatrizDoc" class="table-light">
+                                <!-- Se llena vía AJAX con los conteos mensuales -->
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-white py-2 px-3 border-top">
+                    <div class="d-flex flex-column gap-1">
+                        <small class="text-muted"><i class="bi bi-info-circle me-1"></i> Haz clic en una celda para descargar el documento.</small>
+                        <small class="text-muted"><i class="bi bi-info-circle me-1"></i> Significado de siglas: A = Aprobado, R = Rechazado, ER = En revisión, SD = Sin documento</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- INPUT OCULTO PARA SUBIDA DE PROVEEDOR -->
+<input type="file" id="inputFileDocProveedor" style="display: none;" onchange="ejecutarSubidaDocProveedor()">
+
+<script>
+    const currentProvId = "{{ proveedor.id }}";
+
+    function getIconByFilename(filename) {
+        if (!filename) return 'bi-file-earmark';
+        const ext = filename.split('.').pop().toLowerCase();
+        if (ext === 'pdf') return 'bi-file-earmark-pdf';
+        if (['xlsx', 'xls', 'csv'].includes(ext)) return 'bi-file-earmark-excel';
+        if (['docx', 'doc'].includes(ext)) return 'bi-file-earmark-word';
+        if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) return 'bi-file-earmark-image';
+        return 'bi-file-earmark';
+    }
+
+    function cargarMatrizDocumentos() {
+        const anio = document.getElementById('selectAnioDoc').value;
+        const body = document.getElementById('bodyMatrizDoc');
+        const foot = document.getElementById('footMatrizDoc');
+        body.innerHTML = '<tr><td colspan="13" class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm text-brand mb-2"></div><br>Cargando documentos...</td></tr>';
+        if (foot) foot.innerHTML = '';
+
+        fetch(`/recursos-humanos/proveedores/documentacion/obtener/${currentProvId}/?anio=${anio}`)
+        .then(r => r.json())
+        .then(data => {
+            if(data.success) {
+                const conteos = {
+                    aprobados: Array(13).fill(0),
+                    rechazados: Array(13).fill(0),
+                    revision: Array(13).fill(0),
+                    vacio: Array(13).fill(0)
+                };
+
+                let html = '';
+                data.matrix.forEach(row => {
+                    html += `<tr>
+                        <td class="fw-bold px-3 py-3 bg-white text-dark align-middle" style="font-size:0.85rem;">${row.nombre}</td>`;
+                    for(let m=1; m<=12; m++) {
+                        const doc = row.meses[m];
+                        if(doc.id) {
+                            const iconClass = getIconByFilename(doc.nombre_archivo);
+                            
+                            let cellClass = '';
+                            let titleText = 'Descargar archivo';
+                            let actionHtml = '';
+                            
+                            if (doc.estatus === 'revision') {
+                                conteos.revision[m]++;
+                                cellClass = 'cell-revision';
+                                titleText = 'En revisión - ' + titleText;
+                                actionHtml = `
+                                    <span class="btn-delete-doc-prov" onclick="event.stopPropagation(); event.preventDefault(); eliminarDocProveedor(${doc.id})" title="Eliminar documento">
+                                        <i class="bi bi-x-lg"></i>
+                                    </span>
+                                `;
+                            } else if (doc.estatus === 'aprobado') {
+                                conteos.aprobados[m]++;
+                                cellClass = 'cell-aprobado';
+                                titleText = 'Aprobado - ' + titleText;
+                            } else if (doc.estatus === 'rechazado') {
+                                conteos.rechazados[m]++;
+                                cellClass = 'cell-rechazado';
+                                titleText = 'Rechazado: ' + (doc.comentario_rechazo || 'Sin comentarios') + ' - ' + titleText;
+                                actionHtml = `
+                                    <span class="btn-delete-doc-prov" onclick="event.stopPropagation(); event.preventDefault(); eliminarDocProveedor(${doc.id})" title="Eliminar documento">
+                                        <i class="bi bi-x-lg"></i>
+                                    </span>
+                                `;
+                            }
+                            
+                            let watermarkColor = 'rgba(108, 117, 125, 0.08)';
+                            if (doc.estatus === 'revision') {
+                                watermarkColor = 'rgba(240, 140, 0, 0.12)';
+                            } else if (doc.estatus === 'aprobado') {
+                                watermarkColor = 'rgba(47, 158, 68, 0.12)';
+                            } else if (doc.estatus === 'rechazado') {
+                                watermarkColor = 'rgba(224, 49, 49, 0.12)';
+                            }
+                            
+                            html += `<td class="align-middle p-0 ${cellClass}" style="width: 100px; height: 50px; position: relative;">
+                                <a href="${doc.url}" target="_blank" class="text-decoration-none d-block document-cell p-0" title="${titleText}">
+                                    <div class="watermark-icon" style="color: ${watermarkColor};">
+                                        <i class="bi ${iconClass}"></i>
+                                    </div>
+                                    <div class="z-index-2 d-flex flex-column justify-content-between h-100 w-100 p-2">
+                                        ${actionHtml}
+                                    </div>
+                                </a>
+                            </td>`;
+                        } else {
+                            conteos.vacio[m]++;
+                            html += `<td class="text-center align-middle p-0 cursor-pointer cell-vacio" onclick="prepararSubidaProveedor('${row.codigo}', ${m})" style="width: 100px; height: 50px;">
+                                <div class="document-cell d-flex align-items-center justify-content-center">
+                                    <span class="text-muted opacity-25" style="font-size: 0.85rem;"><i class="bi bi-plus-lg"></i></span>
+                                </div>
+                            </td>`;
+                        }
+                    }
+                    html += `</tr>`;
+                });
+                body.innerHTML = html;
+
+                if (foot) {
+                    let footHtml = `<tr style="border-top: 2px solid #dee2e6;">
+                        <td class="fw-bold px-3 py-1.5 text-dark text-start align-middle" style="font-size: 0.72rem; background-color: #f8f9fa;">
+                            <i class="bi bi-grid-1x2 me-1 text-muted"></i> Resumen de Documentos
+                        </td>`;
+                    for (let m = 1; m <= 12; m++) {
+                        footHtml += `<td class="text-center align-middle py-1.5" style="font-size: 0.68rem; background-color: #f8f9fa; color: #495057; white-space: nowrap; font-weight: 500; line-height: 1.3;">
+                            <div>A:${conteos.aprobados[m]} <span class="text-muted opacity-30 mx-0.5">·</span> R:${conteos.rechazados[m]}</div>
+                            <div>ER:${conteos.revision[m]} <span class="text-muted opacity-30 mx-0.5">·</span> SD:${conteos.vacio[m]}</div>
+                        </td>`;
+                    }
+                    footHtml += `</tr>`;
+                    foot.innerHTML = footHtml;
+                }
+            } else {
+                body.innerHTML = `<tr><td colspan="13" class="text-center py-4 text-danger">Error: ${data.error}</td></tr>`;
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            body.innerHTML = '<tr><td colspan="13" class="text-center py-4 text-danger">Ocurrió un error al cargar la información.</td></tr>';
+        });
+    }
+
+    let currentProvDocCode = null;
+    let currentProvMonth = null;
+
+    function prepararSubidaProveedor(codigo, mes) {
+        currentProvDocCode = codigo;
+        currentProvMonth = mes;
+        document.getElementById('inputFileDocProveedor').click();
+    }
+
+    function ejecutarSubidaDocProveedor() {
+        const fileInput = document.getElementById('inputFileDocProveedor');
+        if(!fileInput.files.length) return;
+
+        const formData = new FormData();
+        formData.append('archivo', fileInput.files[0]);
+        formData.append('nombre_documento', currentProvDocCode);
+        formData.append('mes', currentProvMonth);
+        formData.append('anio', document.getElementById('selectAnioDoc').value);
+
+        fetch(`/recursos-humanos/proveedores/documentacion/subir/${currentProvId}/`, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if(data.success) {
+                cargarMatrizDocumentos();
+            } else {
+                alert('Error al subir: ' + data.error);
+            }
+            fileInput.value = '';
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Ocurrió un error al subir el archivo.');
+            fileInput.value = '';
+        });
+    }
+
+    function eliminarDocProveedor(docId) {
+        if(confirm('¿Está seguro de que desea eliminar este documento?')) {
+            fetch(`/recursos-humanos/proveedores/documentacion/eliminar/${docId}/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if(data.success) {
+                    cargarMatrizDocumentos();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Ocurrió un error al eliminar el documento.');
+            });
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        cargarMatrizDocumentos();
+        
+        const table = document.querySelector(".table-matrix");
+        if (table) {
+            table.addEventListener("mouseover", function(e) {
+                const cell = e.target.closest("td, th");
+                if (!cell) return;
+                const index = cell.cellIndex;
+                if (index > 0) {
+                    table.querySelectorAll(`tr > *:nth-child(${index + 1})`).forEach(c => {
+                        c.classList.add("col-highlight");
+                    });
+                }
+            });
+            
+            table.addEventListener("mouseout", function(e) {
+                const cell = e.target.closest("td, th");
+                if (!cell) return;
+                const index = cell.cellIndex;
+                if (index > 0) {
+                    table.querySelectorAll(`tr > *:nth-child(${index + 1})`).forEach(c => {
+                        c.classList.remove("col-highlight");
+                    });
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

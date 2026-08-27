@@ -406,6 +406,13 @@
                     <i class="bi bi-file-earmark-text sidebar-icon"></i> Documentación
                 </a>
             </div>
+            {% elif request.user.proveedor_rh %}
+            <!-- PORTAL PROVEEDOR: Solo ve Documentos -->
+            <div class="mt-3">
+                <a href="/recursos-humanos/proveedores/portal/" class="sidebar-link {% if '/portal/' in request.path %}sidebar-active{% endif %}">
+                    <i class="bi bi-file-earmark-text sidebar-icon"></i> Documentación
+                </a>
+            </div>
             {% else %}
 
             <!-- MÓDULO: INICIO -->
@@ -613,7 +620,7 @@
         </div>
 
         <!-- SELECTOR DE SUCURSAL (REFINADO) -->
-        {% if not request.user.beneficiario %}
+        {% if not request.user.beneficiario and not request.user.proveedor_rh %}
         {% if sucursales_list %}
         <div class="sidebar-branch-selector px-3 mb-2">
             <div class="dropdown">
@@ -651,7 +658,7 @@
                 <span id="userNameDisplay" style="font-size: 0.85rem; font-weight: 500;" class="text-truncate">{{ user.username }}</span>
             </div>
             <div class="d-flex align-items-center">
-                {% if not request.user.beneficiario %}
+                {% if not request.user.beneficiario and not request.user.proveedor_rh %}
                     {% if user.username != 'madmin@crossoversuite' %}
                     <a href="/notificaciones/historial/" class="me-3" title="Notificaciones"><i class="bi bi-bell" style="font-size: 1.1rem; color: #adb5bd;"></i></a>
                     {% endif %}

@@ -1,5 +1,6 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.http import JsonResponse, HttpResponse
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
@@ -10,8 +11,9 @@ import openpyxl
 import re
 import csv
 from datetime import datetime
+from django.urls import reverse
 
-from ..models import Empleado, Contrato, Contratista, Beneficiario, ImportacionSUA, TrabajadorSUA
+from ..models import Empleado, Contrato, Contratista, Beneficiario, ImportacionSUA, TrabajadorSUA, ProveedorRH, DocumentacionProveedor
 from preferencias.models import Sucursal
 from preferencias.permissions import require_hr_permission
 from .utils import get_empresa_actual
@@ -21,61 +23,104 @@ from notificaciones.utils import crear_notificacion
 @require_hr_permission('contratistas', 'ver')
 def lista_contratistas(request):
     empresa_actual = get_empresa_actual(request)
-    contratistas = Contratista.objects.filter(empresa=empresa_actual).annotate(total_colaboradores=Count('empleado')).order_by('nombre_razon_social')
-    
+    tipo_vista = request.GET.get('tipo', 'contratista')
+    if tipo_vista not in ['contratista', 'proveedor']:
+        tipo_vista = 'contratista'
+        
     q = request.GET.get('q', '')
     f_razon = request.GET.get('razon_social', '')
     f_rfc = request.GET.get('rfc', '')
-    f_rp = request.GET.get('reg_patronal', '')
-    sucursal_id = request.GET.get('sucursal')
-    if sucursal_id is None:
-        sucursal_id = str(request.session.get('sucursal_id') or '')
-
-    if q:
-        contratistas = contratistas.filter(
-            Q(nombre_razon_social__icontains=q) |
-            Q(rfc__icontains=q) |
-            Q(representante_legal__icontains=q) |
-            Q(correo__icontains=q) |
-            Q(clave__icontains=q)
-        )
-    
-    if f_razon:
-        contratistas = contratistas.filter(nombre_razon_social__icontains=f_razon)
-    if f_rfc:
-        contratistas = contratistas.filter(rfc__icontains=f_rfc)
-    if f_rp:
-        contratistas = contratistas.filter(registro_patronal__icontains=f_rp)
-    if sucursal_id:
-        contratistas = contratistas.filter(sucursal_id=sucursal_id)
-
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
     
-    # Obtener valores únicos para los filtros desplegables de contratistas
-    razones_sociales_unicas = Contratista.objects.filter(empresa=empresa_actual).exclude(nombre_razon_social='').values_list('nombre_razon_social', flat=True).distinct().order_by('nombre_razon_social')
-    rfcs_unicos = Contratista.objects.filter(empresa=empresa_actual).exclude(rfc='').values_list('rfc', flat=True).distinct().order_by('rfc')
-    reg_patronales_unicos = Contratista.objects.filter(empresa=empresa_actual).exclude(registro_patronal='').values_list('registro_patronal', flat=True).distinct().order_by('registro_patronal')
-
-    # PAGINACIÓN
-    paginator = Paginator(contratistas, 20)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-
-    return render(request, 'recursos_humanos/lista_contratistas.html', {
-        'page_obj': page_obj,
-        'sucursales': sucursales,
-        'empresa': empresa_actual,
-        'razones_sociales_unicas': razones_sociales_unicas,
-        'rfcs_unicos': rfcs_unicos,
-        'reg_patronales_unicos': reg_patronales_unicos,
-        'filtros': {
-            'q': q,
-            'razon_social': f_razon,
-            'rfc': f_rfc,
-            'reg_patronal': f_rp,
-            'sucursal': sucursal_id
-        }
-    })
+    if tipo_vista == 'proveedor':
+        contratista_id = request.GET.get('contratista_id')
+        if not contratista_id:
+            return redirect('lista_contratistas')
+        contratista_seleccionado = get_object_or_404(Contratista, id=contratista_id, empresa=empresa_actual)
+        proveedores = ProveedorRH.objects.filter(empresa=empresa_actual, contratista=contratista_seleccionado).order_by('nombre_razon_social')
+        
+        if q:
+            proveedores = proveedores.filter(
+                Q(nombre_razon_social__icontains=q) |
+                Q(rfc__icontains=q) |
+                Q(clave__icontains=q)
+            )
+        if f_razon:
+            proveedores = proveedores.filter(nombre_razon_social__icontains=f_razon)
+        if f_rfc:
+            proveedores = proveedores.filter(rfc__icontains=f_rfc)
+            
+        razones_sociales_unicas = ProveedorRH.objects.filter(empresa=empresa_actual, contratista=contratista_seleccionado).exclude(nombre_razon_social='').values_list('nombre_razon_social', flat=True).distinct().order_by('nombre_razon_social')
+        rfcs_unicos = ProveedorRH.objects.filter(empresa=empresa_actual, contratista=contratista_seleccionado).exclude(rfc='').values_list('rfc', flat=True).distinct().order_by('rfc')
+        
+        paginator = Paginator(proveedores, 20)
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        
+        return render(request, 'recursos_humanos/lista_contratistas.html', {
+            'page_obj': page_obj,
+            'sucursales': sucursales,
+            'empresa': empresa_actual,
+            'razones_sociales_unicas': razones_sociales_unicas,
+            'rfcs_unicos': rfcs_unicos,
+            'tipo_vista': 'proveedor',
+            'contratista_seleccionado': contratista_seleccionado,
+            'anios_lista': [2024, 2025, 2026],
+            'filtros': {
+                'q': q,
+                'razon_social': f_razon,
+                'rfc': f_rfc,
+            }
+        })
+    else:
+        contratistas = Contratista.objects.filter(empresa=empresa_actual).annotate(total_colaboradores=Count('empleado')).order_by('nombre_razon_social')
+        f_rp = request.GET.get('reg_patronal', '')
+        sucursal_id = request.GET.get('sucursal')
+        if sucursal_id is None:
+            sucursal_id = str(request.session.get('sucursal_id') or '')
+            
+        if q:
+            contratistas = contratistas.filter(
+                Q(nombre_razon_social__icontains=q) |
+                Q(rfc__icontains=q) |
+                Q(representante_legal__icontains=q) |
+                Q(correo__icontains=q) |
+                Q(clave__icontains=q)
+            )
+        if f_razon:
+            contratistas = contratistas.filter(nombre_razon_social__icontains=f_razon)
+        if f_rfc:
+            contratistas = contratistas.filter(rfc__icontains=f_rfc)
+        if f_rp:
+            contratistas = contratistas.filter(registro_patronal__icontains=f_rp)
+        if sucursal_id:
+            contratistas = contratistas.filter(sucursal_id=sucursal_id)
+            
+        razones_sociales_unicas = Contratista.objects.filter(empresa=empresa_actual).exclude(nombre_razon_social='').values_list('nombre_razon_social', flat=True).distinct().order_by('nombre_razon_social')
+        rfcs_unicos = Contratista.objects.filter(empresa=empresa_actual).exclude(rfc='').values_list('rfc', flat=True).distinct().order_by('rfc')
+        reg_patronales_unicos = Contratista.objects.filter(empresa=empresa_actual).exclude(registro_patronal='').values_list('registro_patronal', flat=True).distinct().order_by('registro_patronal')
+        
+        paginator = Paginator(contratistas, 20)
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        
+        return render(request, 'recursos_humanos/lista_contratistas.html', {
+            'page_obj': page_obj,
+            'sucursales': sucursales,
+            'empresa': empresa_actual,
+            'razones_sociales_unicas': razones_sociales_unicas,
+            'rfcs_unicos': rfcs_unicos,
+            'reg_patronales_unicos': reg_patronales_unicos,
+            'tipo_vista': 'contratista',
+            'anios_lista': [2024, 2025, 2026],
+            'filtros': {
+                'q': q,
+                'razon_social': f_razon,
+                'rfc': f_rfc,
+                'reg_patronal': f_rp,
+                'sucursal': sucursal_id
+            }
+        })
 
 @login_required(login_url='/login/')
 @require_hr_permission('beneficiarios', 'ver', json_response=True)
@@ -690,5 +735,388 @@ def obtener_beneficiarios_contratista_json(request, id):
         for b in beneficiarios
     ]
     return JsonResponse({'success': True, 'beneficiarios': data})
+
+
+@login_required(login_url='/login/')
+@require_POST
+@require_hr_permission('contratistas', 'crear', json_response=True)
+def crear_proveedor_rh_ajax(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual: return JsonResponse({'success': False, 'error': 'No se encontró la empresa.'}, status=403)
+    try:
+        data = request.POST
+        contratista_id = data.get('contratista_id')
+        if not contratista_id:
+            return JsonResponse({'success': False, 'error': 'No se especificó el contratista.'})
+        contratista_obj = get_object_or_404(Contratista, id=contratista_id, empresa=empresa_actual)
+        
+        rfc_val = data.get('rfc', '').upper()
+        if ProveedorRH.objects.filter(rfc=rfc_val, empresa=empresa_actual, contratista=contratista_obj).exists():
+            return JsonResponse({'success': False, 'error': 'Ya existe un proveedor con este RFC asignado a este contratista.'})
+            
+        usuario_portal = data.get('usuario_portal', '').strip()
+        password_portal = data.get('password_portal', '').strip()
+        user_obj = None
+        if usuario_portal:
+            if not password_portal:
+                return JsonResponse({'success': False, 'error': 'La contraseña es obligatoria si se define un usuario de acceso.'})
+            username_completo = f"{usuario_portal}@{empresa_actual.subdominio}"
+            if User.objects.filter(username=username_completo).exists():
+                return JsonResponse({'success': False, 'error': f'El usuario {username_completo} ya existe.'})
+            user_obj = User.objects.create_user(username=username_completo, email=data.get('contacto_email'), password=password_portal)
+
+        nuevo = ProveedorRH(
+            empresa=empresa_actual,
+            contratista=contratista_obj,
+            clave=data.get('clave', ''),
+            rfc=rfc_val,
+            nombre_razon_social=data.get('razon_social'),
+            correo=data.get('contacto_email'),
+            telefono=data.get('contacto_telefono'),
+            calle=data.get('calle'),
+            num_ext=data.get('num_ext'),
+            num_int=data.get('num_int'),
+            colonia=data.get('colonia'),
+            cp=data.get('cp'),
+            municipio_alcaldia=data.get('municipio_alcaldia'),
+            usuario=user_obj,
+            creado_por=request.user,
+        )
+        nuevo.save()
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'creó al proveedor {nuevo.nombre_razon_social}',
+            link=f'/recursos-humanos/contratistas/?tipo=proveedor&contratista_id={contratista_obj.id}',
+            propietario=request.user
+        )
+        return JsonResponse({'success': True, 'message': 'Proveedor registrado correctamente.'})
+    except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required(login_url='/login/')
+@require_hr_permission('contratistas', 'ver', json_response=True)
+def obtener_proveedor_rh_json(request, id):
+    empresa_actual = get_empresa_actual(request)
+    try:
+        p = ProveedorRH.objects.get(id=id, empresa=empresa_actual)
+        usuario_portal = ''
+        if p.usuario:
+            usuario_portal = p.usuario.username.split('@')[0]
+
+        data = {
+            'id': p.id,
+            'clave': p.clave or '',
+            'rfc': p.rfc,
+            'razon_social': p.nombre_razon_social,
+            'contacto_email': p.correo or '',
+            'contacto_telefono': p.telefono or '',
+            'calle': p.calle or '',
+            'num_ext': p.num_ext or '',
+            'num_int': p.num_int or '',
+            'colonia': p.colonia or '',
+            'cp': p.cp or '',
+            'municipio_alcaldia': p.municipio_alcaldia or '',
+            'domicilio': p.domicilio or '',
+            'usuario_portal': usuario_portal,
+        }
+        return JsonResponse({'success': True, 'data': data})
+    except ProveedorRH.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Proveedor no encontrado.'})
+
+
+@login_required(login_url='/login/')
+@require_POST
+@require_hr_permission('contratistas', 'editar', json_response=True)
+def editar_proveedor_rh_ajax(request, id):
+    empresa_actual = get_empresa_actual(request)
+    try:
+        p = ProveedorRH.objects.get(id=id, empresa=empresa_actual)
+        data = request.POST
+        rfc_val = data.get('rfc', '').upper()
+        if ProveedorRH.objects.filter(rfc=rfc_val, empresa=empresa_actual, contratista=p.contratista).exclude(id=p.id).exists():
+            return JsonResponse({'success': False, 'error': 'Ya existe otro proveedor con este RFC asignado a este contratista.'})
+        
+        usuario_portal = data.get('usuario_portal', '').strip()
+        password_portal = data.get('password_portal', '').strip()
+        
+        if usuario_portal:
+            username_completo = f"{usuario_portal}@{empresa_actual.subdominio}"
+            existing_user = User.objects.filter(username=username_completo).exclude(id=p.usuario_id).first() if p.usuario_id else User.objects.filter(username=username_completo).first()
+            if existing_user:
+                return JsonResponse({'success': False, 'error': f'El usuario {username_completo} ya existe.'})
+            
+            user_obj = None
+            if p.usuario_id:
+                try:
+                    user_obj = p.usuario
+                except User.DoesNotExist:
+                    pass
+            
+            if user_obj:
+                user_obj.username = username_completo
+                user_obj.email = data.get('contacto_email')
+                if password_portal:
+                    user_obj.set_password(password_portal)
+                user_obj.save()
+            else:
+                if not password_portal:
+                    return JsonResponse({'success': False, 'error': 'La contraseña es obligatoria para un usuario nuevo.'})
+                user_obj = User.objects.create_user(username=username_completo, email=data.get('contacto_email'), password=password_portal)
+                p.usuario = user_obj
+        else:
+            if p.usuario_id:
+                try:
+                    old_user = p.usuario
+                    old_user.delete()
+                except User.DoesNotExist:
+                    pass
+                p.usuario = None
+
+        p.clave = data.get('clave', '')
+        p.rfc = data.get('rfc', '').upper()
+        p.nombre_razon_social = data.get('razon_social')
+        p.correo = data.get('contacto_email')
+        p.telefono = data.get('contacto_telefono')
+        p.calle = data.get('calle')
+        p.num_ext = data.get('num_ext')
+        p.num_int = data.get('num_int')
+        p.colonia = data.get('colonia')
+        p.cp = data.get('cp')
+        p.municipio_alcaldia = data.get('municipio_alcaldia')
+        p.save()
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'editó al proveedor {p.nombre_razon_social}',
+            link=f'/recursos-humanos/contratistas/?tipo=proveedor&contratista_id={p.contratista.id}' if p.contratista else '/recursos-humanos/contratistas/?tipo=proveedor',
+            propietario=p.creado_por or request.user
+        )
+        return JsonResponse({'success': True, 'message': 'Proveedor actualizado correctamente.'})
+    except ProveedorRH.DoesNotExist: return JsonResponse({'success': False, 'error': 'Proveedor no encontrado.'})
+    except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required(login_url='/login/')
+@require_POST
+@require_hr_permission('contratistas', 'eliminar', json_response=True)
+def eliminar_proveedor_rh_ajax(request, id):
+    empresa_actual = get_empresa_actual(request)
+    try:
+        p = ProveedorRH.objects.get(id=id, empresa=empresa_actual)
+        nombre = p.nombre_razon_social
+        
+        if p.usuario:
+            try:
+                p.usuario.delete()
+            except Exception:
+                pass
+
+        p.delete()
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'eliminó al proveedor {nombre}',
+            link='/recursos-humanos/contratistas/?tipo=proveedor',
+            propietario=request.user
+        )
+        return JsonResponse({'success': True, 'message': 'Proveedor eliminado correctamente.'})
+    except ProveedorRH.DoesNotExist: return JsonResponse({'success': False, 'error': 'Proveedor no encontrado.'})
+    except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required(login_url='/login/')
+def portal_proveedores(request):
+    if not hasattr(request.user, 'proveedor_rh'):
+        return redirect('dashboard_inicio')
+        
+    empresa_actual = get_empresa_actual(request)
+    prov = request.user.proveedor_rh
+    
+    anio = int(request.GET.get('anio', datetime.now().year))
+    
+    anios_disponibles = list(DocumentacionProveedor.objects.filter(
+        proveedor=prov
+    ).values_list('anio', flat=True).distinct().order_by('-anio'))
+    
+    if anio not in anios_disponibles:
+        anios_disponibles.append(anio)
+        anios_disponibles.sort(reverse=True)
+        
+    contexto = {
+        'proveedor': prov,
+        'anio_seleccionado': anio,
+        'anios_disponibles': anios_disponibles,
+        'empresa': empresa_actual,
+    }
+    return render(request, 'recursos_humanos/portal_proveedores.html', contexto)
+
+
+@login_required(login_url='/login/')
+def obtener_documentacion_proveedor_json(request, id):
+    empresa_actual = get_empresa_actual(request)
+    is_self = hasattr(request.user, 'proveedor_rh') and request.user.proveedor_rh.id == id
+    if not is_self and not request.user.is_staff:
+        from preferencias.permissions import user_has_hr_permission
+        if not user_has_hr_permission(request, 'contratistas', 'ver'):
+            return JsonResponse({'success': False, 'error': 'No cuentas con permiso para esta acción.'}, status=403)
+            
+    prov = get_object_or_404(ProveedorRH, id=id, empresa=empresa_actual)
+    
+    try:
+        anio = int(request.GET.get('anio') or datetime.now().year)
+    except ValueError:
+        anio = datetime.now().year
+    docs_existentes = DocumentacionProveedor.objects.filter(proveedor=prov, anio=anio)
+    
+    tipos_doc = DocumentacionProveedor.NOMBRE_DOC_CHOICES
+    
+    matrix = []
+    for code, nombre in tipos_doc:
+        meses_data = {}
+        for m in range(1, 13):
+            doc = docs_existentes.filter(nombre_documento=code, mes=m).first()
+            meses_data[m] = {
+                'id': doc.id if doc else None,
+                'url': reverse('descargar_documento_proveedor', args=[doc.id]) if doc else None,
+                'nombre_archivo': doc.archivo.name.split('/')[-1] if doc else None,
+                'estatus': doc.status if doc else None,
+                'estatus_display': doc.get_status_display() if doc else None,
+                'comentario_rechazo': (doc.comentario_rechazo or '') if doc else ''
+            }
+        matrix.append({
+            'codigo': code,
+            'nombre': nombre,
+            'meses': meses_data
+        })
+        
+    return JsonResponse({
+        'success': True,
+        'proveedor': prov.nombre_razon_social,
+        'anio': anio,
+        'matrix': matrix
+    })
+
+
+@login_required(login_url='/login/')
+@require_POST
+def subir_documento_proveedor_ajax(request, id):
+    import os
+    empresa_actual = get_empresa_actual(request)
+    if hasattr(request.user, 'proveedor_rh') and request.user.proveedor_rh.id == id:
+        prov = request.user.proveedor_rh
+    else:
+        prov = get_object_or_404(ProveedorRH, id=id, empresa=empresa_actual)
+        
+    try:
+        nombre_documento = request.POST.get('nombre_documento')
+        mes = int(request.POST.get('mes'))
+        anio = int(request.POST.get('anio'))
+        archivo = request.FILES.get('archivo')
+        
+        if not archivo:
+            return JsonResponse({'success': False, 'error': 'No se proporcionó ningún archivo.'})
+            
+        doc, creado = DocumentacionProveedor.objects.get_or_create(
+            empresa=empresa_actual,
+            proveedor=prov,
+            nombre_documento=nombre_documento,
+            mes=mes,
+            anio=anio,
+            defaults={'archivo': archivo, 'status': 'revision'}
+        )
+        if not creado:
+            if doc.status == 'aprobado' and hasattr(request.user, 'proveedor_rh'):
+                return JsonResponse({'success': False, 'error': 'No puedes modificar un documento que ya ha sido aprobado.'})
+            if doc.archivo:
+                try:
+                    if os.path.exists(doc.archivo.path):
+                        os.remove(doc.archivo.path)
+                except Exception:
+                    pass
+            doc.archivo = archivo
+            doc.status = 'revision'
+            doc.comentario_rechazo = ''
+            doc.save()
+            
+        return JsonResponse({'success': True, 'message': 'Documento subido correctamente.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required(login_url='/login/')
+@require_POST
+def eliminar_documento_proveedor_ajax(request, id):
+    import os
+    empresa_actual = get_empresa_actual(request)
+    if hasattr(request.user, 'proveedor_rh'):
+        doc = get_object_or_404(DocumentacionProveedor, id=id, proveedor=request.user.proveedor_rh, empresa=empresa_actual)
+    else:
+        doc = get_object_or_404(DocumentacionProveedor, id=id, empresa=empresa_actual)
+        
+    if doc.status == 'aprobado' and hasattr(request.user, 'proveedor_rh'):
+        return JsonResponse({'success': False, 'error': 'No puedes eliminar un documento que ya ha sido aprobado.'})
+
+    try:
+        if doc.archivo:
+            try:
+                if os.path.exists(doc.archivo.path):
+                    os.remove(doc.archivo.path)
+            except Exception:
+                pass
+        doc.delete()
+        return JsonResponse({'success': True, 'message': 'Documento eliminado correctamente.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required(login_url='/login/')
+def descargar_documento_proveedor(request, doc_id):
+    from django.core.exceptions import PermissionDenied
+    from django.http import FileResponse, Http404
+    import os
+    
+    empresa_actual = get_empresa_actual(request)
+    doc = get_object_or_404(DocumentacionProveedor, id=doc_id, empresa=empresa_actual)
+    
+    if hasattr(request.user, 'proveedor_rh') and doc.proveedor != request.user.proveedor_rh:
+        raise PermissionDenied("No tiene permiso para ver este documento.")
+        
+    if not doc.archivo:
+        raise Http404("El archivo no existe.")
+        
+    path_archivo = doc.archivo.path
+    if not os.path.exists(path_archivo):
+        raise Http404("El archivo físico no fue encontrado en el servidor.")
+        
+    import mimetypes
+    content_type, _ = mimetypes.guess_type(path_archivo)
+    return FileResponse(open(path_archivo, 'rb'), content_type=content_type or 'application/octet-stream')
+
+
+@login_required(login_url='/login/')
+@require_POST
+def cambiar_estatus_documento_proveedor_ajax(request, doc_id):
+    empresa_actual = get_empresa_actual(request)
+    doc = get_object_or_404(DocumentacionProveedor, id=doc_id, empresa=empresa_actual)
+    
+    try:
+        nuevo_estatus = request.POST.get('status')
+        comentario = request.POST.get('comentario_rechazo', '').strip()
+        
+        if nuevo_estatus not in ['aprobado', 'rechazado', 'revision']:
+            return JsonResponse({'success': False, 'error': 'Estatus inválido.'})
+            
+        doc.status = nuevo_estatus
+        if nuevo_estatus == 'rechazado':
+            doc.comentario_rechazo = comentario
+        else:
+            doc.comentario_rechazo = ''
+        doc.save()
+        
+        return JsonResponse({'success': True, 'message': 'Estatus actualizado correctamente.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
 
 

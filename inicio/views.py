@@ -1,4 +1,4 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from panel.models import Empresa
 from django.db.models import Count, Q, Sum, F, Max
@@ -30,6 +30,8 @@ def get_empresa_actual(request):
 def dashboard_inicio(request):
     if hasattr(request.user, 'beneficiario'):
         return redirect('portal_beneficiarios')
+    if hasattr(request.user, 'proveedor_rh'):
+        return redirect('portal_proveedores')
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)

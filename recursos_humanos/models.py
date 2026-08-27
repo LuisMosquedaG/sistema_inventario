@@ -718,3 +718,127 @@ class SolicitudDescargaSAT(models.Model):
         ordering = ['-fecha_creacion']
 
 
+class ProveedorRH(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
+    creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='proveedores_rh_creados', verbose_name="Creado por")
+    usuario = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='proveedor_rh', verbose_name="Usuario de Acceso")
+    contratista = models.ForeignKey('Contratista', on_delete=models.CASCADE, null=True, blank=True, related_name='proveedores_rh', verbose_name="Contratista")
+    
+    # 1. Identificación y Contacto
+    clave = models.CharField(max_length=50, blank=True, null=True, verbose_name="Clave")
+    rfc = models.CharField(max_length=13, verbose_name="RFC")
+    nombre_razon_social = models.CharField(max_length=200, verbose_name="Nombre / Razón Social")
+    correo = models.EmailField(blank=True, null=True, verbose_name="Correo Electrónico")
+    telefono = models.CharField(max_length=20, blank=True, null=True, verbose_name="Teléfono")
+    
+    # 2. Domicilio Fiscal
+    calle = models.CharField(max_length=200, blank=True, null=True, verbose_name="Calle")
+    num_ext = models.CharField(max_length=50, blank=True, null=True, verbose_name="Número Exterior")
+    num_int = models.CharField(max_length=50, blank=True, null=True, verbose_name="Número Interior")
+    colonia = models.CharField(max_length=150, blank=True, null=True, verbose_name="Colonia")
+    cp = models.CharField(max_length=50, blank=True, null=True, verbose_name="Código Postal")
+    municipio_alcaldia = models.CharField(max_length=150, blank=True, null=True, verbose_name="Municipio/Alcaldía")
+    domicilio = models.TextField(blank=True, null=True, verbose_name="Domicilio Fiscal")
+    
+    creado_en = models.DateTimeField(auto_now_add=True, verbose_name="Creado en")
+    actualizado_en = models.DateTimeField(auto_now=True, verbose_name="Actualizado en")
+
+    class Meta:
+        verbose_name = "Proveedor (RH)"
+        verbose_name_plural = "Proveedores (RH)"
+        ordering = ['-creado_en']
+
+    def save(self, *args, **kwargs):
+        partes = []
+        if self.calle:
+            partes.append(self.calle)
+        if self.num_ext:
+            partes.append(f"No. {self.num_ext}")
+        if self.num_int:
+            partes.append(f"Int. {self.num_int}")
+        if self.colonia:
+            partes.append(f"Col. {self.colonia}")
+        if self.municipio_alcaldia:
+            partes.append(self.municipio_alcaldia)
+        if self.cp:
+            partes.append(f"C.P. {self.cp}")
+        if partes:
+            self.domicilio = ", ".join(partes)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.nombre_razon_social} ({self.rfc})"
+
+
+def upload_to_proveedor_doc(instance, filename):
+    subdominio = instance.empresa.subdominio
+    return f'tenants/{subdominio}/proveedores/documentos/{filename}'
+
+
+class DocumentacionProveedor(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
+    proveedor = models.ForeignKey(ProveedorRH, on_delete=models.CASCADE, related_name='documentos', verbose_name="Proveedor")
+    
+    NOMBRE_DOC_CHOICES = [
+        ('REPSE_VIGENTE', 'Constancia/registro REPSE vigente'),
+        ('ACTIVIDAD_REPSE', 'Actividad/servicio registrado en REPSE'),
+        ('CONTRATO_PRESTACION', 'Contrato de prestación de servicios especializados'),
+        ('OBJETO_ESPECIFICO', 'Objeto específico del servicio'),
+        ('NUM_TRABAJADORES', 'Número aproximado de trabajadores que participarán'),
+        ('CFDI_PRESTACION', 'CFDI de la prestación del servicio'),
+        ('CFDI_NOMINA', 'CFDI de nómina de trabajadores que prestaron el servicio'),
+        ('XML_NOMINA', 'XML De Nomina'),
+        ('COMPROBANTE_RETENCION_ISR', 'Comprobante del entero de retenciones de ISR'),
+        ('COMPROBANTE_PAGO_IMSS', 'Comprobante de pago de cuotas IMSS'),
+        ('COMPROBANTE_PAGO_INFONAVIT', 'Comprobante de pago de aportaciones INFONAVIT'),
+        ('DECLARACION_IVA', 'Declaración de IVA del contratista'),
+        ('ACUSE_DECLARACION_IVA', 'Acuse de la declaración de IVA'),
+        ('COMPROBANTE_IVA_TRASLADADO', 'Información/comprobante del IVA trasladado y enterado'),
+        ('COMPROBANTE_PAGO_CONTRATISTA', 'Comprobante bancario del pago al contratista'),
+        ('EVIDENCIA_SERVICIO', 'Evidencia de que el servicio efectivamente se realizó'),
+        ('OPINION_SAT', 'Opinión de cumplimiento SAT'),
+        ('OPINION_IMSS', 'Opinión de cumplimiento IMSS'),
+        ('OPINION_INFONAVIT', 'Opinión de cumplimiento INFONAVIT'),
+        ('RECIBO_PAGO_SAT', 'Recibo Bancario De Pago De Contribuciones SAT'),
+        ('SITUACION_FISCAL_SAT', 'Constancia De Situación Fiscal SAT'),
+        ('CEDULA_SUA', 'Cédula De Determinación De Cuotas, Sistema Único De Autodeterminación'),
+        ('CEDULA_OBRERO_PATRONAL', 'Cédula De Determinación De Cuotas Obrero-Patronales, Aportaciones Y Amortizaciones'),
+        ('RESUMEN_LIQUIDACION', 'Resumen De Liquidación'),
+        ('RECIBO_SIPARE', 'Recibo Bancario - Pago Sipare'),
+        ('FORMATO_PAGO_CUOTAS', 'Formato Para Pago De Cuotas Obrero Patronales, Aportaciones Y Amortizaciones'),
+        ('CUOTAS_SUA_FILE', 'Cuotas Obrero Patronales  .SUA'),
+        ('ACUSE_SISUB', 'Acuse De Recibo Electrónico SISUB'),
+        ('ACUSE_ICSOE', 'Acuse De Informativa De Contratos De Servicios U Obras Especializados ICSOE'),
+        ('DECLARACION_ISR_RETENCIONES', 'Declaración Provisional O Definitiva De Impuestos Federales ISR (Retenciones Por Salario)'),
+        ('DECLARACION_IVA_FEDERAL', 'Declaración Provisional O Definitiva De Impuestos Federales IVA'),
+        ('ACUSE_DECLARACION_IVA_FEDERAL', 'Acuse De Recibo Declaración Provisional O Definitiva De Impuestos Federales IVA'),
+        ('ACUSE_DECLARACION_ISR_RETENCIONES', 'Acuse De Recibo Declaración Provisional O Definitiva De Impuestos Federales ISR (Retenciones Por Salario)'),
+        ('PAGOS_CONTRIBUCIONES_IVA', 'Información Registrada De Pagos De Contribuciones Federales IVA'),
+        ('PAGOS_CONTRIBUCIONES_ISR', 'Información Registrada De Pagos De Contribuciones Federales ISR (Retenciones Por Salario)'),
+    ]
+    
+    STATUS_DOC_CHOICES = [
+        ('revision', 'En Revisión'),
+        ('aprobado', 'Aprobado'),
+        ('rechazado', 'Rechazado'),
+    ]
+    
+    nombre_documento = models.CharField(max_length=50, choices=NOMBRE_DOC_CHOICES, verbose_name="Nombre del Documento")
+    archivo = models.FileField(storage=protected_storage, upload_to=upload_to_proveedor_doc, verbose_name="Archivo")
+    mes = models.PositiveIntegerField(verbose_name="Mes (1-12)")
+    anio = models.PositiveIntegerField(verbose_name="Año")
+    status = models.CharField(max_length=20, choices=STATUS_DOC_CHOICES, default='revision', verbose_name="Estatus")
+    comentario_rechazo = models.TextField(blank=True, null=True, verbose_name="Comentario de Rechazo")
+    
+    fecha_subida = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.proveedor.nombre_razon_social} - {self.nombre_documento} - {self.mes}/{self.anio}"
+
+    class Meta:
+        verbose_name = "Documentación de Proveedor"
+        verbose_name_plural = "Documentación de Proveedores"
+        ordering = ['-fecha_subida']
+
+

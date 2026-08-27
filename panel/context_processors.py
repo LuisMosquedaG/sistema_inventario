@@ -1,5 +1,5 @@
 from .models import Empresa
-from preferencias.models import Sucursal
+from preferencias.models import Sucursal, AsignacionSucursalUsuario
 
 def empresa_actual(request):
     """
@@ -15,14 +15,31 @@ def empresa_actual(request):
             empresa = Empresa.objects.get(subdominio=subdominio)
             sucursales = Sucursal.objects.filter(empresa=empresa).order_by('nombre')
             
+            # Filtrar sucursales si el usuario tiene asignaciones específicas
+            asignadas = AsignacionSucursalUsuario.objects.filter(usuario=request.user)
+            default_sucursal_id = None
+            if asignadas.exists():
+                sucursales_ids = list(asignadas.values_list('sucursal_id', flat=True))
+                sucursales = sucursales.filter(id__in=sucursales_ids)
+                
+                # Buscar la predeterminada
+                pred = asignadas.filter(es_predeterminada=True).first()
+                if pred and pred.sucursal_id in sucursales_ids:
+                    default_sucursal_id = pred.sucursal_id
+                else:
+                    default_sucursal_id = sucursales_ids[0]
+            else:
+                if sucursales.exists():
+                    default_sucursal_id = sucursales.first().id
+            
             # Obtener sucursal seleccionada de la sesión
             sucursal_id = request.session.get('sucursal_id')
             sucursal_actual = None
-            if sucursal_id:
-                sucursal_actual = sucursal_id # Podríamos buscar el objeto, pero el ID suele bastar para la UI
-            elif sucursales.exists():
-                # Si no hay en sesión, tomar la primera por defecto
-                sucursal_actual = sucursales.first().id
+            
+            if sucursal_id and sucursales.filter(id=sucursal_id).exists():
+                sucursal_actual = int(sucursal_id)
+            elif default_sucursal_id:
+                sucursal_actual = default_sucursal_id
                 request.session['sucursal_id'] = sucursal_actual
             
             return {

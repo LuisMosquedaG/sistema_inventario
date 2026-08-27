@@ -106,6 +106,26 @@
         width: 1500px !important;
     }
 
+    /* Sticky table headers and footers for beneficiaries */
+    #modalDocumentacion .table-responsive {
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+    #modalDocumentacion .table-matrix thead th {
+        position: sticky;
+        top: 0;
+        background-color: #f8f9fa !important;
+        z-index: 10;
+        box-shadow: inset 0 -1px 0 #dee2e6, inset 0 1px 0 #dee2e6;
+    }
+    #modalDocumentacion .table-matrix tfoot td {
+        position: sticky;
+        bottom: 0;
+        background-color: #f8f9fa !important;
+        z-index: 10;
+        box-shadow: inset 0 1px 0 #dee2e6, inset 0 -1px 0 #dee2e6;
+    }
+
     /* Botón flotante redondo para eliminar documento */
     .btn-delete-doc {
         position: absolute;
@@ -243,7 +263,7 @@
                                 <div class="d-flex justify-content-center gap-1">
                                     {% if granular_hr_perms.beneficiarios.documentacion %}
                                     <span class="icon-action" title="Documentación" onclick="abrirModalDocumentacion({{ b.id }})">
-                                        <i class="bi bi-file-earmark-check"></i>
+                                        <i class="bi bi-folder-check"></i>
                                     </span>
                                     {% endif %}
                                     {% if granular_hr_perms.beneficiarios.editar %}
@@ -548,7 +568,7 @@
 
 <!-- MODAL: DOCUMENTACIÓN MENSUAL -->
 <div class="modal fade" id="modalDocumentacion" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-sheet">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-sheet modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header bg-white border-bottom-0 py-3">
                 <div class="d-flex align-items-center">
@@ -556,7 +576,7 @@
                         <i class="bi bi-folder-check fs-4"></i>
                     </div>
                     <div>
-                        <h5 class="modal-title fw-bold mb-0">Expediente Mensual</h5>
+                        <h5 class="modal-title fw-bold mb-0">Expediente</h5>
                         <small class="text-muted" id="nombreBeneficiarioDoc">--</small>
                     </div>
                 </div>

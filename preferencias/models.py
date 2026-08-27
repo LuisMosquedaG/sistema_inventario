@@ -131,3 +131,19 @@ class Sucursal(models.Model):
     class Meta:
         verbose_name = "Sucursal"
         verbose_name_plural = "Sucursales"
+
+
+class AsignacionSucursalUsuario(models.Model):
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sucursales_asignadas')
+    sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='usuarios_asignados')
+    es_predeterminada = models.BooleanField(default=False)
+    fecha_asignacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Asignación de Sucursal a Usuario"
+        verbose_name_plural = "Asignaciones de Sucursal a Usuario"
+        unique_together = ('usuario', 'sucursal')
+
+    def __str__(self):
+        pred_suffix = " (Predeterminada)" if self.es_predeterminada else ""
+        return f"{self.usuario.username} -> {self.sucursal.nombre}{pred_suffix}"

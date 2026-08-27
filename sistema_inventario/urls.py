@@ -32,7 +32,8 @@ from preferencias.views import (
     exportar_datos_zip, reiniciar_transacciones_ajax, reiniciar_catalogos_ajax,
     crear_rol_ajax, api_detalle_rol, actualizar_rol_ajax,
     crear_sucursal_ajax, api_detalle_sucursal, actualizar_sucursal_ajax, eliminar_sucursal_ajax,
-    cambiar_sucursal_ajax, actualizar_obligaciones_patronales_ajax
+    cambiar_sucursal_ajax, actualizar_obligaciones_patronales_ajax,
+    obtener_sucursales_usuario_json, guardar_sucursales_usuario_ajax
 )
 from django.contrib.auth import views as auth_views 
 from django.contrib.auth import logout
@@ -59,6 +60,8 @@ def redirect_after_login(request):
         return redirect('dashboard_panel')
     if hasattr(request.user, 'beneficiario'):
         return redirect('portal_beneficiarios')
+    if hasattr(request.user, 'proveedor_rh'):
+        return redirect('portal_proveedores')
     return redirect('dashboard_inicio')
 
 def index_view(request):
@@ -75,6 +78,8 @@ urlpatterns = [
     path('preferencias/crear-usuario/', crear_usuario_ajax, name='crear_usuario_ajax'),
     path('preferencias/api/usuario/<int:user_id>/', api_detalle_usuario, name='api_detalle_usuario'),
     path('preferencias/actualizar-usuario/<int:user_id>/', actualizar_usuario_ajax, name='actualizar_usuario_ajax'),
+    path('preferencias/api/usuario/<int:user_id>/sucursales/', obtener_sucursales_usuario_json, name='obtener_sucursales_usuario_json'),
+    path('preferencias/actualizar-usuario/<int:user_id>/sucursales/', guardar_sucursales_usuario_ajax, name='guardar_sucursales_usuario_ajax'),
     path('preferencias/crear-moneda/', crear_moneda_ajax, name='crear_moneda_ajax'),
     path('preferencias/api/moneda/<int:moneda_id>/', api_detalle_moneda, name='api_detalle_moneda'),
     path('preferencias/actualizar-moneda/<int:moneda_id>/', actualizar_moneda_ajax, name='actualizar_moneda_ajax'),

@@ -1,7 +1,9 @@
 from django.urls import path
+from django.views.generic import RedirectView
 from . import views
 
 urlpatterns = [
+    path('', RedirectView.as_view(pattern_name='lista_empleados', permanent=False)),
     path('empleados/', views.lista_empleados, name='lista_empleados'),
     path('empleados/crear/', views.crear_empleado_ajax, name='crear_empleado_ajax'),
     path('empleados/obtener/<int:id>/', views.obtener_empleado_json, name='obtener_empleado_json'),
@@ -58,4 +60,17 @@ urlpatterns = [
     path('sat/solicitudes/lista/', views.listar_solicitudes_sat_ajax, name='listar_solicitudes_sat_ajax'),
     path('sat/integrar/<int:solicitud_id>/', views.integrar_xml_sat_ajax, name='integrar_xml_sat_ajax'),
     path('sat/cargar-xml/', views.cargar_xml_directo_ajax, name='cargar_xml_directo_ajax'),
+
+    # Rutas para Proveedores (Recursos Humanos)
+    path('proveedores/crear/', views.crear_proveedor_rh_ajax, name='crear_proveedor_rh_ajax'),
+    path('proveedores/obtener/<int:id>/', views.obtener_proveedor_rh_json, name='obtener_proveedor_rh_json'),
+    path('proveedores/editar/<int:id>/', views.editar_proveedor_rh_ajax, name='editar_proveedor_rh_ajax'),
+    path('proveedores/eliminar/<int:id>/', views.eliminar_proveedor_rh_ajax, name='eliminar_proveedor_rh_ajax'),
+    
+    path('proveedores/portal/', views.portal_proveedores, name='portal_proveedores'),
+    path('proveedores/documentacion/obtener/<int:id>/', views.obtener_documentacion_proveedor_json, name='obtener_documentacion_proveedor_json'),
+    path('proveedores/documentacion/subir/<int:id>/', views.subir_documento_proveedor_ajax, name='subir_documento_proveedor_ajax'),
+    path('proveedores/documentacion/eliminar/<int:id>/', views.eliminar_documento_proveedor_ajax, name='eliminar_documento_proveedor_ajax'),
+    path('proveedores/documentacion/descargar/<int:doc_id>/', views.descargar_documento_proveedor, name='descargar_documento_proveedor'),
+    path('proveedores/documentacion/cambiar-estatus/<int:doc_id>/', views.cambiar_estatus_documento_proveedor_ajax, name='cambiar_estatus_documento_proveedor_ajax'),
 ]

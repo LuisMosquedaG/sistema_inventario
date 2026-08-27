@@ -165,11 +165,14 @@
                     <div class="d-flex align-items-center gap-3">
                         {% if empresa.modulo_recursos_humanos %}
                         <div class="btn-group btn-group-sm" role="group">
-                            <a href="?section=usuarios&tipo=administrativos" class="btn btn-user-toggle {% if tipo_usuario != 'beneficiarios' %}active{% endif %}">
+                            <a href="?section=usuarios&tipo=administrativos" class="btn btn-user-toggle {% if tipo_usuario != 'beneficiarios' and tipo_usuario != 'proveedores' %}active{% endif %}">
                                 <i class="bi bi-person-workspace me-1"></i> Administrativos
                             </a>
                             <a href="?section=usuarios&tipo=beneficiarios" class="btn btn-user-toggle {% if tipo_usuario == 'beneficiarios' %}active{% endif %}">
                                 <i class="bi bi-heart-fill me-1"></i> Beneficiarios
+                            </a>
+                            <a href="?section=usuarios&tipo=proveedores" class="btn btn-user-toggle {% if tipo_usuario == 'proveedores' %}active{% endif %}">
+                                <i class="bi bi-person-gear me-1"></i> Proveedores (Contratistas)
                             </a>
                         </div>
                         {% endif %}
@@ -194,9 +197,14 @@
                                 {% for u in usuarios %}
                                 <tr>
                                     <td class="text-center">
-                                        <span class="icon-action" title="Editar Usuario" onclick="abrirEditarUsuario({{ u.id }})">
-                                            <i class="bi bi-pencil-square"></i>
-                                        </span>
+                                        <div class="d-flex justify-content-center gap-1">
+                                            <span class="icon-action" title="Editar Usuario" onclick="abrirEditarUsuario({{ u.id }})">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </span>
+                                            <span class="icon-action" title="Permisos de Sucursales" onclick="abrirSucursalesUsuario({{ u.id }})">
+                                                <i class="bi bi-geo-alt"></i>
+                                            </span>
+                                        </div>
                                     </td>
                                     <td>
                                         <div class="d-flex align-items-center">
@@ -204,13 +212,13 @@
                                             <div>
                                                 <div class="fw-bold text-dark">{{ u.username }}</div>
                                                 <div class="text-muted small">
-                                                    {% if u.beneficiario %}Portal Beneficiario{% elif u.is_superuser %}Superusuario{% else %}Staff / Usuario{% endif %}
+                                                    {% if u.beneficiario %}Portal Beneficiario{% elif u.proveedor_rh %}Portal Proveedor (Servicios){% elif u.is_superuser %}Superusuario{% else %}Staff / Usuario{% endif %}
                                                 </div>
                                             </div>
                                         </div>
                                     </td>
                                     <td>{{ u.email|default:"--" }}</td>
-                                    <td>{% if u.beneficiario %}Beneficiario{% elif u.is_superuser %}Admin{% else %}Usuario{% endif %}</td>
+                                    <td>{% if u.beneficiario %}Beneficiario{% elif u.proveedor_rh %}Proveedor (Contratistas){% elif u.is_superuser %}Admin{% else %}Usuario{% endif %}</td>
                                     <td class="text-center">{% if u.is_active %}<span class="badge bg-success bg-opacity-10 text-success">Activo</span>{% else %}<span class="badge bg-danger bg-opacity-10 text-danger">Inactivo</span>{% endif %}</td>
                                 </tr>
                                 {% endfor %}
@@ -1060,6 +1068,52 @@
                 <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
             </div>
 
+        </div> <!-- modal-content -->
+    </div> <!-- modal-dialog -->
+</div> <!-- modal fade -->
+
+<!-- MODAL: PERMISOS DE SUCURSAL POR USUARIO -->
+<div class="modal fade" id="modalSucursalesUsuario" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0" style="border-radius: 12px; overflow: hidden;">
+            <div class="modal-header border-bottom bg-white p-3">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-geo-alt me-2 fs-4" style="color: #00b8b9;"></i>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0">Permisos por Sucursal</h5>
+                        <small class="text-muted" id="sucursalesUsuarioName">--</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formSucursalesUsuario" method="POST" onsubmit="guardarSucursalesUsuario(event)">
+                {% csrf_token %}
+                <input type="hidden" id="sucursales_usuario_id_hidden" name="user_id">
+                <div class="modal-body p-4 bg-light">
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark mb-2">Selecciona las sucursales a las que tendrá acceso:</label>
+                        <div id="sucursalesCheckboxesContainer" class="card p-3 border-0 shadow-sm" style="border-radius: 8px; max-height: 250px; overflow-y: auto;">
+                            <!-- Checkboxes cargados por AJAX -->
+                        </div>
+                    </div>
+
+                    <div class="mb-0">
+                        <label for="selectSucursalPredeterminada" class="form-label fw-bold text-dark mb-1">Sucursal Predeterminada:</label>
+                        <select id="selectSucursalPredeterminada" name="predeterminada" class="form-select border shadow-sm" style="border-radius: 6px;">
+                            <!-- Opciones cargadas dinámicamente -->
+                        </select>
+                        <small class="text-muted mt-1 d-block">Esta sucursal se seleccionará por defecto cada vez que el usuario inicie sesión.</small>
+                    </div>
+
+                </div>
+                <div class="modal-footer border-top bg-white py-2">
+                    <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-brand text-white btn-sm px-4 fw-bold shadow-sm">
+                        <i class="bi bi-save me-1"></i> Guardar Cambios
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -1465,6 +1519,136 @@
 
     function toggleSubmoduloPermisos(submodulo, valor) {
         document.querySelectorAll(`.permiso-submodulo-${submodulo}`).forEach(el => { el.checked = valor; });
+    }
+
+    let sucursalesModalInstance = null;
+
+    function abrirSucursalesUsuario(userId) {
+        document.getElementById('sucursales_usuario_id_hidden').value = userId;
+        document.getElementById('sucursalesUsuarioName').innerText = "Cargando...";
+        
+        const checkboxesContainer = document.getElementById('sucursalesCheckboxesContainer');
+        const predeterminadaSelect = document.getElementById('selectSucursalPredeterminada');
+        
+        checkboxesContainer.innerHTML = '<div class="text-center py-3 text-muted"><div class="spinner-border spinner-border-sm text-brand me-2"></div> Cargando sucursales...</div>';
+        predeterminadaSelect.innerHTML = '<option value="">-- Selecciona una sucursal --</option>';
+
+        if (!sucursalesModalInstance) {
+            sucursalesModalInstance = new bootstrap.Modal(document.getElementById('modalSucursalesUsuario'));
+        }
+        sucursalesModalInstance.show();
+
+        fetch(`/preferencias/api/usuario/${userId}/sucursales/`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('sucursalesUsuarioName').innerText = data.username;
+                
+                let checkboxHtml = '';
+                if (data.sucursales.length === 0) {
+                    checkboxHtml = '<p class="text-center text-muted mb-0 py-2">No hay sucursales creadas en esta empresa.</p>';
+                } else {
+                    data.sucursales.forEach(s => {
+                        const checked = s.asignada ? 'checked' : '';
+                        checkboxHtml += `
+                            <div class="form-check mb-2">
+                                <input class="form-check-input sucursal-permission-checkbox" type="checkbox" name="sucursales" value="${s.id}" id="chk_suc_${s.id}" ${checked} onchange="actualizarDropdownPredeterminada()">
+                                <label class="form-check-label text-dark fw-semibold mb-0" for="chk_suc_${s.id}">
+                                    ${s.nombre} <span class="text-muted fw-normal font-monospace small">(${s.calle}, ${s.ciudad})</span>
+                                </label>
+                            </div>
+                        `;
+                    });
+                }
+                checkboxesContainer.innerHTML = checkboxHtml;
+
+                checkboxesContainer.dataset.sucursalesJson = JSON.stringify(data.sucursales);
+
+                actualizarDropdownPredeterminada(data.sucursales);
+            } else {
+                checkboxesContainer.innerHTML = `<div class="text-danger text-center p-2">Error: ${data.error}</div>`;
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            checkboxesContainer.innerHTML = '<div class="text-danger text-center p-2">Ocurrió un error al consultar las sucursales.</div>';
+        });
+    }
+
+    function actualizarDropdownPredeterminada(originalSucursales = null) {
+        const select = document.getElementById('selectSucursalPredeterminada');
+        let sucursales = [];
+        
+        if (originalSucursales) {
+            sucursales = originalSucursales;
+        } else {
+            const container = document.getElementById('sucursalesCheckboxesContainer');
+            if (container.dataset.sucursalesJson) {
+                sucursales = JSON.parse(container.dataset.sucursalesJson);
+            }
+        }
+
+        const checkedCheckboxes = document.querySelectorAll('.sucursal-permission-checkbox:checked');
+        const checkedIds = new Set(Array.from(checkedCheckboxes).map(c => parseInt(c.value)));
+
+        const valorSeleccionadoPrevio = select.value;
+
+        let optionsHtml = '<option value="">-- Ninguna sucursal asignada --</option>';
+        let seleccionadaAunExiste = false;
+
+        sucursales.forEach(s => {
+            if (checkedIds.has(s.id)) {
+                let isSelected = false;
+                if (originalSucursales) {
+                    isSelected = s.es_predeterminada;
+                } else {
+                    isSelected = (parseInt(valorSeleccionadoPrevio) === s.id);
+                }
+
+                if (isSelected) {
+                    seleccionadaAunExiste = true;
+                }
+
+                optionsHtml += `<option value="${s.id}" ${isSelected ? 'selected' : ''}>${s.nombre}</option>`;
+            }
+        });
+
+        select.innerHTML = optionsHtml;
+
+        if (checkedIds.size > 0 && !seleccionadaAunExiste) {
+            const firstActiveCheckbox = checkedCheckboxes[0];
+            if (firstActiveCheckbox) {
+                select.value = firstActiveCheckbox.value;
+            }
+        }
+    }
+
+    function guardarSucursalesUsuario(e) {
+        e.preventDefault();
+        const userId = document.getElementById('sucursales_usuario_id_hidden').value;
+        const form = document.getElementById('formSucursalesUsuario');
+        const formData = new FormData(form);
+
+        fetch(`/preferencias/actualizar-usuario/${userId}/sucursales/`, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                if (sucursalesModalInstance) {
+                    sucursalesModalInstance.hide();
+                }
+            } else {
+                alert('Error al guardar: ' + data.error);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Ocurrió un error al guardar los permisos de sucursal.');
+        });
     }
 
     document.addEventListener("DOMContentLoaded", function() {

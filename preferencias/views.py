@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.db import transaction # <--- ESTE FALTABA
 from django.utils import timezone
-from .models import Moneda, Rol, PermisoRolModulo, AsignacionRolUsuario, PermisoRolAccion, Sucursal
+from .models import Moneda, Rol, PermisoRolModulo, AsignacionRolUsuario, PermisoRolAccion, Sucursal, AsignacionSucursalUsuario
 from .permissions import SALES_PERMISSION_MATRIX, PURCHASES_PERMISSION_MATRIX, PRODUCTION_PERMISSION_MATRIX, INVENTORY_PERMISSION_MATRIX, TREASURY_PERMISSION_MATRIX, HR_PERMISSION_MATRIX
 from panel.models import Empresa
 import csv
@@ -84,8 +84,10 @@ def dashboard_preferencias(request):
 
         if tipo_usuario == 'beneficiarios':
             qs = qs.filter(beneficiario__isnull=False)
+        elif tipo_usuario == 'proveedores':
+            qs = qs.filter(proveedor_rh__isnull=False)
         else:
-            qs = qs.filter(beneficiario__isnull=True)
+            qs = qs.filter(beneficiario__isnull=True, proveedor_rh__isnull=True)
             
         contexto['usuarios'] = qs.order_by('-id')
         contexto['tipo_usuario'] = tipo_usuario
@@ -849,3 +851,91 @@ def actualizar_obligaciones_patronales_ajax(request):
         return JsonResponse({'success': True, 'message': 'Obligaciones Patronales actualizadas correctamente.'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def obtener_sucursales_usuario_json(request, user_id):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual or not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Acceso denegado'})
+
+    user_obj = get_object_or_404(User, id=user_id)
+    is_master = (request.user.username == 'madmin@crossoversuite')
+    if not is_master and f"@{empresa_actual.subdominio}" not in user_obj.username:
+        return JsonResponse({'success': False, 'error': 'El usuario no pertenece a tu empresa'})
+
+    sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
+    asignadas = AsignacionSucursalUsuario.objects.filter(usuario=user_obj)
+    asignadas_ids = set(asignadas.values_list('sucursal_id', flat=True))
+    predeterminada_id = None
+    pred = asignadas.filter(es_predeterminada=True).first()
+    if pred:
+        predeterminada_id = pred.sucursal_id
+
+    sucursales_data = []
+    for s in sucursales:
+        sucursales_data.append({
+            'id': s.id,
+            'nombre': s.nombre,
+            'calle': s.calle,
+            'ciudad': s.ciudad,
+            'asignada': s.id in asignadas_ids,
+            'es_predeterminada': s.id == predeterminada_id
+        })
+
+    return JsonResponse({
+        'success': True,
+        'username': user_obj.username,
+        'sucursales': sucursales_data
+    })
+
+
+@login_required
+@require_POST
+@transaction.atomic
+def guardar_sucursales_usuario_ajax(request, user_id):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual or not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Acceso denegado'})
+
+    user_obj = get_object_or_404(User, id=user_id)
+    is_master = (request.user.username == 'madmin@crossoversuite')
+    if not is_master and f"@{empresa_actual.subdominio}" not in user_obj.username:
+        return JsonResponse({'success': False, 'error': 'El usuario no pertenece a tu empresa'})
+
+    sucursales_seleccionadas = request.POST.getlist('sucursales')
+    predeterminada_id = request.POST.get('predeterminada')
+
+    sucursales_validas = set(Sucursal.objects.filter(empresa=empresa_actual).values_list('id', flat=True))
+    
+    ids_asignar = []
+    for s_id in sucursales_seleccionadas:
+        try:
+            val_id = int(s_id)
+            if val_id in sucursales_validas:
+                ids_asignar.append(val_id)
+        except ValueError:
+            pass
+
+    val_pred_id = None
+    if predeterminada_id:
+        try:
+            val_pred_id = int(predeterminada_id)
+            if val_pred_id not in sucursales_validas:
+                val_pred_id = None
+        except ValueError:
+            pass
+
+    if ids_asignar and (not val_pred_id or val_pred_id not in ids_asignar):
+        val_pred_id = ids_asignar[0]
+
+    AsignacionSucursalUsuario.objects.filter(usuario=user_obj).delete()
+
+    for s_id in ids_asignar:
+        AsignacionSucursalUsuario.objects.create(
+            usuario=user_obj,
+            sucursal_id=s_id,
+            es_predeterminada=(s_id == val_pred_id)
+        )
+
+    return JsonResponse({'success': True, 'message': 'Permisos de sucursal guardados correctamente.'})
