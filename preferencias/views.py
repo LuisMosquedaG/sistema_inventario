@@ -637,9 +637,13 @@ def api_detalle_rol(request, rol_id):
             else:
                 accion_label = p.accion.replace('_', ' ').title()
 
+            submodulo_label = p.submodulo.replace('_', ' ').title()
+            if p.submodulo == 'proveedores_contratistas':
+                submodulo_label = 'Proveedores'
+
             permisos_activos.append({
                 'area': p.get_area_display(),
-                'submodulo': p.submodulo.replace('_', ' ').title(),
+                'submodulo': submodulo_label,
                 'accion': accion_label
             })
 

@@ -66,7 +66,7 @@
             <a href="?tipo=contratista" class="btn btn-light text-secondary btn-pro shadow-sm border">
                 <i class="bi bi-arrow-left me-1"></i> Regresar a Contratistas
             </a>
-            {% if granular_hr_perms.contratistas.crear %}
+            {% if granular_hr_perms.proveedores_contratistas.crear %}
             <button class="btn btn-brand text-white btn-pro shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoProveedor" onclick="prepararNuevoProveedor()">
                 <i class="bi bi-plus-lg me-1"></i> Nuevo Proveedor
             </button>
@@ -201,15 +201,17 @@
                         <tr>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center gap-1">
-                                    {% if granular_hr_perms.contratistas.editar %}
+                                    {% if granular_hr_perms.proveedores_contratistas.editar %}
                                     <span class="icon-action" title="Editar Proveedor" onclick="editarProveedor({{ p.id }})">
                                         <i class="bi bi-pencil-square"></i>
                                     </span>
                                     {% endif %}
+                                    {% if granular_hr_perms.proveedores_contratistas.documentacion %}
                                     <span class="icon-action" title="Documentación" onclick="abrirModalDocumentacionProveedor({{ p.id }})">
                                         <i class="bi bi-folder-check"></i>
                                     </span>
-                                    {% if granular_hr_perms.contratistas.eliminar %}
+                                    {% endif %}
+                                    {% if granular_hr_perms.proveedores_contratistas.eliminar %}
                                     <span class="icon-action icon-action-danger" title="Eliminar Proveedor" onclick="eliminarProveedor({{ p.id }})">
                                         <i class="bi bi-x-circle"></i>
                                     </span>
@@ -253,10 +255,12 @@
                         <tr>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center gap-1">
-                                    {% if granular_hr_perms.contratistas.editar %}
+                                    {% if granular_hr_perms.proveedores_contratistas.ver %}
                                     <a href="?tipo=proveedor&contratista_id={{ c.id }}" class="icon-action" title="Proveedores de Servicios">
                                         <i class="bi bi-person-gear"></i>
                                     </a>
+                                    {% endif %}
+                                    {% if granular_hr_perms.contratistas.editar %}
                                     <span class="icon-action" title="Editar Contratista" onclick="editarContratista({{ c.id }})">
                                         <i class="bi bi-pencil-square"></i>
                                     </span>
@@ -1454,6 +1458,10 @@
     }
 
     function cargarMatrizDocumentosProveedor() {
+        const puedeAprobar = {% if granular_hr_perms.proveedores_contratistas.documentacion_aprobar %}true{% else %}false{% endif %};
+        const puedeRechazar = {% if granular_hr_perms.proveedores_contratistas.documentacion_rechazar %}true{% else %}false{% endif %};
+        const puedeDescargar = {% if granular_hr_perms.proveedores_contratistas.documentacion_descargar %}true{% else %}false{% endif %};
+
         const anio = document.getElementById('selectAnioDocProveedor').value;
         const body = document.getElementById('bodyMatrizDocProveedor');
         const foot = document.getElementById('footMatrizDocProveedor');
@@ -1491,13 +1499,19 @@
                                 conteos.revision[m]++;
                                 cellClass = 'cell-revision';
                                 watermarkColor = 'rgba(240, 140, 0, 0.12)';
-                                cellWrapperClass = 'has-buttons-prov';
-                                actionHtml = `
-                                    <div class="action-buttons-strip-prov d-flex z-index-2 w-100">
-                                        <button onclick="event.stopPropagation(); event.preventDefault(); cambiarEstatusProveedor(${doc.id}, 'aprobado')" class="btn-action-prov btn-action-success-prov w-50 h-100 p-0 d-flex align-items-center justify-content-center" title="Aceptar"><i class="bi bi-check-lg" style="font-size: 0.72rem; line-height: 1;"></i></button>
-                                        <button onclick="event.stopPropagation(); event.preventDefault(); cambiarEstatusProveedor(${doc.id}, 'rechazado')" class="btn-action-prov btn-action-danger-prov w-50 h-100 p-0 d-flex align-items-center justify-content-center" title="Rechazar"><i class="bi bi-x-lg" style="font-size: 0.68rem; line-height: 1;"></i></button>
-                                    </div>
-                                `;
+                                
+                                let btnAprobar = puedeAprobar ? `<button onclick="event.stopPropagation(); event.preventDefault(); cambiarEstatusProveedor(${doc.id}, 'aprobado')" class="btn-action-prov btn-action-success-prov ${puedeRechazar ? 'w-50' : 'w-100'} h-100 p-0 d-flex align-items-center justify-content-center" title="Aceptar"><i class="bi bi-check-lg" style="font-size: 0.72rem; line-height: 1;"></i></button>` : '';
+                                let btnRechazar = puedeRechazar ? `<button onclick="event.stopPropagation(); event.preventDefault(); cambiarEstatusProveedor(${doc.id}, 'rechazado')" class="btn-action-prov btn-action-danger-prov ${puedeAprobar ? 'w-50' : 'w-100'} h-100 p-0 d-flex align-items-center justify-content-center" title="Rechazar"><i class="bi bi-x-lg" style="font-size: 0.68rem; line-height: 1;"></i></button>` : '';
+                                
+                                if (puedeAprobar || puedeRechazar) {
+                                    cellWrapperClass = 'has-buttons-prov';
+                                    actionHtml = `
+                                        <div class="action-buttons-strip-prov d-flex z-index-2 w-100">
+                                            ${btnAprobar}
+                                            ${btnRechazar}
+                                        </div>
+                                    `;
+                                }
                             } else if (doc.estatus === 'aprobado') {
                                 conteos.aprobados[m]++;
                                 cellClass = 'cell-aprobado';
@@ -1508,8 +1522,11 @@
                                 watermarkColor = 'rgba(224, 49, 49, 0.12)';
                             }
                             
+                            const linkTagOpen = puedeDescargar ? `<a href="${doc.url}" target="_blank" class="text-decoration-none d-block document-cell p-0 ${cellWrapperClass}" title="Ver archivo: ${doc.nombre_archivo}">` : `<div class="d-block document-cell p-0 ${cellWrapperClass}" title="No tienes permiso para descargar/visualizar">`;
+                            const linkTagClose = puedeDescargar ? `</a>` : `</div>`;
+                            
                             html += `<td class="align-middle p-0 ${cellClass}" style="width: 100px; height: 50px; position: relative;">
-                                <a href="${doc.url}" target="_blank" class="text-decoration-none d-block document-cell p-0 ${cellWrapperClass}" title="Ver archivo: ${doc.nombre_archivo}">
+                                ${linkTagOpen}
                                     <div class="watermark-icon-prov" style="color: ${watermarkColor};">
                                         <i class="bi ${iconClass}"></i>
                                     </div>
@@ -1517,7 +1534,7 @@
                                         <div class="p-1"></div>
                                         ${actionHtml}
                                     </div>
-                                </a>
+                                ${linkTagClose}
                             </td>`;
                         } else {
                             conteos.vacio[m]++;

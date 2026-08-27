@@ -33,6 +33,12 @@ def lista_contratistas(request):
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
     
     if tipo_vista == 'proveedor':
+        from preferencias.permissions import user_has_hr_permission
+        if not user_has_hr_permission(request, 'proveedores_contratistas', 'ver'):
+            from django.contrib import messages
+            messages.error(request, 'No cuentas con permiso para ver los proveedores de contratistas.')
+            return redirect('lista_contratistas')
+            
         contratista_id = request.GET.get('contratista_id')
         if not contratista_id:
             return redirect('lista_contratistas')
@@ -739,7 +745,7 @@ def obtener_beneficiarios_contratista_json(request, id):
 
 @login_required(login_url='/login/')
 @require_POST
-@require_hr_permission('contratistas', 'crear', json_response=True)
+@require_hr_permission('proveedores_contratistas', 'crear', json_response=True)
 def crear_proveedor_rh_ajax(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual: return JsonResponse({'success': False, 'error': 'No se encontró la empresa.'}, status=403)
@@ -795,7 +801,7 @@ def crear_proveedor_rh_ajax(request):
 
 
 @login_required(login_url='/login/')
-@require_hr_permission('contratistas', 'ver', json_response=True)
+@require_hr_permission('proveedores_contratistas', 'ver', json_response=True)
 def obtener_proveedor_rh_json(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
@@ -827,7 +833,7 @@ def obtener_proveedor_rh_json(request, id):
 
 @login_required(login_url='/login/')
 @require_POST
-@require_hr_permission('contratistas', 'editar', json_response=True)
+@require_hr_permission('proveedores_contratistas', 'editar', json_response=True)
 def editar_proveedor_rh_ajax(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
@@ -899,7 +905,7 @@ def editar_proveedor_rh_ajax(request, id):
 
 @login_required(login_url='/login/')
 @require_POST
-@require_hr_permission('contratistas', 'eliminar', json_response=True)
+@require_hr_permission('proveedores_contratistas', 'eliminar', json_response=True)
 def eliminar_proveedor_rh_ajax(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
@@ -956,9 +962,9 @@ def portal_proveedores(request):
 def obtener_documentacion_proveedor_json(request, id):
     empresa_actual = get_empresa_actual(request)
     is_self = hasattr(request.user, 'proveedor_rh') and request.user.proveedor_rh.id == id
-    if not is_self and not request.user.is_staff:
+    if not is_self:
         from preferencias.permissions import user_has_hr_permission
-        if not user_has_hr_permission(request, 'contratistas', 'ver'):
+        if not user_has_hr_permission(request, 'proveedores_contratistas', 'documentacion') and not user_has_hr_permission(request, 'proveedores_contratistas', 'ver'):
             return JsonResponse({'success': False, 'error': 'No cuentas con permiso para esta acción.'}, status=403)
             
     prov = get_object_or_404(ProveedorRH, id=id, empresa=empresa_actual)
@@ -1079,8 +1085,13 @@ def descargar_documento_proveedor(request, doc_id):
     empresa_actual = get_empresa_actual(request)
     doc = get_object_or_404(DocumentacionProveedor, id=doc_id, empresa=empresa_actual)
     
-    if hasattr(request.user, 'proveedor_rh') and doc.proveedor != request.user.proveedor_rh:
-        raise PermissionDenied("No tiene permiso para ver este documento.")
+    if hasattr(request.user, 'proveedor_rh'):
+        if doc.proveedor != request.user.proveedor_rh:
+            raise PermissionDenied("No tiene permiso para ver este documento.")
+    else:
+        from preferencias.permissions import user_has_hr_permission
+        if not user_has_hr_permission(request, 'proveedores_contratistas', 'documentacion_descargar'):
+            raise PermissionDenied("No tiene permiso para descargar este documento.")
         
     if not doc.archivo:
         raise Http404("El archivo no existe.")
@@ -1097,6 +1108,19 @@ def descargar_documento_proveedor(request, doc_id):
 @login_required(login_url='/login/')
 @require_POST
 def cambiar_estatus_documento_proveedor_ajax(request, doc_id):
+    from preferencias.permissions import user_has_hr_permission
+    nuevo_estatus = request.POST.get('status')
+    
+    if nuevo_estatus == 'aprobado':
+        if not user_has_hr_permission(request, 'proveedores_contratistas', 'documentacion_aprobar'):
+            return JsonResponse({'success': False, 'error': 'No cuentas con permiso para aprobar documentos.'}, status=403)
+    elif nuevo_estatus == 'rechazado':
+        if not user_has_hr_permission(request, 'proveedores_contratistas', 'documentacion_rechazar'):
+            return JsonResponse({'success': False, 'error': 'No cuentas con permiso para rechazar documentos.'}, status=403)
+    else:
+        if not user_has_hr_permission(request, 'proveedores_contratistas', 'documentacion'):
+            return JsonResponse({'success': False, 'error': 'No cuentas con permiso para modificar este documento.'}, status=403)
+
     empresa_actual = get_empresa_actual(request)
     doc = get_object_or_404(DocumentacionProveedor, id=doc_id, empresa=empresa_actual)
     
