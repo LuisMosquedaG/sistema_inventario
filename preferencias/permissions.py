@@ -8,6 +8,11 @@ from panel.models import Empresa
 from .models import AsignacionRolUsuario, PermisoRolModulo, PermisoRolAccion
 
 
+INICIO_PERMISSION_MATRIX = {
+    'dashboard': ['ver'],
+}
+
+
 SALES_PERMISSION_MATRIX = {
     'clientes': ['ver', 'crear', 'editar', 'agenda_contactos', 'crear_cotizacion'],
     'actividades': ['ver', 'crear', 'editar', 'eliminar', 'aprobar', 'imprimir', 'completar', 'reprogramar', 'cancelar'],
@@ -514,3 +519,139 @@ def get_granular_hr_permissions(request):
     for submodulo, acciones in HR_PERMISSION_MATRIX.items():
         perms[submodulo] = {accion: user_has_hr_permission(request, submodulo, accion) for accion in acciones}
     return perms
+
+
+def user_has_inicio_permission(request, submodulo, accion):
+    user = request.user
+    if not user.is_authenticated:
+        return False
+
+    empresa = get_empresa_actual(request)
+    if not empresa:
+        return user.is_superuser
+
+    if user.is_superuser:
+        return True
+
+    asignacion = AsignacionRolUsuario.objects.select_related('rol').filter(
+        usuario=user,
+        empresa=empresa
+    ).first()
+
+    if not asignacion:
+        return False
+
+    permiso_accion = PermisoRolAccion.objects.filter(
+        rol=asignacion.rol,
+        area='inicio',
+        submodulo=submodulo,
+        accion=accion
+    ).first()
+    if permiso_accion is not None:
+        return bool(permiso_accion.permitido)
+
+    return False
+
+
+def require_inicio_permission(submodulo, accion, json_response=False):
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapped(request, *args, **kwargs):
+            if user_has_inicio_permission(request, submodulo, accion):
+                return view_func(request, *args, **kwargs)
+
+            if json_response:
+                return JsonResponse({'success': False, 'error': 'No cuentas con permiso para esta acción.'}, status=403)
+
+            # Redirigir dinámicamente al primer módulo permitido
+            target_url = obtener_url_redireccion_segun_permisos(request)
+            if target_url:
+                return redirect(target_url)
+
+            messages.error(request, 'No cuentas con permiso para acceder al Inicio.')
+            return redirect('login')
+
+        return wrapped
+
+    return decorator
+
+
+def get_granular_inicio_permissions(request):
+    perms = {}
+    for submodulo, acciones in INICIO_PERMISSION_MATRIX.items():
+        perms[submodulo] = {accion: user_has_inicio_permission(request, submodulo, accion) for accion in acciones}
+    return perms
+
+
+def obtener_url_redireccion_segun_permisos(request):
+    # 1. Ventas
+    if user_has_sales_permission(request, 'clientes', 'ver'):
+        return '/clientes/'
+    if user_has_sales_permission(request, 'actividades', 'ver'):
+        return '/actividades/'
+    if user_has_sales_permission(request, 'cotizaciones', 'ver'):
+        return '/cotizaciones/'
+    if user_has_sales_permission(request, 'pedidos', 'ver'):
+        return '/pedidos/'
+    if user_has_sales_permission(request, 'salidas', 'ver'):
+        return '/ventas/'
+    if user_has_sales_permission(request, 'punto_de_venta', 'ver'):
+        return '/ventas/pos/'
+    if user_has_sales_permission(request, 'cortes_de_caja', 'ver'):
+        return '/ventas/cortes-caja/'
+
+    # 2. Compras
+    if user_has_purchase_permission(request, 'proveedores', 'ver'):
+        return '/proveedores/'
+    if user_has_purchase_permission(request, 'solicitudes', 'ver'):
+        return '/solicitudes-compras/'
+    if user_has_purchase_permission(request, 'ordenes_compra', 'ver'):
+        return '/compras/'
+    if user_has_purchase_permission(request, 'recepciones', 'ver'):
+        return '/recepciones/'
+
+    # 3. Tesorería
+    if user_has_treasury_permission(request, 'ingresos', 'ver'):
+        return '/tesoreria/ingresos/'
+    if user_has_treasury_permission(request, 'egresos', 'ver'):
+        return '/tesoreria/egresos/'
+    if user_has_treasury_permission(request, 'cajas_bancos', 'ver'):
+        return '/tesoreria/cajas-bancos/'
+
+    # 4. Producción
+    if user_has_production_permission(request, 'tablero_control', 'ver'):
+        return '/produccion/'
+    if user_has_production_permission(request, 'catalogos_test', 'ver'):
+        return '/produccion/tests/'
+
+    # 5. Inventario
+    if user_has_inventory_permission(request, 'inventario', 'ver'):
+        return '/inventario/'
+    if user_has_inventory_permission(request, 'kardex', 'ver'):
+        return '/inventario/kardex/'
+    if user_has_inventory_permission(request, 'almacenes', 'ver'):
+        return '/inventario/almacenes/'
+    if user_has_inventory_permission(request, 'categorias', 'ver'):
+        return '/inventario/categorias/'
+    if user_has_inventory_permission(request, 'listas', 'ver'):
+        return '/inventario/listas/'
+
+    # 6. Recursos Humanos
+    if user_has_hr_permission(request, 'empleados', 'ver'):
+        return '/recursos-humanos/empleados/'
+    if user_has_hr_permission(request, 'contratos', 'ver'):
+        return '/recursos-humanos/contratos/'
+    if user_has_hr_permission(request, 'contratistas', 'ver'):
+        return '/recursos-humanos/contratistas/'
+    if user_has_hr_permission(request, 'beneficiarios', 'ver'):
+        return '/recursos-humanos/beneficiarios/'
+    if user_has_hr_permission(request, 'sua', 'ver'):
+        return '/recursos-humanos/sua/'
+    if user_has_hr_permission(request, 'nomina', 'ver'):
+        return '/recursos-humanos/nomina/'
+
+    # 7. Costeos
+    if user_has_module_permission(request, 'costeos', 'ver'):
+        return '/costeos/'
+
+    return None

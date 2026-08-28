@@ -416,11 +416,13 @@
             {% else %}
 
             <!-- MÓDULO: INICIO -->
+            {% if inicio_ui_permissions.dashboard %}
             <div>
                 <a href="/inicio/" class="sidebar-link {% if request.path == '/inicio/' %}sidebar-active{% endif %}">
                     <i class="bi bi-house-door sidebar-icon"></i> Inicio
                 </a>
             </div>
+            {% endif %}
 
 
             <!-- MÓDULO: COSTEOS -->

@@ -12,12 +12,15 @@ from .permissions import (
     get_granular_treasury_permissions,
     user_has_hr_permission,
     get_granular_hr_permissions,
+    user_has_inicio_permission,
+    get_granular_inicio_permissions,
     SALES_PERMISSION_MATRIX,
     PURCHASES_PERMISSION_MATRIX,
     PRODUCTION_PERMISSION_MATRIX,
     INVENTORY_PERMISSION_MATRIX,
     TREASURY_PERMISSION_MATRIX,
-    HR_PERMISSION_MATRIX
+    HR_PERMISSION_MATRIX,
+    INICIO_PERMISSION_MATRIX
 )
 
 
@@ -37,6 +40,7 @@ def app_permissions(request):
             'production_ui_permissions': {},
             'treasury_ui_permissions': {},
             'hr_ui_permissions': {},
+            'inicio_ui_permissions': {},
             'perms_produccion': {},
             'granular_sales_perms': {},
             'granular_purchase_perms': {},
@@ -44,12 +48,14 @@ def app_permissions(request):
             'granular_inventory_perms': {},
             'granular_treasury_perms': {},
             'granular_hr_perms': {},
+            'granular_inicio_perms': {},
             'sales_permission_matrix': sales_matrix,
             'purchases_permission_matrix': PURCHASES_PERMISSION_MATRIX,
             'production_permission_matrix': PRODUCTION_PERMISSION_MATRIX,
             'inventory_permission_matrix': INVENTORY_PERMISSION_MATRIX,
             'treasury_permission_matrix': TREASURY_PERMISSION_MATRIX,
             'hr_permission_matrix': HR_PERMISSION_MATRIX,
+            'inicio_permission_matrix': INICIO_PERMISSION_MATRIX,
         }
     
     # Permisos de Producción (Compatibilidad o legacy perms_produccion si se usa aún)
@@ -105,6 +111,11 @@ def app_permissions(request):
         'nomina': user_has_hr_permission(request, 'nomina', 'ver'),
     }
 
+    # Permisos de Inicio
+    p_inicio_ui = {
+        'dashboard': user_has_inicio_permission(request, 'dashboard', 'ver'),
+    }
+
     return {
         'sales_ui_permissions': get_sales_ui_permissions(request),
         'costing_ui_permissions': p_costing_ui,
@@ -113,6 +124,7 @@ def app_permissions(request):
         'inventory_ui_permissions': p_inventory_ui,
         'treasury_ui_permissions': p_treasury_ui,
         'hr_ui_permissions': p_hr_ui,
+        'inicio_ui_permissions': p_inicio_ui,
         'perms_produccion': p_produccion_legacy,
         'granular_sales_perms': get_granular_sales_permissions(request),
         'granular_purchase_perms': get_granular_purchase_permissions(request),
@@ -120,10 +132,12 @@ def app_permissions(request):
         'granular_inventory_perms': get_granular_inventory_permissions(request),
         'granular_treasury_perms': get_granular_treasury_permissions(request),
         'granular_hr_perms': get_granular_hr_permissions(request),
+        'granular_inicio_perms': get_granular_inicio_permissions(request),
         'sales_permission_matrix': sales_matrix,
         'purchases_permission_matrix': PURCHASES_PERMISSION_MATRIX,
         'production_permission_matrix': PRODUCTION_PERMISSION_MATRIX,
         'inventory_permission_matrix': INVENTORY_PERMISSION_MATRIX,
         'treasury_permission_matrix': TREASURY_PERMISSION_MATRIX,
         'hr_permission_matrix': HR_PERMISSION_MATRIX,
+        'inicio_permission_matrix': INICIO_PERMISSION_MATRIX,
     }

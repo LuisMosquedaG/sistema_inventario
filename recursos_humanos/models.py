@@ -740,15 +740,43 @@ class ProveedorRH(models.Model):
     municipio_alcaldia = models.CharField(max_length=150, blank=True, null=True, verbose_name="Municipio/Alcaldía")
     domicilio = models.TextField(blank=True, null=True, verbose_name="Domicilio Fiscal")
     
+    # Nuevos campos de REPSE, Registro Patronal, Entidad Federativa y Vigencia
+    numero_stps = models.CharField(max_length=100, blank=True, null=True, verbose_name="Número STPS (REPSE)")
+    registro_patronal = models.CharField(max_length=100, blank=True, null=True, verbose_name="Registro Patronal")
+    entidad_federativa = models.CharField(max_length=100, blank=True, null=True, verbose_name="Entidad Federativa")
+    fecha_vigencia = models.DateField(null=True, blank=True, verbose_name="Fecha de Vigencia")
+    estado_vigencia = models.CharField(max_length=20, choices=[('vigente', 'Vigente'), ('vencido', 'Vencido')], default='vigente', verbose_name="Estado de Vigencia")
+    estatus = models.CharField(max_length=20, choices=[('activo', 'Activo'), ('suspendido', 'Suspendido')], default='activo', verbose_name="Estatus")
+
     creado_en = models.DateTimeField(auto_now_add=True, verbose_name="Creado en")
     actualizado_en = models.DateTimeField(auto_now=True, verbose_name="Actualizado en")
 
-    class Meta:
-        verbose_name = "Proveedor (RH)"
-        verbose_name_plural = "Proveedores (RH)"
-        ordering = ['-creado_en']
-
     def save(self, *args, **kwargs):
+        import datetime
+        
+        def parse_date_safely(val):
+            if not val:
+                return None
+            if isinstance(val, str):
+                val_clean = val.strip()
+                if not val_clean:
+                    return None
+                for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%Y-%m-%d %H:%M:%S'):
+                    try:
+                        return datetime.datetime.strptime(val_clean, fmt).date()
+                    except ValueError:
+                        continue
+            return val
+
+        self.fecha_vigencia = parse_date_safely(self.fecha_vigencia)
+
+        today = datetime.date.today()
+        if self.fecha_vigencia and self.fecha_vigencia < today:
+            self.estado_vigencia = 'vencido'
+        else:
+            self.estado_vigencia = 'vigente'
+
+        # Auto-construir domicilio
         partes = []
         if self.calle:
             partes.append(self.calle)
@@ -764,10 +792,23 @@ class ProveedorRH(models.Model):
             partes.append(f"C.P. {self.cp}")
         if partes:
             self.domicilio = ", ".join(partes)
+
         super().save(*args, **kwargs)
+
+    class Meta:
+        verbose_name = "Proveedor (RH)"
+        verbose_name_plural = "Proveedores (RH)"
+        ordering = ['-creado_en']
 
     def __str__(self):
         return f"{self.nombre_razon_social} ({self.rfc})"
+
+    @property
+    def estado_vigencia_real(self):
+        import datetime
+        if self.fecha_vigencia and self.fecha_vigencia < datetime.date.today():
+            return 'vencido'
+        return 'vigente'
 
 
 def upload_to_proveedor_doc(instance, filename):

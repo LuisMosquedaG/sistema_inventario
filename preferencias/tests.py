@@ -63,6 +63,12 @@ class UserBranchPermissionsTest(TestCase):
         self.assertTrue(asig_s2.es_predeterminada)
 
     def test_context_processor_restrictions_and_session_init(self):
+        # Crear Rol con permiso para ver dashboard e inicio
+        from preferencias.models import Rol, PermisoRolAccion, AsignacionRolUsuario
+        rol = Rol.objects.create(nombre="Test Rol", empresa=self.empresa)
+        PermisoRolAccion.objects.create(rol=rol, area='inicio', submodulo='dashboard', accion='ver', permitido=True)
+        AsignacionRolUsuario.objects.create(usuario=self.normal_user, rol=rol, empresa=self.empresa)
+
         # Crear asignación para normal_user: sucursal 2 es predeterminada, sucursal 3 también asignada
         AsignacionSucursalUsuario.objects.create(usuario=self.normal_user, sucursal=self.sucursal2, es_predeterminada=True)
         AsignacionSucursalUsuario.objects.create(usuario=self.normal_user, sucursal=self.sucursal3, es_predeterminada=False)
@@ -89,3 +95,20 @@ class UserBranchPermissionsTest(TestCase):
         self.assertIn(self.sucursal2, ctx['sucursales_list'])
         self.assertIn(self.sucursal3, ctx['sucursales_list'])
         self.assertNotIn(self.sucursal1, ctx['sucursales_list'])
+
+    def test_inicio_permission_denied_redirect_to_first_permitted_module(self):
+        # Crear Rol y Asignación de Permiso pero SIN permiso de inicio/dashboard.
+        # En su lugar, dar acceso a Recursos Humanos -> Empleados
+        from preferencias.models import Rol, PermisoRolAccion, AsignacionRolUsuario
+        rol = Rol.objects.create(nombre="Test Rol 2", empresa=self.empresa)
+        PermisoRolAccion.objects.create(rol=rol, area='recursos_humanos', submodulo='empleados', accion='ver', permitido=True)
+        
+        # Asignar rol a normal_user
+        AsignacionRolUsuario.objects.create(usuario=self.normal_user, rol=rol, empresa=self.empresa)
+
+        # Login
+        self.client.login(username="user1@test", password="password")
+
+        # Intentar acceder al inicio. Debe redirigir al módulo de empleados (/recursos-humanos/empleados/)
+        response = self.client.get(reverse('dashboard_inicio'))
+        self.assertRedirects(response, '/recursos-humanos/empleados/')

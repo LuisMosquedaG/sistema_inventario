@@ -78,6 +78,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'panel.middleware.LicenseAutoRenewalMiddleware',
     'panel.middleware.TenantStatusMiddleware',
+    'panel.middleware.UserDefaultSucursalMiddleware',
 ]
 
 ROOT_URLCONF = 'sistema_inventario.urls'

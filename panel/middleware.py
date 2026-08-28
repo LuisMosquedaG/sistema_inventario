@@ -100,3 +100,43 @@ class TenantStatusMiddleware:
                     pass
         
         return self.get_response(request)
+
+
+class UserDefaultSucursalMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.user.is_authenticated:
+            # Evitar madmin, beneficiarios y proveedores del portal
+            if request.user.username != 'madmin@crossoversuite' and not hasattr(request.user, 'beneficiario') and not hasattr(request.user, 'proveedor_rh'):
+                username = request.user.username
+                if '@' in username:
+                    subdominio = username.split('@')[1]
+                    try:
+                        if 'sucursal_id' not in request.session:
+                            from panel.models import Empresa
+                            from preferencias.models import Sucursal, AsignacionSucursalUsuario
+                            
+                            empresa = Empresa.objects.get(subdominio=subdominio)
+                            asignadas = AsignacionSucursalUsuario.objects.filter(usuario=request.user)
+                            
+                            default_sucursal_id = None
+                            if asignadas.exists():
+                                sucursales_ids = list(asignadas.values_list('sucursal_id', flat=True))
+                                # Buscar la predeterminada
+                                pred = asignadas.filter(es_predeterminada=True).first()
+                                if pred and pred.sucursal_id in sucursales_ids:
+                                    default_sucursal_id = pred.sucursal_id
+                                else:
+                                    default_sucursal_id = sucursales_ids[0]
+                            else:
+                                sucursales = Sucursal.objects.filter(empresa=empresa).order_by('nombre')
+                                if sucursales.exists():
+                                    default_sucursal_id = sucursales.first().id
+                            
+                            if default_sucursal_id:
+                                request.session['sucursal_id'] = default_sucursal_id
+                    except Exception:
+                        pass
+        return self.get_response(request)

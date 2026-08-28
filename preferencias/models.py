@@ -88,6 +88,7 @@ class PermisoRolAccion(models.Model):
         ('inventario', 'Inventario'),
         ('tesoreria', 'Tesorería'),
         ('recursos_humanos', 'Recursos Humanos'),
+        ('inicio', 'Inicio'),
     ]
     area = models.CharField(max_length=40, choices=AREA_CHOICES, default='ventas')
     submodulo = models.CharField(max_length=60)

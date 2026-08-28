@@ -16,6 +16,8 @@ from decimal import Decimal
 import json
 import datetime
 
+from preferencias.permissions import require_inicio_permission
+
 def get_empresa_actual(request):
     username = request.user.username
     if '@' in username:
@@ -27,6 +29,7 @@ def get_empresa_actual(request):
     return None
 
 @login_required(login_url='/login/')
+@require_inicio_permission('dashboard', 'ver')
 def dashboard_inicio(request):
     if hasattr(request.user, 'beneficiario'):
         return redirect('portal_beneficiarios')

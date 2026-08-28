@@ -785,6 +785,11 @@ def crear_proveedor_rh_ajax(request):
             colonia=data.get('colonia'),
             cp=data.get('cp'),
             municipio_alcaldia=data.get('municipio_alcaldia'),
+            numero_stps=data.get('numero_stps', '').strip() or None,
+            registro_patronal=data.get('registro_patronal', '').strip() or None,
+            entidad_federativa=data.get('entidad_federativa', '').strip() or None,
+            fecha_vigencia=data.get('fecha_vigencia', '').strip() or None,
+            estatus=data.get('estatus', 'activo') or 'activo',
             usuario=user_obj,
             creado_por=request.user,
         )
@@ -825,6 +830,12 @@ def obtener_proveedor_rh_json(request, id):
             'municipio_alcaldia': p.municipio_alcaldia or '',
             'domicilio': p.domicilio or '',
             'usuario_portal': usuario_portal,
+            'numero_stps': p.numero_stps or '',
+            'registro_patronal': p.registro_patronal or '',
+            'entidad_federativa': p.entidad_federativa or '',
+            'fecha_vigencia': p.fecha_vigencia.strftime('%Y-%m-%d') if p.fecha_vigencia else '',
+            'estado_vigencia': p.estado_vigencia,
+            'estatus': p.estatus,
         }
         return JsonResponse({'success': True, 'data': data})
     except ProveedorRH.DoesNotExist:
@@ -890,6 +901,11 @@ def editar_proveedor_rh_ajax(request, id):
         p.colonia = data.get('colonia')
         p.cp = data.get('cp')
         p.municipio_alcaldia = data.get('municipio_alcaldia')
+        p.numero_stps = data.get('numero_stps', '').strip() or None
+        p.registro_patronal = data.get('registro_patronal', '').strip() or None
+        p.entidad_federativa = data.get('entidad_federativa', '').strip() or None
+        p.fecha_vigencia = data.get('fecha_vigencia', '').strip() or None
+        p.estatus = data.get('estatus', 'activo') or 'activo'
         p.save()
         crear_notificacion(
             empresa=empresa_actual,
