@@ -17,6 +17,7 @@ jobs:
           script: |
             cd /var/www/django/sistema_inventario
             git fetch origin
+            git clean -fd
             git reset --hard origin/main
             /var/www/django/sistema_inventario/venv/bin/pip install -r requirements.txt
             /var/www/django/sistema_inventario/venv/bin/python manage.py migrate --noinput
