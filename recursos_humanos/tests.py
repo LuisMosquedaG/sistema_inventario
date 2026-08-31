@@ -1868,6 +1868,211 @@ class ProveedoresListaContratistasTest(TestCase):
         self.assertEqual(razones, ["DISTRIBUIDORA DE INSUMOS"])
 
 
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core import mail
+from recursos_humanos.models import DocumentacionProveedor, ProveedorRH
+
+class ProveedorDocumentoNotificationTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa Test",
+            subdominio="test",
+            usuario_admin="admin",
+            correo_contacto="test@test.com"
+        )
+        self.contratista = Contratista.objects.create(
+            empresa=self.empresa,
+            rfc="CON121212ABC",
+            nombre_razon_social="Contratista S.A.",
+            correo="contratista@test.com"
+        )
+        self.proveedor = ProveedorRH.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            nombre_razon_social="Proveedor Express",
+            rfc="PROV990909XYZ",
+            correo="proveedor@test.com"
+        )
+        # Crear usuario asociado al proveedor
+        self.prov_user = User.objects.create_user(
+            username="prov_express@test",
+            password="password",
+            email="proveedor@test.com"
+        )
+        self.proveedor.usuario = self.prov_user
+        self.proveedor.save()
+
+    def test_subir_documento_envia_notificacion_a_contratista(self):
+        self.client.login(username="prov_express@test", password="password")
+        
+        # Simular sesión de sucursal
+        session = self.client.session
+        session['sucursal_id'] = None
+        session.save()
+
+        test_file = SimpleUploadedFile(
+            "repse.pdf",
+            b"pdf-content-bytes",
+            content_type="application/pdf"
+        )
+        
+        post_data = {
+            'nombre_documento': 'REPSE_VIGENTE',
+            'mes': '8',
+            'anio': '2026',
+            'archivo': test_file
+        }
+
+        # Subir documento
+        response = self.client.post(
+            reverse('subir_documento_proveedor_ajax', args=[self.proveedor.id]),
+            post_data
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['success'])
+
+        # Verificar que el documento se guardó
+        self.assertTrue(DocumentacionProveedor.objects.filter(
+            proveedor=self.proveedor,
+            nombre_documento='REPSE_VIGENTE',
+            mes=8,
+            anio=2026
+        ).exists())
+
+        # Verificar que se envió la notificación por correo
+        self.assertEqual(len(mail.outbox), 1)
+        sent_email = mail.outbox[0]
+        self.assertEqual(sent_email.to, ["contratista@test.com"])
+        self.assertIn("Contratista S.A.", sent_email.body)
+        self.assertIn("Proveedor Express", sent_email.body)
+        self.assertIn("Constancia/registro REPSE vigente", sent_email.body)
+        self.assertIn("8/2026", sent_email.body)
+        self.assertEqual(len(sent_email.attachments), 1)
+        self.assertTrue("repse" in sent_email.attachments[0][0])
+
+
+class ContratistaSMTPTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa Test SMTP",
+            subdominio="test_smtp",
+            usuario_admin="admin",
+            correo_contacto="test@test.com"
+        )
+        self.user = User.objects.create_superuser(
+            username="admin@test_smtp",
+            password="password",
+            email="admin@test.com"
+        )
+        self.client.login(username="admin@test_smtp", password="password")
+        
+        # Simular sesión de sucursal
+        session = self.client.session
+        session['sucursal_id'] = None
+        session.save()
+
+    def test_crear_y_obtener_contratista_con_smtp(self):
+        post_data = {
+            'clave': 'CONT-SMTP-01',
+            'rfc': 'CON121212XYZ',
+            'nombre_razon_social': 'Contratista SMTP S.A.',
+            'correo': 'correo_contratista@test.com',
+            'smtp_host': 'smtp.testmail.com',
+            'smtp_port': '587',
+            'smtp_user': 'sender@testmail.com',
+            'smtp_password': 'smtp_secret_pass',
+            'use_tls': 'true',
+            'use_ssl': 'false',
+            'nombre_remitente': 'Notificaciones Test',
+            'email_remitente': 'noreply@testmail.com',
+            'email_notificacion_1': 'notif_principal@testmail.com',
+            'email_notificacion_2': 'copia1@testmail.com',
+            'email_notificacion_3': 'copia2@testmail.com',
+        }
+        
+        # Crear Contratista via AJAX
+        response = self.client.post(reverse('crear_contratista_ajax'), post_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['success'])
+        
+        # Obtener el contratista creado
+        from recursos_humanos.models import Contratista, ContratistaCorreoSMTP
+        contratista = Contratista.objects.get(rfc='CON121212XYZ')
+        self.assertEqual(contratista.nombre_razon_social, 'Contratista SMTP S.A.')
+        
+        # Verificar que la configuración SMTP y destinatarios se hayan guardado
+        smtp_config = ContratistaCorreoSMTP.objects.get(contratista=contratista)
+        self.assertEqual(smtp_config.smtp_host, 'smtp.testmail.com')
+        self.assertEqual(smtp_config.smtp_user, 'sender@testmail.com')
+        self.assertEqual(smtp_config.smtp_password, 'smtp_secret_pass')
+        self.assertTrue(smtp_config.use_tls)
+        self.assertFalse(smtp_config.use_ssl)
+        self.assertEqual(smtp_config.email_notificacion_1, 'notif_principal@testmail.com')
+        self.assertEqual(smtp_config.email_notificacion_2, 'copia1@testmail.com')
+        self.assertEqual(smtp_config.email_notificacion_3, 'copia2@testmail.com')
+        
+        # Probar el JSON de obtención
+        response_json = self.client.get(reverse('obtener_contratista_json', args=[contratista.id]))
+        self.assertEqual(response_json.status_code, 200)
+        data = response_json.json()['data']
+        self.assertEqual(data['smtp_host'], 'smtp.testmail.com')
+        self.assertEqual(data['smtp_user'], 'sender@testmail.com')
+        self.assertEqual(data['nombre_remitente'], 'Notificaciones Test')
+        self.assertEqual(data['email_notificacion_1'], 'notif_principal@testmail.com')
+        self.assertEqual(data['email_notificacion_2'], 'copia1@testmail.com')
+        self.assertEqual(data['email_notificacion_3'], 'copia2@testmail.com')
+
+    def test_subir_documento_envia_a_destinatarios_y_cc(self):
+        from recursos_humanos.models import Contratista, ContratistaCorreoSMTP, ProveedorRH, DocumentacionProveedor
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.core import mail
+
+        mail.outbox = []
+
+        contratista = Contratista.objects.create(
+            empresa=self.empresa,
+            rfc="CON999999ABC",
+            nombre_razon_social="Contratista Destinatarios S.A.",
+            correo="general_contratista@test.com"
+        )
+        ContratistaCorreoSMTP.objects.create(
+            contratista=contratista,
+            email_notificacion_1="principal@notificaciones.com",
+            email_notificacion_2="cc1@notificaciones.com",
+            email_notificacion_3="cc2@notificaciones.com",
+        )
+
+        proveedor = ProveedorRH.objects.create(
+            empresa=self.empresa,
+            nombre_razon_social="Proveedor Con Notificaciones",
+            rfc="PROV999999XYZ",
+            contratista=contratista,
+            creado_por=self.user
+        )
+
+        test_file = SimpleUploadedFile("doc_prueba.pdf", b"dummy content", content_type="application/pdf")
+        post_data = {
+            'nombre_documento': 'REPSE_VIGENTE',
+            'mes': '8',
+            'anio': '2026',
+            'archivo': test_file
+        }
+
+        response = self.client.post(
+            reverse('subir_documento_proveedor_ajax', args=[proveedor.id]),
+            post_data
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['success'])
+
+        self.assertEqual(len(mail.outbox), 1)
+        sent = mail.outbox[0]
+        self.assertEqual(sent.to, ["principal@notificaciones.com"])
+        self.assertEqual(sent.cc, ["cc1@notificaciones.com", "cc2@notificaciones.com"])
+        self.assertIn("Contratista Destinatarios S.A.", sent.body)
+        self.assertIn("Proveedor Con Notificaciones", sent.body)
+
+
 
 
 

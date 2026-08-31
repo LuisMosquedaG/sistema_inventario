@@ -26,6 +26,7 @@ urlpatterns = [
     path('contratistas/exportar-sisub-trabajadores/<int:id>/', views.exportar_sisub_trabajadores, name='exportar_sisub_trabajadores'),
     path('contratistas/exportar-carga-trabajadores/<int:id>/', views.exportar_carga_trabajadores, name='exportar_carga_trabajadores'),
     path('contratistas/exportar-icsoe/<int:id>/', views.exportar_icsoe, name='exportar_icsoe'),
+    path('contratistas/probar-smtp/', views.api_probar_contratista_smtp, name='api_probar_contratista_smtp'),
     path('beneficiarios/', views.lista_beneficiarios, name='lista_beneficiarios'),
     path('beneficiarios/crear/', views.crear_beneficiario_ajax, name='crear_beneficiario_ajax'),
     path('beneficiarios/obtener/<int:id>/', views.obtener_beneficiario_json, name='obtener_beneficiario_json'),

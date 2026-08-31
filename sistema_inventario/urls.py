@@ -27,7 +27,7 @@ from clientes.views import (
 )
 from preferencias.views import (
     dashboard_preferencias, crear_usuario_ajax, crear_moneda_ajax,
-    api_detalle_usuario, actualizar_usuario_ajax,
+    api_detalle_usuario, actualizar_usuario_ajax, api_probar_smtp,
     api_detalle_moneda, actualizar_moneda_ajax,
     exportar_datos_zip, reiniciar_transacciones_ajax, reiniciar_catalogos_ajax,
     crear_rol_ajax, api_detalle_rol, actualizar_rol_ajax,
@@ -78,6 +78,7 @@ urlpatterns = [
     path('preferencias/crear-usuario/', crear_usuario_ajax, name='crear_usuario_ajax'),
     path('preferencias/api/usuario/<int:user_id>/', api_detalle_usuario, name='api_detalle_usuario'),
     path('preferencias/actualizar-usuario/<int:user_id>/', actualizar_usuario_ajax, name='actualizar_usuario_ajax'),
+    path('preferencias/probar-smtp/', api_probar_smtp, name='api_probar_smtp'),
     path('preferencias/api/usuario/<int:user_id>/sucursales/', obtener_sucursales_usuario_json, name='obtener_sucursales_usuario_json'),
     path('preferencias/actualizar-usuario/<int:user_id>/sucursales/', guardar_sucursales_usuario_ajax, name='guardar_sucursales_usuario_ajax'),
     path('preferencias/crear-moneda/', crear_moneda_ajax, name='crear_moneda_ajax'),

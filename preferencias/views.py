@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.db import transaction # <--- ESTE FALTABA
 from django.utils import timezone
-from .models import Moneda, Rol, PermisoRolModulo, AsignacionRolUsuario, PermisoRolAccion, Sucursal, AsignacionSucursalUsuario
+from .models import Moneda, Rol, PermisoRolModulo, AsignacionRolUsuario, PermisoRolAccion, Sucursal, AsignacionSucursalUsuario, UsuarioCorreoSMTP
 from .permissions import SALES_PERMISSION_MATRIX, PURCHASES_PERMISSION_MATRIX, PRODUCTION_PERMISSION_MATRIX, INVENTORY_PERMISSION_MATRIX, TREASURY_PERMISSION_MATRIX, HR_PERMISSION_MATRIX, INICIO_PERMISSION_MATRIX
 from panel.models import Empresa
 import csv
@@ -385,25 +385,53 @@ def crear_usuario_ajax(request):
             return JsonResponse({'success': False, 'error': f'El usuario {username_completo} ya existe.'})
 
         try:
-            user = User.objects.create_user(username=username_completo, email=email, password=password)
-            
-            if rol == 'admin':
-                user.is_staff = True
-                user.is_superuser = True
-            else:
-                # Los usuarios con rol 'usuario' no son is_staff para restringir su visibilidad en notificaciones
-                user.is_staff = False
-                user.is_superuser = False 
+            # Capturar campos SMTP
+            smtp_host = (request.POST.get('smtp_host') or '').strip()
+            smtp_port_raw = request.POST.get('smtp_port') or '587'
+            smtp_user = (request.POST.get('smtp_user') or '').strip()
+            smtp_password = request.POST.get('smtp_password') or ''
+            use_tls = request.POST.get('use_tls') == 'on' or request.POST.get('use_tls') == 'true'
+            use_ssl = request.POST.get('use_ssl') == 'on' or request.POST.get('use_ssl') == 'true'
+            if use_ssl:
+                use_tls = False
+            email_remitente = (request.POST.get('email_remitente') or '').strip()
+            nombre_remitente = (request.POST.get('nombre_remitente') or '').strip()
+            smtp_port = int(smtp_port_raw) if smtp_port_raw.isdigit() else 587
 
-            user.save()
+            with transaction.atomic():
+                user = User.objects.create_user(username=username_completo, email=email, password=password)
+                
+                if rol == 'admin':
+                    user.is_staff = True
+                    user.is_superuser = True
+                else:
+                    # Los usuarios con rol 'usuario' no son is_staff para restringir su visibilidad en notificaciones
+                    user.is_staff = False
+                    user.is_superuser = False 
 
-            if rol_acceso_id:
-                rol_acceso = Rol.objects.filter(id=rol_acceso_id, empresa=empresa_actual, activo=True).first()
-                if rol_acceso:
-                    AsignacionRolUsuario.objects.update_or_create(
+                user.save()
+
+                if rol_acceso_id:
+                    rol_acceso = Rol.objects.filter(id=rol_acceso_id, empresa=empresa_actual, activo=True).first()
+                    if rol_acceso:
+                        AsignacionRolUsuario.objects.update_or_create(
+                            usuario=user,
+                            empresa=empresa_actual,
+                            defaults={'rol': rol_acceso}
+                        )
+
+                # Guardar configuración SMTP
+                if smtp_host or smtp_user:
+                    UsuarioCorreoSMTP.objects.create(
                         usuario=user,
-                        empresa=empresa_actual,
-                        defaults={'rol': rol_acceso}
+                        smtp_host=smtp_host,
+                        smtp_port=smtp_port,
+                        smtp_user=smtp_user,
+                        smtp_password=smtp_password,
+                        use_tls=use_tls,
+                        use_ssl=use_ssl,
+                        email_remitente=email_remitente,
+                        nombre_remitente=nombre_remitente
                     )
             return JsonResponse({'success': True, 'message': f'Usuario {username_completo} creado correctamente.'})
             
@@ -422,6 +450,20 @@ def api_detalle_usuario(request, user_id):
 
     asignacion_rol = AsignacionRolUsuario.objects.filter(usuario=user, empresa=empresa_actual).first()
 
+    smtp_config = getattr(user, 'config_smtp', None)
+    smtp_data = {}
+    if smtp_config:
+        smtp_data = {
+            'smtp_host': smtp_config.smtp_host or '',
+            'smtp_port': smtp_config.smtp_port or 587,
+            'smtp_user': smtp_config.smtp_user or '',
+            'smtp_password': smtp_config.smtp_password or '',
+            'use_tls': smtp_config.use_tls,
+            'use_ssl': smtp_config.use_ssl,
+            'email_remitente': smtp_config.email_remitente or '',
+            'nombre_remitente': smtp_config.nombre_remitente or '',
+        }
+
     return JsonResponse({
         'success': True,
         'id': user.id,
@@ -429,7 +471,8 @@ def api_detalle_usuario(request, user_id):
         'email': user.email,
         'rol': 'admin' if user.is_superuser else 'usuario',
         'rol_acceso_id': asignacion_rol.rol_id if asignacion_rol else '',
-        'es_beneficiario': hasattr(user, 'beneficiario')
+        'es_beneficiario': hasattr(user, 'beneficiario'),
+        'smtp': smtp_data
     })
 
 @login_required
@@ -450,6 +493,19 @@ def actualizar_usuario_ajax(request, user_id):
                     if User.objects.filter(username=username_completo).exists():
                         return JsonResponse({'success': False, 'error': 'El nombre de usuario ya está en uso.'})
                     user.username = username_completo
+
+            # Capturar campos SMTP
+            smtp_host = (request.POST.get('smtp_host') or '').strip()
+            smtp_port_raw = request.POST.get('smtp_port') or '587'
+            smtp_user = (request.POST.get('smtp_user') or '').strip()
+            smtp_password = request.POST.get('smtp_password') or ''
+            use_tls = request.POST.get('use_tls') == 'on' or request.POST.get('use_tls') == 'true'
+            use_ssl = request.POST.get('use_ssl') == 'on' or request.POST.get('use_ssl') == 'true'
+            if use_ssl:
+                use_tls = False
+            email_remitente = (request.POST.get('email_remitente') or '').strip()
+            nombre_remitente = (request.POST.get('nombre_remitente') or '').strip()
+            smtp_port = int(smtp_port_raw) if smtp_port_raw.isdigit() else 587
 
             user.email = request.POST.get('email')
             es_beneficiario = hasattr(user, 'beneficiario')
@@ -478,6 +534,23 @@ def actualizar_usuario_ajax(request, user_id):
                         )
                 else:
                     AsignacionRolUsuario.objects.filter(usuario=user, empresa=empresa_actual).delete()
+
+            # Guardar/Actualizar configuración SMTP
+            if smtp_host or smtp_user:
+                smtp_config, created = UsuarioCorreoSMTP.objects.get_or_create(usuario=user)
+                smtp_config.smtp_host = smtp_host
+                smtp_config.smtp_port = smtp_port
+                smtp_config.smtp_user = smtp_user
+                if smtp_password:  # Solo actualizar la contraseña si se ingresa una nueva
+                    smtp_config.smtp_password = smtp_password
+                smtp_config.use_tls = use_tls
+                smtp_config.use_ssl = use_ssl
+                smtp_config.email_remitente = email_remitente
+                smtp_config.nombre_remitente = nombre_remitente
+                smtp_config.save()
+            else:
+                UsuarioCorreoSMTP.objects.filter(usuario=user).delete()
+
             return JsonResponse({'success': True, 'message': 'Usuario actualizado correctamente.'})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
@@ -964,3 +1037,76 @@ def guardar_sucursales_usuario_ajax(request, user_id):
         )
 
     return JsonResponse({'success': True, 'message': 'Permisos de sucursal guardados correctamente.'})
+
+
+@login_required
+def api_probar_smtp(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+    smtp_host = (request.POST.get('smtp_host') or '').strip()
+    smtp_port_raw = request.POST.get('smtp_port') or '587'
+    smtp_user = (request.POST.get('smtp_user') or '').strip()
+    smtp_password = request.POST.get('smtp_password') or ''
+    use_tls = request.POST.get('use_tls') == 'on' or request.POST.get('use_tls') == 'true'
+    use_ssl = request.POST.get('use_ssl') == 'on' or request.POST.get('use_ssl') == 'true'
+    if use_ssl:
+        use_tls = False
+    email_remitente = (request.POST.get('email_remitente') or '').strip() or smtp_user
+    nombre_remitente = (request.POST.get('nombre_remitente') or '').strip() or "Sistema de Inventario"
+
+    if not smtp_host or not smtp_user:
+        return JsonResponse({'success': False, 'error': 'El Host SMTP y el Usuario SMTP son obligatorios.'})
+
+    # Si la contraseña está vacía y tenemos el ID del usuario, recuperamos la que ya esté guardada en DB
+    usuario_id = request.POST.get('usuario_id')
+    if not smtp_password and usuario_id:
+        try:
+            existing = UsuarioCorreoSMTP.objects.get(usuario_id=usuario_id)
+            smtp_password = existing.smtp_password
+        except UsuarioCorreoSMTP.DoesNotExist:
+            pass
+
+    if not smtp_password:
+        return JsonResponse({'success': False, 'error': 'La contraseña SMTP es obligatoria.'})
+
+    try:
+        from django.core.mail.backends.smtp import EmailBackend
+        from django.core.mail import EmailMessage
+
+        backend = EmailBackend(
+            host=smtp_host,
+            port=int(smtp_port_raw) if smtp_port_raw.isdigit() else 587,
+            username=smtp_user,
+            password=smtp_password,
+            use_tls=use_tls,
+            use_ssl=use_ssl,
+            timeout=10,
+            fail_silently=False
+        )
+
+        asunto = "Prueba de Configuración SMTP - CrossoverSuite"
+        cuerpo = (
+            "Estimado usuario:\n\n"
+            "La configuración del correo electrónico se ha realizado correctamente. Este mensaje confirma que la conexión SMTP funciona de manera adecuada.\n\n"
+            f"Servidor: {smtp_host}\n"
+            f"Usuario: {smtp_user}\n\n"
+            "Atentamente,\n"
+            "Sistema CrossoverSuite"
+        )
+
+        # El correo de prueba se envía a la misma cuenta SMTP configurada (auto-envío)
+        # para garantizar que el destinatario sea válido y exista.
+        destinatario = smtp_user
+
+        email = EmailMessage(
+            subject=asunto,
+            body=cuerpo,
+            from_email=f"{nombre_remitente} <{email_remitente}>",
+            to=[destinatario],
+            connection=backend
+        )
+        email.send()
+        return JsonResponse({'success': True, 'message': f'Conexión SMTP exitosa. Correo de prueba enviado a {destinatario}.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Error de conexión SMTP: {str(e)}'})

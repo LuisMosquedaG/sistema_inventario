@@ -112,3 +112,103 @@ class UserBranchPermissionsTest(TestCase):
         # Intentar acceder al inicio. Debe redirigir al módulo de empleados (/recursos-humanos/empleados/)
         response = self.client.get(reverse('dashboard_inicio'))
         self.assertRedirects(response, '/recursos-humanos/empleados/')
+
+
+class UserSMTPSettingsTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.empresa = Empresa.objects.create(nombre="Test Empresa", subdominio="test")
+        self.admin_user = User.objects.create_user(username="admin@test", password="password", is_staff=True, is_superuser=True)
+        self.normal_user = User.objects.create_user(username="user1@test", password="password")
+
+    def test_crear_usuario_con_smtp(self):
+        self.client.login(username="admin@test", password="password")
+        post_data = {
+            'username': 'nuevousuario',
+            'email': 'nuevo@test.com',
+            'password1': 'pass123',
+            'password2': 'pass123',
+            'rol': 'usuario',
+            'smtp_host': 'smtp.gmail.com',
+            'smtp_port': '587',
+            'smtp_user': 'nuevo@test.com',
+            'smtp_password': 'smtp_password123',
+            'use_tls': 'on',
+            'use_ssl': 'off',
+            'email_remitente': 'nuevo@test.com',
+            'nombre_remitente': 'Nuevo Usuario'
+        }
+        response = self.client.post(reverse('crear_usuario_ajax'), post_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['success'])
+
+        # Verificar en base de datos
+        nuevo_user = User.objects.get(username='nuevousuario@test')
+        smtp_config = nuevo_user.config_smtp
+        self.assertEqual(smtp_config.smtp_host, 'smtp.gmail.com')
+        self.assertEqual(smtp_config.smtp_port, 587)
+        self.assertEqual(smtp_config.smtp_user, 'nuevo@test.com')
+        self.assertEqual(smtp_config.smtp_password, 'smtp_password123')
+        self.assertTrue(smtp_config.use_tls)
+        self.assertFalse(smtp_config.use_ssl)
+
+    def test_actualizar_usuario_con_smtp(self):
+        self.client.login(username="admin@test", password="password")
+        # Crear SMTP inicial
+        from preferencias.models import UsuarioCorreoSMTP
+        UsuarioCorreoSMTP.objects.create(
+            usuario=self.normal_user,
+            smtp_host='smtp.mail.com',
+            smtp_port=465,
+            smtp_user='old@test.com',
+            smtp_password='oldpassword',
+            use_tls=False,
+            use_ssl=True
+        )
+
+        post_data = {
+            'username': 'user1', # username_corto
+            'email': 'user1@updated.com',
+            'rol': 'usuario',
+            'smtp_host': 'smtp.gmail.com',
+            'smtp_port': '587',
+            'smtp_user': 'updated@test.com',
+            'smtp_password': '', # Dejar vacío para no cambiar
+            'use_tls': 'on',
+            'use_ssl': 'off',
+            'email_remitente': 'sender@test.com',
+            'nombre_remitente': 'Sender Name'
+        }
+        response = self.client.post(reverse('actualizar_usuario_ajax', args=[self.normal_user.id]), post_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['success'])
+
+        # Verificar que se actualizó y la contraseña SMTP no cambió (pues se mandó vacía)
+        self.normal_user.refresh_from_db()
+        self.assertEqual(self.normal_user.email, 'user1@updated.com')
+        smtp_config = self.normal_user.config_smtp
+        self.assertEqual(smtp_config.smtp_host, 'smtp.gmail.com')
+        self.assertEqual(smtp_config.smtp_port, 587)
+        self.assertEqual(smtp_config.smtp_user, 'updated@test.com')
+        self.assertEqual(smtp_config.smtp_password, 'oldpassword') # Mantiene la anterior
+        self.assertTrue(smtp_config.use_tls)
+        self.assertFalse(smtp_config.use_ssl)
+
+    def test_api_detalle_usuario_contiene_smtp(self):
+        self.client.login(username="admin@test", password="password")
+        from preferencias.models import UsuarioCorreoSMTP
+        UsuarioCorreoSMTP.objects.create(
+            usuario=self.normal_user,
+            smtp_host='smtp.mail.com',
+            smtp_port=465,
+            smtp_user='old@test.com',
+            smtp_password='oldpassword',
+            use_tls=False,
+            use_ssl=True
+        )
+        response = self.client.get(reverse('api_detalle_usuario', args=[self.normal_user.id]))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['smtp']['smtp_host'], 'smtp.mail.com')
+        self.assertEqual(data['smtp']['smtp_port'], 465)

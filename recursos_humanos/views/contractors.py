@@ -134,6 +134,37 @@ def obtener_contratista_json(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
         cont = Contratista.objects.get(id=id, empresa=empresa_actual)
+        
+        # Obtener configuración SMTP si existe
+        smtp_data = {}
+        try:
+            smtp_config = cont.config_smtp
+            smtp_data = {
+                'smtp_host': smtp_config.smtp_host or '',
+                'smtp_port': smtp_config.smtp_port or 587,
+                'smtp_user': smtp_config.smtp_user or '',
+                'use_tls': smtp_config.use_tls,
+                'use_ssl': smtp_config.use_ssl,
+                'email_remitente': smtp_config.email_remitente or '',
+                'nombre_remitente': smtp_config.nombre_remitente or '',
+                'email_notificacion_1': smtp_config.email_notificacion_1 or '',
+                'email_notificacion_2': smtp_config.email_notificacion_2 or '',
+                'email_notificacion_3': smtp_config.email_notificacion_3 or '',
+            }
+        except Exception:
+            smtp_data = {
+                'smtp_host': '',
+                'smtp_port': 587,
+                'smtp_user': '',
+                'use_tls': True,
+                'use_ssl': False,
+                'email_remitente': '',
+                'nombre_remitente': '',
+                'email_notificacion_1': '',
+                'email_notificacion_2': '',
+                'email_notificacion_3': '',
+            }
+
         data = {
             'id': cont.id, 'clave': cont.clave or '', 'rfc': cont.rfc, 'nombre_razon_social': cont.nombre_razon_social,
             'regimen': cont.regimen or '',
@@ -146,6 +177,7 @@ def obtener_contratista_json(request, id):
             'nombre_notario_publico': cont.nombre_notario_publico, 'num_notario_publico': cont.num_notario_publico,
             'fecha_escritura_publica': cont.fecha_escritura_publica.isoformat() if cont.fecha_escritura_publica else '',
             'folio_mercantil': cont.folio_mercantil, 'numero_stps': cont.numero_stps,
+            **smtp_data
         }
         return JsonResponse({'success': True, 'data': data})
     except Contratista.DoesNotExist:
@@ -179,6 +211,43 @@ def crear_contratista_ajax(request):
             creado_por=request.user,
         )
         nuevo.save()
+        
+        # Guardar configuración SMTP y/o correos de notificación si se proporcionan
+        smtp_host = data.get('smtp_host', '').strip()
+        email_notif_1 = data.get('email_notificacion_1', '').strip()
+        email_notif_2 = data.get('email_notificacion_2', '').strip()
+        email_notif_3 = data.get('email_notificacion_3', '').strip()
+        
+        if smtp_host or email_notif_1 or email_notif_2 or email_notif_3:
+            from recursos_humanos.models import ContratistaCorreoSMTP
+            use_ssl = data.get('use_ssl') == 'true' or data.get('use_ssl') == 'on' or data.get('use_ssl') == True
+            use_tls = False if use_ssl else (data.get('use_tls') == 'true' or data.get('use_tls') == 'on' or data.get('use_tls') == True or data.get('use_tls') is None)
+            
+            smtp_port_raw = data.get('smtp_port', '587')
+            smtp_port = int(smtp_port_raw) if smtp_port_raw.isdigit() else 587
+            
+            if smtp_port == 465:
+                use_ssl = True
+                use_tls = False
+            elif smtp_port in [587, 25] and use_ssl:
+                use_ssl = False
+                use_tls = True
+
+            ContratistaCorreoSMTP.objects.create(
+                contratista=nuevo,
+                smtp_host=smtp_host,
+                smtp_port=smtp_port,
+                smtp_user=data.get('smtp_user', '').strip(),
+                smtp_password=data.get('smtp_password', ''),
+                use_tls=use_tls,
+                use_ssl=use_ssl,
+                email_remitente=data.get('email_remitente', '').strip(),
+                nombre_remitente=data.get('nombre_remitente', '').strip(),
+                email_notificacion_1=email_notif_1,
+                email_notificacion_2=email_notif_2,
+                email_notificacion_3=email_notif_3,
+            )
+            
         crear_notificacion(
             empresa=empresa_actual,
             actor=request.user,
@@ -212,6 +281,66 @@ def editar_contratista_ajax(request, id):
         cont.num_notario_publico = data.get('num_notario_publico'); cont.fecha_escritura_publica = data.get('fecha_escritura_publica') or None
         cont.folio_mercantil = data.get('folio_mercantil'); cont.numero_stps = data.get('numero_stps')
         cont.save()
+        
+        # Guardar o actualizar configuración SMTP y correos de notificación
+        smtp_host = data.get('smtp_host', '').strip()
+        email_notif_1 = data.get('email_notificacion_1', '').strip()
+        email_notif_2 = data.get('email_notificacion_2', '').strip()
+        email_notif_3 = data.get('email_notificacion_3', '').strip()
+        
+        from recursos_humanos.models import ContratistaCorreoSMTP
+        if smtp_host or email_notif_1 or email_notif_2 or email_notif_3:
+            use_ssl = data.get('use_ssl') == 'true' or data.get('use_ssl') == 'on' or data.get('use_ssl') == True
+            use_tls = False if use_ssl else (data.get('use_tls') == 'true' or data.get('use_tls') == 'on' or data.get('use_tls') == True or data.get('use_tls') is None)
+            
+            smtp_port_raw = data.get('smtp_port', '587')
+            smtp_port = int(smtp_port_raw) if smtp_port_raw.isdigit() else 587
+            
+            if smtp_port == 465:
+                use_ssl = True
+                use_tls = False
+            elif smtp_port in [587, 25] and use_ssl:
+                use_ssl = False
+                use_tls = True
+            
+            smtp_config, creado = ContratistaCorreoSMTP.objects.get_or_create(
+                contratista=cont,
+                defaults={
+                    'smtp_host': smtp_host,
+                    'smtp_port': smtp_port,
+                    'smtp_user': data.get('smtp_user', '').strip(),
+                    'smtp_password': data.get('smtp_password', ''),
+                    'use_tls': use_tls,
+                    'use_ssl': use_ssl,
+                    'email_remitente': data.get('email_remitente', '').strip(),
+                    'nombre_remitente': data.get('nombre_remitente', '').strip(),
+                    'email_notificacion_1': email_notif_1,
+                    'email_notificacion_2': email_notif_2,
+                    'email_notificacion_3': email_notif_3,
+                }
+            )
+            if not creado:
+                smtp_config.smtp_host = smtp_host
+                smtp_config.smtp_port = smtp_port
+                smtp_config.smtp_user = data.get('smtp_user', '').strip()
+                
+                # Si la contraseña no se envía vacía, se actualiza
+                smtp_pass_input = data.get('smtp_password', '')
+                if smtp_pass_input:
+                    smtp_config.smtp_password = smtp_pass_input
+                    
+                smtp_config.use_tls = use_tls
+                smtp_config.use_ssl = use_ssl
+                smtp_config.email_remitente = data.get('email_remitente', '').strip()
+                smtp_config.nombre_remitente = data.get('nombre_remitente', '').strip()
+                smtp_config.email_notificacion_1 = email_notif_1
+                smtp_config.email_notificacion_2 = email_notif_2
+                smtp_config.email_notificacion_3 = email_notif_3
+                smtp_config.save()
+        else:
+            # Si todos los campos están vacíos, eliminamos la configuración SMTP si existe
+            ContratistaCorreoSMTP.objects.filter(contratista=cont).delete()
+            
         crear_notificacion(
             empresa=empresa_actual,
             actor=request.user,
@@ -1061,6 +1190,43 @@ def subir_documento_proveedor_ajax(request, id):
             doc.comentario_rechazo = ''
             doc.save()
             
+        # Enviar correo de notificación al contratista si existe
+        if prov.contratista:
+            try:
+                # Nombre legible del documento
+                dict_docs = dict(DocumentacionProveedor.NOMBRE_DOC_CHOICES)
+                nombre_doc_humano = dict_docs.get(nombre_documento, nombre_documento)
+                accion_str = "subido" if creado else "actualizado"
+
+                # Asunto y Cuerpo
+                asunto = f"Documento {accion_str} por proveedor: {prov.nombre_razon_social}"
+                cuerpo = (
+                    f"Estimado/a {prov.contratista.nombre_razon_social}:\n\n"
+                    f"Le notificamos que el proveedor \"{prov.nombre_razon_social}\" ha {accion_str} "
+                    f"el siguiente documento en el portal del sistema:\n\n"
+                    f"• Documento: {nombre_doc_humano}\n"
+                    f"• Período: {mes}/{anio}\n\n"
+                    f"Se adjunta el archivo correspondiente para su revisión.\n\n"
+                    f"Atentamente,\n"
+                    f"Sistema CrossoverSuite"
+                )
+
+                from preferencias.utils import enviar_correo_contratista
+                archivos_adjuntos = []
+                if doc.archivo:
+                    archivos_adjuntos.append(doc.archivo.path)
+
+                enviar_correo_contratista(
+                    contratista=prov.contratista,
+                    asunto=asunto,
+                    cuerpo=cuerpo,
+                    archivos_adjuntos=archivos_adjuntos
+                )
+            except Exception as mail_err:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error al enviar correo de notificación de documento: {mail_err}")
+            
         return JsonResponse({'success': True, 'message': 'Documento subido correctamente.'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
@@ -1157,6 +1323,101 @@ def cambiar_estatus_documento_proveedor_ajax(request, doc_id):
         return JsonResponse({'success': True, 'message': 'Estatus actualizado correctamente.'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required(login_url='/login/')
+@require_POST
+def api_probar_contratista_smtp(request):
+    """
+    Realiza una prueba rápida de conexión SMTP para el Contratista utilizando las credenciales enviadas.
+    """
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'No se encontró la empresa.'}, status=403)
+        
+    smtp_host = request.POST.get('smtp_host', '').strip()
+    smtp_port_raw = request.POST.get('smtp_port', '587').strip()
+    smtp_user = request.POST.get('smtp_user', '').strip()
+    smtp_password = request.POST.get('smtp_password', '')
+    
+    use_ssl = request.POST.get('use_ssl') == 'true' or request.POST.get('use_ssl') == 'on' or request.POST.get('use_ssl') == True
+    use_tls = False if use_ssl else (request.POST.get('use_tls') == 'true' or request.POST.get('use_tls') == 'on' or request.POST.get('use_tls') == True or request.POST.get('use_tls') is None)
+    
+    email_remitente = request.POST.get('email_remitente', '').strip()
+    nombre_remitente = request.POST.get('nombre_remitente', '').strip()
+    
+    contratista_id = request.POST.get('contratista_id')
+    
+    if not smtp_host:
+        return JsonResponse({'success': False, 'error': 'El host SMTP es obligatorio.'})
+    if not smtp_user:
+        return JsonResponse({'success': False, 'error': 'El usuario SMTP es obligatorio.'})
+        
+    # Si la contraseña viene vacía, intentamos recuperar la contraseña ya guardada del contratista
+    if not smtp_password and contratista_id:
+        try:
+            from recursos_humanos.models import ContratistaCorreoSMTP
+            smtp_config = ContratistaCorreoSMTP.objects.get(contratista_id=contratista_id)
+            smtp_password = smtp_config.smtp_password
+        except ContratistaCorreoSMTP.DoesNotExist:
+            pass
+            
+    if not smtp_password:
+        return JsonResponse({'success': False, 'error': 'La contraseña SMTP es obligatoria.'})
+
+    try:
+        from django.core.mail.backends.smtp import EmailBackend
+        from django.core.mail import EmailMessage
+
+        port = int(smtp_port_raw) if smtp_port_raw.isdigit() else 587
+        if port == 465:
+            use_ssl = True
+            use_tls = False
+        elif port in [587, 25] and use_ssl:
+            use_ssl = False
+            use_tls = True
+
+        backend = EmailBackend(
+            host=smtp_host,
+            port=port,
+            username=smtp_user,
+            password=smtp_password,
+            use_tls=use_tls,
+            use_ssl=use_ssl,
+            timeout=10,
+            fail_silently=False
+        )
+
+        asunto = "Prueba de Configuración SMTP - CrossoverSuite Contratista"
+        cuerpo = (
+            "Estimado usuario:\n\n"
+            "La configuración del correo electrónico del contratista se ha realizado correctamente. Este mensaje confirma que la conexión SMTP funciona de manera adecuada.\n\n"
+            f"Servidor: {smtp_host}\n"
+            f"Usuario: {smtp_user}\n\n"
+            "Atentamente,\n"
+            "Sistema CrossoverSuite"
+        )
+
+        # El correo de prueba se envía a la misma cuenta SMTP configurada (auto-envío)
+        destinatario = smtp_user
+
+        email = EmailMessage(
+            subject=asunto,
+            body=cuerpo,
+            from_email=f"{nombre_remitente or 'Notificaciones'} <{email_remitente or smtp_user}>",
+            to=[destinatario],
+            connection=backend
+        )
+
+        email.send(fail_silently=False)
+        return JsonResponse({'success': True, 'message': 'Conexión SMTP exitosa. Correo enviado.'})
+        
+    except Exception as e:
+        import traceback
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error de prueba SMTP de Contratista: {traceback.format_exc()}")
+        return JsonResponse({'success': False, 'error': f'Error de conexión SMTP: {str(e)}'})
 
 
 

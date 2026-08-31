@@ -148,3 +148,25 @@ class AsignacionSucursalUsuario(models.Model):
     def __str__(self):
         pred_suffix = " (Predeterminada)" if self.es_predeterminada else ""
         return f"{self.usuario.username} -> {self.sucursal.nombre}{pred_suffix}"
+
+
+class UsuarioCorreoSMTP(models.Model):
+    usuario = models.OneToOneField(User, on_delete=models.CASCADE, related_name='config_smtp', verbose_name="Usuario")
+    smtp_host = models.CharField(max_length=255, blank=True, null=True, verbose_name="Servidor SMTP (Host)")
+    smtp_port = models.IntegerField(default=587, verbose_name="Puerto SMTP")
+    smtp_user = models.CharField(max_length=255, blank=True, null=True, verbose_name="Usuario SMTP (Correo)")
+    smtp_password = models.CharField(max_length=255, blank=True, null=True, verbose_name="Contraseña SMTP")
+    use_tls = models.BooleanField(default=True, verbose_name="Usar TLS")
+    use_ssl = models.BooleanField(default=False, verbose_name="Usar SSL")
+    email_remitente = models.EmailField(blank=True, null=True, verbose_name="Correo Remitente")
+    nombre_remitente = models.CharField(max_length=255, blank=True, null=True, verbose_name="Nombre Remitente")
+
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuración SMTP de Usuario"
+        verbose_name_plural = "Configuraciones SMTP de Usuarios"
+
+    def __str__(self):
+        return f"SMTP: {self.usuario.username} ({self.smtp_user})"

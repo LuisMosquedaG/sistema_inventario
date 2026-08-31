@@ -2,6 +2,14 @@
 
 {% block content %}
 <style>
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    .spin-icon {
+        animation: spin 1s linear infinite;
+        display: inline-block;
+    }
     .modal.fade .modal-dialog {
         transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease-out !important;
         transform: scale(0.9) translateY(-50px) !important;
@@ -425,159 +433,331 @@
             <form id="formContratista" method="post">
                 {% csrf_token %}
                 <input type="hidden" name="contratista_id" id="contratista_id">
+                <!-- PESTAÑAS -->
+                <ul class="nav nav-tabs px-4 border-bottom-0" id="contratistaModalTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-bold small text-secondary py-2" id="tab-contratista-general" data-bs-toggle="tab" data-bs-target="#panel-contratista-general" type="button" role="tab" aria-controls="panel-contratista-general" aria-selected="true" style="border-top-left-radius: 8px; border-top-right-radius: 8px;">
+                            <i class="bi bi-file-earmark-person me-1"></i>General
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold small text-secondary py-2" id="tab-contratista-correo" data-bs-toggle="tab" data-bs-target="#panel-contratista-correo" type="button" role="tab" aria-controls="panel-contratista-correo" aria-selected="false" style="border-top-left-radius: 8px; border-top-right-radius: 8px;">
+                            <i class="bi bi-envelope me-1"></i>Correo (SMTP)
+                        </button>
+                    </li>
+                </ul>
+
                 <div class="modal-body modal-body-gray p-4">
-                    
-                    <!-- SECCIÓN 1: DATOS FISCALES -->
-                    <div class="card card-section border-0 shadow-sm mb-4">
-                        <div class="card-body p-3 bg-white rounded-3">
-                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">1. Identificación y Contacto</h6>
-                            <div class="row g-3">
-                                <div class="col-md-3">
-                                    <label class="form-label-custom">Clave</label>
-                                    <input type="text" name="clave" id="inputClave" class="form-control form-control-sm">
+                    <div class="tab-content" id="contratistaModalTabContent">
+                        
+                        <!-- PANEL GENERAL -->
+                        <div class="tab-pane fade show active" id="panel-contratista-general" role="tabpanel" aria-labelledby="tab-contratista-general">
+                            <!-- SECCIÓN 1: DATOS FISCALES -->
+                            <div class="card card-section border-0 shadow-sm mb-4">
+                                <div class="card-body p-3 bg-white rounded-3">
+                                    <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">1. Identificación y Contacto</h6>
+                                    <div class="row g-3">
+                                        <div class="col-md-3">
+                                            <label class="form-label-custom">Clave</label>
+                                            <input type="text" name="clave" id="inputClave" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label-custom">RFC <span class="text-danger">*</span></label>
+                                            <input type="text" name="rfc" id="inputRFC" class="form-control form-control-sm" required maxlength="13" style="text-transform: uppercase;">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label-custom">Nombre / Razón Social <span class="text-danger">*</span></label>
+                                            <input type="text" name="nombre_razon_social" id="inputRazonSocial" class="form-control form-control-sm" required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label-custom">Régimen Fiscal</label>
+                                            <select name="regimen" id="inputRegimen" class="form-select form-select-sm">
+                                                <option value="">Seleccione...</option>
+                                                <option value="601">601 - REGIMEN GENERAL DE LEY PERSONAS MORALES</option>
+                                                <option value="602">602 - RÉGIMEN SIMPLIFICADO DE LEY PERSONAS MORALES</option>
+                                                <option value="603">603 - PERSONAS MORALES CON FINES NO LUCRATIVOS</option>
+                                                <option value="604">604 - RÉGIMEN DE PEQUEÑOS CONTRIBUYENTES</option>
+                                                <option value="605">605 - RÉGIMEN DE SUELDOS Y SALARIOS E INGRESOS ASIMILADOS A SALARIOS</option>
+                                                <option value="606">606 - RÉGIMEN DE ARRENDAMIENTO</option>
+                                                <option value="607">607 - RÉGIMEN DE ENAJENACIÓN O ADQUISICIÓN DE BIENES</option>
+                                                <option value="608">608 - RÉGIMEN DE LOS DEMÁS INGRESOS</option>
+                                                <option value="609">609 - RÉGIMEN DE CONSOLIDACIÓN</option>
+                                                <option value="610">610 - RÉGIMEN RESIDENTES EN EL EXTRANJERO SIN ESTABLECIMIENTO PERMANENTE EN MÉXICO</option>
+                                                <option value="611">611 - RÉGIMEN DE INGRESOS POR DIVIDENDOS (SOCIOS Y ACCIONISTAS)</option>
+                                                <option value="612">612 - RÉGIMEN DE LAS PERSONAS FÍSICAS CON ACTIVIDADES EMPRESARIALES Y PROFESIONALES</option>
+                                                <option value="613">613 - RÉGIMEN INTERMEDIO DE LAS PERSONAS FÍSICAS CON ACTIVIDADES EMPRESARIALES</option>
+                                                <option value="614">614 - RÉGIMEN DE LOS INGRESOS POR INTERESES</option>
+                                                <option value="615">615 - RÉGIMEN DE LOS INGRESOS POR OBTENCIÓN DE PREMIOS</option>
+                                                <option value="616">616 - SIN OBLIGACIONES FISCALES</option>
+                                                <option value="617">617 - PEMEX</option>
+                                                <option value="618">618 - RÉGIMEN SIMPLIFICADO DE LEY PERSONAS FÍSICAS</option>
+                                                <option value="619">619 - INGRESOS POR LA OBTENCIÓN DE PRÉSTAMOS</option>
+                                                <option value="620">620 - SOCIEDADES COOPERATIVAS DE PRODUCCIÓN QUE OPTAN POR DIFERIR SUS INGRESOS.</option>
+                                                <option value="621">621 - RÉGIMEN DE INCORPORACIÓN FISCAL</option>
+                                                <option value="622">622 - RÉGIMEN DE ACTIVIDADES AGRÍCOLAS, GANADERAS, SILVÍCOLAS Y PESQUERAS PM</option>
+                                                <option value="623">623 - RÉGIMEN DE OPCIONAL PARA GRUPOS DE SOCIEDADES</option>
+                                                <option value="624">624 - RÉGIMEN DE LOS COORDINADOS</option>
+                                                <option value="625">625 - RÉGIMEN DE LAS ACTIVIDADES EMPRESARIALES CON INGRESOS A TRAVÉS DE PLATAFORMAS TECNOLÓGICAS.</option>
+                                                <option value="626">626 - RÉGIMEN SIMPLIFICADO DE CONFIANZA</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label-custom">Correo Electrónico <span class="text-danger">*</span></label>
+                                            <input type="email" name="correo" id="inputCorreo" class="form-control form-control-sm" required>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label-custom">Teléfono</label>
+                                            <input type="text" name="telefono" id="inputTelefono" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label-custom">Reg. Patronal</label>
+                                            <input type="text" name="registro_patronal" id="inputRegPatronal" class="form-control form-control-sm">
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col-md-3">
-                                    <label class="form-label-custom">RFC <span class="text-danger">*</span></label>
-                                    <input type="text" name="rfc" id="inputRFC" class="form-control form-control-sm" required maxlength="13" style="text-transform: uppercase;">
+                            </div>
+
+                            <!-- SECCIÓN 2: DIRECCIÓN -->
+                            <div class="card card-section border-0 shadow-sm mb-4">
+                                <div class="card-body p-3 bg-white rounded-3">
+                                    <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">2. Domicilio Fiscal</h6>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label-custom">Calle</label>
+                                            <input type="text" name="calle" id="inputCalle" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label-custom">Núm. Ext.</label>
+                                            <input type="text" name="num_ext" id="inputNumExt" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label-custom">Núm. Int.</label>
+                                            <input type="text" name="num_int" id="inputNumInt" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label-custom">Entre calle</label>
+                                            <input type="text" name="entre_calle" id="inputEntreCalle" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label-custom">y calle</label>
+                                            <input type="text" name="y_calle" id="inputYCalle" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="form-label-custom">Colonia</label>
+                                            <input type="text" name="colonia" id="inputColonia" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label-custom">CP</label>
+                                            <input type="text" name="cp" id="inputCP" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="form-label-custom">Municipio / Alcaldía</label>
+                                            <input type="text" name="municipio_alcaldia" id="inputMunicipio" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label-custom">Entidad Federativa</label>
+                                            <input type="text" name="entidad_federativa" id="inputEntidad" class="form-control form-control-sm">
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <label class="form-label-custom">Nombre / Razón Social <span class="text-danger">*</span></label>
-                                    <input type="text" name="nombre_razon_social" id="inputRazonSocial" class="form-control form-control-sm" required>
+                            </div>
+
+                            <!-- SECCIÓN 3: LEGAL Y NOTARIAL -->
+                            <div class="card card-section border-0 shadow-sm mb-0">
+                                <div class="card-body p-3 bg-white rounded-3">
+                                    <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">3. Información Legal y Notarial</h6>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label-custom">Representante Legal</label>
+                                            <input type="text" name="representante_legal" id="inputRepLegal" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label-custom">Administrador Único</label>
+                                            <input type="text" name="administrador_unico" id="inputAdminUnico" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label-custom">Núm. de Escritura</label>
+                                            <input type="text" name="num_escritura" id="inputNumEscritura" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-8">
+                                            <label class="form-label-custom">Nombre Notario Público</label>
+                                            <input type="text" name="nombre_notario_publico" id="inputNombreNotario" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label-custom">Número de Notario</label>
+                                            <input type="text" name="num_notario_publico" id="inputNumNotario" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label-custom">Fecha Escritura</label>
+                                            <input type="date" name="fecha_escritura_publica" id="inputFechaEscritura" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label-custom">Folio Mercantil</label>
+                                            <input type="text" name="folio_mercantil" id="inputFolioMercantil" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-12">
+                                            <label class="form-label-custom">Número STPS (REPSE)</label>
+                                            <input type="text" name="numero_stps" id="inputSTPS" class="form-control form-control-sm" placeholder="Registro ante la STPS">
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <label class="form-label-custom">Régimen Fiscal</label>
-                                    <select name="regimen" id="inputRegimen" class="form-select form-select-sm">
-                                        <option value="">Seleccione...</option>
-                                        <option value="601">601 - REGIMEN GENERAL DE LEY PERSONAS MORALES</option>
-                                        <option value="602">602 - RÉGIMEN SIMPLIFICADO DE LEY PERSONAS MORALES</option>
-                                        <option value="603">603 - PERSONAS MORALES CON FINES NO LUCRATIVOS</option>
-                                        <option value="604">604 - RÉGIMEN DE PEQUEÑOS CONTRIBUYENTES</option>
-                                        <option value="605">605 - RÉGIMEN DE SUELDOS Y SALARIOS E INGRESOS ASIMILADOS A SALARIOS</option>
-                                        <option value="606">606 - RÉGIMEN DE ARRENDAMIENTO</option>
-                                        <option value="607">607 - RÉGIMEN DE ENAJENACIÓN O ADQUISICIÓN DE BIENES</option>
-                                        <option value="608">608 - RÉGIMEN DE LOS DEMÁS INGRESOS</option>
-                                        <option value="609">609 - RÉGIMEN DE CONSOLIDACIÓN</option>
-                                        <option value="610">610 - RÉGIMEN RESIDENTES EN EL EXTRANJERO SIN ESTABLECIMIENTO PERMANENTE EN MÉXICO</option>
-                                        <option value="611">611 - RÉGIMEN DE INGRESOS POR DIVIDENDOS (SOCIOS Y ACCIONISTAS)</option>
-                                        <option value="612">612 - RÉGIMEN DE LAS PERSONAS FÍSICAS CON ACTIVIDADES EMPRESARIALES Y PROFESIONALES</option>
-                                        <option value="613">613 - RÉGIMEN INTERMEDIO DE LAS PERSONAS FÍSICAS CON ACTIVIDADES EMPRESARIALES</option>
-                                        <option value="614">614 - RÉGIMEN DE LOS INGRESOS POR INTERESES</option>
-                                        <option value="615">615 - RÉGIMEN DE LOS INGRESOS POR OBTENCIÓN DE PREMIOS</option>
-                                        <option value="616">616 - SIN OBLIGACIONES FISCALES</option>
-                                        <option value="617">617 - PEMEX</option>
-                                        <option value="618">618 - RÉGIMEN SIMPLIFICADO DE LEY PERSONAS FÍSICAS</option>
-                                        <option value="619">619 - INGRESOS POR LA OBTENCIÓN DE PRÉSTAMOS</option>
-                                        <option value="620">620 - SOCIEDADES COOPERATIVAS DE PRODUCCIÓN QUE OPTAN POR DIFERIR SUS INGRESOS.</option>
-                                        <option value="621">621 - RÉGIMEN DE INCORPORACIÓN FISCAL</option>
-                                        <option value="622">622 - RÉGIMEN DE ACTIVIDADES AGRÍCOLAS, GANADERAS, SILVÍCOLAS Y PESQUERAS PM</option>
-                                        <option value="623">623 - RÉGIMEN DE OPCIONAL PARA GRUPOS DE SOCIEDADES</option>
-                                        <option value="624">624 - RÉGIMEN DE LOS COORDINADOS</option>
-                                        <option value="625">625 - RÉGIMEN DE LAS ACTIVIDADES EMPRESARIALES CON INGRESOS A TRAVÉS DE PLATAFORMAS TECNOLÓGICAS.</option>
-                                        <option value="626">626 - RÉGIMEN SIMPLIFICADO DE CONFIANZA</option>
-                                    </select>
+                            </div>
+                        </div>
+
+                        <!-- PANEL CORREO (SMTP) -->
+                        <div class="tab-pane fade" id="panel-contratista-correo" role="tabpanel" aria-labelledby="tab-contratista-correo">
+                            <div class="row">
+                                <!-- Columna de Formulario (ocupa col-md-7 fija) -->
+                                <div class="col-md-7">
+                                    <div class="card border-0 shadow-sm h-100">
+                                        <div class="card-body p-3 bg-white rounded-3">
+                                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">Configuración del Servidor SMTP</h6>
+                                            
+                                            <div class="row g-3">
+                                                <div class="col-md-8">
+                                                    <label class="form-label-custom">Servidor SMTP (Host)</label>
+                                                    <input type="text" name="smtp_host" id="inputContratistaSmtpHost" class="form-control form-control-sm" placeholder="Ej: mail.crossovermx.com">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label-custom">Puerto SMTP</label>
+                                                    <input type="number" name="smtp_port" id="inputContratistaSmtpPort" class="form-control form-control-sm" placeholder="587" value="587">
+                                                </div>
+                                                
+                                                <div class="col-md-6">
+                                                    <label class="form-label-custom">Usuario SMTP (Correo)</label>
+                                                    <input type="email" name="smtp_user" id="inputContratistaSmtpUser" class="form-control form-control-sm" placeholder="usuario@correo.com">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label-custom">Contraseña SMTP</label>
+                                                    <input type="password" name="smtp_password" id="inputContratistaSmtpPassword" class="form-control form-control-sm" placeholder="••••••••">
+                                                    <small class="text-muted" style="font-size: 0.65rem;" id="contratistaSmtpPassHelp">Dejar vacío para no cambiar.</small>
+                                                </div>
+
+                                                <div class="col-md-6">
+                                                    <label class="form-label-custom">Nombre Remitente</label>
+                                                    <input type="text" name="nombre_remitente" id="inputContratistaNombreRemitente" class="form-control form-control-sm" placeholder="Ej: CrossoverSuite Notificaciones">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label-custom">Correo Remitente</label>
+                                                    <input type="email" name="email_remitente" id="inputContratistaEmailRemitente" class="form-control form-control-sm" placeholder="Ej: noreply@crossovermx.com">
+                                                </div>
+
+                                                <div class="col-md-12">
+                                                    <div class="form-check form-check-inline">
+                                                        <input class="form-check-input" type="checkbox" name="use_tls" id="checkContratistaUseTLS" value="true" checked>
+                                                        <label class="form-check-label small" for="checkContratistaUseTLS">Usar TLS</label>
+                                                    </div>
+                                                    <div class="form-check form-check-inline">
+                                                        <input class="form-check-input" type="checkbox" name="use_ssl" id="checkContratistaUseSSL" value="true">
+                                                        <label class="form-check-label small" for="checkContratistaUseSSL">Usar SSL</label>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="col-md-12 d-flex justify-content-end align-items-center gap-2 mt-3">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm px-3 shadow-sm d-flex align-items-center gap-1" id="btnToggleSMTPCard" onclick="toggleSMTPCardView()" title="Alternar entre Destinatarios y SMTP Comunes">
+                                                        <i class="bi bi-people-fill" id="iconToggleSMTPCard"></i>
+                                                        <span id="labelToggleSMTPCard" style="font-size: 0.75rem;">Destinatarios</span>
+                                                    </button>
+                                                    <button type="button" class="btn btn-brand text-white btn-sm px-3 shadow-sm position-relative" id="btnProbarContratistaSMTP" onclick="probarContratistaSMTP()" title="Probar Conexión SMTP">
+                                                        <i class="bi bi-send" id="iconContratistaProbarSMTP"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <label class="form-label-custom">Correo Electrónico <span class="text-danger">*</span></label>
-                                    <input type="email" name="correo" id="inputCorreo" class="form-control form-control-sm" required>
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label-custom">Teléfono</label>
-                                    <input type="text" name="telefono" id="inputTelefono" class="form-control form-control-sm">
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label-custom">Reg. Patronal</label>
-                                    <input type="text" name="registro_patronal" id="inputRegPatronal" class="form-control form-control-sm">
+
+                                <!-- Columna de Ayuda / Destinatarios (fija en la derecha, ocupa col-md-5) -->
+                                <div class="col-md-5" id="colHelpSMTPContratista">
+                                    <div class="card border-0 shadow-sm h-100">
+                                        <!-- VISTA 1: SMTP COMUNES -->
+                                        <div class="card-body p-3 bg-white rounded-3 d-flex flex-column" id="viewSMTPComunes" style="font-size: 0.75rem;">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <h6 class="fw-bold text-dark mb-0" style="font-size: 0.8rem;">
+                                                    <i class="bi bi-info-circle-fill text-primary me-1"></i>SMTP Comunes
+                                                </h6>
+                                                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none text-muted" onclick="toggleSMTPCardView('destinatarios')" title="Ir a Destinatarios" style="font-size: 0.7rem;">
+                                                    <i class="bi bi-arrow-right-circle me-1"></i>Destinatarios
+                                                </button>
+                                            </div>
+                                            <div class="table-responsive">
+                                                <table class="table table-sm table-borderless mb-0" style="font-size: 0.65rem;">
+                                                    <thead>
+                                                        <tr class="text-muted border-bottom" style="font-size: 0.6rem;">
+                                                            <th>Proveedor</th>
+                                                            <th>Host</th>
+                                                            <th>Port</th>
+                                                            <th>Seg.</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr class="border-bottom" style="cursor: pointer;" onclick="seleccionarSMTPComunContratista('smtp.gmail.com', 587, 'tls')" title="Clic para usar Gmail">
+                                                            <td><strong>Gmail</strong></td>
+                                                            <td><code>smtp.gmail.com</code></td>
+                                                            <td><code>587</code></td>
+                                                            <td>TLS</td>
+                                                        </tr>
+                                                        <tr class="border-bottom" style="cursor: pointer;" onclick="seleccionarSMTPComunContratista('smtp.office365.com', 587, 'tls')" title="Clic para usar Outlook">
+                                                            <td><strong>Outlook</strong></td>
+                                                            <td><code>smtp.office365.com</code></td>
+                                                            <td><code>587</code></td>
+                                                            <td>TLS</td>
+                                                        </tr>
+                                                        <tr class="border-bottom" style="cursor: pointer;" onclick="seleccionarSMTPComunContratista('smtpout.secureserver.net', 465, 'ssl')" title="Clic para usar GoDaddy">
+                                                            <td><strong>GoDaddy</strong></td>
+                                                            <td><code>smtpout.secureserver.net</code></td>
+                                                            <td><code>465</code></td>
+                                                            <td>SSL</td>
+                                                        </tr>
+                                                        <tr style="cursor: pointer;" onclick="seleccionarSMTPComunContratista('smtp.hostinger.com', 465, 'ssl')" title="Clic para usar Hostinger">
+                                                            <td><strong>Hostinger</strong></td>
+                                                            <td><code>smtp.hostinger.com</code></td>
+                                                            <td><code>465</code></td>
+                                                            <td>SSL</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <small class="text-muted mt-auto pt-2 d-block" style="font-size: 0.65rem; line-height: 1.2;">* Para Gmail y Outlook, activa "Verificación en dos pasos" en tu cuenta y crea una "Contraseña de aplicación" para colocar en el campo de contraseña.</small>
+                                        </div>
+
+                                        <!-- VISTA 2: DESTINATARIOS (CORREOS DE ENTRADA) -->
+                                        <div class="card-body p-3 bg-white rounded-3 d-flex flex-column d-none" id="viewDestinatarios" style="font-size: 0.75rem;">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <h6 class="fw-bold text-dark mb-0" style="font-size: 0.8rem;">
+                                                    <i class="bi bi-people-fill text-primary me-1"></i>Destinatarios (Entrada)
+                                                </h6>
+                                                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none text-muted" onclick="toggleSMTPCardView('comunes')" title="Ir a SMTP Comunes" style="font-size: 0.7rem;">
+                                                    <i class="bi bi-arrow-left-circle me-1"></i>SMTP Comunes
+                                                </button>
+                                            </div>
+                                            <p class="text-muted mb-2" style="font-size: 0.68rem; line-height: 1.2;">
+                                                Correos que recibirán notificaciones cuando los proveedores suban o actualicen documentos:
+                                            </p>
+                                            <div class="row g-2">
+                                                <div class="col-12">
+                                                    <label class="form-label-custom mb-1" style="font-size: 0.7rem;">1. Destinatario Principal (Para / To)</label>
+                                                    <input type="email" name="email_notificacion_1" id="inputContratistaNotif1" class="form-control form-control-sm" placeholder="correo.principal@empresa.com" style="font-size: 0.75rem;">
+                                                    <small class="text-muted" style="font-size: 0.62rem;">Si está vacío, se usará el correo del contratista.</small>
+                                                </div>
+                                                <div class="col-12 mt-1">
+                                                    <label class="form-label-custom mb-1" style="font-size: 0.7rem;">2. En Copia (CC 1)</label>
+                                                    <input type="email" name="email_notificacion_2" id="inputContratistaNotif2" class="form-control form-control-sm" placeholder="copia1@empresa.com" style="font-size: 0.75rem;">
+                                                </div>
+                                                <div class="col-12 mt-1">
+                                                    <label class="form-label-custom mb-1" style="font-size: 0.7rem;">3. En Copia (CC 2)</label>
+                                                    <input type="email" name="email_notificacion_3" id="inputContratistaNotif3" class="form-control form-control-sm" placeholder="copia2@empresa.com" style="font-size: 0.75rem;">
+                                                </div>
+                                            </div>
+                                            <div class="mt-auto pt-2 text-muted" style="font-size: 0.65rem; line-height: 1.2;">
+                                                <i class="bi bi-info-circle me-1 text-primary"></i> Se enviará la notificación con el documento adjunto a estos correos.
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-
-                    <!-- SECCIÓN 2: DIRECCIÓN -->
-                    <div class="card card-section border-0 shadow-sm mb-4">
-                        <div class="card-body p-3 bg-white rounded-3">
-                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">2. Domicilio Fiscal</h6>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label-custom">Calle</label>
-                                    <input type="text" name="calle" id="inputCalle" class="form-control form-control-sm">
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label-custom">Núm. Ext.</label>
-                                    <input type="text" name="num_ext" id="inputNumExt" class="form-control form-control-sm">
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label-custom">Núm. Int.</label>
-                                    <input type="text" name="num_int" id="inputNumInt" class="form-control form-control-sm">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label-custom">Entre calle</label>
-                                    <input type="text" name="entre_calle" id="inputEntreCalle" class="form-control form-control-sm">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label-custom">y calle</label>
-                                    <input type="text" name="y_calle" id="inputYCalle" class="form-control form-control-sm">
-                                </div>
-                                <div class="col-md-5">
-                                    <label class="form-label-custom">Colonia</label>
-                                    <input type="text" name="colonia" id="inputColonia" class="form-control form-control-sm">
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label-custom">CP</label>
-                                    <input type="text" name="cp" id="inputCP" class="form-control form-control-sm">
-                                </div>
-                                <div class="col-md-5">
-                                    <label class="form-label-custom">Municipio / Alcaldía</label>
-                                    <input type="text" name="municipio_alcaldia" id="inputMunicipio" class="form-control form-control-sm">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label-custom">Entidad Federativa</label>
-                                    <input type="text" name="entidad_federativa" id="inputEntidad" class="form-control form-control-sm">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- SECCIÓN 3: LEGAL Y NOTARIAL -->
-                    <div class="card card-section border-0 shadow-sm mb-0">
-                        <div class="card-body p-3 bg-white rounded-3">
-                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">3. Información Legal y Notarial</h6>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label-custom">Representante Legal</label>
-                                    <input type="text" name="representante_legal" id="inputRepLegal" class="form-control form-control-sm">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label-custom">Administrador Único</label>
-                                    <input type="text" name="administrador_unico" id="inputAdminUnico" class="form-control form-control-sm">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label-custom">Núm. de Escritura</label>
-                                    <input type="text" name="num_escritura" id="inputNumEscritura" class="form-control form-control-sm">
-                                </div>
-                                <div class="col-md-8">
-                                    <label class="form-label-custom">Nombre Notario Público</label>
-                                    <input type="text" name="nombre_notario_publico" id="inputNombreNotario" class="form-control form-control-sm">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label-custom">Número de Notario</label>
-                                    <input type="text" name="num_notario_publico" id="inputNumNotario" class="form-control form-control-sm">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label-custom">Fecha Escritura</label>
-                                    <input type="date" name="fecha_escritura_publica" id="inputFechaEscritura" class="form-control form-control-sm">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label-custom">Folio Mercantil</label>
-                                    <input type="text" name="folio_mercantil" id="inputFolioMercantil" class="form-control form-control-sm">
-                                </div>
-                                <div class="col-md-12">
-                                    <label class="form-label-custom">Número STPS (REPSE)</label>
-                                    <input type="text" name="numero_stps" id="inputSTPS" class="form-control form-control-sm" placeholder="Registro ante la STPS">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                 </div>
                 <div class="modal-footer bg-white border-top py-3">
                     <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
@@ -864,6 +1044,38 @@
         document.getElementById('formContratista').reset();
         document.getElementById('contratista_id').value = '';
         document.getElementById('tituloModalContratista').textContent = 'Registro de Contratista';
+        
+        // Reset SMTP fields and test button
+        document.getElementById('inputContratistaSmtpHost').value = '';
+        document.getElementById('inputContratistaSmtpPort').value = '587';
+        document.getElementById('inputContratistaSmtpUser').value = '';
+        document.getElementById('inputContratistaSmtpPassword').value = '';
+        document.getElementById('inputContratistaNombreRemitente').value = '';
+        document.getElementById('inputContratistaEmailRemitente').value = '';
+        document.getElementById('checkContratistaUseTLS').checked = true;
+        document.getElementById('checkContratistaUseSSL').checked = false;
+
+        // Reset Destinatarios
+        document.getElementById('inputContratistaNotif1').value = '';
+        document.getElementById('inputContratistaNotif2').value = '';
+        document.getElementById('inputContratistaNotif3').value = '';
+        toggleSMTPCardView('comunes');
+        
+        const btn = document.getElementById('btnProbarContratistaSMTP');
+        if (btn) {
+            btn.className = "btn btn-brand text-white btn-sm px-3 shadow-sm position-relative";
+            btn.disabled = false;
+            const icon = document.getElementById('iconContratistaProbarSMTP');
+            if (icon) {
+                icon.className = "bi bi-send";
+            }
+        }
+        
+        // Activar la pestaña General por defecto
+        const tabEl = document.querySelector('#tab-contratista-general');
+        if (tabEl) {
+            bootstrap.Tab.getOrCreateInstance(tabEl).show();
+        }
     }
 
     function editarContratista(id) {
@@ -903,6 +1115,43 @@
                 document.getElementById('inputFechaEscritura').value = data.fecha_escritura_publica;
                 document.getElementById('inputFolioMercantil').value = data.folio_mercantil;
                 document.getElementById('inputSTPS').value = data.numero_stps;
+
+                // Cargar campos SMTP
+                document.getElementById('inputContratistaSmtpHost').value = data.smtp_host || '';
+                document.getElementById('inputContratistaSmtpPort').value = data.smtp_port || '587';
+                document.getElementById('inputContratistaSmtpUser').value = data.smtp_user || '';
+                document.getElementById('inputContratistaSmtpPassword').value = ''; // No cargar por seguridad
+                document.getElementById('inputContratistaNombreRemitente').value = data.nombre_remitente || '';
+                document.getElementById('inputContratistaEmailRemitente').value = data.email_remitente || '';
+                document.getElementById('checkContratistaUseTLS').checked = data.use_tls !== false;
+                document.getElementById('checkContratistaUseSSL').checked = !!data.use_ssl;
+
+                // Cargar campos Destinatarios
+                document.getElementById('inputContratistaNotif1').value = data.email_notificacion_1 || '';
+                document.getElementById('inputContratistaNotif2').value = data.email_notificacion_2 || '';
+                document.getElementById('inputContratistaNotif3').value = data.email_notificacion_3 || '';
+
+                if (data.email_notificacion_1 || data.email_notificacion_2 || data.email_notificacion_3) {
+                    toggleSMTPCardView('destinatarios');
+                } else {
+                    toggleSMTPCardView('comunes');
+                }
+                
+                const btn = document.getElementById('btnProbarContratistaSMTP');
+                if (btn) {
+                    btn.className = "btn btn-brand text-white btn-sm px-3 shadow-sm position-relative";
+                    btn.disabled = false;
+                    const icon = document.getElementById('iconContratistaProbarSMTP');
+                    if (icon) {
+                        icon.className = "bi bi-send";
+                    }
+                }
+
+                // Activar la pestaña General por defecto
+                const tabEl = document.querySelector('#tab-contratista-general');
+                if (tabEl) {
+                    bootstrap.Tab.getOrCreateInstance(tabEl).show();
+                }
 
                 document.getElementById('tituloModalContratista').textContent = 'Editar Contratista';
                 new bootstrap.Modal(document.getElementById('modalNuevoContratista')).show();
@@ -1667,6 +1916,155 @@
                 alert('Ocurrió un error al cambiar el estatus.');
             });
         }
+    }
+
+    // Lógica para exclusión mutua de TLS/SSL en Contratistas
+    const checkContratistaTLS = document.getElementById('checkContratistaUseTLS');
+    const checkContratistaSSL = document.getElementById('checkContratistaUseSSL');
+    if (checkContratistaTLS && checkContratistaSSL) {
+        checkContratistaTLS.addEventListener('change', function() {
+            if (this.checked) {
+                checkContratistaSSL.checked = false;
+            }
+        });
+        checkContratistaSSL.addEventListener('change', function() {
+            if (this.checked) {
+                checkContratistaTLS.checked = false;
+            }
+        });
+    }
+
+    function seleccionarSMTPComunContratista(host, port, security) {
+        document.getElementById('inputContratistaSmtpHost').value = host;
+        document.getElementById('inputContratistaSmtpPort').value = port;
+        if (security === 'ssl' || port === 465) {
+            if (checkContratistaSSL) checkContratistaSSL.checked = true;
+            if (checkContratistaTLS) checkContratistaTLS.checked = false;
+        } else {
+            if (checkContratistaTLS) checkContratistaTLS.checked = true;
+            if (checkContratistaSSL) checkContratistaSSL.checked = false;
+        }
+    }
+
+    const inputContratistaPort = document.getElementById('inputContratistaSmtpPort');
+    if (inputContratistaPort) {
+        inputContratistaPort.addEventListener('input', function() {
+            const p = parseInt(this.value, 10);
+            if (p === 465) {
+                if (checkContratistaSSL) checkContratistaSSL.checked = true;
+                if (checkContratistaTLS) checkContratistaTLS.checked = false;
+            } else if (p === 587 || p === 25) {
+                if (checkContratistaTLS) checkContratistaTLS.checked = true;
+                if (checkContratistaSSL) checkContratistaSSL.checked = false;
+            }
+        });
+    }
+
+    function toggleSMTPCardView(viewName) {
+        const viewComunes = document.getElementById('viewSMTPComunes');
+        const viewDest = document.getElementById('viewDestinatarios');
+        const btnToggle = document.getElementById('btnToggleSMTPCard');
+        const iconToggle = document.getElementById('iconToggleSMTPCard');
+        const labelToggle = document.getElementById('labelToggleSMTPCard');
+        
+        if (!viewComunes || !viewDest) return;
+
+        let showDest = false;
+        if (viewName === 'destinatarios') {
+            showDest = true;
+        } else if (viewName === 'comunes') {
+            showDest = false;
+        } else {
+            showDest = viewDest.classList.contains('d-none');
+        }
+
+        if (showDest) {
+            viewComunes.classList.add('d-none');
+            viewDest.classList.remove('d-none');
+            if (btnToggle && iconToggle && labelToggle) {
+                btnToggle.className = "btn btn-outline-primary btn-sm px-3 shadow-sm d-flex align-items-center gap-1";
+                iconToggle.className = "bi bi-info-circle-fill";
+                labelToggle.textContent = "SMTP Comunes";
+            }
+        } else {
+            viewDest.classList.add('d-none');
+            viewComunes.classList.remove('d-none');
+            if (btnToggle && iconToggle && labelToggle) {
+                btnToggle.className = "btn btn-outline-secondary btn-sm px-3 shadow-sm d-flex align-items-center gap-1";
+                iconToggle.className = "bi bi-people-fill";
+                labelToggle.textContent = "Destinatarios";
+            }
+        }
+    }
+
+    function probarContratistaSMTP() {
+        const btn = document.getElementById('btnProbarContratistaSMTP');
+        const icon = document.getElementById('iconContratistaProbarSMTP');
+        if (!btn || !icon) return;
+
+        // Validaciones básicas
+        const host = document.getElementById('inputContratistaSmtpHost').value.trim();
+        const port = document.getElementById('inputContratistaSmtpPort').value.trim();
+        const user = document.getElementById('inputContratistaSmtpUser').value.trim();
+        const pass = document.getElementById('inputContratistaSmtpPassword').value;
+        const remitenteNombre = document.getElementById('inputContratistaNombreRemitente').value.trim();
+        const remitenteEmail = document.getElementById('inputContratistaEmailRemitente').value.trim();
+        const useTLS = document.getElementById('checkContratistaUseTLS').checked;
+        const useSSL = document.getElementById('checkContratistaUseSSL').checked;
+        const contratistaId = document.getElementById('contratista_id').value;
+
+        if (!host || !user) {
+            alert('Por favor complete los campos Servidor SMTP (Host) y Usuario SMTP.');
+            return;
+        }
+
+        // Estado inicial de carga
+        btn.disabled = true;
+        btn.className = "btn btn-brand text-white btn-sm px-3 shadow-sm position-relative";
+        icon.className = "bi bi-arrow-repeat spin-icon";
+
+        // Preparar datos
+        const formData = new FormData();
+        formData.append('smtp_host', host);
+        formData.append('smtp_port', port);
+        formData.append('smtp_user', user);
+        formData.append('smtp_password', pass);
+        formData.append('nombre_remitente', remitenteNombre);
+        formData.append('email_remitente', remitenteEmail);
+        formData.append('use_tls', useTLS ? 'true' : 'false');
+        formData.append('use_ssl', useSSL ? 'true' : 'false');
+        if (contratistaId) {
+            formData.append('contratista_id', contratistaId);
+        }
+
+        fetch('/recursos-humanos/contratistas/probar-smtp/', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                // Estado éxito (Verde)
+                btn.className = "btn btn-success text-white btn-sm px-3 shadow-sm position-relative";
+                icon.className = "bi bi-check-lg";
+                alert(data.message);
+            } else {
+                // Estado error (Rojo)
+                btn.className = "btn btn-danger text-white btn-sm px-3 shadow-sm position-relative";
+                icon.className = "bi bi-x-lg";
+                alert(data.error);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            btn.className = "btn btn-danger text-white btn-sm px-3 shadow-sm position-relative";
+            icon.className = "bi bi-x-lg";
+            alert('Ocurrió un error inesperado al conectar con el servidor.');
+        })
+        .finally(() => {
+            btn.disabled = false;
+        });
     }
 </script>
 {% endblock %}

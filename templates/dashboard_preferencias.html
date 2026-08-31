@@ -453,61 +453,210 @@
     </div>
 </div>
 
+<style>
+    .spin-icon {
+        animation: spin 1s linear infinite;
+        display: inline-block;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+
 <!-- MODAL USUARIO (CREAR/EDITAR) -->
 <div class="modal fade" id="modalNuevoUsuario" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content shadow-lg border-0" style="border-radius: 12px;">
             <div class="modal-header border-bottom bg-white">
                 <h5 class="modal-title fw-bold" id="modalUsuarioTitulo">Registrar Nuevo Usuario</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-0 bg-light">
+                <!-- Bootstrap Tabs Navigation -->
+                <ul class="nav nav-tabs bg-white px-4 pt-2 border-bottom" id="usuarioModalTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-bold small text-secondary py-2" id="tab-general" data-bs-toggle="tab" data-bs-target="#panel-general" type="button" role="tab" aria-controls="panel-general" aria-selected="true" style="border-top-left-radius: 8px; border-top-right-radius: 8px;">
+                            <i class="bi bi-person me-1"></i>General
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold small text-secondary py-2" id="tab-correo" data-bs-toggle="tab" data-bs-target="#panel-correo" type="button" role="tab" aria-controls="panel-correo" aria-selected="false" style="border-top-left-radius: 8px; border-top-right-radius: 8px;">
+                            <i class="bi bi-envelope me-1"></i>Correo (SMTP)
+                        </button>
+                    </li>
+                </ul>
+
                 <form id="formUsuario" class="p-4">
                     {% csrf_token %}
                     <input type="hidden" id="usuario_id_hidden">
                     
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold">Usuario</label>
-                        <div class="input-group input-group-sm">
-                            <input type="text" name="username" id="inputUsername" class="form-control" placeholder="Ej: juanperez" required>
-                            <span class="input-group-text bg-light text-muted" id="dispPrefijo">@{{ empresa.subdominio }}</span>
+                    <div class="tab-content" id="usuarioModalTabContent">
+                        <!-- PANEL GENERAL -->
+                        <div class="tab-pane fade show active" id="panel-general" role="tabpanel" aria-labelledby="tab-general">
+                            <!-- Fila 1: Usuario, Contraseña y Confirmar Contraseña (3 columnas de col-md-4) -->
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label small fw-bold">Usuario</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" name="username" id="inputUsername" class="form-control" placeholder="Ej: juanperez" required>
+                                        <span class="input-group-text bg-light text-muted" id="dispPrefijo">@{{ empresa.subdominio }}</span>
+                                    </div>
+                                    <small class="text-muted" style="font-size: 0.65rem; line-height: 1.1; display: block; margin-top: 4px;">Se agregará el prefijo automáticamente.</small>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label small fw-bold">Contraseña</label>
+                                    <input type="password" name="password1" id="inputPass1" class="form-control form-control-sm">
+                                    <small class="text-muted" style="font-size: 0.65rem;" id="passHelp">Dejar vacío para no cambiar.</small>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label small fw-bold">Confirmar Contraseña</label>
+                                    <input type="password" name="password2" id="inputPass2" class="form-control form-control-sm">
+                                </div>
+                            </div>
+                            
+                            <!-- Fila 2: Email (col-md-12) -->
+                            <div class="row">
+                                <div class="col-md-12 mb-3">
+                                    <label class="form-label small fw-bold">Email</label>
+                                    <input type="email" name="email" id="inputEmail" class="form-control form-control-sm" required>
+                                </div>
+                            </div>
+                            
+                            <!-- Fila 3: Rol / Puesto y Rol de Acceso (col-md-6 cada uno) -->
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label small fw-bold">Rol / Puesto</label>
+                                    <select name="rol" id="inputRol" class="form-select form-select-sm">
+                                        <option value="usuario">Usuario</option>
+                                        <option value="admin">Administrador</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label small fw-bold">Rol de Acceso al Sistema</label>
+                                    <select name="rol_acceso_id" id="inputRolAcceso" class="form-select form-select-sm">
+                                        <option value="">Sin rol (compatibilidad actual)</option>
+                                        {% for r in roles %}
+                                        <option value="{{ r.id }}">{{ r.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <small class="text-muted" style="font-size: 0.7rem;">Define permisos por módulo para este usuario.</small>
+                                </div>
+                            </div>
                         </div>
-                        <small class="text-muted" style="font-size: 0.7rem;">El sistema agregará el prefijo automáticamente.</small>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold">Email</label>
-                        <input type="email" name="email" id="inputEmail" class="form-control form-control-sm" required>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label small fw-bold">Contraseña</label>
-                            <input type="password" name="password1" id="inputPass1" class="form-control form-control-sm">
-                            <small class="text-muted" style="font-size: 0.65rem;" id="passHelp">Dejar vacío para no cambiar.</small>
+
+                        <!-- PANEL CORREO (SMTP) -->
+                        <div class="tab-pane fade" id="panel-correo" role="tabpanel" aria-labelledby="tab-correo">
+                            <div class="row">
+                                <!-- Columna de Formulario (ocupa col-md-7 fija) -->
+                                <div class="col-md-7" id="colFormSMTP">
+                                    <div class="row">
+                                        <div class="col-md-8 mb-3">
+                                            <label class="form-label small fw-bold">Servidor SMTP (Host)</label>
+                                            <input type="text" name="smtp_host" id="inputSmtpHost" class="form-control form-control-sm" placeholder="Ej: smtp.gmail.com">
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label small fw-bold">Puerto</label>
+                                            <input type="number" name="smtp_port" id="inputSmtpPort" class="form-control form-control-sm" value="587" placeholder="587">
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label small fw-bold">Usuario SMTP (Correo)</label>
+                                            <input type="text" name="smtp_user" id="inputSmtpUser" class="form-control form-control-sm" placeholder="Ej: mi-correo@empresa.com">
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label small fw-bold">Contraseña SMTP</label>
+                                            <input type="password" name="smtp_password" id="inputSmtpPassword" class="form-control form-control-sm" placeholder="Dejar vacío para no cambiar">
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label small fw-bold">Nombre Remitente</label>
+                                            <input type="text" name="nombre_remitente" id="inputNombreRemitente" class="form-control form-control-sm" placeholder="Ej: Juan Pérez">
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label small fw-bold">Correo Remitente</label>
+                                            <input type="email" name="email_remitente" id="inputEmailRemitente" class="form-control form-control-sm" placeholder="Ej: juan.perez@empresa.com">
+                                        </div>
+                                    </div>
+
+                                    <div class="d-flex align-items-center mb-3">
+                                        <div class="form-check me-4">
+                                            <input class="form-check-input" type="checkbox" name="use_tls" id="inputUseTls" checked>
+                                            <label class="form-check-label small fw-bold" for="inputUseTls">
+                                                Usar TLS
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="use_ssl" id="inputUseSsl">
+                                            <label class="form-check-label small fw-bold" for="inputUseSsl">
+                                                Usar SSL
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="border-top pt-3 d-flex justify-content-between align-items-center">
+                                        <span id="statusPruebaSmtp" class="small fw-bold"></span>
+                                        <div>
+                                            <button type="button" class="btn btn-brand btn-sm fw-bold px-3 shadow-sm" id="btnProbarSmtp" onclick="probarSMTP()" title="Probar Conexión">
+                                                <i class="bi bi-send" id="iconProbarSmtp"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Columna de Ayuda (fija en la derecha, ocupa col-md-5) -->
+                                <div class="col-md-5" id="colHelpSMTP">
+                                    <div class="card card-body bg-white border shadow-sm p-3 h-100" style="border-radius: 8px; font-size: 0.75rem; min-height: 250px;">
+                                        <h6 class="fw-bold text-dark mb-2" style="font-size: 0.8rem;">
+                                            <i class="bi bi-info-circle-fill text-primary me-1"></i>SMTP Comunes
+                                        </h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-borderless mb-0" style="font-size: 0.65rem;">
+                                                <thead>
+                                                    <tr class="text-muted border-bottom" style="font-size: 0.6rem;">
+                                                        <th>Proveedor</th>
+                                                        <th>Host</th>
+                                                        <th>Port</th>
+                                                        <th>Seg.</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr class="border-bottom">
+                                                        <td><strong>Gmail</strong></td>
+                                                        <td><code>smtp.gmail.com</code></td>
+                                                        <td><code>587</code></td>
+                                                        <td>TLS</td>
+                                                    </tr>
+                                                    <tr class="border-bottom">
+                                                        <td><strong>Outlook</strong></td>
+                                                        <td><code>smtp.office365.com</code></td>
+                                                        <td><code>587</code></td>
+                                                        <td>TLS</td>
+                                                    </tr>
+                                                    <tr class="border-bottom">
+                                                        <td><strong>GoDaddy</strong></td>
+                                                        <td><code>smtpout.secureserver.net</code></td>
+                                                        <td><code>465</code></td>
+                                                        <td>SSL</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><strong>Hostinger</strong></td>
+                                                        <td><code>smtp.hostinger.com</code></td>
+                                                        <td><code>465</code></td>
+                                                        <td>SSL</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <small class="text-muted mt-2 d-block" style="font-size: 0.65rem; line-height: 1.2;">* Para Gmail y Outlook, activa "Verificación en dos pasos" en tu cuenta y crea una "Contraseña de aplicación" para colocar en el campo de contraseña.</small>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label small fw-bold">Confirmar</label>
-                            <input type="password" name="password2" id="inputPass2" class="form-control form-control-sm">
-                        </div>
-                    </div>
-                    
-                    <div class="mb-0">
-                        <label class="form-label small fw-bold">Rol / Puesto</label>
-                        <select name="rol" id="inputRol" class="form-select form-select-sm">
-                            <option value="usuario">Usuario</option>
-                            <option value="admin">Administrador</option>
-                        </select>
-                    </div>
-                    <div class="mt-3">
-                        <label class="form-label small fw-bold">Rol de Acceso al Sistema</label>
-                        <select name="rol_acceso_id" id="inputRolAcceso" class="form-select form-select-sm">
-                            <option value="">Sin rol (compatibilidad actual)</option>
-                            {% for r in roles %}
-                            <option value="{{ r.id }}">{{ r.nombre }}</option>
-                            {% endfor %}
-                        </select>
-                        <small class="text-muted" style="font-size: 0.7rem;">Define permisos por módulo para este usuario.</small>
                     </div>
                 </form>
             </div>
@@ -1170,6 +1319,19 @@
 </div>
 
 <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const useTls = document.getElementById('inputUseTls');
+        const useSsl = document.getElementById('inputUseSsl');
+        if (useTls && useSsl) {
+            useTls.addEventListener('change', function() {
+                if (this.checked) useSsl.checked = false;
+            });
+            useSsl.addEventListener('change', function() {
+                if (this.checked) useTls.checked = false;
+            });
+        }
+    });
+
     function prepararNuevoUsuario() {
         document.getElementById('modalUsuarioTitulo').innerText = "Registrar Nuevo Usuario";
         document.getElementById('usuario_id_hidden').value = "";
@@ -1178,6 +1340,19 @@
         document.getElementById('inputRol').disabled = false;
         document.getElementById('inputRolAcceso').disabled = false;
         document.getElementById('passHelp').classList.add('d-none');
+
+        // Resetear pestaña activa y estado de SMTP
+        document.getElementById('tab-general').click();
+        document.getElementById('statusPruebaSmtp').innerText = "";
+        document.getElementById('statusPruebaSmtp').className = "small fw-bold";
+
+        const btnProbar = document.getElementById('btnProbarSmtp');
+        const iconProbar = document.getElementById('iconProbarSmtp');
+        if (btnProbar && iconProbar) {
+            btnProbar.className = "btn btn-brand btn-sm fw-bold px-3 shadow-sm";
+            iconProbar.className = "bi bi-send";
+            btnProbar.disabled = false;
+        }
     }
 
     function abrirEditarUsuario(id) {
@@ -1201,11 +1376,113 @@
                         document.getElementById('inputRol').disabled = false;
                         document.getElementById('inputRolAcceso').disabled = false;
                     }
+
+                    // Cargar campos SMTP
+                    if (data.smtp && Object.keys(data.smtp).length > 0) {
+                        document.getElementById('inputSmtpHost').value = data.smtp.smtp_host || '';
+                        document.getElementById('inputSmtpPort').value = data.smtp.smtp_port || 587;
+                        document.getElementById('inputSmtpUser').value = data.smtp.smtp_user || '';
+                        document.getElementById('inputSmtpPassword').value = ''; // No cargar contraseña en texto plano
+                        document.getElementById('inputNombreRemitente').value = data.smtp.nombre_remitente || '';
+                        document.getElementById('inputEmailRemitente').value = data.smtp.email_remitente || '';
+                        document.getElementById('inputUseTls').checked = data.smtp.use_tls;
+                        document.getElementById('inputUseSsl').checked = data.smtp.use_ssl;
+                    } else {
+                        document.getElementById('inputSmtpHost').value = '';
+                        document.getElementById('inputSmtpPort').value = 587;
+                        document.getElementById('inputSmtpUser').value = '';
+                        document.getElementById('inputSmtpPassword').value = '';
+                        document.getElementById('inputNombreRemitente').value = '';
+                        document.getElementById('inputEmailRemitente').value = '';
+                        document.getElementById('inputUseTls').checked = true;
+                        document.getElementById('inputUseSsl').checked = false;
+                    }
+
                     new bootstrap.Modal(document.getElementById('modalNuevoUsuario')).show();
                 } else {
                     alert('Error: ' + data.error);
                 }
             });
+    }
+
+    function probarSMTP() {
+        const host = document.getElementById('inputSmtpHost').value.trim();
+        const port = document.getElementById('inputSmtpPort').value.trim();
+        const user = document.getElementById('inputSmtpUser').value.trim();
+        const password = document.getElementById('inputSmtpPassword').value.trim();
+        const use_tls = document.getElementById('inputUseTls').checked;
+        const use_ssl = document.getElementById('inputUseSsl').checked;
+        const email_remitente = document.getElementById('inputEmailRemitente').value.trim();
+        const nombre_remitente = document.getElementById('inputNombreRemitente').value.trim();
+        const usuario_id = document.getElementById('usuario_id_hidden').value;
+
+        const statusEl = document.getElementById('statusPruebaSmtp');
+        const btn = document.getElementById('btnProbarSmtp');
+        const iconEl = document.getElementById('iconProbarSmtp');
+
+        if (!host || !user) {
+            alert("Por favor, llena los campos Servidor SMTP y Usuario SMTP antes de probar.");
+            return;
+        }
+
+        if (!password && !usuario_id) {
+            alert("Por favor, ingresa la contraseña SMTP para la prueba.");
+            return;
+        }
+
+        // Estado inicial de carga (flechitas girando)
+        btn.className = "btn btn-brand btn-sm fw-bold px-3 shadow-sm";
+        iconEl.className = "bi bi-arrow-repeat spin-icon";
+        statusEl.className = "small fw-bold text-warning";
+        statusEl.innerText = "Conectando...";
+        btn.disabled = true;
+
+        const formData = new FormData();
+        formData.append('smtp_host', host);
+        formData.append('smtp_port', port);
+        formData.append('smtp_user', user);
+        formData.append('smtp_password', password);
+        formData.append('use_tls', use_tls);
+        formData.append('use_ssl', use_ssl);
+        formData.append('email_remitente', email_remitente);
+        formData.append('nombre_remitente', nombre_remitente);
+        if (usuario_id) {
+            formData.append('usuario_id', usuario_id);
+        }
+
+        fetch('/preferencias/probar-smtp/', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': '{{ csrf_token }}', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            if (data.success) {
+                // Éxito: Botón verde, palomita
+                btn.className = "btn btn-success btn-sm fw-bold px-3 shadow-sm";
+                iconEl.className = "bi bi-check-lg text-white";
+                statusEl.className = "small fw-bold text-success";
+                statusEl.innerText = "✓ Conexión exitosa";
+                alert(data.message);
+            } else {
+                // Fallo: Botón rojo, tache
+                btn.className = "btn btn-danger btn-sm fw-bold px-3 shadow-sm";
+                iconEl.className = "bi bi-x-lg text-white";
+                statusEl.className = "small fw-bold text-danger";
+                statusEl.innerText = "✗ Error de conexión";
+                alert("Error al conectar:\n" + data.error);
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            // Error de red/sistema: Botón rojo, tache
+            btn.className = "btn btn-danger btn-sm fw-bold px-3 shadow-sm";
+            iconEl.className = "bi bi-x-lg text-white";
+            statusEl.className = "small fw-bold text-danger";
+            statusEl.innerText = "✗ Error del sistema";
+            alert("Error al enviar la solicitud: " + err);
+        });
     }
 
     function guardarUsuario() {

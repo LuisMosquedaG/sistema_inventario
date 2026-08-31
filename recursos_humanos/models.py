@@ -883,3 +883,30 @@ class DocumentacionProveedor(models.Model):
         ordering = ['-fecha_subida']
 
 
+class ContratistaCorreoSMTP(models.Model):
+    contratista = models.OneToOneField('Contratista', on_delete=models.CASCADE, related_name='config_smtp', verbose_name="Contratista")
+    smtp_host = models.CharField(max_length=255, blank=True, null=True, verbose_name="Servidor SMTP (Host)")
+    smtp_port = models.IntegerField(default=587, verbose_name="Puerto SMTP")
+    smtp_user = models.CharField(max_length=255, blank=True, null=True, verbose_name="Usuario SMTP (Correo)")
+    smtp_password = models.CharField(max_length=255, blank=True, null=True, verbose_name="Contraseña SMTP")
+    use_tls = models.BooleanField(default=True, verbose_name="Usar TLS")
+    use_ssl = models.BooleanField(default=False, verbose_name="Usar SSL")
+    email_remitente = models.EmailField(blank=True, null=True, verbose_name="Correo Remitente")
+    nombre_remitente = models.CharField(max_length=255, blank=True, null=True, verbose_name="Nombre Remitente")
+
+    # Correos de entrada / Notificaciones al contratista (1 Principal + 2 CC)
+    email_notificacion_1 = models.EmailField(blank=True, null=True, verbose_name="Destinatario Principal")
+    email_notificacion_2 = models.EmailField(blank=True, null=True, verbose_name="CC 1")
+    email_notificacion_3 = models.EmailField(blank=True, null=True, verbose_name="CC 2")
+
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuración SMTP de Contratista"
+        verbose_name_plural = "Configuraciones SMTP de Contratistas"
+
+    def __str__(self):
+        return f"SMTP Contratista: {self.contratista.nombre_razon_social} ({self.smtp_user})"
+
+
