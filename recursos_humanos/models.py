@@ -910,3 +910,17 @@ class ContratistaCorreoSMTP(models.Model):
         return f"SMTP Contratista: {self.contratista.nombre_razon_social} ({self.smtp_user})"
 
 
+class ContratistaRegistroPatronal(models.Model):
+    contratista = models.ForeignKey(Contratista, on_delete=models.CASCADE, related_name='registros_patronales_adicionales', verbose_name="Contratista")
+    registro_patronal = models.CharField(max_length=50, verbose_name="Registro Patronal Adicional")
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Registro Patronal Adicional de Contratista"
+        verbose_name_plural = "Registros Patronales Adicionales de Contratistas"
+        unique_together = ('contratista', 'registro_patronal')
+
+    def __str__(self):
+        return f"{self.contratista.nombre_razon_social} - {self.registro_patronal}"
+
+

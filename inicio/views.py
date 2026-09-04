@@ -271,6 +271,12 @@ def dashboard_inicio(request):
         con_rp_clean = con.registro_patronal.replace('-', '').strip().upper() if con.registro_patronal else ""
         con_name_clean = con.nombre_razon_social.strip().upper() if con.nombre_razon_social else ""
         
+        con_rps = {con_rp_clean} if con_rp_clean else set()
+        for rp_adic in con.registros_patronales_adicionales.all():
+            rp_clean_a = rp_adic.registro_patronal.replace('-', '').strip().upper() if rp_adic.registro_patronal else ""
+            if rp_clean_a:
+                con_rps.add(rp_clean_a)
+        
         total_contratista_rcv_inf = Decimal('0.00')
         unique_nss = set()
         for s in suas:
@@ -279,7 +285,7 @@ def dashboard_inicio(request):
             s_name_clean = s.nombre_razon_social.strip().upper() if s.nombre_razon_social else ""
             
             if (con_rfc_clean and con_rfc_clean == s_rfc_clean) or \
-               (con_rp_clean and con_rp_clean == s_rp_clean) or \
+               (s_rp_clean and s_rp_clean in con_rps) or \
                (con_name_clean and con_name_clean == s_name_clean):
                 totales_sua = s.trabajadores.aggregate(
                     rcv=Sum('subtotal'),

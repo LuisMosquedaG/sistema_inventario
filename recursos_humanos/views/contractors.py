@@ -98,13 +98,20 @@ def lista_contratistas(request):
         if f_rfc:
             contratistas = contratistas.filter(rfc__icontains=f_rfc)
         if f_rp:
-            contratistas = contratistas.filter(registro_patronal__icontains=f_rp)
+            contratistas = contratistas.filter(
+                Q(registro_patronal__icontains=f_rp) |
+                Q(registros_patronales_adicionales__registro_patronal__icontains=f_rp)
+            ).distinct()
         if sucursal_id:
             contratistas = contratistas.filter(sucursal_id=sucursal_id)
             
         razones_sociales_unicas = Contratista.objects.filter(empresa=empresa_actual).exclude(nombre_razon_social='').values_list('nombre_razon_social', flat=True).distinct().order_by('nombre_razon_social')
         rfcs_unicos = Contratista.objects.filter(empresa=empresa_actual).exclude(rfc='').values_list('rfc', flat=True).distinct().order_by('rfc')
-        reg_patronales_unicos = Contratista.objects.filter(empresa=empresa_actual).exclude(registro_patronal='').values_list('registro_patronal', flat=True).distinct().order_by('registro_patronal')
+        
+        from recursos_humanos.models import ContratistaRegistroPatronal
+        rps_principales = list(Contratista.objects.filter(empresa=empresa_actual).exclude(registro_patronal='').exclude(registro_patronal__isnull=True).values_list('registro_patronal', flat=True))
+        rps_adicionales = list(ContratistaRegistroPatronal.objects.filter(contratista__empresa=empresa_actual).exclude(registro_patronal='').values_list('registro_patronal', flat=True))
+        reg_patronales_unicos = sorted(list(set(rps_principales + rps_adicionales)))
         
         paginator = Paginator(contratistas, 20)
         page_number = request.GET.get('page')
@@ -129,7 +136,7 @@ def lista_contratistas(request):
         })
 
 @login_required(login_url='/login/')
-@require_hr_permission('beneficiarios', 'ver', json_response=True)
+@require_hr_permission('contratistas', 'ver', json_response=True)
 def obtener_contratista_json(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
@@ -165,6 +172,11 @@ def obtener_contratista_json(request, id):
                 'email_notificacion_3': '',
             }
 
+        # Obtener registros patronales adicionales
+        registros_patronales_adicionales = list(
+            cont.registros_patronales_adicionales.values_list('registro_patronal', flat=True)
+        )
+
         data = {
             'id': cont.id, 'clave': cont.clave or '', 'rfc': cont.rfc, 'nombre_razon_social': cont.nombre_razon_social,
             'regimen': cont.regimen or '',
@@ -177,6 +189,7 @@ def obtener_contratista_json(request, id):
             'nombre_notario_publico': cont.nombre_notario_publico, 'num_notario_publico': cont.num_notario_publico,
             'fecha_escritura_publica': cont.fecha_escritura_publica.isoformat() if cont.fecha_escritura_publica else '',
             'folio_mercantil': cont.folio_mercantil, 'numero_stps': cont.numero_stps,
+            'registros_patronales_adicionales': registros_patronales_adicionales,
             **smtp_data
         }
         return JsonResponse({'success': True, 'data': data})
@@ -248,6 +261,24 @@ def crear_contratista_ajax(request):
                 email_notificacion_3=email_notif_3,
             )
             
+        # Guardar registros patronales adicionales si se proporcionan
+        registros_raw = data.get('registros_patronales_adicionales', '')
+        if registros_raw:
+            import json
+            try:
+                lista_rps = json.loads(registros_raw) if isinstance(registros_raw, str) and (registros_raw.startswith('[') or registros_raw.startswith('{')) else [r.strip() for r in str(registros_raw).split(',') if r.strip()]
+            except Exception:
+                lista_rps = [r.strip() for r in str(registros_raw).split(',') if r.strip()]
+            
+            from recursos_humanos.models import ContratistaRegistroPatronal
+            for rp in lista_rps:
+                rp_clean = str(rp).strip().upper()
+                if rp_clean and rp_clean != (nuevo.registro_patronal or '').strip().upper():
+                    ContratistaRegistroPatronal.objects.get_or_create(
+                        contratista=nuevo,
+                        registro_patronal=rp_clean
+                    )
+
         crear_notificacion(
             empresa=empresa_actual,
             actor=request.user,
@@ -341,6 +372,28 @@ def editar_contratista_ajax(request, id):
             # Si todos los campos están vacíos, eliminamos la configuración SMTP si existe
             ContratistaCorreoSMTP.objects.filter(contratista=cont).delete()
             
+        # Guardar o actualizar registros patronales adicionales
+        registros_raw = data.get('registros_patronales_adicionales', '')
+        from recursos_humanos.models import ContratistaRegistroPatronal
+        if registros_raw is not None:
+            import json
+            try:
+                lista_rps = json.loads(registros_raw) if isinstance(registros_raw, str) and (registros_raw.startswith('[') or registros_raw.startswith('{')) else [r.strip() for r in str(registros_raw).split(',') if r.strip()]
+            except Exception:
+                lista_rps = [r.strip() for r in str(registros_raw).split(',') if r.strip()]
+            
+            rps_limpios = set()
+            for rp in lista_rps:
+                rp_clean = str(rp).strip().upper()
+                if rp_clean and rp_clean != (cont.registro_patronal or '').strip().upper():
+                    rps_limpios.add(rp_clean)
+            
+            # Eliminar los que ya no están
+            ContratistaRegistroPatronal.objects.filter(contratista=cont).exclude(registro_patronal__in=rps_limpios).delete()
+            # Crear los nuevos
+            for rp_clean in rps_limpios:
+                ContratistaRegistroPatronal.objects.get_or_create(contratista=cont, registro_patronal=rp_clean)
+
         crear_notificacion(
             empresa=empresa_actual,
             actor=request.user,

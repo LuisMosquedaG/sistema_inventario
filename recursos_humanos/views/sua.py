@@ -550,10 +550,10 @@ def alta_empleados_sua_ajax(request, id):
 
         filtros_or = Q()
         if rfc_reporte and rfc_reporte != "POR_DEFINIR": filtros_or |= Q(rfc__iexact=rfc_reporte)
-        if rp_reporte: filtros_or |= Q(registro_patronal__iexact=rp_reporte)
+        if rp_reporte: filtros_or |= Q(registro_patronal__iexact=rp_reporte) | Q(registros_patronales_adicionales__registro_patronal__iexact=rp_reporte)
         if nombre_reporte: filtros_or |= Q(nombre_razon_social__icontains=nombre_reporte)
             
-        contratista_obj = Contratista.objects.filter(Q(empresa=empresa_actual) & filtros_or).first()
+        contratista_obj = Contratista.objects.filter(Q(empresa=empresa_actual) & filtros_or).distinct().first()
         status_cont = "Existente"
         if not contratista_obj:
             contratista_obj = Contratista.objects.create(empresa=empresa_actual, sucursal_id=sucursal_id, registro_patronal=rp_reporte, nombre_razon_social=nombre_reporte, rfc=rfc_reporte or "POR_DEFINIR", calle=importacion.domicilio, cp=importacion.cp, entidad_federativa=importacion.entidad, correo=f"contacto@{rp_reporte or 'empresa'}.com", creado_por=request.user)

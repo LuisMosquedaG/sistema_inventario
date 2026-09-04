@@ -2072,6 +2072,61 @@ class ContratistaSMTPTest(TestCase):
         self.assertIn("Contratista Destinatarios S.A.", sent.body)
         self.assertIn("Proveedor Con Notificaciones", sent.body)
 
+    def test_contratista_registros_patronales_adicionales(self):
+        import json
+        from recursos_humanos.models import ContratistaRegistroPatronal
+
+        # 1. Crear contratista con registros patronales adicionales vía AJAX
+        payload = {
+            'nombre_razon_social': 'CONTRATISTA MULTI RP S.A.',
+            'rfc': 'CMR260904XYZ',
+            'correo': 'multirp@test.com',
+            'registro_patronal': 'RP-PRINCIPAL-01',
+            'registros_patronales_adicionales': json.dumps(['RP-SECUNDARIO-02', 'RP-SECUNDARIO-03'])
+        }
+        res = self.client.post(reverse('crear_contratista_ajax'), payload)
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.json()['success'])
+
+        cont = Contratista.objects.get(rfc='CMR260904XYZ')
+        self.assertEqual(cont.registro_patronal, 'RP-PRINCIPAL-01')
+        self.assertEqual(cont.registros_patronales_adicionales.count(), 2)
+        rps = list(cont.registros_patronales_adicionales.values_list('registro_patronal', flat=True))
+        self.assertIn('RP-SECUNDARIO-02', rps)
+        self.assertIn('RP-SECUNDARIO-03', rps)
+
+        # 2. Obtener contratista vía JSON y validar retorno de adicionales
+        res_json = self.client.get(reverse('obtener_contratista_json', args=[cont.id]))
+        self.assertEqual(res_json.status_code, 200)
+        data = res_json.json()['data']
+        self.assertEqual(data['registro_patronal'], 'RP-PRINCIPAL-01')
+        self.assertEqual(len(data['registros_patronales_adicionales']), 2)
+        self.assertIn('RP-SECUNDARIO-02', data['registros_patronales_adicionales'])
+
+        # 3. Editar contratista: eliminar un RP y agregar uno nuevo
+        edit_payload = {
+            'nombre_razon_social': 'CONTRATISTA MULTI RP MODIFICADO',
+            'rfc': 'CMR260904XYZ',
+            'correo': 'multirp@test.com',
+            'registro_patronal': 'RP-PRINCIPAL-01',
+            'registros_patronales_adicionales': json.dumps(['RP-SECUNDARIO-02', 'RP-NUEVO-04'])
+        }
+        res_edit = self.client.post(reverse('editar_contratista_ajax', args=[cont.id]), edit_payload)
+        self.assertEqual(res_edit.status_code, 200)
+        self.assertTrue(res_edit.json()['success'])
+
+        cont.refresh_from_db()
+        rps_actualizados = list(cont.registros_patronales_adicionales.values_list('registro_patronal', flat=True))
+        self.assertEqual(len(rps_actualizados), 2)
+        self.assertIn('RP-SECUNDARIO-02', rps_actualizados)
+        self.assertIn('RP-NUEVO-04', rps_actualizados)
+        self.assertNotIn('RP-SECUNDARIO-03', rps_actualizados)
+
+        # 4. Filtrar contratistas por registro patronal adicional
+        res_filter = self.client.get(reverse('lista_contratistas') + '?reg_patronal=NUEVO-04')
+        self.assertEqual(res_filter.status_code, 200)
+        self.assertIn('CONTRATISTA MULTI RP MODIFICADO', res_filter.content.decode('utf-8'))
+
 
 
 

@@ -28,6 +28,7 @@
         width: 32px; height: 32px; text-decoration: none !important;
     }
     .icon-action:hover { color: #00b8b9; transform: scale(1.15); background-color: transparent !important; }
+    .icon-action-danger:hover { color: #dc3545 !important; transform: scale(1.15); background-color: transparent !important; }
 
     .status-pill {
         display: inline-flex; align-items: center; font-size: 0.7rem; line-height: 1; padding: 0.25em 0.6em;
@@ -47,6 +48,32 @@
 
     .modal-body-gray::-webkit-scrollbar { width: 6px; }
     .modal-body-gray::-webkit-scrollbar-thumb { background-color: #dee2e6; border-radius: 4px; }
+
+    /* Tabs Personalizados del Modal */
+    .nav-tabs-custom {
+        border-bottom: 1px solid #dee2e6 !important;
+        background-color: #ffffff;
+    }
+    .nav-tabs-custom .nav-link {
+        border: none !important;
+        color: #6c757d !important;
+        font-size: 0.8rem;
+        font-weight: 600;
+        padding: 0.65rem 1.25rem;
+        border-bottom: 2px solid transparent !important;
+        border-radius: 0 !important;
+        transition: all 0.2s ease;
+        background: transparent !important;
+    }
+    .nav-tabs-custom .nav-link:hover {
+        color: #00b8b9 !important;
+    }
+    .nav-tabs-custom .nav-link.active {
+        color: #00b8b9 !important;
+        font-weight: 700;
+        border-bottom: 2px solid #00b8b9 !important;
+        background: transparent !important;
+    }
 
     /* ==========================================
     ZONA DE IMPORTACIÓN (ESTILO NÓMINAS)
@@ -434,14 +461,19 @@
                 {% csrf_token %}
                 <input type="hidden" name="contratista_id" id="contratista_id">
                 <!-- PESTAÑAS -->
-                <ul class="nav nav-tabs px-4 border-bottom-0" id="contratistaModalTabs" role="tablist">
+                <ul class="nav nav-tabs nav-tabs-custom px-4" id="contratistaModalTabs" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active fw-bold small text-secondary py-2" id="tab-contratista-general" data-bs-toggle="tab" data-bs-target="#panel-contratista-general" type="button" role="tab" aria-controls="panel-contratista-general" aria-selected="true" style="border-top-left-radius: 8px; border-top-right-radius: 8px;">
+                        <button class="nav-link active" id="tab-contratista-general" data-bs-toggle="tab" data-bs-target="#panel-contratista-general" type="button" role="tab" aria-controls="panel-contratista-general" aria-selected="true">
                             <i class="bi bi-file-earmark-person me-1"></i>General
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link fw-bold small text-secondary py-2" id="tab-contratista-correo" data-bs-toggle="tab" data-bs-target="#panel-contratista-correo" type="button" role="tab" aria-controls="panel-contratista-correo" aria-selected="false" style="border-top-left-radius: 8px; border-top-right-radius: 8px;">
+                        <button class="nav-link" id="tab-contratista-registros" data-bs-toggle="tab" data-bs-target="#panel-contratista-registros" type="button" role="tab" aria-controls="panel-contratista-registros" aria-selected="false">
+                            <i class="bi bi-building-check me-1"></i>Registros patronales
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-contratista-correo" data-bs-toggle="tab" data-bs-target="#panel-contratista-correo" type="button" role="tab" aria-controls="panel-contratista-correo" aria-selected="false">
                             <i class="bi bi-envelope me-1"></i>Correo (SMTP)
                         </button>
                     </li>
@@ -604,6 +636,46 @@
                             </div>
                         </div>
 
+                        <!-- PANEL REGISTROS PATRONALES -->
+                        <div class="tab-pane fade" id="panel-contratista-registros" role="tabpanel" aria-labelledby="tab-contratista-registros">
+                            <input type="hidden" name="registros_patronales_adicionales" id="hiddenRegistrosPatronalesAdicionales" value="[]">
+                            
+                            <!-- TARJETA REGISTROS ADICIONALES -->
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-body p-3 bg-white rounded-3">
+                                    <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">Registro Patronal Adicional</h6>
+                                    
+                                    <div class="row g-2 mb-3 align-items-end">
+                                        <div class="col-md-7">
+                                            <label class="form-label-custom">Registro Patronal Adicional</label>
+                                            <div class="input-group input-group-sm">
+                                                <span class="input-group-text bg-light text-muted"><i class="bi bi-file-earmark-plus"></i></span>
+                                                <input type="text" id="inputRegistroPatronalAdicional" class="form-control form-control-sm" placeholder="Ingrese registro patronal adicional..." maxlength="50" onkeydown="if(event.key==='Enter'){event.preventDefault(); agregarRegistroPatronalAdicional();}">
+                                                <button type="button" class="btn btn-brand btn-sm text-white px-3 fw-bold shadow-sm d-flex align-items-center justify-content-center" onclick="agregarRegistroPatronalAdicional()" id="btnAgregarRPAdicional" title="Agregar registro patronal adicional">
+                                                    <i class="bi bi-plus-lg"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="table-responsive rounded border">
+                                        <table class="table table-hover table-sm align-middle mb-0" id="tablaRegistrosPatronalesAdicionales">
+                                            <thead class="table-light">
+                                                <tr style="font-size: 0.75rem;">
+                                                    <th class="text-center" style="width: 50px;">#</th>
+                                                    <th class="text-center">Registro Patronal Adicional</th>
+                                                    <th class="text-center" style="width: 80px;">Acción</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="tbodyRegistrosPatronalesAdicionales" style="font-size: 0.8rem;">
+                                                <!-- Filas dinámicas -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- PANEL CORREO (SMTP) -->
                         <div class="tab-pane fade" id="panel-contratista-correo" role="tabpanel" aria-labelledby="tab-contratista-correo">
                             <div class="row">
@@ -654,12 +726,9 @@
                                                 </div>
                                                 
                                                 <div class="col-md-12 d-flex justify-content-end align-items-center gap-2 mt-3">
-                                                    <button type="button" class="btn btn-outline-secondary btn-sm px-3 shadow-sm d-flex align-items-center gap-1" id="btnToggleSMTPCard" onclick="toggleSMTPCardView()" title="Alternar entre Destinatarios y SMTP Comunes">
-                                                        <i class="bi bi-people-fill" id="iconToggleSMTPCard"></i>
-                                                        <span id="labelToggleSMTPCard" style="font-size: 0.75rem;">Destinatarios</span>
-                                                    </button>
-                                                    <button type="button" class="btn btn-brand text-white btn-sm px-3 shadow-sm position-relative" id="btnProbarContratistaSMTP" onclick="probarContratistaSMTP()" title="Probar Conexión SMTP">
+                                                    <button type="button" class="btn btn-brand text-white btn-sm px-3 shadow-sm position-relative d-flex align-items-center gap-1" id="btnProbarContratistaSMTP" onclick="probarContratistaSMTP()" title="Probar Conexión SMTP">
                                                         <i class="bi bi-send" id="iconContratistaProbarSMTP"></i>
+                                                        <span style="font-size: 0.75rem;">Probar Conexión</span>
                                                     </button>
                                                 </div>
                                             </div>
@@ -669,17 +738,21 @@
 
                                 <!-- Columna de Ayuda / Destinatarios (fija en la derecha, ocupa col-md-5) -->
                                 <div class="col-md-5" id="colHelpSMTPContratista">
-                                    <div class="card border-0 shadow-sm h-100">
-                                        <!-- VISTA 1: SMTP COMUNES -->
-                                        <div class="card-body p-3 bg-white rounded-3 d-flex flex-column" id="viewSMTPComunes" style="font-size: 0.75rem;">
-                                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                                <h6 class="fw-bold text-dark mb-0" style="font-size: 0.8rem;">
-                                                    <i class="bi bi-info-circle-fill text-primary me-1"></i>SMTP Comunes
-                                                </h6>
-                                                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none text-muted" onclick="toggleSMTPCardView('destinatarios')" title="Ir a Destinatarios" style="font-size: 0.7rem;">
-                                                    <i class="bi bi-arrow-right-circle me-1"></i>Destinatarios
+                                    <div class="card border-0 shadow-sm h-100 bg-white rounded-3">
+                                        <!-- Selector interactivo de títulos (Pestañas) -->
+                                        <div class="card-header bg-white border-0 pb-0 pt-3 px-3">
+                                            <div class="d-flex align-items-center gap-2 border-bottom pb-2">
+                                                <button type="button" id="tabHeadSMTPComunes" onclick="toggleSMTPCardView('comunes')" class="btn btn-link text-decoration-none p-0 pb-1 me-3 fw-bold" style="font-size: 0.8rem; color: #00b8b9; border-bottom: 2px solid #00b8b9; border-radius: 0; transition: all 0.2s ease;">
+                                                    SMTP Comunes
+                                                </button>
+                                                <button type="button" id="tabHeadDestinatarios" onclick="toggleSMTPCardView('destinatarios')" class="btn btn-link text-decoration-none p-0 pb-1 fw-bold text-muted" style="font-size: 0.8rem; border-bottom: 2px solid transparent; border-radius: 0; transition: all 0.2s ease;">
+                                                    Destinatarios (Entrada)
                                                 </button>
                                             </div>
+                                        </div>
+
+                                        <!-- VISTA 1: SMTP COMUNES -->
+                                        <div class="card-body p-3 bg-white rounded-3 d-flex flex-column" id="viewSMTPComunes" style="font-size: 0.75rem;">
                                             <div class="table-responsive">
                                                 <table class="table table-sm table-borderless mb-0" style="font-size: 0.65rem;">
                                                     <thead>
@@ -723,14 +796,6 @@
 
                                         <!-- VISTA 2: DESTINATARIOS (CORREOS DE ENTRADA) -->
                                         <div class="card-body p-3 bg-white rounded-3 d-flex flex-column d-none" id="viewDestinatarios" style="font-size: 0.75rem;">
-                                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                                <h6 class="fw-bold text-dark mb-0" style="font-size: 0.8rem;">
-                                                    <i class="bi bi-people-fill text-primary me-1"></i>Destinatarios (Entrada)
-                                                </h6>
-                                                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none text-muted" onclick="toggleSMTPCardView('comunes')" title="Ir a SMTP Comunes" style="font-size: 0.7rem;">
-                                                    <i class="bi bi-arrow-left-circle me-1"></i>SMTP Comunes
-                                                </button>
-                                            </div>
                                             <p class="text-muted mb-2" style="font-size: 0.68rem; line-height: 1.2;">
                                                 Correos que recibirán notificaciones cuando los proveedores suban o actualicen documentos:
                                             </p>
@@ -1061,6 +1126,13 @@
         document.getElementById('inputContratistaNotif3').value = '';
         toggleSMTPCardView('comunes');
         
+        // Reset Registros Patronales Adicionales
+        registrosPatronalesAdicionalesList = [];
+        actualizarRegistroPatronalPrincipalDisplay();
+        renderizarRegistrosPatronalesAdicionales();
+        const inputRPAdic = document.getElementById('inputRegistroPatronalAdicional');
+        if (inputRPAdic) inputRPAdic.value = '';
+
         const btn = document.getElementById('btnProbarContratistaSMTP');
         if (btn) {
             btn.className = "btn btn-brand text-white btn-sm px-3 shadow-sm position-relative";
@@ -1115,6 +1187,13 @@
                 document.getElementById('inputFechaEscritura').value = data.fecha_escritura_publica;
                 document.getElementById('inputFolioMercantil').value = data.folio_mercantil;
                 document.getElementById('inputSTPS').value = data.numero_stps;
+
+                // Cargar Registros Patronales Adicionales
+                registrosPatronalesAdicionalesList = (data.registros_patronales_adicionales || []).map(r => r.trim().toUpperCase());
+                actualizarRegistroPatronalPrincipalDisplay();
+                renderizarRegistrosPatronalesAdicionales();
+                const inputRPAdic = document.getElementById('inputRegistroPatronalAdicional');
+                if (inputRPAdic) inputRPAdic.value = '';
 
                 // Cargar campos SMTP
                 document.getElementById('inputContratistaSmtpHost').value = data.smtp_host || '';
@@ -1963,9 +2042,8 @@
     function toggleSMTPCardView(viewName) {
         const viewComunes = document.getElementById('viewSMTPComunes');
         const viewDest = document.getElementById('viewDestinatarios');
-        const btnToggle = document.getElementById('btnToggleSMTPCard');
-        const iconToggle = document.getElementById('iconToggleSMTPCard');
-        const labelToggle = document.getElementById('labelToggleSMTPCard');
+        const tabComunes = document.getElementById('tabHeadSMTPComunes');
+        const tabDest = document.getElementById('tabHeadDestinatarios');
         
         if (!viewComunes || !viewDest) return;
 
@@ -1981,18 +2059,26 @@
         if (showDest) {
             viewComunes.classList.add('d-none');
             viewDest.classList.remove('d-none');
-            if (btnToggle && iconToggle && labelToggle) {
-                btnToggle.className = "btn btn-outline-primary btn-sm px-3 shadow-sm d-flex align-items-center gap-1";
-                iconToggle.className = "bi bi-info-circle-fill";
-                labelToggle.textContent = "SMTP Comunes";
+            if (tabDest && tabComunes) {
+                tabDest.style.color = '#00b8b9';
+                tabDest.style.borderBottom = '2px solid #00b8b9';
+                tabDest.classList.remove('text-muted');
+
+                tabComunes.style.color = '';
+                tabComunes.style.borderBottom = '2px solid transparent';
+                tabComunes.classList.add('text-muted');
             }
         } else {
             viewDest.classList.add('d-none');
             viewComunes.classList.remove('d-none');
-            if (btnToggle && iconToggle && labelToggle) {
-                btnToggle.className = "btn btn-outline-secondary btn-sm px-3 shadow-sm d-flex align-items-center gap-1";
-                iconToggle.className = "bi bi-people-fill";
-                labelToggle.textContent = "Destinatarios";
+            if (tabDest && tabComunes) {
+                tabComunes.style.color = '#00b8b9';
+                tabComunes.style.borderBottom = '2px solid #00b8b9';
+                tabComunes.classList.remove('text-muted');
+
+                tabDest.style.color = '';
+                tabDest.style.borderBottom = '2px solid transparent';
+                tabDest.classList.add('text-muted');
             }
         }
     }
@@ -2064,6 +2150,115 @@
         })
         .finally(() => {
             btn.disabled = false;
+        });
+    }
+
+    // ==========================================
+    // GESTIÓN DE REGISTROS PATRONALES ADICIONALES
+    // ==========================================
+    let registrosPatronalesAdicionalesList = [];
+
+    function actualizarRegistroPatronalPrincipalDisplay() {
+        const rpInput = document.getElementById('inputRegPatronal');
+        const badgeText = document.getElementById('textRegPatronalPrincipal');
+        if (badgeText) {
+            const val = rpInput ? rpInput.value.trim().toUpperCase() : '';
+            badgeText.textContent = val || 'Sin registro principal asignado';
+        }
+    }
+
+    function renderizarRegistrosPatronalesAdicionales() {
+        const tbody = document.getElementById('tbodyRegistrosPatronalesAdicionales');
+        const hiddenInput = document.getElementById('hiddenRegistrosPatronalesAdicionales');
+        const rpPrincipal = (document.getElementById('inputRegPatronal')?.value || '').trim().toUpperCase();
+        
+        if (hiddenInput) {
+            hiddenInput.value = JSON.stringify(registrosPatronalesAdicionalesList);
+        }
+
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (registrosPatronalesAdicionalesList.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="3" class="text-center text-muted py-3">
+                        <i class="bi bi-inbox text-muted me-1"></i> No hay registros patronales adicionales registrados.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        registrosPatronalesAdicionalesList.forEach((rp, idx) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="text-center fw-bold text-muted">${idx + 1}</td>
+                <td class="text-center">
+                    <span class="text-dark font-monospace">${rp}</span>
+                </td>
+                <td class="text-center">
+                    <span class="icon-action icon-action-danger" onclick="eliminarRegistroPatronalAdicional(${idx})" title="Eliminar registro adicional">
+                        <i class="bi bi-x-circle"></i>
+                    </span>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function agregarRegistroPatronalAdicional() {
+        const input = document.getElementById('inputRegistroPatronalAdicional');
+        if (!input) return;
+        const val = input.value.trim().toUpperCase();
+        const rpPrincipal = (document.getElementById('inputRegPatronal')?.value || '').trim().toUpperCase();
+
+        if (!val) {
+            alert('Por favor, ingresa el registro patronal adicional.');
+            input.focus();
+            return;
+        }
+
+        if (rpPrincipal && val === rpPrincipal) {
+            alert('Este registro patronal ya está definido como el Registro Patronal Principal en la pestaña General.');
+            input.focus();
+            return;
+        }
+
+        if (registrosPatronalesAdicionalesList.includes(val)) {
+            alert('Este registro patronal adicional ya ha sido agregado a la lista.');
+            input.focus();
+            return;
+        }
+
+        registrosPatronalesAdicionalesList.push(val);
+        input.value = '';
+        renderizarRegistrosPatronalesAdicionales();
+        input.focus();
+    }
+
+    function eliminarRegistroPatronalAdicional(index) {
+        if (index >= 0 && index < registrosPatronalesAdicionalesList.length) {
+            registrosPatronalesAdicionalesList.splice(index, 1);
+            renderizarRegistrosPatronalesAdicionales();
+        }
+    }
+
+    // Escuchar cambios en el Registro Patronal de la pestaña General
+    const inputRegPatronalGeneral = document.getElementById('inputRegPatronal');
+    if (inputRegPatronalGeneral) {
+        inputRegPatronalGeneral.addEventListener('input', function() {
+            actualizarRegistroPatronalPrincipalDisplay();
+            renderizarRegistrosPatronalesAdicionales();
+        });
+    }
+
+    // Sincronizar al cambiar de pestaña
+    const tabRegistrosBtn = document.getElementById('tab-contratista-registros');
+    if (tabRegistrosBtn) {
+        tabRegistrosBtn.addEventListener('shown.bs.tab', function () {
+            actualizarRegistroPatronalPrincipalDisplay();
+            renderizarRegistrosPatronalesAdicionales();
         });
     }
 </script>
