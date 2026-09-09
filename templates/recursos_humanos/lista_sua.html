@@ -61,10 +61,36 @@
         text-decoration: none !important;
     }
     .btn-delete-circle:hover {
-        background-color: #fa5252;
-        color: white;
+        background-color: #fee2e2;
+        color: #ef4444;
         transform: scale(1.1);
         box-shadow: 0 4px 10px rgba(250, 82, 82, 0.2);
+    }
+
+    /* Tabs Personalizados del Modal */
+    .nav-tabs-custom {
+        border-bottom: 1px solid #dee2e6 !important;
+        background-color: #ffffff;
+    }
+    .nav-tabs-custom .nav-link {
+        border: none !important;
+        color: #6c757d !important;
+        font-size: 0.8rem;
+        font-weight: 600;
+        padding: 0.65rem 1.25rem;
+        border-bottom: 2px solid transparent !important;
+        border-radius: 0 !important;
+        transition: all 0.2s ease;
+        background: transparent !important;
+    }
+    .nav-tabs-custom .nav-link:hover {
+        color: #00b8b9 !important;
+    }
+    .nav-tabs-custom .nav-link.active {
+        color: #00b8b9 !important;
+        font-weight: 700;
+        border-bottom: 2px solid #00b8b9 !important;
+        background: transparent !important;
     }
     
     .header-info-box {
@@ -176,7 +202,7 @@
                             <td class="text-center">
                                 <div class="d-flex justify-content-center gap-1">
                                     {% if granular_hr_perms.sua.alta_empleados %}
-                                    <span class="icon-action icon-action-alta" title="Alta de Empleados" onclick="altaEmpleadosSUA({{ imp.id }})">
+                                    <span class="icon-action icon-action-alta" title="Alta de Empleados" onclick="altaEmpleadosSUA({{ imp.id }}, '{{ imp.periodo|escapejs }}', '{{ imp.registro_patronal|escapejs }}', '{{ imp.nombre_razon_social|escapejs }}')">
                                         <i class="bi bi-person-plus"></i>
                                     </span>
                                     {% endif %}
@@ -343,6 +369,123 @@
                 <button type="button" class="btn btn-light border text-secondary btn-sm flex-grow-1 fw-bold" onclick="generarReporteSUA('csv')">
                     <i class="bi bi-file-earmark-spreadsheet me-1"></i> CSV
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: ALTA DE EMPLEADOS SUA (DIRECTO O VIA CARGADOR) -->
+<div class="modal fade" id="modalAltaEmpleadosSUA" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-sheet">
+        <div class="modal-content">
+            <div class="modal-header bg-white border-bottom-0 py-3">
+                <div class="d-flex align-items-center">
+                    <div class="bg-primary bg-opacity-10 p-2 rounded me-3" style="color: #00b8b9;">
+                        <i class="bi bi-person-plus-fill fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0">Alta de Empleados desde Cédula SUA</h5>
+                        <small class="text-muted" id="subtituloAltaSUA">Seleccione el método de importación y asignación</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <!-- Resumen Cédula -->
+            <div class="px-4 py-2 bg-light border-top border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2" style="font-size: 0.78rem;">
+                <div>
+                    <span class="text-muted">Cédula:</span> <strong id="altaSuaPeriodo" class="text-dark"></strong>
+                    <span class="mx-2 text-muted">|</span>
+                    <span class="text-muted">Reg. Patronal:</span> <strong id="altaSuaRegPat" class="font-monospace text-dark"></strong>
+                </div>
+                <div>
+                    <span class="text-muted">Empresa/Contratista:</span> <strong id="altaSuaEmpresa" class="text-dark"></strong>
+                </div>
+            </div>
+
+            <!-- Pestañas de Modalidad -->
+            <ul class="nav nav-tabs nav-tabs-custom px-4 pt-2" id="altaSuaTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="tab-alta-directa" data-bs-toggle="tab" data-bs-target="#panel-alta-directa" type="button" role="tab">
+                        <i class="bi bi-file-earmark-medical me-1"></i>Desde Cédula (Estándar)
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-alta-cargador" data-bs-toggle="tab" data-bs-target="#panel-alta-cargador" type="button" role="tab">
+                        <i class="bi bi-file-earmark-spreadsheet me-1"></i>Desde Cargador Masivo
+                    </button>
+                </li>
+            </ul>
+
+            <div class="modal-body modal-body-gray p-4">
+                <input type="hidden" id="alta_sua_id">
+                
+                <div class="tab-content" id="altaSuaTabContent">
+                    
+                    <!-- PANEL 1: ALTA DIRECTA -->
+                    <div class="tab-pane fade show active" id="panel-alta-directa" role="tabpanel">
+                        <div class="card border-0 shadow-sm rounded-3 p-4 bg-white text-center">
+                            <div class="mb-3">
+                                <i class="bi bi-person-badge text-brand" style="font-size: 2.5rem; color: #00b8b9;"></i>
+                            </div>
+                            <h6 class="fw-bold text-dark mb-2">Proceso Automático Directo</h6>
+                            <p class="text-muted small mx-auto mb-4" style="max-width: 500px; font-size: 0.8rem; line-height: 1.4;">
+                                Se crearán y actualizarán los empleados detectados directamente en la Cédula SUA. 
+                                La asignación del Beneficiario se realizará cruzando la <strong>Clave de Ubicación</strong> registrada en el SUA con el catálogo de beneficiarios y se vincularán a contratos existentes del periodo.
+                            </p>
+                            <div class="d-flex justify-content-center">
+                                <button type="button" class="btn btn-brand text-white btn-sm px-4 py-2 fw-bold shadow-sm" id="btnEjecutarAltaDirecta" onclick="ejecutarAltaDirectaSUA()">
+                                    <i class="bi bi-play-circle me-1"></i> Ejecutar Alta Directa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PANEL 2: DESDE CARGADOR MASIVO -->
+                    <div class="tab-pane fade" id="panel-alta-cargador" role="tabpanel">
+                        <form id="formCargadorSUA" enctype="multipart/form-data">
+                            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <div>
+                                        <h6 class="fw-bold text-dark mb-1" style="font-size: 0.85rem;">Cargar Archivo de Asignación y Contratos</h6>
+                                        <p class="text-muted mb-0" style="font-size: 0.72rem;">
+                                            El sistema cruzará el NSS con la Cédula SUA, registrará al Beneficiario si no existe, y <strong>autogenerará el Contrato</strong> correspondiente.
+                                        </p>
+                                    </div>
+                                    <a href="{% url 'descargar_plantilla_cargador_sua' %}" class="btn btn-outline-secondary btn-sm px-3 d-flex align-items-center gap-1" style="font-size: 0.75rem;">
+                                        <i class="bi bi-download text-success"></i> Plantilla Excel
+                                    </a>
+                                </div>
+
+                                <div class="p-4 border border-2 border-dashed rounded-3 text-center bg-light mb-3" id="dropzoneCargadorSUA" style="cursor: pointer; transition: all 0.2s ease;">
+                                    <i class="bi bi-cloud-arrow-up fs-2 text-brand d-block mb-1" style="color: #00b8b9;"></i>
+                                    <span class="text-dark small fw-bold d-block" id="labelArchivoCargador">Haz clic para seleccionar o arrastra tu archivo Excel (.xlsx) o CSV</span>
+                                    <small class="text-muted d-block mt-1" style="font-size: 0.7rem;">Columnas requeridas: NSS, Nombre del Trabajador, Fecha de Trabajo Realizado, Nombre Beneficiario, Clave Beneficiario</small>
+                                    <input type="file" name="archivo" id="inputArchivoCargador" class="d-none" accept=".xlsx,.csv" required>
+                                </div>
+
+                                <div class="d-flex justify-content-end">
+                                    <button type="submit" class="btn btn-brand text-white btn-sm px-4 py-2 fw-bold shadow-sm" id="btnEjecutarCargador">
+                                        <i class="bi bi-check2-circle me-1"></i> Procesar y Autogenerar Contratos
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Indicador de Progreso / Spinner -->
+                <div id="altaSuaLoading" class="text-center py-4 d-none">
+                    <div class="spinner-border text-brand mb-2" role="status" style="color: #00b8b9;">
+                        <span class="visually-hidden">Procesando...</span>
+                    </div>
+                    <div class="text-dark fw-bold small" id="altaSuaLoadingText">Procesando empleados y contratos...</div>
+                    <small class="text-muted">Por favor espere un momento.</small>
+                </div>
+            </div>
+
+            <div class="modal-footer bg-white border-top py-2">
+                <button type="button" class="btn btn-light text-secondary btn-sm px-4" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -592,23 +735,189 @@
         });
     }
 
-    function altaEmpleadosSUA(id) {
-        if (!confirm('¿Deseas realizar el alta automática de los empleados detectados en esta cédula?\n\n- Se crearán registros con NSS, RFC, Nombre y SDI.\n- Se asignará el Beneficiario automáticamente si coincide con la Clave de Ubicación.')) return;
+    function altaEmpleadosSUA(id, periodo = '', regPat = '', razonSocial = '') {
+        const inputId = document.getElementById('alta_sua_id');
+        if (inputId) inputId.value = id;
         
+        const elPeriodo = document.getElementById('altaSuaPeriodo');
+        if (elPeriodo) elPeriodo.textContent = periodo || 'Periodo SUA';
+        
+        const elRegPat = document.getElementById('altaSuaRegPat');
+        if (elRegPat) elRegPat.textContent = regPat || '--';
+        
+        const elEmpresa = document.getElementById('altaSuaEmpresa');
+        if (elEmpresa) elEmpresa.textContent = razonSocial || 'Contratista';
+
+        // Reset Form and file input
+        const formCargador = document.getElementById('formCargadorSUA');
+        if (formCargador) formCargador.reset();
+        
+        const labelArchivo = document.getElementById('labelArchivoCargador');
+        if (labelArchivo) labelArchivo.textContent = 'Haz clic para seleccionar o arrastra tu archivo Excel (.xlsx) o CSV';
+
+        // Ocultar loading
+        const loading = document.getElementById('altaSuaLoading');
+        if (loading) loading.classList.add('d-none');
+        
+        const tabContent = document.getElementById('altaSuaTabContent');
+        if (tabContent) tabContent.classList.remove('d-none');
+
+        // Activar tab 1
+        const tabDirecta = document.getElementById('tab-alta-directa');
+        if (tabDirecta) {
+            bootstrap.Tab.getOrCreateInstance(tabDirecta).show();
+        }
+
+        const modalEl = document.getElementById('modalAltaEmpleadosSUA');
+        if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+
+    function ejecutarAltaDirectaSUA() {
+        const id = document.getElementById('alta_sua_id').value;
+        if (!id) return;
+
+        const loading = document.getElementById('altaSuaLoading');
+        const loadingText = document.getElementById('altaSuaLoadingText');
+        const tabContent = document.getElementById('altaSuaTabContent');
+        const btn = document.getElementById('btnEjecutarAltaDirecta');
+
+        if (loading && tabContent) {
+            loadingText.textContent = "Procesando alta directa desde la Cédula SUA...";
+            loading.classList.remove('d-none');
+            tabContent.classList.add('d-none');
+        }
+        if (btn) btn.disabled = true;
+
         fetch(`/recursos-humanos/sua/alta-empleados/${id}/`, {
             method: 'POST',
             headers: { 'X-CSRFToken': '{{ csrf_token }}' }
         })
         .then(r => r.json())
         .then(data => {
+            if (loading && tabContent) {
+                loading.classList.add('d-none');
+                tabContent.classList.remove('d-none');
+            }
+            if (btn) btn.disabled = false;
+
             if (data.success) {
                 alert(data.message);
+                const modalEl = document.getElementById('modalAltaEmpleadosSUA');
+                if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).hide();
                 if (confirm('¿Deseas ir al módulo de empleados para ver los registros?')) {
                     location.href = "{% url 'lista_empleados' %}";
                 }
             } else {
                 alert('Error: ' + data.error);
             }
+        })
+        .catch(err => {
+            if (loading && tabContent) {
+                loading.classList.add('d-none');
+                tabContent.classList.remove('d-none');
+            }
+            if (btn) btn.disabled = false;
+            alert('Error técnico al ejecutar el alta directa.');
+        });
+    }
+
+    // Configurar Dropzone y Carga de Archivos
+    const dropzoneCargador = document.getElementById('dropzoneCargadorSUA');
+    const inputArchivoCargador = document.getElementById('inputArchivoCargador');
+    const labelArchivoCargador = document.getElementById('labelArchivoCargador');
+
+    if (dropzoneCargador && inputArchivoCargador) {
+        dropzoneCargador.addEventListener('click', () => inputArchivoCargador.click());
+
+        dropzoneCargador.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzoneCargador.classList.add('border-primary', 'bg-light-subtle');
+        });
+
+        dropzoneCargador.addEventListener('dragleave', () => {
+            dropzoneCargador.classList.remove('border-primary', 'bg-light-subtle');
+        });
+
+        dropzoneCargador.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzoneCargador.classList.remove('border-primary', 'bg-light-subtle');
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                inputArchivoCargador.files = e.dataTransfer.files;
+                actualizarNombreArchivoCargador();
+            }
+        });
+
+        inputArchivoCargador.addEventListener('change', actualizarNombreArchivoCargador);
+    }
+
+    function actualizarNombreArchivoCargador() {
+        if (inputArchivoCargador.files && inputArchivoCargador.files.length > 0) {
+            labelArchivoCargador.innerHTML = `<i class="bi bi-file-earmark-check text-success me-1"></i> Archivo seleccionado: <strong>${inputArchivoCargador.files[0].name}</strong>`;
+        } else {
+            labelArchivoCargador.textContent = 'Haz clic para seleccionar o arrastra tu archivo Excel (.xlsx) o CSV';
+        }
+    }
+
+    const formCargador = document.getElementById('formCargadorSUA');
+    if (formCargador) {
+        formCargador.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const id = document.getElementById('alta_sua_id').value;
+            if (!id) {
+                alert('ID de Cédula SUA no especificado.');
+                return;
+            }
+
+            if (!inputArchivoCargador.files || inputArchivoCargador.files.length === 0) {
+                alert('Por favor selecciona un archivo (.xlsx o .csv) antes de continuar.');
+                return;
+            }
+
+            const loading = document.getElementById('altaSuaLoading');
+            const loadingText = document.getElementById('altaSuaLoadingText');
+            const tabContent = document.getElementById('altaSuaTabContent');
+            const btn = document.getElementById('btnEjecutarCargador');
+
+            if (loading && tabContent) {
+                loadingText.textContent = "Procesando archivo cargador, dando de alta empleados y autogenerando contratos...";
+                loading.classList.remove('d-none');
+                tabContent.classList.add('d-none');
+            }
+            if (btn) btn.disabled = true;
+
+            const formData = new FormData(this);
+            fetch(`/recursos-humanos/sua/alta-empleados-cargador/${id}/`, {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (loading && tabContent) {
+                    loading.classList.add('d-none');
+                    tabContent.classList.remove('d-none');
+                }
+                if (btn) btn.disabled = false;
+
+                if (data.success) {
+                    alert(data.message);
+                    const modalEl = document.getElementById('modalAltaEmpleadosSUA');
+                    if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+                    if (confirm('¿Deseas ir al módulo de contratos para ver los contratos generados?')) {
+                        location.href = "{% url 'lista_contratos' %}";
+                    }
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(err => {
+                if (loading && tabContent) {
+                    loading.classList.add('d-none');
+                    tabContent.classList.remove('d-none');
+                }
+                if (btn) btn.disabled = false;
+                alert('Error técnico al procesar el archivo cargador.');
+            });
         });
     }
 

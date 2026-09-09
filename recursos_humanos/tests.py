@@ -2127,6 +2127,112 @@ class ContratistaSMTPTest(TestCase):
         self.assertEqual(res_filter.status_code, 200)
         self.assertIn('CONTRATISTA MULTI RP MODIFICADO', res_filter.content.decode('utf-8'))
 
+    def test_alta_empleados_cargador_sua_y_autogeneracion_contratos(self):
+        from recursos_humanos.models import ImportacionSUA, TrabajadorSUA, Beneficiario, Empleado, Contrato, Contratista
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        
+        # 1. Crear importación SUA
+        imp = ImportacionSUA.objects.create(
+            empresa=self.empresa,
+            registro_patronal='Y1234567890',
+            rfc_empresa='HER260101XYZ',
+            nombre_razon_social='HERSA CONTRATISTA SA DE CV',
+            periodo='ENERO 2026',
+            tipo='mensual',
+            domicilio='CALLE PRUEBA 123',
+            cp='01000',
+            entidad='CIUDAD DE MEXICO'
+        )
+        
+        # Trabajador en la cédula
+        ts = TrabajadorSUA.objects.create(
+            importacion=imp,
+            nss='12345678901',
+            rfc_curp='PELJ900101HDFRXX01',
+            nombre='PEREZ LOPEZ JUAN',
+            sdi=Decimal('450.50'),
+            dias=31
+        )
+
+        # 2. Descargar plantilla
+        res_plantilla = self.client.get(reverse('descargar_plantilla_cargador_sua'))
+        self.assertEqual(res_plantilla.status_code, 200)
+        self.assertIn('attachment;', res_plantilla['Content-Disposition'])
+
+        # 3. Subir archivo cargador CSV con beneficiario inexistente
+        csv_content = (
+            "NSS,Nombre del Trabajador,Fecha de Trabajo Realizado,Nombre Beneficiario,Clave Beneficiario\n"
+            "12345678901,JUAN PEREZ LOPEZ,15/01/2026,CLIENTE ADT PRUEBA,ADT01\n"
+        ).encode('utf-8')
+        
+        uploaded_file = SimpleUploadedFile("cargador_test.csv", csv_content, content_type="text/csv")
+
+        res_cargador = self.client.post(
+            reverse('alta_empleados_cargador_sua_ajax', args=[imp.id]),
+            {'archivo': uploaded_file}
+        )
+        self.assertEqual(res_cargador.status_code, 200)
+        data = res_cargador.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['stats']['empleados_creados'], 1)
+        self.assertEqual(data['stats']['beneficiarios_creados'], 1)
+        self.assertEqual(data['stats']['contratos_creados'], 1)
+
+        # 4. Verificar creación de Beneficiario
+        ben = Beneficiario.objects.filter(empresa=self.empresa, clave='ADT01').first()
+        self.assertIsNotNone(ben)
+        self.assertEqual(ben.nombre_razon_social, 'CLIENTE ADT PRUEBA')
+
+        # 5. Verificar creación de Empleado
+        emp = Empleado.objects.filter(empresa=self.empresa, nss='12345678901').first()
+        self.assertIsNotNone(emp)
+        self.assertEqual(emp.beneficiario_id, ben.id)
+        self.assertEqual(emp.sdi, Decimal('450.50'))
+
+        # 6. Verificar creación de Contrato
+        contrato = Contrato.objects.filter(empresa=self.empresa, beneficiario=ben).first()
+        self.assertIsNotNone(contrato)
+        self.assertEqual(contrato.folio, 'CONT-ADT01-2026-01')
+        self.assertIn(emp, contrato.empleados.all())
+
+        # 7. Probar Reporte Sujeto Obligado (exportar_icsoe)
+        cont = Contratista.objects.filter(empresa=self.empresa, rfc='HER260101XYZ').first()
+        cont.numero_stps = "REPSE-12345/2026"
+        cont.save()
+        
+        # Agregar un registro patronal adicional a la cédula
+        from recursos_humanos.models import ContratistaRegistroPatronal
+        ContratistaRegistroPatronal.objects.create(contratista=cont, registro_patronal='RP-ADICIONAL-99')
+        
+        # Crear otra importación con el RP adicional y aportaciones Infonavit
+        imp2 = ImportacionSUA.objects.create(
+            empresa=self.empresa,
+            registro_patronal='RP-ADICIONAL-99',
+            rfc_empresa='HER260101XYZ',
+            nombre_razon_social='HERSA CONTRATISTA SA DE CV',
+            periodo='FEBRERO 2026',
+            tipo='bimestral'
+        )
+        TrabajadorSUA.objects.create(
+            importacion=imp2,
+            nss='12345678901',
+            nombre='PEREZ LOPEZ JUAN',
+            aportacion_patronal=Decimal('1200.00'),
+            amortizacion=Decimal('350.00'),
+            tipo_valor_infonavit='-'
+        )
+
+        res_icsoe = self.client.get(reverse('exportar_icsoe', args=[cont.id]) + '?cuatrimestre=1&anio=2026&formato=csv')
+        self.assertEqual(res_icsoe.status_code, 200)
+        content = res_icsoe.content.decode('utf-8')
+        
+        # Verificar que contiene los importes calculados y el número STPS
+        self.assertIn('1200', content)
+        self.assertIn('350', content)
+        self.assertIn('REPSE-12345/2026', content)
+
+
+
 
 
 

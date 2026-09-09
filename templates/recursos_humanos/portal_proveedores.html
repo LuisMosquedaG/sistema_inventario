@@ -188,6 +188,14 @@
         return 'bi-file-earmark';
     }
 
+    function getBadgeClassByPeriodo(periodo) {
+        if (periodo === 'mensual') return 'bg-light text-secondary border';
+        if (periodo === 'bimestral') return 'bg-info-subtle text-info-emphasis border border-info-subtle';
+        if (periodo === 'cuatrimestral') return 'bg-primary-subtle text-primary-emphasis border border-primary-subtle';
+        if (periodo === 'unica_ocasion') return 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+        return 'bg-secondary';
+    }
+
     function cargarMatrizDocumentos() {
         const anio = document.getElementById('selectAnioDoc').value;
         const body = document.getElementById('bodyMatrizDoc');
@@ -199,94 +207,92 @@
         .then(r => r.json())
         .then(data => {
             if(data.success) {
-                const conteos = {
-                    aprobados: Array(13).fill(0),
-                    rechazados: Array(13).fill(0),
-                    revision: Array(13).fill(0),
-                    vacio: Array(13).fill(0)
-                };
-
                 let html = '';
-                data.matrix.forEach(row => {
+                data.matrix.forEach((row, idx) => {
                     html += `<tr>
-                        <td class="fw-bold px-3 py-3 bg-white text-dark align-middle" style="font-size:0.85rem;">${row.nombre}</td>`;
-                    for(let m=1; m<=12; m++) {
-                        const doc = row.meses[m];
-                        if(doc.id) {
-                            const iconClass = getIconByFilename(doc.nombre_archivo);
-                            
+                        <td class="fw-bold px-3 py-2 bg-white text-dark align-middle text-start" style="font-size:0.83rem; min-width: 250px;">
+                            <span class="text-muted small me-1">${idx + 1}.</span>
+                            <span>${row.nombre}</span>
+                        </td>`;
+
+                    row.periodos.forEach(p => {
+                        const colspanAttr = p.colspan > 1 ? `colspan="${p.colspan}"` : '';
+
+                        if (p.id) {
+                            const iconClass = getIconByFilename(p.nombre_archivo);
                             let cellClass = '';
                             let titleText = 'Descargar archivo';
                             let actionHtml = '';
-                            
-                            if (doc.estatus === 'revision') {
-                                conteos.revision[m]++;
-                                cellClass = 'cell-revision';
-                                titleText = 'En revisión - ' + titleText;
-                                actionHtml = `
-                                    <span class="btn-delete-doc-prov" onclick="event.stopPropagation(); event.preventDefault(); eliminarDocProveedor(${doc.id})" title="Eliminar documento">
-                                        <i class="bi bi-x-lg"></i>
-                                    </span>
-                                `;
-                            } else if (doc.estatus === 'aprobado') {
-                                conteos.aprobados[m]++;
-                                cellClass = 'cell-aprobado';
-                                titleText = 'Aprobado - ' + titleText;
-                            } else if (doc.estatus === 'rechazado') {
-                                conteos.rechazados[m]++;
-                                cellClass = 'cell-rechazado';
-                                titleText = 'Rechazado: ' + (doc.comentario_rechazo || 'Sin comentarios') + ' - ' + titleText;
-                                actionHtml = `
-                                    <span class="btn-delete-doc-prov" onclick="event.stopPropagation(); event.preventDefault(); eliminarDocProveedor(${doc.id})" title="Eliminar documento">
-                                        <i class="bi bi-x-lg"></i>
-                                    </span>
-                                `;
-                            }
-                            
                             let watermarkColor = 'rgba(108, 117, 125, 0.08)';
-                            if (doc.estatus === 'revision') {
+
+                            if (p.estatus === 'revision') {
+                                cellClass = 'cell-revision';
+                                titleText = 'En revisión (' + p.label + ') - ' + p.nombre_archivo;
                                 watermarkColor = 'rgba(240, 140, 0, 0.12)';
-                            } else if (doc.estatus === 'aprobado') {
+                                actionHtml = `
+                                    <span class="btn-delete-doc-prov" onclick="event.stopPropagation(); event.preventDefault(); eliminarDocProveedor(${p.id})" title="Eliminar documento">
+                                        <i class="bi bi-x-lg"></i>
+                                    </span>
+                                `;
+                            } else if (p.estatus === 'aprobado') {
+                                cellClass = 'cell-aprobado';
+                                titleText = 'Aprobado (' + p.label + ') - ' + p.nombre_archivo;
                                 watermarkColor = 'rgba(47, 158, 68, 0.12)';
-                            } else if (doc.estatus === 'rechazado') {
+                            } else if (p.estatus === 'rechazado') {
+                                cellClass = 'cell-rechazado';
+                                titleText = 'Rechazado: ' + (p.comentario_rechazo || 'Sin comentarios') + ' - ' + p.nombre_archivo;
                                 watermarkColor = 'rgba(224, 49, 49, 0.12)';
+                                actionHtml = `
+                                    <span class="btn-delete-doc-prov" onclick="event.stopPropagation(); event.preventDefault(); eliminarDocProveedor(${p.id})" title="Eliminar documento">
+                                        <i class="bi bi-x-lg"></i>
+                                    </span>
+                                `;
                             }
-                            
-                            html += `<td class="align-middle p-0 ${cellClass}" style="width: 100px; height: 50px; position: relative;">
-                                <a href="${doc.url}" target="_blank" class="text-decoration-none d-block document-cell p-0" title="${titleText}">
+
+                            let labelTag = p.colspan > 1 ? `<div class="d-flex align-items-center justify-content-center h-100"><span class="badge bg-white bg-opacity-75 text-dark fw-bold border shadow-xs" style="font-size: 0.68rem; z-index: 2;">${p.short_label}</span></div>` : '';
+
+                            html += `<td ${colspanAttr} class="align-middle p-0 ${cellClass}" style="height: 50px; position: relative;">
+                                <a href="${p.url}" target="_blank" class="text-decoration-none d-block document-cell p-0" title="${titleText}">
                                     <div class="watermark-icon" style="color: ${watermarkColor};">
                                         <i class="bi ${iconClass}"></i>
                                     </div>
                                     <div class="z-index-2 d-flex flex-column justify-content-between h-100 w-100 p-2">
                                         ${actionHtml}
+                                        ${labelTag}
                                     </div>
                                 </a>
                             </td>`;
                         } else {
-                            conteos.vacio[m]++;
-                            html += `<td class="text-center align-middle p-0 cursor-pointer cell-vacio" onclick="prepararSubidaProveedor('${row.codigo}', ${m})" style="width: 100px; height: 50px;">
+                            let labelContent = p.colspan > 1 ? 
+                                `<span class="text-muted opacity-50 d-flex align-items-center gap-1" style="font-size: 0.75rem;"><i class="bi bi-plus-lg"></i> ${p.short_label}</span>` :
+                                `<span class="text-muted opacity-25" style="font-size: 0.85rem;"><i class="bi bi-plus-lg"></i></span>`;
+
+                            const escNombre = (row.nombre || '').replace(/'/g, "\\'");
+                            html += `<td ${colspanAttr} class="text-center align-middle p-0 cursor-pointer cell-vacio" onclick="prepararSubidaProveedor('${row.codigo}', ${p.num}, '${row.formato || 'pdf'}', '${escNombre}')" style="height: 50px;" title="Subir documento: ${p.label}">
                                 <div class="document-cell d-flex align-items-center justify-content-center">
-                                    <span class="text-muted opacity-25" style="font-size: 0.85rem;"><i class="bi bi-plus-lg"></i></span>
+                                    ${labelContent}
                                 </div>
                             </td>`;
                         }
-                    }
+                    });
                     html += `</tr>`;
                 });
                 body.innerHTML = html;
 
-                if (foot) {
+                if (foot && data.resumen) {
                     let footHtml = `<tr style="border-top: 2px solid #dee2e6;">
-                        <td class="fw-bold px-3 py-1.5 text-dark text-start align-middle" style="font-size: 0.72rem; background-color: #f8f9fa;">
-                            <i class="bi bi-grid-1x2 me-1 text-muted"></i> Resumen de Documentos
-                        </td>`;
-                    for (let m = 1; m <= 12; m++) {
-                        footHtml += `<td class="text-center align-middle py-1.5" style="font-size: 0.68rem; background-color: #f8f9fa; color: #495057; white-space: nowrap; font-weight: 500; line-height: 1.3;">
-                            <div>A:${conteos.aprobados[m]} <span class="text-muted opacity-30 mx-0.5">·</span> R:${conteos.rechazados[m]}</div>
-                            <div>ER:${conteos.revision[m]} <span class="text-muted opacity-30 mx-0.5">·</span> SD:${conteos.vacio[m]}</div>
-                        </td>`;
-                    }
-                    footHtml += `</tr>`;
+                        <td colspan="13" class="px-3 py-2 bg-light text-dark align-middle">
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 small">
+                                <span class="fw-bold"><i class="bi bi-grid-1x2 me-1 text-muted"></i> Resumen de Documentos (${anio}):</span>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-1"><i class="bi bi-check-circle me-1"></i> Aprobados: <strong>${data.resumen.aprobados}</strong></span>
+                                    <span class="badge bg-warning bg-opacity-10 text-warning-emphasis border border-warning-subtle px-2 py-1"><i class="bi bi-clock-history me-1"></i> En revisión: <strong>${data.resumen.revision}</strong></span>
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle px-2 py-1"><i class="bi bi-x-circle me-1"></i> Rechazados: <strong>${data.resumen.rechazados}</strong></span>
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary border px-2 py-1"><i class="bi bi-dash-circle me-1"></i> Sin documento: <strong>${data.resumen.vacio}</strong></span>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>`;
                     foot.innerHTML = footHtml;
                 }
             } else {
@@ -301,19 +307,58 @@
 
     let currentProvDocCode = null;
     let currentProvMonth = null;
+    let currentProvDocFormat = 'pdf';
+    let currentProvDocName = '';
 
-    function prepararSubidaProveedor(codigo, mes) {
+    function prepararSubidaProveedor(codigo, mes, formato, nombreDoc) {
         currentProvDocCode = codigo;
         currentProvMonth = mes;
-        document.getElementById('inputFileDocProveedor').click();
+        currentProvDocFormat = formato || 'pdf';
+        currentProvDocName = nombreDoc || '';
+        
+        const fileInput = document.getElementById('inputFileDocProveedor');
+        if (currentProvDocFormat === 'pdf') {
+            fileInput.accept = '.pdf,application/pdf';
+        } else if (currentProvDocFormat === 'excel') {
+            fileInput.accept = '.xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv';
+        } else if (currentProvDocFormat === 'zip') {
+            fileInput.accept = '.zip,application/zip,application/x-zip-compressed';
+        } else {
+            fileInput.accept = '*/*';
+        }
+        fileInput.click();
     }
 
     function ejecutarSubidaDocProveedor() {
         const fileInput = document.getElementById('inputFileDocProveedor');
         if(!fileInput.files.length) return;
 
+        const file = fileInput.files[0];
+        const fileName = file.name.toLowerCase();
+        
+        // Validación estricta de formato en cliente
+        if (currentProvDocFormat === 'pdf') {
+            if (!fileName.endsWith('.pdf')) {
+                alert(`Formato no permitido. Este documento solo acepta archivos en formato PDF (.pdf).`);
+                fileInput.value = '';
+                return;
+            }
+        } else if (currentProvDocFormat === 'excel') {
+            if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls') && !fileName.endsWith('.csv')) {
+                alert(`Formato no permitido. Este documento solo acepta archivos de Excel (.xlsx, .xls) o CSV (.csv).`);
+                fileInput.value = '';
+                return;
+            }
+        } else if (currentProvDocFormat === 'zip') {
+            if (!fileName.endsWith('.zip') && !fileName.endsWith('.rar') && !fileName.endsWith('.7z')) {
+                alert(`Formato no permitido. Este documento solo acepta archivos comprimidos (.zip).`);
+                fileInput.value = '';
+                return;
+            }
+        }
+
         const formData = new FormData();
-        formData.append('archivo', fileInput.files[0]);
+        formData.append('archivo', file);
         formData.append('nombre_documento', currentProvDocCode);
         formData.append('mes', currentProvMonth);
         formData.append('anio', document.getElementById('selectAnioDoc').value);

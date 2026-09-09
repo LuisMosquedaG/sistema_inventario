@@ -636,41 +636,150 @@ def exportar_sisub_contratos(request, id):
 def exportar_icsoe(request, id):
     empresa_actual = get_empresa_actual(request)
     try:
-        contratista = Contratista.objects.get(id=id, empresa=empresa_actual)
-        cuat = request.GET.get('cuatrimestre', '1'); anio = request.GET.get('anio', '')
+        contratista = get_object_or_404(Contratista, id=id, empresa=empresa_actual)
+        cuat = request.GET.get('cuatrimestre', '1')
+        anio = request.GET.get('anio', '')
         formato = request.GET.get('formato', 'excel')
         if not anio: return HttpResponse("Año requerido", status=400)
         
-        periodos_busqueda = {'1': ['FEBRERO', 'ABRIL'], '2': ['JUNIO', 'AGOSTO'], '3': ['OCTUBRE', 'DICIEMBRE']}.get(cuat, [])
-        rfc_input_clean = re.sub(r'[^A-Z0-9]', '', contratista.rfc.upper())
-        importaciones_qs = ImportacionSUA.objects.filter(empresa=empresa_actual, tipo='bimestral')
-        
-        importaciones_validas = []
-        for imp in importaciones_qs:
-            if anio not in imp.periodo: continue
-            if not any(mes in imp.periodo.upper() for mes in periodos_busqueda): continue
-            rfc_rep_clean = re.sub(r'[^A-Z0-9]', '', (imp.rfc_empresa or '').upper())
-            if rfc_input_clean == rfc_rep_clean or rfc_input_clean in rfc_rep_clean or rfc_rep_clean in rfc_input_clean:
-                importaciones_validas.append(imp)
-        
-        contratos = Contrato.objects.filter(contratista=contratista, empresa=empresa_actual)
-        beneficiarios_ids = contratos.values_list('beneficiario_id', flat=True).distinct()
-        beneficiarios = Beneficiario.objects.filter(id__in=beneficiarios_ids, empresa=empresa_actual)
-        claves_beneficiarios = set((b.clave or '').strip().upper() for b in beneficiarios if b.clave)
+        import datetime
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from openpyxl.utils import get_column_letter
+        from .sua import obtener_rango_fechas_periodo
 
+        cuat_num = int(cuat)
+        anio_num = int(anio)
+        if cuat_num == 1:
+            cuat_start = datetime.date(anio_num, 1, 1)
+            cuat_end = datetime.date(anio_num, 4, 30)
+        elif cuat_num == 2:
+            cuat_start = datetime.date(anio_num, 5, 1)
+            cuat_end = datetime.date(anio_num, 8, 31)
+        else:
+            cuat_start = datetime.date(anio_num, 9, 1)
+            cuat_end = datetime.date(anio_num, 12, 31)
+
+        rfc_input_clean = re.sub(r'[^A-Z0-9]', '', (contratista.rfc or '').upper())
+        rp_principal_clean = re.sub(r'[^A-Z0-9]', '', (contratista.registro_patronal or '').upper())
+        rps_adicionales = set(
+            re.sub(r'[^A-Z0-9]', '', (r.registro_patronal or '').upper())
+            for r in contratista.registros_patronales_adicionales.all()
+        )
+        rps_contratista = ({rp_principal_clean} | rps_adicionales) - {''}
+
+        # Buscar importaciones SUA de la empresa
+        importaciones_qs = ImportacionSUA.objects.filter(empresa=empresa_actual)
+        importaciones_validas = []
+
+        for imp in importaciones_qs:
+            # 1. Validar coincidencia de Contratista (RFC, Registros Patronales Principal/Adicionales o Razón Social)
+            imp_rfc_clean = re.sub(r'[^A-Z0-9]', '', (imp.rfc_empresa or '').upper())
+            imp_rp_clean = re.sub(r'[^A-Z0-9]', '', (imp.registro_patronal or '').upper())
+            
+            match_contratista = False
+            if rfc_input_clean and rfc_input_clean != "POR_DEFINIR":
+                if rfc_input_clean == imp_rfc_clean or rfc_input_clean in imp_rfc_clean or imp_rfc_clean in rfc_input_clean:
+                    match_contratista = True
+            if not match_contratista and imp_rp_clean:
+                if imp_rp_clean in rps_contratista:
+                    match_contratista = True
+            if not match_contratista and contratista.nombre_razon_social and imp.nombre_razon_social:
+                if contratista.nombre_razon_social.strip().upper() in imp.nombre_razon_social.strip().upper():
+                    match_contratista = True
+
+            if not match_contratista:
+                continue
+
+            # 2. Validar periodo cronológico del cuatrimestre
+            try:
+                imp_start, imp_end = obtener_rango_fechas_periodo(imp.periodo, imp.tipo)
+                if imp_start <= cuat_end and imp_end >= cuat_start:
+                    importaciones_validas.append(imp)
+            except Exception:
+                if str(anio_num) in (imp.periodo or ''):
+                    importaciones_validas.append(imp)
+
+        # 3. Obtener Contratos del Contratista en este cuatrimestre
+        contratos_cuat = Contrato.objects.filter(
+            contratista=contratista,
+            empresa=empresa_actual,
+            fecha_inicio__lte=cuat_end
+        ).filter(
+            Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=cuat_start)
+        ).prefetch_related('empleados')
+
+        nss_contrato_set = set()
+        curp_contrato_set = set()
+        claves_beneficiarios = set()
+        beneficiarios_cuat_ids = set()
+
+        for con in contratos_cuat:
+            if con.beneficiario_id:
+                beneficiarios_cuat_ids.add(con.beneficiario_id)
+                if con.beneficiario and con.beneficiario.clave:
+                    claves_beneficiarios.add(con.beneficiario.clave.strip().upper())
+            for emp in con.empleados.all():
+                if emp.nss:
+                    nss_clean = re.sub(r'[^0-9]', '', emp.nss).strip()[:11]
+                    if nss_clean: nss_contrato_set.add(nss_clean)
+                if emp.curp:
+                    curp_clean = re.sub(r'[^A-Z0-9]', '', emp.curp.upper()).strip()[:18]
+                    if curp_clean: curp_contrato_set.add(curp_clean)
+
+        # Incluir también empleados de este contratista asignados a estos beneficiarios
+        if beneficiarios_cuat_ids:
+            empleados_directos = Empleado.objects.filter(
+                empresa=empresa_actual,
+                contratista=contratista,
+                beneficiario_id__in=beneficiarios_cuat_ids
+            )
+            for emp in empleados_directos:
+                if emp.nss:
+                    nss_clean = re.sub(r'[^0-9]', '', emp.nss).strip()[:11]
+                    if nss_clean: nss_contrato_set.add(nss_clean)
+                if emp.curp:
+                    curp_clean = re.sub(r'[^A-Z0-9]', '', emp.curp.upper()).strip()[:18]
+                    if curp_clean: curp_contrato_set.add(curp_clean)
+
+        # 4. Calcular Aportaciones y Amortizaciones
         total_sin_credito = total_con_credito = total_amortizaciones = Decimal('0')
+
         for imp in importaciones_validas:
             for t in imp.trabajadores.all():
+                t_nss_clean = re.sub(r'[^0-9]', '', t.nss or '').strip()[:11]
+                t_curp_clean = re.sub(r'[^A-Z0-9]', '', (t.rfc_curp or '').upper()).strip()[:18]
                 clave_t = (t.clave_ubicacion or '').strip().upper()
-                if clave_t in claves_beneficiarios:
+
+                is_match = False
+                if t_nss_clean and t_nss_clean in nss_contrato_set:
+                    is_match = True
+                elif t_curp_clean and t_curp_clean in curp_contrato_set:
+                    is_match = True
+                elif clave_t and clave_t in claves_beneficiarios:
+                    is_match = True
+                elif not nss_contrato_set and not claves_beneficiarios:
+                    is_match = True
+
+                if is_match:
                     val_inf = (t.tipo_valor_infonavit or '').strip()
-                    if not val_inf or val_inf == '-': total_sin_credito += t.aportacion_patronal
-                    else: total_con_credito += t.aportacion_patronal
-                    total_amortizaciones += t.amortizacion
+                    if not val_inf or val_inf == '-':
+                        total_sin_credito += (t.aportacion_patronal or Decimal('0'))
+                    else:
+                        total_con_credito += (t.aportacion_patronal or Decimal('0'))
+                    total_amortizaciones += (t.amortizacion or Decimal('0'))
 
         total_sin_credito_red = total_sin_credito.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
         total_con_credito_red = total_con_credito.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
         total_amortizaciones_red = total_amortizaciones.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+
+        # 5. Obtener Número STPS (del Contratista o de su Proveedor RH vinculado)
+        numero_stps_val = (contratista.numero_stps or '').strip()
+        if not numero_stps_val:
+            prov = getattr(contratista, 'proveedores', None)
+            if prov:
+                p_first = prov.first()
+                if p_first and p_first.numero_stps:
+                    numero_stps_val = p_first.numero_stps.strip()
 
         headers = ["cuatrimestre que declara", "anio que se declara", "Registro Federal de Contribuyente", "Nombre denominacion o razon social", "Correo electronico", "Telefono (numero extension)", "Registro patronal", "Calle", "Numero exterior", "Numero interior", "Entre calle", "Y calle", "Colonia", "Codigo Postal", "Municipio o Alcaldia", "Entidad Federativa", "Representante legal", "Administrador Unico", "Numero de escritura", "Nombre del Notario Publico", "Numero de Notario Publico", "Fecha de escritura publica", "Folio mercantil", "Aportacion sin credito de los trabajadores del contrato", "Aportacion con credito de los trabajadores del contrato", "Amortizacion de los trabajadores del contrato", "Numero de registro ante la Secretaria de Trabajo y Prevision Social"]
         
@@ -684,7 +793,7 @@ def exportar_icsoe(request, id):
             contratista.fecha_escritura_publica.strftime('%d/%m/%Y') if contratista.fecha_escritura_publica else '', 
             contratista.folio_mercantil, 
             total_sin_credito_red, total_con_credito_red, total_amortizaciones_red, 
-            contratista.numero_stps
+            numero_stps_val
         ]
 
         if formato == 'csv':
@@ -696,8 +805,6 @@ def exportar_icsoe(request, id):
             writer.writerow(data_row)
             return response
         else:
-            from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-            from openpyxl.utils import get_column_letter
             wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Sujeto Obligado (SISUB)"
             fill_brand = PatternFill(start_color="00b8b9", end_color="00b8b9", fill_type="solid")
             fill_gray = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
@@ -732,15 +839,10 @@ def exportar_carga_trabajadores(request, id):
     anio = request.GET.get('anio', datetime.now().year)
     formato = request.GET.get('formato', 'excel')
     beneficiario_id = request.GET.get('beneficiario_id', 'todos')
-
-    cuat_meses_map = {
-        1: [1, 2, 3, 4],
-        2: [5, 6, 7, 8],
-        3: [9, 10, 11, 12],
-    }
-    meses_filtro = cuat_meses_map.get(cuat, [1, 2, 3, 4])
     
     import datetime as dt
+    from .sua import obtener_rango_fechas_periodo
+
     anio_int = int(anio)
     if cuat == 1:
         cuat_start = dt.date(anio_int, 1, 1)
@@ -752,24 +854,43 @@ def exportar_carga_trabajadores(request, id):
         cuat_start = dt.date(anio_int, 9, 1)
         cuat_end = dt.date(anio_int, 12, 31)
     
-    # RFC limpio para búsqueda
-    rfc_clean_input = re.sub(r'[^A-Z0-9]', '', contratista.rfc.upper())
+    # Identificadores del contratista
+    rfc_clean_input = re.sub(r'[^A-Z0-9]', '', (contratista.rfc or '').upper())
+    rp_principal_clean = re.sub(r'[^A-Z0-9]', '', (contratista.registro_patronal or '').upper())
+    rps_adicionales = set(
+        re.sub(r'[^A-Z0-9]', '', (r.registro_patronal or '').upper())
+        for r in contratista.registros_patronales_adicionales.all()
+    )
+    rps_contratista = ({rp_principal_clean} | rps_adicionales) - {''}
 
     # Buscar Importaciones SUA
+    importaciones_qs = ImportacionSUA.objects.filter(empresa=empresa_actual)
     importaciones_validas = []
-    for mes in meses_filtro:
-        nombre_mes = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"][mes]
+
+    for imp in importaciones_qs:
+        imp_rfc_clean = re.sub(r'[^A-Z0-9]', '', (imp.rfc_empresa or '').upper())
+        imp_rp_clean = re.sub(r'[^A-Z0-9]', '', (imp.registro_patronal or '').upper())
         
-        # Filtramos por empresa, mes y año de forma independiente para mayor flexibilidad (ej: "Enero-2024" o "Enero 2024")
-        imps = ImportacionSUA.objects.filter(
-            empresa=empresa_actual, 
-            periodo__icontains=nombre_mes
-        ).filter(
-            periodo__icontains=str(anio)
-        )
-        for imp in imps:
-            rfc_imp_clean = re.sub(r'[^A-Z0-9]', '', (imp.rfc_empresa or '').upper())
-            if rfc_clean_input == rfc_imp_clean or rfc_clean_input in rfc_imp_clean or rfc_imp_clean in rfc_clean_input:
+        match_contratista = False
+        if rfc_clean_input and rfc_clean_input != "POR_DEFINIR":
+            if rfc_clean_input == imp_rfc_clean or rfc_clean_input in imp_rfc_clean or imp_rfc_clean in rfc_clean_input:
+                match_contratista = True
+        if not match_contratista and imp_rp_clean:
+            if imp_rp_clean in rps_contratista:
+                match_contratista = True
+        if not match_contratista and contratista.nombre_razon_social and imp.nombre_razon_social:
+            if contratista.nombre_razon_social.strip().upper() in imp.nombre_razon_social.strip().upper():
+                match_contratista = True
+
+        if not match_contratista:
+            continue
+
+        try:
+            imp_start, imp_end = obtener_rango_fechas_periodo(imp.periodo, imp.tipo)
+            if imp_start <= cuat_end and imp_end >= cuat_start:
+                importaciones_validas.append(imp)
+        except Exception:
+            if str(anio_int) in (imp.periodo or ''):
                 importaciones_validas.append(imp)
 
     # Obtener Trabajadores de estas importaciones
@@ -1173,32 +1294,105 @@ def obtener_documentacion_proveedor_json(request, id):
         anio = datetime.now().year
     docs_existentes = DocumentacionProveedor.objects.filter(proveedor=prov, anio=anio)
     
-    tipos_doc = DocumentacionProveedor.NOMBRE_DOC_CHOICES
+    catalogo = DocumentacionProveedor.CATALOGO_DOCUMENTOS
+    
+    meses_nombres = [
+        ('Ene', 'Enero'), ('Feb', 'Febrero'), ('Mar', 'Marzo'), ('Abr', 'Abril'),
+        ('May', 'Mayo'), ('Jun', 'Junio'), ('Jul', 'Julio'), ('Ago', 'Agosto'),
+        ('Sep', 'Septiembre'), ('Oct', 'Octubre'), ('Nov', 'Noviembre'), ('Dic', 'Diciembre')
+    ]
+    
+    bimestres_nombres = [
+        ('1er Bim', '1er Bimestre (Ene - Feb)'),
+        ('2do Bim', '2do Bimestre (Mar - Abr)'),
+        ('3er Bim', '3er Bimestre (May - Jun)'),
+        ('4to Bim', '4to Bimestre (Jul - Ago)'),
+        ('5to Bim', '5to Bimestre (Sep - Oct)'),
+        ('6to Bim', '6to Bimestre (Nov - Dic)')
+    ]
+    
+    cuatrimestres_nombres = [
+        ('1er Cuatrimestre', '1er Cuatrimestre (Ene - Abr)'),
+        ('2do Cuatrimestre', '2do Cuatrimestre (May - Ago)'),
+        ('3er Cuatrimestre', '3er Cuatrimestre (Sep - Dic)')
+    ]
     
     matrix = []
-    for code, nombre in tipos_doc:
-        meses_data = {}
-        for m in range(1, 13):
-            doc = docs_existentes.filter(nombre_documento=code, mes=m).first()
-            meses_data[m] = {
+    totales_resumen = {
+        'aprobados': 0,
+        'revision': 0,
+        'rechazados': 0,
+        'vacio': 0,
+        'total_requeridos': 0
+    }
+    
+    for item in catalogo:
+        code = item['codigo']
+        nombre = item['nombre']
+        periodo = item['periodo']
+        badge = item['badge']
+        num_periodos = item['num_periodos']
+        
+        periodos_list = []
+        for p in range(1, num_periodos + 1):
+            totales_resumen['total_requeridos'] += 1
+            if periodo == 'mensual':
+                colspan = 1
+                short_lbl = meses_nombres[p - 1][0]
+                full_lbl = meses_nombres[p - 1][1]
+            elif periodo == 'bimestral':
+                colspan = 2
+                short_lbl = bimestres_nombres[p - 1][0]
+                full_lbl = bimestres_nombres[p - 1][1]
+            elif periodo == 'cuatrimestral':
+                colspan = 4
+                short_lbl = cuatrimestres_nombres[p - 1][0]
+                full_lbl = cuatrimestres_nombres[p - 1][1]
+            else: # unica_ocasion
+                colspan = 12
+                short_lbl = 'Única ocasión'
+                full_lbl = 'Documento de Única Ocasión'
+                
+            doc = docs_existentes.filter(nombre_documento=code, mes=p).first()
+            if doc:
+                if doc.status == 'aprobado':
+                    totales_resumen['aprobados'] += 1
+                elif doc.status == 'revision':
+                    totales_resumen['revision'] += 1
+                elif doc.status == 'rechazado':
+                    totales_resumen['rechazados'] += 1
+            else:
+                totales_resumen['vacio'] += 1
+                
+            periodos_list.append({
+                'num': p,
+                'colspan': colspan,
+                'short_label': short_lbl,
+                'label': full_lbl,
                 'id': doc.id if doc else None,
                 'url': reverse('descargar_documento_proveedor', args=[doc.id]) if doc else None,
                 'nombre_archivo': doc.archivo.name.split('/')[-1] if doc else None,
                 'estatus': doc.status if doc else None,
                 'estatus_display': doc.get_status_display() if doc else None,
                 'comentario_rechazo': (doc.comentario_rechazo or '') if doc else ''
-            }
+            })
+            
         matrix.append({
             'codigo': code,
             'nombre': nombre,
-            'meses': meses_data
+            'periodo': periodo,
+            'formato': item.get('formato', 'pdf'),
+            'badge': badge,
+            'num_periodos': num_periodos,
+            'periodos': periodos_list
         })
         
     return JsonResponse({
         'success': True,
         'proveedor': prov.nombre_razon_social,
         'anio': anio,
-        'matrix': matrix
+        'matrix': matrix,
+        'resumen': totales_resumen
     })
 
 
@@ -1220,6 +1414,24 @@ def subir_documento_proveedor_ajax(request, id):
         
         if not archivo:
             return JsonResponse({'success': False, 'error': 'No se proporcionó ningún archivo.'})
+            
+        dict_catalogo = {d['codigo']: d for d in DocumentacionProveedor.CATALOGO_DOCUMENTOS}
+        doc_meta = dict_catalogo.get(nombre_documento, {})
+        nombre_doc_humano = doc_meta.get('nombre', nombre_documento)
+        periodo_tipo = doc_meta.get('periodo', 'mensual')
+        formato_esperado = doc_meta.get('formato', 'pdf')
+        
+        # Validar extensión de archivo estrictamente según el formato indicado
+        filename_lower = archivo.name.lower()
+        if formato_esperado == 'pdf':
+            if not filename_lower.endswith('.pdf'):
+                return JsonResponse({'success': False, 'error': f'Formato no permitido. El documento "{nombre_doc_humano}" solo acepta archivos en formato PDF (.pdf).'})
+        elif formato_esperado == 'excel':
+            if not any(filename_lower.endswith(ext) for ext in ['.xlsx', '.xls', '.csv']):
+                return JsonResponse({'success': False, 'error': f'Formato no permitido. El documento "{nombre_doc_humano}" solo acepta archivos de Excel (.xlsx, .xls) o CSV (.csv).'})
+        elif formato_esperado == 'zip':
+            if not any(filename_lower.endswith(ext) for ext in ['.zip', '.rar', '.7z']):
+                return JsonResponse({'success': False, 'error': f'Formato no permitido. El documento "{nombre_doc_humano}" solo acepta archivos comprimidos (.zip).'})
             
         doc, creado = DocumentacionProveedor.objects.get_or_create(
             empresa=empresa_actual,
@@ -1246,10 +1458,33 @@ def subir_documento_proveedor_ajax(request, id):
         # Enviar correo de notificación al contratista si existe
         if prov.contratista:
             try:
-                # Nombre legible del documento
-                dict_docs = dict(DocumentacionProveedor.NOMBRE_DOC_CHOICES)
-                nombre_doc_humano = dict_docs.get(nombre_documento, nombre_documento)
+                dict_catalogo = {d['codigo']: d for d in DocumentacionProveedor.CATALOGO_DOCUMENTOS}
+                doc_meta = dict_catalogo.get(nombre_documento, {})
+                nombre_doc_humano = doc_meta.get('nombre', nombre_documento)
+                periodo_tipo = doc_meta.get('periodo', 'mensual')
                 accion_str = "subido" if creado else "actualizado"
+
+                meses_nombres = {
+                    1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
+                    5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
+                    9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+                }
+                bimestres_nombres = {
+                    1: '1er Bimestre (Ene-Feb)', 2: '2do Bimestre (Mar-Abr)', 3: '3er Bimestre (May-Jun)',
+                    4: '4to Bimestre (Jul-Ago)', 5: '5to Bimestre (Sep-Oct)', 6: '6to Bimestre (Nov-Dic)'
+                }
+                cuatrimestres_nombres = {
+                    1: '1er Cuatrimestre (Ene-Abr)', 2: '2do Cuatrimestre (May-Ago)', 3: '3er Cuatrimestre (Sep-Dic)'
+                }
+                
+                if periodo_tipo == 'mensual':
+                    periodo_str = f"{meses_nombres.get(mes, f'Mes {mes}')} {anio}"
+                elif periodo_tipo == 'bimestral':
+                    periodo_str = f"{bimestres_nombres.get(mes, f'Bimestre {mes}')} {anio}"
+                elif periodo_tipo == 'cuatrimestral':
+                    periodo_str = f"{cuatrimestres_nombres.get(mes, f'Cuatrimestre {mes}')} {anio}"
+                else: # unica_ocasion
+                    periodo_str = f"Única Ocasión (Ejercicio {anio})"
 
                 # Asunto y Cuerpo
                 asunto = f"Documento {accion_str} por proveedor: {prov.nombre_razon_social}"
@@ -1258,7 +1493,7 @@ def subir_documento_proveedor_ajax(request, id):
                     f"Le notificamos que el proveedor \"{prov.nombre_razon_social}\" ha {accion_str} "
                     f"el siguiente documento en el portal del sistema:\n\n"
                     f"• Documento: {nombre_doc_humano}\n"
-                    f"• Período: {mes}/{anio}\n\n"
+                    f"• Período: {periodo_str}\n\n"
                     f"Se adjunta el archivo correspondiente para su revisión.\n\n"
                     f"Atentamente,\n"
                     f"Sistema CrossoverSuite"
@@ -1292,11 +1527,13 @@ def eliminar_documento_proveedor_ajax(request, id):
     empresa_actual = get_empresa_actual(request)
     if hasattr(request.user, 'proveedor_rh'):
         doc = get_object_or_404(DocumentacionProveedor, id=id, proveedor=request.user.proveedor_rh, empresa=empresa_actual)
+        if doc.status == 'aprobado':
+            return JsonResponse({'success': False, 'error': 'No puedes eliminar un documento que ya ha sido aprobado.'})
     else:
+        from preferencias.permissions import user_has_hr_permission
+        if not user_has_hr_permission(request, 'proveedores_contratistas', 'eliminar') and not user_has_hr_permission(request, 'proveedores_contratistas', 'documentacion') and not user_has_hr_permission(request, 'proveedores_contratistas', 'ver'):
+            return JsonResponse({'success': False, 'error': 'No cuentas con permiso para eliminar documentos.'}, status=403)
         doc = get_object_or_404(DocumentacionProveedor, id=id, empresa=empresa_actual)
-        
-    if doc.status == 'aprobado' and hasattr(request.user, 'proveedor_rh'):
-        return JsonResponse({'success': False, 'error': 'No puedes eliminar un documento que ya ha sido aprobado.'})
 
     try:
         if doc.archivo:

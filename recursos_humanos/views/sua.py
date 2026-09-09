@@ -613,3 +613,400 @@ def alta_empleados_sua_ajax(request, id):
         )
         return JsonResponse({'success': True, 'message': f'Proceso completado: {creados} nuevos, {actualizados} actualizados. {vinculados_a_contrato} vinculaciones a contratos realizadas. Contratista: {contratista_obj.nombre_razon_social}'})
     except Exception as e: return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required(login_url='/login/')
+@require_POST
+@require_hr_permission('sua', 'alta_empleados', json_response=True)
+def alta_empleados_cargador_sua_ajax(request, id):
+    empresa_actual = get_empresa_actual(request)
+    try:
+        importacion = get_object_or_404(ImportacionSUA, id=id, empresa=empresa_actual)
+        sucursal_id = request.session.get('sucursal_id')
+        archivo = request.FILES.get('archivo')
+        if not archivo:
+            return JsonResponse({'success': False, 'error': 'Por favor selecciona un archivo (.xlsx o .csv).'})
+        
+        filename = archivo.name.lower()
+        if not (filename.endswith('.xlsx') or filename.endswith('.csv')):
+            return JsonResponse({'success': False, 'error': 'El archivo debe ser de formato Excel (.xlsx) o CSV (.csv).'})
+        
+        # 1. Identificar al Contratista desde la Cédula SUA
+        sua_start, sua_end = obtener_rango_fechas_periodo(importacion.periodo, importacion.tipo)
+        rfc_reporte = re.sub(r'[^A-Z0-9]', '', (importacion.rfc_empresa or '').upper()).strip()[:13]
+        rp_reporte = re.sub(r'[^A-Z0-9]', '', (importacion.registro_patronal or '').upper()).strip()
+        nombre_reporte = (importacion.nombre_razon_social or '').strip()
+
+        filtros_or = Q()
+        if rfc_reporte and rfc_reporte != "POR_DEFINIR":
+            filtros_or |= Q(rfc__iexact=rfc_reporte)
+        if rp_reporte:
+            filtros_or |= Q(registro_patronal__iexact=rp_reporte) | Q(registros_patronales_adicionales__registro_patronal__iexact=rp_reporte)
+        if nombre_reporte:
+            filtros_or |= Q(nombre_razon_social__icontains=nombre_reporte)
+            
+        contratista_obj = Contratista.objects.filter(Q(empresa=empresa_actual) & filtros_or).distinct().first()
+        if not contratista_obj:
+            contratista_obj = Contratista.objects.create(
+                empresa=empresa_actual,
+                sucursal_id=sucursal_id,
+                registro_patronal=rp_reporte,
+                nombre_razon_social=nombre_reporte,
+                rfc=rfc_reporte or "POR_DEFINIR",
+                calle=importacion.domicilio,
+                cp=importacion.cp,
+                entidad_federativa=importacion.entidad,
+                correo=f"contacto@{rp_reporte or 'empresa'}.com",
+                creado_por=request.user
+            )
+        else:
+            save_needed = False
+            if (not contratista_obj.rfc or contratista_obj.rfc == "POR_DEFINIR") and rfc_reporte:
+                contratista_obj.rfc = rfc_reporte
+                save_needed = True
+            if not contratista_obj.registro_patronal and rp_reporte:
+                contratista_obj.registro_patronal = rp_reporte
+                save_needed = True
+            if save_needed:
+                contratista_obj.save()
+
+        # 2. Leer filas del archivo
+        rows = []
+        if filename.endswith('.xlsx'):
+            wb = openpyxl.load_workbook(archivo, data_only=True)
+            sheet = wb.active
+            rows = list(sheet.iter_rows(values_only=True))
+        else:
+            raw_content = archivo.read()
+            decoded_content = None
+            for encoding in ['utf-8-sig', 'utf-8', 'latin-1', 'cp1252']:
+                try:
+                    decoded_content = raw_content.decode(encoding)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            if not decoded_content:
+                decoded_content = raw_content.decode('utf-8', errors='ignore')
+            reader = csv.reader(decoded_content.splitlines())
+            rows = [r for r in reader if any(str(field).strip() for field in r)]
+
+        if not rows or len(rows) < 2:
+            return JsonResponse({'success': False, 'error': 'El archivo no contiene filas de datos para procesar.'})
+
+        # Normalizar encabezados
+        raw_headers = [str(h or '').strip() for h in rows[0]]
+        
+        def norm_header(h):
+            h_clean = h.upper()
+            h_clean = re.sub(r'[ÁÀÄÂ]', 'A', h_clean)
+            h_clean = re.sub(r'[ÉÈËÊ]', 'E', h_clean)
+            h_clean = re.sub(r'[ÍÌÏÎ]', 'I', h_clean)
+            h_clean = re.sub(r'[ÓÒÖÔ]', 'O', h_clean)
+            h_clean = re.sub(r'[ÚÙÜÛ]', 'U', h_clean)
+            h_clean = re.sub(r'[^A-Z0-9]', '', h_clean)
+            return h_clean
+
+        norm_headers = [norm_header(h) for h in raw_headers]
+        
+        nss_idx = None
+        nombre_idx = None
+        fecha_idx = None
+        ben_nombre_idx = None
+        ben_clave_idx = None
+
+        for idx, nh in enumerate(norm_headers):
+            if 'NSS' in nh or 'SEGURIDADSOCIAL' in nh or 'SEGUROSOCIAL' in nh:
+                if nss_idx is None: nss_idx = idx
+            elif 'TRABAJADOR' in nh or 'EMPLEADO' in nh or 'NOMBRE' in nh:
+                if 'BENEFICIARIO' not in nh:
+                    if nombre_idx is None: nombre_idx = idx
+            elif 'FECHA' in nh or 'PERIODO' in nh:
+                if fecha_idx is None: fecha_idx = idx
+            elif 'BENEFICIARIO' in nh or 'CLIENTE' in nh:
+                if 'CLAVE' in nh or 'CODIGO' in nh:
+                    if ben_clave_idx is None: ben_clave_idx = idx
+                else:
+                    if ben_nombre_idx is None: ben_nombre_idx = idx
+            elif 'CLAVE' in nh or 'UBICACION' in nh:
+                if ben_clave_idx is None: ben_clave_idx = idx
+
+        # Positional fallback if columns are in expected order: NSS, Nombre, Fecha, Nombre Ben, Clave Ben
+        if nss_idx is None and len(norm_headers) >= 1: nss_idx = 0
+        if nombre_idx is None and len(norm_headers) >= 2: nombre_idx = 1
+        if fecha_idx is None and len(norm_headers) >= 3: fecha_idx = 2
+        if ben_nombre_idx is None and len(norm_headers) >= 4: ben_nombre_idx = 3
+        if ben_clave_idx is None and len(norm_headers) >= 5: ben_clave_idx = 4
+
+        # Pre-cargar trabajadores SUA de esta importación indexados por NSS limpio
+        sua_trabajadores_map = {}
+        for ts in importacion.trabajadores.all():
+            nss_ts_clean = re.sub(r'[^0-9]', '', ts.nss or '').strip()[:11]
+            if nss_ts_clean:
+                sua_trabajadores_map[nss_ts_clean] = ts
+
+        # Pre-cargar beneficiarios existentes de la empresa
+        beneficiarios_cache = {
+            b.clave.strip().upper(): b for b in Beneficiario.objects.filter(empresa=empresa_actual) if b.clave
+        }
+
+        # Pre-cargar contratos existentes
+        contratos_cache = list(Contrato.objects.filter(empresa=empresa_actual, contratista=contratista_obj))
+
+        empleados_creados = 0
+        empleados_actualizados = 0
+        beneficiarios_creados = 0
+        contratos_creados = 0
+        vinculaciones_realizadas = 0
+
+        import datetime
+
+        def parse_fecha_cargador(val):
+            if not val:
+                return None
+            if isinstance(val, (datetime.date, datetime.datetime)):
+                return val.date() if isinstance(val, datetime.datetime) else val
+            val_str = str(val).strip()
+            for fmt in ('%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y', '%Y/%m/%d', '%d/%m/%y', '%d-%m-%y'):
+                try:
+                    return datetime.datetime.strptime(val_str, fmt).date()
+                except ValueError:
+                    continue
+            return None
+
+        with transaction.atomic():
+            for row in rows[1:]:
+                if not row or not any(str(c).strip() for c in row if c is not None):
+                    continue
+
+                raw_nss = str(row[nss_idx] or '') if nss_idx is not None and nss_idx < len(row) else ''
+                nss_clean = re.sub(r'[^0-9]', '', raw_nss).strip()[:11]
+                if not nss_clean:
+                    continue
+
+                raw_nombre = str(row[nombre_idx] or '') if nombre_idx is not None and nombre_idx < len(row) else ''
+                raw_fecha = row[fecha_idx] if fecha_idx is not None and fecha_idx < len(row) else None
+                raw_ben_nombre = str(row[ben_nombre_idx] or '') if ben_nombre_idx is not None and ben_nombre_idx < len(row) else ''
+                raw_ben_clave = str(row[ben_clave_idx] or '') if ben_clave_idx is not None and ben_clave_idx < len(row) else ''
+
+                clave_ben_clean = raw_ben_clave.strip().upper()
+                nombre_ben_clean = raw_ben_nombre.strip()
+
+                # Si no hay clave de beneficiario, intentar usar el nombre o marcar GENERAL
+                if not clave_ben_clean and nombre_ben_clean:
+                    clave_ben_clean = re.sub(r'[^A-Z0-9]', '', nombre_ben_clean.upper())[:10]
+                if not clave_ben_clean:
+                    clave_ben_clean = "GENERAL"
+
+                if not nombre_ben_clean:
+                    nombre_ben_clean = f"Beneficiario {clave_ben_clean}"
+
+                # 3. Obtener o crear Beneficiario
+                beneficiario_obj = beneficiarios_cache.get(clave_ben_clean)
+                if not beneficiario_obj:
+                    beneficiario_obj = Beneficiario.objects.filter(empresa=empresa_actual, clave__iexact=clave_ben_clean).first()
+                if not beneficiario_obj:
+                    beneficiario_obj = Beneficiario.objects.create(
+                        empresa=empresa_actual,
+                        sucursal_id=sucursal_id,
+                        clave=clave_ben_clean,
+                        nombre_razon_social=nombre_ben_clean,
+                        creado_por=request.user
+                    )
+                    beneficiarios_cache[clave_ben_clean] = beneficiario_obj
+                    beneficiarios_creados += 1
+
+                # 4. Datos del trabajador desde Cédula SUA (SDI, CURP)
+                ts = sua_trabajadores_map.get(nss_clean)
+                curp_clean = ""
+                if ts and ts.rfc_curp:
+                    curp_clean = re.sub(r'[^A-Z0-9]', '', ts.rfc_curp.upper()).strip()[:18]
+                sdi_val = ts.sdi if ts and ts.sdi else Decimal('0')
+
+                # Si el nombre viene en el cargador, lo usamos; si no, el del SUA
+                nombre_trabajador_final = raw_nombre.strip() or (ts.nombre.strip() if ts else f"Empleado {nss_clean}")
+
+                nombre_partes = nombre_trabajador_final.split(' ')
+                paterno = ""; materno = ""; nombres = nombre_trabajador_final
+                if len(nombre_partes) >= 3:
+                    paterno = nombre_partes[0]; materno = nombre_partes[1]; nombres = " ".join(nombre_partes[2:])
+                elif len(nombre_partes) == 2:
+                    paterno = nombre_partes[0]; nombres = nombre_partes[1]
+
+                # 5. Crear o actualizar Empleado
+                filtros_emp = Q(nss=nss_clean)
+                if curp_clean:
+                    filtros_emp |= Q(curp=curp_clean)
+                empleado = Empleado.objects.filter(filtros_emp, empresa=empresa_actual).first()
+
+                audit_nota = f"Alta vía Cargador Cédula SUA {importacion.periodo} ({contratista_obj.nombre_razon_social})"
+                if not empleado:
+                    empleado = Empleado.objects.create(
+                        empresa=empresa_actual,
+                        sucursal_id=sucursal_id,
+                        nss=nss_clean,
+                        curp=curp_clean,
+                        nombre=nombres,
+                        apellido_paterno=paterno,
+                        apellido_materno=materno,
+                        sdi=sdi_val,
+                        contratista=contratista_obj,
+                        beneficiario=beneficiario_obj,
+                        clave_ubicacion=clave_ben_clean,
+                        puesto="",
+                        departamento="General",
+                        notas=audit_nota,
+                        estado='activo',
+                        creado_por=request.user
+                    )
+                    empleados_creados += 1
+                else:
+                    empleado.contratista = contratista_obj
+                    empleado.beneficiario = beneficiario_obj
+                    empleado.clave_ubicacion = clave_ben_clean
+                    if sdi_val > 0:
+                        empleado.sdi = sdi_val
+                    if curp_clean and not empleado.curp:
+                        empleado.curp = curp_clean
+                    empleado.save()
+                    empleados_actualizados += 1
+
+                # 6. Autogenerar o Vincular Contrato
+                # Fechas del contrato: se toma el rango de la cédula SUA o fecha específica
+                fecha_fila = parse_fecha_cargador(raw_fecha)
+                if fecha_fila and (fecha_fila < sua_start or fecha_fila > sua_end):
+                    c_start = datetime.date(fecha_fila.year, fecha_fila.month, 1)
+                    if fecha_fila.month == 12:
+                        c_end = datetime.date(fecha_fila.year + 1, 1, 1) - datetime.timedelta(days=1)
+                    else:
+                        c_end = datetime.date(fecha_fila.year, fecha_fila.month + 1, 1) - datetime.timedelta(days=1)
+                else:
+                    c_start = sua_start
+                    c_end = sua_end
+
+                anio_folio = c_start.year
+                mes_folio = f"{c_start.month:02d}"
+                folio_sugerido = f"CONT-{clave_ben_clean}-{anio_folio}-{mes_folio}"
+
+                # Buscar contrato que coincida con contratista, beneficiario y periodo
+                contrato_match = None
+                for c_cand in contratos_cache:
+                    if c_cand.beneficiario_id == beneficiario_obj.id and c_cand.contratista_id == contratista_obj.id:
+                        start_ok = c_cand.fecha_inicio <= c_end
+                        end_ok = (c_cand.fecha_fin is None or c_cand.fecha_fin >= c_start)
+                        if start_ok and end_ok:
+                            contrato_match = c_cand
+                            break
+
+                if not contrato_match:
+                    contrato_match = Contrato.objects.create(
+                        empresa=empresa_actual,
+                        sucursal_id=sucursal_id,
+                        contratista=contratista_obj,
+                        beneficiario=beneficiario_obj,
+                        folio=folio_sugerido,
+                        fecha_inicio=c_start,
+                        fecha_fin=c_end,
+                        vigencia_contrato=c_end,
+                        objeto_contrato=f"Servicios especializados según Cédula SUA {importacion.periodo} / Cargador",
+                        tipo_contrato='01',
+                        estado='vigente',
+                        creado_por=request.user
+                    )
+                    contratos_cache.append(contrato_match)
+                    contratos_creados += 1
+
+                # Vincular empleado al contrato si aún no está asignado
+                if not contrato_match.empleados.filter(id=empleado.id).exists():
+                    contrato_match.empleados.add(empleado)
+                    vinculaciones_realizadas += 1
+
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'procesó alta masiva vía Cargador SUA: {empleados_creados} nuevos empleados, {contratos_creados} contratos nuevos',
+            link='/recursos-humanos/contratos/',
+            propietario=request.user
+        )
+
+        msg = (
+            f"Proceso completado exitosamente.\n\n"
+            f"• Empleados: {empleados_creados} creados, {empleados_actualizados} actualizados.\n"
+            f"• Beneficiarios: {beneficiarios_creados} creados automáticamente.\n"
+            f"• Contratos: {contratos_creados} autogenerados.\n"
+            f"• Vinculaciones a Contratos: {vinculaciones_realizadas} asignaciones.\n"
+            f"• Contratista: {contratista_obj.nombre_razon_social}"
+        )
+        return JsonResponse({
+            'success': True,
+            'message': msg,
+            'stats': {
+                'empleados_creados': empleados_creados,
+                'empleados_actualizados': empleados_actualizados,
+                'beneficiarios_creados': beneficiarios_creados,
+                'contratos_creados': contratos_creados,
+                'vinculaciones_realizadas': vinculaciones_realizadas,
+                'contratista': contratista_obj.nombre_razon_social
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required(login_url='/login/')
+def descargar_plantilla_cargador_sua(request):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Cargador_Empleados_SUA"
+    
+    headers = [
+        "NSS", 
+        "Nombre del Trabajador", 
+        "Fecha de Trabajo Realizado", 
+        "Nombre Beneficiario", 
+        "Clave Beneficiario"
+    ]
+    
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    
+    fill_header = PatternFill(start_color="00B8B9", end_color="00B8B9", fill_type="solid")
+    font_header = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    align_center = Alignment(horizontal="center", vertical="center")
+    border_thin = Border(
+        left=Side(style='thin', color="CCCCCC"),
+        right=Side(style='thin', color="CCCCCC"),
+        top=Side(style='thin', color="CCCCCC"),
+        bottom=Side(style='thin', color="CCCCCC")
+    )
+    
+    ws.row_dimensions[1].height = 26
+    for col_idx, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_idx, value=header)
+        cell.fill = fill_header
+        cell.font = font_header
+        cell.alignment = align_center
+        cell.border = border_thin
+        
+    sample_data = [
+        ["12345678901", "HERNANDEZ LOPEZ CARLOS", "01/01/2026", "SERVICIOS INDUSTRIALES ADT", "ADT01"],
+        ["98765432109", "MARTINEZ GARCIA SOFIA", "01/01/2026", "SERVICIOS INDUSTRIALES ADT", "ADT01"],
+    ]
+    
+    for row_idx, row_data in enumerate(sample_data, start=2):
+        ws.row_dimensions[row_idx].height = 20
+        for col_idx, val in enumerate(row_data, 1):
+            cell = ws.cell(row=row_idx, column=col_idx, value=val)
+            cell.border = border_thin
+            if col_idx in [1, 3, 5]:
+                cell.alignment = align_center
+                
+    ws.column_dimensions['A'].width = 18
+    ws.column_dimensions['B'].width = 35
+    ws.column_dimensions['C'].width = 28
+    ws.column_dimensions['D'].width = 35
+    ws.column_dimensions['E'].width = 22
+    
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="Plantilla_Cargador_SUA_Empleados.xlsx"'
+    wb.save(response)
+    return response
+
