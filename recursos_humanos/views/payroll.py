@@ -398,12 +398,24 @@ def exportar_nominas_excel(request):
             
         data.append(nom.sucursal.nombre if nom.sucursal else "General")
         
+        from django.utils import timezone
+
         for c_idx, val in enumerate(data, 1):
-            cl = ws.cell(row=r_idx, column=c_idx, value=val)
-            if isinstance(val, (datetime, date)):
+            if isinstance(val, datetime):
+                if timezone.is_aware(val):
+                    val = timezone.localtime(val).replace(tzinfo=None)
+                else:
+                    val = val.replace(tzinfo=None)
+                cl = ws.cell(row=r_idx, column=c_idx, value=val)
+                cl.number_format = 'yyyy-mm-dd hh:mm:ss'
+            elif isinstance(val, date):
+                cl = ws.cell(row=r_idx, column=c_idx, value=val)
                 cl.number_format = 'yyyy-mm-dd'
             elif isinstance(val, Decimal):
+                cl = ws.cell(row=r_idx, column=c_idx, value=val)
                 cl.number_format = '#,##0.00'
+            else:
+                cl = ws.cell(row=r_idx, column=c_idx, value=val)
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); response['Content-Disposition'] = 'attachment; filename="Listado_Nominas.xlsx"'; wb.save(response); return response
 
 @login_required(login_url='/login/')
@@ -477,9 +489,17 @@ def exportar_sisub_trabajadores(request, id):
         if con:
             recibos.append(r)
     
-    rfc_clean_input = re.sub(r'[^A-Z0-9]', '', contratista.rfc.upper())
+    rfc_clean_input = re.sub(r'[^A-Z0-9]', '', (contratista.rfc or '').upper())
+    rp_principal_clean = re.sub(r'[^A-Z0-9]', '', (contratista.registro_patronal or '').upper())
+    rps_adicionales = set(
+        re.sub(r'[^A-Z0-9]', '', (r.registro_patronal or '').upper())
+        for r in contratista.registros_patronales_adicionales.all()
+    )
+    rps_contratista = ({rp_principal_clean} | rps_adicionales) - {''}
+
     sua_data = {}
     ultimo_sdi_trabajador = {}
+    ultimo_rp_trabajador = {}
     nombres = ["","Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]
     for m in meses_filtro:
         imps = ImportacionSUA.objects.filter(
@@ -490,45 +510,69 @@ def exportar_sisub_trabajadores(request, id):
         )
         for imp in imps:
             rfc_imp_clean = re.sub(r'[^A-Z0-9]', '', (imp.rfc_empresa or '').upper())
-            if rfc_clean_input == rfc_imp_clean or rfc_clean_input in rfc_imp_clean or rfc_imp_clean in rfc_clean_input:
-                bim = (m+1)//2
-                for ts in imp.trabajadores.all():
-                    tn = re.sub(r'[^0-9]','',ts.nss) if ts.nss else ""; tc = re.sub(r'[^A-Z0-9]','',(ts.rfc_curp or '').upper()); tm = (ts.nombre or "").strip().upper()
-                    
-                    sdi_val = ts.sdi
-                    last_known_sdi = None
-                    if tn and tn in ultimo_sdi_trabajador:
-                        last_known_sdi = ultimo_sdi_trabajador[tn]
-                    elif tc and tc in ultimo_sdi_trabajador:
-                        last_known_sdi = ultimo_sdi_trabajador[tc]
-                    elif tm and tm in ultimo_sdi_trabajador:
-                        last_known_sdi = ultimo_sdi_trabajador[tm]
-                    
-                    if (not sdi_val or sdi_val == 0) and last_known_sdi:
-                        sdi_val = last_known_sdi
-                    elif sdi_val and sdi_val > 0:
-                        if tn: ultimo_sdi_trabajador[tn] = sdi_val
-                        if tc: ultimo_sdi_trabajador[tc] = sdi_val
-                        if tm: ultimo_sdi_trabajador[tm] = sdi_val
-                    
-                    inc_val = 0
-                    try:
-                        inc_val = int(float(ts.incapacidades or 0))
-                    except:
-                        pass
-                    
-                    for key_sua in [(tn, bim), (tc, bim), (tm, bim)]:
-                        if not key_sua[0]:
-                            continue
-                        if key_sua not in sua_data:
-                            sua_data[key_sua] = {'sdi': sdi_val, 'inc': 0}
-                        sua_data[key_sua]['inc'] += inc_val
-                        if sdi_val and sdi_val > 0:
-                            sua_data[key_sua]['sdi'] = sdi_val
+            imp_rp_clean = re.sub(r'[^A-Z0-9]', '', (imp.registro_patronal or '').upper())
+
+            match_contratista = False
+            if rfc_clean_input and rfc_clean_input != "POR_DEFINIR":
+                if rfc_clean_input == rfc_imp_clean or rfc_clean_input in rfc_imp_clean or rfc_imp_clean in rfc_clean_input:
+                    match_contratista = True
+            if not match_contratista and imp_rp_clean:
+                if imp_rp_clean in rps_contratista:
+                    match_contratista = True
+            if not match_contratista and contratista.nombre_razon_social and imp.nombre_razon_social:
+                if contratista.nombre_razon_social.strip().upper() in imp.nombre_razon_social.strip().upper():
+                    match_contratista = True
+
+            if not match_contratista:
+                continue
+
+            bim = (m+1)//2
+            rp_imp_val = (imp.registro_patronal or '').strip()
+            
+            for ts in imp.trabajadores.all():
+                tn = re.sub(r'[^0-9]','',ts.nss) if ts.nss else ""; tc = re.sub(r'[^A-Z0-9]','',(ts.rfc_curp or '').upper()); tm = (ts.nombre or "").strip().upper()
+                
+                sdi_val = ts.sdi
+                last_known_sdi = None
+                if tn and tn in ultimo_sdi_trabajador:
+                    last_known_sdi = ultimo_sdi_trabajador[tn]
+                elif tc and tc in ultimo_sdi_trabajador:
+                    last_known_sdi = ultimo_sdi_trabajador[tc]
+                elif tm and tm in ultimo_sdi_trabajador:
+                    last_known_sdi = ultimo_sdi_trabajador[tm]
+                
+                if (not sdi_val or sdi_val == 0) and last_known_sdi:
+                    sdi_val = last_known_sdi
+                elif sdi_val and sdi_val > 0:
+                    if tn: ultimo_sdi_trabajador[tn] = sdi_val
+                    if tc: ultimo_sdi_trabajador[tc] = sdi_val
+                    if tm: ultimo_sdi_trabajador[tm] = sdi_val
+                
+                if rp_imp_val:
+                    if tn: ultimo_rp_trabajador[tn] = rp_imp_val
+                    if tc: ultimo_rp_trabajador[tc] = rp_imp_val
+                    if tm: ultimo_rp_trabajador[tm] = rp_imp_val
+
+                inc_val = 0
+                try:
+                    inc_val = int(float(ts.incapacidades or 0))
+                except:
+                    pass
+                
+                for key_sua in [(tn, bim), (tc, bim), (tm, bim)]:
+                    if not key_sua[0]:
+                        continue
+                    if key_sua not in sua_data:
+                        sua_data[key_sua] = {'sdi': sdi_val, 'inc': 0, 'rp': rp_imp_val}
+                    sua_data[key_sua]['inc'] += inc_val
+                    if sdi_val and sdi_val > 0:
+                        sua_data[key_sua]['sdi'] = sdi_val
+                    if rp_imp_val:
+                        sua_data[key_sua]['rp'] = rp_imp_val
 
 
 
-    headers = ["cuatrimestre que declara", "año que se declara", "bimestre", "Registro Federal de Contribuyente del sujeto obligado", "Numero de contrato", "Registro Patronal ante el IMSS", "Numero de Seguro Social del trabajador", "Calle (centro del trabajo)", "Numero exterior (centro del trabajo)", "Numero interior (centro de trabajo)", "Colonia (centro de trabajo)", "Codigo Postal (centro de trabajo)", "Municipio o Alcaldia (centro de trabajo)", "Entidad federativa (centro de trabajo)", "Monto Percepciones variables", "Monto Percepciones fijas", "Dias de Incapacidad", "Percepciones no integrables al SBA", "salario no excedente (VSM)"]
+    headers = ["Cuatrimestre que se declara", "Año que se declara", "Bimestre", "Registro Federal de Contribuyente del sujeto obligado", "Numero de contrato", "Registro Patronal ante el IMSS", "Numero de Seguro Social del trabajador", "Calle (centro del trabajo)", "Numero exterior (centro del trabajo)", "Numero interior (centro de trabajo)", "Colonia (centro de trabajo)", "Codigo Postal (centro de trabajo)", "Municipio o Alcaldia (centro de trabajo)", "Entidad federativa (centro de trabajo)", "Monto Percepciones variables", "Monto Percepciones fijas", "Dias de Incapacidad", "Percepciones no integrables al SBA", "Salario no excedente (VSM)"]
     
     CONCEPTOS_SAT = {
         "001": "Sueldos y Salarios",
@@ -611,7 +655,7 @@ def exportar_sisub_trabajadores(request, id):
         if key not in grouped_data:
             con = emp_map.get(n) or emp_map.get(curp) or emp_map.get(name)
             ben = con.beneficiario if con else None
-            s = sua_data.get((n, bim)) or sua_data.get((curp, bim)) or sua_data.get((name, bim)) or {'sdi': Decimal('0.00'), 'inc': 0}
+            s = sua_data.get((n, bim)) or sua_data.get((curp, bim)) or sua_data.get((name, bim)) or {'sdi': Decimal('0.00'), 'inc': 0, 'rp': ''}
             
             sdi_val = s['sdi']
             if not sdi_val or sdi_val == 0:
@@ -638,13 +682,27 @@ def exportar_sisub_trabajadores(request, id):
                     if (not sdi_val or sdi_val == 0) and r.sdi and r.sdi > 0:
                         sdi_val = r.sdi
             
+            # Obtener Registro Patronal específico del trabajador en el SUA
+            rp_trabajador = s.get('rp')
+            if not rp_trabajador:
+                if n and n in ultimo_rp_trabajador:
+                    rp_trabajador = ultimo_rp_trabajador[n]
+                elif curp and curp in ultimo_rp_trabajador:
+                    rp_trabajador = ultimo_rp_trabajador[curp]
+                elif name and name in ultimo_rp_trabajador:
+                    rp_trabajador = ultimo_rp_trabajador[name]
+            if not rp_trabajador:
+                rp_trabajador = contratista.registro_patronal or ''
+
+            rp_clean = re.sub(r'[^A-Z0-9]', '', (rp_trabajador or '').upper())
+
             grouped_data[key] = {
                 'cuat': cuat,
                 'anio': anio,
                 'bim': bim,
                 'contratista_rfc': contratista.rfc,
                 'contrato_folio': con.folio if con and con.folio else "S/F",
-                'registro_patronal': contratista.registro_patronal,
+                'registro_patronal': rp_clean,
                 'nss': n or r.nss,
                 'calle': ben.calle if ben else '',
                 'num_ext': ben.num_ext if ben else '',

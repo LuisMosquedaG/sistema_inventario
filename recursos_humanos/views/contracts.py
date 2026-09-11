@@ -272,6 +272,60 @@ def obtener_contrato_json(request, id):
         return JsonResponse({'success': False, 'error': 'Contrato no encontrado.'})
 
 @login_required(login_url='/login/')
+@require_hr_permission('contratos', 'crear', json_response=True)
+def preparar_siguiente_version_contrato_json(request, id):
+    empresa_actual = get_empresa_actual(request)
+    try:
+        con = Contrato.objects.get(id=id, empresa=empresa_actual)
+        import datetime
+        
+        # Calcular siguiente versión
+        contratos_folio = Contrato.objects.filter(
+            empresa=empresa_actual,
+            contratista=con.contratista,
+            folio__iexact=(con.folio or '').strip()
+        )
+        max_v = 1
+        for cf in contratos_folio:
+            try:
+                v_int = int(cf.version)
+                if v_int > max_v: max_v = v_int
+            except: pass
+        siguiente_version = str(max_v + 1)
+
+        # Calcular sugerencia de fechas para el siguiente periodo
+        if con.fecha_fin:
+            siguiente_inicio = con.fecha_fin + datetime.timedelta(days=1)
+        else:
+            siguiente_inicio = datetime.date.today()
+
+        if con.fecha_inicio and con.fecha_fin:
+            duracion = (con.fecha_fin - con.fecha_inicio).days
+            siguiente_fin = siguiente_inicio + datetime.timedelta(days=duracion)
+        else:
+            siguiente_fin = siguiente_inicio + datetime.timedelta(days=120)
+
+        data = {
+            'contrato_origen_id': con.id,
+            'contratista': con.contratista_id,
+            'beneficiario': con.beneficiario_id,
+            'folio': con.folio or '',
+            'version': siguiente_version,
+            'tipo_contrato': con.tipo_contrato,
+            'objeto_contrato': con.objeto_contrato or '',
+            'monto_contrato': str(con.monto_contrato),
+            'fecha_inicio': siguiente_inicio.isoformat(),
+            'fecha_fin': siguiente_fin.isoformat(),
+            'vigencia_contrato': con.vigencia_contrato.isoformat() if con.vigencia_contrato else '',
+            'num_estimado_trabajadores': con.num_estimado_trabajadores,
+            'notas': f"Versión consecutiva del contrato {con.folio or 'S/F'} (v{con.version})",
+        }
+        return JsonResponse({'success': True, 'data': data})
+    except Contrato.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Contrato no encontrado.'})
+
+
+@login_required(login_url='/login/')
 @require_POST
 @require_hr_permission('contratos', 'crear', json_response=True)
 def crear_contrato_ajax(request):

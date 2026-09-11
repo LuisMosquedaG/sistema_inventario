@@ -12,6 +12,7 @@ urlpatterns = [
     path('contratos/', views.lista_contratos, name='lista_contratos'),
     path('contratos/crear/', views.crear_contrato_ajax, name='crear_contrato_ajax'),
     path('contratos/obtener/<int:id>/', views.obtener_contrato_json, name='obtener_contrato_json'),
+    path('contratos/preparar-siguiente-version/<int:id>/', views.preparar_siguiente_version_contrato_json, name='preparar_siguiente_version_contrato_json'),
     path('contratos/editar/<int:id>/', views.editar_contrato_ajax, name='editar_contrato_ajax'),
     path('contratos/eliminar/<int:id>/', views.eliminar_contrato_ajax, name='eliminar_contrato_ajax'),
     path('contratos/importar/', views.importar_contratos_ajax, name='importar_contratos_ajax'),

@@ -2,6 +2,7 @@ from django.test import TestCase, Client
 from django.urls import reverse
 from decimal import Decimal
 from unittest.mock import patch
+import re
 from django.contrib.auth.models import User
 from panel.models import Empresa
 from recursos_humanos.models import Nomina, Empleado, Contrato, Contratista, Beneficiario
@@ -678,10 +679,13 @@ class SISUBExportTest(TestCase):
 
     def test_exportar_nominas_excel(self):
         # Crear un recibo con percepciones para exportar
+        from django.utils import timezone
         Nomina.objects.create(
             empresa=self.empresa,
             empleado=self.empleado,
             periodo="SAT Bimestre 3 2026",
+            fecha_emision=timezone.now(),
+            fecha_certificacion=timezone.now(),
             fecha_pago="2026-06-15",
             rfc="PEPE000000XX1",
             curp="PEPE000000HDFRXX01",
@@ -1946,7 +1950,7 @@ class ProveedorDocumentoNotificationTest(TestCase):
         self.assertIn("Contratista S.A.", sent_email.body)
         self.assertIn("Proveedor Express", sent_email.body)
         self.assertIn("Constancia/registro REPSE vigente", sent_email.body)
-        self.assertIn("8/2026", sent_email.body)
+        self.assertIn("Agosto 2026", sent_email.body)
         self.assertEqual(len(sent_email.attachments), 1)
         self.assertTrue("repse" in sent_email.attachments[0][0])
 
@@ -2230,6 +2234,192 @@ class ContratistaSMTPTest(TestCase):
         self.assertIn('1200', content)
         self.assertIn('350', content)
         self.assertIn('REPSE-12345/2026', content)
+        # Verificar que ambos registros patronales aparecen en filas independientes sin guiones
+        rp_principal_clean = re.sub(r'[^A-Z0-9]', '', cont.registro_patronal.upper())
+        self.assertIn(rp_principal_clean, content)
+        self.assertIn('RPADICIONAL99', content)
+        # 8. Probar Reporte SISUB Trabajadores con Registro Patronal de la Cédula
+        Nomina.objects.create(
+            empresa=self.empresa,
+            empleado=emp,
+            periodo="SAT Bimestre 1 2026",
+            fecha_pago="2026-02-15",
+            rfc="PELJ900101XYZ",
+            curp=emp.curp,
+            nss="12345678901",
+            nombre="PEREZ LOPEZ JUAN",
+            sueldo_gravado=Decimal('1500.00'),
+            dias_pagados=Decimal('15.00')
+        )
+        res_sisub_trab = self.client.get(reverse('exportar_sisub_trabajadores', args=[cont.id]) + '?cuatrimestre=1&anio=2026&formato=csv')
+        self.assertEqual(res_sisub_trab.status_code, 200)
+        content_trab = res_sisub_trab.content.decode('utf-8')
+        # Verificar que el registro patronal del trabajador sea el asignado en su cédula SUA (sin guiones)
+        self.assertIn('RPADICIONAL99', content_trab)
+        # Verificar encabezados con mayúsculas
+        self.assertIn('Cuatrimestre que se declara', content_trab)
+        self.assertIn('Año que se declara', content_trab)
+        self.assertIn('Bimestre', content_trab)
+        self.assertIn('Salario no excedente (VSM)', content_trab)
+
+
+class ContratoVersionesConsecutivasSuiteTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser(username='admin@versiones', email='admin@test.com', password='password123')
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa Versiones",
+            subdominio="versiones",
+            usuario_admin=self.user.username,
+            correo_contacto="versiones@test.com"
+        )
+        self.client.login(username='admin@versiones', password='password123')
+        session = self.client.session
+        session['empresa_id'] = self.empresa.id
+        session.save()
+
+        self.contratista = Contratista.objects.create(
+            empresa=self.empresa,
+            rfc="ABC260101XYZ",
+            registro_patronal="Y1122334455",
+            nombre_razon_social="SERVICIOS CONTRATISTA SA DE CV",
+            correo="contacto@abc.com"
+        )
+        self.beneficiario = Beneficiario.objects.create(
+            empresa=self.empresa,
+            clave="PLANTEL01",
+            nombre_razon_social="PLANTEL NORTE SA DE CV",
+            rfc="PLN260101ABC"
+        )
+
+    def test_crear_siguiente_version_consecutiva(self):
+        import datetime
+        # 1. Crear contrato V1
+        c1 = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            beneficiario=self.beneficiario,
+            folio="CONT-PLANTEL-2026",
+            tipo_contrato='01',
+            monto_contrato=Decimal('50000.00'),
+            fecha_inicio=datetime.date(2026, 1, 1),
+            fecha_fin=datetime.date(2026, 4, 30),
+            vigencia_contrato=datetime.date(2026, 12, 31),
+            objeto_contrato="Servicios de Mantenimiento"
+        )
+        self.assertEqual(c1.version, '1')
+
+        # 2. Crear siguiente versión para 2C
+        c2 = c1.crear_siguiente_version(
+            fecha_inicio=datetime.date(2026, 5, 1),
+            fecha_fin=datetime.date(2026, 8, 31)
+        )
+        self.assertEqual(c2.version, '2')
+        self.assertEqual(c2.folio, "CONT-PLANTEL-2026")
+        self.assertEqual(c2.contratista_id, self.contratista.id)
+        self.assertEqual(c2.beneficiario_id, self.beneficiario.id)
+
+        # 3. Verificar que la versión anterior (V1) se cerró en periodicidad
+        c1.refresh_from_db()
+        self.assertEqual(c1.version, '1')
+        self.assertEqual(c1.estado_periodicidad, 'cerrado')
+
+    def test_preparar_siguiente_version_endpoint(self):
+        import datetime
+        c1 = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            beneficiario=self.beneficiario,
+            folio="CONT-PLANTEL-2026",
+            fecha_inicio=datetime.date(2026, 1, 1),
+            fecha_fin=datetime.date(2026, 4, 30),
+            vigencia_contrato=datetime.date(2026, 12, 31)
+        )
+
+        res = self.client.get(reverse('preparar_siguiente_version_contrato_json', args=[c1.id]))
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['data']['version'], '2')
+        self.assertEqual(data['data']['folio'], 'CONT-PLANTEL-2026')
+        self.assertEqual(data['data']['fecha_inicio'], '2026-05-01')
+
+    def test_alta_empleados_sua_autogenera_version_consecutiva_2c(self):
+        import datetime
+        from recursos_humanos.models import ImportacionSUA, TrabajadorSUA
+        # 1. Contrato V1 existente para 1er Cuatrimestre
+        c1 = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            beneficiario=self.beneficiario,
+            folio="CONT-PLANTEL-2026",
+            fecha_inicio=datetime.date(2026, 1, 1),
+            fecha_fin=datetime.date(2026, 4, 30),
+            vigencia_contrato=datetime.date(2026, 12, 31)
+        )
+        emp1 = Empleado.objects.create(
+            empresa=self.empresa,
+            nss="11111111111",
+            curp="EMP1010101HDFRXX01",
+            nombre="EMPLEADO UNO",
+            contratista=self.contratista,
+            beneficiario=self.beneficiario,
+            estado="activo"
+        )
+        c1.empleados.add(emp1)
+
+        # 2. Crear ImportacionSUA del 2do Cuatrimestre (Mayo 2026)
+        imp2 = ImportacionSUA.objects.create(
+            empresa=self.empresa,
+            registro_patronal=self.contratista.registro_patronal,
+            rfc_empresa=self.contratista.rfc,
+            nombre_razon_social=self.contratista.nombre_razon_social,
+            periodo='MAYO 2026',
+            tipo='mensual'
+        )
+        # Trabajador existente (emp1) y nuevo ingreso (emp2)
+        TrabajadorSUA.objects.create(
+            importacion=imp2,
+            nss="11111111111",
+            rfc_curp="EMP1010101HDFRXX01",
+            nombre="EMPLEADO UNO",
+            clave_ubicacion="PLANTEL01",
+            sdi=Decimal('500.00')
+        )
+        TrabajadorSUA.objects.create(
+            importacion=imp2,
+            nss="22222222222",
+            rfc_curp="EMP2020202HDFRXX02",
+            nombre="EMPLEADO DOS NUEVO",
+            clave_ubicacion="PLANTEL01",
+            sdi=Decimal('600.00')
+        )
+
+        # 3. Ejecutar alta de empleados SUA
+        res = self.client.post(reverse('alta_empleados_sua_ajax', args=[imp2.id]))
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertTrue(data['success'])
+
+        # 4. Verificar que se auto-generó la Versión 2 del contrato
+        contratos = Contrato.objects.filter(empresa=self.empresa, folio="CONT-PLANTEL-2026").order_by('fecha_inicio')
+        self.assertEqual(contratos.count(), 2)
+
+        v1 = contratos[0]
+        v2 = contratos[1]
+
+        self.assertEqual(v1.version, '1')
+        self.assertEqual(v1.estado_periodicidad, 'cerrado')
+        # V1 mantiene únicamente su empleado histórico
+        self.assertEqual(list(v1.empleados.values_list('nss', flat=True)), ['11111111111'])
+
+        self.assertEqual(v2.version, '2')
+        self.assertEqual(v2.fecha_inicio, datetime.date(2026, 5, 1))
+        self.assertEqual(v2.fecha_fin, datetime.date(2026, 5, 31))
+        # V2 tiene ambos empleados (el existente actualizado y el nuevo)
+        nss_v2 = set(v2.empleados.values_list('nss', flat=True))
+        self.assertIn('11111111111', nss_v2)
+        self.assertIn('22222222222', nss_v2)
+
 
 
 

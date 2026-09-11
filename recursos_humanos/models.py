@@ -303,6 +303,46 @@ class Contrato(models.Model):
                     self.estado_periodicidad = est_per
                     self.estado = est_legacy
 
+    def crear_siguiente_version(self, fecha_inicio=None, fecha_fin=None, user=None, monto=None, num_estimado_trabajadores=None):
+        """
+        Crea la siguiente versión consecutiva de este contrato para un nuevo periodo.
+        Hereda los datos marco (folio, contratista, beneficiario, objeto, monto, vigencia marco)
+        y activa la auto-secuenciación y cierre de versiones previas.
+        """
+        import datetime
+        if not fecha_inicio:
+            if self.fecha_fin:
+                fecha_inicio = self.fecha_fin + datetime.timedelta(days=1)
+            else:
+                fecha_inicio = datetime.date.today()
+                
+        if not fecha_fin:
+            if self.fecha_inicio and self.fecha_fin:
+                duracion = (self.fecha_fin - self.fecha_inicio).days
+                fecha_fin = fecha_inicio + datetime.timedelta(days=duracion)
+            else:
+                # Default 4 meses (cuatrimestral)
+                # Fin del cuatrimestre sugerido
+                fecha_fin = fecha_inicio + datetime.timedelta(days=120)
+
+        siguiente = Contrato.objects.create(
+            empresa=self.empresa,
+            sucursal=self.sucursal,
+            contratista=self.contratista,
+            beneficiario=self.beneficiario,
+            folio=self.folio,
+            tipo_contrato=self.tipo_contrato,
+            objeto_contrato=self.objeto_contrato,
+            monto_contrato=monto if monto is not None else self.monto_contrato,
+            vigencia_contrato=self.vigencia_contrato,
+            fecha_inicio=fecha_inicio,
+            fecha_fin=fecha_fin,
+            num_estimado_trabajadores=num_estimado_trabajadores if num_estimado_trabajadores is not None else self.num_estimado_trabajadores,
+            notas=f"Versión consecutiva generada a partir de {self.folio} (v{self.version})",
+            creado_por=user or self.creado_por
+        )
+        return siguiente
+
     def __str__(self):
         return f"{self.folio or 'S/F'} - {self.beneficiario or 'Sin beneficiario'}"
 

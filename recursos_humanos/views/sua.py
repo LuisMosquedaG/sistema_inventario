@@ -587,22 +587,63 @@ def alta_empleados_sua_ajax(request, id):
                 
                 # --- VINCULACIÓN AUTOMÁTICA CON CONTRATO DE ACUERDO AL PERIODO ---
                 if beneficiario_obj:
-                    # Buscamos contratos que coincidan con este beneficiario y se traslapen cronológicamente con la cédula
+                    contrato_match = None
+                    # 1. Buscar si ya existe un contrato que coincida y cubra el periodo de la cédula
                     for c_v in contratos_candidatos:
                         if c_v.beneficiario_id == beneficiario_obj.id:
-                            # Verificamos coincidencia de contratista
                             match_contratista = (
                                 c_v.contratista_id == contratista_obj.id or
                                 (c_v.contratista and (c_v.contratista.rfc == rfc_reporte or c_v.contratista.registro_patronal == rp_reporte))
                             )
                             if match_contratista:
-                                # Verificación de traslape de fechas
                                 start_ok = c_v.fecha_inicio <= sua_end
                                 end_ok = (c_v.fecha_fin is None or c_v.fecha_fin >= sua_start)
                                 if start_ok and end_ok:
-                                    c_v.empleados.add(empleado)
-                                    vinculados_a_contrato += 1
+                                    contrato_match = c_v
                                     break
+
+                    # 2. Si no existe contrato que cubra este periodo, buscar contrato previo para crear la versión consecutiva
+                    if not contrato_match:
+                        contratos_previos = [
+                            c_v for c_v in contratos_candidatos
+                            if c_v.beneficiario_id == beneficiario_obj.id and (
+                                c_v.contratista_id == contratista_obj.id or
+                                (c_v.contratista and (c_v.contratista.rfc == rfc_reporte or c_v.contratista.registro_patronal == rp_reporte))
+                            )
+                        ]
+                        if contratos_previos:
+                            contratos_previos.sort(key=lambda x: x.fecha_inicio or sua_start, reverse=True)
+                            contrato_base = contratos_previos[0]
+                            contrato_match = contrato_base.crear_siguiente_version(
+                                fecha_inicio=sua_start,
+                                fecha_fin=sua_end,
+                                user=request.user
+                            )
+                            contratos_candidatos.append(contrato_match)
+                        else:
+                            folio_sug = f"CONT-{(beneficiario_obj.clave or str(beneficiario_obj.id)).strip().upper()}-{sua_start.year}-{sua_start.month:02d}"
+                            vig_def = sua_end
+                            if sua_start.month <= 4:
+                                vig_def = datetime.date(sua_start.year, 12, 31)
+                            contrato_match = Contrato.objects.create(
+                                empresa=empresa_actual,
+                                sucursal_id=sucursal_id,
+                                contratista=contratista_obj,
+                                beneficiario=beneficiario_obj,
+                                folio=folio_sug,
+                                fecha_inicio=sua_start,
+                                fecha_fin=sua_end,
+                                vigencia_contrato=vig_def,
+                                objeto_contrato=f"Servicios especializados según Cédula SUA {importacion.periodo}",
+                                tipo_contrato='01',
+                                creado_por=request.user
+                            )
+                            contratos_candidatos.append(contrato_match)
+
+                    if contrato_match:
+                        if not contrato_match.empleados.filter(id=empleado.id).exists():
+                            contrato_match.empleados.add(empleado)
+                            vinculados_a_contrato += 1
 
         crear_notificacion(
             empresa=empresa_actual,
@@ -898,20 +939,36 @@ def alta_empleados_cargador_sua_ajax(request, id):
                             break
 
                 if not contrato_match:
-                    contrato_match = Contrato.objects.create(
-                        empresa=empresa_actual,
-                        sucursal_id=sucursal_id,
-                        contratista=contratista_obj,
-                        beneficiario=beneficiario_obj,
-                        folio=folio_sugerido,
-                        fecha_inicio=c_start,
-                        fecha_fin=c_end,
-                        vigencia_contrato=c_end,
-                        objeto_contrato=f"Servicios especializados según Cédula SUA {importacion.periodo} / Cargador",
-                        tipo_contrato='01',
-                        estado='vigente',
-                        creado_por=request.user
-                    )
+                    contratos_previos = [
+                        c_cand for c_cand in contratos_cache
+                        if c_cand.beneficiario_id == beneficiario_obj.id and c_cand.contratista_id == contratista_obj.id
+                    ]
+                    if contratos_previos:
+                        contratos_previos.sort(key=lambda x: x.fecha_inicio or c_start, reverse=True)
+                        contrato_base = contratos_previos[0]
+                        contrato_match = contrato_base.crear_siguiente_version(
+                            fecha_inicio=c_start,
+                            fecha_fin=c_end,
+                            user=request.user
+                        )
+                    else:
+                        vig_def = c_end
+                        if c_start.month <= 4:
+                            vig_def = datetime.date(c_start.year, 12, 31)
+                        contrato_match = Contrato.objects.create(
+                            empresa=empresa_actual,
+                            sucursal_id=sucursal_id,
+                            contratista=contratista_obj,
+                            beneficiario=beneficiario_obj,
+                            folio=folio_sugerido,
+                            fecha_inicio=c_start,
+                            fecha_fin=c_end,
+                            vigencia_contrato=vig_def,
+                            objeto_contrato=f"Servicios especializados según Cédula SUA {importacion.periodo} / Cargador",
+                            tipo_contrato='01',
+                            estado='vigente',
+                            creado_por=request.user
+                        )
                     contratos_cache.append(contrato_match)
                     contratos_creados += 1
 

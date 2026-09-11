@@ -449,7 +449,7 @@ def importar_contratistas_ajax(request):
         header_row_idx = 1
         for r_idx, row_cells in enumerate(sheet.iter_rows(max_row=10), 1):
             row_vals = [str(cell.value).strip().lower() if cell.value else "" for cell in row_cells]
-            if any(h in row_vals for h in ["registro federal de contribuyente", "rfc", "nombre denominacion o razon social", "cuatrimestre que declara"]):
+            if any(h in row_vals for h in ["registro federal de contribuyente", "rfc", "nombre denominacion o razon social", "cuatrimestre que declara", "cuatrimestre que se declara"]):
                 header_row_idx = r_idx
                 break
         
@@ -741,38 +741,7 @@ def exportar_icsoe(request, id):
                     curp_clean = re.sub(r'[^A-Z0-9]', '', emp.curp.upper()).strip()[:18]
                     if curp_clean: curp_contrato_set.add(curp_clean)
 
-        # 4. Calcular Aportaciones y Amortizaciones
-        total_sin_credito = total_con_credito = total_amortizaciones = Decimal('0')
-
-        for imp in importaciones_validas:
-            for t in imp.trabajadores.all():
-                t_nss_clean = re.sub(r'[^0-9]', '', t.nss or '').strip()[:11]
-                t_curp_clean = re.sub(r'[^A-Z0-9]', '', (t.rfc_curp or '').upper()).strip()[:18]
-                clave_t = (t.clave_ubicacion or '').strip().upper()
-
-                is_match = False
-                if t_nss_clean and t_nss_clean in nss_contrato_set:
-                    is_match = True
-                elif t_curp_clean and t_curp_clean in curp_contrato_set:
-                    is_match = True
-                elif clave_t and clave_t in claves_beneficiarios:
-                    is_match = True
-                elif not nss_contrato_set and not claves_beneficiarios:
-                    is_match = True
-
-                if is_match:
-                    val_inf = (t.tipo_valor_infonavit or '').strip()
-                    if not val_inf or val_inf == '-':
-                        total_sin_credito += (t.aportacion_patronal or Decimal('0'))
-                    else:
-                        total_con_credito += (t.aportacion_patronal or Decimal('0'))
-                    total_amortizaciones += (t.amortizacion or Decimal('0'))
-
-        total_sin_credito_red = total_sin_credito.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
-        total_con_credito_red = total_con_credito.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
-        total_amortizaciones_red = total_amortizaciones.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
-
-        # 5. Obtener Número STPS (del Contratista o de su Proveedor RH vinculado)
+        # 4. Obtener Número STPS (del Contratista o de su Proveedor RH vinculado)
         numero_stps_val = (contratista.numero_stps or '').strip()
         if not numero_stps_val:
             prov = getattr(contratista, 'proveedores', None)
@@ -781,20 +750,99 @@ def exportar_icsoe(request, id):
                 if p_first and p_first.numero_stps:
                     numero_stps_val = p_first.numero_stps.strip()
 
-        headers = ["cuatrimestre que declara", "anio que se declara", "Registro Federal de Contribuyente", "Nombre denominacion o razon social", "Correo electronico", "Telefono (numero extension)", "Registro patronal", "Calle", "Numero exterior", "Numero interior", "Entre calle", "Y calle", "Colonia", "Codigo Postal", "Municipio o Alcaldia", "Entidad Federativa", "Representante legal", "Administrador Unico", "Numero de escritura", "Nombre del Notario Publico", "Numero de Notario Publico", "Fecha de escritura publica", "Folio mercantil", "Aportacion sin credito de los trabajadores del contrato", "Aportacion con credito de los trabajadores del contrato", "Amortizacion de los trabajadores del contrato", "Numero de registro ante la Secretaria de Trabajo y Prevision Social"]
+        # 5. Obtener lista ordenada y única de Registros Patronales
+        lista_rps = []
+        rp_clean_set = set()
+
+        if contratista.registro_patronal and contratista.registro_patronal.strip():
+            rp_p = contratista.registro_patronal.strip()
+            rp_c = re.sub(r'[^A-Z0-9]', '', rp_p.upper())
+            if rp_c:
+                lista_rps.append(rp_p)
+                rp_clean_set.add(rp_c)
+
+        for r in contratista.registros_patronales_adicionales.all():
+            if r.registro_patronal and r.registro_patronal.strip():
+                rp_a = r.registro_patronal.strip()
+                rp_c = re.sub(r'[^A-Z0-9]', '', rp_a.upper())
+                if rp_c and rp_c not in rp_clean_set:
+                    lista_rps.append(rp_a)
+                    rp_clean_set.add(rp_c)
+
+        for imp in importaciones_validas:
+            if imp.registro_patronal and imp.registro_patronal.strip():
+                rp_i = imp.registro_patronal.strip()
+                rp_c = re.sub(r'[^A-Z0-9]', '', rp_i.upper())
+                if rp_c and rp_c not in rp_clean_set:
+                    lista_rps.append(rp_i)
+                    rp_clean_set.add(rp_c)
+
+        if not lista_rps:
+            lista_rps = [contratista.registro_patronal or '']
+
+        # 6. Calcular Aportaciones y Amortizaciones POR CADA Registro Patronal
+        headers = ["Cuatrimestre que se declara", "Año que se declara", "Registro Federal de Contribuyente", "Nombre denominacion o razon social", "Correo electronico", "Telefono (numero extension)", "Registro patronal", "Calle", "Numero exterior", "Numero interior", "Entre calle", "Y calle", "Colonia", "Codigo Postal", "Municipio o Alcaldia", "Entidad Federativa", "Representante legal", "Administrador Unico", "Numero de escritura", "Nombre del Notario Publico", "Numero de Notario Publico", "Fecha de escritura publica", "Folio mercantil", "Aportacion sin credito de los trabajadores del contrato", "Aportacion con credito de los trabajadores del contrato", "Amortizacion de los trabajadores del contrato", "Numero de registro ante la Secretaria de Trabajo y Prevision Social"]
         
-        data_row = [
-            cuat, anio, contratista.rfc, contratista.nombre_razon_social, 
-            contratista.correo, contratista.telefono, contratista.registro_patronal, 
-            contratista.calle, contratista.num_ext, contratista.num_int, contratista.entre_calle, 
-            contratista.y_calle, contratista.colonia, contratista.cp, contratista.municipio_alcaldia, 
-            contratista.entidad_federativa, contratista.representante_legal, contratista.administrador_unico, 
-            contratista.num_escritura, contratista.nombre_notario_publico, contratista.num_notario_publico, 
-            contratista.fecha_escritura_publica.strftime('%d/%m/%Y') if contratista.fecha_escritura_publica else '', 
-            contratista.folio_mercantil, 
-            total_sin_credito_red, total_con_credito_red, total_amortizaciones_red, 
-            numero_stps_val
-        ]
+        data_rows = []
+        for rp_actual in lista_rps:
+            rp_actual_clean = re.sub(r'[^A-Z0-9]', '', (rp_actual or '').upper())
+            
+            # Filtrar importaciones que corresponden a este registro patronal
+            importaciones_rp = []
+            for imp in importaciones_validas:
+                imp_rp_clean = re.sub(r'[^A-Z0-9]', '', (imp.registro_patronal or '').upper())
+                if rp_actual_clean and imp_rp_clean == rp_actual_clean:
+                    importaciones_rp.append(imp)
+                elif not rp_actual_clean and not imp_rp_clean:
+                    importaciones_rp.append(imp)
+            
+            total_sin_credito = Decimal('0')
+            total_con_credito = Decimal('0')
+            total_amortizaciones = Decimal('0')
+
+            for imp in importaciones_rp:
+                for t in imp.trabajadores.all():
+                    t_nss_clean = re.sub(r'[^0-9]', '', t.nss or '').strip()[:11]
+                    t_curp_clean = re.sub(r'[^A-Z0-9]', '', (t.rfc_curp or '').upper()).strip()[:18]
+                    clave_t = (t.clave_ubicacion or '').strip().upper()
+
+                    is_match = False
+                    if t_nss_clean and t_nss_clean in nss_contrato_set:
+                        is_match = True
+                    elif t_curp_clean and t_curp_clean in curp_contrato_set:
+                        is_match = True
+                    elif clave_t and clave_t in claves_beneficiarios:
+                        is_match = True
+                    elif not nss_contrato_set and not claves_beneficiarios:
+                        is_match = True
+
+                    if is_match:
+                        val_inf = (t.tipo_valor_infonavit or '').strip()
+                        if not val_inf or val_inf == '-':
+                            total_sin_credito += (t.aportacion_patronal or Decimal('0'))
+                        else:
+                            total_con_credito += (t.aportacion_patronal or Decimal('0'))
+                        total_amortizaciones += (t.amortizacion or Decimal('0'))
+
+            total_sin_credito_red = total_sin_credito.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+            total_con_credito_red = total_con_credito.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+            total_amortizaciones_red = total_amortizaciones.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+
+            rp_sin_guiones = re.sub(r'[^A-Z0-9]', '', (rp_actual or '').upper())
+
+            row = [
+                cuat, anio, contratista.rfc, contratista.nombre_razon_social, 
+                contratista.correo, contratista.telefono, rp_sin_guiones, 
+                contratista.calle, contratista.num_ext, contratista.num_int, contratista.entre_calle, 
+                contratista.y_calle, contratista.colonia, contratista.cp, contratista.municipio_alcaldia, 
+                contratista.entidad_federativa, contratista.representante_legal, contratista.administrador_unico, 
+                contratista.num_escritura, contratista.nombre_notario_publico, contratista.num_notario_publico, 
+                contratista.fecha_escritura_publica.strftime('%d/%m/%Y') if contratista.fecha_escritura_publica else '', 
+                contratista.folio_mercantil, 
+                total_sin_credito_red, total_con_credito_red, total_amortizaciones_red, 
+                numero_stps_val
+            ]
+            data_rows.append(row)
 
         if formato == 'csv':
             response = HttpResponse(content_type='text/csv')
@@ -802,7 +850,8 @@ def exportar_icsoe(request, id):
             response.write(u'\ufeff'.encode('utf8'))
             writer = csv.writer(response)
             writer.writerow(headers)
-            writer.writerow(data_row)
+            for r_data in data_rows:
+                writer.writerow(r_data)
             return response
         else:
             wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Sujeto Obligado (SISUB)"
@@ -820,10 +869,14 @@ def exportar_icsoe(request, id):
                 for c in range(curr_col, curr_col + span): ws.cell(row=2, column=c).border = border
                 curr_col += span
             for i, h in enumerate(headers, 1): cell = ws.cell(row=3, column=i, value=h); cell.fill = fill_light; cell.font = Font(bold=True); cell.border = border; cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True); ws.column_dimensions[get_column_letter(i)].width = 20
-            ws.append(data_row)
-            for col_idx in [24, 25, 26]: ws.cell(row=4, column=col_idx).number_format = '"$"#,##0.00'
-            for col_idx in range(1, 28): ws.cell(row=4, column=col_idx).border = border
-            ws.merge_cells('A1:AA1'); c1 = ws['A1']; c1.alignment = Alignment(horizontal="center")
+            
+            curr_row = 4
+            for r_data in data_rows:
+                ws.append(r_data)
+                for col_idx in [24, 25, 26]: ws.cell(row=curr_row, column=col_idx).number_format = '"$"#,##0.00'
+                for col_idx in range(1, 28): ws.cell(row=curr_row, column=col_idx).border = border
+                curr_row += 1
+                
             response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
             response['Content-Disposition'] = f'attachment; filename="SUJETO_OBLIGADO_SISUB_{rfc_input_clean}_{anio}_C{cuat}.xlsx"'; wb.save(response)
             return response

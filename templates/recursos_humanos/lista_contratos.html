@@ -240,6 +240,11 @@
                         <tr>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center gap-1">
+                                    {% if granular_hr_perms.contratos.crear %}
+                                    <span class="icon-action" title="Crear Siguiente Versión / Renovar Periodo" onclick="renovarContrato({{ c.id }})" style="color: #00b8b9;">
+                                        <i class="bi bi-arrow-repeat"></i>
+                                    </span>
+                                    {% endif %}
                                     {% if granular_hr_perms.contratos.editar %}
                                     <span class="icon-action" title="Editar Contrato" onclick="editarContrato({{ c.id }})">
                                         <i class="bi bi-pencil-square"></i>
@@ -649,6 +654,51 @@
                 document.getElementById('tituloModalContrato').textContent = 'Editar Contrato';
                 new bootstrap.Modal(document.getElementById('modalNuevoContrato')).show();
             }
+        });
+    }
+
+    function renovarContrato(id) {
+        fetch(`/recursos-humanos/contratos/preparar-siguiente-version/${id}/`)
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                const data = res.data;
+                document.getElementById('formContrato').reset();
+                document.getElementById('contrato_id').value = ''; // Vacío para crear nueva versión
+                
+                // Limpiar selección de empleados para que se asignen en el nuevo periodo o manualmente
+                document.querySelectorAll('#containerColaboradores .extra-item').forEach(item => {
+                    item.classList.remove('selected');
+                });
+                const sel = document.getElementById('inputEmpleadosHidden');
+                for (let i = 0; i < sel.options.length; i++) {
+                    sel.options[i].selected = false;
+                }
+
+                document.getElementById('inputContratista').value = data.contratista || '';
+                document.getElementById('inputBeneficiario').value = data.beneficiario || '';
+                document.getElementById('inputFolio').value = data.folio || '';
+                document.getElementById('inputVersion').value = data.version || '2';
+                document.getElementById('inputTipoContrato').value = data.tipo_contrato || '01';
+                document.getElementById('inputEstadoVigencia').value = 'vigente';
+                document.getElementById('inputEstadoPeriodicidad').value = 'vigente';
+                document.getElementById('inputObjeto').value = data.objeto_contrato || '';
+                document.getElementById('inputMonto').value = data.monto_contrato || '0';
+                document.getElementById('inputVigenciaContrato').value = data.vigencia_contrato || '';
+                document.getElementById('inputFechaInicio').value = data.fecha_inicio || '';
+                document.getElementById('inputFechaFin').value = data.fecha_fin || '';
+                document.getElementById('inputNumEst').value = data.num_estimado_trabajadores || 0;
+                document.getElementById('inputNotas').value = data.notas || '';
+
+                document.getElementById('tituloModalContrato').innerHTML = `Crear Siguiente Versión / Periodo <span class="badge bg-brand text-white ms-2">Versión ${data.version}</span>`;
+                new bootstrap.Modal(document.getElementById('modalNuevoContrato')).show();
+            } else {
+                alert('Error: ' + res.error);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error al preparar los datos de la siguiente versión.');
         });
     }
 
