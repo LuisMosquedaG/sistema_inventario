@@ -2568,6 +2568,53 @@ class ContratoVersionesConsecutivasSuiteTest(TestCase):
         self.assertNotIn("CONT-CERRADO-2026", content)
         self.assertNotIn("CONT-VENCIDO-2026", content)
 
+    def test_descargar_plantilla_reporte_trabajadores(self):
+        import io
+        import openpyxl
+        url = reverse('descargar_plantilla_reporte_trabajadores')
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res['Content-Type'], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+        wb = openpyxl.load_workbook(io.BytesIO(res.content))
+        ws = wb.active
+
+        # 1. Fila 1: Grupos
+        self.assertEqual(ws['A1'].value, "Proveedor")
+        self.assertEqual(ws['D1'].value, "Contrato")
+        self.assertEqual(ws['F1'].value, "Informacion del colaborador")
+
+        # 2. Fila 2: Encabezados de columnas
+        expected_headers = [
+            "Consecutivo",
+            "RFC Proveedor",
+            "Registro Patronal Proveedor",
+            "# Contrato",
+            "Nombre del contrato",
+            "Primer Apellido",
+            "Segundo Apellido",
+            "Nombre (s)",
+            "Género",
+            "RFC",
+            "CURP",
+            "NSS",
+            "Puesto Desempeñado",
+            "Tipo de Personal",
+            "SBC",
+            "Dias Pagados",
+            "Estatus Colaborador",
+            "Fecha de Ingreso",
+            "Fecha de Baja"
+        ]
+
+        actual_headers = [ws.cell(row=2, column=col).value for col in range(1, 20)]
+        self.assertEqual(actual_headers, expected_headers)
+
+        # 3. Colores de Fila 1 y Fila 2
+        self.assertIn(str(ws['A1'].fill.start_color.rgb).upper(), ["00B8B9", "FF00B8B9", "0000B8B9"])
+        self.assertIn(str(ws['A2'].fill.start_color.rgb).upper(), ["D9D9D9", "FFD9D9D9", "00D9D9D9"])
+
+
 
 
 

@@ -1780,4 +1780,108 @@ def api_probar_contratista_smtp(request):
         return JsonResponse({'success': False, 'error': f'Error de conexión SMTP: {str(e)}'})
 
 
+@login_required(login_url='/login/')
+def descargar_plantilla_reporte_trabajadores(request):
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Plantilla Trabajadores"
+
+    fill_group = PatternFill(start_color="00b8b9", end_color="00b8b9", fill_type="solid")
+    fill_head = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
+    border = Border(
+        left=Side(style='thin', color="B2B2B2"),
+        right=Side(style='thin', color="B2B2B2"),
+        top=Side(style='thin', color="B2B2B2"),
+        bottom=Side(style='thin', color="B2B2B2")
+    )
+    center_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    # 1. Fila 1: Grupos
+    # Proveedor (A-C), Contrato (D-E), Informacion del colaborador (F-S)
+    ws.merge_cells('A1:C1')
+    ws.merge_cells('D1:E1')
+    ws.merge_cells('F1:S1')
+
+    ws['A1'] = "Proveedor"
+    ws['D1'] = "Contrato"
+    ws['F1'] = "Informacion del colaborador"
+
+    for col in range(1, 20):
+        cell = ws.cell(row=1, column=col)
+        cell.fill = fill_group
+        cell.font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+        cell.alignment = center_align
+        cell.border = border
+
+    # 2. Fila 2: Columnas
+    headers = [
+        "Consecutivo",
+        "RFC Proveedor",
+        "Registro Patronal Proveedor",
+        "# Contrato",
+        "Nombre del contrato",
+        "Primer Apellido",
+        "Segundo Apellido",
+        "Nombre (s)",
+        "Género",
+        "RFC",
+        "CURP",
+        "NSS",
+        "Puesto Desempeñado",
+        "Tipo de Personal",
+        "SBC",
+        "Dias Pagados",
+        "Estatus Colaborador",
+        "Fecha de Ingreso",
+        "Fecha de Baja"
+    ]
+
+    for col_idx, h in enumerate(headers, 1):
+        cell = ws.cell(row=2, column=col_idx, value=h)
+        cell.fill = fill_head
+        cell.font = Font(name="Calibri", size=10, bold=True, color="000000")
+        cell.alignment = center_align
+        cell.border = border
+
+    ws.row_dimensions[1].height = 26
+    ws.row_dimensions[2].height = 28
+
+    col_widths = {
+        1: 14,  # Consecutivo
+        2: 18,  # RFC Proveedor
+        3: 26,  # Registro Patronal Proveedor
+        4: 18,  # # Contrato
+        5: 26,  # Nombre del contrato
+        6: 18,  # Primer Apellido
+        7: 18,  # Segundo Apellido
+        8: 22,  # Nombre (s)
+        9: 12,  # Género
+        10: 16, # RFC
+        11: 22, # CURP
+        12: 16, # NSS
+        13: 24, # Puesto Desempeñado
+        14: 18, # Tipo de Personal
+        15: 14, # SBC
+        16: 14, # Dias Pagados
+        17: 20, # Estatus Colaborador
+        18: 18, # Fecha de Ingreso
+        19: 18, # Fecha de Baja
+    }
+
+    for col_idx, width in col_widths.items():
+        ws.column_dimensions[get_column_letter(col_idx)].width = width
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename="Plantilla_Reporte_Trabajadores_Servicio_Especializado.xlsx"'
+    wb.save(response)
+    return response
+
+
+
 

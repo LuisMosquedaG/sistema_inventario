@@ -1871,8 +1871,17 @@
                 
                 let html = '';
                 data.matrix.forEach((row, idx) => {
+                    let plantillaBtn = '';
+                    if (row.codigo === 'REPORTE_TRABAJADORES') {
+                        plantillaBtn = `
+                            <a href="{% url 'descargar_plantilla_reporte_trabajadores' %}" class="btn btn-sm btn-light border text-success float-end ms-2 mb-1 p-1 px-2 d-inline-flex align-items-center gap-1 shadow-xs text-nowrap" style="font-size: 0.70rem; line-height: 1.2; border-color: #28a745 !important;" title="Descargar plantilla de Excel (Reporte de trabajadores)">
+                                <i class="bi bi-file-earmark-excel-fill text-success" style="font-size: 0.90rem;"></i> Plantilla
+                            </a>
+                        `;
+                    }
                     html += `<tr>
-                        <td class="fw-bold px-3 py-2 align-middle bg-white text-dark text-start" style="font-size: 0.83rem; min-width: 250px;">
+                        <td class="fw-bold px-3 py-2 align-middle bg-white text-dark text-start" style="font-size: 0.83rem; min-width: 260px;">
+                            ${plantillaBtn}
                             <span class="text-muted small me-1">${idx + 1}.</span>
                             <span>${row.nombre}</span>
                         </td>`;

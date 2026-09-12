@@ -77,4 +77,5 @@ urlpatterns = [
     path('proveedores/documentacion/eliminar/<int:id>/', views.eliminar_documento_proveedor_ajax, name='eliminar_documento_proveedor_ajax'),
     path('proveedores/documentacion/descargar/<int:doc_id>/', views.descargar_documento_proveedor, name='descargar_documento_proveedor'),
     path('proveedores/documentacion/cambiar-estatus/<int:doc_id>/', views.cambiar_estatus_documento_proveedor_ajax, name='cambiar_estatus_documento_proveedor_ajax'),
+    path('proveedores/descargar-plantilla-trabajadores/', views.descargar_plantilla_reporte_trabajadores, name='descargar_plantilla_reporte_trabajadores'),
 ]
