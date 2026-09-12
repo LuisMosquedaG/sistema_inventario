@@ -700,13 +700,21 @@ def exportar_icsoe(request, id):
                     importaciones_validas.append(imp)
 
         # 3. Obtener Contratos del Contratista en este cuatrimestre
+        # Excluir contratos con estado de vigencia cerrado o vencido
+        today = datetime.date.today()
         contratos_cuat = Contrato.objects.filter(
             contratista=contratista,
             empresa=empresa_actual,
             fecha_inicio__lte=cuat_end
         ).filter(
             Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=cuat_start)
+        ).exclude(
+            estado_vigencia__in=['cerrado', 'vencido']
+        ).exclude(
+            vigencia_contrato__lt=today
         ).prefetch_related('empleados')
+
+        tiene_contratos_global = Contrato.objects.filter(contratista=contratista, empresa=empresa_actual).exists()
 
         nss_contrato_set = set()
         curp_contrato_set = set()
@@ -813,7 +821,7 @@ def exportar_icsoe(request, id):
                         is_match = True
                     elif clave_t and clave_t in claves_beneficiarios:
                         is_match = True
-                    elif not nss_contrato_set and not claves_beneficiarios:
+                    elif not nss_contrato_set and not claves_beneficiarios and not tiene_contratos_global:
                         is_match = True
 
                     if is_match:

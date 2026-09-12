@@ -1093,6 +1093,44 @@ class ICSOEExportTest(TestCase):
         # No debe haber 800 de Pedro
         self.assertNotIn("800", content)
 
+    def test_exportar_icsoe_ignora_contratos_cerrados_o_vencidos(self):
+        import datetime
+        self.client.login(username="admin@prueba", password="password")
+        from django.urls import reverse
+        url = reverse('exportar_icsoe', args=[self.contratista.id])
+
+        # 1. Crear contrato para beneficiario 2 con estado_vigencia = 'vencido'
+        c_vencido = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            beneficiario=self.beneficiario2,
+            folio="CONTRATO-VENCIDO-002",
+            fecha_inicio=datetime.date(2026, 1, 1),
+            fecha_fin=datetime.date(2026, 4, 30),
+            vigencia_contrato=datetime.date(2025, 12, 31),
+            estado_vigencia='vencido'
+        )
+
+        response = self.client.get(url, {'cuatrimestre': '1', 'anio': '2026', 'formato': 'csv'})
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode('utf-8-sig')
+        # Sigue sumando a Juan y Maria de BEN01 (500 sin crédito, 600 con crédito, 150 amortización)
+        self.assertIn("500", content)
+        self.assertIn("600", content)
+        self.assertIn("150", content)
+        # El contrato vencido de BEN02 no debe considerarse, Pedro Ruiz (800) debe excluirse
+        self.assertNotIn("800", content)
+
+        # 2. Ahora cerramos el contrato de BEN01 (estado_vigencia = 'cerrado')
+        Contrato.objects.filter(id=self.contrato.id).update(estado_vigencia='cerrado')
+        
+        response2 = self.client.get(url, {'cuatrimestre': '1', 'anio': '2026', 'formato': 'csv'})
+        self.assertEqual(response2.status_code, 200)
+        content2 = response2.content.decode('utf-8-sig')
+        # Al no haber contratos con estado de vigencia 'vigente', no debe considerar ningún contrato (totales 0)
+        self.assertIn(",0,0,0,", content2)
+
+
 class ImportarContratistasTest(TestCase):
     def setUp(self):
         from django.contrib.auth.models import User
