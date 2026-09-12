@@ -604,6 +604,10 @@ def alta_empleados_sua_ajax(request, id):
 
                     # 2. Si no existe contrato que cubra este periodo, buscar contrato previo para crear la versión consecutiva
                     if not contrato_match:
+                        from ..models import calcular_inicio_cuatrimestre, calcular_fin_cuatrimestre
+                        cuat_start = calcular_inicio_cuatrimestre(sua_start)
+                        cuat_end = calcular_fin_cuatrimestre(sua_start)
+                        
                         contratos_previos = [
                             c_v for c_v in contratos_candidatos
                             if c_v.beneficiario_id == beneficiario_obj.id and (
@@ -615,24 +619,22 @@ def alta_empleados_sua_ajax(request, id):
                             contratos_previos.sort(key=lambda x: x.fecha_inicio or sua_start, reverse=True)
                             contrato_base = contratos_previos[0]
                             contrato_match = contrato_base.crear_siguiente_version(
-                                fecha_inicio=sua_start,
-                                fecha_fin=sua_end,
+                                fecha_inicio=cuat_start,
+                                fecha_fin=cuat_end,
                                 user=request.user
                             )
                             contratos_candidatos.append(contrato_match)
                         else:
-                            folio_sug = f"CONT-{(beneficiario_obj.clave or str(beneficiario_obj.id)).strip().upper()}-{sua_start.year}-{sua_start.month:02d}"
-                            vig_def = sua_end
-                            if sua_start.month <= 4:
-                                vig_def = datetime.date(sua_start.year, 12, 31)
+                            folio_sug = f"CONT-{(beneficiario_obj.clave or str(beneficiario_obj.id)).strip().upper()}-{cuat_start.year}-{cuat_start.month:02d}"
+                            vig_def = datetime.date(cuat_start.year, 12, 31)
                             contrato_match = Contrato.objects.create(
                                 empresa=empresa_actual,
                                 sucursal_id=sucursal_id,
                                 contratista=contratista_obj,
                                 beneficiario=beneficiario_obj,
                                 folio=folio_sug,
-                                fecha_inicio=sua_start,
-                                fecha_fin=sua_end,
+                                fecha_inicio=cuat_start,
+                                fecha_fin=cuat_end,
                                 vigencia_contrato=vig_def,
                                 objeto_contrato=f"Servicios especializados según Cédula SUA {importacion.periodo}",
                                 tipo_contrato='01',
@@ -912,17 +914,15 @@ def alta_empleados_cargador_sua_ajax(request, id):
                     empleados_actualizados += 1
 
                 # 6. Autogenerar o Vincular Contrato
-                # Fechas del contrato: se toma el rango de la cédula SUA o fecha específica
+                # Fechas del contrato: se calculan según los periodos cuatrimestrales cerrados
+                from ..models import calcular_inicio_cuatrimestre, calcular_fin_cuatrimestre
                 fecha_fila = parse_fecha_cargador(raw_fecha)
                 if fecha_fila and (fecha_fila < sua_start or fecha_fila > sua_end):
-                    c_start = datetime.date(fecha_fila.year, fecha_fila.month, 1)
-                    if fecha_fila.month == 12:
-                        c_end = datetime.date(fecha_fila.year + 1, 1, 1) - datetime.timedelta(days=1)
-                    else:
-                        c_end = datetime.date(fecha_fila.year, fecha_fila.month + 1, 1) - datetime.timedelta(days=1)
+                    c_start = calcular_inicio_cuatrimestre(fecha_fila)
+                    c_end = calcular_fin_cuatrimestre(fecha_fila)
                 else:
-                    c_start = sua_start
-                    c_end = sua_end
+                    c_start = calcular_inicio_cuatrimestre(sua_start)
+                    c_end = calcular_fin_cuatrimestre(sua_start)
 
                 anio_folio = c_start.year
                 mes_folio = f"{c_start.month:02d}"
@@ -952,9 +952,7 @@ def alta_empleados_cargador_sua_ajax(request, id):
                             user=request.user
                         )
                     else:
-                        vig_def = c_end
-                        if c_start.month <= 4:
-                            vig_def = datetime.date(c_start.year, 12, 31)
+                        vig_def = datetime.date(c_start.year, 12, 31)
                         contrato_match = Contrato.objects.create(
                             empresa=empresa_actual,
                             sucursal_id=sucursal_id,

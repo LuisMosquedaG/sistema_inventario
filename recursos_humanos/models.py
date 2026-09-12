@@ -166,6 +166,51 @@ class Empleado(models.Model):
         verbose_name = "Empleado"
         verbose_name_plural = "Empleados"
 
+def calcular_inicio_cuatrimestre(fecha):
+    """Retorna la fecha de inicio del cuatrimestre para la fecha dada (01/01, 01/05 o 01/09)."""
+    if not fecha: return None
+    import datetime
+    if isinstance(fecha, str):
+        for fmt in ('%Y-%m-%d', '%d/%m/%Y'):
+            try:
+                fecha = datetime.datetime.strptime(fecha.strip(), fmt).date()
+                break
+            except ValueError: pass
+    y = fecha.year; m = fecha.month
+    if m <= 4: return datetime.date(y, 1, 1)
+    elif m <= 8: return datetime.date(y, 5, 1)
+    else: return datetime.date(y, 9, 1)
+
+def calcular_fin_cuatrimestre(fecha):
+    """Retorna la fecha de fin del cuatrimestre para la fecha dada (30/04, 31/08 o 31/12)."""
+    if not fecha: return None
+    import datetime
+    if isinstance(fecha, str):
+        for fmt in ('%Y-%m-%d', '%d/%m/%Y'):
+            try:
+                fecha = datetime.datetime.strptime(fecha.strip(), fmt).date()
+                break
+            except ValueError: pass
+    y = fecha.year; m = fecha.month
+    if m <= 4: return datetime.date(y, 4, 30)
+    elif m <= 8: return datetime.date(y, 8, 31)
+    else: return datetime.date(y, 12, 31)
+
+def calcular_siguiente_cuatrimestre(fecha_ref):
+    """Retorna (inicio_siguiente, fin_siguiente) del cuatrimestre posterior a la fecha de referencia."""
+    import datetime
+    if isinstance(fecha_ref, str):
+        for fmt in ('%Y-%m-%d', '%d/%m/%Y'):
+            try:
+                fecha_ref = datetime.datetime.strptime(fecha_ref.strip(), fmt).date()
+                break
+            except ValueError: pass
+    if not fecha_ref: fecha_ref = datetime.date.today()
+    y = fecha_ref.year; m = fecha_ref.month
+    if m <= 4: return datetime.date(y, 5, 1), datetime.date(y, 8, 31)
+    elif m <= 8: return datetime.date(y, 9, 1), datetime.date(y, 12, 31)
+    else: return datetime.date(y + 1, 1, 1), datetime.date(y + 1, 4, 30)
+
 class Contrato(models.Model):
     TIPO_CHOICES = Empleado.TIPO_CONTRATO_CHOICES
     ESTADO_CHOICES = [
@@ -227,6 +272,14 @@ class Contrato(models.Model):
         self.fecha_inicio = parse_date_safely(self.fecha_inicio)
         self.fecha_fin = parse_date_safely(self.fecha_fin)
         self.vigencia_contrato = parse_date_safely(self.vigencia_contrato)
+
+        # Regla de Cuatrimestres: si no se especifica fecha_fin, se cierra al término del cuatrimestre de inicio
+        if self.fecha_inicio and not self.fecha_fin:
+            self.fecha_fin = calcular_fin_cuatrimestre(self.fecha_inicio)
+
+        # Si no se especifica vigencia global de contrato, default al 31 de diciembre del año
+        if self.fecha_inicio and not self.vigencia_contrato:
+            self.vigencia_contrato = datetime.date(self.fecha_inicio.year, 12, 31)
 
         today = datetime.date.today()
         
@@ -305,25 +358,20 @@ class Contrato(models.Model):
 
     def crear_siguiente_version(self, fecha_inicio=None, fecha_fin=None, user=None, monto=None, num_estimado_trabajadores=None):
         """
-        Crea la siguiente versión consecutiva de este contrato para un nuevo periodo.
+        Crea la siguiente versión consecutiva de este contrato para un nuevo periodo cuatrimestral cerrado.
         Hereda los datos marco (folio, contratista, beneficiario, objeto, monto, vigencia marco)
         y activa la auto-secuenciación y cierre de versiones previas.
         """
         import datetime
-        if not fecha_inicio:
-            if self.fecha_fin:
-                fecha_inicio = self.fecha_fin + datetime.timedelta(days=1)
-            else:
-                fecha_inicio = datetime.date.today()
-                
-        if not fecha_fin:
-            if self.fecha_inicio and self.fecha_fin:
-                duracion = (self.fecha_fin - self.fecha_inicio).days
-                fecha_fin = fecha_inicio + datetime.timedelta(days=duracion)
-            else:
-                # Default 4 meses (cuatrimestral)
-                # Fin del cuatrimestre sugerido
-                fecha_fin = fecha_inicio + datetime.timedelta(days=120)
+        if not fecha_inicio or not fecha_fin:
+            sug_ini, sug_fin = calcular_siguiente_cuatrimestre(self.fecha_fin or self.fecha_inicio)
+            if not fecha_inicio:
+                fecha_inicio = sug_ini
+            if not fecha_fin:
+                fecha_fin = calcular_fin_cuatrimestre(fecha_inicio)
+        else:
+            if not fecha_fin:
+                fecha_fin = calcular_fin_cuatrimestre(fecha_inicio)
 
         siguiente = Contrato.objects.create(
             empresa=self.empresa,

@@ -2414,11 +2414,73 @@ class ContratoVersionesConsecutivasSuiteTest(TestCase):
 
         self.assertEqual(v2.version, '2')
         self.assertEqual(v2.fecha_inicio, datetime.date(2026, 5, 1))
-        self.assertEqual(v2.fecha_fin, datetime.date(2026, 5, 31))
+        self.assertEqual(v2.fecha_fin, datetime.date(2026, 8, 31))
         # V2 tiene ambos empleados (el existente actualizado y el nuevo)
         nss_v2 = set(v2.empleados.values_list('nss', flat=True))
         self.assertIn('11111111111', nss_v2)
         self.assertIn('22222222222', nss_v2)
+
+    def test_regla_cuatrimestres_cerrados_y_transicion_anual(self):
+        import datetime
+        from recursos_humanos.models import (
+            calcular_inicio_cuatrimestre,
+            calcular_fin_cuatrimestre,
+            calcular_siguiente_cuatrimestre
+        )
+
+        # 1. Probar funciones auxiliares de cuatrimestre
+        self.assertEqual(calcular_inicio_cuatrimestre(datetime.date(2026, 2, 15)), datetime.date(2026, 1, 1))
+        self.assertEqual(calcular_fin_cuatrimestre(datetime.date(2026, 2, 15)), datetime.date(2026, 4, 30))
+
+        self.assertEqual(calcular_inicio_cuatrimestre(datetime.date(2026, 7, 20)), datetime.date(2026, 5, 1))
+        self.assertEqual(calcular_fin_cuatrimestre(datetime.date(2026, 7, 20)), datetime.date(2026, 8, 31))
+
+        self.assertEqual(calcular_inicio_cuatrimestre(datetime.date(2026, 11, 10)), datetime.date(2026, 9, 1))
+        self.assertEqual(calcular_fin_cuatrimestre(datetime.date(2026, 11, 10)), datetime.date(2026, 12, 31))
+
+        # 2. Probar cálculo de siguiente cuatrimestre (incluyendo cambio de año)
+        sug_ini_2c, sug_fin_2c = calcular_siguiente_cuatrimestre(datetime.date(2026, 4, 30))
+        self.assertEqual(sug_ini_2c, datetime.date(2026, 5, 1))
+        self.assertEqual(sug_fin_2c, datetime.date(2026, 8, 31))
+
+        sug_ini_3c, sug_fin_3c = calcular_siguiente_cuatrimestre(datetime.date(2026, 8, 31))
+        self.assertEqual(sug_ini_3c, datetime.date(2026, 9, 1))
+        self.assertEqual(sug_fin_3c, datetime.date(2026, 12, 31))
+
+        sug_ini_next_y, sug_fin_next_y = calcular_siguiente_cuatrimestre(datetime.date(2026, 12, 31))
+        self.assertEqual(sug_ini_next_y, datetime.date(2027, 1, 1))
+        self.assertEqual(sug_fin_next_y, datetime.date(2027, 4, 30))
+
+        # 3. Probar guardado de contrato que inicia a mitad de cuatrimestre (ej. 1 de Febrero)
+        c_feb = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            beneficiario=self.beneficiario,
+            folio="CONT-CUAT-CICLO",
+            fecha_inicio=datetime.date(2026, 2, 1)
+            # sin fecha_fin explícita
+        )
+        self.assertEqual(c_feb.fecha_fin, datetime.date(2026, 4, 30))
+        self.assertEqual(c_feb.version, '1')
+
+        # 4. Crear versión 2 (2do cuatrimestre)
+        c_v2 = c_feb.crear_siguiente_version()
+        self.assertEqual(c_v2.version, '2')
+        self.assertEqual(c_v2.fecha_inicio, datetime.date(2026, 5, 1))
+        self.assertEqual(c_v2.fecha_fin, datetime.date(2026, 8, 31))
+
+        # 5. Crear versión 3 (3er cuatrimestre)
+        c_v3 = c_v2.crear_siguiente_version()
+        self.assertEqual(c_v3.version, '3')
+        self.assertEqual(c_v3.fecha_inicio, datetime.date(2026, 9, 1))
+        self.assertEqual(c_v3.fecha_fin, datetime.date(2026, 12, 31))
+
+        # 6. Crear versión 4 (1er cuatrimestre año siguiente)
+        c_v4 = c_v3.crear_siguiente_version()
+        self.assertEqual(c_v4.version, '4')
+        self.assertEqual(c_v4.fecha_inicio, datetime.date(2027, 1, 1))
+        self.assertEqual(c_v4.fecha_fin, datetime.date(2027, 4, 30))
+
 
 
 

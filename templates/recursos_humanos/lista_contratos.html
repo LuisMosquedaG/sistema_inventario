@@ -734,6 +734,34 @@
         });
     });
 
+    function calcularFinCuatrimestreJS(fechaStr) {
+        if (!fechaStr) return '';
+        const parts = fechaStr.split('-');
+        if (parts.length !== 3) return '';
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10);
+        if (isNaN(year) || isNaN(month)) return '';
+        if (month <= 4) {
+            return `${year}-04-30`;
+        } else if (month <= 8) {
+            return `${year}-08-31`;
+        } else {
+            return `${year}-12-31`;
+        }
+    }
+
+    document.getElementById('inputFechaInicio').addEventListener('change', function() {
+        const finCuat = calcularFinCuatrimestreJS(this.value);
+        if (finCuat) {
+            document.getElementById('inputFechaFin').value = finCuat;
+            const vigenciaInput = document.getElementById('inputVigenciaContrato');
+            if (!vigenciaInput.value) {
+                const year = this.value.split('-')[0];
+                vigenciaInput.value = `${year}-12-31`;
+            }
+        }
+    });
+
     function eliminarContrato(id) {
         if (confirm("⚠️ ¿Estás seguro de eliminar este contrato? Esta acción no se puede deshacer.")) {
             fetch(`/recursos-humanos/contratos/eliminar/${id}/`, {

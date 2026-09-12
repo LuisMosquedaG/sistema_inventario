@@ -293,17 +293,9 @@ def preparar_siguiente_version_contrato_json(request, id):
             except: pass
         siguiente_version = str(max_v + 1)
 
-        # Calcular sugerencia de fechas para el siguiente periodo
-        if con.fecha_fin:
-            siguiente_inicio = con.fecha_fin + datetime.timedelta(days=1)
-        else:
-            siguiente_inicio = datetime.date.today()
-
-        if con.fecha_inicio and con.fecha_fin:
-            duracion = (con.fecha_fin - con.fecha_inicio).days
-            siguiente_fin = siguiente_inicio + datetime.timedelta(days=duracion)
-        else:
-            siguiente_fin = siguiente_inicio + datetime.timedelta(days=120)
+        # Calcular sugerencia de fechas para el siguiente periodo cuatrimestral cerrado
+        from ..models import calcular_siguiente_cuatrimestre
+        siguiente_inicio, siguiente_fin = calcular_siguiente_cuatrimestre(con.fecha_fin or con.fecha_inicio)
 
         data = {
             'contrato_origen_id': con.id,
