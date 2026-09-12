@@ -561,12 +561,17 @@ def exportar_sisub_contratos(request, id):
             cuat_start = datetime.date(anio_num, 9, 1)
             cuat_end = datetime.date(anio_num, 12, 31)
 
+        today = datetime.date.today()
         contratos = Contrato.objects.filter(
             contratista=contratista,
             empresa=empresa_actual,
             fecha_inicio__lte=cuat_end
         ).filter(
             Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=cuat_start)
+        ).exclude(
+            estado_vigencia__in=['cerrado', 'vencido']
+        ).exclude(
+            vigencia_contrato__lt=today
         ).select_related('beneficiario').prefetch_related('empleados').order_by('folio')
 
         headers = ['Cuatrimestre', 'Año', 'RFC Sujeto', 'Folio', 'Tipo', 'Objeto', 'Monto', 'Vigencia', 'Inicio', 'Termino', 'Trabajadores', 'RFC Ben', 'Nombre Ben', 'RegPat Ben', 'Calle', 'Ext', 'Int', 'Entre', 'Y', 'Colonia', 'CP', 'Mun', 'Edo', 'Email', 'Tel']
@@ -990,6 +995,10 @@ def exportar_carga_trabajadores(request, id):
                     fecha_inicio__lte=cuat_end
                 ).filter(
                     Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=cuat_start)
+                ).exclude(
+                    estado_vigencia__in=['cerrado', 'vencido']
+                ).exclude(
+                    vigencia_contrato__lt=dt.date.today()
                 )
                 for con in contratos_emp:
                     if con.beneficiario_id:

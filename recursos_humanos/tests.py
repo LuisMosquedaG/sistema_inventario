@@ -611,7 +611,7 @@ class SISUBExportTest(TestCase):
         self.contrato.folio = 'CON-002'
         self.contrato.fecha_inicio = datetime.date(2026, 6, 15)
         self.contrato.fecha_fin = datetime.date(2026, 8, 30)
-        self.contrato.vigencia_contrato = datetime.date(2026, 8, 31)
+        self.contrato.vigencia_contrato = datetime.date(2026, 12, 31)
         self.contrato.save()
         
         # Crear segundo contrato (debe ir primero en ordenamiento por folio)
@@ -623,7 +623,7 @@ class SISUBExportTest(TestCase):
             tipo_contrato='01',
             fecha_inicio=datetime.date(2026, 5, 10),
             fecha_fin=datetime.date(2026, 6, 20),
-            vigencia_contrato=datetime.date(2026, 7, 1),
+            vigencia_contrato=datetime.date(2026, 12, 31),
             estado="vigente"
         )
         
@@ -651,7 +651,7 @@ class SISUBExportTest(TestCase):
         self.assertEqual(row_1[4], 'Contrato de trabajo por tiempo indeterminado')
         
         # Verificar formato de fecha dd/mm/aaaa en Vigencia, Inicio, Término
-        self.assertEqual(row_1[7], '01/07/2026')
+        self.assertEqual(row_1[7], '31/12/2026')
         self.assertEqual(row_1[8], '10/05/2026')
         self.assertEqual(row_1[9], '20/06/2026')
 
@@ -2518,6 +2518,56 @@ class ContratoVersionesConsecutivasSuiteTest(TestCase):
         self.assertEqual(c_v4.version, '4')
         self.assertEqual(c_v4.fecha_inicio, datetime.date(2027, 1, 1))
         self.assertEqual(c_v4.fecha_fin, datetime.date(2027, 4, 30))
+
+    def test_exportar_sisub_contratos_solo_considera_vigentes(self):
+        import datetime
+        # Contrato 1: Vigente
+        c_vigente = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            beneficiario=self.beneficiario,
+            folio="CONT-VIGENTE-2026",
+            fecha_inicio=datetime.date(2026, 1, 1),
+            fecha_fin=datetime.date(2026, 4, 30),
+            vigencia_contrato=datetime.date(2026, 12, 31),
+            estado_vigencia='vigente'
+        )
+
+        # Contrato 2: Cerrado
+        c_cerrado = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            beneficiario=self.beneficiario,
+            folio="CONT-CERRADO-2026",
+            fecha_inicio=datetime.date(2026, 1, 1),
+            fecha_fin=datetime.date(2026, 4, 30),
+            vigencia_contrato=datetime.date(2026, 12, 31)
+        )
+        Contrato.objects.filter(id=c_cerrado.id).update(estado_vigencia='cerrado')
+
+        # Contrato 3: Vencido
+        c_vencido = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            beneficiario=self.beneficiario,
+            folio="CONT-VENCIDO-2026",
+            fecha_inicio=datetime.date(2026, 1, 1),
+            fecha_fin=datetime.date(2026, 4, 30),
+            vigencia_contrato=datetime.date(2025, 12, 31)
+        )
+        Contrato.objects.filter(id=c_vencido.id).update(estado_vigencia='vencido')
+
+        url = reverse('exportar_sisub_contratos', args=[self.contratista.id])
+        res = self.client.get(url + '?cuatrimestre=1&anio=2026&formato=csv')
+        self.assertEqual(res.status_code, 200)
+        content = res.content.decode('utf-8-sig')
+
+        # Debe incluir el contrato vigente
+        self.assertIn("CONT-VIGENTE-2026", content)
+        # NO debe incluir los contratos cerrados o vencidos
+        self.assertNotIn("CONT-CERRADO-2026", content)
+        self.assertNotIn("CONT-VENCIDO-2026", content)
+
 
 
 
