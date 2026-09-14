@@ -1031,14 +1031,13 @@
                                                         <th class="text-center" style="width: 15%;">Acción</th>
                                                         <th class="text-center" style="width: 25%;">Periodo</th>
                                                         <th class="text-center" style="width: 15%;">Usuario</th>
-                                                        <th class="text-center" style="width: 15%;">Tipo CFDI</th>
-                                                        <th class="text-center" style="width: 15%;">ID Solicitud</th>
-                                                        <th class="text-center" style="width: 15%;">Estado</th>
+                                                        <th class="text-center" style="width: 25%;">ID Solicitud</th>
+                                                        <th class="text-center" style="width: 20%;">Estado</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody id="listaSolicitudesSAT">
                                                     <tr>
-                                                        <td colspan="6" class="text-center py-3 text-muted">No hay solicitudes previas</td>
+                                                        <td colspan="5" class="text-center py-3 text-muted">No hay solicitudes previas</td>
                                                     </tr>
                                                 </tbody>
                                             </table>
@@ -1305,7 +1304,7 @@
             const tbody = document.getElementById('listaSolicitudesSAT');
             tbody.innerHTML = '';
             if (!data.solicitudes || data.solicitudes.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-muted">No hay solicitudes previas</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-muted">No hay solicitudes previas</td></tr>';
                 return;
             }
             data.solicitudes.forEach(s => {
@@ -1326,7 +1325,6 @@
                         <td class="text-center align-middle">${accionHtml}</td>
                         <td class="text-center align-middle">${s.periodo}</td>
                         <td class="text-center align-middle">${s.usuario || 'Sistema'}</td>
-                        <td class="text-center align-middle"><span class="badge bg-light text-dark text-uppercase" style="font-size: 0.65rem;">${s.estatus_cfdi}</span></td>
                         <td class="text-center align-middle">${s.id_solicitud}</td>
                         <td class="text-center align-middle"><span class="status-pill status-pill-xs ${statusClass}">${estadoTexto}</span></td>
                     </tr>
