@@ -159,14 +159,57 @@ def verificar_estatus_sat_ajax(request, solicitud_id):
     empresa_actual = get_empresa_actual(request)
     solicitud = get_object_or_404(SolicitudDescargaSAT, id=solicitud_id, empresa=empresa_actual)
     password = request.POST.get('password_fiel')
-    if not password: return JsonResponse({'status': 'error', 'message': 'Se requiere la contraseña de la FIEL.'})
+    if not password:
+        return JsonResponse({'status': 'error', 'message': 'Se requiere la contraseña de la FIEL para consultar el estado en el SAT.'})
     try:
         sat_service = SATService(solicitud.contratista)
         res = sat_service.verificar_estatus(solicitud.id_solicitud, password)
-        estado_map = {'1': 'solicitada', '2': 'en_proceso', '3': 'terminada', '4': 'error'}
-        solicitud.estado = estado_map.get(str(res['estado']), 'en_proceso'); solicitud.save()
-        return JsonResponse({'status': 'success', 'nuevo_estado': solicitud.estado})
-    except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
+        estado_map = {
+            '1': 'solicitada',
+            '2': 'en_proceso',
+            '3': 'terminada',
+            '4': 'error',
+            '5': 'rechazada',
+            '6': 'vencida'
+        }
+        nuevo_estado = estado_map.get(str(res.get('estado')), 'en_proceso')
+        solicitud.estado = nuevo_estado
+        solicitud.save()
+
+        paquetes = res.get('paquetes', [])
+        paquetes_count = len(paquetes) if isinstance(paquetes, list) else 0
+        numero_cfdis = res.get('numero_cfdis', 0)
+        sat_msg = res.get('mensaje', '')
+
+        if nuevo_estado == 'en_proceso':
+            mensaje = "El SAT aún se encuentra procesando la solicitud (Estado: En proceso). Los servidores del SAT suelen demorar entre 5 a 30 minutos en empaquetar los XMLs. Por favor intente verificar nuevamente más tarde."
+        elif nuevo_estado == 'solicitada':
+            mensaje = "La solicitud fue recibida y está en cola de espera en el SAT (Estado: Aceptada)."
+        elif nuevo_estado == 'terminada':
+            if paquetes_count > 0:
+                mensaje = f"¡Solicitud terminada en el SAT! Se generaron {paquetes_count} paquete(s) con aproximadamente {numero_cfdis} comprobante(s). Ahora puede hacer clic en el botón verde de descarga para integrarlos al sistema."
+            else:
+                mensaje = "El SAT finalizó el proceso, pero reportó 0 comprobantes encontrados para el periodo y estatus seleccionados."
+        elif nuevo_estado == 'error':
+            mensaje = f"El SAT reportó un error al procesar la solicitud (Código: {res.get('codigo')}). {sat_msg}"
+        elif nuevo_estado == 'rechazada':
+            mensaje = f"La solicitud fue rechazada por el SAT. {sat_msg}"
+        elif nuevo_estado == 'vencida':
+            mensaje = "La solicitud ha vencido en los servidores del SAT (el SAT almacena los paquetes durante 72 horas). Deberá generar una nueva solicitud."
+        else:
+            mensaje = f"Estado reportado por el SAT: {nuevo_estado}. {sat_msg}"
+
+        return JsonResponse({
+            'status': 'success',
+            'nuevo_estado': solicitud.estado,
+            'message': mensaje,
+            'numero_cfdis': numero_cfdis,
+            'paquetes_count': paquetes_count
+        })
+    except Exception as e:
+        import traceback
+        print(f"--- ERROR VERIFICAR ESTATUS SAT ---\n{traceback.format_exc()}")
+        return JsonResponse({'status': 'error', 'message': f'Error al consultar el SAT: {str(e)}'})
 
 @login_required(login_url='/login/')
 @require_POST
@@ -175,20 +218,35 @@ def integrar_xml_sat_ajax(request, solicitud_id):
     empresa_actual = get_empresa_actual(request)
     solicitud = get_object_or_404(SolicitudDescargaSAT, id=solicitud_id, empresa=empresa_actual)
     password = request.POST.get('password_fiel')
-    if solicitud.estado != 'terminada': return JsonResponse({'status': 'error', 'message': 'Solicitud no terminada en el SAT.'})
+    if not password:
+        return JsonResponse({'status': 'error', 'message': 'Se requiere la contraseña de la FIEL para descargar los paquetes del SAT.'})
+    if solicitud.estado != 'terminada':
+        return JsonResponse({'status': 'error', 'message': 'La solicitud aún no está en estado "terminada" en el SAT.'})
     try:
         sat_service = SATService(solicitud.contratista)
         res = sat_service.verificar_estatus(solicitud.id_solicitud, password)
         paquetes = res.get('paquetes', [])
-        if not paquetes: return JsonResponse({'status': 'error', 'message': 'No se encontraron paquetes para descargar.'})
-        count, archivos_encontrados = sat_service.descargar_e_integrar(solicitud.id_solicitud, paquetes, password, empresa_actual, request.session.get('sucursal_id'), estatus_cfdi=solicitud.estatus_cfdi)
+        if not paquetes:
+            return JsonResponse({'status': 'error', 'message': 'No se encontraron paquetes para descargar en el SAT.'})
+        count, archivos_encontrados = sat_service.descargar_e_integrar(
+            solicitud.id_solicitud,
+            paquetes,
+            password,
+            empresa_actual,
+            request.session.get('sucursal_id'),
+            estatus_cfdi=solicitud.estatus_cfdi
+        )
         if count > 0:
-            solicitud.estado = 'procesada'; solicitud.save()
-            return JsonResponse({'status': 'success', 'message': f'Integración exitosa. Se procesaron {count} XMLs de nómina reales.'})
+            solicitud.estado = 'procesada'
+            solicitud.save()
+            return JsonResponse({'status': 'success', 'message': f'Integración exitosa. Se procesaron e integraron {count} XMLs de nómina.'})
         else:
             lista_archivos = ", ".join(archivos_encontrados[:5]) + ("..." if len(archivos_encontrados) > 5 else "")
-            return JsonResponse({'status': 'success', 'message': f'Se procesaron 0 XMLs de nómina. Archivos encontrados: {lista_archivos}. Verifique que el periodo contenga CFDI de Nómina.'})
-    except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
+            return JsonResponse({'status': 'success', 'message': f'Se procesaron 0 XMLs de nómina. Archivos encontrados: {lista_archivos or "Ninguno"}. Verifique que el periodo contenga CFDI de Nómina.'})
+    except Exception as e:
+        import traceback
+        print(f"--- ERROR INTEGRAR XML SAT ---\n{traceback.format_exc()}")
+        return JsonResponse({'status': 'error', 'message': f'Error al integrar paquetes: {str(e)}'})
 
 @login_required(login_url='/login/')
 @require_POST

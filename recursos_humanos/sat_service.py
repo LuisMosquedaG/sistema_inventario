@@ -82,9 +82,12 @@ class SATService:
         sat = SAT(signer=signer)
         res = sat.recover_comprobante_status(id_solicitud=id_solicitud)
         return {
-            'estado': str(res.get('EstadoSolicitud')),
+            'estado': str(res.get('EstadoSolicitud', '')),
             'codigo': res.get('CodEstatus'),
-            'paquetes': res.get('IdsPaquetes', [])
+            'codigo_estado': res.get('CodigoEstadoSolicitud'),
+            'numero_cfdis': res.get('NumeroCFDIs', 0),
+            'mensaje': res.get('Mensaje', ''),
+            'paquetes': res.get('IdsPaquetes', []) or []
         }
 
     def descargar_e_integrar(self, id_solicitud, paquetes, password, empresa_actual, sucursal_id=None, estatus_cfdi='vigente'):

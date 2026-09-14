@@ -1334,11 +1334,11 @@
 
                 let accionHtml = '--';
                 if (s.estado === 'terminada') {
-                    accionHtml = `<button class="btn border-0 p-0 bg-transparent icon-action" onclick="integrarXML(this, ${s.id})" title="Integrar XML"><i class="bi bi-download" style="font-size: 1.1rem;"></i></button>`;
+                    accionHtml = `<button class="btn border-0 p-0 bg-transparent icon-action text-success" onclick="integrarXML(this, ${s.id})" title="Integrar XML al Sistema"><i class="bi bi-download" style="font-size: 1.15rem; color: #198754;"></i></button>`;
                 } else if (s.estado === 'solicitada' || s.estado === 'en_proceso') {
-                    accionHtml = `<button class="btn border-0 p-0 bg-transparent icon-action" onclick="verificarEstadoSAT(this, ${s.id})" title="Verificar Estado"><i class="bi bi-arrow-repeat" style="font-size: 1.1rem;"></i></button>`;
+                    accionHtml = `<button class="btn border-0 p-0 bg-transparent icon-action text-primary" onclick="verificarEstadoSAT(this, ${s.id})" title="Verificar Estado en el SAT"><i class="bi bi-arrow-repeat" style="font-size: 1.15rem; color: #00b8b9;"></i></button>`;
                 } else if (s.estado === 'procesada') {
-                    accionHtml = `<span class="icon-action icon-action-success" style="cursor: default;" title="Integrada"><i class="bi bi-check-lg" style="font-size: 1.1rem; font-weight: bold;"></i></span>`;
+                    accionHtml = `<span class="icon-action icon-action-success" style="cursor: default;" title="Integrada"><i class="bi bi-check-lg" style="font-size: 1.15rem; font-weight: bold; color: #198754;"></i></span>`;
                 }
 
                 tbody.innerHTML += `
@@ -1382,17 +1382,13 @@
             .then(r => r.json())
             .then(data => {
                 progress.style.display = 'none';
+                btn.disabled = false;
+                btn.innerHTML = 'Enviar Solicitud';
                 if (data.status === 'success') {
                     alert(data.message);
                     cargarSolicitudesSAT(contId);
-                    // Limpiar contraseña
-                    document.querySelector('input[name="password_fiel"]').value = '';
-                    btn.disabled = false;
-                    btn.innerHTML = 'Enviar Solicitud';
                 } else {
                     alert('Error: ' + data.message);
-                    btn.disabled = false;
-                    btn.innerHTML = 'Enviar Solicitud';
                 }
             })
             .catch(err => {
@@ -1407,17 +1403,17 @@
 
     function integrarXML(btn, solicitudId) {
         const passwordInput = document.querySelector('input[name="password_fiel"]');
-        if (!passwordInput.value) {
+        if (!passwordInput || !passwordInput.value) {
             alert("Para integrar, primero escriba la contraseña de la FIEL en el campo correspondiente arriba.");
             document.getElementById('solicitud-tab').click();
-            passwordInput.focus();
+            if (passwordInput) passwordInput.focus();
             return;
         }
 
         if (!confirm("Se procesarán los archivos descargados y se integrarán a la lista de nóminas. ¿Continuar?")) return;
         
         btn.disabled = true;
-        const icon = btn.querySelector('.bi-download');
+        const icon = btn.querySelector('i');
         if (icon) {
             icon.className = 'bi bi-arrow-repeat spin-icon';
         }
@@ -1432,20 +1428,20 @@
         })
         .then(r => r.json())
         .then(data => {
+            btn.disabled = false;
+            if (icon) {
+                icon.className = 'bi bi-download';
+            }
             if (data.status === 'success') {
                 alert(data.message);
                 location.reload();
             } else {
                 alert('Error: ' + data.message);
-                btn.disabled = false;
-                if (icon) {
-                    icon.className = 'bi bi-download';
-                }
             }
         })
         .catch(err => {
             console.error(err);
-            alert("Error de conexión");
+            alert("Error de conexión con el servidor.");
             btn.disabled = false;
             if (icon) {
                 icon.className = 'bi bi-download';
@@ -1455,21 +1451,24 @@
 
     function verificarEstadoSAT(btn, solicitudId) {
         const passwordInput = document.querySelector('input[name="password_fiel"]');
-        if (!passwordInput.value) {
-            alert("Para verificar el estado, escriba la contraseña de la FIEL arriba.");
+        if (!passwordInput || !passwordInput.value) {
+            alert("Para verificar el estado, escriba la contraseña de la FIEL en el campo correspondiente arriba.");
             document.getElementById('solicitud-tab').click();
-            passwordInput.focus();
+            if (passwordInput) passwordInput.focus();
             return;
         }
 
         btn.disabled = true;
-        const icon = btn.querySelector('.bi-arrow-repeat');
+        const icon = btn.querySelector('i');
         if (icon) {
             icon.classList.add('spin-icon');
         }
 
         const formData = new FormData();
         formData.append('password_fiel', passwordInput.value);
+
+        const selContratista = document.getElementById('selectContratistaSAT');
+        const contId = selContratista ? selContratista.value : '';
 
         fetch(`/recursos-humanos/sat/verificar-estatus/${solicitudId}/`, {
             method: 'POST',
@@ -1478,14 +1477,15 @@
         })
         .then(r => r.json())
         .then(data => {
+            btn.disabled = false;
+            if (icon) {
+                icon.classList.remove('spin-icon');
+            }
             if (data.status === 'success') {
-                cargarSolicitudesSAT();
+                alert(data.message);
+                cargarSolicitudesSAT(contId);
             } else {
                 alert('Error: ' + data.message);
-                btn.disabled = false;
-                if (icon) {
-                    icon.classList.remove('spin-icon');
-                }
             }
         })
         .catch(err => {
@@ -1494,6 +1494,7 @@
             if (icon) {
                 icon.classList.remove('spin-icon');
             }
+            alert("Ocurrió un error al conectar con el servidor para verificar el estado.");
         });
     }
 
