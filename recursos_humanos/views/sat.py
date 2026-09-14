@@ -128,7 +128,15 @@ def verificar_fiel_contratista_ajax(request, contratista_id):
 @require_hr_permission('nomina', 'xml_sat', json_response=True)
 def listar_solicitudes_sat_ajax(request):
     empresa_actual = get_empresa_actual(request)
-    solicitudes = SolicitudDescargaSAT.objects.filter(empresa=empresa_actual).select_related('usuario').order_by('-fecha_creacion')[:10]
+    contratista_id = request.GET.get('contratista_id')
+
+    qs = SolicitudDescargaSAT.objects.filter(empresa=empresa_actual)
+    if contratista_id and str(contratista_id).isdigit():
+        qs = qs.filter(contratista_id=int(contratista_id))
+    elif contratista_id == '' or contratista_id == 'none':
+        return JsonResponse({'solicitudes': []})
+
+    solicitudes = qs.select_related('usuario').order_by('-fecha_creacion')[:10]
     data = []
     for s in solicitudes:
         usuario_str = s.usuario.username.split('@')[0] if s.usuario else "Sistema"

@@ -985,7 +985,7 @@
                                         <div class="row g-3">
                                             <div class="col-md-6">
                                                 <label class="form-label-custom">Contratista</label>
-                                                <select name="contratista_id" id="selectContratistaSAT" class="form-select form-select-sm" required onchange="checkFielStatus(this.value)">
+                                                <select name="contratista_id" id="selectContratistaSAT" class="form-select form-select-sm" required onchange="onContratistaSATChange(this.value)">
                                                     <option value="">Seleccione un contratista...</option>
                                                     {% for c in contratistas %}
                                                         <option value="{{ c.id }}">{{ c.nombre_razon_social }} ({{ c.rfc }})</option>
@@ -1037,7 +1037,7 @@
                                                 </thead>
                                                 <tbody id="listaSolicitudesSAT">
                                                     <tr>
-                                                        <td colspan="5" class="text-center py-3 text-muted">No hay solicitudes previas</td>
+                                                        <td colspan="5" class="text-center py-3 text-muted"><i class="bi bi-info-circle me-1"></i> Seleccione un contratista para ver sus solicitudes</td>
                                                     </tr>
                                                 </tbody>
                                             </table>
@@ -1158,11 +1158,18 @@
 </div>
 
 <script>
-    // Al abrir el modal, cargamos las solicitudes
+    // Al abrir el modal, verificamos si hay un contratista seleccionado
     var modalDescargaXML = document.getElementById('modalDescargaXML');
     if (modalDescargaXML) {
         modalDescargaXML.addEventListener('show.bs.modal', function () {
-            cargarSolicitudesSAT();
+            var sel = document.getElementById('selectContratistaSAT');
+            var val = sel ? sel.value : '';
+            if (val) {
+                checkFielStatus(val);
+                cargarSolicitudesSAT(val);
+            } else {
+                cargarSolicitudesSAT('');
+            }
             var reqTab = document.getElementById('solicitud-tab');
             if (reqTab) {
                 bootstrap.Tab.getOrCreateInstance(reqTab).show();
@@ -1274,6 +1281,11 @@
         }
     }
 
+    function onContratistaSATChange(contratistaId) {
+        checkFielStatus(contratistaId);
+        cargarSolicitudesSAT(contratistaId);
+    }
+
     function checkFielStatus(contratistaId) {
         const badge = document.getElementById('fielBadgeStatus');
         const rfcInput = document.getElementById('inputRfcFielSAT');
@@ -1297,14 +1309,23 @@
         });
     }
 
-    function cargarSolicitudesSAT() {
-        fetch('/recursos-humanos/sat/solicitudes/lista/')
+    function cargarSolicitudesSAT(contratistaId) {
+        if (typeof contratistaId === 'undefined') {
+            const sel = document.getElementById('selectContratistaSAT');
+            contratistaId = sel ? sel.value : '';
+        }
+        const tbody = document.getElementById('listaSolicitudesSAT');
+        if (!contratistaId) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-muted"><i class="bi bi-info-circle me-1"></i> Seleccione un contratista para ver sus solicitudes</td></tr>';
+            return;
+        }
+
+        fetch(`/recursos-humanos/sat/solicitudes/lista/?contratista_id=${contratistaId}`)
         .then(r => r.json())
         .then(data => {
-            const tbody = document.getElementById('listaSolicitudesSAT');
             tbody.innerHTML = '';
             if (!data.solicitudes || data.solicitudes.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-muted">No hay solicitudes previas</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-muted">No hay solicitudes previas para este contratista</td></tr>';
                 return;
             }
             data.solicitudes.forEach(s => {
@@ -1330,6 +1351,10 @@
                     </tr>
                 `;
             });
+        })
+        .catch(err => {
+            console.error(err);
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-danger">Error al cargar las solicitudes</td></tr>';
         });
     }
 
@@ -1340,6 +1365,8 @@
             e.preventDefault();
             const btn = document.getElementById('btnProcesarSAT');
             const progress = document.getElementById('satProgress');
+            const selContratista = document.getElementById('selectContratistaSAT');
+            const contId = selContratista ? selContratista.value : '';
             
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Enviando...';
@@ -1357,7 +1384,7 @@
                 progress.style.display = 'none';
                 if (data.status === 'success') {
                     alert(data.message);
-                    cargarSolicitudesSAT();
+                    cargarSolicitudesSAT(contId);
                     // Limpiar contraseña
                     document.querySelector('input[name="password_fiel"]').value = '';
                     btn.disabled = false;
