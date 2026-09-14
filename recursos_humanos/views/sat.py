@@ -132,12 +132,13 @@ def listar_solicitudes_sat_ajax(request):
     data = []
     for s in solicitudes:
         usuario_str = s.usuario.username.split('@')[0] if s.usuario else "Sistema"
+        estatus_display = s.get_estatus_cfdi_display() if hasattr(s, 'get_estatus_cfdi_display') else (s.estatus_cfdi or 'vigente')
         data.append({
             'id': s.id,
             'id_solicitud': s.id_solicitud,
             'periodo': f"{s.fecha_inicio} al {s.fecha_fin}",
             'estado': s.estado,
-            'estatus_cfdi': s.get_estatus_cfdi_display(),
+            'estatus_cfdi': estatus_display,
             'fecha': s.fecha_creacion.strftime('%d/%m/%Y %H:%M'),
             'usuario': usuario_str
         })

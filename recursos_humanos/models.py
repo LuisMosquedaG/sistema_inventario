@@ -782,6 +782,10 @@ class SolicitudDescargaSAT(models.Model):
         ('error', 'Error'),
         ('procesada', 'Procesada / Integrada'),
     ]
+    ESTATUS_CFDI_CHOICES = [
+        ('vigente', 'Vigentes'),
+        ('cancelado', 'Cancelados'),
+    ]
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
     contratista = models.ForeignKey(Contratista, on_delete=models.CASCADE, null=True, blank=True)
@@ -791,7 +795,7 @@ class SolicitudDescargaSAT(models.Model):
     fecha_fin = models.DateField()
     tipo_comprobante = models.CharField(max_length=20, default="Nomina")
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='solicitada')
-    estatus_cfdi = models.CharField(max_length=20, default='vigente', verbose_name="Estatus CFDI Solicitado")
+    estatus_cfdi = models.CharField(max_length=20, choices=ESTATUS_CFDI_CHOICES, default='vigente', verbose_name="Estatus CFDI Solicitado")
     mensaje_error = models.TextField(blank=True, null=True)
     
     fecha_creacion = models.DateTimeField(auto_now_add=True)
