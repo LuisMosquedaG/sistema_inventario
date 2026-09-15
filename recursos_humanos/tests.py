@@ -1121,13 +1121,13 @@ class ICSOEExportTest(TestCase):
         # El contrato vencido de BEN02 no debe considerarse, Pedro Ruiz (800) debe excluirse
         self.assertNotIn("800", content)
 
-        # 2. Ahora cerramos el contrato de BEN01 (estado_vigencia = 'cerrado')
-        Contrato.objects.filter(id=self.contrato.id).update(estado_vigencia='cerrado')
+        # 2. Si el contrato de BEN01 venció antes del cuatrimestre (ej. en 2025), no debe considerarse en 2026 (totales 0)
+        Contrato.objects.filter(id=self.contrato.id).update(vigencia_contrato=datetime.date(2025, 12, 31))
         
         response2 = self.client.get(url, {'cuatrimestre': '1', 'anio': '2026', 'formato': 'csv'})
         self.assertEqual(response2.status_code, 200)
         content2 = response2.content.decode('utf-8-sig')
-        # Al no haber contratos con estado de vigencia 'vigente', no debe considerar ningún contrato (totales 0)
+        # Al no haber contratos vigentes para el cuatrimestre 1 de 2026, los totales son 0
         self.assertIn(",0,0,0,", content2)
 
 
