@@ -231,6 +231,53 @@ class SISUBExportTest(TestCase):
         row_data = lines[1].split(',')
         self.assertEqual(row_data[6], '12345678901') # NSS del trabajador
 
+    def test_exportar_sisub_preserva_ceros_iniciales_nss_y_cp(self):
+        import openpyxl
+        import io
+        from django.urls import reverse
+
+        # Asignar beneficiario con CP que empieza en 0 (ej. '06000') y NSS con 0 inicial (ej. '01234567890')
+        beneficiario_cdmx = Beneficiario.objects.create(
+            empresa=self.empresa,
+            rfc="BEN010101XYZ",
+            nombre_razon_social="Beneficiario CDMX",
+            cp="06000",
+            calle="Reforma",
+            correo="cdmx@test.com"
+        )
+        self.contrato.beneficiario = beneficiario_cdmx
+        self.contrato.save()
+
+        self.empleado.nss = "01234567890"
+        self.empleado.save()
+
+        self.nomina.nss = "01234567890"
+        self.nomina.save()
+
+        self.client.login(username="admin@prueba", password="password")
+        url = reverse('exportar_sisub_trabajadores', args=[self.contratista.id])
+
+        # 1. Probar formato CSV
+        res_csv = self.client.get(url, {'cuatrimestre': 2, 'anio': 2026, 'formato': 'csv'})
+        self.assertEqual(res_csv.status_code, 200)
+        lines = [line.strip() for line in res_csv.content.decode('utf-8-sig').splitlines() if line.strip()]
+        row = lines[1].split(',')
+        self.assertEqual(row[6], '01234567890') # Columna G: NSS preserva el cero inicial
+        self.assertEqual(row[11], '06000')      # Columna L: CP preserva el cero inicial
+
+        # 2. Probar formato Excel (XLSX)
+        res_excel = self.client.get(url, {'cuatrimestre': 2, 'anio': 2026, 'formato': 'excel'})
+        self.assertEqual(res_excel.status_code, 200)
+        wb = openpyxl.load_workbook(io.BytesIO(res_excel.content))
+        ws = wb["SISUB"]
+        # Fila 4 es la primera fila de datos
+        cell_nss = ws.cell(row=4, column=7) # Columna G (7)
+        cell_cp = ws.cell(row=4, column=12) # Columna L (12)
+        self.assertEqual(cell_nss.value, '01234567890')
+        self.assertEqual(cell_nss.number_format, '@')
+        self.assertEqual(cell_cp.value, '06000')
+        self.assertEqual(cell_cp.number_format, '@')
+
     def test_exportar_sisub_only_assigned_workers(self):
         # Crear un empleado que pertenece al contratista, pero no está asignado al contrato ManyToMany
         empleado_fallback = Empleado.objects.create(

@@ -582,18 +582,22 @@ def exportar_sisub_contratos(request, id):
             elif t_display and ' - ' in t_display:
                 t_display = t_display.split(' - ', 1)[1]
                 
+            cp_val = str(ben.cp if ben else '').strip()
+            if cp_val.isdigit() and len(cp_val) <= 5 and len(cp_val) > 0:
+                cp_val = cp_val.zfill(5)
+
             data_rows.append([
-                cuatrimestre, anio, contratista.rfc, con.folio, t_display, 
+                cuatrimestre, anio, str(contratista.rfc or ''), str(con.folio or ''), t_display, 
                 con.objeto_contrato, con.monto_contrato, 
                 con.vigencia_contrato.strftime('%d/%m/%Y') if con.vigencia_contrato else '',
                 con.fecha_inicio.strftime('%d/%m/%Y') if con.fecha_inicio else '', 
                 con.fecha_fin.strftime('%d/%m/%Y') if con.fecha_fin else '', 
                 con.empleados.count(), 
-                ben.rfc if ben else '', ben.nombre_razon_social if ben else '', ben.registro_patronal if ben else '', 
-                ben.calle if ben else '', ben.num_ext if ben else '', ben.num_int if ben else '', 
-                ben.entre_calle if ben else '', ben.y_calle if ben else '', ben.colonia if ben else '', 
-                ben.cp if ben else '', ben.municipio_alcaldia if ben else '', ben.entidad_federativa if ben else '', 
-                ben.correo if ben else '', ben.telefono if ben else ''
+                str(ben.rfc if ben else ''), str(ben.nombre_razon_social if ben else ''), str(ben.registro_patronal if ben else ''), 
+                str(ben.calle if ben else ''), str(ben.num_ext if ben else ''), str(ben.num_int if ben else ''), 
+                str(ben.entre_calle if ben else ''), str(ben.y_calle if ben else ''), str(ben.colonia if ben else ''), 
+                cp_val, str(ben.municipio_alcaldia if ben else ''), str(ben.entidad_federativa if ben else ''), 
+                str(ben.correo if ben else ''), str(ben.telefono if ben else '')
             ])
 
         rfc_clean = re.sub(r'[^A-Z0-9]', '', contratista.rfc.upper())
@@ -624,9 +628,15 @@ def exportar_sisub_contratos(request, id):
             ws.merge_cells(start_row=2, start_column=15, end_row=2, end_column=25); ws.cell(row=2, column=15, value="c-Domicilio fiscal del beneficiario")
             for c in range(1, 26): cell = ws.cell(row=2, column=c); cell.fill = fill_sec; cell.font = Font(bold=True); cell.border = border; cell.alignment = center_align
             for i, h in enumerate(headers, 1): cell = ws.cell(row=3, column=i, value=h); cell.fill = fill_head; cell.font = Font(bold=True); cell.border = border; cell.alignment = center_align
-            for row_data in data_rows:
-                ws.append(row_data)
-                for cell in ws[ws.max_row]: cell.border = border; cell.alignment = Alignment(vertical="center")
+            for row_idx, row_data in enumerate(data_rows, 4):
+                for col_idx, val in enumerate(row_data, 1):
+                    cell = ws.cell(row=row_idx, column=col_idx, value=val)
+                    cell.border = border
+                    cell.alignment = Alignment(vertical="center")
+                    if col_idx in [1, 2, 8, 9, 10, 11, 14, 16, 17, 21, 25]:
+                        cell.alignment = Alignment(horizontal="center", vertical="center")
+                    if col_idx in [3, 4, 12, 14, 21, 25]:
+                        cell.number_format = '@'
             for i in range(1, 26): ws.column_dimensions[get_column_letter(i)].width = 18
             response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
             response['Content-Disposition'] = f'attachment; filename="SISUB_CONTRATOS_{rfc_clean}.xlsx"'; wb.save(response)
@@ -837,17 +847,21 @@ def exportar_icsoe(request, id):
 
             rp_sin_guiones = re.sub(r'[^A-Z0-9]', '', (rp_actual or '').upper())
 
+            cp_val = str(contratista.cp or '').strip()
+            if cp_val.isdigit() and len(cp_val) <= 5 and len(cp_val) > 0:
+                cp_val = cp_val.zfill(5)
+
             row = [
-                cuat, anio, contratista.rfc, contratista.nombre_razon_social, 
-                contratista.correo, contratista.telefono, rp_sin_guiones, 
-                contratista.calle, contratista.num_ext, contratista.num_int, contratista.entre_calle, 
-                contratista.y_calle, contratista.colonia, contratista.cp, contratista.municipio_alcaldia, 
-                contratista.entidad_federativa, contratista.representante_legal, contratista.administrador_unico, 
-                contratista.num_escritura, contratista.nombre_notario_publico, contratista.num_notario_publico, 
+                cuat, anio, str(contratista.rfc or ''), str(contratista.nombre_razon_social or ''), 
+                str(contratista.correo or ''), str(contratista.telefono or ''), rp_sin_guiones, 
+                str(contratista.calle or ''), str(contratista.num_ext or ''), str(contratista.num_int or ''), str(contratista.entre_calle or ''), 
+                str(contratista.y_calle or ''), str(contratista.colonia or ''), cp_val, str(contratista.municipio_alcaldia or ''), 
+                str(contratista.entidad_federativa or ''), str(contratista.representante_legal or ''), str(contratista.administrador_unico or ''), 
+                str(contratista.num_escritura or ''), str(contratista.nombre_notario_publico or ''), str(contratista.num_notario_publico or ''), 
                 contratista.fecha_escritura_publica.strftime('%d/%m/%Y') if contratista.fecha_escritura_publica else '', 
-                contratista.folio_mercantil, 
+                str(contratista.folio_mercantil or ''), 
                 total_sin_credito_red, total_con_credito_red, total_amortizaciones_red, 
-                numero_stps_val
+                str(numero_stps_val or '')
             ]
             data_rows.append(row)
 
@@ -881,6 +895,7 @@ def exportar_icsoe(request, id):
             for r_data in data_rows:
                 ws.append(r_data)
                 for col_idx in [24, 25, 26]: ws.cell(row=curr_row, column=col_idx).number_format = '"$"#,##0.00'
+                for col_idx in [3, 6, 7, 14, 27]: ws.cell(row=curr_row, column=col_idx).number_format = '@'
                 for col_idx in range(1, 28): ws.cell(row=curr_row, column=col_idx).border = border
                 curr_row += 1
                 
@@ -1071,8 +1086,13 @@ def exportar_carga_trabajadores(request, id):
         row_num = 2
         for nss in sorted(trabajadores_data.keys()):
             d = trabajadores_data[nss]
-            ws.cell(row=row_num, column=1, value=d['nss'])
-            ws.cell(row=row_num, column=2, value=d['curp'])
+            nss_clean = str(d['nss'] or '').strip()
+            if nss_clean.isdigit() and len(nss_clean) <= 11 and len(nss_clean) > 0:
+                nss_clean = nss_clean.zfill(11)
+            c1 = ws.cell(row=row_num, column=1, value=nss_clean)
+            c1.number_format = '@'
+            c2 = ws.cell(row=row_num, column=2, value=str(d['curp'] or ''))
+            c2.number_format = '@'
             ws.cell(row=row_num, column=3, value=d['sbc']).number_format = '0.00'
             row_num += 1
             

@@ -698,6 +698,14 @@ def exportar_sisub_trabajadores(request, id):
 
             rp_clean = re.sub(r'[^A-Z0-9]', '', (rp_trabajador or '').upper())
 
+            nss_fmt = str(n or r.nss or '').strip()
+            if nss_fmt.isdigit() and len(nss_fmt) <= 11 and len(nss_fmt) > 0:
+                nss_fmt = nss_fmt.zfill(11)
+
+            cp_fmt = str((ben.cp if ben else '') or '').strip()
+            if cp_fmt.isdigit() and len(cp_fmt) <= 5 and len(cp_fmt) > 0:
+                cp_fmt = cp_fmt.zfill(5)
+
             grouped_data[key] = {
                 'cuat': cuat,
                 'anio': anio,
@@ -705,12 +713,12 @@ def exportar_sisub_trabajadores(request, id):
                 'contratista_rfc': contratista.rfc,
                 'contrato_folio': con.folio if con and con.folio else "S/F",
                 'registro_patronal': rp_clean,
-                'nss': n or r.nss,
+                'nss': nss_fmt,
                 'calle': ben.calle if ben else '',
                 'num_ext': ben.num_ext if ben else '',
                 'num_int': ben.num_int if ben else '',
                 'colonia': ben.colonia if ben else '',
-                'cp': ben.cp if ben else '',
+                'cp': cp_fmt,
                 'municipio': ben.municipio_alcaldia if ben else '',
                 'entidad': ben.entidad_federativa if ben else '',
                 'percepciones_variables': Decimal('0.00'),
@@ -838,8 +846,12 @@ def exportar_sisub_trabajadores(request, id):
                 per_fij += f_contrib
                 per_no_int += no_int_contrib
                 
+                nss_det = str(r.nss or n or '').strip()
+                if nss_det.isdigit() and len(nss_det) <= 11 and len(nss_det) > 0:
+                    nss_det = nss_det.zfill(11)
+
                 detalle_rows.append([
-                    bim, r.nss, r.nombre, con_folio, nom_ref, periodo_str, float(r.dias_pagados or 0),
+                    bim, nss_det, r.nombre, con_folio, nom_ref, periodo_str, float(r.dias_pagados or 0),
                     code_norm, CONCEPTOS_SAT.get(code_norm, "Concepto no especificado"),
                     float(g_val), float(e_val), float(total_code), clasif, float(f_contrib), float(v_contrib), float(no_int_contrib)
                 ])
@@ -848,8 +860,12 @@ def exportar_sisub_trabajadores(request, id):
                            (r.sueldo_gravado or 0) + (r.vacaciones_gravado or 0) + (r.vacaciones_dignas_gravado or 0) + \
                            (r.aguinaldo_gravado or 0)
             per_fij = Decimal(str(legacy_total))
+            nss_det = str(r.nss or n or '').strip()
+            if nss_det.isdigit() and len(nss_det) <= 11 and len(nss_det) > 0:
+                nss_det = nss_det.zfill(11)
+
             detalle_rows.append([
-                bim, r.nss, r.nombre, con_folio, nom_ref, periodo_str, float(r.dias_pagados or 0),
+                bim, nss_det, r.nombre, con_folio, nom_ref, periodo_str, float(r.dias_pagados or 0),
                 "LEG", "Sueldos y Vacaciones (Legacy)",
                 float(r.sueldo_gravado or 0), 
                 float((r.vacaciones_exento or 0) + (r.vacaciones_dignas_exento or 0) + (r.aguinaldo_exento or 0)),
@@ -870,10 +886,19 @@ def exportar_sisub_trabajadores(request, id):
             
         per_fij_rounded = int(Decimal(d['percepciones_fijas']).quantize(Decimal('1'), ROUND_HALF_UP))
         per_no_int_rounded = int(Decimal(d['percepciones_no_integrables']).quantize(Decimal('1'), ROUND_HALF_UP))
+
+        nss_val = str(d['nss'] or '').strip()
+        if nss_val.isdigit() and len(nss_val) <= 11 and len(nss_val) > 0:
+            nss_val = nss_val.zfill(11)
+
+        cp_val = str(d['cp'] or '').strip()
+        if cp_val.isdigit() and len(cp_val) <= 5 and len(cp_val) > 0:
+            cp_val = cp_val.zfill(5)
+
         data_rows.append([
-            d['cuat'], d['anio'], d['bim'], d['contratista_rfc'], d['contrato_folio'],
-            d['registro_patronal'], d['nss'], d['calle'], d['num_ext'], d['num_int'],
-            d['colonia'], d['cp'], d['municipio'], d['entidad'], 
+            d['cuat'], d['anio'], d['bim'], str(d['contratista_rfc'] or ''), str(d['contrato_folio'] or ''),
+            str(d['registro_patronal'] or ''), nss_val, str(d['calle'] or ''), str(d['num_ext'] or ''), str(d['num_int'] or ''),
+            str(d['colonia'] or ''), cp_val, str(d['municipio'] or ''), str(d['entidad'] or ''), 
             per_var_rounded, per_fij_rounded, d['incapacidades'], per_no_int_rounded, d['sdi']
         ])
 
@@ -929,7 +954,10 @@ def exportar_sisub_trabajadores(request, id):
         for r_i, rd in enumerate(data_rows, 4):
             for c_i, v in enumerate(rd, 1):
                 cl = ws.cell(row=r_i, column=c_i, value=v)
-                if c_i == 19: cl.number_format = '#,##0.00'
+                if c_i == 19:
+                    cl.number_format = '#,##0.00'
+                elif c_i in [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]:
+                    cl.number_format = '@'
                 cl.border = br
         for i in range(1, 20): ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = 22
         
@@ -956,6 +984,8 @@ def exportar_sisub_trabajadores(request, id):
                     cl.number_format = '0.0'
                 elif col_idx in [1, 8]:
                     cl.alignment = Alignment(horizontal="center")
+                if col_idx in [2, 4, 5, 8]:
+                    cl.number_format = '@'
                     
         for col_idx in range(1, len(headers_det) + 1):
             ws_det.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = 22

@@ -34,9 +34,11 @@ class BeneficiarioAdmin(admin.ModelAdmin):
     search_fields = ('rfc', 'nombre_razon_social')
 
 class NominaAdmin(admin.ModelAdmin):
-    list_display = ('folio', 'nombre', 'periodo', 'tipo_nomina', 'fecha_pago', 'sueldo_gravado')
-    list_filter = ('tipo_nomina', 'empresa', 'fecha_pago')
-    search_fields = ('folio', 'nombre', 'rfc', 'uuid')
+    list_display = ('folio', 'nombre', 'rfc', 'periodo', 'tipo_nomina', 'fecha_pago', 'sueldo_gravado', 'estado')
+    list_filter = ('tipo_nomina', 'estado', 'empresa', 'periodo', 'fecha_pago')
+    search_fields = ('folio', 'nombre', 'rfc', 'uuid', 'curp', 'nss')
+    list_per_page = 250
+    actions = ['delete_selected']
 
 # Registro seguro con manejo de excepciones para evitar bloqueos por duplicidad
 def safe_register(model, admin_class):
