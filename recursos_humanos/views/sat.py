@@ -220,15 +220,15 @@ def integrar_xml_sat_ajax(request, solicitud_id):
     password = request.POST.get('password_fiel')
     if not password:
         return JsonResponse({'status': 'error', 'message': 'Se requiere la contraseña de la FIEL para descargar los paquetes del SAT.'})
-    if solicitud.estado != 'terminada':
-        return JsonResponse({'status': 'error', 'message': 'La solicitud aún no está en estado "terminada" en el SAT.'})
+    if solicitud.estado not in ['terminada', 'en_proceso', 'solicitada']:
+        return JsonResponse({'status': 'error', 'message': f'La solicitud no es válida para descarga (Estado: {solicitud.estado}).'})
     try:
         sat_service = SATService(solicitud.contratista)
         res = sat_service.verificar_estatus(solicitud.id_solicitud, password)
         paquetes = res.get('paquetes', [])
         if not paquetes:
-            return JsonResponse({'status': 'error', 'message': 'No se encontraron paquetes para descargar en el SAT.'})
-        count, archivos_encontrados = sat_service.descargar_e_integrar(
+            return JsonResponse({'status': 'error', 'message': 'No se encontraron paquetes para descargar en el SAT. Puede que el SAT aún no los tenga listos o no contenga comprobantes para ese periodo.'})
+        count, archivos_encontrados, errores_paquetes = sat_service.descargar_e_integrar(
             solicitud.id_solicitud,
             paquetes,
             password,
@@ -239,14 +239,19 @@ def integrar_xml_sat_ajax(request, solicitud_id):
         if count > 0:
             solicitud.estado = 'procesada'
             solicitud.save()
-            return JsonResponse({'status': 'success', 'message': f'Integración exitosa. Se procesaron e integraron {count} XMLs de nómina.'})
+            msg = f'Integración exitosa. Se procesaron e integraron {count} XMLs de nómina al sistema.'
+            if errores_paquetes:
+                msg += f" (Avisos: {', '.join(errores_paquetes[:2])})"
+            return JsonResponse({'status': 'success', 'message': msg})
         else:
+            if errores_paquetes:
+                return JsonResponse({'status': 'error', 'message': f'No se pudieron procesar los paquetes del SAT: {", ".join(errores_paquetes[:2])}'})
             lista_archivos = ", ".join(archivos_encontrados[:5]) + ("..." if len(archivos_encontrados) > 5 else "")
             return JsonResponse({'status': 'success', 'message': f'Se procesaron 0 XMLs de nómina. Archivos encontrados: {lista_archivos or "Ninguno"}. Verifique que el periodo contenga CFDI de Nómina.'})
     except Exception as e:
         import traceback
         print(f"--- ERROR INTEGRAR XML SAT ---\n{traceback.format_exc()}")
-        return JsonResponse({'status': 'error', 'message': f'Error al integrar paquetes: {str(e)}'})
+        return JsonResponse({'status': 'error', 'message': f'Error al descargar e integrar paquetes del SAT: {str(e)}'})
 
 @login_required(login_url='/login/')
 @require_POST

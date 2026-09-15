@@ -11,12 +11,35 @@ from .models import FielContratista, Nomina, Empleado
 # Importaciones correctas para satcfdi v4.x
 try:
     from satcfdi.models import Signer
-    from satcfdi.pacs.sat import SAT, TipoDescargaMasivaTerceros
+    from satcfdi.pacs.sat import SAT, TipoDescargaMasivaTerceros, _SATRequest
     from satcfdi.cfdi import CFDI
+    from lxml import etree
 except ImportError:
     Signer = None
     SAT = None
     CFDI = None
+    _SATRequest = object
+    etree = None
+
+class _SafeCFDIDescargaMasiva(_SATRequest):
+    xml_name = 'descarga.xml'
+    soap_url = 'https://cfdidescargamasiva.clouda.sat.gob.mx/DescargaMasivaService.svc'
+    soap_action = 'http://DescargaMasivaTerceros.sat.gob.mx/IDescargaMasivaTercerosService/Descargar'
+    solicitud_xpath = '{*}Body/{*}PeticionDescargaMasivaTercerosEntrada/{*}peticionDescarga'
+
+    def process_response(self, response):
+        header = response.find('.//{*}respuesta')
+        paquete = response.find('.//{*}Paquete')
+
+        res_dict = {}
+        if header is not None:
+            if 'CodEstatus' in header.attrib:
+                res_dict['CodEstatus'] = header.attrib['CodEstatus']
+            if 'Mensaje' in header.attrib:
+                res_dict['Mensaje'] = header.attrib['Mensaje']
+
+        zip_b64 = paquete.text if (paquete is not None and paquete.text) else None
+        return res_dict, zip_b64
 
 class SATService:
     def __init__(self, contratista):
@@ -95,25 +118,48 @@ class SATService:
         sat = SAT(signer=signer)
         count = 0
         all_files = []
+        errores_paquetes = []
         for p_id in paquetes:
-            _, zip_b64 = sat.recover_comprobante_download(id_paquete=p_id)
-            if zip_b64:
-                zip_bytes = base64.b64decode(zip_b64)
-                c, f = self._procesar_zip_xml(zip_bytes, empresa_actual, sucursal_id, estatus_cfdi=estatus_cfdi)
-                count += c
-                all_files.extend(f)
-        return count, all_files
+            try:
+                req = _SafeCFDIDescargaMasiva(
+                    signer=sat.signer,
+                    arguments={
+                        'RfcSolicitante': sat.signer.rfc,
+                        'IdPaquete': p_id,
+                    }
+                )
+                header, zip_b64 = sat._execute_req(req, needs_token_fn=sat._get_token_comprobante)
+                if zip_b64:
+                    zip_bytes = base64.b64decode(zip_b64)
+                    c, f = self._procesar_zip_xml(zip_bytes, empresa_actual, sucursal_id, estatus_cfdi=estatus_cfdi)
+                    count += c
+                    all_files.extend(f)
+                else:
+                    msg = header.get('Mensaje', 'Sin contenido de paquete') if isinstance(header, dict) else ''
+                    cod = header.get('CodEstatus', '') if isinstance(header, dict) else ''
+                    errores_paquetes.append(f"Paquete {p_id}: {cod} {msg}")
+            except Exception as e:
+                import traceback
+                print(f"Error al descargar paquete {p_id}:\n{traceback.format_exc()}")
+                errores_paquetes.append(f"Paquete {p_id}: {str(e)}")
+        return count, all_files, errores_paquetes
 
     def _procesar_zip_xml(self, zip_bytes, empresa_actual, sucursal_id, estatus_cfdi='vigente'):
         count = 0
         files_list = []
-        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as z:
-            for xml_name in z.namelist():
-                files_list.append(xml_name)
-                if xml_name.lower().endswith('.xml') and not xml_name.endswith('/'):
-                    with z.open(xml_name) as f:
-                        if SATService._parsear_y_guardar_xml(f.read(), empresa_actual, sucursal_id, estatus_cfdi=estatus_cfdi):
-                            count += 1
+        try:
+            with zipfile.ZipFile(io.BytesIO(zip_bytes)) as z:
+                for xml_name in z.namelist():
+                    files_list.append(xml_name)
+                    if xml_name.lower().endswith('.xml') and not xml_name.endswith('/'):
+                        try:
+                            with z.open(xml_name) as f:
+                                if SATService._parsear_y_guardar_xml(f.read(), empresa_actual, sucursal_id, estatus_cfdi=estatus_cfdi):
+                                    count += 1
+                        except Exception as xml_err:
+                            print(f"Error procesando {xml_name}: {xml_err}")
+        except Exception as zerr:
+            print(f"Error abriendo ZIP descargado: {zerr}")
         return count, files_list
 
     @staticmethod
@@ -265,40 +311,61 @@ class SATService:
                         deducciones_detalladas_dict[tipo] = {'importe': 0.0}
                     deducciones_detalladas_dict[tipo]['importe'] += float(imp_ded)
 
-            Nomina.objects.update_or_create(
-                empresa=empresa_actual,
-                uuid=uuid_val,
-                defaults={
-                    'sucursal_id': sucursal_id,
-                    'empleado': empleado,
-                    'estado': estatus_cfdi,
-                    'periodo': f"SAT Bimestre {(f_pago.month + 1) // 2} {f_pago.year}" if f_pago else "SAT S/F",
-                    'tipo_nomina': get_attr(nomina_node, 'TipoNomina', 'O'),
-                    'folio': get_attr(root, 'Folio'),
-                    'serie': get_attr(root, 'Serie'),
-                    'fecha_emision': fecha_emision,
-                    'fecha_certificacion': fecha_certificacion,
-                    'fecha_pago': f_pago,
-                    'fecha_inicial_pago': f_ini,
-                    'fecha_final_pago': f_fin,
-                    'dias_pagados': dias,
-                    'rfc': rfc_receptor,
-                    'curp': curp_val,
-                    'nss': nss_val,
-                    'nombre': nombre_receptor,
-                    'rfc_contratista': rfc_emisor,
-                    'sueldo_gravado': sueldo_gravado,
-                    'vacaciones_exento': vacaciones_exento,
-                    'vacaciones_dignas_exento': vacaciones_dignas_exento,
-                    'aguinaldo_exento': aguinaldo_exento,
-                    'vacaciones_gravado': vacaciones_gravado,
-                    'vacaciones_dignas_gravado': vacaciones_dignas_gravado,
-                    'aguinaldo_gravado': aguinaldo_gravado,
-                    'percepciones_detalladas': percepciones_detalladas_dict,
-                    'deducciones_detalladas': deducciones_detalladas_dict,
-                }
-            )
+            try:
+                sbc_val = Decimal(get_attr(nomina_receptor, 'SalarioBaseCotApor', '0') or '0')
+            except:
+                sbc_val = Decimal('0.00')
+
+            try:
+                sdi_val = Decimal(get_attr(nomina_receptor, 'SalarioDiarioIntegrado', '0') or '0')
+            except:
+                sdi_val = Decimal('0.00')
+
+            defaults_nomina = {
+                'sucursal_id': sucursal_id,
+                'empleado': empleado,
+                'estado': estatus_cfdi,
+                'periodo': f"SAT Bimestre {(f_pago.month + 1) // 2} {f_pago.year}" if f_pago else "SAT S/F",
+                'tipo_nomina': get_attr(nomina_node, 'TipoNomina', 'O'),
+                'folio': get_attr(root, 'Folio'),
+                'serie': get_attr(root, 'Serie'),
+                'fecha_emision': fecha_emision,
+                'fecha_certificacion': fecha_certificacion,
+                'fecha_pago': f_pago,
+                'fecha_inicial_pago': f_ini,
+                'fecha_final_pago': f_fin,
+                'dias_pagados': dias,
+                'rfc': rfc_receptor,
+                'curp': curp_val,
+                'nss': nss_val,
+                'nombre': nombre_receptor,
+                'rfc_contratista': rfc_emisor,
+                'sbc': sbc_val,
+                'sdi': sdi_val,
+                'sueldo_gravado': sueldo_gravado,
+                'vacaciones_exento': vacaciones_exento,
+                'vacaciones_dignas_exento': vacaciones_dignas_exento,
+                'aguinaldo_exento': aguinaldo_exento,
+                'vacaciones_gravado': vacaciones_gravado,
+                'vacaciones_dignas_gravado': vacaciones_dignas_gravado,
+                'aguinaldo_gravado': aguinaldo_gravado,
+                'percepciones_detalladas': percepciones_detalladas_dict,
+                'deducciones_detalladas': deducciones_detalladas_dict,
+            }
+
+            nomina_existente = Nomina.objects.filter(empresa=empresa_actual, uuid=uuid_val).first()
+            if nomina_existente:
+                for k, v in defaults_nomina.items():
+                    setattr(nomina_existente, k, v)
+                nomina_existente.save()
+            else:
+                Nomina.objects.create(
+                    empresa=empresa_actual,
+                    uuid=uuid_val,
+                    **defaults_nomina
+                )
             return True
         except Exception as e:
-            print(f"Fallo en parseo: {e}")
+            import traceback
+            print(f"Fallo en parseo de nómina: {e}\n{traceback.format_exc()}")
             return False

@@ -1401,7 +1401,7 @@
         });
     }
 
-    function integrarXML(btn, solicitudId) {
+    async function integrarXML(btn, solicitudId) {
         const passwordInput = document.querySelector('input[name="password_fiel"]');
         if (!passwordInput || !passwordInput.value) {
             alert("Para integrar, primero escriba la contraseña de la FIEL en el campo correspondiente arriba.");
@@ -1410,7 +1410,7 @@
             return;
         }
 
-        if (!confirm("Se procesarán los archivos descargados y se integrarán a la lista de nóminas. ¿Continuar?")) return;
+        if (!confirm("Se descargarán los paquetes del SAT y se integrarán los XMLs a la lista de nóminas. ¿Continuar?")) return;
         
         btn.disabled = true;
         const icon = btn.querySelector('i');
@@ -1421,38 +1421,49 @@
         const formData = new FormData();
         formData.append('password_fiel', passwordInput.value);
 
-        fetch(`/recursos-humanos/sat/integrar/${solicitudId}/`, {
-            method: 'POST',
-            body: formData,
-            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
-        })
-        .then(r => r.json())
-        .then(data => {
+        const csrfTokenEl = document.querySelector('[name=csrfmiddlewaretoken]');
+        const token = csrfTokenEl ? csrfTokenEl.value : '{{ csrf_token }}';
+
+        try {
+            const response = await fetch(`/recursos-humanos/sat/integrar/${solicitudId}/`, {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': token }
+            });
+
+            const data = await response.json().catch(() => null);
+
             btn.disabled = false;
             if (icon) {
                 icon.className = 'bi bi-download';
             }
-            if (data.status === 'success') {
+
+            if (!response.ok) {
+                const errMsg = (data && data.message) ? data.message : `El servidor respondió con código ${response.status}`;
+                alert('Error al integrar nóminas: ' + errMsg);
+                return;
+            }
+
+            if (data && data.status === 'success') {
                 alert(data.message);
                 location.reload();
             } else {
-                alert('Error: ' + data.message);
+                alert('Error: ' + ((data && data.message) ? data.message : 'Respuesta no válida del servidor.'));
             }
-        })
-        .catch(err => {
+        } catch (err) {
             console.error(err);
-            alert("Error de conexión con el servidor.");
             btn.disabled = false;
             if (icon) {
                 icon.className = 'bi bi-download';
             }
-        });
+            alert("Ocurrió un error al procesar la integración: " + err.message);
+        }
     }
 
-    function verificarEstadoSAT(btn, solicitudId) {
+    async function verificarEstadoSAT(btn, solicitudId) {
         const passwordInput = document.querySelector('input[name="password_fiel"]');
         if (!passwordInput || !passwordInput.value) {
-            alert("Para verificar el estado, escriba la contraseña de la FIEL en el campo correspondiente arriba.");
+            alert("Para verificar el estado, escriba la contraseña de la FIEL arriba.");
             document.getElementById('solicitud-tab').click();
             if (passwordInput) passwordInput.focus();
             return;
@@ -1469,33 +1480,43 @@
 
         const selContratista = document.getElementById('selectContratistaSAT');
         const contId = selContratista ? selContratista.value : '';
+        const csrfTokenEl = document.querySelector('[name=csrfmiddlewaretoken]');
+        const token = csrfTokenEl ? csrfTokenEl.value : '{{ csrf_token }}';
 
-        fetch(`/recursos-humanos/sat/verificar-estatus/${solicitudId}/`, {
-            method: 'POST',
-            body: formData,
-            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
-        })
-        .then(r => r.json())
-        .then(data => {
+        try {
+            const response = await fetch(`/recursos-humanos/sat/verificar-estatus/${solicitudId}/`, {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': token }
+            });
+
+            const data = await response.json().catch(() => null);
+
             btn.disabled = false;
             if (icon) {
                 icon.classList.remove('spin-icon');
             }
-            if (data.status === 'success') {
+
+            if (!response.ok) {
+                const errMsg = (data && data.message) ? data.message : `El servidor respondió con código ${response.status}`;
+                alert('Error al consultar SAT: ' + errMsg);
+                return;
+            }
+
+            if (data && data.status === 'success') {
                 alert(data.message);
                 cargarSolicitudesSAT(contId);
             } else {
-                alert('Error: ' + data.message);
+                alert('Error: ' + ((data && data.message) ? data.message : 'Respuesta no válida del servidor.'));
             }
-        })
-        .catch(err => {
+        } catch (err) {
             console.error(err);
             btn.disabled = false;
             if (icon) {
                 icon.classList.remove('spin-icon');
             }
-            alert("Ocurrió un error al conectar con el servidor para verificar el estado.");
-        });
+            alert("Ocurrió un error al conectar con el servidor: " + err.message);
+        }
     }
 
     function exportarNominas() {

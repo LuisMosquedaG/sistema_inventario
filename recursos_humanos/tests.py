@@ -2521,7 +2521,7 @@ class ContratoVersionesConsecutivasSuiteTest(TestCase):
 
     def test_exportar_sisub_contratos_solo_considera_vigentes(self):
         import datetime
-        # Contrato 1: Vigente
+        # Contrato 1: Vigente en C1 2026
         c_vigente = Contrato.objects.create(
             empresa=self.empresa,
             contratista=self.contratista,
@@ -2533,40 +2533,45 @@ class ContratoVersionesConsecutivasSuiteTest(TestCase):
             estado_vigencia='vigente'
         )
 
-        # Contrato 2: Cerrado
-        c_cerrado = Contrato.objects.create(
+        # Contrato 2: Vencido antes de 2026 (pertenece a 2025)
+        c_vencido_2025 = Contrato.objects.create(
             empresa=self.empresa,
             contratista=self.contratista,
             beneficiario=self.beneficiario,
-            folio="CONT-CERRADO-2026",
-            fecha_inicio=datetime.date(2026, 1, 1),
-            fecha_fin=datetime.date(2026, 4, 30),
-            vigencia_contrato=datetime.date(2026, 12, 31)
-        )
-        Contrato.objects.filter(id=c_cerrado.id).update(estado_vigencia='cerrado')
-
-        # Contrato 3: Vencido
-        c_vencido = Contrato.objects.create(
-            empresa=self.empresa,
-            contratista=self.contratista,
-            beneficiario=self.beneficiario,
-            folio="CONT-VENCIDO-2026",
-            fecha_inicio=datetime.date(2026, 1, 1),
-            fecha_fin=datetime.date(2026, 4, 30),
+            folio="CONT-VENCIDO-2025",
+            fecha_inicio=datetime.date(2025, 1, 1),
+            fecha_fin=datetime.date(2025, 4, 30),
             vigencia_contrato=datetime.date(2025, 12, 31)
         )
-        Contrato.objects.filter(id=c_vencido.id).update(estado_vigencia='vencido')
+
+        # Contrato 3: Vencido respecto a hoy (1-Sep-2026) pero activo durante C2 2026
+        c_vencido_c2 = Contrato.objects.create(
+            empresa=self.empresa,
+            contratista=self.contratista,
+            beneficiario=self.beneficiario,
+            folio="CONT-VENCIDO-C2-2026",
+            fecha_inicio=datetime.date(2026, 5, 1),
+            fecha_fin=datetime.date(2026, 8, 31),
+            vigencia_contrato=datetime.date(2026, 9, 1),
+            estado_vigencia='vencido'
+        )
 
         url = reverse('exportar_sisub_contratos', args=[self.contratista.id])
-        res = self.client.get(url + '?cuatrimestre=1&anio=2026&formato=csv')
-        self.assertEqual(res.status_code, 200)
-        content = res.content.decode('utf-8-sig')
+        
+        # Prueba Cuatrimestre 1 de 2026
+        res_c1 = self.client.get(url + '?cuatrimestre=1&anio=2026&formato=csv')
+        self.assertEqual(res_c1.status_code, 200)
+        content_c1 = res_c1.content.decode('utf-8-sig')
+        self.assertIn("CONT-VIGENTE-2026", content_c1)
+        self.assertNotIn("CONT-VENCIDO-2025", content_c1)
+        self.assertNotIn("CONT-VENCIDO-C2-2026", content_c1)
 
-        # Debe incluir el contrato vigente
-        self.assertIn("CONT-VIGENTE-2026", content)
-        # NO debe incluir los contratos cerrados o vencidos
-        self.assertNotIn("CONT-CERRADO-2026", content)
-        self.assertNotIn("CONT-VENCIDO-2026", content)
+        # Prueba Cuatrimestre 2 de 2026 (debe incluir el contrato con vigencia 1-Sep-2026 aunque hoy esté vencido)
+        res_c2 = self.client.get(url + '?cuatrimestre=2&anio=2026&formato=csv')
+        self.assertEqual(res_c2.status_code, 200)
+        content_c2 = res_c2.content.decode('utf-8-sig')
+        self.assertIn("CONT-VENCIDO-C2-2026", content_c2)
+        self.assertNotIn("CONT-VENCIDO-2025", content_c2)
 
     def test_descargar_plantilla_reporte_trabajadores(self):
         import io

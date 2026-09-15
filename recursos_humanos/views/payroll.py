@@ -438,17 +438,14 @@ def exportar_sisub_trabajadores(request, id):
         cuat_start = datetime.date(anio, 9, 1)
         cuat_end = datetime.date(anio, 12, 31)
 
-    today = datetime.date.today()
     contratos = Contrato.objects.filter(
         contratista=contratista,
         empresa=empresa_actual,
         fecha_inicio__lte=cuat_end
     ).filter(
         Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=cuat_start)
-    ).exclude(
-        estado_vigencia__in=['cerrado', 'vencido']
-    ).exclude(
-        vigencia_contrato__lt=today
+    ).filter(
+        Q(vigencia_contrato__isnull=True) | Q(vigencia_contrato__gte=cuat_start)
     ).prefetch_related('empleados', 'beneficiario')
     emp_map = {}
     for c in contratos:

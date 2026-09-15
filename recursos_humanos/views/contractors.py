@@ -561,17 +561,14 @@ def exportar_sisub_contratos(request, id):
             cuat_start = datetime.date(anio_num, 9, 1)
             cuat_end = datetime.date(anio_num, 12, 31)
 
-        today = datetime.date.today()
         contratos = Contrato.objects.filter(
             contratista=contratista,
             empresa=empresa_actual,
             fecha_inicio__lte=cuat_end
         ).filter(
             Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=cuat_start)
-        ).exclude(
-            estado_vigencia__in=['cerrado', 'vencido']
-        ).exclude(
-            vigencia_contrato__lt=today
+        ).filter(
+            Q(vigencia_contrato__isnull=True) | Q(vigencia_contrato__gte=cuat_start)
         ).select_related('beneficiario').prefetch_related('empleados').order_by('folio')
 
         headers = ['Cuatrimestre', 'Año', 'RFC Sujeto', 'Folio', 'Tipo', 'Objeto', 'Monto', 'Vigencia', 'Inicio', 'Termino', 'Trabajadores', 'RFC Ben', 'Nombre Ben', 'RegPat Ben', 'Calle', 'Ext', 'Int', 'Entre', 'Y', 'Colonia', 'CP', 'Mun', 'Edo', 'Email', 'Tel']
@@ -705,18 +702,15 @@ def exportar_icsoe(request, id):
                     importaciones_validas.append(imp)
 
         # 3. Obtener Contratos del Contratista en este cuatrimestre
-        # Excluir contratos con estado de vigencia cerrado o vencido
-        today = datetime.date.today()
+        # 3. Obtener Contratos del Contratista en este cuatrimestre
         contratos_cuat = Contrato.objects.filter(
             contratista=contratista,
             empresa=empresa_actual,
             fecha_inicio__lte=cuat_end
         ).filter(
             Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=cuat_start)
-        ).exclude(
-            estado_vigencia__in=['cerrado', 'vencido']
-        ).exclude(
-            vigencia_contrato__lt=today
+        ).filter(
+            Q(vigencia_contrato__isnull=True) | Q(vigencia_contrato__gte=cuat_start)
         ).prefetch_related('empleados')
 
         tiene_contratos_global = Contrato.objects.filter(contratista=contratista, empresa=empresa_actual).exists()
@@ -995,10 +989,8 @@ def exportar_carga_trabajadores(request, id):
                     fecha_inicio__lte=cuat_end
                 ).filter(
                     Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=cuat_start)
-                ).exclude(
-                    estado_vigencia__in=['cerrado', 'vencido']
-                ).exclude(
-                    vigencia_contrato__lt=dt.date.today()
+                ).filter(
+                    Q(vigencia_contrato__isnull=True) | Q(vigencia_contrato__gte=cuat_start)
                 )
                 for con in contratos_emp:
                     if con.beneficiario_id:
