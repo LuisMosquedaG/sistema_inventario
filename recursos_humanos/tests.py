@@ -2659,6 +2659,42 @@ class ContratoVersionesConsecutivasSuiteTest(TestCase):
         self.assertIn(str(ws['A1'].fill.start_color.rgb).upper(), ["00B8B9", "FF00B8B9", "0000B8B9"])
         self.assertIn(str(ws['A2'].fill.start_color.rgb).upper(), ["D9D9D9", "FFD9D9D9", "00D9D9D9"])
 
+    def test_comando_limpiar_nominas_ceros(self):
+        from io import StringIO
+        from django.core.management import call_command
+        import datetime
+
+        # Crear una nómina con monto
+        Nomina.objects.create(
+            empresa=self.empresa,
+            periodo="Mayo 2026",
+            tipo_nomina="O",
+            fecha_pago=datetime.date(2026, 5, 15),
+            rfc="POT120101XYZ",
+            sueldo_gravado=Decimal("2500.00"),
+            estado="vigente"
+        )
+        # Crear una nómina con 0 percepciones
+        Nomina.objects.create(
+            empresa=self.empresa,
+            periodo="Mayo 2026",
+            tipo_nomina="E",
+            fecha_pago=datetime.date(2026, 5, 15),
+            rfc="POT120101XYZ",
+            sueldo_gravado=Decimal("0.00"),
+            estado="vigente"
+        )
+
+        out = StringIO()
+        call_command('limpiar_nominas_ceros', '--dry-run', stdout=out)
+        self.assertIn("Se habrían eliminado 1 registros", out.getvalue())
+
+        out_run = StringIO()
+        call_command('limpiar_nominas_ceros', stdout=out_run)
+        self.assertIn("Se eliminaron exitosamente 1 registros", out_run.getvalue())
+        self.assertEqual(Nomina.objects.filter(empresa=self.empresa).count(), 1)
+
+
 
 
 
