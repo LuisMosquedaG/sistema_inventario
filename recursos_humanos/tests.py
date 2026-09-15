@@ -74,6 +74,43 @@ class XMLPayrollParsingTest(TestCase):
         self.assertEqual(nomina.percepciones_detalladas.get('002', {}).get('exento'), 500.0)
         self.assertEqual(nomina.total_percepciones, Decimal('2100.00'))
 
+    @patch('recursos_humanos.sat_service.CFDI')
+    def test_parsear_y_guardar_xml_omite_percepciones_cero(self, mock_cfdi):
+        mock_cfdi.from_string.return_value = "mock_cfdi_instance"
+        xml_cero = """<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/3" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" xmlns:nomina12="http://www.sat.gob.mx/nomina12" Version="3.3" Total="0.00" Folio="1000" Serie="N">
+  <cfdi:Emisor Rfc="XAXX010101000"/>
+  <cfdi:Receptor Rfc="POT120101XYZ" Nombre="PEDRO PEREZ"/>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital UUID="f07b8b2e-9999-8888-7777-444455556666"/>
+    <nomina12:Nomina FechaPago="2026-06-15" FechaInicialPago="2026-06-01" FechaFinalPago="2026-06-15" NumDiasPagados="15.00" TipoNomina="E">
+      <nomina12:Receptor Curp="PEPE000000HDFRXX01" NumSeguridadSocial="12345678901"/>
+      <nomina12:Percepciones>
+        <nomina12:Percepcion TipoPercepcion="001" Clave="P001" Concepto="AJUSTE SUELDO" ImporteGravado="0.00" ImporteExento="0.00"/>
+      </nomina12:Percepciones>
+    </nomina12:Nomina>
+  </cfdi:Complemento>
+</cfdi:Comprobante>"""
+        resultado = SATService._parsear_y_guardar_xml(xml_cero.encode('utf-8'), self.empresa, None)
+        self.assertFalse(resultado)
+        self.assertFalse(Nomina.objects.filter(uuid="f07b8b2e-9999-8888-7777-444455556666").exists())
+
+    @patch('recursos_humanos.sat_service.CFDI')
+    def test_parsear_y_guardar_xml_omite_sin_nodo_percepciones(self, mock_cfdi):
+        mock_cfdi.from_string.return_value = "mock_cfdi_instance"
+        xml_sin_percepciones = """<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/3" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" xmlns:nomina12="http://www.sat.gob.mx/nomina12" Version="3.3" Total="0.00" Folio="1001" Serie="N">
+  <cfdi:Emisor Rfc="XAXX010101000"/>
+  <cfdi:Receptor Rfc="POT120101XYZ" Nombre="PEDRO PEREZ"/>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital UUID="a07b8b2e-9999-8888-7777-444455556666"/>
+    <nomina12:Nomina FechaPago="2026-06-15" FechaInicialPago="2026-06-01" FechaFinalPago="2026-06-15" NumDiasPagados="15.00" TipoNomina="E">
+      <nomina12:Receptor Curp="PEPE000000HDFRXX01" NumSeguridadSocial="12345678901"/>
+    </nomina12:Nomina>
+  </cfdi:Complemento>
+</cfdi:Comprobante>"""
+        resultado = SATService._parsear_y_guardar_xml(xml_sin_percepciones.encode('utf-8'), self.empresa, None)
+        self.assertFalse(resultado)
+        self.assertFalse(Nomina.objects.filter(uuid="a07b8b2e-9999-8888-7777-444455556666").exists())
+
     def test_crear_editar_nomina_percepciones_detalladas(self):
         # Iniciar sesión / crear datos mínimos
         from django.test import Client
@@ -1567,6 +1604,9 @@ class CargarXMLDirectoTest(TestCase):
     <tfd:TimbreFiscalDigital UUID="f08b8b2e-2222-3333-4444-555566667777" FechaTimbrado="2026-07-15T12:35:45"/>
     <nomina12:Nomina FechaPago="2026-07-15" FechaInicialPago="2026-07-01" FechaFinalPago="2026-07-15" NumDiasPagados="15.00" TipoNomina="O">
       <nomina12:Receptor Curp="JUAN000000HDFRXX02" NumSeguridadSocial="98765432101"/>
+      <nomina12:Percepciones>
+        <nomina12:Percepcion TipoPercepcion="001" Clave="P001" Concepto="SUELDO" ImporteGravado="1500.00" ImporteExento="0.00"/>
+      </nomina12:Percepciones>
     </nomina12:Nomina>
   </cfdi:Complemento>
 </cfdi:Comprobante>"""

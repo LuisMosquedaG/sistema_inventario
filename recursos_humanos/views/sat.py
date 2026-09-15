@@ -305,7 +305,7 @@ def cargar_xml_directo_ajax(request):
                 ):
                     count += 1
                 else:
-                    errores.append(f"El archivo {f.name} no es un CFDI de nómina válido o no tiene nodo de Nómina.")
+                    errores.append(f"El archivo {f.name} no es un CFDI de nómina válido o no contiene percepciones válidas (> $0.00).")
             except Exception as xml_err:
                 errores.append(f"Error al procesar el archivo XML {f.name}: {str(xml_err)}")
         else:

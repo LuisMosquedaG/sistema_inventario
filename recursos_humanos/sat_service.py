@@ -295,6 +295,20 @@ class SATService:
                     elif tipo == '001':
                         sueldo_gravado += imp_gravado
 
+            # Validar que existan percepciones con importe mayor a 0 en el sistema
+            total_percepciones_xml = sum(
+                Decimal(str(v.get('gravado', 0))) + Decimal(str(v.get('exento', 0)))
+                for v in percepciones_detalladas_dict.values()
+            )
+            total_legacy = (
+                sueldo_gravado + vacaciones_exento + vacaciones_dignas_exento +
+                aguinaldo_exento + vacaciones_gravado + vacaciones_dignas_gravado +
+                aguinaldo_gravado
+            )
+            if max(total_percepciones_xml, total_legacy) <= Decimal('0.00'):
+                # Omitir XMLs sin percepciones registradas o con importe en $0.00 (otros tipos de timbres/ajustes)
+                return False
+
             deducciones_detalladas_dict = {}
             deducciones_node = nomina_node.find('.//{*}Deducciones')
             if deducciones_node is not None:
