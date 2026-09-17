@@ -1692,6 +1692,83 @@ def cambiar_estatus_documento_proveedor_ajax(request, doc_id):
             doc.comentario_rechazo = ''
         doc.save()
         
+        # Enviar correo de notificación al proveedor si el estatus es 'aprobado' o 'rechazado'
+        if nuevo_estatus in ['aprobado', 'rechazado']:
+            try:
+                prov = doc.proveedor
+                email_destino = (prov.correo or (prov.usuario.email if prov.usuario else '') or '').strip()
+                if email_destino:
+                    from preferencias.utils import enviar_correo_contratista
+                    
+                    dict_catalogo = {d['codigo']: d for d in DocumentacionProveedor.CATALOGO_DOCUMENTOS}
+                    doc_meta = dict_catalogo.get(doc.nombre_documento, {})
+                    nombre_doc_humano = doc_meta.get('nombre', doc.nombre_documento)
+                    periodo_tipo = doc_meta.get('periodo', 'mensual')
+                    
+                    meses_nombres = {
+                        1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
+                        5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
+                        9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+                    }
+                    bimestres_nombres = {
+                        1: '1er Bimestre (Ene-Feb)', 2: '2do Bimestre (Mar-Abr)', 3: '3er Bimestre (May-Jun)',
+                        4: '4to Bimestre (Jul-Ago)', 5: '5to Bimestre (Sep-Oct)', 6: '6to Bimestre (Nov-Dic)'
+                    }
+                    cuatrimestres_nombres = {
+                        1: '1er Cuatrimestre (Ene-Abr)', 2: '2do Cuatrimestre (May-Ago)', 3: '3er Cuatrimestre (Sep-Dic)'
+                    }
+                    
+                    if periodo_tipo == 'mensual':
+                        periodo_str = f"{meses_nombres.get(doc.mes, f'Mes {doc.mes}')} {doc.anio}"
+                    elif periodo_tipo == 'bimestral':
+                        periodo_str = f"{bimestres_nombres.get(doc.mes, f'Bimestre {doc.mes}')} {doc.anio}"
+                    elif periodo_tipo == 'cuatrimestral':
+                        periodo_str = f"{cuatrimestres_nombres.get(doc.mes, f'Cuatrimestre {doc.mes}')} {doc.anio}"
+                    else: # unica_ocasion
+                        periodo_str = f"Única Ocasión (Ejercicio {doc.anio})"
+
+                    nombre_contratista = prov.contratista.nombre_razon_social if prov.contratista else (doc.empresa.nombre if doc.empresa else "Contratista")
+                    
+                    if nuevo_estatus == 'aprobado':
+                        asunto = f"Documento Aceptado - {nombre_doc_humano} ({periodo_str})"
+                        cuerpo = (
+                            f"Estimado/a {prov.nombre_razon_social}:\n\n"
+                            f"Le informamos que el siguiente documento ha sido revisado y su estatus es: Aceptado.\n\n"
+                            f"• Contratista: {nombre_contratista}\n"
+                            f"• Documento: {nombre_doc_humano}\n"
+                            f"• Período: {periodo_str}\n"
+                            f"• Estatus: Aceptado\n\n"
+                            f"Atentamente,\n"
+                            f"{nombre_contratista}\n"
+                            f"Sistema CrossoverSuite"
+                        )
+                    else:
+                        asunto = f"Documento Rechazado - {nombre_doc_humano} ({periodo_str})"
+                        cuerpo = (
+                            f"Estimado/a {prov.nombre_razon_social}:\n\n"
+                            f"Le informamos que el siguiente documento ha sido revisado y su estatus es: Rechazado.\n\n"
+                            f"• Contratista: {nombre_contratista}\n"
+                            f"• Documento: {nombre_doc_humano}\n"
+                            f"• Período: {periodo_str}\n"
+                            f"• Estatus: Rechazado\n"
+                            f"• Motivo de Cancelación / Rechazo: {comentario}\n\n"
+                            f"Por favor, ingrese al portal para solventar la observación y subir el documento corregido.\n\n"
+                            f"Atentamente,\n"
+                            f"{nombre_contratista}\n"
+                            f"Sistema CrossoverSuite"
+                        )
+
+                    enviar_correo_contratista(
+                        contratista=prov.contratista,
+                        asunto=asunto,
+                        cuerpo=cuerpo,
+                        destinatarios=[email_destino]
+                    )
+            except Exception as mail_err:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error al enviar correo de notificación de estatus al proveedor: {mail_err}")
+        
         return JsonResponse({'success': True, 'message': 'Estatus actualizado correctamente.'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})

@@ -111,15 +111,16 @@ def enviar_correo_contratista(contratista, asunto, cuerpo, destinatarios=None, c
                 from_email = f"{nombre} <{correo}>"
 
             # Determinar destinatarios de entrada según configuración del contratista
-            if smtp_config.email_notificacion_1:
-                to_emails = [smtp_config.email_notificacion_1]
-            elif not to_emails and contratista.correo:
-                to_emails = [contratista.correo]
+            if not to_emails:
+                if smtp_config.email_notificacion_1:
+                    to_emails = [smtp_config.email_notificacion_1]
+                elif contratista.correo:
+                    to_emails = [contratista.correo]
 
-            if smtp_config.email_notificacion_2:
-                cc_emails.append(smtp_config.email_notificacion_2)
-            if smtp_config.email_notificacion_3:
-                cc_emails.append(smtp_config.email_notificacion_3)
+                if smtp_config.email_notificacion_2:
+                    cc_emails.append(smtp_config.email_notificacion_2)
+                if smtp_config.email_notificacion_3:
+                    cc_emails.append(smtp_config.email_notificacion_3)
 
         except ContratistaCorreoSMTP.DoesNotExist:
             if not to_emails and contratista.correo:

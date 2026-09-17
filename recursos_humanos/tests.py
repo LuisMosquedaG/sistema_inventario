@@ -2201,6 +2201,131 @@ class ContratistaSMTPTest(TestCase):
         self.assertIn("Contratista Destinatarios S.A.", sent.body)
         self.assertIn("Proveedor Con Notificaciones", sent.body)
 
+    def test_aprobar_documento_envia_correo_al_proveedor(self):
+        from recursos_humanos.models import Contratista, ContratistaCorreoSMTP, ProveedorRH, DocumentacionProveedor
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.core import mail
+
+        mail.outbox = []
+
+        contratista = Contratista.objects.create(
+            empresa=self.empresa,
+            rfc="CONAPROB12345",
+            nombre_razon_social="Contratista Aprobador S.A.",
+            correo="general_aprobador@test.com"
+        )
+        ContratistaCorreoSMTP.objects.create(
+            contratista=contratista,
+            email_notificacion_1="contratista_notif@test.com",
+            email_notificacion_2="contratista_cc@test.com"
+        )
+
+        proveedor = ProveedorRH.objects.create(
+            empresa=self.empresa,
+            nombre_razon_social="Proveedor Aprobado S.A. de C.V.",
+            rfc="PROVAPROB999",
+            correo="proveedor_receptor@test.com",
+            contratista=contratista,
+            creado_por=self.user
+        )
+
+        test_file = SimpleUploadedFile("repse.pdf", b"pdf content", content_type="application/pdf")
+        doc = DocumentacionProveedor.objects.create(
+            empresa=self.empresa,
+            proveedor=proveedor,
+            nombre_documento='REPSE_VIGENTE',
+            mes=8,
+            anio=2026,
+            archivo=test_file,
+            status='revision'
+        )
+
+        response = self.client.post(
+            reverse('cambiar_estatus_documento_proveedor_ajax', args=[doc.id]),
+            {'status': 'aprobado'}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['success'])
+
+        doc.refresh_from_db()
+        self.assertEqual(doc.status, 'aprobado')
+
+        self.assertEqual(len(mail.outbox), 1)
+        sent = mail.outbox[0]
+        self.assertEqual(sent.to, ["proveedor_receptor@test.com"])
+        self.assertFalse(sent.cc)
+        self.assertIn("Aceptado", sent.subject)
+        self.assertIn("Estimado/a Proveedor Aprobado S.A. de C.V.", sent.body)
+        self.assertIn("Contratista Aprobador S.A.", sent.body)
+        self.assertIn("Constancia/registro REPSE vigente", sent.body)
+        self.assertIn("Agosto 2026", sent.body)
+        self.assertIn("Aceptado", sent.body)
+
+    def test_rechazar_documento_envia_correo_al_proveedor_con_motivo(self):
+        from recursos_humanos.models import Contratista, ContratistaCorreoSMTP, ProveedorRH, DocumentacionProveedor
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.core import mail
+
+        mail.outbox = []
+
+        contratista = Contratista.objects.create(
+            empresa=self.empresa,
+            rfc="CONRECH12345",
+            nombre_razon_social="Contratista Revisor S.A.",
+            correo="general_revisor@test.com"
+        )
+        ContratistaCorreoSMTP.objects.create(
+            contratista=contratista,
+            email_notificacion_1="contratista_notif@test.com",
+        )
+
+        proveedor = ProveedorRH.objects.create(
+            empresa=self.empresa,
+            nombre_razon_social="Proveedor Rechazado S.A. de C.V.",
+            rfc="PROVRECH999",
+            correo="proveedor_rechazado@test.com",
+            contratista=contratista,
+            creado_por=self.user
+        )
+
+        test_file = SimpleUploadedFile("sisub.pdf", b"pdf content", content_type="application/pdf")
+        doc = DocumentacionProveedor.objects.create(
+            empresa=self.empresa,
+            proveedor=proveedor,
+            nombre_documento='ACUSE_SISUB_CUATRIMESTRAL',
+            mes=2,
+            anio=2026,
+            archivo=test_file,
+            status='revision'
+        )
+
+        motivo_rechazo = "El acuse presentado no cuenta con la cadena digital válida del portal SISUB."
+        response = self.client.post(
+            reverse('cambiar_estatus_documento_proveedor_ajax', args=[doc.id]),
+            {
+                'status': 'rechazado',
+                'comentario_rechazo': motivo_rechazo
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['success'])
+
+        doc.refresh_from_db()
+        self.assertEqual(doc.status, 'rechazado')
+        self.assertEqual(doc.comentario_rechazo, motivo_rechazo)
+
+        self.assertEqual(len(mail.outbox), 1)
+        sent = mail.outbox[0]
+        self.assertEqual(sent.to, ["proveedor_rechazado@test.com"])
+        self.assertFalse(sent.cc)
+        self.assertIn("Rechazado", sent.subject)
+        self.assertIn("Estimado/a Proveedor Rechazado S.A. de C.V.", sent.body)
+        self.assertIn("Contratista Revisor S.A.", sent.body)
+        self.assertIn("Acuse de Presentación Informativa cuatrimestral SISUB", sent.body)
+        self.assertIn("2do Cuatrimestre (May-Ago) 2026", sent.body)
+        self.assertIn("Rechazado", sent.body)
+        self.assertIn(motivo_rechazo, sent.body)
+
     def test_contratista_registros_patronales_adicionales(self):
         import json
         from recursos_humanos.models import ContratistaRegistroPatronal
