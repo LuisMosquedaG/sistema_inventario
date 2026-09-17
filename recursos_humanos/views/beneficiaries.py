@@ -276,82 +276,184 @@ def optimizar_archivo(archivo_original):
 def obtener_documentacion_json(request, id):
     empresa_actual = get_empresa_actual(request)
     is_self = hasattr(request.user, 'beneficiario') and request.user.beneficiario.id == id
-    if not is_self and not user_has_hr_permission(request, 'beneficiarios', 'documentacion'):
-        return JsonResponse({'success': False, 'error': 'No cuentas con permiso para esta acción.'}, status=403)
+    if not is_self:
+        if not user_has_hr_permission(request, 'beneficiarios', 'documentacion') and not user_has_hr_permission(request, 'beneficiarios', 'ver'):
+            return JsonResponse({'success': False, 'error': 'No cuentas con permiso para esta acción.'}, status=403)
         
     ben = get_object_or_404(Beneficiario, id=id, empresa=empresa_actual)
     
-    anio = int(request.GET.get('anio', datetime.now().year))
-    
+    try:
+        anio = int(request.GET.get('anio') or datetime.now().year)
+    except ValueError:
+        anio = datetime.now().year
+        
     docs_existentes = DocumentacionBeneficiario.objects.filter(beneficiario=ben, anio=anio)
     
-    # Mapeo de documentos estándar
-    tipos_doc = DocumentacionBeneficiario.NOMBRE_DOC_CHOICES
+    catalogo = DocumentacionBeneficiario.CATALOGO_DOCUMENTOS
+    
+    meses_nombres = [
+        ('Ene', 'Enero'), ('Feb', 'Febrero'), ('Mar', 'Marzo'), ('Abr', 'Abril'),
+        ('May', 'Mayo'), ('Jun', 'Junio'), ('Jul', 'Julio'), ('Ago', 'Agosto'),
+        ('Sep', 'Septiembre'), ('Oct', 'Octubre'), ('Nov', 'Noviembre'), ('Dic', 'Diciembre')
+    ]
+    
+    bimestres_nombres = [
+        ('1er Bim', '1er Bimestre (Ene - Feb)'),
+        ('2do Bim', '2do Bimestre (Mar - Abr)'),
+        ('3er Bim', '3er Bimestre (May - Jun)'),
+        ('4to Bim', '4to Bimestre (Jul - Ago)'),
+        ('5to Bim', '5to Bimestre (Sep - Oct)'),
+        ('6to Bim', '6to Bimestre (Nov - Dic)')
+    ]
+    
+    cuatrimestres_nombres = [
+        ('1er Cuatrimestre', '1er Cuatrimestre (Ene - Abr)'),
+        ('2do Cuatrimestre', '2do Cuatrimestre (May - Ago)'),
+        ('3er Cuatrimestre', '3er Cuatrimestre (Sep - Dic)')
+    ]
     
     matrix = []
-    for code, nombre in tipos_doc:
-        meses_data = {}
-        for m in range(1, 13):
-            doc = docs_existentes.filter(nombre_documento=code, mes=m).first()
+    totales_resumen = {
+        'aprobados': 0,
+        'revision': 0,
+        'rechazados': 0,
+        'vacio': 0,
+        'total_requeridos': 0
+    }
+    
+    for item in catalogo:
+        code = item['codigo']
+        nombre = item['nombre']
+        periodo = item['periodo']
+        badge = item['badge']
+        num_periodos = item['num_periodos']
+        
+        periodos_list = []
+        for p in range(1, num_periodos + 1):
+            totales_resumen['total_requeridos'] += 1
+            if periodo == 'mensual':
+                colspan = 1
+                short_lbl = meses_nombres[p - 1][0]
+                full_lbl = meses_nombres[p - 1][1]
+            elif periodo == 'bimestral':
+                colspan = 2
+                short_lbl = bimestres_nombres[p - 1][0]
+                full_lbl = bimestres_nombres[p - 1][1]
+            elif periodo == 'cuatrimestral':
+                colspan = 4
+                short_lbl = cuatrimestres_nombres[p - 1][0]
+                full_lbl = cuatrimestres_nombres[p - 1][1]
+            else: # unica_ocasion
+                colspan = 12
+                short_lbl = 'Única ocasión'
+                full_lbl = 'Documento de Única Ocasión'
+                
+            doc = docs_existentes.filter(Q(nombre_documento=code) | (Q(nombre_documento='REPSE') if code == 'REPSE_VIGENTE' else Q(pk__isnull=True)), mes=p).first()
+            if doc:
+                if doc.estatus == 'aprobado':
+                    totales_resumen['aprobados'] += 1
+                elif doc.estatus == 'revision':
+                    totales_resumen['revision'] += 1
+                elif doc.estatus == 'rechazado':
+                    totales_resumen['rechazados'] += 1
+            else:
+                totales_resumen['vacio'] += 1
+                
             from django.urls import reverse
-            meses_data[m] = {
+            periodos_list.append({
+                'num': p,
+                'colspan': colspan,
+                'short_label': short_lbl,
+                'label': full_lbl,
                 'id': doc.id if doc else None,
                 'url': reverse('descargar_documento_beneficiario', args=[doc.id]) if doc else None,
                 'nombre_archivo': doc.archivo.name.split('/')[-1] if doc else None,
                 'estatus': doc.estatus if doc else None,
-                'estatus_display': doc.get_estatus_display() if doc else None
-            }
+                'estatus_display': doc.get_estatus_display() if doc else None,
+                'comentario_rechazo': (doc.comentario_rechazo or '') if doc else ''
+            })
+            
         matrix.append({
             'codigo': code,
             'nombre': nombre,
-            'meses': meses_data
+            'periodo': periodo,
+            'formato': item.get('formato', 'pdf'),
+            'badge': badge,
+            'num_periodos': num_periodos,
+            'periodos': periodos_list
         })
         
     return JsonResponse({
         'success': True,
         'beneficiario': ben.nombre_razon_social,
         'anio': anio,
-        'matrix': matrix
+        'matrix': matrix,
+        'resumen': totales_resumen
     })
 
 @login_required(login_url='/login/')
 @require_POST
-@require_hr_permission('beneficiarios', 'documentacion_subir', json_response=True)
 def subir_documento_ajax(request, id):
-    empresa_actual = get_empresa_actual(request)
-    ben = get_object_or_404(Beneficiario, id=id, empresa=empresa_actual)
-    
-    archivo = request.FILES.get('archivo')
-    codigo = request.POST.get('codigo')
-    mes = int(request.POST.get('mes'))
-    anio = int(request.POST.get('anio'))
-    
-    if not archivo:
-        return JsonResponse({'success': False, 'error': 'No se seleccionó ningún archivo.'})
-        
-    # Validar extensión del archivo
     import os
-    ext = os.path.splitext(archivo.name)[1].lower()
-    ALLOWED_EXTENSIONS = ['.pdf', '.xml', '.zip', '.xlsx', '.xls', '.csv', '.png', '.jpg', '.jpeg']
-    if ext not in ALLOWED_EXTENSIONS:
-        return JsonResponse({'success': False, 'error': f'Tipo de archivo no permitido. Extensiones válidas: {", ".join(ALLOWED_EXTENSIONS)}'})
-        
+    empresa_actual = get_empresa_actual(request)
+    if hasattr(request.user, 'beneficiario') and request.user.beneficiario.id == id:
+        ben = request.user.beneficiario
+    else:
+        if not user_has_hr_permission(request, 'beneficiarios', 'documentacion_subir') and not user_has_hr_permission(request, 'beneficiarios', 'documentacion'):
+            return JsonResponse({'success': False, 'error': 'No cuentas con permiso para subir documentos.'}, status=403)
+        ben = get_object_or_404(Beneficiario, id=id, empresa=empresa_actual)
+    
     try:
+        nombre_documento = request.POST.get('codigo') or request.POST.get('nombre_documento')
+        mes = int(request.POST.get('mes'))
+        anio = int(request.POST.get('anio'))
+        archivo = request.FILES.get('archivo')
+        
+        if not archivo:
+            return JsonResponse({'success': False, 'error': 'No se seleccionó ningún archivo.'})
+            
+        dict_catalogo = {d['codigo']: d for d in DocumentacionBeneficiario.CATALOGO_DOCUMENTOS}
+        doc_meta = dict_catalogo.get(nombre_documento, {})
+        nombre_doc_humano = doc_meta.get('nombre', nombre_documento)
+        formato_esperado = doc_meta.get('formato', 'pdf')
+        
+        # Validar extensión según formato
+        filename_lower = archivo.name.lower()
+        if formato_esperado == 'pdf':
+            if not filename_lower.endswith('.pdf'):
+                return JsonResponse({'success': False, 'error': f'Formato no permitido. El documento "{nombre_doc_humano}" solo acepta archivos en formato PDF (.pdf).'})
+        elif formato_esperado == 'excel':
+            if not any(filename_lower.endswith(ext) for ext in ['.xlsx', '.xls', '.csv']):
+                return JsonResponse({'success': False, 'error': f'Formato no permitido. El documento "{nombre_doc_humano}" solo acepta archivos de Excel (.xlsx, .xls) o CSV (.csv).'})
+        elif formato_esperado == 'zip':
+            if not any(filename_lower.endswith(ext) for ext in ['.zip', '.rar', '.7z']):
+                return JsonResponse({'success': False, 'error': f'Formato no permitido. El documento "{nombre_doc_humano}" solo acepta archivos comprimidos (.zip).'})
+                
         # Optimización y compresión transparente
         archivo = optimizar_archivo(archivo)
 
-        # Si ya existe para ese mes/anio/tipo, lo actualizamos (o borramos el anterior)
+        # Si ya existe para ese mes/anio/tipo, lo actualizamos
         doc, created = DocumentacionBeneficiario.objects.get_or_create(
+            empresa=empresa_actual,
             beneficiario=ben,
-            nombre_documento=codigo,
+            nombre_documento=nombre_documento,
             mes=mes,
             anio=anio,
-            defaults={'empresa': empresa_actual, 'archivo': archivo, 'estatus': 'revision'}
+            defaults={'archivo': archivo, 'estatus': 'revision'}
         )
         
         if not created:
+            if doc.estatus == 'aprobado' and hasattr(request.user, 'beneficiario'):
+                return JsonResponse({'success': False, 'error': 'No puedes modificar un documento que ya ha sido aprobado.'})
+            if doc.archivo:
+                try:
+                    if os.path.exists(doc.archivo.path):
+                        os.remove(doc.archivo.path)
+                except Exception:
+                    pass
             doc.archivo = archivo
             doc.estatus = 'revision'
+            doc.comentario_rechazo = ''
             doc.save()
             
         return JsonResponse({'success': True, 'message': 'Archivo subido correctamente.'})
@@ -360,11 +462,19 @@ def subir_documento_ajax(request, id):
 
 @login_required(login_url='/login/')
 @require_POST
-@require_hr_permission('beneficiarios', 'documentacion_eliminar', json_response=True)
 def eliminar_documento_ajax(request, id):
-    # En este caso 'id' es el ID de DocumentacionBeneficiario
     empresa_actual = get_empresa_actual(request)
     doc = get_object_or_404(DocumentacionBeneficiario, id=id, empresa=empresa_actual)
+    
+    if hasattr(request.user, 'beneficiario'):
+        if doc.beneficiario != request.user.beneficiario:
+            return JsonResponse({'success': False, 'error': 'Acceso denegado: no tienes permisos sobre este documento.'}, status=403)
+        if doc.estatus == 'aprobado':
+            return JsonResponse({'success': False, 'error': 'No puedes eliminar un documento que ya ha sido aprobado.'}, status=403)
+    else:
+        if not user_has_hr_permission(request, 'beneficiarios', 'documentacion_eliminar') and not user_has_hr_permission(request, 'beneficiarios', 'eliminar') and not user_has_hr_permission(request, 'beneficiarios', 'documentacion'):
+            return JsonResponse({'success': False, 'error': 'No cuentas con permisos para eliminar este documento.'}, status=403)
+
     try:
         doc.delete()
         return JsonResponse({'success': True, 'message': 'Archivo eliminado correctamente.'})
@@ -416,7 +526,7 @@ def descargar_documento_beneficiario(request, doc_id):
             raise PermissionDenied("Acceso denegado: no tienes permisos para descargar este documento.")
     else:
         # Si es administrativo, validar que tenga permisos para descargar documentos
-        if not user_has_hr_permission(request, 'beneficiarios', 'documentacion_descargar'):
+        if not user_has_hr_permission(request, 'beneficiarios', 'documentacion_descargar') and not user_has_hr_permission(request, 'beneficiarios', 'documentacion') and not user_has_hr_permission(request, 'beneficiarios', 'ver'):
             raise PermissionDenied("Acceso denegado: no tienes permisos de Recursos Humanos.")
 
     # 3. Validar existencia del archivo físico
@@ -429,30 +539,38 @@ def descargar_documento_beneficiario(request, doc_id):
 @login_required(login_url='/login/')
 @require_POST
 def cambiar_estatus_documento_ajax(request, doc_id):
-    empresa_actual = get_empresa_actual(request)
-    doc = get_object_or_404(DocumentacionBeneficiario, id=doc_id)
-    
-    if doc.empresa != empresa_actual:
-        return JsonResponse({'success': False, 'error': 'Acceso denegado: este documento no pertenece a tu empresa.'}, status=403)
-        
-    is_beneficiary = hasattr(request.user, 'beneficiario')
-    if is_beneficiary:
-        if doc.beneficiario != request.user.beneficiario:
-            return JsonResponse({'success': False, 'error': 'Acceso denegado: no tienes permisos sobre este documento.'}, status=403)
+    nuevo_estatus = request.POST.get('status') or request.POST.get('estatus')
+    if nuevo_estatus == 'aprobado':
+        if not user_has_hr_permission(request, 'beneficiarios', 'documentacion_aprobar') and not user_has_hr_permission(request, 'beneficiarios', 'editar') and not user_has_hr_permission(request, 'beneficiarios', 'documentacion'):
+            return JsonResponse({'success': False, 'error': 'No cuentas con permiso para aprobar documentos.'}, status=403)
+    elif nuevo_estatus == 'rechazado':
+        if not user_has_hr_permission(request, 'beneficiarios', 'documentacion_rechazar') and not user_has_hr_permission(request, 'beneficiarios', 'editar') and not user_has_hr_permission(request, 'beneficiarios', 'documentacion'):
+            return JsonResponse({'success': False, 'error': 'No cuentas con permiso para rechazar documentos.'}, status=403)
     else:
-        if not user_has_hr_permission(request, 'beneficiarios', 'editar'):
-            return JsonResponse({'success': False, 'error': 'Acceso denegado: no cuentas con permisos de edición.'}, status=403)
-            
-    nuevo_estatus = request.POST.get('estatus')
-    if nuevo_estatus not in ['aprobado', 'rechazado', 'revision']:
-        return JsonResponse({'success': False, 'error': 'Estatus inválido.'})
-        
-    doc.estatus = nuevo_estatus
-    doc.save()
+        if not user_has_hr_permission(request, 'beneficiarios', 'documentacion') and not user_has_hr_permission(request, 'beneficiarios', 'editar'):
+            return JsonResponse({'success': False, 'error': 'No cuentas con permiso para modificar este documento.'}, status=403)
+
+    empresa_actual = get_empresa_actual(request)
+    doc = get_object_or_404(DocumentacionBeneficiario, id=doc_id, empresa=empresa_actual)
     
-    return JsonResponse({
-        'success': True,
-        'message': f'Documento marcado como {doc.get_estatus_display()} correctamente.',
-        'estatus': doc.estatus,
-        'estatus_display': doc.get_estatus_display()
-    })
+    try:
+        comentario = request.POST.get('comentario_rechazo', '').strip()
+        
+        if nuevo_estatus not in ['aprobado', 'rechazado', 'revision']:
+            return JsonResponse({'success': False, 'error': 'Estatus inválido.'})
+            
+        doc.estatus = nuevo_estatus
+        if nuevo_estatus == 'rechazado':
+            doc.comentario_rechazo = comentario
+        else:
+            doc.comentario_rechazo = ''
+        doc.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Documento marcado como {doc.get_estatus_display()} correctamente.',
+            'estatus': doc.estatus,
+            'estatus_display': doc.get_estatus_display()
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

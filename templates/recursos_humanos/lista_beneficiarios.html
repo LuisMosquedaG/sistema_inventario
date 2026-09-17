@@ -31,7 +31,7 @@
     .modal-body-gray::-webkit-scrollbar { width: 6px; }
     .modal-body-gray::-webkit-scrollbar-thumb { background-color: #dee2e6; border-radius: 4px; }
 
-    /* Estilos de la Matriz de Documentos (iguales al portal del beneficiario) */
+    /* Estilos de la Matriz de Documentos (iguales al expediente de proveedores) */
     .document-cell {
         position: relative;
         background-color: transparent;
@@ -39,6 +39,7 @@
         height: 50px;
         overflow: hidden;
         box-sizing: border-box;
+        cursor: pointer;
     }
     
     table.table-matrix th:not(:first-child) {
@@ -62,6 +63,11 @@
         transition: all 0.15s ease-in-out;
     }
 
+    .has-buttons .watermark-icon {
+        height: 35px;
+        font-size: 2.1rem;
+    }
+
     .z-index-2 {
         position: relative;
         z-index: 2;
@@ -82,11 +88,42 @@
     
     .cell-vacio {
         background-color: #ffffff !important; /* Blanco */
-        cursor: pointer;
-        transition: background-color 0.15s ease-in-out;
     }
-    .cell-vacio:hover {
-        background-color: #f8f9fa !important;
+    
+    .action-buttons-strip {
+        height: 15px;
+        display: flex;
+    }
+    
+    .btn-action {
+        transition: all 0.15s ease-in-out;
+        outline: none;
+        box-shadow: none;
+        border: none;
+        font-weight: 700;
+    }
+    
+    .btn-action-success {
+        background-color: #ebfbee;
+        color: #2f9e44;
+        border-top: 1px solid #b2f2bb;
+    }
+    
+    .btn-action-success:hover {
+        background-color: #d3f9d8;
+        color: #2b8a3e;
+    }
+    
+    .btn-action-danger {
+        background-color: #fff5f5;
+        color: #e03131;
+        border-top: 1px solid #ffc9c9;
+        border-left: 1px solid #ffc9c9;
+    }
+    
+    .btn-action-danger:hover {
+        background-color: #ffe3e3;
+        color: #c92a2a;
     }
     
     /* Hover muy suave en toda la fila de la matriz */
@@ -111,14 +148,14 @@
         max-height: 60vh;
         overflow-y: auto;
     }
-    #modalDocumentacion .table-matrix thead th {
+    .table-matrix thead th {
         position: sticky;
         top: 0;
         background-color: #f8f9fa !important;
         z-index: 10;
         box-shadow: inset 0 -1px 0 #dee2e6, inset 0 1px 0 #dee2e6;
     }
-    #modalDocumentacion .table-matrix tfoot td {
+    .table-matrix tfoot td {
         position: sticky;
         bottom: 0;
         background-color: #f8f9fa !important;
@@ -637,9 +674,11 @@
 <input type="file" id="inputFileDoc" style="display: none;" onchange="ejecutarSubidaDoc()">
 
 <script>
-    const CAN_UPLOAD_DOC = {% if granular_hr_perms.beneficiarios.documentacion_subir %}true{% else %}false{% endif %};
-    const CAN_DELETE_DOC = {% if granular_hr_perms.beneficiarios.documentacion_eliminar %}true{% else %}false{% endif %};
-    const CAN_DOWNLOAD_DOC = {% if granular_hr_perms.beneficiarios.documentacion_descargar %}true{% else %}false{% endif %};
+    const CAN_UPLOAD_DOC = {% if granular_hr_perms.beneficiarios.documentacion_subir or granular_hr_perms.beneficiarios.documentacion or user.is_superuser %}true{% else %}false{% endif %};
+    const CAN_DELETE_DOC = {% if granular_hr_perms.beneficiarios.documentacion_eliminar or granular_hr_perms.beneficiarios.eliminar or granular_hr_perms.beneficiarios.documentacion or user.is_superuser %}true{% else %}false{% endif %};
+    const CAN_DOWNLOAD_DOC = {% if granular_hr_perms.beneficiarios.documentacion_descargar or granular_hr_perms.beneficiarios.documentacion or granular_hr_perms.beneficiarios.ver or user.is_superuser %}true{% else %}false{% endif %};
+    const CAN_APPROVE_DOC = {% if granular_hr_perms.beneficiarios.documentacion_aprobar or granular_hr_perms.beneficiarios.editar or granular_hr_perms.beneficiarios.documentacion or user.is_superuser %}true{% else %}false{% endif %};
+    const CAN_REJECT_DOC = {% if granular_hr_perms.beneficiarios.documentacion_rechazar or granular_hr_perms.beneficiarios.editar or granular_hr_perms.beneficiarios.documentacion or user.is_superuser %}true{% else %}false{% endif %};
 
     let currentBenId = null;
     let currentDocCode = null;
@@ -658,6 +697,7 @@
         if (['xlsx', 'xls', 'csv'].includes(ext)) return 'bi-file-earmark-excel';
         if (['docx', 'doc'].includes(ext)) return 'bi-file-earmark-word';
         if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) return 'bi-file-earmark-image';
+        if (['zip', 'rar', '7z'].includes(ext)) return 'bi-file-earmark-zip';
         return 'bi-file-earmark';
     }
 
@@ -674,110 +714,144 @@
             if(data.success) {
                 document.getElementById('nombreBeneficiarioDoc').textContent = data.beneficiario;
                 
-                // Inicializar contadores por mes (1 al 12)
-                const conteos = {
-                    aprobados: Array(13).fill(0),
-                    rechazados: Array(13).fill(0),
-                    revision: Array(13).fill(0),
-                    vacio: Array(13).fill(0)
-                };
-
                 let html = '';
-                data.matrix.forEach(row => {
+                data.matrix.forEach((row, idx) => {
+                    let plantillaBtn = '';
+                    if (row.codigo === 'REPORTE_TRABAJADORES') {
+                        plantillaBtn = `
+                            <a href="{% url 'descargar_plantilla_reporte_trabajadores' %}" class="btn btn-sm btn-light border text-success float-end ms-2 mb-1 p-1 px-2 d-inline-flex align-items-center gap-1 shadow-xs text-nowrap" style="font-size: 0.70rem; line-height: 1.2; border-color: #28a745 !important;" title="Descargar plantilla de Excel (Reporte de trabajadores)">
+                                <i class="bi bi-file-earmark-excel-fill text-success" style="font-size: 0.90rem;"></i> Plantilla
+                            </a>
+                        `;
+                    }
                     html += `<tr>
-                        <td class="fw-bold px-3 py-3 align-middle bg-white text-dark" style="font-size: 0.85rem;">${row.nombre}</td>`;
-                    for(let m=1; m<=12; m++) {
-                        const doc = row.meses[m];
-                        if(doc.id) {
-                            const iconClass = getIconByFilename(doc.nombre_archivo);
-                            
+                        <td class="fw-bold px-3 py-2 align-middle bg-white text-dark text-start" style="font-size: 0.83rem; min-width: 260px;">
+                            ${plantillaBtn}
+                            <span class="text-muted small me-1">${idx + 1}.</span>
+                            <span>${row.nombre}</span>
+                        </td>`;
+
+                    row.periodos.forEach(p => {
+                        const colspanAttr = p.colspan > 1 ? `colspan="${p.colspan}"` : '';
+
+                        if(p.id) {
+                            const iconClass = getIconByFilename(p.nombre_archivo);
                             let cellClass = '';
                             let watermarkColor = 'rgba(108, 117, 125, 0.08)';
+                            let actionHtml = '';
+                            let cellWrapperClass = '';
                             
-                            if (doc.estatus === 'revision') {
-                                conteos.revision[m]++;
+                            if (p.estatus === 'revision') {
                                 cellClass = 'cell-revision';
                                 watermarkColor = 'rgba(240, 140, 0, 0.12)';
-                            } else if (doc.estatus === 'aprobado') {
-                                conteos.aprobados[m]++;
+                                
+                                let btnAprobar = CAN_APPROVE_DOC ? `<button onclick="event.stopPropagation(); event.preventDefault(); cambiarEstatusDoc(${p.id}, 'aprobado')" class="btn-action btn-action-success ${CAN_REJECT_DOC ? 'w-50' : 'w-100'} h-100 p-0 d-flex align-items-center justify-content-center" title="Aceptar"><i class="bi bi-check-lg" style="font-size: 0.72rem; line-height: 1;"></i></button>` : '';
+                                let btnRechazar = CAN_REJECT_DOC ? `<button onclick="event.stopPropagation(); event.preventDefault(); cambiarEstatusDoc(${p.id}, 'rechazado')" class="btn-action btn-action-danger ${CAN_APPROVE_DOC ? 'w-50' : 'w-100'} h-100 p-0 d-flex align-items-center justify-content-center" title="Rechazar"><i class="bi bi-x-lg" style="font-size: 0.68rem; line-height: 1;"></i></button>` : '';
+                                
+                                if (CAN_APPROVE_DOC || CAN_REJECT_DOC) {
+                                    cellWrapperClass = 'has-buttons';
+                                    actionHtml = `
+                                        <div class="action-buttons-strip d-flex z-index-2 w-100">
+                                            ${btnAprobar}
+                                            ${btnRechazar}
+                                        </div>
+                                    `;
+                                }
+                            } else if (p.estatus === 'aprobado') {
                                 cellClass = 'cell-aprobado';
                                 watermarkColor = 'rgba(47, 158, 68, 0.12)';
-                            } else if (doc.estatus === 'rechazado') {
-                                conteos.rechazados[m]++;
+                            } else if (p.estatus === 'rechazado') {
                                 cellClass = 'cell-rechazado';
                                 watermarkColor = 'rgba(224, 49, 49, 0.12)';
                             }
                             
-                            const startTag = CAN_DOWNLOAD_DOC 
-                                ? `<a href="${doc.url}" target="_blank" class="text-decoration-none d-block document-cell p-0" title="Ver archivo: ${doc.nombre_archivo}">`
-                                : `<div class="d-block document-cell p-0" title="No tienes permiso para descargar/ver">`;
-                            const endTag = CAN_DOWNLOAD_DOC ? `</a>` : `</div>`;
-                            
-                            const deleteBtn = CAN_DELETE_DOC
-                                ? `<span class="btn-delete-doc" onclick="event.stopPropagation(); event.preventDefault(); eliminarDoc(${doc.id})" title="Eliminar documento">
+                            let deleteBtnHtml = CAN_DELETE_DOC ? `
+                                <span class="btn-delete-doc" onclick="event.stopPropagation(); event.preventDefault(); eliminarDoc(${p.id})" title="Eliminar documento (${p.estatus_display || ''})">
                                     <i class="bi bi-x-lg"></i>
-                                   </span>`
-                                : '';
+                                </span>
+                            ` : '';
 
-                            html += `<td class="align-middle p-0 ${cellClass}" style="width: 100px; height: 50px;">
-                                ${startTag}
-                                    <!-- Icono del tipo de documento de fondo (marca de agua del color del estatus) -->
+                            const linkTagOpen = CAN_DOWNLOAD_DOC ? `<a href="${p.url}" target="_blank" class="text-decoration-none d-block document-cell p-0 ${cellWrapperClass}" title="Ver archivo: ${p.nombre_archivo} (${p.estatus_display || ''}${p.comentario_rechazo ? ' - ' + p.comentario_rechazo : ''})">` : `<div class="d-block document-cell p-0 ${cellWrapperClass}" title="No tienes permiso para descargar/visualizar">`;
+                            const linkTagClose = CAN_DOWNLOAD_DOC ? `</a>` : `</div>`;
+                            
+                            let labelTag = p.colspan > 1 ? `<span class="badge bg-white bg-opacity-75 text-dark fw-bold border shadow-xs ms-1 mt-1" style="font-size: 0.65rem; z-index: 2;">${p.short_label}</span>` : '';
+
+                            html += `<td ${colspanAttr} class="align-middle p-0 ${cellClass}" style="height: 50px; position: relative;">
+                                ${linkTagOpen}
                                     <div class="watermark-icon" style="color: ${watermarkColor};">
                                         <i class="bi ${iconClass}"></i>
                                     </div>
-                                    
-                                    <!-- Contenido flotante -->
-                                    <div class="position-absolute w-100 h-100 top-0 left-0 p-1.5 z-index-2 pointer-events-none">
-                                        <!-- Botón redondo de eliminar (tache / x) -->
-                                        ${deleteBtn}
+                                    <div class="z-index-2 d-flex flex-column justify-content-between h-100 w-100">
+                                        <div class="d-flex justify-content-between align-items-start w-100">
+                                            ${labelTag}
+                                            ${deleteBtnHtml}
+                                        </div>
+                                        ${actionHtml}
                                     </div>
-                                ${endTag}
+                                ${linkTagClose}
                             </td>`;
                         } else {
-                            conteos.vacio[m]++;
-                            if (CAN_UPLOAD_DOC) {
-                                html += `<td class="text-center align-middle p-0 cursor-pointer cell-vacio" onclick="prepararSubida('${row.codigo}', ${m})" style="width: 100px; height: 50px;">
-                                    <div class="document-cell d-flex align-items-center justify-content-center">
-                                        <span class="text-muted opacity-25" style="font-size: 0.85rem;"><i class="bi bi-plus-lg"></i></span>
-                                    </div>
-                                </td>`;
-                            } else {
-                                html += `<td class="text-center align-middle p-0 cell-vacio" style="width: 100px; height: 50px;">
-                                    <div class="document-cell d-flex align-items-center justify-content-center">
-                                        <span class="text-muted opacity-25" style="font-size: 0.85rem;"><i class="bi bi-dash"></i></span>
-                                    </div>
-                                </td>`;
-                            }
+                            let labelContent = p.colspan > 1 ? 
+                                `<span class="text-muted opacity-50 d-flex align-items-center gap-1" style="font-size: 0.75rem;"><i class="bi ${CAN_UPLOAD_DOC ? 'bi-plus-lg' : 'bi-dash-lg'}"></i> ${p.short_label}</span>` :
+                                `<span class="text-muted opacity-25" style="font-size: 0.85rem;"><i class="bi ${CAN_UPLOAD_DOC ? 'bi-plus-lg' : 'bi-dash-lg'}"></i></span>`;
+
+                            const escNombre = (row.nombre || '').replace(/'/g, "\\'");
+                            const uploadClick = CAN_UPLOAD_DOC ? `onclick="prepararSubida('${row.codigo}', ${p.num}, '${row.formato || 'pdf'}', '${escNombre}')"` : '';
+                            const cellCursor = CAN_UPLOAD_DOC ? 'cursor-pointer' : '';
+                            const cellTitle = CAN_UPLOAD_DOC ? `title="Subir documento: ${p.label}"` : '';
+
+                            html += `<td ${colspanAttr} class="text-center align-middle p-0 ${cellCursor} cell-vacio" ${uploadClick} ${cellTitle} style="height: 50px;">
+                                <div class="document-cell d-flex align-items-center justify-content-center">
+                                    ${labelContent}
+                                </div>
+                            </td>`;
                         }
-                    }
+                    });
                     html += `</tr>`;
                 });
                 body.innerHTML = html;
 
-                // Generar los conteos en el footer (una sola fila con celdas de dos líneas)
-                if (foot) {
+                if (foot && data.resumen) {
                     let footHtml = `<tr style="border-top: 2px solid #dee2e6;">
-                        <td class="fw-bold px-3 py-1.5 text-dark text-start align-middle" style="font-size: 0.72rem; background-color: #f8f9fa;">
-                            <i class="bi bi-grid-1x2 me-1 text-muted"></i> Resumen de Documentos
-                        </td>`;
-                    for (let m = 1; m <= 12; m++) {
-                        footHtml += `<td class="text-center align-middle py-1.5" style="font-size: 0.68rem; background-color: #f8f9fa; color: #495057; white-space: nowrap; font-weight: 500; line-height: 1.3;">
-                            <div>A:${conteos.aprobados[m]} <span class="text-muted opacity-30 mx-0.5">·</span> R:${conteos.rechazados[m]}</div>
-                            <div>ER:${conteos.revision[m]} <span class="text-muted opacity-30 mx-0.5">·</span> SD:${conteos.vacio[m]}</div>
-                        </td>`;
-                    }
-                    footHtml += `</tr>`;
-                    
+                        <td colspan="13" class="px-3 py-2 bg-light text-dark align-middle">
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 small">
+                                <span class="fw-bold"><i class="bi bi-grid-1x2 me-1 text-muted"></i> Resumen de Documentos (${anio}):</span>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-1"><i class="bi bi-check-circle me-1"></i> Aprobados: <strong>${data.resumen.aprobados}</strong></span>
+                                    <span class="badge bg-warning bg-opacity-10 text-warning-emphasis border border-warning-subtle px-2 py-1"><i class="bi bi-clock-history me-1"></i> En revisión: <strong>${data.resumen.revision}</strong></span>
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle px-2 py-1"><i class="bi bi-x-circle me-1"></i> Rechazados: <strong>${data.resumen.rechazados}</strong></span>
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary border px-2 py-1"><i class="bi bi-dash-circle me-1"></i> Sin documento: <strong>${data.resumen.vacio}</strong></span>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>`;
                     foot.innerHTML = footHtml;
                 }
+            } else {
+                body.innerHTML = `<tr><td colspan="13" class="text-center py-4 text-danger">Error: ${data.error}</td></tr>`;
             }
+        })
+        .catch(err => {
+            console.error(err);
+            body.innerHTML = '<tr><td colspan="13" class="text-center py-4 text-danger">Ocurrió un error al cargar la información.</td></tr>';
         });
     }
 
-    function prepararSubida(codigo, mes) {
+    function prepararSubida(codigo, mes, formato, nombre) {
         currentDocCode = codigo;
         currentMonth = mes;
-        document.getElementById('inputFileDoc').click();
+        const input = document.getElementById('inputFileDoc');
+        if (formato === 'pdf') {
+            input.accept = '.pdf';
+        } else if (formato === 'excel') {
+            input.accept = '.xlsx,.xls,.csv';
+        } else if (formato === 'zip') {
+            input.accept = '.zip,.rar,.7z';
+        } else {
+            input.accept = '*/*';
+        }
+        input.value = '';
+        input.click();
     }
 
     function ejecutarSubidaDoc() {
@@ -803,18 +877,66 @@
             } else {
                 alert("Error: " + data.error);
             }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Ocurrió un error al subir el archivo.");
         });
     }
 
+    function cambiarEstatusDoc(docId, nuevoEstatus) {
+        let comentario = '';
+        if(nuevoEstatus === 'rechazado') {
+            comentario = prompt('Por favor ingrese el motivo del rechazo:');
+            if(comentario === null) return;
+        }
+        
+        const confirmMsg = nuevoEstatus === 'aprobado' ? 
+            '¿Está seguro de que desea APROBAR este documento?' : 
+            '¿Está seguro de que desea RECHAZAR este documento?';
+            
+        if (confirm(confirmMsg)) {
+            const formData = new FormData();
+            formData.append('status', nuevoEstatus);
+            formData.append('comentario_rechazo', comentario);
+            
+            fetch(`/recursos-humanos/beneficiarios/documentacion/cambiar-estatus/${docId}/`, {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    cargarMatrizDocumentos();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Ocurrió un error al cambiar el estatus.');
+            });
+        }
+    }
+
     function eliminarDoc(id) {
-        if(confirm("¿Seguro que deseas eliminar este documento?")) {
+        if(confirm("¿Está seguro de que desea eliminar este documento? Esta acción eliminará el archivo del sistema de forma permanente.")) {
             fetch(`/recursos-humanos/beneficiarios/documentacion/eliminar/${id}/`, {
                 method: 'POST',
                 headers: { 'X-CSRFToken': '{{ csrf_token }}' }
             })
             .then(r => r.json())
             .then(data => {
-                if(data.success) cargarMatrizDocumentos();
+                if(data.success) {
+                    cargarMatrizDocumentos();
+                } else {
+                    alert('Error al eliminar: ' + data.error);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Ocurrió un error al eliminar el documento.');
             });
         }
     }

@@ -512,20 +512,191 @@ class Beneficiario(models.Model):
         verbose_name = "Beneficiario"
         verbose_name_plural = "Beneficiarios"
 
+CATALOGO_DOCUMENTOS_EXPEDIENTE = [
+    {
+        'codigo': 'REPSE_VIGENTE',
+        'nombre': 'Constancia/registro REPSE vigente (PDF)',
+        'periodo': 'mensual',
+        'num_periodos': 12,
+        'badge': 'Mensual',
+        'formato': 'pdf',
+    },
+    {
+        'codigo': 'CONTRATO_PRESTACION',
+        'nombre': 'Contrato de prestación de servicios especializados (PDF)',
+        'periodo': 'unica_ocasion',
+        'num_periodos': 1,
+        'badge': 'Única ocasión',
+        'formato': 'pdf',
+    },
+    {
+        'codigo': 'REPORTE_TRABAJADORES',
+        'nombre': 'Reporte de trabajadores asignados al servicio especializado (EXCEL)',
+        'periodo': 'mensual',
+        'num_periodos': 12,
+        'badge': 'Mensual',
+        'formato': 'excel',
+    },
+    {
+        'codigo': 'XML_NOMINA_COLABORADORES',
+        'nombre': 'XML De Nomina de colaboradores asignados (ZIP)',
+        'periodo': 'mensual',
+        'num_periodos': 12,
+        'badge': 'Mensual',
+        'formato': 'zip',
+    },
+    {
+        'codigo': 'RECIBO_NOMINA_COLABORADORES',
+        'nombre': 'Recibo de Nomina de colaboradores asignados (ZIP)',
+        'periodo': 'mensual',
+        'num_periodos': 12,
+        'badge': 'Mensual',
+        'formato': 'zip',
+    },
+    {
+        'codigo': 'OPINION_SAT',
+        'nombre': 'Opinión de cumplimiento SAT (PDF)',
+        'periodo': 'mensual',
+        'num_periodos': 12,
+        'badge': 'Mensual',
+        'formato': 'pdf',
+    },
+    {
+        'codigo': 'OPINION_IMSS',
+        'nombre': 'Opinión de cumplimiento IMSS (PDF)',
+        'periodo': 'mensual',
+        'num_periodos': 12,
+        'badge': 'Mensual',
+        'formato': 'pdf',
+    },
+    {
+        'codigo': 'OPINION_INFONAVIT',
+        'nombre': 'Opinión de cumplimiento INFONAVIT (PDF)',
+        'periodo': 'mensual',
+        'num_periodos': 12,
+        'badge': 'Mensual',
+        'formato': 'pdf',
+    },
+    {
+        'codigo': 'SITUACION_FISCAL_SAT',
+        'nombre': 'Constancia De Situación Fiscal SAT (PDF)',
+        'periodo': 'mensual',
+        'num_periodos': 12,
+        'badge': 'Mensual',
+        'formato': 'pdf',
+    },
+    {
+        'codigo': 'CEDULA_CUOTAS_MENSUALES',
+        'nombre': 'Cédula De Cuotas Sociales Mensuales (PDF)',
+        'periodo': 'mensual',
+        'num_periodos': 12,
+        'badge': 'Mensual',
+        'formato': 'pdf',
+    },
+    {
+        'codigo': 'CEDULA_CUOTAS_BIMESTRALES',
+        'nombre': 'Cédula De Cuotas Sociales Bimestrales (PDF)',
+        'periodo': 'bimestral',
+        'num_periodos': 6,
+        'badge': 'Bimestral',
+        'formato': 'pdf',
+    },
+    {
+        'codigo': 'RESUMEN_LIQUIDACION',
+        'nombre': 'Resumen De Liquidación (PDF)',
+        'periodo': 'mensual',
+        'num_periodos': 12,
+        'badge': 'Mensual',
+        'formato': 'pdf',
+    },
+    {
+        'codigo': 'PAGO_SIPARE_MENSUAL',
+        'nombre': 'Comprobante de pago SIPARE Mensual (PDF)',
+        'periodo': 'mensual',
+        'num_periodos': 12,
+        'badge': 'Mensual',
+        'formato': 'pdf',
+    },
+    {
+        'codigo': 'ACUSE_SISUB_CUATRIMESTRAL',
+        'nombre': 'Acuse de Presentación Informativa cuatrimestral SISUB (PDF)',
+        'periodo': 'cuatrimestral',
+        'num_periodos': 3,
+        'badge': 'Cuatrimestral',
+        'formato': 'pdf',
+    },
+    {
+        'codigo': 'ACUSE_ICSOE_CUATRIMESTRAL',
+        'nombre': 'Acuse de Presentación Informativa cuatrimestral ICSOE (PDF)',
+        'periodo': 'cuatrimestral',
+        'num_periodos': 3,
+        'badge': 'Cuatrimestral',
+        'formato': 'pdf',
+    },
+    {
+        'codigo': 'DECLARACION_ISR_RETENCIONES',
+        'nombre': 'Detalle De Declaración Provisional O Definitiva De Impuestos Federales ISR (Retenciones Por Salario) (PDF)',
+        'periodo': 'mensual',
+        'num_periodos': 12,
+        'badge': 'Mensual',
+        'formato': 'pdf',
+    },
+    {
+        'codigo': 'DECLARACION_IVA_DEFINITIVA',
+        'nombre': 'Detalle De Declaración Definitiva De Impuestos Federales IVA (PDF)',
+        'periodo': 'mensual',
+        'num_periodos': 12,
+        'badge': 'Mensual',
+        'formato': 'pdf',
+    },
+    {
+        'codigo': 'ACUSE_DECLARACION_IVA_DEFINITIVA',
+        'nombre': 'Acuse De Recibo Declaración Definitiva De Impuestos Federales IVA (PDF)',
+        'periodo': 'mensual',
+        'num_periodos': 12,
+        'badge': 'Mensual',
+        'formato': 'pdf',
+    },
+    {
+        'codigo': 'ACUSE_DECLARACION_ISR_RETENCIONES',
+        'nombre': 'Acuse De Recibo Declaración Provisional O Definitiva De Impuestos Federales ISR (Retenciones Por Salario) (PDF)',
+        'periodo': 'mensual',
+        'num_periodos': 12,
+        'badge': 'Mensual',
+        'formato': 'pdf',
+    },
+    {
+        'codigo': 'ACUSE_PAGO_IVA',
+        'nombre': 'Acuse de Pagos De Contribuciones Federales IVA (PDF)',
+        'periodo': 'mensual',
+        'num_periodos': 12,
+        'badge': 'Mensual',
+        'formato': 'pdf',
+    },
+    {
+        'codigo': 'ACUSE_PAGO_ISR',
+        'nombre': 'Acuse De Pagos De Contribuciones Federales ISR (Retenciones Por Salario) (PDF)',
+        'periodo': 'mensual',
+        'num_periodos': 12,
+        'badge': 'Mensual',
+        'formato': 'pdf',
+    },
+    {
+        'codigo': 'EVIDENCIA_SERVICIO_FOTOS',
+        'nombre': 'Evidencia del servicio especializado realizado Fotos Jpg (ZIP)',
+        'periodo': 'mensual',
+        'num_periodos': 12,
+        'badge': 'Mensual',
+        'formato': 'zip',
+    },
+]
+
 class DocumentacionBeneficiario(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
     beneficiario = models.ForeignKey(Beneficiario, on_delete=models.CASCADE, related_name='documentos', verbose_name="Beneficiario")
     
-    NOMBRE_DOC_CHOICES = [
-        ('REPSE', 'Registro REPSE'),
-        ('SAT', 'Opinión SAT'),
-        ('IMSS', 'Opinión IMSS'),
-        ('INFONAVIT', 'Opinión INFONAVIT'),
-        ('SUA_CEDULA', 'Cédula SUA'),
-        ('SUA_PAGO', 'Pago SUA'),
-        ('LISTA_TRABAJADORES', 'Lista de Trabajadores'),
-        ('OTROS', 'Otros'),
-    ]
+    CATALOGO_DOCUMENTOS = CATALOGO_DOCUMENTOS_EXPEDIENTE
+    NOMBRE_DOC_CHOICES = [(d['codigo'], d['nombre']) for d in CATALOGO_DOCUMENTOS]
     
     STATUS_DOC_CHOICES = [
         ('revision', 'En Revisión'),
@@ -533,12 +704,13 @@ class DocumentacionBeneficiario(models.Model):
         ('rechazado', 'Rechazado'),
     ]
     
-    nombre_documento = models.CharField(max_length=50, choices=NOMBRE_DOC_CHOICES, verbose_name="Nombre del Documento")
+    nombre_documento = models.CharField(max_length=60, choices=NOMBRE_DOC_CHOICES, verbose_name="Nombre del Documento")
     archivo = models.FileField(storage=protected_storage, upload_to=upload_to_beneficiario_doc, verbose_name="Archivo")
-    mes = models.PositiveIntegerField(verbose_name="Mes (1-12)")
+    mes = models.PositiveIntegerField(verbose_name="Mes/Periodo (1-12)")
     anio = models.PositiveIntegerField(verbose_name="Año")
     fecha_subida = models.DateTimeField(auto_now_add=True)
     estatus = models.CharField(max_length=20, choices=STATUS_DOC_CHOICES, default='revision', verbose_name="Estatus")
+    comentario_rechazo = models.TextField(blank=True, null=True, verbose_name="Comentario de Rechazo")
 
     def __str__(self):
         return f"{self.beneficiario.nombre_razon_social} - {self.nombre_documento} ({self.mes}/{self.anio})"
@@ -912,184 +1084,7 @@ class DocumentacionProveedor(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
     proveedor = models.ForeignKey(ProveedorRH, on_delete=models.CASCADE, related_name='documentos', verbose_name="Proveedor")
     
-    CATALOGO_DOCUMENTOS = [
-        {
-            'codigo': 'REPSE_VIGENTE',
-            'nombre': 'Constancia/registro REPSE vigente (PDF)',
-            'periodo': 'mensual',
-            'num_periodos': 12,
-            'badge': 'Mensual',
-            'formato': 'pdf',
-        },
-        {
-            'codigo': 'CONTRATO_PRESTACION',
-            'nombre': 'Contrato de prestación de servicios especializados (PDF)',
-            'periodo': 'unica_ocasion',
-            'num_periodos': 1,
-            'badge': 'Única ocasión',
-            'formato': 'pdf',
-        },
-        {
-            'codigo': 'REPORTE_TRABAJADORES',
-            'nombre': 'Reporte de trabajadores asignados al servicio especializado (EXCEL)',
-            'periodo': 'mensual',
-            'num_periodos': 12,
-            'badge': 'Mensual',
-            'formato': 'excel',
-        },
-        {
-            'codigo': 'XML_NOMINA_COLABORADORES',
-            'nombre': 'XML De Nomina de colaboradores asignados (ZIP)',
-            'periodo': 'mensual',
-            'num_periodos': 12,
-            'badge': 'Mensual',
-            'formato': 'zip',
-        },
-        {
-            'codigo': 'RECIBO_NOMINA_COLABORADORES',
-            'nombre': 'Recibo de Nomina de colaboradores asignados (ZIP)',
-            'periodo': 'mensual',
-            'num_periodos': 12,
-            'badge': 'Mensual',
-            'formato': 'zip',
-        },
-        {
-            'codigo': 'OPINION_SAT',
-            'nombre': 'Opinión de cumplimiento SAT (PDF)',
-            'periodo': 'mensual',
-            'num_periodos': 12,
-            'badge': 'Mensual',
-            'formato': 'pdf',
-        },
-        {
-            'codigo': 'OPINION_IMSS',
-            'nombre': 'Opinión de cumplimiento IMSS (PDF)',
-            'periodo': 'mensual',
-            'num_periodos': 12,
-            'badge': 'Mensual',
-            'formato': 'pdf',
-        },
-        {
-            'codigo': 'OPINION_INFONAVIT',
-            'nombre': 'Opinión de cumplimiento INFONAVIT (PDF)',
-            'periodo': 'mensual',
-            'num_periodos': 12,
-            'badge': 'Mensual',
-            'formato': 'pdf',
-        },
-        {
-            'codigo': 'SITUACION_FISCAL_SAT',
-            'nombre': 'Constancia De Situación Fiscal SAT (PDF)',
-            'periodo': 'mensual',
-            'num_periodos': 12,
-            'badge': 'Mensual',
-            'formato': 'pdf',
-        },
-        {
-            'codigo': 'CEDULA_CUOTAS_MENSUALES',
-            'nombre': 'Cédula De Cuotas Sociales Mensuales (PDF)',
-            'periodo': 'mensual',
-            'num_periodos': 12,
-            'badge': 'Mensual',
-            'formato': 'pdf',
-        },
-        {
-            'codigo': 'CEDULA_CUOTAS_BIMESTRALES',
-            'nombre': 'Cédula De Cuotas Sociales Bimestrales (PDF)',
-            'periodo': 'bimestral',
-            'num_periodos': 6,
-            'badge': 'Bimestral',
-            'formato': 'pdf',
-        },
-        {
-            'codigo': 'RESUMEN_LIQUIDACION',
-            'nombre': 'Resumen De Liquidación (PDF)',
-            'periodo': 'mensual',
-            'num_periodos': 12,
-            'badge': 'Mensual',
-            'formato': 'pdf',
-        },
-        {
-            'codigo': 'PAGO_SIPARE_MENSUAL',
-            'nombre': 'Comprobante de pago SIPARE Mensual (PDF)',
-            'periodo': 'mensual',
-            'num_periodos': 12,
-            'badge': 'Mensual',
-            'formato': 'pdf',
-        },
-        {
-            'codigo': 'ACUSE_SISUB_CUATRIMESTRAL',
-            'nombre': 'Acuse de Presentación Informativa cuatrimestral SISUB (PDF)',
-            'periodo': 'cuatrimestral',
-            'num_periodos': 3,
-            'badge': 'Cuatrimestral',
-            'formato': 'pdf',
-        },
-        {
-            'codigo': 'ACUSE_ICSOE_CUATRIMESTRAL',
-            'nombre': 'Acuse de Presentación Informativa cuatrimestral ICSOE (PDF)',
-            'periodo': 'cuatrimestral',
-            'num_periodos': 3,
-            'badge': 'Cuatrimestral',
-            'formato': 'pdf',
-        },
-        {
-            'codigo': 'DECLARACION_ISR_RETENCIONES',
-            'nombre': 'Detalle De Declaración Provisional O Definitiva De Impuestos Federales ISR (Retenciones Por Salario) (PDF)',
-            'periodo': 'mensual',
-            'num_periodos': 12,
-            'badge': 'Mensual',
-            'formato': 'pdf',
-        },
-        {
-            'codigo': 'DECLARACION_IVA_DEFINITIVA',
-            'nombre': 'Detalle De Declaración Definitiva De Impuestos Federales IVA (PDF)',
-            'periodo': 'mensual',
-            'num_periodos': 12,
-            'badge': 'Mensual',
-            'formato': 'pdf',
-        },
-        {
-            'codigo': 'ACUSE_DECLARACION_IVA_DEFINITIVA',
-            'nombre': 'Acuse De Recibo Declaración Definitiva De Impuestos Federales IVA (PDF)',
-            'periodo': 'mensual',
-            'num_periodos': 12,
-            'badge': 'Mensual',
-            'formato': 'pdf',
-        },
-        {
-            'codigo': 'ACUSE_DECLARACION_ISR_RETENCIONES',
-            'nombre': 'Acuse De Recibo Declaración Provisional O Definitiva De Impuestos Federales ISR (Retenciones Por Salario) (PDF)',
-            'periodo': 'mensual',
-            'num_periodos': 12,
-            'badge': 'Mensual',
-            'formato': 'pdf',
-        },
-        {
-            'codigo': 'ACUSE_PAGO_IVA',
-            'nombre': 'Acuse de Pagos De Contribuciones Federales IVA (PDF)',
-            'periodo': 'mensual',
-            'num_periodos': 12,
-            'badge': 'Mensual',
-            'formato': 'pdf',
-        },
-        {
-            'codigo': 'ACUSE_PAGO_ISR',
-            'nombre': 'Acuse De Pagos De Contribuciones Federales ISR (Retenciones Por Salario) (PDF)',
-            'periodo': 'mensual',
-            'num_periodos': 12,
-            'badge': 'Mensual',
-            'formato': 'pdf',
-        },
-        {
-            'codigo': 'EVIDENCIA_SERVICIO_FOTOS',
-            'nombre': 'Evidencia del servicio especializado realizado Fotos Jpg (ZIP)',
-            'periodo': 'mensual',
-            'num_periodos': 12,
-            'badge': 'Mensual',
-            'formato': 'zip',
-        },
-    ]
+    CATALOGO_DOCUMENTOS = CATALOGO_DOCUMENTOS_EXPEDIENTE
     
     NOMBRE_DOC_CHOICES = [(d['codigo'], d['nombre']) for d in CATALOGO_DOCUMENTOS]
     

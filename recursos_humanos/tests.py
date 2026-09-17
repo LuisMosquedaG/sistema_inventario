@@ -2953,6 +2953,105 @@ class ContratoVersionesConsecutivasSuiteTest(TestCase):
         self.assertIn("Se eliminaron exitosamente 1 registros", out_run.getvalue())
         self.assertEqual(Nomina.objects.filter(empresa=self.empresa).count(), 1)
 
+    def test_documentacion_beneficiario_matriz_y_flujo(self):
+        from recursos_humanos.models import Beneficiario, DocumentacionBeneficiario
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        beneficiario = Beneficiario.objects.create(
+            empresa=self.empresa,
+            nombre_razon_social="Beneficiario Test S.A. de C.V.",
+            rfc="BEN123456789",
+            correo="beneficiario@test.com"
+        )
+
+        # 1. Probar obtener matriz vacía
+        response = self.client.get(reverse('obtener_documentacion_json', args=[beneficiario.id]) + '?anio=2026')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['beneficiario'], "Beneficiario Test S.A. de C.V.")
+        self.assertEqual(data['anio'], 2026)
+        self.assertEqual(len(data['matrix']), 22)
+        
+        # Verificar que existen documentos con diferentes periodicidades y colspans
+        codigos = [item['codigo'] for item in data['matrix']]
+        self.assertIn('REPSE_VIGENTE', codigos)
+        self.assertIn('CONTRATO_PRESTACION', codigos)
+        self.assertIn('CEDULA_CUOTAS_BIMESTRALES', codigos)
+        self.assertIn('ACUSE_SISUB_CUATRIMESTRAL', codigos)
+
+        # Contrato de prestación de servicios debe ser única ocasión (1 periodo, colspan 12)
+        contrato_item = next(item for item in data['matrix'] if item['codigo'] == 'CONTRATO_PRESTACION')
+        self.assertEqual(contrato_item['periodo'], 'unica_ocasion')
+        self.assertEqual(len(contrato_item['periodos']), 1)
+        self.assertEqual(contrato_item['periodos'][0]['colspan'], 12)
+
+        # Cédula bimestral debe tener 6 periodos y colspan 2
+        bimestral_item = next(item for item in data['matrix'] if item['codigo'] == 'CEDULA_CUOTAS_BIMESTRALES')
+        self.assertEqual(bimestral_item['periodo'], 'bimestral')
+        self.assertEqual(len(bimestral_item['periodos']), 6)
+        self.assertEqual(bimestral_item['periodos'][0]['colspan'], 2)
+
+        # Acuse SISUB cuatrimestral debe tener 3 periodos y colspan 4
+        cuatrimestral_item = next(item for item in data['matrix'] if item['codigo'] == 'ACUSE_SISUB_CUATRIMESTRAL')
+        self.assertEqual(cuatrimestral_item['periodo'], 'cuatrimestral')
+        self.assertEqual(len(cuatrimestral_item['periodos']), 3)
+        self.assertEqual(cuatrimestral_item['periodos'][0]['colspan'], 4)
+
+        # 2. Probar subir documento con formato incorrecto
+        bad_file = SimpleUploadedFile("documento.txt", b"dummy content", content_type="text/plain")
+        resp_bad = self.client.post(reverse('subir_documento_ajax', args=[beneficiario.id]), {
+            'codigo': 'REPSE_VIGENTE',
+            'mes': 1,
+            'anio': 2026,
+            'archivo': bad_file
+        })
+        self.assertEqual(resp_bad.status_code, 200)
+        self.assertFalse(resp_bad.json()['success'])
+        self.assertIn("Formato no permitido", resp_bad.json()['error'])
+
+        # 3. Probar subir documento PDF válido
+        good_pdf = SimpleUploadedFile("repse.pdf", b"%PDF-1.4 dummy pdf content", content_type="application/pdf")
+        resp_good = self.client.post(reverse('subir_documento_ajax', args=[beneficiario.id]), {
+            'codigo': 'REPSE_VIGENTE',
+            'mes': 1,
+            'anio': 2026,
+            'archivo': good_pdf
+        })
+        self.assertEqual(resp_good.status_code, 200)
+        self.assertTrue(resp_good.json()['success'])
+
+        doc = DocumentacionBeneficiario.objects.get(beneficiario=beneficiario, nombre_documento='REPSE_VIGENTE', mes=1, anio=2026)
+        self.assertEqual(doc.estatus, 'revision')
+
+        # 4. Probar cambiar estatus a rechazado con comentario
+        resp_rechazar = self.client.post(reverse('cambiar_estatus_documento_ajax', args=[doc.id]), {
+            'status': 'rechazado',
+            'comentario_rechazo': 'Documento ilegible'
+        })
+        self.assertEqual(resp_rechazar.status_code, 200)
+        self.assertTrue(resp_rechazar.json()['success'])
+        doc.refresh_from_db()
+        self.assertEqual(doc.estatus, 'rechazado')
+        self.assertEqual(doc.comentario_rechazo, 'Documento ilegible')
+
+        # 5. Probar cambiar estatus a aprobado
+        resp_aprobar = self.client.post(reverse('cambiar_estatus_documento_ajax', args=[doc.id]), {
+            'status': 'aprobado'
+        })
+        self.assertEqual(resp_aprobar.status_code, 200)
+        self.assertTrue(resp_aprobar.json()['success'])
+        doc.refresh_from_db()
+        self.assertEqual(doc.estatus, 'aprobado')
+        self.assertEqual(doc.comentario_rechazo, '')
+
+        # 6. Probar eliminar documento
+        doc_id = doc.id
+        resp_elim = self.client.post(reverse('eliminar_documento_ajax', args=[doc_id]))
+        self.assertEqual(resp_elim.status_code, 200)
+        self.assertTrue(resp_elim.json()['success'])
+        self.assertFalse(DocumentacionBeneficiario.objects.filter(id=doc_id).exists())
+
 
 
 
