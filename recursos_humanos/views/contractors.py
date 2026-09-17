@@ -1568,18 +1568,70 @@ def subir_documento_proveedor_ajax(request, id):
                 else: # unica_ocasion
                     periodo_str = f"Única Ocasión (Ejercicio {anio})"
 
-                # Asunto y Cuerpo
+                # Asunto y Cuerpo HTML con diseño institucional
                 asunto = f"Documento {accion_str} por proveedor: {prov.nombre_razon_social}"
-                cuerpo = (
-                    f"Estimado/a {prov.contratista.nombre_razon_social}:\n\n"
-                    f"Le notificamos que el proveedor \"{prov.nombre_razon_social}\" ha {accion_str} "
-                    f"el siguiente documento en el portal del sistema:\n\n"
-                    f"• Documento: {nombre_doc_humano}\n"
-                    f"• Período: {periodo_str}\n\n"
-                    f"Se adjunta el archivo correspondiente para su revisión.\n\n"
-                    f"Atentamente,\n"
-                    f"Sistema CrossoverSuite"
-                )
+                cuerpo = f"""
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #334155; line-height: 1.6; max-width: 700px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background-color: #ffffff;">
+                    <div style="background-color: #1a252f; padding: 18px 24px; border-bottom: 4px solid #00b8b9;">
+                        <h2 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.5px;">CrossoverSuite</h2>
+                        <span style="color: #94a3b8; font-size: 13px;">Gestión de Documentos de Proveedores</span>
+                    </div>
+                    
+                    <div style="padding: 24px 28px;">
+                        <p style="font-size: 15px; margin-top: 0; margin-bottom: 14px;">
+                            Estimado/a <strong>{prov.contratista.nombre_razon_social}</strong>,
+                        </p>
+                        <p style="font-size: 14px; margin-bottom: 14px; color: #475569;">
+                            Le notificamos que el proveedor <strong>{prov.nombre_razon_social}</strong> ha <strong>{accion_str}</strong> un documento en la plataforma del sistema para su revisión:
+                        </p>
+                        
+                        <div style="overflow-x: auto; margin: 16px 0; border: 1px solid #e2e8f0; border-radius: 6px;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: left; white-space: nowrap;">
+                                <thead>
+                                    <tr style="background-color: #1a252f; color: #ffffff; white-space: nowrap;">
+                                        <th style="padding: 8px 12px; font-weight: 600;">Proveedor</th>
+                                        <th style="padding: 8px 12px; font-weight: 600;">Documento</th>
+                                        <th style="padding: 8px 12px; font-weight: 600; text-align: center;">Período</th>
+                                        <th style="padding: 8px 12px; font-weight: 600; text-align: center;">Estatus</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr style="background-color: #f8fafc; white-space: nowrap;">
+                                        <td style="padding: 9px 12px; font-weight: 600; color: #1e293b;">{prov.nombre_razon_social}</td>
+                                        <td style="padding: 9px 12px; color: #334155;">{nombre_doc_humano}</td>
+                                        <td style="padding: 9px 12px; color: #475569; text-align: center;">{periodo_str}</td>
+                                        <td style="padding: 9px 12px; text-align: center;">
+                                            <span style="background-color: #fff9db; color: #f59f00; border: 1px solid #ffec99; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+                                                En Revisión
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div style="background-color: #f0fdfa; border-left: 4px solid #00b8b9; padding: 14px 16px; border-radius: 4px; margin: 20px 0; font-size: 13.5px; color: #134e4a;">
+                            <strong>ℹ️ Nota:</strong> Se adjunta el archivo correspondiente para su revisión. También puede revisarlo, aprobarlo o rechazarlo directamente desde la plataforma.
+                        </div>
+                        
+                        <div style="text-align: center; margin: 26px 0 20px 0;">
+                            <a href="https://suite.crossovermx.com/login/" target="_blank" style="background-color: #00b8b9; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                Ingresar al Panel de Control
+                            </a>
+                        </div>
+                        
+                        <div style="border-top: 1px solid #e2e8f0; padding-top: 18px; margin-top: 24px; font-size: 13px; color: #64748b;">
+                            Atentamente,<br>
+                            <strong style="color: #1e293b; font-size: 14px;">{prov.nombre_razon_social}</strong><br>
+                            <span>Sistema CrossoverSuite</span>
+                        </div>
+                    </div>
+                    
+                    <div style="background-color: #f8fafc; padding: 12px 24px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 11.5px; color: #94a3b8;">
+                        Este es un mensaje automático emitido por la plataforma de gestión de contratistas y proveedores.
+                    </div>
+                </div>
+                """.strip()
 
                 from preferencias.utils import enviar_correo_contratista
                 archivos_adjuntos = []
@@ -1590,7 +1642,8 @@ def subir_documento_proveedor_ajax(request, id):
                     contratista=prov.contratista,
                     asunto=asunto,
                     cuerpo=cuerpo,
-                    archivos_adjuntos=archivos_adjuntos
+                    archivos_adjuntos=archivos_adjuntos,
+                    es_html=True
                 )
             except Exception as mail_err:
                 import logging
@@ -1731,38 +1784,145 @@ def cambiar_estatus_documento_proveedor_ajax(request, doc_id):
                     
                     if nuevo_estatus == 'aprobado':
                         asunto = f"Documento Aceptado - {nombre_doc_humano} ({periodo_str})"
-                        cuerpo = (
-                            f"Estimado/a {prov.nombre_razon_social}:\n\n"
-                            f"Le informamos que el siguiente documento ha sido revisado y su estatus es: Aceptado.\n\n"
-                            f"• Contratista: {nombre_contratista}\n"
-                            f"• Documento: {nombre_doc_humano}\n"
-                            f"• Período: {periodo_str}\n"
-                            f"• Estatus: Aceptado\n\n"
-                            f"Atentamente,\n"
-                            f"{nombre_contratista}\n"
-                            f"Sistema CrossoverSuite"
-                        )
+                        cuerpo = f"""
+                        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #334155; line-height: 1.6; max-width: 700px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background-color: #ffffff;">
+                            <div style="background-color: #1a252f; padding: 18px 24px; border-bottom: 4px solid #00b8b9;">
+                                <h2 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.5px;">CrossoverSuite</h2>
+                                <span style="color: #94a3b8; font-size: 13px;">Gestión de Documentos de Proveedores</span>
+                            </div>
+                            
+                            <div style="padding: 24px 28px;">
+                                <p style="font-size: 15px; margin-top: 0; margin-bottom: 14px;">
+                                    Estimado/a <strong>{prov.nombre_razon_social}</strong>,
+                                </p>
+                                <p style="font-size: 14px; margin-bottom: 14px; color: #475569;">
+                                    Le informamos que el siguiente documento ha sido revisado y su estatus ha sido actualizado a <strong>Aceptado</strong> por <strong>{nombre_contratista}</strong>:
+                                </p>
+                                
+                                <div style="overflow-x: auto; margin: 16px 0; border: 1px solid #e2e8f0; border-radius: 6px;">
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: left; white-space: nowrap;">
+                                        <thead>
+                                            <tr style="background-color: #1a252f; color: #ffffff; white-space: nowrap;">
+                                                <th style="padding: 8px 12px; font-weight: 600;">Contratista</th>
+                                                <th style="padding: 8px 12px; font-weight: 600;">Documento</th>
+                                                <th style="padding: 8px 12px; font-weight: 600; text-align: center;">Período</th>
+                                                <th style="padding: 8px 12px; font-weight: 600; text-align: center;">Estatus</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr style="background-color: #f8fafc; white-space: nowrap;">
+                                                <td style="padding: 9px 12px; font-weight: 600; color: #1e293b;">{nombre_contratista}</td>
+                                                <td style="padding: 9px 12px; color: #334155;">{nombre_doc_humano}</td>
+                                                <td style="padding: 9px 12px; color: #475569; text-align: center;">{periodo_str}</td>
+                                                <td style="padding: 9px 12px; text-align: center;">
+                                                    <span style="background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+                                                        Aceptado
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <div style="background-color: #f0fdf4; border-left: 4px solid #22c55e; padding: 14px 16px; border-radius: 4px; margin: 20px 0; font-size: 13.5px; color: #14532d;">
+                                    <strong>✓ Documento Aprobado:</strong> Su documento cumple satisfactoriamente con los requerimientos y ha sido registrado con estatus Aceptado en el expediente.
+                                </div>
+                                
+                                <div style="text-align: center; margin: 26px 0 20px 0;">
+                                    <a href="https://suite.crossovermx.com/login/" target="_blank" style="background-color: #00b8b9; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                        Ingresar al Portal de Documentación
+                                    </a>
+                                </div>
+                                
+                                <div style="border-top: 1px solid #e2e8f0; padding-top: 18px; margin-top: 24px; font-size: 13px; color: #64748b;">
+                                    Atentamente,<br>
+                                    <strong style="color: #1e293b; font-size: 14px;">{nombre_contratista}</strong><br>
+                                    <span>Sistema CrossoverSuite</span>
+                                </div>
+                            </div>
+                            
+                            <div style="background-color: #f8fafc; padding: 12px 24px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 11.5px; color: #94a3b8;">
+                                Este es un mensaje automático emitido por la plataforma de gestión de contratistas y proveedores.
+                            </div>
+                        </div>
+                        """.strip()
                     else:
                         asunto = f"Documento Rechazado - {nombre_doc_humano} ({periodo_str})"
-                        cuerpo = (
-                            f"Estimado/a {prov.nombre_razon_social}:\n\n"
-                            f"Le informamos que el siguiente documento ha sido revisado y su estatus es: Rechazado.\n\n"
-                            f"• Contratista: {nombre_contratista}\n"
-                            f"• Documento: {nombre_doc_humano}\n"
-                            f"• Período: {periodo_str}\n"
-                            f"• Estatus: Rechazado\n"
-                            f"• Motivo de Cancelación / Rechazo: {comentario}\n\n"
-                            f"Por favor, ingrese al portal para solventar la observación y subir el documento corregido.\n\n"
-                            f"Atentamente,\n"
-                            f"{nombre_contratista}\n"
-                            f"Sistema CrossoverSuite"
-                        )
+                        motivo_texto = comentario if comentario else "El documento presentado requiere corrección."
+                        cuerpo = f"""
+                        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #334155; line-height: 1.6; max-width: 700px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background-color: #ffffff;">
+                            <div style="background-color: #1a252f; padding: 18px 24px; border-bottom: 4px solid #00b8b9;">
+                                <h2 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.5px;">CrossoverSuite</h2>
+                                <span style="color: #94a3b8; font-size: 13px;">Gestión de Documentos de Proveedores</span>
+                            </div>
+                            
+                            <div style="padding: 24px 28px;">
+                                <p style="font-size: 15px; margin-top: 0; margin-bottom: 14px;">
+                                    Estimado/a <strong>{prov.nombre_razon_social}</strong>,
+                                </p>
+                                <p style="font-size: 14px; margin-bottom: 14px; color: #475569;">
+                                    Le informamos que el siguiente documento ha sido revisado y su estatus ha sido actualizado a <strong>Rechazado</strong> por <strong>{nombre_contratista}</strong>:
+                                </p>
+                                
+                                <div style="overflow-x: auto; margin: 16px 0; border: 1px solid #e2e8f0; border-radius: 6px;">
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: left; white-space: nowrap;">
+                                        <thead>
+                                            <tr style="background-color: #1a252f; color: #ffffff; white-space: nowrap;">
+                                                <th style="padding: 8px 12px; font-weight: 600;">Contratista</th>
+                                                <th style="padding: 8px 12px; font-weight: 600;">Documento</th>
+                                                <th style="padding: 8px 12px; font-weight: 600; text-align: center;">Período</th>
+                                                <th style="padding: 8px 12px; font-weight: 600; text-align: center;">Estatus</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr style="background-color: #f8fafc; white-space: nowrap;">
+                                                <td style="padding: 9px 12px; font-weight: 600; color: #1e293b;">{nombre_contratista}</td>
+                                                <td style="padding: 9px 12px; color: #334155;">{nombre_doc_humano}</td>
+                                                <td style="padding: 9px 12px; color: #475569; text-align: center;">{periodo_str}</td>
+                                                <td style="padding: 9px 12px; text-align: center;">
+                                                    <span style="background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+                                                        Rechazado
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <div style="background-color: #fff5f5; border-left: 4px solid #ef4444; padding: 14px 16px; border-radius: 4px; margin: 20px 0; font-size: 13.5px; color: #7f1d1d;">
+                                    <strong>⚠️ Motivo de Cancelación / Rechazo:</strong><br>
+                                    <span style="color: #991b1b; display: block; margin-top: 4px; font-weight: 500;">{motivo_texto}</span>
+                                </div>
+                                
+                                <div style="background-color: #f0fdfa; border-left: 4px solid #00b8b9; padding: 14px 16px; border-radius: 4px; margin: 20px 0; font-size: 13.5px; color: #134e4a;">
+                                    <strong>Acción requerida:</strong> Por favor ingrese al portal del sistema para solventar la observación y subir el archivo corregido.
+                                </div>
+                                
+                                <div style="text-align: center; margin: 26px 0 20px 0;">
+                                    <a href="https://suite.crossovermx.com/login/" target="_blank" style="background-color: #00b8b9; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                        Ingresar al Portal para Corregir
+                                    </a>
+                                </div>
+                                
+                                <div style="border-top: 1px solid #e2e8f0; padding-top: 18px; margin-top: 24px; font-size: 13px; color: #64748b;">
+                                    Atentamente,<br>
+                                    <strong style="color: #1e293b; font-size: 14px;">{nombre_contratista}</strong><br>
+                                    <span>Sistema CrossoverSuite</span>
+                                </div>
+                            </div>
+                            
+                            <div style="background-color: #f8fafc; padding: 12px 24px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 11.5px; color: #94a3b8;">
+                                Este es un mensaje automático emitido por la plataforma de gestión de contratistas y proveedores.
+                            </div>
+                        </div>
+                        """.strip()
 
                     enviar_correo_contratista(
                         contratista=prov.contratista,
                         asunto=asunto,
                         cuerpo=cuerpo,
-                        destinatarios=[email_destino]
+                        destinatarios=[email_destino],
+                        es_html=True
                     )
             except Exception as mail_err:
                 import logging
@@ -1970,6 +2130,262 @@ def descargar_plantilla_reporte_trabajadores(request):
     response['Content-Disposition'] = 'attachment; filename="Plantilla_Reporte_Trabajadores_Servicio_Especializado.xlsx"'
     wb.save(response)
     return response
+
+
+def obtener_documentos_pendientes_proveedor(prov, anio, fecha_referencia=None):
+    """
+    Retorna la lista de documentos que no se han subido o están rechazados
+    para los períodos transcurridos hasta la fecha de referencia en el año indicado.
+    """
+    if fecha_referencia is None:
+        fecha_referencia = datetime.now()
+        
+    cur_year = fecha_referencia.year
+    cur_month = fecha_referencia.month
+    
+    docs_existentes = DocumentacionProveedor.objects.filter(proveedor=prov, anio=anio)
+    
+    meses_nombres = {
+        1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
+        5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
+        9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+    }
+    bimestres_nombres = {
+        1: '1er Bimestre (Ene-Feb)', 2: '2do Bimestre (Mar-Abr)', 3: '3er Bimestre (May-Jun)',
+        4: '4to Bimestre (Jul-Ago)', 5: '5to Bimestre (Sep-Oct)', 6: '6to Bimestre (Nov-Dic)'
+    }
+    cuatrimestres_nombres = {
+        1: '1er Cuatrimestre (Ene-Abr)', 2: '2do Cuatrimestre (May-Ago)', 3: '3er Cuatrimestre (Sep-Dic)'
+    }
+    
+    if anio < cur_year:
+        max_mes = 12
+        max_bim = 6
+        max_cuatri = 3
+        max_unica = 1
+    elif anio == cur_year:
+        max_mes = cur_month
+        max_bim = min(6, (cur_month + 1) // 2)
+        max_cuatri = min(3, (cur_month + 3) // 4)
+        max_unica = 1
+    else: # Año futuro
+        max_mes = 0
+        max_bim = 0
+        max_cuatri = 0
+        max_unica = 0
+
+    pendientes = []
+    
+    for item in DocumentacionProveedor.CATALOGO_DOCUMENTOS:
+        codigo = item['codigo']
+        nombre = item['nombre']
+        periodo_tipo = item['periodo']
+        formato = item.get('formato', 'pdf').upper()
+        
+        if periodo_tipo == 'mensual':
+            limit = max_mes
+        elif periodo_tipo == 'bimestral':
+            limit = max_bim
+        elif periodo_tipo == 'cuatrimestral':
+            limit = max_cuatri
+        else: # unica_ocasion
+            limit = max_unica
+            
+        for p in range(1, limit + 1):
+            doc = docs_existentes.filter(nombre_documento=codigo, mes=p).first()
+            if not doc or doc.status == 'rechazado':
+                if periodo_tipo == 'mensual':
+                    periodo_str = f"{meses_nombres.get(p, f'Mes {p}')} {anio}"
+                elif periodo_tipo == 'bimestral':
+                    periodo_str = f"{bimestres_nombres.get(p, f'Bimestre {p}')} {anio}"
+                elif periodo_tipo == 'cuatrimestral':
+                    periodo_str = f"{cuatrimestres_nombres.get(p, f'Cuatrimestre {p}')} {anio}"
+                else:
+                    periodo_str = f"Única Ocasión ({anio})"
+                    
+                estatus_detalle = "Sin documento"
+                if doc and doc.status == 'rechazado':
+                    estatus_detalle = f"Rechazado ({doc.comentario_rechazo or 'Requiere corrección'})"
+                    
+                pendientes.append({
+                    'codigo': codigo,
+                    'nombre': nombre,
+                    'periodo_num': p,
+                    'periodo_str': periodo_str,
+                    'formato': formato,
+                    'estatus': estatus_detalle,
+                    'es_rechazado': bool(doc and doc.status == 'rechazado')
+                })
+                
+    return pendientes
+
+
+@login_required(login_url='/login/')
+def preparar_correo_recordatorio_proveedor_ajax(request, id):
+    from preferencias.permissions import user_has_hr_permission
+    if not user_has_hr_permission(request, 'proveedores_contratistas', 'documentacion') and not user_has_hr_permission(request, 'proveedores_contratistas', 'ver') and not request.user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'No cuentas con permiso para esta acción.'}, status=403)
+        
+    empresa_actual = get_empresa_actual(request)
+    prov = get_object_or_404(ProveedorRH, id=id, empresa=empresa_actual)
+    
+    try:
+        anio = int(request.GET.get('anio') or datetime.now().year)
+    except ValueError:
+        anio = datetime.now().year
+        
+    pendientes = obtener_documentos_pendientes_proveedor(prov, anio)
+    
+    nombre_contratista = prov.contratista.nombre_razon_social if prov.contratista else (empresa_actual.nombre if empresa_actual else "Contratista")
+    destinatario = (prov.correo or (prov.usuario.email if prov.usuario else '') or '').strip()
+    asunto = f"Recordatorio de Documentación Pendiente ({anio}) - {prov.nombre_razon_social}"
+    
+    portal_url = "https://suite.crossovermx.com/login/"
+    
+    # Construir filas de la tabla de documentos en una sola línea compacta
+    if pendientes:
+        filas_html = ""
+        for idx, doc in enumerate(pendientes, 1):
+            color_badge = "#e03131" if not doc['es_rechazado'] else "#d97706"
+            bg_badge = "#fff5f5" if not doc['es_rechazado'] else "#fffbeb"
+            border_badge = "#ffc9c9" if not doc['es_rechazado'] else "#fde68a"
+            
+            filas_html += f"""
+            <tr style="border-bottom: 1px solid #e2e8f0; white-space: nowrap; {'background-color: #f8fafc;' if idx % 2 == 0 else ''}">
+                <td style="padding: 7px 10px; color: #64748b; font-weight: bold; text-align: center; white-space: nowrap;">{idx}</td>
+                <td style="padding: 7px 10px; font-weight: 600; color: #1e293b; white-space: nowrap;">{doc['nombre']}</td>
+                <td style="padding: 7px 10px; color: #475569; text-align: center; white-space: nowrap;">{doc['periodo_str']}</td>
+                <td style="padding: 7px 10px; text-align: center; white-space: nowrap;">
+                    <span style="display: inline-block; background-color: {bg_badge}; color: {color_badge}; border: 1px solid {border_badge}; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; white-space: nowrap;">
+                        {doc['estatus']}
+                    </span>
+                </td>
+            </tr>
+            """
+        tabla_html = f"""
+        <div style="overflow-x: auto; margin: 16px 0; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: left; white-space: nowrap;">
+                <thead>
+                    <tr style="background-color: #1a252f; color: #ffffff; white-space: nowrap;">
+                        <th style="padding: 8px 10px; font-weight: 600; text-align: center; width: 30px; white-space: nowrap;">#</th>
+                        <th style="padding: 8px 10px; font-weight: 600; white-space: nowrap;">Documento Requerido</th>
+                        <th style="padding: 8px 10px; font-weight: 600; text-align: center; white-space: nowrap;">Período</th>
+                        <th style="padding: 8px 10px; font-weight: 600; text-align: center; white-space: nowrap;">Estatus</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {filas_html}
+                </tbody>
+            </table>
+        </div>
+        """
+        descripcion_intro = f"De parte de <strong>{nombre_contratista}</strong>, le informamos que tras la revisión de su expediente correspondiente al ejercicio fiscal <strong>{anio}</strong>, se detectó que tiene <strong>{len(pendientes)}</strong> documento(s) pendiente(s) de entrega o con observaciones:"
+    else:
+        tabla_html = """
+        <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 16px; border-radius: 6px; margin: 18px 0; text-align: center; font-weight: 500;">
+            ✓ Actualmente no cuenta con documentos pendientes de entrega para los períodos transcurridos del ejercicio seleccionado.
+        </div>
+        """
+        descripcion_intro = f"De parte de <strong>{nombre_contratista}</strong>, le informamos que hemos revisado su expediente para el ejercicio <strong>{anio}</strong>."
+
+    cuerpo_html = f"""
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #334155; line-height: 1.6; max-width: 760px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background-color: #ffffff;">
+        <div style="background-color: #1a252f; padding: 18px 24px; border-bottom: 4px solid #00b8b9;">
+            <h2 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.5px;">CrossoverSuite</h2>
+            <span style="color: #94a3b8; font-size: 13px;">Gestión de Documentos de Proveedores</span>
+        </div>
+        
+        <div style="padding: 24px 28px;">
+            <p style="font-size: 15px; margin-top: 0; margin-bottom: 14px;">
+                Estimado/a <strong>{prov.nombre_razon_social}</strong>,
+            </p>
+            <p style="font-size: 14px; margin-bottom: 14px; color: #475569;">
+                {descripcion_intro}
+            </p>
+            
+            {tabla_html}
+            
+            <div style="background-color: #f0fdfa; border-left: 4px solid #00b8b9; padding: 14px 16px; border-radius: 4px; margin: 20px 0; font-size: 13.5px; color: #134e4a;">
+                <strong>⚠️ Acción Requerida:</strong> Le solicitamos ingresar al portal del sistema para cargar o solventar los documentos requeridos a la brevedad a fin de mantener su expediente en cumplimiento normativo.
+            </div>
+            
+            <div style="text-align: center; margin: 26px 0 20px 0;">
+                <a href="{portal_url}" target="_blank" style="background-color: #00b8b9; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    Ingresar al Portal de Documentación
+                </a>
+            </div>
+            
+            <div style="border-top: 1px solid #e2e8f0; padding-top: 18px; margin-top: 24px; font-size: 13px; color: #64748b;">
+                Atentamente,<br>
+                <strong style="color: #1e293b; font-size: 14px;">{nombre_contratista}</strong><br>
+                <span>Sistema CrossoverSuite</span>
+            </div>
+        </div>
+        
+        <div style="background-color: #f8fafc; padding: 12px 24px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 11.5px; color: #94a3b8;">
+            Este es un mensaje automático emitido por la plataforma de gestión de contratistas y proveedores.
+        </div>
+    </div>
+    """.strip()
+
+    return JsonResponse({
+        'success': True,
+        'proveedor': prov.nombre_razon_social,
+        'destinatario': destinatario,
+        'cc': '',
+        'asunto': asunto,
+        'total_pendientes': len(pendientes),
+        'cuerpo_html': cuerpo_html
+    })
+
+
+@login_required(login_url='/login/')
+@require_POST
+def enviar_correo_recordatorio_proveedor_ajax(request, id):
+    import re
+    from preferencias.permissions import user_has_hr_permission
+    if not user_has_hr_permission(request, 'proveedores_contratistas', 'documentacion') and not request.user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'No cuentas con permiso para enviar recordatorios.'}, status=403)
+        
+    empresa_actual = get_empresa_actual(request)
+    prov = get_object_or_404(ProveedorRH, id=id, empresa=empresa_actual)
+    
+    destinatario_raw = request.POST.get('destinatario', '').strip()
+    cc_raw = request.POST.get('cc', '').strip()
+    asunto = request.POST.get('asunto', '').strip()
+    cuerpo = request.POST.get('cuerpo', '').strip()
+    
+    if not destinatario_raw:
+        return JsonResponse({'success': False, 'error': 'El correo destinatario es obligatorio.'})
+    if not asunto:
+        return JsonResponse({'success': False, 'error': 'El asunto es obligatorio.'})
+    if not cuerpo:
+        return JsonResponse({'success': False, 'error': 'El cuerpo del correo no puede estar vacío.'})
+        
+    to_emails = [e.strip() for e in re.split(r'[,;]+', destinatario_raw) if e.strip()]
+    cc_emails = [e.strip() for e in re.split(r'[,;]+', cc_raw) if e.strip()] if cc_raw else []
+    archivos = request.FILES.getlist('archivos')
+    
+    from preferencias.utils import enviar_correo_contratista
+    try:
+        exito = enviar_correo_contratista(
+            contratista=prov.contratista,
+            asunto=asunto,
+            cuerpo=cuerpo,
+            destinatarios=to_emails,
+            cc=cc_emails,
+            archivos_adjuntos=archivos,
+            es_html=True
+        )
+        if exito:
+            return JsonResponse({'success': True, 'message': f'Correo enviado exitosamente a {", ".join(to_emails)}.'})
+        else:
+            return JsonResponse({'success': False, 'error': 'No se pudo enviar el correo. Por favor verifique la configuración SMTP del contratista o del servidor.'})
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error al enviar correo recordatorio a proveedor {prov.id}: {e}")
+        return JsonResponse({'success': False, 'error': f'Error al procesar el envío: {str(e)}'})
 
 
 

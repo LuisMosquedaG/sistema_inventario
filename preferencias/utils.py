@@ -71,7 +71,7 @@ def enviar_correo_usuario(usuario, asunto, cuerpo, destinatarios, archivos_adjun
         return False
 
 
-def enviar_correo_contratista(contratista, asunto, cuerpo, destinatarios=None, cc=None, archivos_adjuntos=None):
+def enviar_correo_contratista(contratista, asunto, cuerpo, destinatarios=None, cc=None, archivos_adjuntos=None, es_html=False):
     """
     Envía un correo electrónico utilizando la configuración SMTP personalizada del contratista.
     Si el contratista tiene configurados correos de notificación (Destinatario / CC), los utiliza.
@@ -141,9 +141,18 @@ def enviar_correo_contratista(contratista, asunto, cuerpo, destinatarios=None, c
         connection=backend
     )
     
+    if es_html or (isinstance(cuerpo, str) and any(tag in cuerpo for tag in ['<html', '<div', '<p', '<table', '<br', '<body'])):
+        email.content_subtype = "html"
+
     if archivos_adjuntos:
-        for path in archivos_adjuntos:
-            email.attach_file(path)
+        for adj in archivos_adjuntos:
+            if isinstance(adj, str):
+                email.attach_file(adj)
+            elif hasattr(adj, 'read') and hasattr(adj, 'name'):
+                content_type = getattr(adj, 'content_type', 'application/octet-stream')
+                email.attach(adj.name, adj.read(), content_type)
+            elif isinstance(adj, (list, tuple)) and len(adj) == 3:
+                email.attach(adj[0], adj[1], adj[2])
                 
     try:
         email.send(fail_silently=False)

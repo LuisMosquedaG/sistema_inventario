@@ -1718,7 +1718,91 @@
                     <small class="text-muted"><i class="bi bi-info-circle me-1"></i> Haz clic en una celda para subir o ver el documento del mes.</small>
                     <small class="text-muted"><i class="bi bi-info-circle me-1"></i> Significado de siglas: A = Aprobado, R = Rechazado, ER = En revisión, SD = Sin documento</small>
                 </div>
-                <button type="button" class="btn btn-light text-secondary btn-sm ms-auto" data-bs-dismiss="modal">Cerrar</button>
+                <div class="ms-auto d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm text-white d-inline-flex align-items-center gap-1 shadow-xs" style="background-color: var(--brand-color); border-color: var(--brand-color);" onclick="abrirModalEnviarCorreoDocProveedor()">
+                        <i class="bi bi-envelope-paper-fill"></i> Enviar correo
+                    </button>
+                    <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: ENVIAR CORREO RECORDATORIO DE DOCUMENTACIÓN -->
+<div class="modal fade" id="modalEnviarCorreoDocProveedor" tabindex="-1" aria-hidden="true" style="z-index: 1070;">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-sheet modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-white border-bottom py-3">
+                <div class="d-flex align-items-center">
+                    <div class="bg-brand bg-opacity-10 p-2 rounded me-3" style="color: var(--brand-color);">
+                        <i class="bi bi-envelope-paper-fill fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0">Enviar Recordatorio de Documentación</h5>
+                        <small class="text-muted" id="correoDocSubtitulo">Notificar al proveedor sobre documentos pendientes</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body p-3 p-md-4 bg-light" style="max-height: 75vh; overflow-y: auto;">
+                <form id="formEnviarCorreoDocProveedor" enctype="multipart/form-data">
+                    <input type="hidden" id="correoDocProveedorId" name="proveedor_id">
+                    <input type="hidden" id="correoDocAnio" name="anio">
+
+                    <div class="card border-0 shadow-sm rounded-3 p-3 mb-3 bg-white">
+                        <div class="row g-3">
+                            <div class="col-md-7">
+                                <label class="form-label-custom">Destinatario (Para): <span class="text-danger">*</span></label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-light text-muted"><i class="bi bi-envelope-at"></i></span>
+                                    <input type="email" id="correoDocDestinatario" name="destinatario" class="form-control" placeholder="correo@proveedor.com" required>
+                                </div>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label-custom">CC (Con copia):</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-light text-muted"><i class="bi bi-people"></i></span>
+                                    <input type="text" id="correoDocCC" name="cc" class="form-control" placeholder="copia@empresa.com, copia2@empresa.com">
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label-custom">Asunto: <span class="text-danger">*</span></label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-light text-muted"><i class="bi bi-chat-left-quote"></i></span>
+                                    <input type="text" id="correoDocAsunto" name="asunto" class="form-control" required>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label-custom">Anexar Documentos Extras (Opcional):</label>
+                                <input type="file" id="correoDocAdjuntos" name="archivos" class="form-control form-control-sm" multiple onchange="mostrarAdjuntosSeleccionados(this)">
+                                <div id="listaAdjuntosSeleccionados" class="d-flex flex-wrap gap-2 mt-2"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card border-0 shadow-sm rounded-3 p-3 bg-white">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <label class="form-label-custom mb-0">Cuerpo del Correo (Editable):</label>
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="restablecerPlantillaCorreoDoc()" title="Restablecer plantilla inicial">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i> Restablecer plantilla
+                            </button>
+                        </div>
+                        
+                        <div id="editorCuerpoCorreoDoc" contenteditable="true" class="form-control p-3" style="min-height: 280px; max-height: 420px; overflow-y: auto; background-color: #ffffff; border: 1px solid #ced4da; border-radius: 6px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 0.9rem; line-height: 1.5;">
+                            <!-- Plantilla cargada dinámicamente -->
+                        </div>
+                        <input type="hidden" id="correoDocCuerpoHtml" name="cuerpo">
+                    </div>
+                </form>
+            </div>
+
+            <div class="modal-footer bg-white border-top py-2 d-flex justify-content-between">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btnEnviarCorreoDocModal" class="btn btn-sm text-white d-inline-flex align-items-center gap-1 shadow-sm px-3" style="background-color: var(--brand-color); border-color: var(--brand-color);" onclick="enviarCorreoRecordatorioDocProveedor()">
+                    <i class="bi bi-send-fill me-1"></i> Enviar Correo
+                </button>
             </div>
         </div>
     </div>
@@ -2308,6 +2392,137 @@
         tabRegistrosBtn.addEventListener('shown.bs.tab', function () {
             actualizarRegistroPatronalPrincipalDisplay();
             renderizarRegistrosPatronalesAdicionales();
+        });
+    }
+
+    // ==========================================
+    // RECORDATORIO DE DOCUMENTACIÓN POR CORREO
+    // ==========================================
+    let originalTemplateCorreoDoc = '';
+
+    function abrirModalEnviarCorreoDocProveedor() {
+        if (!currentProvDocId) {
+            alert("No se ha seleccionado un proveedor.");
+            return;
+        }
+        const anio = document.getElementById('selectAnioDocProveedor') ? document.getElementById('selectAnioDocProveedor').value : new Date().getFullYear();
+        
+        // Abrir modal de correo
+        const modalEl = document.getElementById('modalEnviarCorreoDocProveedor');
+        const modalInstance = new bootstrap.Modal(modalEl);
+        modalInstance.show();
+
+        // Resetear campos
+        document.getElementById('correoDocProveedorId').value = currentProvDocId;
+        document.getElementById('correoDocAnio').value = anio;
+        document.getElementById('correoDocDestinatario').value = '';
+        document.getElementById('correoDocCC').value = '';
+        document.getElementById('correoDocAsunto').value = 'Cargando...';
+        document.getElementById('correoDocAdjuntos').value = '';
+        document.getElementById('listaAdjuntosSeleccionados').innerHTML = '';
+        document.getElementById('editorCuerpoCorreoDoc').innerHTML = '<div class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm text-brand mb-2"></div><br>Generando plantilla con documentos pendientes...</div>';
+
+        fetch(`/recursos-humanos/proveedores/documentacion/preparar-correo/${currentProvDocId}/?anio=${anio}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('correoDocSubtitulo').textContent = `${data.proveedor} (Ejercicio ${anio}) • ${data.total_pendientes} documento(s) pendiente(s)`;
+                document.getElementById('correoDocDestinatario').value = data.destinatario || '';
+                document.getElementById('correoDocCC').value = data.cc || '';
+                document.getElementById('correoDocAsunto').value = data.asunto || `Recordatorio de Documentación Pendiente (${anio}) - ${data.proveedor}`;
+                document.getElementById('editorCuerpoCorreoDoc').innerHTML = data.cuerpo_html;
+                originalTemplateCorreoDoc = data.cuerpo_html;
+            } else {
+                alert("Error al preparar correo: " + (data.error || "Ocurrió un error inesperado"));
+                document.getElementById('editorCuerpoCorreoDoc').innerHTML = '<div class="text-danger p-3">Error al generar la plantilla de correo.</div>';
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Error de conexión al preparar correo.");
+            document.getElementById('editorCuerpoCorreoDoc').innerHTML = '<div class="text-danger p-3">Error de conexión con el servidor.</div>';
+        });
+    }
+
+    function restablecerPlantillaCorreoDoc() {
+        if (originalTemplateCorreoDoc) {
+            if (confirm("¿Deseas restablecer el cuerpo del correo a la plantilla generada inicialmente?")) {
+                document.getElementById('editorCuerpoCorreoDoc').innerHTML = originalTemplateCorreoDoc;
+            }
+        }
+    }
+
+    function mostrarAdjuntosSeleccionados(input) {
+        const lista = document.getElementById('listaAdjuntosSeleccionados');
+        lista.innerHTML = '';
+        if (input.files && input.files.length > 0) {
+            Array.from(input.files).forEach((file) => {
+                const badge = document.createElement('span');
+                badge.className = 'badge bg-light text-dark border d-inline-flex align-items-center gap-1 px-2 py-1';
+                badge.innerHTML = `<i class="bi bi-paperclip text-muted"></i> ${file.name} <small class="text-muted">(${Math.round(file.size / 1024)} KB)</small>`;
+                lista.appendChild(badge);
+            });
+        }
+    }
+
+    function enviarCorreoRecordatorioDocProveedor() {
+        const dest = document.getElementById('correoDocDestinatario').value.trim();
+        const asunto = document.getElementById('correoDocAsunto').value.trim();
+        const cuerpo = document.getElementById('editorCuerpoCorreoDoc').innerHTML.trim();
+        const provId = document.getElementById('correoDocProveedorId').value;
+
+        if (!dest) {
+            alert("Por favor ingresa un correo destinatario.");
+            document.getElementById('correoDocDestinatario').focus();
+            return;
+        }
+        if (!asunto) {
+            alert("Por favor ingresa un asunto.");
+            document.getElementById('correoDocAsunto').focus();
+            return;
+        }
+        if (!cuerpo || cuerpo === '<br>') {
+            alert("El cuerpo del correo no puede estar vacío.");
+            return;
+        }
+
+        document.getElementById('correoDocCuerpoHtml').value = cuerpo;
+
+        const btn = document.getElementById('btnEnviarCorreoDocModal');
+        const originalBtnHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Enviando...';
+
+        const formEl = document.getElementById('formEnviarCorreoDocProveedor');
+        const formData = new FormData(formEl);
+
+        fetch(`/recursos-humanos/proveedores/documentacion/enviar-correo-recordatorio/${provId}/`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = originalBtnHtml;
+            if (data.success) {
+                alert(data.message || "Correo enviado exitosamente.");
+                const modalEl = document.getElementById('modalEnviarCorreoDocProveedor');
+                const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
+            } else {
+                alert("Error al enviar correo: " + (data.error || "Ocurrió un error inesperado"));
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = originalBtnHtml;
+            console.error(err);
+            alert("Error de conexión al enviar correo.");
         });
     }
 </script>

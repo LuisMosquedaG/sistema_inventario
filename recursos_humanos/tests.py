@@ -2255,11 +2255,12 @@ class ContratistaSMTPTest(TestCase):
         self.assertEqual(sent.to, ["proveedor_receptor@test.com"])
         self.assertFalse(sent.cc)
         self.assertIn("Aceptado", sent.subject)
-        self.assertIn("Estimado/a Proveedor Aprobado S.A. de C.V.", sent.body)
+        self.assertIn("Proveedor Aprobado S.A. de C.V.", sent.body)
         self.assertIn("Contratista Aprobador S.A.", sent.body)
         self.assertIn("Constancia/registro REPSE vigente", sent.body)
         self.assertIn("Agosto 2026", sent.body)
         self.assertIn("Aceptado", sent.body)
+        self.assertIn("https://suite.crossovermx.com/login/", sent.body)
 
     def test_rechazar_documento_envia_correo_al_proveedor_con_motivo(self):
         from recursos_humanos.models import Contratista, ContratistaCorreoSMTP, ProveedorRH, DocumentacionProveedor
@@ -2319,12 +2320,98 @@ class ContratistaSMTPTest(TestCase):
         self.assertEqual(sent.to, ["proveedor_rechazado@test.com"])
         self.assertFalse(sent.cc)
         self.assertIn("Rechazado", sent.subject)
-        self.assertIn("Estimado/a Proveedor Rechazado S.A. de C.V.", sent.body)
+        self.assertIn("Proveedor Rechazado S.A. de C.V.", sent.body)
         self.assertIn("Contratista Revisor S.A.", sent.body)
         self.assertIn("Acuse de Presentación Informativa cuatrimestral SISUB", sent.body)
         self.assertIn("2do Cuatrimestre (May-Ago) 2026", sent.body)
         self.assertIn("Rechazado", sent.body)
         self.assertIn(motivo_rechazo, sent.body)
+        self.assertIn("https://suite.crossovermx.com/login/", sent.body)
+
+    def test_preparar_y_enviar_correo_recordatorio_documentacion_proveedor(self):
+        import datetime
+        from recursos_humanos.models import Contratista, ContratistaCorreoSMTP, ProveedorRH, DocumentacionProveedor
+        from recursos_humanos.views.contractors import obtener_documentos_pendientes_proveedor
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.core import mail
+
+        contratista = Contratista.objects.create(
+            empresa=self.empresa,
+            rfc="CONREC12345",
+            nombre_razon_social="Contratista Recordatorios S.A.",
+            correo="contratista_rec@test.com"
+        )
+        ContratistaCorreoSMTP.objects.create(
+            contratista=contratista,
+            smtp_host="smtp.rec.test",
+            smtp_user="noreply@rec.test",
+            smtp_password="password123",
+            nombre_remitente="Notificaciones Contratista",
+            email_remitente="noreply@rec.test",
+        )
+
+        proveedor = ProveedorRH.objects.create(
+            empresa=self.empresa,
+            nombre_razon_social="Proveedor Pendientes S.A. de C.V.",
+            rfc="PROVPEN123",
+            correo="proveedor_contacto@test.com",
+            contratista=contratista,
+            creado_por=self.user
+        )
+
+        # 1. Probar helper de documentos pendientes para febrero 2026
+        fecha_feb = datetime.datetime(2026, 2, 15)
+        pendientes = obtener_documentos_pendientes_proveedor(proveedor, 2026, fecha_referencia=fecha_feb)
+        self.assertTrue(len(pendientes) > 0)
+        # En febrero deben existir pendientes de Enero y Febrero para documentos mensuales
+        meses_pendientes = [p['periodo_str'] for p in pendientes if 'Enero 2026' in p['periodo_str'] or 'Febrero 2026' in p['periodo_str']]
+        self.assertTrue(len(meses_pendientes) > 0)
+
+        # 2. Probar endpoint AJAX para preparar correo
+        response_prep = self.client.get(reverse('preparar_correo_recordatorio_proveedor_ajax', args=[proveedor.id]) + '?anio=2026')
+        self.assertEqual(response_prep.status_code, 200)
+        data_prep = response_prep.json()
+        self.assertTrue(data_prep['success'])
+        self.assertEqual(data_prep['destinatario'], "proveedor_contacto@test.com")
+        self.assertIn("Recordatorio de Documentación Pendiente", data_prep['asunto'])
+        self.assertIn("Proveedor Pendientes S.A. de C.V.", data_prep['cuerpo_html'])
+        self.assertIn("Contratista Recordatorios S.A.", data_prep['cuerpo_html'])
+        self.assertIn("CrossoverSuite", data_prep['cuerpo_html'])
+        self.assertIn('href="https://suite.crossovermx.com/login/"', data_prep['cuerpo_html'])
+        self.assertNotIn('Liga directa al portal:', data_prep['cuerpo_html'])
+        self.assertIn('white-space: nowrap', data_prep['cuerpo_html'])
+
+        # 3. Probar endpoint AJAX para enviar correo recordatorio con archivo adjunto y CC
+        mail.outbox = []
+        adjunto_extra = SimpleUploadedFile("guia_entrega.pdf", b"contenido guia pdf", content_type="application/pdf")
+        
+        cuerpo_editado = data_prep['cuerpo_html'] + "<p>Nota especial: Favor de enviar antes del viernes.</p>"
+        post_data = {
+            'destinatario': 'proveedor_contacto@test.com',
+            'cc': 'copia1@empresa.com, copia2@empresa.com',
+            'asunto': 'URGENTE: Documentos Faltantes 2026',
+            'cuerpo': cuerpo_editado,
+            'archivos': adjunto_extra
+        }
+
+        response_envio = self.client.post(
+            reverse('enviar_correo_recordatorio_proveedor_ajax', args=[proveedor.id]),
+            post_data
+        )
+        self.assertEqual(response_envio.status_code, 200)
+        data_envio = response_envio.json()
+        self.assertTrue(data_envio['success'])
+
+        # Validar el correo enviado
+        self.assertEqual(len(mail.outbox), 1)
+        sent = mail.outbox[0]
+        self.assertEqual(sent.to, ["proveedor_contacto@test.com"])
+        self.assertEqual(sent.cc, ["copia1@empresa.com", "copia2@empresa.com"])
+        self.assertEqual(sent.subject, "URGENTE: Documentos Faltantes 2026")
+        self.assertIn("Nota especial: Favor de enviar antes del viernes.", sent.body)
+        self.assertIn("Proveedor Pendientes S.A. de C.V.", sent.body)
+        self.assertEqual(len(sent.attachments), 1)
+        self.assertEqual(sent.attachments[0][0], "guia_entrega.pdf")
 
     def test_contratista_registros_patronales_adicionales(self):
         import json

@@ -77,5 +77,7 @@ urlpatterns = [
     path('proveedores/documentacion/eliminar/<int:id>/', views.eliminar_documento_proveedor_ajax, name='eliminar_documento_proveedor_ajax'),
     path('proveedores/documentacion/descargar/<int:doc_id>/', views.descargar_documento_proveedor, name='descargar_documento_proveedor'),
     path('proveedores/documentacion/cambiar-estatus/<int:doc_id>/', views.cambiar_estatus_documento_proveedor_ajax, name='cambiar_estatus_documento_proveedor_ajax'),
+    path('proveedores/documentacion/preparar-correo/<int:id>/', views.preparar_correo_recordatorio_proveedor_ajax, name='preparar_correo_recordatorio_proveedor_ajax'),
+    path('proveedores/documentacion/enviar-correo-recordatorio/<int:id>/', views.enviar_correo_recordatorio_proveedor_ajax, name='enviar_correo_recordatorio_proveedor_ajax'),
     path('proveedores/descargar-plantilla-trabajadores/', views.descargar_plantilla_reporte_trabajadores, name='descargar_plantilla_reporte_trabajadores'),
 ]
