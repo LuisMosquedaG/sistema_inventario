@@ -41,13 +41,65 @@
     .status-suspendido { background-color: #fff9db; color: #f59f00; border: 1px solid #ffec99; }
 
     .modal-sheet .modal-content { border-radius: 12px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.15); overflow: hidden; }
-    .modal-body-gray { background-color: #f8f9fa; max-height: 70vh; overflow-y: auto; }
+    .modal-body-gray { background-color: #f8f9fa; overflow-y: auto; }
     .form-label-custom { font-size: 0.75rem; font-weight: 700; color: #495057; margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.5px; }
     .card-section { border: 1px solid #e9ecef !important; transition: all 0.2s ease; }
     .card-section:hover { border-color: #00b8b9 !important; }
 
     .modal-body-gray::-webkit-scrollbar { width: 6px; }
     .modal-body-gray::-webkit-scrollbar-thumb { background-color: #dee2e6; border-radius: 4px; }
+
+    /* Ajuste responsivo de altura y flexbox para modales con formulario y footer visible */
+    .modal-sheet.modal-dialog-scrollable,
+    #modalNuevoContratista .modal-dialog,
+    #modalNuevoProveedor .modal-dialog {
+        max-height: calc(100vh - 2rem);
+    }
+    .modal-sheet.modal-dialog-scrollable .modal-content,
+    #modalNuevoContratista .modal-content,
+    #modalNuevoProveedor .modal-content {
+        max-height: calc(100vh - 2rem);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    .modal-sheet.modal-dialog-scrollable form,
+    #modalNuevoContratista form,
+    #modalNuevoProveedor form {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+    }
+    .modal-sheet.modal-dialog-scrollable .modal-header,
+    .modal-sheet.modal-dialog-scrollable .nav-tabs-custom,
+    .modal-sheet.modal-dialog-scrollable .modal-footer,
+    #modalNuevoContratista .modal-header,
+    #modalNuevoContratista #contratistaModalTabs,
+    #modalNuevoContratista .modal-footer,
+    #modalNuevoProveedor .modal-header,
+    #modalNuevoProveedor .modal-footer {
+        flex-shrink: 0;
+    }
+    .modal-sheet.modal-dialog-scrollable .modal-body,
+    .modal-sheet.modal-dialog-scrollable form .modal-body,
+    #modalNuevoContratista .modal-body,
+    #modalNuevoProveedor .modal-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: none;
+        overflow-y: auto;
+    }
+    .modal-sheet.modal-dialog-scrollable .modal-footer,
+    #modalNuevoContratista .modal-footer,
+    #modalNuevoProveedor .modal-footer {
+        position: sticky;
+        bottom: 0;
+        z-index: 10;
+        background-color: #ffffff;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+    }
 
     /* Tabs Personalizados del Modal */
     .nav-tabs-custom {
@@ -1383,7 +1435,7 @@
 
 <!-- MODAL: NUEVO / EDITAR PROVEEDOR -->
 <div class="modal fade" id="modalNuevoProveedor" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-sheet">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-sheet modal-dialog-scrollable">
         <div class="modal-content border-0">
             <div class="modal-header border-bottom bg-light">
                 <h5 class="modal-title fw-bold" id="tituloModalProveedor">Nuevo Proveedor</h5>
