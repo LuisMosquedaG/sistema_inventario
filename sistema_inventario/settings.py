@@ -161,6 +161,7 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 # Archivos Media (Logos, Documentos subidos)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+os.makedirs(MEDIA_ROOT, exist_ok=True)
 
 # Si el login es exitoso, a dónde va?
 LOGIN_REDIRECT_URL = 'login_redirect' 
