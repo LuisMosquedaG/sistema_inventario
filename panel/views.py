@@ -84,13 +84,14 @@ def crear_empresa(request):
                 cp=cp,
                 estado_servicio=estado_str,
                 activa=(estado_str == 'activa'),
-                modulo_ventas=(request.POST.get('modulo_ventas') == 'on'),
-                modulo_compras=(request.POST.get('modulo_compras') == 'on'),
-                modulo_tesoreria=(request.POST.get('modulo_tesoreria') == 'on'),
-                modulo_produccion=(request.POST.get('modulo_produccion') == 'on'),
-                modulo_inventarios=(request.POST.get('modulo_inventarios') == 'on'),
-                modulo_recursos_humanos=(request.POST.get('modulo_recursos_humanos') == 'on'),
-                modulo_costeos=(request.POST.get('modulo_costeos') == 'on'),
+                modulo_ventas=(request.POST.get('modulo_ventas') == 'on') if 'modulo_ventas' in request.POST else True,
+                modulo_compras=(request.POST.get('modulo_compras') == 'on') if 'modulo_compras' in request.POST else True,
+                modulo_tesoreria=(request.POST.get('modulo_tesoreria') == 'on') if 'modulo_tesoreria' in request.POST else True,
+                modulo_produccion=(request.POST.get('modulo_produccion') == 'on') if 'modulo_produccion' in request.POST else True,
+                modulo_inventarios=(request.POST.get('modulo_inventarios') == 'on') if 'modulo_inventarios' in request.POST else True,
+                modulo_recursos_humanos=(request.POST.get('modulo_recursos_humanos') == 'on') if 'modulo_recursos_humanos' in request.POST else True,
+                modulo_costeos=(request.POST.get('modulo_costeos') == 'on') if 'modulo_costeos' in request.POST else True,
+                modulo_pos=(request.POST.get('modulo_pos') == 'on') if 'modulo_pos' in request.POST else True,
                 fecha_inicio_licencia=request.POST.get('fecha_inicio_licencia') or None,
                 fecha_vencimiento_licencia=request.POST.get('fecha_vencimiento_licencia') or None,
             )
@@ -241,14 +242,23 @@ def actualizar_empresa(request, empresa_id):
             # Sincronizar campo activa (bool)
             empresa.activa = (empresa.estado_servicio == 'activa')
 
-            # Actualizar módulos
-            empresa.modulo_ventas = (request.POST.get('modulo_ventas') == 'on')
-            empresa.modulo_compras = (request.POST.get('modulo_compras') == 'on')
-            empresa.modulo_tesoreria = (request.POST.get('modulo_tesoreria') == 'on')
-            empresa.modulo_produccion = (request.POST.get('modulo_produccion') == 'on')
-            empresa.modulo_inventarios = (request.POST.get('modulo_inventarios') == 'on')
-            empresa.modulo_recursos_humanos = (request.POST.get('modulo_recursos_humanos') == 'on')
-            empresa.modulo_costeos = (request.POST.get('modulo_costeos') == 'on')
+            # Actualizar módulos únicamente si vienen en la petición
+            if 'modulo_ventas' in request.POST:
+                empresa.modulo_ventas = (request.POST.get('modulo_ventas') == 'on')
+            if 'modulo_compras' in request.POST:
+                empresa.modulo_compras = (request.POST.get('modulo_compras') == 'on')
+            if 'modulo_tesoreria' in request.POST:
+                empresa.modulo_tesoreria = (request.POST.get('modulo_tesoreria') == 'on')
+            if 'modulo_produccion' in request.POST:
+                empresa.modulo_produccion = (request.POST.get('modulo_produccion') == 'on')
+            if 'modulo_inventarios' in request.POST:
+                empresa.modulo_inventarios = (request.POST.get('modulo_inventarios') == 'on')
+            if 'modulo_recursos_humanos' in request.POST:
+                empresa.modulo_recursos_humanos = (request.POST.get('modulo_recursos_humanos') == 'on')
+            if 'modulo_costeos' in request.POST:
+                empresa.modulo_costeos = (request.POST.get('modulo_costeos') == 'on')
+            if 'modulo_pos' in request.POST:
+                empresa.modulo_pos = (request.POST.get('modulo_pos') == 'on')
 
             # Actualizar licenciamiento
             empresa.fecha_inicio_licencia = request.POST.get('fecha_inicio_licencia') or None
