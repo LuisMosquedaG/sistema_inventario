@@ -1059,7 +1059,7 @@ def exportar_carga_trabajadores(request, id):
     # Generar Reporte
     if formato == 'csv':
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="Layout-detalle-trabajadores_{contratista.rfc}{filename_suffix}_{anio}_C{cuat}.csv"'
+        response['Content-Disposition'] = f'attachment; filename="Carga_Trabajadores_{contratista.rfc}{filename_suffix}_{anio}_C{cuat}.csv"'
         response.write(u'\ufeff'.encode('utf-8'))
         
         writer = csv.writer(response)
@@ -1076,7 +1076,7 @@ def exportar_carga_trabajadores(request, id):
         
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = "Layout-detalle-trabajadores"
+        ws.title = "Carga trabajadores"
         
         headers = ['NSS(11 dígitos)', 'CURP(18 caracteres)', 'Salario base de cotización(numérico con 2 decimales)']
         for i, h in enumerate(headers, 1):
@@ -1100,7 +1100,7 @@ def exportar_carga_trabajadores(request, id):
             ws.column_dimensions[get_column_letter(i)].width = 30
             
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = f'attachment; filename="Layout-detalle-trabajadores_{contratista.rfc}{filename_suffix}_{anio}_C{cuat}.xlsx"'
+        response['Content-Disposition'] = f'attachment; filename="Carga_Trabajadores_{contratista.rfc}{filename_suffix}_{anio}_C{cuat}.xlsx"'
         wb.save(response)
         return response
 

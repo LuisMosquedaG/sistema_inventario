@@ -941,9 +941,9 @@ def exportar_sisub_trabajadores(request, id):
     detalle_rows.sort(key=detalle_sort_key)
 
     if formato == 'csv':
-        resp = HttpResponse(content_type='text/csv'); resp['Content-Disposition'] = f'attachment; filename="SISUB_TRABAJADORES_{contratista.rfc}.csv"'; resp.write(u'\ufeff'.encode('utf8')); w = csv.writer(resp); w.writerow(headers); w.writerows(data_rows); return resp
+        resp = HttpResponse(content_type='text/csv'); resp['Content-Disposition'] = f'attachment; filename="Layout-detalle-trabajadores_{contratista.rfc}.csv"'; resp.write(u'\ufeff'.encode('utf8')); w = csv.writer(resp); w.writerow(headers); w.writerows(data_rows); return resp
     else:
-        wb = openpyxl.Workbook(); ws = wb.active; ws.title = "SISUB"
+        wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Layout-detalle-trabajadores"
         from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
         fb = PatternFill(start_color="00b8b9", end_color="00b8b9", fill_type="solid"); fg = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid"); fl = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid"); br = Border(left=Side(style='thin', color="B2B2B2"), right=Side(style='thin', color="B2B2B2"), top=Side(style='thin', color="B2B2B2"), bottom=Side(style='thin', color="B2B2B2"))
         ws.merge_cells('A1:N1'); ws['A1'] = "d-Informacion de los trabajadores"; ws.merge_cells('O1:S1'); ws['O1'] = "e-Determinacion del salario base de aportacion"
@@ -990,4 +990,4 @@ def exportar_sisub_trabajadores(request, id):
         for col_idx in range(1, len(headers_det) + 1):
             ws_det.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = 22
             
-        resp = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); resp['Content-Disposition'] = f'attachment; filename="SISUB_TRABAJADORES_{contratista.rfc}.xlsx"'; wb.save(resp); return resp
+        resp = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); resp['Content-Disposition'] = f'attachment; filename="Layout-detalle-trabajadores_{contratista.rfc}.xlsx"'; wb.save(resp); return resp

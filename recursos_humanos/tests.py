@@ -269,7 +269,7 @@ class SISUBExportTest(TestCase):
         res_excel = self.client.get(url, {'cuatrimestre': 2, 'anio': 2026, 'formato': 'excel'})
         self.assertEqual(res_excel.status_code, 200)
         wb = openpyxl.load_workbook(io.BytesIO(res_excel.content))
-        ws = wb["SISUB"]
+        ws = wb.active
         # Fila 4 es la primera fila de datos
         cell_nss = ws.cell(row=4, column=7) # Columna G (7)
         cell_cp = ws.cell(row=4, column=12) # Columna L (12)
