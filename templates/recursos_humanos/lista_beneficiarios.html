@@ -22,6 +22,18 @@
     .icon-action:hover { color: #00b8b9; transform: scale(1.15); background-color: transparent !important; }
     .icon-action-danger:hover { color: #dc3545 !important; }
 
+    .status-pill {
+        display: inline-flex; align-items: center; font-size: 0.7rem; line-height: 1; padding: 0.25em 0.6em;
+        font-weight: 600; text-align: center; white-space: nowrap; vertical-align: middle; border-radius: 50px;
+        text-transform: capitalize; letter-spacing: 0.3px; transition: all 0.2s ease-in-out;
+    }
+    .status-aprobado { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
+    .status-revision { background-color: #fff9db; color: #f59f00; border: 1px solid #ffec99; }
+    .status-rechazado { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
+    .status-sin-documento, .status-vacio { background-color: #f1f3f5; color: #495057; border: 1px solid #dee2e6; }
+    a.status-pill { text-decoration: none !important; cursor: pointer; }
+    a.status-pill:hover { opacity: 0.85; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
+
     .modal-sheet .modal-content { border-radius: 12px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.15); overflow: hidden; }
     .modal-body-gray { background-color: #f8f9fa; overflow-y: auto; }
     .form-label-custom { font-size: 0.75rem; font-weight: 700; color: #495057; margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -702,10 +714,9 @@
                     </table>
                 </div>
             </div>
-            <div class="modal-footer bg-light border-top-0 py-2">
+            <div class="modal-footer bg-white border-top py-2">
                 <div class="d-flex flex-column gap-1">
                     <small class="text-muted"><i class="bi bi-info-circle me-1"></i> Haz clic en una celda para subir o ver el documento del mes.</small>
-                    <small class="text-muted"><i class="bi bi-info-circle me-1"></i> Significado de siglas: A = Aprobado, R = Rechazado, ER = En revisión, SD = Sin documento</small>
                 </div>
                 <button type="button" class="btn btn-light text-secondary btn-sm ms-auto" data-bs-dismiss="modal">Cerrar</button>
             </div>
@@ -762,8 +773,8 @@
                     let plantillaBtn = '';
                     if (row.codigo === 'REPORTE_TRABAJADORES') {
                         plantillaBtn = `
-                            <a href="{% url 'descargar_plantilla_reporte_trabajadores' %}" class="btn btn-sm btn-light border text-success float-end ms-2 mb-1 p-1 px-2 d-inline-flex align-items-center gap-1 shadow-xs text-nowrap" style="font-size: 0.70rem; line-height: 1.2; border-color: #28a745 !important;" title="Descargar plantilla de Excel (Reporte de trabajadores)">
-                                <i class="bi bi-file-earmark-excel-fill text-success" style="font-size: 0.90rem;"></i> Plantilla
+                            <a href="{% url 'descargar_plantilla_reporte_trabajadores' %}" class="status-pill status-aprobado float-end ms-2 mb-1 shadow-xs text-nowrap" title="Descargar plantilla de Excel (Reporte de trabajadores)">
+                                <i class="bi bi-file-earmark-excel-fill me-1"></i> Plantilla
                             </a>
                         `;
                     }
@@ -860,10 +871,10 @@
                             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 small">
                                 <span class="fw-bold"><i class="bi bi-grid-1x2 me-1 text-muted"></i> Resumen de Documentos (${anio}):</span>
                                 <div class="d-flex align-items-center gap-2 flex-wrap">
-                                    <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-1"><i class="bi bi-check-circle me-1"></i> Aprobados: <strong>${data.resumen.aprobados}</strong></span>
-                                    <span class="badge bg-warning bg-opacity-10 text-warning-emphasis border border-warning-subtle px-2 py-1"><i class="bi bi-clock-history me-1"></i> En revisión: <strong>${data.resumen.revision}</strong></span>
-                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle px-2 py-1"><i class="bi bi-x-circle me-1"></i> Rechazados: <strong>${data.resumen.rechazados}</strong></span>
-                                    <span class="badge bg-secondary bg-opacity-10 text-secondary border px-2 py-1"><i class="bi bi-dash-circle me-1"></i> Sin documento: <strong>${data.resumen.vacio}</strong></span>
+                                    <span class="status-pill status-aprobado px-2 py-1"><i class="bi bi-check-circle me-1"></i> Aprobados: <strong class="ms-1">${data.resumen.aprobados}</strong></span>
+                                    <span class="status-pill status-revision px-2 py-1"><i class="bi bi-clock-history me-1"></i> En revisión: <strong class="ms-1">${data.resumen.revision}</strong></span>
+                                    <span class="status-pill status-rechazado px-2 py-1"><i class="bi bi-x-circle me-1"></i> Rechazados: <strong class="ms-1">${data.resumen.rechazados}</strong></span>
+                                    <span class="status-pill status-sin-documento px-2 py-1"><i class="bi bi-dash-circle me-1"></i> Sin documento: <strong class="ms-1">${data.resumen.vacio}</strong></span>
                                 </div>
                             </div>
                         </td>
