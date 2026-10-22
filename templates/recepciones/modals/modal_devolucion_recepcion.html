@@ -1,0 +1,133 @@
+<!-- MODAL: DEVOLUCIÓN DE RECEPCIÓN -->
+<div class="modal fade" id="modalDevolucionRecepcion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-sheet modal-dialog-scrollable">
+        <div class="modal-content">
+            
+            <!-- HEADER -->
+            <div class="modal-header border-bottom bg-light">
+                <h5 class="modal-title fw-bold text-dark">
+                    <i class="bi bi-arrow-counterclockwise me-2" style="color: #00b8b9;"></i>
+                    Devolución de Recepción <span id="dev_rec_folio"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body p-3 bg-light">
+                <input type="hidden" id="dev_rec_id" value="">
+
+                <!-- SECCIÓN 1: DATOS DE COMPRA -->
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body p-3">
+                        <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Datos de Compra</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-secondary mb-0">Proveedor</label>
+                                <div id="dev_rec_proveedor" class="text-dark fw-semibold">--</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-secondary mb-0">Sucursal</label>
+                                <div id="dev_rec_sucursal" class="text-dark fw-semibold">--</div>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold text-secondary mb-0">Folio OC</label>
+                                <div id="dev_rec_oc_folio" class="text-dark fw-semibold">--</div>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold text-secondary mb-0">Fecha OC</label>
+                                <div id="dev_rec_oc_fecha" class="text-dark">--</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 2: DATOS DE RECEPCIÓN Y MOTIVO -->
+                <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
+                    <div class="card-body p-3">
+                        <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Datos de Recepción y Devolución</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-secondary mb-0">Almacén (Salida)</label>
+                                <div id="dev_rec_almacen" class="text-dark fw-semibold">--</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-secondary mb-0">Fecha de Recepción</label>
+                                <div id="dev_rec_fecha" class="text-dark">--</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-secondary mb-0">Folio Comprobantes</label>
+                                <div id="dev_rec_factura" class="text-dark">--</div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-secondary mb-1">Motivo / Observaciones de la Devolución</label>
+                                <input type="text" id="dev_rec_motivo" class="form-control form-control-sm" placeholder="Ej. Mercancía dañada, artículo incorrecto, devolución parcial al proveedor...">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 3: LISTADO DE ARTÍCULOS A DEVOLVER -->
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-0">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center p-3 pb-2">
+                            <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.75rem; letter-spacing: 1px;">Partidas de la Recepción</h6>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="limpiarCantidadesDevolucionRecepcion()">
+                                    Limpiar
+                                </button>
+                                <button type="button" class="btn btn-brand text-white btn-sm py-0 px-2 fw-semibold" style="font-size: 0.75rem;" onclick="seleccionarTodoDevolucionRecepcion()">
+                                    <i class="bi bi-check2-all me-1"></i>Devolver Todo Disponible
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="ps-3" style="width: 26%;">Artículo</th>
+                                        <th class="text-center" style="width: 9%;">Recibido</th>
+                                        <th class="text-center" style="width: 9%;">Devuelto</th>
+                                        <th class="text-center" style="width: 9%;">Disponible</th>
+                                        <th class="text-center" style="width: 23%;">A Devolver</th>
+                                        <th class="text-end" style="width: 11%;">Costo</th>
+                                        <th class="text-end pe-3" style="width: 13%;">Importe Dev.</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dev_rec_tabla_cuerpo">
+                                    <!-- JS insertará filas aquí -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white border-0 py-3">
+                        <div class="row justify-content-end">
+                            <div class="col-md-5">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-muted small">Subtotal Devolución:</span>
+                                    <span class="fw-semibold text-dark" id="dev_rec_subtotal">$0.00</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
+                                    <span class="text-muted small">IVA Devolución:</span>
+                                    <span class="fw-semibold text-dark" id="dev_rec_iva_total">$0.00</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="text-muted fw-bold small uppercase">Total a Devolver:</span>
+                                    <span class="fw-bold fs-4 text-brand" id="dev_rec_gran_total">$0.00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- FOOTER -->
+            <div class="modal-footer border-top bg-white">
+                <button type="button" class="btn btn-light text-secondary btn-sm px-4" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-brand text-white fw-bold btn-sm px-4 shadow-sm" id="btnConfirmarDevolucionRecepcion" onclick="confirmarDevolucionRecepcion()">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i> Crear Devolución
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>

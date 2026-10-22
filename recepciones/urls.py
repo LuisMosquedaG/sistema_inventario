@@ -16,4 +16,10 @@ urlpatterns = [
     path('cambiar-estado/<int:recepcion_id>/', views.cambiar_estado_recepcion, name='cambiar_estado_recepcion'),
     path('cancelar/<int:recepcion_id>/', views.cancelar_recepcion, name='cancelar_recepcion'),
     path('imprimir/<int:pk>/', views.imprimir_recepcion, name='imprimir_recepcion'),
+
+    # Devoluciones de Recepción
+    path('devoluciones/', views.dashboard_devoluciones, name='dashboard_devoluciones'),
+    path('devoluciones/exportar/', views.exportar_devoluciones_excel, name='exportar_devoluciones_excel'),
+    path('api/devolucion/<int:recepcion_id>/', views.crear_devolucion_recepcion, name='crear_devolucion_recepcion'),
+    path('api/detalle-devolucion/<int:devolucion_id>/', views.api_detalle_devolucion, name='api_detalle_devolucion'),
 ]

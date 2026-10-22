@@ -606,7 +606,7 @@
                                 {% empty %}
                                 <tr>
                                     <td colspan="3" class="text-center text-muted py-3 small fst-italic">
-                                        No hay ventas registradas recientemente.
+                                        No hay ventas registradas en este turno.
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -2634,6 +2634,8 @@
         });
     }
 
+    let huboDevolucionPOS = false;
+
     function confirmarDevolucionPOS(pedidoId) {
         if (!confirm("¿Estás seguro de que deseas procesar la devolución de este pedido?\n\nEsta acción:\n1. Cancelará todos los ingresos relacionados.\n2. Devolverá los productos al stock del almacén.\n3. Cancelará el pedido y su estado de envío.\n\nEsta operación no se puede deshacer.")) {
             return;
@@ -2649,6 +2651,7 @@
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                huboDevolucionPOS = true;
                 alert("Devolución procesada correctamente.");
                 if (currentSesionIdPOS !== null) {
                     cargarTablaVentasSesionPOS(currentSesionIdPOS);
@@ -2694,13 +2697,15 @@
         .then(r => r.json())
         .then(data => {
             if (data.success) {
+                huboDevolucionPOS = true;
                 alert(data.message || "Devolución de partida procesada correctamente.");
 
                 const modalEl = document.getElementById('modalVerPedido');
                 const modal = bootstrap.Modal.getInstance(modalEl);
                 if (modal) modal.hide();
 
-                if (currentSesionIdPOS !== null) {
+                const ventasSesionEl = document.getElementById('modalVentasSesion');
+                if (currentSesionIdPOS !== null && ventasSesionEl && ventasSesionEl.classList.contains('show')) {
                     cargarTablaVentasSesionPOS(currentSesionIdPOS);
                 } else {
                     location.reload();
@@ -2718,6 +2723,14 @@
     document.addEventListener('DOMContentLoaded', () => {
         const verPedidoEl = document.getElementById('modalVerPedido');
         const ventasSesionEl = document.getElementById('modalVentasSesion');
+
+        if (ventasSesionEl) {
+            ventasSesionEl.addEventListener('hidden.bs.modal', () => {
+                if (huboDevolucionPOS) {
+                    location.reload();
+                }
+            });
+        }
 
         if (verPedidoEl && ventasSesionEl) {
             verPedidoEl.addEventListener('show.bs.modal', () => {

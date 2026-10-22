@@ -470,7 +470,7 @@
             {% endif %}
 
             <!-- MÓDULO: COMPRAS -->
-            {% if purchase_ui_permissions.proveedores or purchase_ui_permissions.solicitudes or purchase_ui_permissions.ordenes_compra or purchase_ui_permissions.recepciones %}
+            {% if purchase_ui_permissions.proveedores or purchase_ui_permissions.solicitudes or purchase_ui_permissions.ordenes_compra or purchase_ui_permissions.recepciones or purchase_ui_permissions.devoluciones %}
             <div>
                 <a href="#submenu-compras" data-bs-toggle="collapse" class="sidebar-link {% if '/compras/' in request.path or '/proveedores/' in request.path or '/recepciones/' in request.path or '/solicitudes-compras/' in request.path %}sidebar-active{% endif %}">
                     <i class="bi bi-truck sidebar-icon"></i> Compras
@@ -489,6 +489,9 @@
                         {% endif %}
                         {% if purchase_ui_permissions.recepciones %}
                         <li><a href="/recepciones/" class="sidebar-link sidebar-level-2 {% if request.path == '/recepciones/' %}sidebar-sub-active{% endif %}"><i class="bi bi-box-seam me-2 small"></i> Recepciones</a></li>
+                        {% endif %}
+                        {% if purchase_ui_permissions.devoluciones %}
+                        <li><a href="/recepciones/devoluciones/" class="sidebar-link sidebar-level-2 {% if '/recepciones/devoluciones/' in request.path %}sidebar-sub-active{% endif %}"><i class="bi bi-arrow-counterclockwise me-2 small"></i> Devoluciones</a></li>
                         {% endif %}
                     </ul>
                 </div>

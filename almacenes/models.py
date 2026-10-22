@@ -215,6 +215,7 @@ class Inventario(models.Model):
                         extras_data = auto_extras
 
             lotes_usados = []
+            series_usadas = []
             if extras_data:
                 for item in extras_data:
                     eid = item.get('id')
@@ -226,7 +227,8 @@ class Inventario(models.Model):
                     if extra.tipo == 'serie':
                         extra.almacen = None # El equipo sale del almacén
                         extra.save()
-                        serie_kardex = extra.serie # Guardamos para el Kardex
+                        if extra.serie:
+                            series_usadas.append(extra.serie)
                     else:
                         # Validación de stock en el lote
                         if extra.cantidad_lote < qty:
@@ -238,6 +240,8 @@ class Inventario(models.Model):
                         lotes_usados.append(nombre_lote)
                 if lotes_usados:
                     lote_kardex = ", ".join(dict.fromkeys(lotes_usados))
+                if series_usadas:
+                    serie_kardex = ", ".join(dict.fromkeys(series_usadas))
 
             # 4. REGISTRAR EN KARDEX
             Kardex.objects.create(

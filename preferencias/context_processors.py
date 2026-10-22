@@ -79,6 +79,7 @@ def app_permissions(request):
         'solicitudes': user_has_purchase_permission(request, 'solicitudes', 'ver'),
         'ordenes_compra': user_has_purchase_permission(request, 'ordenes_compra', 'ver'),
         'recepciones': user_has_purchase_permission(request, 'recepciones', 'ver'),
+        'devoluciones': user_has_purchase_permission(request, 'devoluciones', 'ver'),
     }
 
     # Permisos de Producción Granular (UI general)

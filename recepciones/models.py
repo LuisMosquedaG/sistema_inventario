@@ -1,5 +1,7 @@
 from django.db import models
+from django.db.models import Sum
 from django.utils import timezone
+from django.conf import settings
 from compras.models import OrdenCompra, DetalleCompra
 from almacenes.models import Almacen
 from panel.models import Empresa
@@ -91,6 +93,14 @@ class DetalleRecepcion(models.Model):
     def total(self):
         return self.subtotal + self.iva_monto
 
+    @property
+    def cantidad_devuelta(self):
+        return self.devoluciones_asociadas.filter(devolucion__estado='completada').aggregate(total=Sum('cantidad_devuelta'))['total'] or 0
+
+    @property
+    def cantidad_disponible_devolver(self):
+        return max(0, self.cantidad_recibida - self.cantidad_devuelta)
+
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         super().save(*args, **kwargs)
@@ -169,3 +179,76 @@ class DetalleRecepcionExtra(models.Model):
 
     def __str__(self):
         return f"{self.tipo}: {self.lote or self.serie or self.fecha_caducidad} ({self.almacen.nombre if self.almacen else 'Sin almacén'})"
+
+
+class DevolucionRecepcion(models.Model):
+    ESTADO_CHOICES = [
+        ('completada', 'Completada'),
+        ('cancelada', 'Cancelada'),
+    ]
+
+    recepcion = models.ForeignKey(Recepcion, on_delete=models.CASCADE, related_name='devoluciones')
+    orden_compra = models.ForeignKey(OrdenCompra, on_delete=models.PROTECT, related_name='devoluciones_recepcion')
+    almacen = models.ForeignKey(Almacen, on_delete=models.PROTECT)
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Empresa")
+    sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    fecha = models.DateField(default=timezone.now, verbose_name="Fecha de Devolución")
+    motivo = models.TextField("Motivo de Devolución", blank=True, null=True)
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='completada')
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"DEV-{self.id:04d} | REC-{self.recepcion.id:04d}"
+
+    @property
+    def calcular_subtotal(self):
+        total = Decimal('0')
+        for detalle in self.detalles.all():
+            total += detalle.subtotal
+        return total
+
+    @property
+    def calcular_iva(self):
+        total = Decimal('0')
+        for detalle in self.detalles.all():
+            total += detalle.iva_monto
+        return total
+
+    @property
+    def calcular_total(self):
+        return self.calcular_subtotal + self.calcular_iva
+
+    @property
+    def total(self):
+        return self.calcular_total
+
+
+class DetalleDevolucionRecepcion(models.Model):
+    devolucion = models.ForeignKey(DevolucionRecepcion, on_delete=models.CASCADE, related_name='detalles')
+    detalle_recepcion = models.ForeignKey(
+        DetalleRecepcion,
+        on_delete=models.CASCADE,
+        related_name='devoluciones_asociadas',
+        verbose_name="Partida de Recepción"
+    )
+    producto = models.ForeignKey('core.Producto', on_delete=models.PROTECT)
+    cantidad_devuelta = models.PositiveIntegerField(default=0)
+    costo_unitario = models.DecimalField(max_digits=10, decimal_places=2)
+    detalle_trazabilidad = models.TextField("Lotes / Series / Caducidades Devueltas", blank=True, null=True)
+
+    @property
+    def subtotal(self):
+        if self.costo_unitario is None:
+            return Decimal('0')
+        return Decimal(str(self.cantidad_devuelta)) * self.costo_unitario
+
+    @property
+    def iva_monto(self):
+        porc = self.producto.iva or Decimal('0')
+        return self.subtotal * (porc / 100)
+
+    @property
+    def total(self):
+        return self.subtotal + self.iva_monto
+

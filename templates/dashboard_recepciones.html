@@ -249,6 +249,11 @@
                                             <i class="bi bi-printer"></i>
                                         </span>
                                         {% endif %}
+                                        {% if granular_purchase_perms.devoluciones.crear or granular_purchase_perms.recepciones.crear %}
+                                        <span onclick="abrirModalDevolucionRecepcion({{ r.id }})" class="icon-action" title="Devoluciones">
+                                            <i class="bi bi-arrow-counterclockwise"></i>
+                                        </span>
+                                        {% endif %}
                                     {% endif %}
 
                                     {% if r.estado != 'cancelada' %}
@@ -387,6 +392,7 @@
 
 {% include "recepciones/modals/modal_nueva_recepcion.html" %}
 {% include "recepciones/modals/modal_ver_recepcion.html" %}
+{% include "recepciones/modals/modal_devolucion_recepcion.html" %}
 
 <!-- MODAL: IMPORTAR RECEPCIONES -->
 <div class="modal fade" id="modalImportarRecepciones" tabindex="-1" aria-hidden="true">

@@ -32,6 +32,7 @@ PURCHASES_PERMISSION_MATRIX = {
     'solicitudes': ['ver', 'crear', 'editar', 'imprimir', 'autorizar', 'cancelar'],
     'ordenes_compra': ['ver', 'crear', 'editar', 'imprimir', 'registrar_pago', 'consolidar', 'aprobar', 'cancelar', 'CargasXML'],
     'recepciones': ['ver', 'crear', 'imprimir', 'cancelar'],
+    'devoluciones': ['ver', 'crear', 'imprimir', 'cancelar'],
 }
 
 PRODUCTION_PERMISSION_MATRIX = {
@@ -236,6 +237,16 @@ def user_has_purchase_permission(request, submodulo, accion):
     ).first()
     if permiso_accion is not None:
         return bool(permiso_accion.permitido)
+
+    if submodulo == 'devoluciones':
+        permiso_rec = PermisoRolAccion.objects.filter(
+            rol=asignacion.rol,
+            area='compras',
+            submodulo='recepciones',
+            accion=accion
+        ).first()
+        if permiso_rec is not None:
+            return bool(permiso_rec.permitido)
 
     return False
 

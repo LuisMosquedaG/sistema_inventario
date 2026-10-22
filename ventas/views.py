@@ -1062,11 +1062,13 @@ def punto_de_venta(request):
     from proveedores.models import Proveedor
     from pedidos.models import Pedido
     proveedores_pos = Proveedor.objects.filter(empresa=empresa_actual, estado='activo').order_by('razon_social')
-    ultimas_ventas = Pedido.objects.filter(
-        empresa=empresa_actual,
-        sucursal=sucursal,
-        sesion_caja__isnull=False
-    ).exclude(estado='cancelado').order_by('-fecha_creacion')[:10]
+    if sesion_activa:
+        ultimas_ventas = Pedido.objects.filter(
+            empresa=empresa_actual,
+            sesion_caja=sesion_activa
+        ).exclude(estado='cancelado').order_by('-fecha_creacion')[:10]
+    else:
+        ultimas_ventas = Pedido.objects.none()
 
     contexto = {
         'empresa': empresa_actual,

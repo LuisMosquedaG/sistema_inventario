@@ -3,10 +3,51 @@ from django.db.models import Sum
 from decimal import Decimal
 from collections import defaultdict
 import json
-from .models import Recepcion, DetalleRecepcion, DetalleRecepcionExtra
+from .models import Recepcion, DetalleRecepcion, DetalleRecepcionExtra, DevolucionRecepcion, DetalleDevolucionRecepcion
 from compras.models import OrdenCompra, DetalleCompra
 from almacenes.models import Inventario, Almacen
 from core.models import Producto, Transaccion
+
+
+def recalcular_estado_orden_compra(orden_compra):
+    """
+    Recalcula y guarda el estado de una OrdenCompra ('recibida', 'parcial' o 'aprobada')
+    tomando en cuenta las recepciones activas menos las devoluciones completadas.
+    """
+    detalles_oc = list(orden_compra.detalles.all())
+    if not detalles_oc:
+        return orden_compra.estado
+
+    orden_completa = True
+    hay_alguno_recibido = False
+
+    for det in detalles_oc:
+        recibido_bruto = DetalleRecepcion.objects.filter(
+            recepcion__orden_compra=orden_compra,
+            detalle_compra=det
+        ).exclude(recepcion__estado='cancelada').aggregate(total=Sum('cantidad_recibida'))['total'] or 0
+
+        devuelto = DetalleDevolucionRecepcion.objects.filter(
+            detalle_recepcion__recepcion__orden_compra=orden_compra,
+            detalle_recepcion__detalle_compra=det,
+            devolucion__estado='completada'
+        ).exclude(detalle_recepcion__recepcion__estado='cancelada').aggregate(total=Sum('cantidad_devuelta'))['total'] or 0
+
+        neto = max(0, recibido_bruto - devuelto)
+        if neto > 0:
+            hay_alguno_recibido = True
+        if neto < det.cantidad:
+            orden_completa = False
+
+    if orden_completa:
+        orden_compra.estado = 'recibida'
+    elif hay_alguno_recibido:
+        orden_compra.estado = 'parcial'
+    else:
+        orden_compra.estado = 'aprobada'
+
+    orden_compra.save()
+    return orden_compra.estado
 
 @transaction.atomic
 def procesar_recepcion_servicio(data_post, empresa_actual, usuario=None):
@@ -104,12 +145,19 @@ def procesar_recepcion_servicio(data_post, empresa_actual, usuario=None):
         recepcion__orden_compra=orden_compra,
         producto_id__in=productos_ids
     ).exclude(recepcion__estado='cancelada').values('producto_id').annotate(total=Sum('cantidad_recibida'))
+
+    historial_devoluciones = DetalleDevolucionRecepcion.objects.filter(
+        detalle_recepcion__recepcion__orden_compra=orden_compra,
+        producto_id__in=productos_ids,
+        devolucion__estado='completada'
+    ).exclude(detalle_recepcion__recepcion__estado='cancelada').values('producto_id').annotate(total=Sum('cantidad_devuelta'))
     
     mapa_historial = {item['producto_id']: item['total'] for item in historial_recepciones}
+    mapa_devuelto = {item['producto_id']: item['total'] for item in historial_devoluciones}
 
     for prod_id, cant_input in input_acumulado_por_producto.items():
         limite = total_pedido_por_producto.get(prod_id, 0)
-        ya_recibido = mapa_historial.get(prod_id, 0)
+        ya_recibido = max(0, mapa_historial.get(prod_id, 0) - mapa_devuelto.get(prod_id, 0))
         if (ya_recibido + cant_input) > limite:
             recepcion.delete()
             raise ValueError(f'Error: El producto ID {prod_id} excede el total pedido en la OC.')
@@ -178,17 +226,6 @@ def procesar_recepcion_servicio(data_post, empresa_actual, usuario=None):
             )
 
     # 7. ACTUALIZAR ESTADO DE LA OC
-    orden_completa = True
-    for prod_id, limite in total_pedido_por_producto.items():
-        total_final = DetalleRecepcion.objects.filter(
-            recepcion__orden_compra=orden_compra,
-            producto_id=prod_id
-        ).exclude(recepcion__estado='cancelada').aggregate(total=Sum('cantidad_recibida'))['total'] or 0
-        if total_final < limite:
-            orden_completa = False
-            break
-    
-    orden_compra.estado = 'recibida' if orden_completa else 'parcial'
-    orden_compra.save()
+    recalcular_estado_orden_compra(orden_compra)
 
     return recepcion

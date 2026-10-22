@@ -6,10 +6,11 @@ from django.db import transaction
 from django.db.models import Sum, F
 from django.utils import timezone
 from decimal import Decimal
+import json
 import openpyxl
 from datetime import datetime
-from .models import Recepcion, DetalleRecepcion, DetalleRecepcionExtra
-from .services import procesar_recepcion_servicio
+from .models import Recepcion, DetalleRecepcion, DetalleRecepcionExtra, DevolucionRecepcion, DetalleDevolucionRecepcion
+from .services import procesar_recepcion_servicio, recalcular_estado_orden_compra
 from compras.models import OrdenCompra, DetalleCompra
 from core.models import Producto, Transaccion
 from almacenes.models import Almacen, Inventario
@@ -178,17 +179,7 @@ def importar_recepciones_ajax(request):
                             continue
 
                         # Actualizar estado de la Orden de Compra
-                        orden_completa = True
-                        for det_oc in orden.detalles.all():
-                            total_recibido_prod = DetalleRecepcion.objects.filter(
-                                recepcion__orden_compra=orden,
-                                producto=det_oc.producto
-                            ).exclude(recepcion__estado='cancelada').aggregate(total=Sum('cantidad_recibida'))['total'] or 0
-                            if total_recibido_prod < det_oc.cantidad:
-                                orden_completa = False
-                                break
-                        orden.estado = 'recibida' if orden_completa else 'parcial'
-                        orden.save()
+                        recalcular_estado_orden_compra(orden)
                         
                         creadas += 1
                     except Exception as e:
@@ -414,10 +405,17 @@ def obtener_items_orden_compra(request, oc_id):
         }
 
         for det in detalles:
-            # Sumamos lo recibido anteriormente para saber cuánto falta
-            total_recibido = DetalleRecepcion.objects.filter(
+            # Sumamos lo recibido anteriormente menos devoluciones para saber cuánto falta
+            total_recibido_bruto = DetalleRecepcion.objects.filter(
                 detalle_compra=det
             ).exclude(recepcion__estado='cancelada').aggregate(total=Sum('cantidad_recibida'))['total'] or 0
+
+            total_devuelto = DetalleDevolucionRecepcion.objects.filter(
+                detalle_recepcion__detalle_compra=det,
+                devolucion__estado='completada'
+            ).exclude(detalle_recepcion__recepcion__estado='cancelada').aggregate(total=Sum('cantidad_devuelta'))['total'] or 0
+
+            total_recibido = max(0, total_recibido_bruto - total_devuelto)
 
             data['items'].append({
                 'id': det.id,
@@ -493,6 +491,7 @@ def api_detalle_recepcion(request, recepcion_id):
 
         data = {
             'titulo': 'Detalle Recepción',
+            'id': rec.id,
             'folio': f"REC-{rec.id:04d}",
             'fecha': rec.fecha.strftime('%d/%m/%Y') if rec.fecha else '-',
             'fecha_comprobante': rec.fecha_comprobante.strftime('%d/%m/%Y') if rec.fecha_comprobante else '-',
@@ -510,13 +509,32 @@ def api_detalle_recepcion(request, recepcion_id):
             'oc_fecha': oc.fecha.strftime('%d/%m/%Y') if (oc and oc.fecha) else '-',
             'detalles': [
                 {
+                    'id': d.id,
                     'producto': d.producto.nombre,
                     'cant': d.cantidad_recibida,
+                    'cant_devuelta': d.cantidad_devuelta,
+                    'cant_disponible': d.cantidad_disponible_devolver,
                     'precio': float(d.costo_unitario),
+                    'iva_porcentaje': float(d.producto.iva or 0),
                     'subtotal': float(d.subtotal),
                     'iva_monto': float(d.iva_monto),
-                    'total': float(d.total)
-                } for d in rec.detalles.all()
+                    'total': float(d.total),
+                    'maneja_lote': bool(d.producto.maneja_lote),
+                    'maneja_serie': bool(d.producto.maneja_serie),
+                    'maneja_caducidad': bool(d.producto.maneja_caducidad),
+                    'extras': [
+                        {
+                            'id': e.id,
+                            'tipo': e.tipo,
+                            'lote': e.lote or '',
+                            'serie': e.serie or '',
+                            'fecha_caducidad': e.fecha_caducidad.strftime('%d/%m/%Y') if e.fecha_caducidad else '',
+                            'en_almacen': bool(e.almacen_id == rec.almacen_id),
+                            'disponible': (1 if e.tipo == 'serie' else int(e.cantidad_lote or 0)) if e.almacen_id == rec.almacen_id else 0,
+                        }
+                        for e in d.extras.all().order_by('id')
+                    ]
+                } for d in rec.detalles.select_related('producto').prefetch_related('extras').all()
             ],
             'subtotal_total': float(rec.calcular_subtotal),
             'iva_total': float(rec.calcular_iva),
@@ -542,16 +560,21 @@ def cancelar_recepcion(request, recepcion_id):
 
         for det in recepcion.detalles.all():
             producto = det.producto
-            if producto.tipo != 'servicio':
+            cant_restante_revertir = det.cantidad_disponible_devolver
+            if producto.tipo != 'servicio' and cant_restante_revertir > 0:
                 # Preparar datos de extras para revertir (lotes/series)
                 extras_data = []
+                restante_extra = cant_restante_revertir
                 for extra in det.extras.all():
-                    # Si es serie, la sacamos de almacén de nuevo
-                    # Si es lote, restamos la cantidad que ingresó originalmente
-                    extras_data.append({
-                        'id': extra.id,
-                        'qty': 1 if extra.tipo == 'serie' else extra.cantidad_lote
-                    })
+                    if restante_extra <= 0:
+                        break
+                    qty_tomar = 1 if extra.tipo == 'serie' else min(restante_extra, extra.cantidad_lote)
+                    if qty_tomar > 0:
+                        extras_data.append({
+                            'id': extra.id,
+                            'qty': qty_tomar
+                        })
+                        restante_extra -= qty_tomar
 
                 # Usamos el modelo Transacción para un log centralizado
                 # Al ser una cancelación de ingreso, es una salida (cantidad negativa)
@@ -559,7 +582,7 @@ def cancelar_recepcion(request, recepcion_id):
                     producto=producto,
                     almacen=almacen,
                     tipo='ajuste',
-                    cantidad=-det.cantidad_recibida,
+                    cantidad=-cant_restante_revertir,
                     empresa=recepcion.empresa,
                     usuario=request.user,
                     referencia=f"CANCELACIÓN: REC-{recepcion.id:04d}",
@@ -567,19 +590,11 @@ def cancelar_recepcion(request, recepcion_id):
                     estado='recibida'
                 )
 
-        # Calcular nuevo estado de OC
-        nuevo_estado_oc = 'aprobada'
-        total_pedido = orden_compra.detalles.aggregate(total=Sum('cantidad'))['total'] or 0
-        if total_pedido > 0:
-            recibido_valido = DetalleRecepcion.objects.filter(recepcion__orden_compra=orden_compra).exclude(recepcion__estado='cancelada').exclude(recepcion__id=recepcion.id).aggregate(total=Sum('cantidad_recibida'))['total'] or 0
-            if recibido_valido >= total_pedido: nuevo_estado_oc = 'recibida'
-            elif recibido_valido > 0: nuevo_estado_oc = 'parcial'
-            else: nuevo_estado_oc = 'aprobada'
-
-        orden_compra.estado = nuevo_estado_oc
-        orden_compra.save()
         recepcion.estado = 'cancelada'
         recepcion.save()
+
+        # Recalcular estado de la OC considerando recepciones y devoluciones activas
+        nuevo_estado_oc = recalcular_estado_orden_compra(orden_compra)
 
         return JsonResponse({'success': True, 'message': f'Recepción cancelada. La OC regresó a estado: {nuevo_estado_oc.upper()}'})
     except Exception as e:
@@ -597,3 +612,428 @@ def imprimir_recepcion(request, pk):
         'empresa': empresa_actual,
     }
     return render(request, 'recepciones/imprimir_recepcion.html', context)
+
+
+@login_required
+@require_purchase_permission('devoluciones', 'crear', json_response=True)
+@transaction.atomic
+def crear_devolucion_recepcion(request, recepcion_id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido.'}, status=405)
+
+    try:
+        empresa_actual = get_empresa_actual(request)
+        if not empresa_actual:
+            return JsonResponse({'success': False, 'error': 'Empresa no detectada.'}, status=403)
+
+        recepcion = get_object_or_404(Recepcion.objects.select_for_update(), id=recepcion_id, empresa=empresa_actual)
+        if recepcion.estado != 'completada':
+            return JsonResponse({'success': False, 'error': 'Solo se pueden realizar devoluciones de recepciones completadas.'})
+
+        payload = json.loads(request.body.decode('utf-8'))
+        motivo = (payload.get('motivo') or '').strip()
+        items = payload.get('items') or []
+
+        items_validos = []
+        for item in items:
+            try:
+                det_id = int(item.get('detalle_id'))
+                cant_dev = int(item.get('cantidad') or 0)
+            except (TypeError, ValueError):
+                continue
+
+            if cant_dev <= 0:
+                continue
+
+            det_rec = get_object_or_404(DetalleRecepcion.objects.select_for_update(), id=det_id, recepcion=recepcion)
+            disponible_devolver = det_rec.cantidad_disponible_devolver
+            if cant_dev > disponible_devolver:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'La cantidad a devolver de "{det_rec.producto.nombre}" ({cant_dev}) excede lo disponible para devolver ({disponible_devolver}).'
+                })
+
+            if det_rec.producto.tipo != 'servicio':
+                inv = Inventario.objects.filter(producto=det_rec.producto, almacen=recepcion.almacen).first()
+                stock_actual = inv.cantidad if inv else 0
+                if stock_actual < cant_dev:
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Stock insuficiente en almacén "{recepcion.almacen.nombre}" para devolver "{det_rec.producto.nombre}". Disponible en almacén: {stock_actual}.'
+                    })
+
+            # Validar lote / caducidad / serie específicos ingresados en esta recepción
+            extras_req = item.get('extras') or []
+            extras_validados = []
+            etiquetas_trazabilidad = []
+            prod = det_rec.producto
+            tiene_extras_recepcion = det_rec.extras.exists()
+
+            if prod.tipo != 'servicio' and tiene_extras_recepcion:
+                if extras_req:
+                    suma_extras = 0
+                    for ex_in in extras_req:
+                        try:
+                            ex_id = int(ex_in.get('id'))
+                            ex_qty = int(ex_in.get('qty') or 0)
+                        except (TypeError, ValueError):
+                            continue
+                        if ex_qty <= 0:
+                            continue
+                        extra_obj = DetalleRecepcionExtra.objects.select_for_update().filter(
+                            id=ex_id,
+                            detalle_recepcion=det_rec,
+                            almacen=recepcion.almacen
+                        ).first()
+                        if not extra_obj:
+                            return JsonResponse({
+                                'success': False,
+                                'error': f'El lote/serie seleccionado para "{prod.nombre}" ya no se encuentra disponible en el almacén "{recepcion.almacen.nombre}".'
+                            })
+                        if extra_obj.tipo == 'serie':
+                            ex_qty = 1
+                            etiquetas_trazabilidad.append(f"Serie: {extra_obj.serie}")
+                        else:
+                            if ex_qty > (extra_obj.cantidad_lote or 0):
+                                return JsonResponse({
+                                    'success': False,
+                                    'error': f'La cantidad a devolver ({ex_qty}) supera lo disponible ({extra_obj.cantidad_lote}) en el lote/caducidad de "{prod.nombre}".'
+                                })
+                            partes_lbl = []
+                            if extra_obj.lote:
+                                partes_lbl.append(f"Lote: {extra_obj.lote}")
+                            if extra_obj.fecha_caducidad:
+                                partes_lbl.append(f"Cad: {extra_obj.fecha_caducidad.strftime('%d/%m/%Y')}")
+                            lbl = " / ".join(partes_lbl) if partes_lbl else f"ID {extra_obj.id}"
+                            etiquetas_trazabilidad.append(f"{lbl} ({ex_qty})")
+
+                        extras_validados.append({'id': extra_obj.id, 'qty': ex_qty})
+                        suma_extras += ex_qty
+
+                    if suma_extras != cant_dev:
+                        return JsonResponse({
+                            'success': False,
+                            'error': f'La suma de lotes/series seleccionados ({suma_extras}) no coincide con la cantidad a devolver ({cant_dev}) para "{prod.nombre}".'
+                        })
+                else:
+                    restante_extra = cant_dev
+                    for extra_obj in det_rec.extras.select_for_update().filter(almacen=recepcion.almacen).order_by('id'):
+                        if restante_extra <= 0:
+                            break
+                        qty_tomar = 1 if extra_obj.tipo == 'serie' else min(restante_extra, extra_obj.cantidad_lote or 0)
+                        if qty_tomar > 0:
+                            extras_validados.append({'id': extra_obj.id, 'qty': qty_tomar})
+                            if extra_obj.tipo == 'serie':
+                                etiquetas_trazabilidad.append(f"Serie: {extra_obj.serie}")
+                            else:
+                                partes_lbl = []
+                                if extra_obj.lote:
+                                    partes_lbl.append(f"Lote: {extra_obj.lote}")
+                                if extra_obj.fecha_caducidad:
+                                    partes_lbl.append(f"Cad: {extra_obj.fecha_caducidad.strftime('%d/%m/%Y')}")
+                                lbl = " / ".join(partes_lbl) if partes_lbl else f"ID {extra_obj.id}"
+                                etiquetas_trazabilidad.append(f"{lbl} ({qty_tomar})")
+                            restante_extra -= qty_tomar
+
+                    if restante_extra > 0:
+                        return JsonResponse({
+                            'success': False,
+                            'error': f'No hay suficientes lotes/series disponibles de esta recepción en el almacén para devolver {cant_dev} de "{prod.nombre}".'
+                        })
+
+            items_validos.append((det_rec, cant_dev, extras_validados, ", ".join(etiquetas_trazabilidad)))
+
+        if not items_validos:
+            return JsonResponse({'success': False, 'error': 'Debes indicar al menos una partida con cantidad mayor a 0 para devolver.'})
+
+        devolucion = DevolucionRecepcion.objects.create(
+            recepcion=recepcion,
+            orden_compra=recepcion.orden_compra,
+            almacen=recepcion.almacen,
+            empresa=empresa_actual,
+            sucursal=recepcion.sucursal or (recepcion.orden_compra.sucursal_empresa if recepcion.orden_compra else None),
+            usuario=request.user,
+            fecha=timezone.now().date(),
+            motivo=motivo,
+            estado='completada'
+        )
+
+        tc = Decimal(str(recepcion.tipo_cambio or '1.0000'))
+
+        for det_rec, cant_dev, extras_data, trazabilidad_str in items_validos:
+            DetalleDevolucionRecepcion.objects.create(
+                devolucion=devolucion,
+                detalle_recepcion=det_rec,
+                producto=det_rec.producto,
+                cantidad_devuelta=cant_dev,
+                costo_unitario=det_rec.costo_unitario,
+                detalle_trazabilidad=trazabilidad_str or None
+            )
+
+            producto = det_rec.producto
+            if producto.tipo != 'servicio':
+                costo_pesos = (det_rec.costo_unitario or Decimal('0.00')) * tc
+                ref_kardex = f"DEV-{devolucion.id:04d} (REC-{recepcion.id:04d})"
+                if motivo:
+                    ref_kardex = f"{ref_kardex} - {motivo[:40]}"
+
+                Transaccion.objects.create(
+                    producto=producto,
+                    almacen=recepcion.almacen,
+                    tipo='ajuste',
+                    cantidad=-cant_dev,
+                    total=costo_pesos * Decimal(str(cant_dev)),
+                    empresa=empresa_actual,
+                    usuario=request.user,
+                    referencia=ref_kardex,
+                    extras_data=extras_data,
+                    estado='recibida'
+                )
+
+        nuevo_estado_oc = recalcular_estado_orden_compra(recepcion.orden_compra)
+
+        crear_notificacion(
+            empresa=empresa_actual,
+            actor=request.user,
+            mensaje=f'registró devolución DEV-{devolucion.id:04d} de recepción REC-{recepcion.id:04d} (OC-{recepcion.orden_compra.id:04d})',
+            propietario=recepcion.orden_compra.usuario
+        )
+
+        return JsonResponse({
+            'success': True,
+            'folio': f"DEV-{devolucion.id:04d}",
+            'estado_oc': nuevo_estado_oc.upper(),
+            'message': f'Devolución DEV-{devolucion.id:04d} registrada correctamente. Existencias descontadas y Orden OC-{recepcion.orden_compra.id:04d} liberada ({nuevo_estado_oc.upper()}).'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_purchase_permission('devoluciones', 'ver')
+def dashboard_devoluciones(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return render(request, 'error_sin_empresa.html', status=403)
+
+    q = request.GET.get('q', '')
+    folio_devolucion = request.GET.get('folio_devolucion', '')
+    folio_recepcion = request.GET.get('folio_recepcion', '')
+    folio_oc = request.GET.get('folio_oc', '')
+    proveedor_id = request.GET.get('proveedor_id', '')
+    almacen_id = request.GET.get('almacen_id', '')
+    fecha = request.GET.get('fecha', '')
+    estado = request.GET.get('estado', '')
+    sucursal_id_filtro = request.GET.get('sucursal', '')
+
+    devoluciones_list = DevolucionRecepcion.objects.filter(
+        empresa=empresa_actual
+    ).select_related(
+        'recepcion', 'orden_compra', 'orden_compra__proveedor', 'almacen', 'sucursal', 'usuario'
+    ).order_by('-fecha', '-id')
+
+    if q:
+        devoluciones_list = devoluciones_list.filter(
+            Q(id__icontains=q) |
+            Q(recepcion__id__icontains=q) |
+            Q(orden_compra__id__icontains=q) |
+            Q(orden_compra__proveedor__razon_social__icontains=q) |
+            Q(motivo__icontains=q)
+        )
+    if folio_devolucion:
+        clean_dev = folio_devolucion.upper().replace('DEV-', '').replace('DEV', '').strip()
+        devoluciones_list = devoluciones_list.filter(id__icontains=clean_dev)
+    if folio_recepcion:
+        clean_rec = folio_recepcion.upper().replace('REC-', '').replace('REC', '').strip()
+        devoluciones_list = devoluciones_list.filter(recepcion__id__icontains=clean_rec)
+    if folio_oc:
+        clean_oc = folio_oc.upper().replace('OC-', '').replace('OC', '').strip()
+        devoluciones_list = devoluciones_list.filter(orden_compra__id__icontains=clean_oc)
+    if proveedor_id and proveedor_id != 'all':
+        devoluciones_list = devoluciones_list.filter(orden_compra__proveedor_id=proveedor_id)
+    if almacen_id:
+        devoluciones_list = devoluciones_list.filter(almacen_id=almacen_id)
+    if fecha:
+        try:
+            devoluciones_list = devoluciones_list.filter(fecha=fecha)
+        except Exception:
+            pass
+    if estado:
+        devoluciones_list = devoluciones_list.filter(estado=estado)
+    if sucursal_id_filtro:
+        devoluciones_list = devoluciones_list.filter(sucursal_id=sucursal_id_filtro)
+
+    proveedor_nombre_display = ""
+    if proveedor_id and proveedor_id != 'all':
+        try:
+            p_obj = Proveedor.objects.get(id=proveedor_id, empresa=empresa_actual)
+            proveedor_nombre_display = p_obj.razon_social
+        except Exception:
+            pass
+
+    filtros = {
+        'q': q,
+        'folio_devolucion': folio_devolucion,
+        'folio_recepcion': folio_recepcion,
+        'folio_oc': folio_oc,
+        'proveedor_id': proveedor_id,
+        'proveedor_nombre': proveedor_nombre_display,
+        'almacen_id': almacen_id,
+        'fecha': fecha,
+        'estado': estado,
+        'sucursal': sucursal_id_filtro
+    }
+
+    from preferencias.models import Sucursal
+    sucursales_lista = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
+
+    paginator = Paginator(devoluciones_list, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    almacenes = Almacen.objects.filter(empresa=empresa_actual)
+    todos_los_proveedores = Proveedor.objects.filter(empresa=empresa_actual)
+
+    context = {
+        'page_obj': page_obj,
+        'almacenes': almacenes,
+        'todos_los_proveedores': todos_los_proveedores,
+        'sucursales': sucursales_lista,
+        'section': 'devoluciones',
+        'filtros': filtros
+    }
+    return render(request, 'dashboard_devoluciones.html', context)
+
+
+@login_required
+@require_purchase_permission('devoluciones', 'ver', json_response=True)
+def api_detalle_devolucion(request, devolucion_id):
+    try:
+        empresa_actual = get_empresa_actual(request)
+        dev = get_object_or_404(
+            DevolucionRecepcion.objects.select_related('recepcion', 'orden_compra', 'orden_compra__proveedor', 'almacen', 'sucursal', 'usuario'),
+            id=devolucion_id,
+            empresa=empresa_actual
+        )
+        rec = dev.recepcion
+        oc = dev.orden_compra
+
+        data = {
+            'id': dev.id,
+            'folio': f"DEV-{dev.id:04d}",
+            'recepcion_folio': f"REC-{rec.id:04d}" if rec else '-',
+            'oc_folio': f"OC-{oc.id:04d}" if oc else '-',
+            'fecha': dev.fecha.strftime('%d/%m/%Y') if dev.fecha else '-',
+            'estado': dev.estado.upper(),
+            'proveedor': str(oc.proveedor) if oc else '-',
+            'sucursal': dev.sucursal.nombre if dev.sucursal else (oc.sucursal.nombre if (oc and oc.sucursal) else 'Matriz / Principal'),
+            'almacen': str(dev.almacen),
+            'usuario': dev.usuario.username if dev.usuario else '-',
+            'motivo': dev.motivo or 'Sin observaciones registradas.',
+            'detalles': [
+                {
+                    'producto': d.producto.nombre,
+                    'trazabilidad': d.detalle_trazabilidad or '',
+                    'cant_recibida': d.detalle_recepcion.cantidad_recibida if d.detalle_recepcion else '-',
+                    'cant_devuelta': d.cantidad_devuelta,
+                    'precio': float(d.costo_unitario),
+                    'subtotal': float(d.subtotal),
+                    'iva_monto': float(d.iva_monto),
+                    'total': float(d.total)
+                } for d in dev.detalles.select_related('producto', 'detalle_recepcion').all()
+            ],
+            'subtotal_total': float(dev.calcular_subtotal),
+            'iva_total': float(dev.calcular_iva),
+            'gran_total': float(dev.calcular_total)
+        }
+        return JsonResponse(data)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=404)
+
+
+@login_required(login_url='/login/')
+@require_purchase_permission('devoluciones', 'ver')
+def exportar_devoluciones_excel(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return HttpResponse("No autorizado", status=403)
+
+    q = request.GET.get('q', '')
+    folio_devolucion = request.GET.get('folio_devolucion', '')
+    folio_recepcion = request.GET.get('folio_recepcion', '')
+    folio_oc = request.GET.get('folio_oc', '')
+    proveedor_id = request.GET.get('proveedor_id', '')
+    almacen_id = request.GET.get('almacen_id', '')
+    fecha = request.GET.get('fecha', '')
+    estado = request.GET.get('estado', '')
+    sucursal_id_filtro = request.GET.get('sucursal', '')
+
+    devoluciones = DevolucionRecepcion.objects.filter(
+        empresa=empresa_actual
+    ).select_related('recepcion', 'orden_compra', 'orden_compra__proveedor', 'almacen', 'sucursal', 'usuario').order_by('-fecha', '-id')
+
+    if q:
+        devoluciones = devoluciones.filter(
+            Q(id__icontains=q) | Q(recepcion__id__icontains=q) |
+            Q(orden_compra__id__icontains=q) | Q(orden_compra__proveedor__razon_social__icontains=q) |
+            Q(motivo__icontains=q)
+        )
+    if folio_devolucion:
+        devoluciones = devoluciones.filter(id__icontains=folio_devolucion.upper().replace('DEV-', '').replace('DEV', '').strip())
+    if folio_recepcion:
+        devoluciones = devoluciones.filter(recepcion__id__icontains=folio_recepcion.upper().replace('REC-', '').replace('REC', '').strip())
+    if folio_oc:
+        devoluciones = devoluciones.filter(orden_compra__id__icontains=folio_oc.upper().replace('OC-', '').replace('OC', '').strip())
+    if proveedor_id and proveedor_id != 'all':
+        devoluciones = devoluciones.filter(orden_compra__proveedor_id=proveedor_id)
+    if almacen_id:
+        devoluciones = devoluciones.filter(almacen_id=almacen_id)
+    if fecha:
+        try:
+            devoluciones = devoluciones.filter(fecha=fecha)
+        except Exception:
+            pass
+    if estado:
+        devoluciones = devoluciones.filter(estado=estado)
+    if sucursal_id_filtro:
+        devoluciones = devoluciones.filter(sucursal_id=sucursal_id_filtro)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Reporte de Devoluciones"
+
+    headers = [
+        'ID', 'Folio Devolución', 'Recepción Origen', 'OC Origen', 'Proveedor', 'Almacén', 'Fecha', 'Motivo', 'Estado', 'Total'
+    ]
+    ws.append(headers)
+
+    for d in devoluciones:
+        ws.append([
+            d.id,
+            f"DEV-{d.id:04d}",
+            f"REC-{d.recepcion.id:04d}",
+            f"OC-{d.orden_compra.id:04d}",
+            d.orden_compra.proveedor.razon_social if d.orden_compra and d.orden_compra.proveedor else '-',
+            d.almacen.nombre if d.almacen else '-',
+            d.fecha.strftime('%Y-%m-%d') if d.fecha else '-',
+            d.motivo or '-',
+            d.get_estado_display(),
+            d.total
+        ])
+
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except Exception:
+                pass
+        ws.column_dimensions[column].width = max_length + 2
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="Reporte_Devoluciones_{empresa_actual.nombre}.xlsx"'
+    wb.save(response)
+    return response
+
