@@ -99,6 +99,53 @@
     .icon-action-danger:active {
         transform: scale(0.95);
     }
+    /* Modal Ventas del Turno: 1 sola línea por registro, modal ancho en tablet y scroll horizontal en celular */
+    #modalVentasSesion .modal-dialog {
+        max-width: 1200px;
+        width: 96vw;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    @media (max-width: 575.98px) {
+        #modalVentasSesion .modal-dialog {
+            width: 96vw;
+            max-width: 96vw;
+            margin: 0.5rem auto;
+        }
+        #modalVentasSesion .modal-body {
+            padding: 0.75rem !important;
+        }
+    }
+    .table-responsive-ventas {
+        width: 100%;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 #f1f5f9;
+        padding-bottom: 4px;
+    }
+    .table-responsive-ventas::-webkit-scrollbar {
+        height: 8px;
+    }
+    .table-responsive-ventas::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 8px;
+    }
+    .table-responsive-ventas::-webkit-scrollbar-thumb {
+        background-color: #cbd5e1;
+        border-radius: 8px;
+    }
+    .table-responsive-ventas::-webkit-scrollbar-thumb:hover {
+        background-color: #00b8b9;
+    }
+    #modalVentasSesion table {
+        min-width: 780px;
+    }
+    #modalVentasSesion table th,
+    #modalVentasSesion table td {
+        white-space: nowrap !important;
+        vertical-align: middle;
+    }
 </style>
 
 <div class="container-fluid py-2 px-4">
@@ -677,7 +724,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
-                <div class="table-responsive">
+                <div class="table-responsive-ventas">
                     <table class="table table-pro mb-0 align-middle">
                         <thead>
                             <tr>
@@ -716,7 +763,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
-                <div class="table-responsive">
+                <div class="table-responsive-ventas">
                     <table class="table table-pro mb-0 align-middle">
                         <thead>
                             <tr>
@@ -1082,14 +1129,16 @@
                             html += `
                                 <tr>
                                     <td class="text-center">
-                                        <span onclick="verPedido(${v.id})" class="icon-action" title="Ver Detalle">
-                                            <i class="bi bi-eye"></i>
-                                        </span>
-                                        {% if granular_sales_perms.cortes_de_caja.hacer_corte %}
-                                        <span onclick="confirmarDevolucion(${v.id})" class="icon-action-danger ms-1" title="Devolución/Cancelar Venta">
-                                            <i class="bi bi-arrow-counterclockwise"></i>
-                                        </span>
-                                        {% endif %}
+                                        <div class="d-inline-flex align-items-center justify-content-center gap-1 flex-nowrap">
+                                            <span onclick="verPedido(${v.id})" class="icon-action" title="Ver Detalle">
+                                                <i class="bi bi-eye"></i>
+                                            </span>
+                                            {% if granular_sales_perms.cortes_de_caja.hacer_corte %}
+                                            <span onclick="confirmarDevolucion(${v.id})" class="icon-action-danger" title="Devolución/Cancelar Venta">
+                                                <i class="bi bi-arrow-counterclockwise"></i>
+                                            </span>
+                                            {% endif %}
+                                        </div>
                                     </td>
                                     <td class="text-center text-secondary">${folioFormatted}</td>
                                     <td class="text-center small text-secondary">${v.fecha}</td>
