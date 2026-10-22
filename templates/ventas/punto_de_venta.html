@@ -6,7 +6,20 @@
 <style>
     /* Estilos Premium para la interfaz del Punto de Venta */
     .pos-container {
-        height: calc(100vh - 30px);
+        height: 100vh;
+        max-height: 100vh;
+        overflow: hidden;
+    }
+    .pos-col-left {
+        height: calc(100vh - 2rem);
+        max-height: calc(100vh - 2rem);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    .pos-col-right {
+        height: calc(100vh - 2rem);
+        max-height: calc(100vh - 2rem);
         overflow: hidden;
     }
     .product-grid {
@@ -15,15 +28,51 @@
         padding-right: 5px;
     }
     .cart-panel {
-        height: calc(100vh - 30px);
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: 100%;
         display: flex;
         flex-direction: column;
+        overflow: hidden;
         background-color: #ffffff;
         border-radius: 12px;
     }
     .cart-items {
-        flex-grow: 1;
+        flex: 1 1 auto;
+        min-height: 0;
         overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 #f8fafc;
+    }
+    .ticket-panel {
+        height: 100%;
+        max-height: 100%;
+        display: block;
+        overflow-y: auto;
+        overflow-x: hidden;
+        background-color: #ffffff;
+        border-radius: 12px;
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 #f8fafc;
+    }
+    .ticket-panel::-webkit-scrollbar,
+    .cart-items::-webkit-scrollbar {
+        width: 8px;
+    }
+    .ticket-panel::-webkit-scrollbar-track,
+    .cart-items::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 8px;
+    }
+    .ticket-panel::-webkit-scrollbar-thumb,
+    .cart-items::-webkit-scrollbar-thumb {
+        background-color: #cbd5e1;
+        border-radius: 8px;
+        border: 2px solid #f1f5f9;
+    }
+    .ticket-panel::-webkit-scrollbar-thumb:hover,
+    .cart-items::-webkit-scrollbar-thumb:hover {
+        background-color: #00b8b9;
     }
     .product-card {
         border: 1px solid rgba(0, 0, 0, 0.05);
@@ -125,6 +174,13 @@
     @media (max-width: 991.98px) {
         .pos-container {
             height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+        }
+        .pos-col-left,
+        .pos-col-right {
+            height: auto !important;
+            max-height: none !important;
             overflow: visible !important;
         }
         .product-grid {
@@ -132,8 +188,10 @@
             overflow-y: auto !important;
             margin-bottom: 15px;
         }
-        .cart-panel {
+        .cart-panel,
+        .ticket-panel {
             height: auto !important;
+            max-height: none !important;
             margin-top: 15px;
             padding: 20px !important;
         }
@@ -201,14 +259,71 @@
         display: inline-block;
         font-weight: 600;
     }
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.72rem;
+        line-height: 1;
+        padding: 0.4em 0.85em;
+        font-weight: 600;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: middle;
+        border-radius: 50px;
+        letter-spacing: 0.3px;
+    }
+    .status-borrador { background-color: #f1f3f5; color: #495057; border: 1px solid #dee2e6; }
+    .status-revision { background-color: #fff3bf; color: #f08c00; border: 1px solid #ffec99; }
+    .status-pendiente { background-color: #fff4e6; color: #d9480f; border: 1px solid #ffe8cc; }
+    .status-confirmado { background-color: #e7f5ff; color: #1971c2; border: 1px solid #d0ebff; }
+    .status-completo { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
+    .status-cancelado { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
+    .icon-action {
+        color: #6c757d;
+        font-size: 1.05rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
+        text-decoration: none !important;
+    }
+    .icon-action:hover {
+        color: #00b8b9 !important;
+        background-color: rgba(0, 184, 185, 0.08);
+    }
+    .icon-action-danger {
+        color: #adb5bd;
+        font-size: 1.05rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
+        text-decoration: none !important;
+        border: none !important;
+        background: transparent !important;
+        outline: none !important;
+        padding: 0 !important;
+    }
+    .icon-action-danger:hover {
+        color: #dc3545 !important;
+        transform: scale(1.15);
+    }
 </style>
 
 <div class="container-fluid pos-container py-3">
-    <div class="row h-100 g-3">
+    <div class="row g-3">
         <!-- SECCIÓN IZQUIERDA: ARTÍCULOS PARA VENTA (CARRITO) -->
-        <div class="col-lg-7 d-flex flex-column h-100">
+        <div class="col-lg-7 pos-col-left">
             <!-- Barra superior del Buscador -->
-            <div class="d-flex gap-2 mb-3 align-items-center">
+            <div class="d-flex gap-2 mb-3 align-items-center flex-shrink-0">
                 <div class="flex-grow-1 position-relative">
                     <span class="position-absolute top-50 start-0 translate-middle-y ps-3 text-muted">
                         <i class="bi bi-search"></i>
@@ -225,9 +340,9 @@
             </div>
 
             <!-- Listado del Carrito (Artículos para la venta) -->
-            <div class="cart-panel shadow-sm border-0 flex-grow-1 p-4 mb-3 d-flex flex-column" style="height: calc(100vh - 120px); background-color: #ffffff; border-radius: 12px;">
-                <h6 class="fw-bold text-dark mb-3"><i class="bi bi-cart3 me-2 text-brand"></i>Artículos para Venta</h6>
-                <div class="cart-items pe-2 flex-grow-1" style="overflow-y: auto;">
+            <div class="cart-panel shadow-sm border-0 p-4">
+                <h6 class="fw-bold text-dark mb-3 flex-shrink-0"><i class="bi bi-cart3 me-2 text-brand"></i>Artículos para Venta</h6>
+                <div class="cart-items pe-2">
                     <div id="cartEmptyMessage" class="text-center py-5 text-muted my-auto">
                         <i class="bi bi-cart3 display-4 d-block mb-3 opacity-50"></i>
                         El carrito está vacío.
@@ -240,8 +355,8 @@
         </div>
 
         <!-- SECCIÓN DERECHA: TICKET Y COBRO -->
-        <div class="col-lg-5 h-100">
-            <div class="cart-panel shadow-sm border-0 h-100 p-4" style="overflow-y: auto;">
+        <div class="col-lg-5 pos-col-right">
+            <div class="ticket-panel shadow-sm border-0 p-4">
                 <!-- Encabezado del Ticket -->
                 <div class="border-bottom pb-3 mb-3">
                     <div class="d-flex justify-content-between align-items-center mb-1">
@@ -408,11 +523,21 @@
                         <h6 class="fw-bold text-dark mb-0" style="font-size: 0.9rem;">
                             <i class="bi bi-clock-history me-1 text-brand"></i>Últimas 10 Ventas
                         </h6>
-                        <span class="badge bg-light text-secondary border" style="font-size: 0.7rem;">Clic en el folio para ver desglose</span>
+                        {% if sesion_activa %}
+                        <button type="button" class="btn btn-sm py-1 px-2 fw-bold text-white shadow-sm d-inline-flex align-items-center gap-1" style="background-color: #00b8b9; border: none; border-radius: 6px; font-size: 0.75rem;" onclick="verVentasSesionPOS({{ sesion_activa.id }}, '{{ sesion_activa.caja_pos.nombre|escapejs }}')">
+                            <i class="bi bi-receipt"></i>
+                            <span>Ver todas las ventas</span>
+                        </button>
+                        {% else %}
+                        <button type="button" class="btn btn-sm py-1 px-2 fw-bold text-white shadow-sm d-inline-flex align-items-center gap-1" style="background-color: #a0a0a0; border: none; border-radius: 6px; font-size: 0.75rem; opacity: 0.6; cursor: not-allowed;" disabled title="Abre turno de caja para ver las ventas del turno">
+                            <i class="bi bi-receipt"></i>
+                            <span>Ver todas las ventas</span>
+                        </button>
+                        {% endif %}
                     </div>
-                    <div class="table-responsive border rounded-3 bg-white" style="max-height: 220px; overflow-y: auto;">
+                    <div class="table-responsive border rounded-3 bg-white">
                         <table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.82rem;">
-                            <thead class="table-light sticky-top">
+                            <thead class="table-light">
                                 <tr>
                                     <th class="ps-3 py-2 text-secondary">Folio</th>
                                     <th class="text-center py-2 text-secondary">Fecha y Hora</th>
@@ -2197,7 +2322,7 @@
 
             const actionsHdr = document.querySelector('.ver-pedido-acciones-hdr');
             if (actionsHdr) {
-                actionsHdr.style.display = 'none';
+                actionsHdr.style.display = '';
             }
 
             tbody.innerHTML = '';
@@ -2211,11 +2336,16 @@
                             <td class="text-end small text-dark">$${parseFloat(det.subtotal).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                             <td class="text-end small text-muted">$${parseFloat(det.iva_monto).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                             <td class="text-end pe-3 fw-bold small text-dark">$${parseFloat(det.total).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                            <td class="text-center">
+                                <span class="icon-action icon-action-danger" onclick="devolverPartidaPOS(${det.id}, ${det.solicitado}, ${id})" title="Devolución de Partida">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                </span>
+                            </td>
                         </tr>
                     `);
                 });
             } else {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-muted fst-italic">No hay artículos en esta venta.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-3 text-muted fst-italic">No hay artículos en esta venta.</td></tr>';
             }
 
             const elSub = document.getElementById('ver_pedido_subtotal');
@@ -2320,7 +2450,288 @@
             alert("Error de conexión al registrar el retiro.");
         });
     }
+
+    // =========================================================================
+    // MODAL: VENTAS DEL TURNO EN CAJA POS
+    // =========================================================================
+    let currentSesionIdPOS = null;
+
+    function verVentasSesionPOS(sesionId, cajaNombre) {
+        currentSesionIdPOS = sesionId;
+        document.getElementById('nombreCajaVentasPOS').innerText = cajaNombre;
+
+        const modalEl = document.getElementById('modalVentasSesion');
+        let modal = bootstrap.Modal.getInstance(modalEl);
+        if (!modal) {
+            modal = new bootstrap.Modal(modalEl);
+        }
+        modal.show();
+
+        cargarTablaVentasSesionPOS(sesionId);
+    }
+
+    function cargarTablaVentasSesionPOS(sesionId) {
+        const tbody = document.getElementById('tbodyVentasSesion');
+        if (!tbody) return;
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm text-brand" style="color: #00b8b9;" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <span class="ms-2 text-secondary small">Cargando ventas del turno...</span>
+                </td>
+            </tr>
+        `;
+
+        fetch(`/ventas/cortes-caja/ventas-sesion/${sesionId}/`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (data.ventas.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted small">
+                                <i class="bi bi-inboxes d-block fs-4 mb-2 opacity-50"></i>
+                                No se registraron ventas durante este turno.
+                            </td>
+                        </tr>
+                    `;
+                } else {
+                    let html = '';
+                    data.ventas.forEach(v => {
+                        const folioFormatted = 'PED-' + String(v.id).padStart(4, '0');
+                        if (v.estado_raw === 'cancelado') {
+                            html += `
+                                <tr class="table-light text-muted opacity-75">
+                                    <td class="text-center">
+                                        <span onclick="verDetalleVentaPOS(${v.id})" class="icon-action" title="Ver Detalle">
+                                            <i class="bi bi-eye"></i>
+                                        </span>
+                                    </td>
+                                    <td class="text-center text-decoration-line-through">${folioFormatted}</td>
+                                    <td class="text-center small text-decoration-line-through">${v.fecha}</td>
+                                    <td class="text-center text-decoration-line-through">${v.cliente}</td>
+                                    <td class="text-center text-decoration-line-through">$${v.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    <td class="text-center text-decoration-line-through">$${v.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    <td class="text-center text-decoration-line-through">$${v.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    <td class="text-center"><span class="status-pill status-cancelado">Devolución</span></td>
+                                </tr>
+                            `;
+                        } else {
+                            let statusClass = 'status-borrador';
+                            if (v.estado_raw === 'completo') statusClass = 'status-completo';
+                            else if (v.estado_raw === 'pendiente') statusClass = 'status-pendiente';
+                            else if (v.estado_raw === 'revision') statusClass = 'status-revision';
+                            else if (v.estado_raw === 'confirmado') statusClass = 'status-confirmado';
+                            const badgeHtml = `<span class="status-pill ${statusClass}">${v.estado}</span>`;
+                            html += `
+                                <tr>
+                                    <td class="text-center">
+                                        <span onclick="verDetalleVentaPOS(${v.id})" class="icon-action" title="Ver Detalle">
+                                            <i class="bi bi-eye"></i>
+                                        </span>
+                                        <span onclick="confirmarDevolucionPOS(${v.id})" class="icon-action-danger ms-1" title="Devolución/Cancelar Venta">
+                                            <i class="bi bi-arrow-counterclockwise"></i>
+                                        </span>
+                                    </td>
+                                    <td class="text-center text-secondary">${folioFormatted}</td>
+                                    <td class="text-center small text-secondary">${v.fecha}</td>
+                                    <td class="text-center text-secondary">${v.cliente}</td>
+                                    <td class="text-center text-secondary">$${v.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    <td class="text-center text-secondary">$${v.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    <td class="text-center text-secondary">$${v.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    <td class="text-center">${badgeHtml}</td>
+                                </tr>
+                            `;
+                        }
+                    });
+
+                    html += `
+                        <tr class="table-light border-top fw-bold text-dark border-bottom">
+                            <td colspan="4" class="text-end py-2 pe-4">Totales:</td>
+                            <td class="text-center py-2">$${data.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td class="text-center py-2">$${data.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td class="text-center py-2">$${data.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td></td>
+                        </tr>
+                    `;
+                    tbody.innerHTML = html;
+                }
+            } else {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center py-4 text-danger small">
+                            Error al cargar ventas: ${data.error}
+                        </td>
+                    </tr>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center py-4 text-danger small">
+                        Ocurrió un error al consultar las ventas del turno.
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    function confirmarDevolucionPOS(pedidoId) {
+        if (!confirm("¿Estás seguro de que deseas procesar la devolución de este pedido?\n\nEsta acción:\n1. Cancelará todos los ingresos relacionados.\n2. Devolverá los productos al stock del almacén.\n3. Cancelará el pedido y su estado de envío.\n\nEsta operación no se puede deshacer.")) {
+            return;
+        }
+
+        fetch(`/ventas/cortes-caja/devolucion-pedido/${pedidoId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert("Devolución procesada correctamente.");
+                if (currentSesionIdPOS !== null) {
+                    cargarTablaVentasSesionPOS(currentSesionIdPOS);
+                } else {
+                    location.reload();
+                }
+            } else {
+                alert("Error al procesar la devolución: " + data.error);
+            }
+        })
+        .catch(error => {
+            console.error("Error al procesar devolución:", error);
+            alert("Ocurrió un error de conexión al procesar la devolución.");
+        });
+    }
+
+    function devolverPartidaPOS(detalleId, cantMax, pedidoId) {
+        if (cantMax <= 0) {
+            alert("No hay piezas disponibles para devolver.");
+            return;
+        }
+        const cantStr = prompt(`¿Cuántas piezas deseas devolver de este artículo?\n\nCantidad disponible para devolver: ${cantMax}`, cantMax);
+        if (cantStr === null) return;
+        const cant = parseInt(cantStr);
+        if (isNaN(cant) || cant <= 0 || cant > cantMax) {
+            alert(`Cantidad inválida. Debe ser un número entero entre 1 y ${cantMax}.`);
+            return;
+        }
+
+        if (!confirm(`¿Confirmas la devolución de ${cant} unidad(es) de este artículo?\n\nEsta acción:\n1. Devolverá el stock al almacén.\n2. Ajustará el cobro e ingresos del pedido.\n3. Cancelará la venta total si la cantidad de todos los artículos llega a 0.`)) {
+            return;
+        }
+
+        fetch(`/ventas/cortes-caja/devolucion-partida/${detalleId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ cantidad: cant })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message || "Devolución de partida procesada correctamente.");
+
+                const modalEl = document.getElementById('modalVerPedido');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+
+                if (currentSesionIdPOS !== null) {
+                    cargarTablaVentasSesionPOS(currentSesionIdPOS);
+                } else {
+                    location.reload();
+                }
+            } else {
+                alert("Error: " + data.error);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Ocurrió un error al procesar la devolución.");
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const verPedidoEl = document.getElementById('modalVerPedido');
+        const ventasSesionEl = document.getElementById('modalVentasSesion');
+
+        if (verPedidoEl && ventasSesionEl) {
+            verPedidoEl.addEventListener('show.bs.modal', () => {
+                if (ventasSesionEl.classList.contains('show')) {
+                    verPedidoEl.style.zIndex = '1065';
+                    setTimeout(() => {
+                        const backdrops = document.querySelectorAll('.modal-backdrop');
+                        if (backdrops.length > 1) {
+                            backdrops[backdrops.length - 1].style.zIndex = '1060';
+                        }
+                    }, 0);
+                }
+            });
+
+            verPedidoEl.addEventListener('hidden.bs.modal', () => {
+                verPedidoEl.style.zIndex = '';
+                if (ventasSesionEl.classList.contains('show')) {
+                    document.body.classList.add('modal-open');
+                    document.body.style.overflow = 'hidden';
+                }
+            });
+        }
+    });
 </script>
+
+<!-- MODAL: VENTAS REALIZADAS EN LA SESION (VENTAS DEL TURNO) -->
+<div class="modal fade" id="modalVentasSesion" tabindex="-1" aria-labelledby="modalVentasSesionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-bottom bg-light py-3">
+                <h5 class="modal-title fw-bold text-dark" id="modalVentasSesionLabel">
+                    <i class="bi bi-receipt me-2" style="color: #00b8b9;"></i>
+                    Ventas del Turno: <span id="nombreCajaVentasPOS" class="text-brand">-</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="table-responsive">
+                    <table class="table table-pro mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th class="text-center" style="width: 10%;">Acciones</th>
+                                <th class="text-center" style="width: 10%;">Folio</th>
+                                <th class="text-center" style="width: 15%;">Fecha/Hora</th>
+                                <th class="text-center" style="width: 21%;">Cliente</th>
+                                <th class="text-center" style="width: 11%;">Subtotal</th>
+                                <th class="text-center" style="width: 11%;">IVA</th>
+                                <th class="text-center" style="width: 11%;">Total</th>
+                                <th class="text-center" style="width: 11%;">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyVentasSesion">
+                            <!-- Se llena dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer border-top bg-white py-3">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- MODAL: RETIRO DE EFECTIVO EN CAJA POS -->
 <div class="modal fade" id="modalRetiroPOS" tabindex="-1" aria-labelledby="modalRetiroPOSLabel" aria-hidden="true">

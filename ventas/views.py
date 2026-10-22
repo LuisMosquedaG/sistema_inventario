@@ -2148,7 +2148,7 @@ def cierre_sesion_pos_por_id_ajax(request, sesion_id):
 @login_required
 def obtener_ventas_sesion_ajax(request, sesion_id):
     from preferencias.permissions import user_has_sales_permission
-    if not user_has_sales_permission(request, 'cortes_de_caja', 'ver_ventas'):
+    if not (user_has_sales_permission(request, 'cortes_de_caja', 'ver_ventas') or user_has_sales_permission(request, 'punto_de_venta', 'ver')):
         return JsonResponse({'success': False, 'error': 'No tienes permisos para ver ventas de la sesión.'}, status=403)
 
     from pedidos.models import Pedido
@@ -2823,8 +2823,10 @@ def imprimir_pedido_ticket(request, pedido_id):
 
 @login_required(login_url='/login/')
 @require_POST
-@require_sales_permission('cortes_de_caja', 'hacer_corte', json_response=True)
 def api_devolucion_pedido(request, pedido_id):
+    from preferencias.permissions import user_has_sales_permission
+    if not (user_has_sales_permission(request, 'cortes_de_caja', 'hacer_corte') or user_has_sales_permission(request, 'punto_de_venta', 'ver')):
+        return JsonResponse({'success': False, 'error': 'No tienes permisos para procesar devoluciones.'}, status=403)
     from django.db import transaction
     from django.db.models import Sum, Q
     from django.utils import timezone
@@ -2949,8 +2951,10 @@ def api_devolucion_pedido(request, pedido_id):
 
 @login_required(login_url='/login/')
 @require_POST
-@require_sales_permission('cortes_de_caja', 'hacer_corte', json_response=True)
 def api_devolucion_partida(request, detalle_id):
+    from preferencias.permissions import user_has_sales_permission
+    if not (user_has_sales_permission(request, 'cortes_de_caja', 'hacer_corte') or user_has_sales_permission(request, 'punto_de_venta', 'ver')):
+        return JsonResponse({'success': False, 'error': 'No tienes permisos para procesar devoluciones.'}, status=403)
     from django.db import transaction
     from django.db.models import Sum
     from django.shortcuts import get_object_or_404
