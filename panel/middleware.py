@@ -1,6 +1,8 @@
 from django.utils import timezone
 from .models import Empresa
 from datetime import date, timedelta
+from django.shortcuts import render, redirect
+from django.http import HttpResponseForbidden, JsonResponse
 
 class LicenseAutoRenewalMiddleware:
     def __init__(self, get_response):
@@ -50,14 +52,28 @@ class LicenseAutoRenewalMiddleware:
         response = self.get_response(request)
         return response
 
-from django.shortcuts import render
-from django.http import HttpResponseForbidden
 
 class TenantStatusMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
+        # 0. BLOQUEO DE PUNTO DE VENTA (POS)
+        if request.user.is_authenticated and request.session.get('pos_bloqueado'):
+            pos_allowed_paths = [
+                '/ventas/pos/',
+                '/ventas/pos/bloquear/',
+                '/ventas/pos/desbloquear/',
+                '/logout/',
+                '/login/',
+                '/static/',
+                '/media/',
+            ]
+            if not any(request.path.startswith(p) for p in pos_allowed_paths):
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.content_type == 'application/json':
+                    return JsonResponse({'success': False, 'error': 'El Punto de Venta se encuentra bloqueado. Desbloquéalo primero.'}, status=403)
+                return redirect('/ventas/pos/')
+
         # 1. EXENTAR RUTAS CRÍTICAS (Siempre accesibles)
         exempt_paths = ['/panel/', '/admin/', '/login/', '/logout/', '/static/', '/media/']
         if any(request.path.startswith(path) for path in exempt_paths):

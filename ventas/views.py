@@ -781,6 +781,13 @@ def ejecutar_surtido(request, ov_id):
                                 extras_data.append({'id': eid, 'qty': qty_descontar})
                                 piezas_pendientes -= qty_descontar
 
+                    # Calcular cuánta reserva liberar (solo si proviene de un pedido con partida reservada)
+                    reserva_a_quitar = 0
+                    if ov.pedido_origen:
+                        det_ped_res = ov.pedido_origen.detalles.filter(producto=producto, estado_linea='reservado').first()
+                        if det_ped_res:
+                            reserva_a_quitar = cant_a_entregar
+
                     # USAR MÉTODO CENTRALIZADO (Vía Transacción para log centralizado)
                     Transaccion.objects.create(
                         producto=producto,
@@ -792,6 +799,7 @@ def ejecutar_surtido(request, ov_id):
                         usuario=request.user,
                         referencia=ov.folio_display,
                         extras_data=extras_data,
+                        quitar_reserva=reserva_a_quitar,
                         estado='recibida' # Marcamos como procesada
                     )
 
@@ -1051,6 +1059,15 @@ def punto_de_venta(request):
     if not sesion_activa:
         request.session.pop('pos_bloqueado', None)
 
+    from proveedores.models import Proveedor
+    from pedidos.models import Pedido
+    proveedores_pos = Proveedor.objects.filter(empresa=empresa_actual, estado='activo').order_by('razon_social')
+    ultimas_ventas = Pedido.objects.filter(
+        empresa=empresa_actual,
+        sucursal=sucursal,
+        sesion_caja__isnull=False
+    ).exclude(estado='cancelado').order_by('-fecha_creacion')[:10]
+
     contexto = {
         'empresa': empresa_actual,
         'sucursal': sucursal,
@@ -1059,6 +1076,8 @@ def punto_de_venta(request):
         'productos': productos_data,
         'cajas_bancos': cajas_bancos,
         'clientes': clientes,
+        'proveedores': proveedores_pos,
+        'ultimas_ventas': ultimas_ventas,
         'categorias': list(categorias_unicas),
         'subcategorias': list(subcategorias_unicas),
         'sesion_activa': sesion_activa,
@@ -1068,6 +1087,153 @@ def punto_de_venta(request):
         'section': 'pos',
     }
     return render(request, 'ventas/punto_de_venta.html', contexto)
+
+
+@login_required
+def detalle_venta_pos_ajax(request, pedido_id):
+    from preferencias.permissions import user_has_sales_permission
+    if not (user_has_sales_permission(request, 'punto_de_venta', 'ver') or user_has_sales_permission(request, 'pedidos', 'ver')):
+        return JsonResponse({'error': 'No tienes permisos para consultar este ticket.'}, status=403)
+    try:
+        from pedidos.models import Pedido
+        empresa_actual = get_empresa_actual(request)
+        pedido = get_object_or_404(Pedido, id=pedido_id, empresa=empresa_actual)
+
+        data = {
+            'folio': f"PED-{pedido.id:04d}",
+            'cliente_nombre': pedido.cliente.razon_social or f"{pedido.cliente.nombre} {pedido.cliente.apellidos}",
+            'cliente_tel': pedido.cliente.telefono or '--',
+            'cliente_email': pedido.cliente.email or '--',
+            'contacto_nombre': pedido.contacto.nombre_completo if pedido.contacto else 'Sin contacto',
+            'contacto_tel': pedido.contacto.telefono_1 if pedido.contacto else '--',
+            'contacto_email': pedido.contacto.correo_1 if pedido.contacto else '--',
+            'fecha': pedido.fecha_creacion.strftime('%d/%m/%Y %H:%M'),
+            'cotizacion_folio': f"COT-{pedido.cotizacion_origen_id:04d}" if pedido.cotizacion_origen_id else '--',
+            'detalles': []
+        }
+
+        for det in pedido.detalles.all():
+            data['detalles'].append({
+                'id': det.id,
+                'producto': det.producto.nombre,
+                'solicitado': det.cantidad_solicitada,
+                'precio': str(det.precio_unitario),
+                'subtotal': str(det.subtotal),
+                'iva_monto': str(det.iva_monto),
+                'total': str(det.total),
+                'estado': det.get_estado_linea_display()
+            })
+
+        data['subtotal_total'] = str(pedido.calcular_subtotal)
+        data['iva_total'] = str(pedido.calcular_iva)
+        data['gran_total'] = str(pedido.calcular_total)
+        return JsonResponse(data)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def registrar_retiro_pos_ajax(request):
+    if request.session.get('pos_bloqueado'):
+        return JsonResponse({'success': False, 'error': 'El Punto de Venta está bloqueado. Desbloquéalo primero.'})
+    from preferencias.permissions import user_has_sales_permission
+    if not (user_has_sales_permission(request, 'punto_de_venta', 'ver') or user_has_sales_permission(request, 'punto_de_venta', 'crear')):
+        return JsonResponse({'success': False, 'error': 'No tienes permisos en el Punto de Venta.'}, status=403)
+
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Empresa no detectada.'})
+
+    from ventas.models import SesionCajaPOS
+    sesion_id = request.session.get('sesion_caja_id')
+    sesion = None
+    if sesion_id:
+        sesion = SesionCajaPOS.objects.filter(id=sesion_id, usuario=request.user, estado='abierta').first()
+    if not sesion:
+        sesion = SesionCajaPOS.objects.filter(usuario=request.user, estado='abierta').first()
+    if not sesion:
+        return JsonResponse({'success': False, 'error': 'No tienes una sesión de caja activa para realizar retiros.'})
+
+    import json
+    from decimal import Decimal
+    from django.db import transaction
+    from django.db.models import Sum
+    from django.utils import timezone
+    from tesoreria.models import PagoPedido, Egreso
+    from proveedores.models import Proveedor
+
+    try:
+        data = json.loads(request.body.decode('utf-8')) if request.body else request.POST
+    except Exception:
+        data = request.POST
+
+    try:
+        monto = Decimal(str(data.get('monto', '0') or '0')).quantize(Decimal('0.01'))
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'El monto ingresado no es válido.'})
+
+    if monto <= Decimal('0.00'):
+        return JsonResponse({'success': False, 'error': 'El monto a retirar debe ser mayor a $0.00.'})
+
+    descripcion = str(data.get('descripcion', '') or '').strip()
+    if not descripcion:
+        return JsonResponse({'success': False, 'error': 'Debes escribir una descripción o motivo para el retiro.'})
+
+    proveedor_id = data.get('proveedor_id')
+    proveedor_obj = None
+    if proveedor_id:
+        proveedor_obj = Proveedor.objects.filter(id=proveedor_id, empresa=empresa_actual).first()
+        if not proveedor_obj:
+            return JsonResponse({'success': False, 'error': 'El proveedor seleccionado no es válido.'})
+
+    try:
+        with transaction.atomic():
+            pagos = PagoPedido.objects.filter(pedido__sesion_caja=sesion, estado='aplicado')
+            ventas_efectivo = pagos.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+            retiros_previos = Egreso.objects.filter(sesion_caja=sesion, estado='aplicado').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+            efectivo_disponible = sesion.monto_inicial + ventas_efectivo - retiros_previos
+
+            if monto > efectivo_disponible:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'El monto a retirar (${monto:,.2f}) supera el efectivo disponible en caja (${efectivo_disponible:,.2f}).'
+                })
+
+            caja_efectivo = sesion.caja_pos.caja_efectivo
+            if not caja_efectivo:
+                return JsonResponse({'success': False, 'error': 'La Caja POS no tiene configurada una Caja de Efectivo en Tesorería.'})
+
+            if proveedor_obj:
+                concepto_egreso = f"Retiro POS - Pago a {proveedor_obj.razon_social}: {descripcion}"
+            else:
+                concepto_egreso = f"Retiro POS: {descripcion}"
+
+            egreso = Egreso.objects.create(
+                empresa=empresa_actual,
+                fecha=timezone.now().date(),
+                concepto=concepto_egreso[:255],
+                monto=monto,
+                moneda=caja_efectivo.moneda,
+                tipo_cambio=Decimal('1.0000'),
+                monto_mxn=monto,
+                forma_pago='efectivo',
+                caja_banco=caja_efectivo,
+                referencia=f"Retiro Caja {sesion.caja_pos.nombre} (Turno #{sesion.id})",
+                sesion_caja=sesion,
+                proveedor=proveedor_obj,
+                estado='aplicado',
+                sucursal=sesion.caja_pos.sucursal
+            )
+
+            nuevo_disponible = efectivo_disponible - monto
+            return JsonResponse({
+                'success': True,
+                'message': f'Retiro por ${monto:,.2f} registrado correctamente como Egreso EGR-{egreso.id:05d}.',
+                'efectivo_disponible': float(nuevo_disponible)
+            })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Error al registrar el retiro: {str(e)}'})
 
 
 @login_required
@@ -1615,6 +1781,7 @@ def cortes_caja_list(request):
 
     # Combinar y etiquetar los registros
     from clientes.models import Credito
+    from tesoreria.models import Egreso
     sesiones = []
     for s in sesiones_qs:
         if s.estado == 'abierta':
@@ -1634,11 +1801,13 @@ def cortes_caja_list(request):
                 s.total_ventas_transferencia = v_tr
                 s.total_ventas_credito = v_cr
                 s.save(update_fields=['total_ventas_efectivo', 'total_ventas_tarjeta', 'total_ventas_transferencia', 'total_ventas_credito'])
+        s.total_retiros = Egreso.objects.filter(sesion_caja=s, estado='aplicado').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
         s.tipo_corte = 'X'
         s.fecha_orden = s.fecha_apertura
         sesiones.append(s)
 
     for cz in cortes_z_qs:
+        cz.total_retiros = Egreso.objects.filter(sesion_caja__corte_z=cz, estado='aplicado').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
         cz.tipo_corte = 'Z'
         cz.fecha_orden = cz.fecha_creacion
         sesiones.append(cz)
@@ -1810,8 +1979,8 @@ def apertura_sesion_pos_ajax(request):
 @login_required
 def obtener_totales_sesion_ajax(request):
     from preferencias.permissions import user_has_sales_permission
-    if not user_has_sales_permission(request, 'punto_de_venta', 'hacer_corte_pos'):
-        return JsonResponse({'success': False, 'error': 'No tienes permisos para hacer el corte de caja.'}, status=403)
+    if not (user_has_sales_permission(request, 'punto_de_venta', 'hacer_corte_pos') or user_has_sales_permission(request, 'punto_de_venta', 'ver')):
+        return JsonResponse({'success': False, 'error': 'No tienes permisos para consultar la sesión de caja.'}, status=403)
 
     empresa_actual = get_empresa_actual(request)
     sesion_id = request.session.get('sesion_caja_id')
@@ -1832,9 +2001,11 @@ def obtener_totales_sesion_ajax(request):
     ventas_transferencia = pagos.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
     
     from clientes.models import Credito
-    ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
+    from tesoreria.models import Egreso
+    ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).exclude(pedido__estado='cancelado').aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
+    total_retiros = Egreso.objects.filter(sesion_caja=sesion, estado='aplicado').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
 
-    efectivo_estimado = sesion.monto_inicial + ventas_efectivo
+    efectivo_estimado = sesion.monto_inicial + ventas_efectivo - total_retiros
 
     return JsonResponse({
         'success': True,
@@ -1844,6 +2015,7 @@ def obtener_totales_sesion_ajax(request):
         'ventas_tarjeta': float(ventas_tarjeta),
         'ventas_transferencia': float(ventas_transferencia),
         'ventas_credito': float(ventas_credito),
+        'total_retiros': float(total_retiros),
         'efectivo_estimado': float(efectivo_estimado),
         'fecha_apertura': sesion.fecha_apertura.strftime('%Y-%m-%d %H:%M:%S')
     })
@@ -2135,10 +2307,14 @@ def imprimir_corte_ticket(request, sesion_id):
     ventas_transferencia = pagos.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
     
     from clientes.models import Credito
-    ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
+    from tesoreria.models import Egreso
+    ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).exclude(pedido__estado='cancelado').aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
     
+    retiros_qs = Egreso.objects.filter(sesion_caja=sesion, estado='aplicado').select_related('proveedor').order_by('fecha_registro', 'id')
+    total_retiros = retiros_qs.aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+
     total_ventas = ventas_efectivo + ventas_tarjeta + ventas_transferencia + ventas_credito
-    efectivo_estimado = sesion.monto_inicial + ventas_efectivo
+    efectivo_estimado = sesion.monto_inicial + ventas_efectivo - total_retiros
     
     # Calcular subtotal e IVA de los productos vendidos
     from pedidos.models import DetallePedido, Pedido
@@ -2263,6 +2439,8 @@ def imprimir_corte_ticket(request, sesion_id):
         'ventas_transferencia': ventas_transferencia,
         'ventas_credito': ventas_credito,
         'total_ventas': total_ventas,
+        'retiros': retiros_qs,
+        'total_retiros': total_retiros,
         'efectivo_estimado': efectivo_estimado,
         'monto_final': monto_final,
         'diferencia': diferencia,
@@ -2520,7 +2698,11 @@ def imprimir_corte_z_ticket(request, corte_z_id):
                 iva_credito += ped_iva * prop
                 total_credito += ped_total * prop
     
-    efectivo_estimado = corte_z.monto_inicial + corte_z.total_efectivo
+    from tesoreria.models import Egreso
+    retiros_qs = Egreso.objects.filter(sesion_caja__in=sesiones, estado='aplicado').select_related('proveedor', 'sesion_caja__caja_pos').order_by('fecha_registro', 'id')
+    total_retiros = retiros_qs.aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+
+    efectivo_estimado = corte_z.monto_inicial + corte_z.total_efectivo - total_retiros
     monto_final = corte_z.monto_final_efectivo
     diferencia = monto_final - efectivo_estimado
 
@@ -2556,6 +2738,8 @@ def imprimir_corte_z_ticket(request, corte_z_id):
         'ventas_transferencia': corte_z.total_transferencia,
         'ventas_credito': corte_z.total_credito,
         'total_ventas': corte_z.total_ventas,
+        'retiros': retiros_qs,
+        'total_retiros': total_retiros,
         'efectivo_estimado': efectivo_estimado,
         'monto_final': monto_final,
         'diferencia': diferencia,
@@ -2698,18 +2882,26 @@ def api_devolucion_pedido(request, pedido_id):
                 
             # 3. Regresar producto al almacén (revertir transacciones)
             query_ref = Q(referencia__in=folios_ordenes) | Q(referencia__contains=f"Pedido #{pedido.id}")
-            transacciones = Transaccion.objects.filter(query_ref, empresa=empresa_actual)
+            transacciones = Transaccion.objects.filter(
+                query_ref,
+                empresa=empresa_actual
+            ).exclude(referencia__startswith="Autoproducción POS")
             
             for trans in transacciones:
+                cant_revertir = abs(trans.cantidad)
+                if cant_revertir <= 0:
+                    continue
                 Transaccion.objects.create(
                     producto=trans.producto,
                     almacen=trans.almacen,
                     tipo='ajuste',
-                    cantidad=abs(trans.cantidad),
+                    cantidad=cant_revertir,
                     total=abs(trans.total),
                     empresa=empresa_actual,
                     usuario=request.user,
                     referencia=f"Devolución Pedido #{pedido.id}",
+                    lote=trans.lote,
+                    serie=trans.serie,
                     extras_data=trans.extras_data,
                     estado='recibida'
                 )
@@ -2718,6 +2910,8 @@ def api_devolucion_pedido(request, pedido_id):
                     for item in trans.extras_data:
                         eid = item.get('id')
                         qty_ret = int(item.get('qty', 1))
+                        if qty_ret <= 0:
+                            continue
                         try:
                             extra = DetalleRecepcionExtra.objects.get(id=eid)
                             if extra.tipo == 'serie':
@@ -2802,10 +2996,12 @@ def api_devolucion_partida(request, detalle_id):
             monto_reembolso = precio_unitario_con_iva * Decimal(str(cant_a_devolver))
             
             # 1. Regresar producto al almacén
+            from django.db.models import Q
             folios_ordenes = [o.folio_display for o in pedido.ordenes_venta.all()]
             original_trans = Transaccion.objects.filter(
-                referencia__in=folios_ordenes,
+                Q(referencia__in=folios_ordenes) | Q(referencia__contains=f"Pedido #{pedido.id}"),
                 producto=detalle.producto,
+                tipo='venta',
                 empresa=empresa_actual
             ).first()
             
@@ -2813,16 +3009,30 @@ def api_devolucion_partida(request, detalle_id):
             extras_to_return = []
             if original_trans:
                 almacen = original_trans.almacen
+                nuevos_extras_orig = []
                 if original_trans.extras_data:
                     remaining_to_return = cant_a_devolver
                     for item in original_trans.extras_data:
-                        if remaining_to_return <= 0:
-                            break
                         eid = item.get('id')
-                        qty_used = item.get('qty', 1)
-                        qty_to_ret = min(remaining_to_return, qty_used)
-                        extras_to_return.append({'id': eid, 'qty': qty_to_ret})
-                        remaining_to_return -= qty_to_ret
+                        qty_used = int(item.get('qty', 1))
+                        if remaining_to_return > 0 and qty_used > 0:
+                            qty_to_ret = min(remaining_to_return, qty_used)
+                            extras_to_return.append({'id': eid, 'qty': qty_to_ret, 'lote': item.get('lote')})
+                            remaining_to_return -= qty_to_ret
+                            restante_item = qty_used - qty_to_ret
+                            if restante_item > 0:
+                                nuevos_extras_orig.append({**item, 'qty': restante_item})
+                        else:
+                            nuevos_extras_orig.append(item)
+                nueva_cant_trans = (
+                    min(0, original_trans.cantidad + cant_a_devolver)
+                    if original_trans.cantidad < 0
+                    else max(0, original_trans.cantidad - cant_a_devolver)
+                )
+                Transaccion.objects.filter(id=original_trans.id).update(
+                    cantidad=nueva_cant_trans,
+                    extras_data=nuevos_extras_orig
+                )
             else:
                 from almacenes.models import Almacen
                 almacen = Almacen.objects.filter(sucursal=pedido.sucursal, empresa=empresa_actual).first()
@@ -2834,6 +3044,7 @@ def api_devolucion_partida(request, detalle_id):
                 
             # Crear transacción de ajuste positivo
             trans_ref = f"Devolución Partida PED-{pedido.id:04d}"
+            lotes_devueltos_str = ", ".join(dict.fromkeys([str(i.get('lote')) for i in extras_to_return if i.get('lote')])) if extras_to_return else None
             Transaccion.objects.create(
                 producto=detalle.producto,
                 almacen=almacen,
@@ -2843,6 +3054,7 @@ def api_devolucion_partida(request, detalle_id):
                 empresa=empresa_actual,
                 usuario=request.user,
                 referencia=trans_ref,
+                lote=lotes_devueltos_str,
                 extras_data=extras_to_return if extras_to_return else None,
                 estado='recibida'
             )
@@ -2852,14 +3064,14 @@ def api_devolucion_partida(request, detalle_id):
                 from recepciones.models import DetalleRecepcionExtra
                 for item in extras_to_return:
                     eid = item.get('id')
-                    qty = Decimal(str(item.get('qty', 1)))
+                    qty = int(item.get('qty', 1))
                     try:
                         extra = DetalleRecepcionExtra.objects.get(id=eid)
                         if extra.tipo == 'serie':
                             extra.almacen = almacen
                             extra.save()
                         else:
-                            extra.cantidad_lote = extra.cantidad_lote + qty
+                            extra.cantidad_lote = (extra.cantidad_lote or 0) + qty
                             extra.save()
                     except DetalleRecepcionExtra.DoesNotExist:
                         pass

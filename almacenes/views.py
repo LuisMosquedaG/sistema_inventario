@@ -218,7 +218,8 @@ def api_productos_con_stock(request, almacen_id):
             'reservado': inv.reservado,
             'disponible': inv.cantidad - inv.reservado,
             'maneja_lote': inv.producto.maneja_lote,
-            'maneja_serie': inv.producto.maneja_serie
+            'maneja_serie': inv.producto.maneja_serie,
+            'maneja_caducidad': inv.producto.maneja_caducidad
         })
     return JsonResponse(data, safe=False)
 
@@ -230,17 +231,23 @@ def api_extras_producto(request, almacen_id, producto_id):
     almacen = get_object_or_404(Almacen, id=almacen_id, empresa=empresa_actual)
     
     # Buscamos en DetalleRecepcionExtra que pertenezcan al almacén origen
-    extras = DetalleRecepcionExtra.objects.filter(almacen=almacen, detalle_recepcion__producto_id=producto_id)
+    extras = DetalleRecepcionExtra.objects.filter(
+        almacen=almacen
+    ).filter(
+        Q(detalle_recepcion__producto_id=producto_id) | Q(producto_id=producto_id)
+    )
     
     data = []
     for e in extras:
-        if e.tipo == 'lote' and e.cantidad_lote <= 0: continue
+        if e.tipo in ['lote', 'caducidad'] and (e.cantidad_lote or 0) <= 0:
+            continue
         data.append({
             'id': e.id,
             'tipo': e.tipo,
-            'lote': e.lote,
+            'lote': e.lote or (f"Cad: {e.fecha_caducidad.strftime('%d/%m/%Y')}" if e.fecha_caducidad else None),
             'serie': e.serie,
-            'cantidad': e.cantidad_lote if e.tipo == 'lote' else 1
+            'fecha_caducidad': e.fecha_caducidad.strftime('%d/%m/%Y') if e.fecha_caducidad else None,
+            'cantidad': e.cantidad_lote if e.tipo in ['lote', 'caducidad'] else 1
         })
     return JsonResponse(data, safe=False)
 
@@ -313,26 +320,31 @@ def api_ejecutar_traslado(request):
             # 4. ACTUALIZAR LOTE/SERIE (SI APLICA)
             lote_ref, serie_ref = None, None
             if extra_id:
-                extra = DetalleRecepcionExtra.objects.get(id=extra_id, almacen=origen)
+                extra = DetalleRecepcionExtra.objects.select_for_update().get(id=extra_id, almacen=origen)
                 if extra.tipo == 'serie':
                     extra.almacen = destino
                     extra.save()
                     serie_ref = extra.serie
                 else:
-                    # LOTE
+                    # LOTE O CADUCIDAD
+                    if extra.cantidad_lote < cantidad:
+                        raise ValueError(f"Stock insuficiente en el lote {extra.lote or extra.fecha_caducidad}. Disponible: {extra.cantidad_lote}")
                     if extra.cantidad_lote > cantidad:
                         extra.cantidad_lote = F('cantidad_lote') - cantidad
                         extra.save()
                         DetalleRecepcionExtra.objects.create(
                             detalle_recepcion=extra.detalle_recepcion, 
-                            producto=extra.producto, # <--- ASIGNAR PRODUCTO
-                            tipo='lote', lote=extra.lote,
-                            cantidad_lote=cantidad, almacen=destino
+                            producto=extra.producto or producto,
+                            tipo=extra.tipo,
+                            lote=extra.lote,
+                            fecha_caducidad=extra.fecha_caducidad,
+                            cantidad_lote=cantidad,
+                            almacen=destino
                         )
                     else:
                         extra.almacen = destino
                         extra.save()
-                    lote_ref = extra.lote
+                    lote_ref = extra.lote or (extra.fecha_caducidad.strftime('%d/%m/%Y') if extra.fecha_caducidad else None)
 
             # 5. REGISTRAR EN KARDEX (DOBLE ASIENTO)
             ref_folio = "TRASLADO"

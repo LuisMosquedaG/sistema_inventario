@@ -294,10 +294,8 @@ class Transaccion(models.Model):
             # Gestionamos el stock solo si NO es un servicio
             if self.producto.tipo != 'servicio':
                 try:
-                    # Si es venta, quitar_reserva por defecto es la cantidad (ya seteado en el modelo anterior, pero aquí lo hacemos dinámico)
+                    # Solo descontar reserva si se indicó explícitamente en quitar_reserva
                     q_res = self.quitar_reserva
-                    if self.tipo == 'venta' and q_res == 0:
-                        q_res = abs(self.cantidad)
 
                     extras_out = list(self.extras_data) if self.extras_data else []
                     Inventario.registrar_salida(

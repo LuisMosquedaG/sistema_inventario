@@ -133,6 +133,8 @@ class Egreso(models.Model):
     
     # Vínculos opcionales
     pago_compra = models.OneToOneField(PagoCompra, on_delete=models.SET_NULL, null=True, blank=True, related_name='egreso_vinc')
+    sesion_caja = models.ForeignKey('ventas.SesionCajaPOS', on_delete=models.SET_NULL, null=True, blank=True, related_name='retiros_caja', verbose_name="Sesión de Caja POS")
+    proveedor = models.ForeignKey('proveedores.Proveedor', on_delete=models.SET_NULL, null=True, blank=True, related_name='egresos_directos', verbose_name="Proveedor")
     
     fecha_registro = models.DateTimeField(auto_now_add=True)
     estado = models.CharField(max_length=20, choices=[('aplicado', 'Aplicado'), ('cancelado', 'Cancelado')], default='aplicado', verbose_name="Estado")

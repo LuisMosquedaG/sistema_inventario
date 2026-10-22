@@ -567,12 +567,12 @@ def crear_producto_ajax(request):
                     if not code_clean:
                         continue
                     
-                    qs_dupe = CodigoBarrasAdicional.objects.filter(codigo=code_clean)
+                    qs_dupe = CodigoBarrasAdicional.objects.filter(codigo=code_clean, producto__empresa=empresa_actual)
                     dupe = qs_dupe.first()
                     if dupe:
                         return JsonResponse({'success': False, 'error': f'El código de barras "{code_clean}" ya está registrado en el artículo "{dupe.producto.nombre}".'})
                     
-                    qs_prod = Producto.objects.filter(clave=code_clean)
+                    qs_prod = Producto.objects.filter(clave=code_clean, empresa=empresa_actual)
                     dupe_prod = qs_prod.first()
                     if dupe_prod:
                         return JsonResponse({'success': False, 'error': f'El código de barras "{code_clean}" ya es la clave principal de otro artículo: "{dupe_prod.nombre}".'})
@@ -841,12 +841,16 @@ def api_detalle_producto_inventario(request, producto_id):
             elif e.fecha_creacion:
                 fecha_disp = e.fecha_creacion.strftime('%d/%m/%Y')
 
-            if e.tipo == 'lote':
+            if e.tipo in ['lote', 'caducidad']:
+                if (e.cantidad_lote or 0) <= 0:
+                    continue
+                lote_label = e.lote or (f"Cad: {e.fecha_caducidad.strftime('%d/%m/%Y')}" if e.fecha_caducidad else 'Sin lote')
                 lotes_data.append({
-                    'lote': e.lote,
+                    'lote': lote_label,
                     'cantidad': e.cantidad_lote,
                     'almacen': e.almacen.nombre if e.almacen else 'N/A',
-                    'fecha': fecha_disp
+                    'fecha': fecha_disp,
+                    'fecha_caducidad': e.fecha_caducidad.strftime('%d/%m/%Y') if e.fecha_caducidad else '--'
                 })
             elif e.tipo == 'serie':
                 series_data.append({
@@ -985,14 +989,14 @@ def actualizar_producto_ajax(request, producto_id):
                     if not code_clean:
                         continue
                     
-                    qs_dupe = CodigoBarrasAdicional.objects.filter(codigo=code_clean)
+                    qs_dupe = CodigoBarrasAdicional.objects.filter(codigo=code_clean, producto__empresa=empresa_actual)
                     if producto.id:
                         qs_dupe = qs_dupe.exclude(producto_id=producto.id)
                     dupe = qs_dupe.first()
                     if dupe:
                         return JsonResponse({'success': False, 'error': f'El código de barras "{code_clean}" ya está registrado en el artículo "{dupe.producto.nombre}".'})
                     
-                    qs_prod = Producto.objects.filter(clave=code_clean)
+                    qs_prod = Producto.objects.filter(clave=code_clean, empresa=empresa_actual)
                     if producto.id:
                         qs_prod = qs_prod.exclude(id=producto.id)
                     dupe_prod = qs_prod.first()

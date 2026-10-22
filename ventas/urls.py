@@ -34,6 +34,8 @@ urlpatterns = [
     # 9. Punto de Venta (POS)
     path('pos/', views.punto_de_venta, name='punto_de_venta'),
     path('pos/crear-venta/', views.crear_venta_pos_ajax, name='crear_venta_pos_ajax'),
+    path('pos/retiro/', views.registrar_retiro_pos_ajax, name='registrar_retiro_pos_ajax'),
+    path('pos/detalle-venta/<int:pedido_id>/', views.detalle_venta_pos_ajax, name='detalle_venta_pos_ajax'),
     path('pos/bloquear/', views.bloquear_pos_ajax, name='bloquear_pos_ajax'),
     path('pos/desbloquear/', views.desbloquear_pos_ajax, name='desbloquear_pos_ajax'),
     path('pos/imprimir-ticket/<int:pedido_id>/', views.imprimir_pedido_ticket, name='imprimir_pedido_ticket'),

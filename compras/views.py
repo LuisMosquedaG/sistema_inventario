@@ -3,6 +3,7 @@ from django.http import JsonResponse, HttpResponse
 from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
+from decimal import Decimal
 import openpyxl
 from datetime import datetime
 from proveedores.models import Proveedor
@@ -188,6 +189,7 @@ def confirmar_xml_compra_ajax(request):
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
 @login_required(login_url='/login/')
+@require_purchase_permission('ordenes_compra', 'crear')
 def descargar_plantilla_compras(request):
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -211,6 +213,7 @@ def descargar_plantilla_compras(request):
     return response
 
 @login_required(login_url='/login/')
+@require_purchase_permission('ordenes_compra', 'crear', json_response=True)
 def importar_compras_ajax(request):
     if request.method == 'POST' and request.FILES.get('archivo_compras'):
         empresa_actual = get_empresa_actual(request)
@@ -330,6 +333,7 @@ def importar_compras_ajax(request):
     return JsonResponse({'success': False, 'error': 'Solicitud inválida.'})
 
 @login_required(login_url='/login/')
+@require_purchase_permission('ordenes_compra', 'ver')
 def exportar_compras_excel(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
@@ -408,6 +412,7 @@ def exportar_compras_excel(request):
 from django.db.models import Q
 
 @login_required(login_url='/login/')
+@require_purchase_permission('ordenes_compra', 'ver')
 def dashboard_compras(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
@@ -509,6 +514,7 @@ def dashboard_compras(request):
     return render(request, 'dashboard_compras.html', context)
 
 @login_required
+@require_purchase_permission('ordenes_compra', 'crear', json_response=True)
 def crear_compra(request):
     if request.method == 'POST':
         try:
@@ -540,6 +546,13 @@ def cambiar_estado_compra(request, compra_id):
     if request.method == 'POST':
         nuevo_estado = request.POST.get('estado')
         empresa_actual = get_empresa_actual(request)
+        perms = get_granular_purchase_permissions(request).get('ordenes_compra', {})
+        if nuevo_estado == 'aprobada' and not perms.get('aprobar'):
+            return JsonResponse({'success': False, 'error': 'No tienes permisos para aprobar órdenes de compra.'}, status=403)
+        elif nuevo_estado == 'cancelada' and not perms.get('cancelar'):
+            return JsonResponse({'success': False, 'error': 'No tienes permisos para cancelar órdenes de compra.'}, status=403)
+        elif nuevo_estado not in ['aprobada', 'cancelada'] and not perms.get('editar'):
+            return JsonResponse({'success': False, 'error': 'No tienes permisos para editar órdenes de compra.'}, status=403)
         compra = get_object_or_404(OrdenCompra, id=compra_id, empresa=empresa_actual)
 
         if nuevo_estado in ['borrador', 'aprobada', 'recibida', 'cancelada', 'parcial']:
@@ -557,6 +570,7 @@ def cambiar_estado_compra(request, compra_id):
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
 @login_required
+@require_purchase_permission('ordenes_compra', 'ver', json_response=True)
 def obtener_compra_json(request, compra_id):
     try:
         empresa_actual = get_empresa_actual(request)
@@ -605,6 +619,7 @@ def obtener_compra_json(request, compra_id):
         return JsonResponse({'error': str(e)}, status=400)
 
 @login_required
+@require_purchase_permission('ordenes_compra', 'registrar_pago', json_response=True)
 def api_info_pago_compra(request, compra_id):
     """Devuelve los datos necesarios para el modal de pago de una compra"""
     empresa_actual = get_empresa_actual(request)
@@ -626,6 +641,7 @@ def api_info_pago_compra(request, compra_id):
     return JsonResponse(data)
 
 @login_required
+@require_purchase_permission('ordenes_compra', 'editar', json_response=True)
 @transaction.atomic
 def actualizar_compra(request, compra_id):
     if request.method == 'POST':
@@ -633,12 +649,30 @@ def actualizar_compra(request, compra_id):
             empresa_actual = get_empresa_actual(request)
             orden = get_object_or_404(OrdenCompra, id=compra_id, empresa=empresa_actual)
 
+            from proveedores.models import SucursalProveedor
+            from preferencias.models import Sucursal
+
+            prov_id = request.POST.get('proveedor')
+            prov_obj = get_object_or_404(Proveedor, id=prov_id, empresa=empresa_actual)
+
+            suc_prov_id = request.POST.get('sucursal')
+            suc_prov_obj = SucursalProveedor.objects.filter(id=suc_prov_id, proveedor=prov_obj).first() if suc_prov_id else None
+
+            suc_emp_id = request.POST.get('sucursal_empresa')
+            suc_emp_obj = Sucursal.objects.filter(id=suc_emp_id, empresa=empresa_actual).first() if suc_emp_id else None
+
+            alm_id = request.POST.get('almacen')
+            alm_obj = Almacen.objects.filter(id=alm_id, empresa=empresa_actual).first() if alm_id else None
+
+            mon_id = request.POST.get('moneda')
+            mon_obj = Moneda.objects.filter(id=mon_id, empresa=empresa_actual).first() if mon_id else None
+
             # 1. Actualizar Cabecera
-            orden.proveedor_id = request.POST.get('proveedor')
-            orden.sucursal_id = request.POST.get('sucursal')
-            orden.sucursal_empresa_id = request.POST.get('sucursal_empresa')
-            orden.almacen_destino_id = request.POST.get('almacen')
-            orden.moneda_id = request.POST.get('moneda')
+            orden.proveedor = prov_obj
+            orden.sucursal = suc_prov_obj
+            orden.sucursal_empresa = suc_emp_obj
+            orden.almacen_destino = alm_obj
+            orden.moneda = mon_obj
             orden.tipo_cambio = request.POST.get('tipo_cambio', '1.0000')
             orden.descuento = request.POST.get('descuento', '0.00')
 
@@ -666,9 +700,12 @@ def actualizar_compra(request, compra_id):
                 cant = int(cantidades[i])
                 precio = float(precios[i])
                 if prod_id and cant > 0:
+                    prod_obj = Producto.objects.filter(id=prod_id, empresa=empresa_actual).first()
+                    if not prod_obj:
+                        continue
                     DetalleCompra.objects.create(
                         orden_compra=orden,
-                        producto_id=prod_id,
+                        producto=prod_obj,
                         cantidad=cant,
                         precio_costo=precio
                     )
@@ -678,6 +715,7 @@ def actualizar_compra(request, compra_id):
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
 @login_required
+@require_purchase_permission('ordenes_compra', 'consolidar', json_response=True)
 @transaction.atomic
 def consolidar_compras_ajax(request):
     if request.method == 'POST':
@@ -781,6 +819,7 @@ def consolidar_compras_ajax(request):
     return JsonResponse({'success': False, 'message': 'Método no permitido.'})
 
 @login_required
+@require_purchase_permission('ordenes_compra', 'imprimir')
 def imprimir_compra(request, pk):
     """Genera la vista para impresión de orden de compra (PDF)"""
     empresa_actual = get_empresa_actual(request)

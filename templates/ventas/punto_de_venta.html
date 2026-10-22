@@ -217,56 +217,11 @@
                     <!-- Contenedor de Resultados del Buscador Autocomplete -->
                     <div id="posSearchResults" class="bg-white shadow-lg border rounded-3 position-absolute w-100 mt-1" style="display: none; z-index: 1050; max-height: 300px; overflow-y: auto;"></div>
                 </div>
-                <!-- Tipo -->
-                <div class="custom-select-wrapper" style="width: 140px;">
-                    <div class="custom-select" id="selectTipoWrapper">
-                        <div class="custom-select__trigger bg-white border-0 shadow-sm text-secondary" style="border-radius: 12px; height: 42px; cursor: pointer;">
-                            <div class="fake-input-layer">
-                                <span class="text-secondary" style="font-size: 0.85rem;"><i class="bi bi-funnel me-1"></i> <span id="labelTipo">Todos los Tipos</span></span>
-                            </div>
-                            <i class="bi bi-chevron-down" style="position: absolute; right: 12px; color: #6c757d; pointer-events: none; font-size: 0.8rem;"></i>
-                        </div>
-                        <div class="custom-options" style="border-radius: 8px; margin-top: 5px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                            <span class="custom-option py-2 px-3 selected" onclick="selectTipo('todos', 'Todos los Tipos', this)">Todos los Tipos</span>
-                            <span class="custom-option py-2 px-3" onclick="selectTipo('producto', 'Productos', this)">Productos</span>
-                            <span class="custom-option py-2 px-3" onclick="selectTipo('servicio', 'Servicios', this)">Servicios</span>
-                        </div>
-                    </div>
-                </div>
-                <!-- Categoría -->
-                <div class="custom-select-wrapper" style="width: 170px;">
-                    <div class="custom-select" id="selectCategoriaWrapper">
-                        <div class="custom-select__trigger bg-white border-0 shadow-sm text-secondary" style="border-radius: 12px; height: 42px; cursor: pointer;">
-                            <div class="fake-input-layer">
-                                <span class="text-secondary" style="font-size: 0.85rem;"><i class="bi bi-tag me-1"></i> <span id="labelCategoria">Todas las Cat.</span></span>
-                            </div>
-                            <i class="bi bi-chevron-down" style="position: absolute; right: 12px; color: #6c757d; pointer-events: none; font-size: 0.8rem;"></i>
-                        </div>
-                        <div class="custom-options" style="border-radius: 8px; margin-top: 5px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-height: 250px; overflow-y: auto;">
-                            <span class="custom-option py-2 px-3 selected" onclick="selectCategory('todas', 'Todas las Cat.', this)">Todas las Categorías</span>
-                            {% for cat in categorias %}
-                            <span class="custom-option py-2 px-3" onclick="selectCategory('{{ cat|escapejs|lower }}', '{{ cat|escapejs }}', this)">{{ cat }}</span>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-                <!-- Subcategoría -->
-                <div class="custom-select-wrapper" style="width: 170px;">
-                    <div class="custom-select" id="selectSubcategoriaWrapper">
-                        <div class="custom-select__trigger bg-white border-0 shadow-sm text-secondary" style="border-radius: 12px; height: 42px; cursor: pointer;">
-                            <div class="fake-input-layer">
-                                <span class="text-secondary" style="font-size: 0.85rem;"><i class="bi bi-tags me-1"></i> <span id="labelSubcategoria">Todas las Subcat.</span></span>
-                            </div>
-                            <i class="bi bi-chevron-down" style="position: absolute; right: 12px; color: #6c757d; pointer-events: none; font-size: 0.8rem;"></i>
-                        </div>
-                        <div class="custom-options" style="border-radius: 8px; margin-top: 5px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-height: 250px; overflow-y: auto;">
-                            <span class="custom-option py-2 px-3 selected" onclick="selectSubcategory('todas', 'Todas las Subcat.', this)">Todas las Subcategorías</span>
-                            {% for subcat in subcategorias %}
-                            <span class="custom-option py-2 px-3" onclick="selectSubcategory('{{ subcat|escapejs|lower }}', '{{ subcat|escapejs }}', this)">{{ subcat }}</span>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
+                <!-- Botón de Retiros -->
+                <button type="button" class="btn text-white fw-bold shadow-sm d-flex align-items-center gap-2 px-3" style="background-color: #00b8b9; border: none; border-radius: 12px; height: 42px; font-size: 0.9rem; white-space: nowrap;" onclick="abrirModalRetiroPOS()" {% if not sesion_activa %}disabled title="Abre turno de caja para realizar retiros"{% endif %}>
+                    <i class="bi bi-cash-stack"></i>
+                    <span>Retiros</span>
+                </button>
             </div>
 
             <!-- Listado del Carrito (Artículos para la venta) -->
@@ -286,7 +241,7 @@
 
         <!-- SECCIÓN DERECHA: TICKET Y COBRO -->
         <div class="col-lg-5 h-100">
-            <div class="cart-panel shadow-sm border-0 h-100 p-4">
+            <div class="cart-panel shadow-sm border-0 h-100 p-4" style="overflow-y: auto;">
                 <!-- Encabezado del Ticket -->
                 <div class="border-bottom pb-3 mb-3">
                     <div class="d-flex justify-content-between align-items-center mb-1">
@@ -445,6 +400,47 @@
                     <button class="btn btn-brand text-white btn-lg w-100 py-3 fw-bold" style="border-radius: 8px; font-size: 1.05rem;" onclick="processPOSCheckout()" disabled>
                         <i class="bi bi-check2-circle me-2"></i>Registrar Venta
                     </button>
+                </div>
+
+                <!-- SECCIÓN: ÚLTIMAS 10 VENTAS -->
+                <div class="border-top pt-3 mt-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold text-dark mb-0" style="font-size: 0.9rem;">
+                            <i class="bi bi-clock-history me-1 text-brand"></i>Últimas 10 Ventas
+                        </h6>
+                        <span class="badge bg-light text-secondary border" style="font-size: 0.7rem;">Clic en el folio para ver desglose</span>
+                    </div>
+                    <div class="table-responsive border rounded-3 bg-white" style="max-height: 220px; overflow-y: auto;">
+                        <table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.82rem;">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th class="ps-3 py-2 text-secondary">Folio</th>
+                                    <th class="text-center py-2 text-secondary">Fecha y Hora</th>
+                                    <th class="text-end pe-3 py-2 text-secondary">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for venta in ultimas_ventas %}
+                                <tr>
+                                    <td class="ps-3 py-2">
+                                        <a href="javascript:void(0);" onclick="verDetalleVentaPOS({{ venta.id }})" class="fw-bold text-decoration-none d-inline-flex align-items-center gap-1" style="color: #00b8b9;" title="Ver desglose de venta">
+                                            <i class="bi bi-eye"></i>
+                                            <span>PED-{{ venta.id|stringformat:"04d" }}</span>
+                                        </a>
+                                    </td>
+                                    <td class="text-center text-muted py-2">{{ venta.fecha_creacion|date:"d/m/Y H:i" }}</td>
+                                    <td class="text-end pe-3 fw-bold text-dark py-2">${{ venta.total_pedido|floatformat:2 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted py-3 small fst-italic">
+                                        No hay ventas registradas recientemente.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2161,5 +2157,231 @@
         }
         inputPwd.focus();
     }
+
+    // =========================================================================
+    // DESGLOSE DE VENTA (ÚLTIMAS 10 VENTAS - MODAL OJITO)
+    // =========================================================================
+    function verDetalleVentaPOS(id) {
+        const tbody = document.getElementById('ver_pedido_tabla_cuerpo');
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</td></tr>';
+
+        const modalEl = document.getElementById('modalVerPedido');
+        let modal = bootstrap.Modal.getInstance(modalEl);
+        if (!modal) {
+            modal = new bootstrap.Modal(modalEl);
+        }
+        modal.show();
+
+        fetch(`/ventas/pos/detalle-venta/${id}/`, {
+            method: 'GET',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+
+            document.getElementById('ver_pedido_folio').innerText = data.folio;
+            document.getElementById('ver_pedido_cliente').innerText = data.cliente_nombre;
+            document.getElementById('ver_pedido_contacto').innerText = data.contacto_nombre;
+            document.getElementById('ver_pedido_cliente_tel').innerText = data.cliente_tel;
+            document.getElementById('ver_pedido_cliente_email').innerText = data.cliente_email;
+            document.getElementById('ver_pedido_fecha').innerText = data.fecha;
+            document.getElementById('ver_pedido_cotizacion').innerText = data.cotizacion_folio;
+            document.getElementById('ver_pedido_contacto_nom').innerText = data.contacto_nombre;
+            document.getElementById('ver_pedido_contacto_tel').innerText = data.contacto_tel;
+            document.getElementById('ver_pedido_contacto_email').innerText = data.contacto_email;
+
+            const actionsHdr = document.querySelector('.ver-pedido-acciones-hdr');
+            if (actionsHdr) {
+                actionsHdr.style.display = 'none';
+            }
+
+            tbody.innerHTML = '';
+            if (data.detalles && data.detalles.length > 0) {
+                data.detalles.forEach(det => {
+                    tbody.insertAdjacentHTML('beforeend', `
+                        <tr>
+                            <td class="ps-3 fw-semibold small text-dark">${det.producto}</td>
+                            <td class="text-center small">${det.solicitado}</td>
+                            <td class="text-end small text-muted">$${parseFloat(det.precio).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                            <td class="text-end small text-dark">$${parseFloat(det.subtotal).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                            <td class="text-end small text-muted">$${parseFloat(det.iva_monto).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                            <td class="text-end pe-3 fw-bold small text-dark">$${parseFloat(det.total).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                        </tr>
+                    `);
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-muted fst-italic">No hay artículos en esta venta.</td></tr>';
+            }
+
+            const elSub = document.getElementById('ver_pedido_subtotal');
+            if (elSub) elSub.innerText = '$' + parseFloat(data.subtotal_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+
+            const elIva = document.getElementById('ver_pedido_iva_total');
+            if (elIva) elIva.innerText = '$' + parseFloat(data.iva_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+
+            const elTotal = document.getElementById('ver_pedido_gran_total');
+            if (elTotal) elTotal.innerText = '$' + parseFloat(data.gran_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+        })
+        .catch(err => {
+            console.error(err);
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-3">Error al cargar el desglose.</td></tr>';
+        });
+    }
+
+    // =========================================================================
+    // RETIROS DE EFECTIVO EN CAJA POS
+    // =========================================================================
+    let modalRetiroPOSInstance = null;
+
+    function abrirModalRetiroPOS() {
+        if (!isSessionActive) {
+            alert("Debes abrir un turno de caja antes de registrar un retiro.");
+            return;
+        }
+
+        fetch('{% url "obtener_totales_sesion_ajax" %}', {
+            method: 'GET',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const disp = parseFloat(data.efectivo_estimado || 0);
+                document.getElementById('retiroEfectivoDisponible').innerText = '$' + disp.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                document.getElementById('retiroMontoInput').value = '';
+                document.getElementById('retiroMontoInput').setAttribute('max', disp.toFixed(2));
+                document.getElementById('retiroProveedorSelect').value = '';
+                document.getElementById('retiroDescripcionInput').value = '';
+
+                if (!modalRetiroPOSInstance) {
+                    modalRetiroPOSInstance = new bootstrap.Modal(document.getElementById('modalRetiroPOS'));
+                }
+                modalRetiroPOSInstance.show();
+            } else {
+                alert("Error al consultar el efectivo disponible: " + data.error);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Error de conexión al consultar los totales de la sesión.");
+        });
+    }
+
+    function procesarRetiroPOS() {
+        const montoVal = parseFloat(document.getElementById('retiroMontoInput').value) || 0;
+        const proveedorId = document.getElementById('retiroProveedorSelect').value;
+        const descripcion = document.getElementById('retiroDescripcionInput').value.trim();
+        const btnSubmit = document.getElementById('btnSubmitRetiroPOS');
+
+        if (montoVal <= 0) {
+            alert("Ingresa un monto válido mayor a $0.00.");
+            return;
+        }
+        if (!descripcion) {
+            alert("Escribe una descripción o concepto para el retiro.");
+            return;
+        }
+
+        if (btnSubmit) btnSubmit.disabled = true;
+
+        fetch('{% url "registrar_retiro_pos_ajax" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                monto: montoVal,
+                proveedor_id: proveedorId || null,
+                descripcion: descripcion
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (btnSubmit) btnSubmit.disabled = false;
+            if (data.success) {
+                if (modalRetiroPOSInstance) {
+                    modalRetiroPOSInstance.hide();
+                }
+                alert(data.message);
+            } else {
+                alert("Error: " + data.error);
+            }
+        })
+        .catch(err => {
+            if (btnSubmit) btnSubmit.disabled = false;
+            console.error(err);
+            alert("Error de conexión al registrar el retiro.");
+        });
+    }
 </script>
+
+<!-- MODAL: RETIRO DE EFECTIVO EN CAJA POS -->
+<div class="modal fade" id="modalRetiroPOS" tabindex="-1" aria-labelledby="modalRetiroPOSLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+            <div class="modal-header border-bottom bg-light py-3">
+                <h5 class="modal-title fw-bold text-dark" id="modalRetiroPOSLabel">
+                    <i class="bi bi-cash-stack me-2" style="color: #00b8b9;"></i>Retiro de Efectivo de Caja
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form onsubmit="event.preventDefault(); procesarRetiroPOS();">
+                <div class="modal-body p-4 bg-light">
+                    <!-- Efectivo disponible en caja -->
+                    <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
+                        <div class="card-body p-3 d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="text-secondary small fw-bold d-block text-uppercase" style="font-size: 0.72rem;">Efectivo Disponible en Caja</span>
+                                <small class="text-muted">Fondo inicial + Ventas en efectivo - Retiros previos</small>
+                            </div>
+                            <span id="retiroEfectivoDisponible" class="fs-4 fw-bold" style="color: #00b8b9;">$0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- Monto a retirar -->
+                    <div class="mb-3">
+                        <label for="retiroMontoInput" class="form-label small fw-bold text-secondary">¿Cuánto deseas retirar? <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white fw-bold">$</span>
+                            <input type="number" step="0.01" min="0.01" id="retiroMontoInput" class="form-control fw-bold text-end" placeholder="0.00" style="font-size: 1.1rem;" required>
+                        </div>
+                    </div>
+
+                    <!-- Proveedor (Opcional) -->
+                    <div class="mb-3">
+                        <label for="retiroProveedorSelect" class="form-label small fw-bold text-secondary">Pago a Proveedor (Opcional)</label>
+                        <select id="retiroProveedorSelect" class="form-select">
+                            <option value="">-- Sin proveedor (Retiro general de caja) --</option>
+                            {% for prov in proveedores %}
+                            <option value="{{ prov.id }}">{{ prov.razon_social }}{% if prov.rfc %} ({{ prov.rfc }}){% endif %}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted d-block mt-1">Selecciona un proveedor si el retiro es para pagarle directamente desde caja.</small>
+                    </div>
+
+                    <!-- Descripción / Motivo -->
+                    <div class="mb-0">
+                        <label for="retiroDescripcionInput" class="form-label small fw-bold text-secondary">Descripción / Concepto <span class="text-danger">*</span></label>
+                        <textarea id="retiroDescripcionInput" class="form-control" rows="2" placeholder="Ej: Pago de garrafones de agua, retiro parcial por seguridad, compra de insumos..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-top bg-white py-2">
+                    <button type="button" class="btn btn-light btn-sm text-secondary px-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" id="btnSubmitRetiroPOS" class="btn btn-sm text-white fw-bold px-4" style="background-color: #00b8b9;">
+                        <i class="bi bi-check2-circle me-1"></i>Registrar Retiro (Egreso)
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% include "pedidos/modals/modal_ver_pedido.html" %}
 {% endblock %}

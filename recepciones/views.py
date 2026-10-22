@@ -4,6 +4,8 @@ from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Sum, F
+from django.utils import timezone
+from decimal import Decimal
 import openpyxl
 from datetime import datetime
 from .models import Recepcion, DetalleRecepcion, DetalleRecepcionExtra
@@ -13,8 +15,10 @@ from core.models import Producto, Transaccion
 from almacenes.models import Almacen, Inventario
 from panel.models import Empresa
 from notificaciones.utils import crear_notificacion
+from preferencias.permissions import require_purchase_permission, get_granular_purchase_permissions
 
 @login_required(login_url='/login/')
+@require_purchase_permission('recepciones', 'crear')
 def descargar_plantilla_recepciones(request):
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -37,6 +41,7 @@ def descargar_plantilla_recepciones(request):
     return response
 
 @login_required(login_url='/login/')
+@require_purchase_permission('recepciones', 'crear', json_response=True)
 def importar_recepciones_ajax(request):
     if request.method == 'POST' and request.FILES.get('archivo_recepciones'):
         empresa_actual = get_empresa_actual(request)
@@ -119,13 +124,16 @@ def importar_recepciones_ajax(request):
                             empresa=empresa_actual,
                             orden_compra=orden,
                             almacen=almacen,
-                            sucursal=sucursal_obj,
+                            sucursal=orden.sucursal_empresa or sucursal_obj,
+                            moneda=orden.moneda,
+                            tipo_cambio=orden.tipo_cambio,
                             fecha=fecha_rec,
                             factura=data['factura'],
                             estado='completada'
                         )
 
-                        # Crear Detalles
+                        # Crear Detalles y registrar en Inventario / Kardex
+                        detalles_creados = 0
                         for item in data['items']:
                             from core.models import Producto
                             producto = None
@@ -134,17 +142,53 @@ def importar_recepciones_ajax(request):
                             if not producto:
                                 producto = Producto.objects.filter(nombre__icontains=item['prod_input'], empresa=empresa_actual).first()
                             
-                            if producto:
+                            cant_rec = int(item['cantidad'] or 0)
+                            if producto and cant_rec > 0:
                                 # Buscar el detalle de compra correspondiente para vincular
                                 det_compra = DetalleCompra.objects.filter(orden_compra=orden, producto=producto).first()
+                                costo_unit = Decimal(str(det_compra.precio_costo if det_compra else (producto.precio_costo or 0)))
                                 
                                 DetalleRecepcion.objects.create(
                                     recepcion=recepcion,
                                     producto=producto,
                                     detalle_compra=det_compra,
-                                    cantidad_recibida=item['cantidad'],
-                                    costo_unitario=det_compra.precio_costo if det_compra else (producto.precio_costo or 0)
+                                    cantidad_recibida=cant_rec,
+                                    costo_unitario=costo_unit
                                 )
+                                detalles_creados += 1
+
+                                if producto.tipo != 'servicio':
+                                    tc_aplicar = Decimal(str(orden.tipo_cambio or '1.0000'))
+                                    costo_pesos = costo_unit * tc_aplicar
+                                    Transaccion.objects.create(
+                                        producto=producto,
+                                        almacen=almacen,
+                                        tipo='compra',
+                                        cantidad=cant_rec,
+                                        total=costo_pesos * Decimal(str(cant_rec)),
+                                        empresa=empresa_actual,
+                                        usuario=request.user,
+                                        referencia=f"REC-{recepcion.id:04d}",
+                                        estado='recibida'
+                                    )
+
+                        if detalles_creados == 0:
+                            recepcion.delete()
+                            errores.append(f"Ref {ref}: No se encontraron artículos válidos con cantidad mayor a 0.")
+                            continue
+
+                        # Actualizar estado de la Orden de Compra
+                        orden_completa = True
+                        for det_oc in orden.detalles.all():
+                            total_recibido_prod = DetalleRecepcion.objects.filter(
+                                recepcion__orden_compra=orden,
+                                producto=det_oc.producto
+                            ).exclude(recepcion__estado='cancelada').aggregate(total=Sum('cantidad_recibida'))['total'] or 0
+                            if total_recibido_prod < det_oc.cantidad:
+                                orden_completa = False
+                                break
+                        orden.estado = 'recibida' if orden_completa else 'parcial'
+                        orden.save()
                         
                         creadas += 1
                     except Exception as e:
@@ -163,6 +207,7 @@ def importar_recepciones_ajax(request):
     return JsonResponse({'success': False, 'error': 'Solicitud inválida.'})
 
 @login_required(login_url='/login/')
+@require_purchase_permission('recepciones', 'ver')
 def exportar_recepciones_excel(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
@@ -249,6 +294,7 @@ from django.db.models import Q
 from proveedores.models import Proveedor
 
 @login_required
+@require_purchase_permission('recepciones', 'ver')
 def dashboard_recepciones(request):
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
@@ -277,7 +323,7 @@ def dashboard_recepciones(request):
         )
     if folio_recepcion:
         clean_rec = folio_recepcion.upper().replace('REC-', '').replace('REC', '').strip()
-        recepciones_list = recepciones_list.filter(id__icontains=clean_folio)
+        recepciones_list = recepciones_list.filter(id__icontains=clean_rec)
     if folio_oc:
         clean_oc = folio_oc.upper().replace('OC-', '').replace('OC', '').strip()
         recepciones_list = recepciones_list.filter(orden_compra__id__icontains=clean_oc)
@@ -346,6 +392,7 @@ def dashboard_recepciones(request):
 
 
 @login_required
+@require_purchase_permission('recepciones', 'ver', json_response=True)
 def obtener_items_orden_compra(request, oc_id):
     empresa_actual = get_empresa_actual(request)
 
@@ -391,6 +438,7 @@ def obtener_items_orden_compra(request, oc_id):
         return JsonResponse({'error': 'Error interno al cargar artículos.'}, status=500)
 
 @login_required
+@require_purchase_permission('recepciones', 'crear', json_response=True)
 @transaction.atomic
 def crear_recepcion(request):
     if request.method == 'POST':
@@ -421,16 +469,22 @@ def crear_recepcion(request):
 def cambiar_estado_recepcion(request, recepcion_id):
     if request.method == 'POST':
         nuevo_estado = request.POST.get('estado')
+        if nuevo_estado == 'cancelada':
+            return cancelar_recepcion(request, recepcion_id)
+        perms = get_granular_purchase_permissions(request).get('recepciones', {})
+        if not perms.get('crear'):
+            return JsonResponse({'success': False, 'error': 'No tienes permisos para actualizar recepciones.'}, status=403)
         empresa_actual = get_empresa_actual(request)
         recepcion = get_object_or_404(Recepcion, id=recepcion_id, empresa=empresa_actual)
 
-        if nuevo_estado in ['completada', 'cancelada']:
+        if nuevo_estado == 'completada':
             recepcion.estado = nuevo_estado
             recepcion.save()
             return JsonResponse({'success': True, 'message': 'Estado actualizado'})
     return JsonResponse({'success': False, 'error': 'Error'})
 
 @login_required
+@require_purchase_permission('recepciones', 'ver', json_response=True)
 def api_detalle_recepcion(request, recepcion_id):
     try:
         empresa_actual = get_empresa_actual(request)
@@ -473,6 +527,7 @@ def api_detalle_recepcion(request, recepcion_id):
         return JsonResponse({'error': str(e)}, status=404)
 
 @login_required
+@require_purchase_permission('recepciones', 'cancelar', json_response=True)
 @transaction.atomic
 def cancelar_recepcion(request, recepcion_id):
     try:
@@ -531,6 +586,7 @@ def cancelar_recepcion(request, recepcion_id):
         return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required
+@require_purchase_permission('recepciones', 'imprimir')
 def imprimir_recepcion(request, pk):
     """Genera la vista para impresión de recepción de mercancía (PDF)"""
     empresa_actual = get_empresa_actual(request)

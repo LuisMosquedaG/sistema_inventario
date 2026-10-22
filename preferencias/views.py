@@ -322,6 +322,8 @@ def crear_moneda_ajax(request):
     if request.method == 'POST':
         try:
             empresa_actual = get_empresa_actual(request)
+            if not empresa_actual or not request.user.is_staff:
+                return JsonResponse({'success': False, 'error': 'Acceso denegado'}, status=403)
             nombre = request.POST.get('nombre')
             siglas = request.POST.get('siglas')
             simbolo = request.POST.get('simbolo')
@@ -358,6 +360,8 @@ def actualizar_moneda_ajax(request, moneda_id):
     if request.method == 'POST':
         try:
             empresa_actual = get_empresa_actual(request)
+            if not empresa_actual or not request.user.is_staff:
+                return JsonResponse({'success': False, 'error': 'Acceso denegado'}, status=403)
             moneda = get_object_or_404(Moneda, id=moneda_id, empresa=empresa_actual)
             moneda.nombre = request.POST.get('nombre')
             moneda.siglas = request.POST.get('siglas')
@@ -374,8 +378,8 @@ def actualizar_moneda_ajax(request, moneda_id):
 def crear_usuario_ajax(request):
     if request.method == 'POST':
         empresa_actual = get_empresa_actual(request)
-        if not empresa_actual:
-            return JsonResponse({'success': False, 'error': 'No se detectó empresa para asignar el prefijo.'})
+        if not empresa_actual or not request.user.is_staff:
+            return JsonResponse({'success': False, 'error': 'Acceso denegado.'}, status=403)
 
         username_corto = request.POST.get('username')
         email = request.POST.get('email')
@@ -452,6 +456,8 @@ def crear_usuario_ajax(request):
 @login_required
 def api_detalle_usuario(request, user_id):
     empresa_actual = get_empresa_actual(request)
+    if not empresa_actual or not request.user.is_staff:
+        return JsonResponse({'error': 'Acceso denegado'}, status=403)
     user = get_object_or_404(User, id=user_id)
     
     if f"@{empresa_actual.subdominio}" not in user.username:
@@ -490,6 +496,8 @@ def actualizar_usuario_ajax(request, user_id):
     if request.method == 'POST':
         try:
             empresa_actual = get_empresa_actual(request)
+            if not empresa_actual or not request.user.is_staff:
+                return JsonResponse({'success': False, 'error': 'Acceso denegado'}, status=403)
             user = get_object_or_404(User, id=user_id)
             
             if f"@{empresa_actual.subdominio}" not in user.username:
@@ -863,6 +871,12 @@ def crear_sucursal_ajax(request):
     if request.method == 'POST':
         try:
             empresa_actual = get_empresa_actual(request)
+            if not empresa_actual or not request.user.is_staff:
+                return JsonResponse({'success': False, 'error': 'Acceso denegado'}, status=403)
+            cliente_def_id = request.POST.get('cliente_defecto') or None
+            if cliente_def_id:
+                cliente_def_obj = Cliente.objects.filter(id=cliente_def_id, empresa=empresa_actual).first()
+                cliente_def_id = cliente_def_obj.id if cliente_def_obj else None
             Sucursal.objects.create(
                 nombre=request.POST.get('nombre'),
                 calle=request.POST.get('calle'),
@@ -873,7 +887,7 @@ def crear_sucursal_ajax(request):
                 estado=request.POST.get('estado'),
                 pais=request.POST.get('pais', 'México'),
                 cp=request.POST.get('cp'),
-                cliente_defecto_id=request.POST.get('cliente_defecto') or None,
+                cliente_defecto_id=cliente_def_id,
                 empresa=empresa_actual
             )
             return JsonResponse({'success': True, 'message': 'Sucursal registrada correctamente.'})
@@ -905,7 +919,13 @@ def actualizar_sucursal_ajax(request, sucursal_id):
     if request.method == 'POST':
         try:
             empresa_actual = get_empresa_actual(request)
+            if not empresa_actual or not request.user.is_staff:
+                return JsonResponse({'success': False, 'error': 'Acceso denegado'}, status=403)
             suc = get_object_or_404(Sucursal, id=sucursal_id, empresa=empresa_actual)
+            cliente_def_id = request.POST.get('cliente_defecto') or None
+            if cliente_def_id:
+                cliente_def_obj = Cliente.objects.filter(id=cliente_def_id, empresa=empresa_actual).first()
+                cliente_def_id = cliente_def_obj.id if cliente_def_obj else None
             suc.nombre = request.POST.get('nombre')
             suc.calle = request.POST.get('calle')
             suc.numero_exterior = request.POST.get('numero_exterior')
@@ -915,7 +935,7 @@ def actualizar_sucursal_ajax(request, sucursal_id):
             suc.estado = request.POST.get('estado')
             suc.pais = request.POST.get('pais')
             suc.cp = request.POST.get('cp')
-            suc.cliente_defecto_id = request.POST.get('cliente_defecto') or None
+            suc.cliente_defecto_id = cliente_def_id
             suc.save()
             return JsonResponse({'success': True, 'message': 'Sucursal actualizada correctamente.'})
         except Exception as e:
@@ -925,9 +945,20 @@ def actualizar_sucursal_ajax(request, sucursal_id):
 @login_required
 @require_POST
 def cambiar_sucursal_ajax(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Empresa no detectada'}, status=403)
     sucursal_id = request.POST.get('sucursal_id')
     if sucursal_id:
-        request.session['sucursal_id'] = int(sucursal_id)
+        try:
+            suc = Sucursal.objects.get(id=int(sucursal_id), empresa=empresa_actual)
+        except (ValueError, Sucursal.DoesNotExist):
+            return JsonResponse({'success': False, 'error': 'Sucursal no válida para tu empresa.'}, status=403)
+        if not request.user.is_superuser:
+            asignadas = AsignacionSucursalUsuario.objects.filter(usuario=request.user)
+            if asignadas.exists() and not asignadas.filter(sucursal=suc).exists():
+                return JsonResponse({'success': False, 'error': 'No tienes permiso para acceder a esta sucursal.'}, status=403)
+        request.session['sucursal_id'] = suc.id
         return JsonResponse({'success': True})
     return JsonResponse({'success': False, 'error': 'ID de sucursal no proporcionado'})
 
@@ -936,6 +967,8 @@ def eliminar_sucursal_ajax(request, sucursal_id):
     if request.method == 'POST':
         try:
             empresa_actual = get_empresa_actual(request)
+            if not empresa_actual or not request.user.is_staff:
+                return JsonResponse({'success': False, 'error': 'Acceso denegado'}, status=403)
             suc = get_object_or_404(Sucursal, id=sucursal_id, empresa=empresa_actual)
             suc.delete()
             return JsonResponse({'success': True, 'message': 'Sucursal eliminada correctamente.'})
@@ -1053,6 +1086,10 @@ def api_probar_smtp(request):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual or not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Acceso denegado'}, status=403)
+
     smtp_host = (request.POST.get('smtp_host') or '').strip()
     smtp_port_raw = request.POST.get('smtp_port') or '587'
     smtp_user = (request.POST.get('smtp_user') or '').strip()
@@ -1071,8 +1108,9 @@ def api_probar_smtp(request):
     usuario_id = request.POST.get('usuario_id')
     if not smtp_password and usuario_id:
         try:
-            existing = UsuarioCorreoSMTP.objects.get(usuario_id=usuario_id)
-            smtp_password = existing.smtp_password
+            existing = UsuarioCorreoSMTP.objects.select_related('usuario').get(usuario_id=usuario_id)
+            if f"@{empresa_actual.subdominio}" in existing.usuario.username:
+                smtp_password = existing.smtp_password
         except UsuarioCorreoSMTP.DoesNotExist:
             pass
 

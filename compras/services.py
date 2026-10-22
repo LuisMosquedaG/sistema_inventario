@@ -24,6 +24,30 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
     if not proveedor:
         raise ValueError("El proveedor es obligatorio.")
 
+    from proveedores.models import Proveedor, SucursalProveedor
+    from almacenes.models import Almacen
+    from preferencias.models import Moneda
+
+    prov_obj = Proveedor.objects.filter(id=proveedor, empresa=empresa_actual).first()
+    if not prov_obj:
+        raise ValueError("El proveedor seleccionado no es válido o no pertenece a tu empresa.")
+
+    suc_prov_obj = None
+    if sucursal_id:
+        suc_prov_obj = SucursalProveedor.objects.filter(id=sucursal_id, proveedor=prov_obj).first()
+
+    alm_obj = None
+    if almacen_id:
+        alm_obj = Almacen.objects.filter(id=almacen_id, empresa=empresa_actual).first()
+        if not alm_obj:
+            raise ValueError("El almacén destino no pertenece a tu empresa.")
+
+    moneda_obj = None
+    if moneda_id:
+        moneda_obj = Moneda.objects.filter(id=moneda_id, empresa=empresa_actual).first()
+        if not moneda_obj:
+            raise ValueError("La moneda seleccionada no pertenece a tu empresa.")
+
     # Asignar sucursal desde POST o desde la sesión
     sucursal_empresa_obj = None
     final_sucursal_empresa_id = sucursal_empresa_id or session_sucursal_id
@@ -48,10 +72,10 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
 
     # 2. Crear la Cabecera (OrdenCompra)
     create_kwargs = {
-        'proveedor_id': proveedor,
-        'sucursal_id': sucursal_id if sucursal_id else None, 
-        'almacen_destino_id': almacen_id if almacen_id else None,
-        'moneda_id': moneda_id if moneda_id else None,
+        'proveedor': prov_obj,
+        'sucursal': suc_prov_obj, 
+        'almacen_destino': alm_obj,
+        'moneda': moneda_obj,
         'tipo_cambio': tipo_cambio,
         'descuento': descuento,
         'notas': notas,
@@ -89,9 +113,12 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
             continue # Ignorar líneas con datos inválidos
 
         if cant > 0:
+            prod_obj = Producto.objects.filter(id=prod_id, empresa=empresa_actual).first()
+            if not prod_obj:
+                continue
             DetalleCompra.objects.create(
                 orden_compra=orden,
-                producto_id=prod_id,
+                producto=prod_obj,
                 cantidad=cant,
                 precio_costo=precio
             )

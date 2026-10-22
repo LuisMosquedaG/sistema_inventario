@@ -8,6 +8,7 @@ from preferencias.models import Moneda
 from pedidos.models import Pedido
 from compras.models import OrdenCompra
 from django.db import transaction
+from decimal import Decimal
 from preferencias.permissions import require_treasury_permission
 from notificaciones.utils import crear_notificacion
 
@@ -94,9 +95,9 @@ def api_registrar_pago_compra(request):
             moneda_id = request.POST.get('moneda_id')
             moneda = get_object_or_404(Moneda, id=moneda_id, empresa=empresa_actual)
             
-            monto = float(request.POST.get('monto', 0))
-            tipo_cambio = float(request.POST.get('tipo_cambio', 1.0))
-            monto_mxn = monto * tipo_cambio
+            monto = Decimal(str(request.POST.get('monto', '0') or '0'))
+            tipo_cambio = Decimal(str(request.POST.get('tipo_cambio', '1.0') or '1.0'))
+            monto_mxn = (monto * tipo_cambio).quantize(Decimal('0.01'))
             fecha_pago = request.POST.get('fecha_pago')
             forma_pago = request.POST.get('forma_pago')
             referencia = request.POST.get('referencia', '')
@@ -333,12 +334,33 @@ def api_cancelar_ingreso(request, id):
                 pago.motivo_cancelacion = motivo
                 pago.save()
 
+                pedido = pago.pedido
+
+                # Si el pedido tiene un registro de Crédito cuyo saldo fue disminuido por abonos,
+                # restaurar el saldo del crédito hasta su monto_total original si corresponde.
+                from clientes.models import Credito
+                credito_obj = Credito.objects.filter(pedido=pedido, empresa=empresa_actual).first()
+                if credito_obj and credito_obj.saldo < credito_obj.monto_total:
+                    credito_obj.saldo = min(credito_obj.monto_total, credito_obj.saldo + Decimal(str(pago.monto)))
+                    credito_obj.save()
+
+                # Si el pedido pertenece a una sesión de caja POS, actualizar los totales en vivo de la sesión.
+                if pedido.sesion_caja:
+                    from django.db.models import Sum
+                    sesion = pedido.sesion_caja
+                    pagos_restantes = PagoPedido.objects.filter(pedido__sesion_caja=sesion, estado='aplicado')
+                    sesion.total_ventas_efectivo = pagos_restantes.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+                    sesion.total_ventas_tarjeta = pagos_restantes.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito']).aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+                    sesion.total_ventas_transferencia = pagos_restantes.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+                    sesion.total_ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).exclude(pedido__estado='cancelado').aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
+                    sesion.save()
+
                 # --- NOTIFICACIÓN ---
                 crear_notificacion(
                     empresa=empresa_actual,
-                    mensaje=f"Se ha CANCELADO el pago de ${ingreso.monto:,.2f} {ingreso.moneda.siglas} del Pedido PED-{pago.pedido.id:04d}.",
+                    mensaje=f"Se ha CANCELADO el pago de ${ingreso.monto:,.2f} {ingreso.moneda.siglas} del Pedido PED-{pedido.id:04d}.",
                     actor=request.user,
-                    propietario=pago.pedido.vendedor
+                    propietario=pedido.vendedor
                 )
             
             return JsonResponse({'success': True, 'message': 'Ingreso cancelado correctamente.'})
@@ -363,9 +385,9 @@ def api_registrar_pago_pedido(request):
             moneda_id = request.POST.get('moneda_id')
             moneda = get_object_or_404(Moneda, id=moneda_id, empresa=empresa_actual)
 
-            monto = float(request.POST.get('monto', 0))
-            tipo_cambio = float(request.POST.get('tipo_cambio', 1.0))
-            monto_mxn = monto * tipo_cambio
+            monto = Decimal(str(request.POST.get('monto', '0') or '0'))
+            tipo_cambio = Decimal(str(request.POST.get('tipo_cambio', '1.0') or '1.0'))
+            monto_mxn = (monto * tipo_cambio).quantize(Decimal('0.01'))
             referencia = request.POST.get('referencia', '')
 
             # --- CAJA/BANCO y FECHA solo para pagos NO crédito ---
@@ -443,12 +465,9 @@ def api_registrar_pago_pedido(request):
                 # Si es un abono para liquidar/pagar un crédito existente
                 credito_obj = Credito.objects.filter(pedido=pedido, saldo__gt=0).first()
                 if credito_obj:
-                    nuevo_saldo = credito_obj.saldo - D(str(monto))
-                    if nuevo_saldo <= 0:
-                        credito_obj.delete()
-                    else:
-                        credito_obj.saldo = nuevo_saldo
-                        credito_obj.save()
+                    nuevo_saldo = max(D('0.00'), credito_obj.saldo - D(str(monto)))
+                    credito_obj.saldo = nuevo_saldo
+                    credito_obj.save()
 
             # --- NOTIFICACIÓN ---
             crear_notificacion(

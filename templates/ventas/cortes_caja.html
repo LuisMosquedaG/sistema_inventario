@@ -263,7 +263,8 @@
                                                 const finalEf = parseFloat("{{ sesion.monto_final_efectivo }}");
                                                 const inicial = parseFloat("{{ sesion.monto_inicial }}");
                                                 const ventas = parseFloat("{{ sesion.total_efectivo }}");
-                                                const diff = finalEf - (inicial + ventas);
+                                                const retiros = parseFloat("{{ sesion.total_retiros|default:0 }}");
+                                                const diff = finalEf - (inicial + ventas - retiros);
                                                 const el = document.getElementById("diff-span-z-{{ sesion.id }}");
                                                 if (diff === 0) {
                                                      el.innerHTML = "$0.00";
@@ -303,6 +304,7 @@
                                                   data-ventas-transferencia="{{ sesion.total_ventas_transferencia }}"
                                                   data-ventas-credito="{{ sesion.total_ventas_credito }}"
                                                   data-total-ventas="{{ sesion.total_ventas }}"
+                                                  data-retiros="{{ sesion.total_retiros|default:0 }}"
                                                   data-contado-real="{{ sesion.monto_final_efectivo|default:0 }}">
                                                 {% if granular_sales_perms.cortes_de_caja.ver %}
                                                 <i class="bi bi-eye"></i>
@@ -388,7 +390,8 @@
                                                     const finalEf = parseFloat("{{ sesion.monto_final_efectivo }}");
                                                     const inicial = parseFloat("{{ sesion.monto_inicial }}");
                                                     const ventas = parseFloat("{{ sesion.total_ventas_efectivo }}");
-                                                    const diff = finalEf - (inicial + ventas);
+                                                    const retiros = parseFloat("{{ sesion.total_retiros|default:0 }}");
+                                                    const diff = finalEf - (inicial + ventas - retiros);
                                                     const el = document.getElementById("diff-span-{{ sesion.id }}");
                                                     if (diff === 0) {
                                                         el.innerHTML = "$0.00";
@@ -617,6 +620,10 @@
                     <div class="d-flex justify-content-between mb-1">
                         <span class="text-secondary">(+) Ventas Efectivo:</span>
                         <span id="verSesionVentasEfectivo" class="fw-semibold text-dark">$0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1 text-danger">
+                        <span>(-) Retiros de Caja (Egresos):</span>
+                        <span id="verSesionRetiros" class="fw-semibold">-$0.00</span>
                     </div>
                     <div class="d-flex justify-content-between mb-1">
                         <span class="text-secondary">(+) Ventas Tarjeta:</span>
@@ -938,6 +945,7 @@
         const ventasTransferencia = parseFloat(btn.getAttribute('data-ventas-transferencia')) || 0;
         const ventasCredito = parseFloat(btn.getAttribute('data-ventas-credito')) || 0;
         const totalVentas = parseFloat(btn.getAttribute('data-total-ventas')) || 0;
+        const retirosCaja = parseFloat(btn.getAttribute('data-retiros')) || 0;
         const contadoReal = parseFloat(btn.getAttribute('data-contado-real')) || 0;
         
         document.getElementById('verSesionCaja').innerText = caja;
@@ -966,8 +974,12 @@
         document.getElementById('verSesionVentasTransferencia').innerText = '$' + ventasTransferencia.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         document.getElementById('verSesionVentasCredito').innerText = '$' + ventasCredito.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         document.getElementById('verSesionTotalVentas').innerText = '$' + totalVentas.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const elRetiros = document.getElementById('verSesionRetiros');
+        if (elRetiros) {
+            elRetiros.innerText = '-$' + retirosCaja.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        }
         
-        const estimadoEf = montoInicial + ventasEfectivo;
+        const estimadoEf = montoInicial + ventasEfectivo - retirosCaja;
         document.getElementById('verSesionEfectivoEstimado').innerText = '$' + estimadoEf.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         
         if (estado === 'cerrada') {
