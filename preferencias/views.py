@@ -15,7 +15,7 @@ from django.db.models import Q
 from django.views.decorators.http import require_POST
 
 # Importaciones de modelos para exportación/limpieza
-from ventas.models import OrdenVenta, DetalleOrdenVenta
+from ventas.models import OrdenVenta, DetalleOrdenVenta, CajaPOS, SesionCajaPOS, CorteZ
 from compras.models import OrdenCompra, DetalleCompra
 from pedidos.models import Pedido, DetallePedido
 from solicitudcompras.models import SolicitudCompra, DetalleSolicitudCompra
@@ -24,7 +24,7 @@ from actividades.models import Actividad
 from almacenes.models import Almacen, Inventario, Kardex
 from core.models import Producto, Categoria as CategoriaCore, Transaccion as TransaccionCore, DetalleReceta
 from categorias.models import Categoria, Subcategoria, ListaPrecioCosto
-from clientes.models import Cliente, ContactoCliente
+from clientes.models import Cliente, ContactoCliente, Credito
 from proveedores.models import Proveedor
 from recursos_humanos.models import Empleado, Contrato, Contratista, Beneficiario, ImportacionSUA
 from recepciones.models import Recepcion, DetalleRecepcion, DetalleRecepcionExtra
@@ -234,13 +234,17 @@ def reiniciar_transacciones_ajax(request):
         try:
             # Borrar transacciones en orden de dependencia (Hijos primero para evitar PROTECT)
             
-            # 1. Tesorería
+            # 1. Tesorería y Créditos
             Ingreso.objects.filter(empresa=empresa_actual).delete()
             Egreso.objects.filter(empresa=empresa_actual).delete()
             PagoPedido.objects.filter(empresa=empresa_actual).delete()
             PagoCompra.objects.filter(empresa=empresa_actual).delete()
+            Credito.objects.filter(empresa=empresa_actual).delete()
             
             # 2. Detalles y Movimientos
+            DetalleRecepcionExtra.objects.filter(
+                Q(producto__empresa=empresa_actual) | Q(detalle_recepcion__recepcion__empresa=empresa_actual)
+            ).delete()
             DetalleRecepcion.objects.filter(recepcion__empresa=empresa_actual).delete()
             DetalleOrdenVenta.objects.filter(orden_venta__empresa=empresa_actual).delete()
             DetalleCompra.objects.filter(orden_compra__empresa=empresa_actual).delete()
@@ -251,13 +255,18 @@ def reiniciar_transacciones_ajax(request):
             DetalleCotizacion.objects.filter(cotizacion__empresa=empresa_actual).delete()
             Kardex.objects.filter(empresa=empresa_actual).delete()
             
-            # 3. Cabeceras
+            # 3. Cabeceras y Cortes de Caja
             Recepcion.objects.filter(empresa=empresa_actual).delete()
             OrdenCompra.objects.filter(empresa=empresa_actual).delete()
             SolicitudCompra.objects.filter(empresa=empresa_actual).delete()
             OrdenVenta.objects.filter(empresa=empresa_actual).delete()
             OrdenProduccion.objects.filter(empresa=empresa_actual).delete()
             Pedido.objects.filter(empresa=empresa_actual).delete()
+            SesionCajaPOS.objects.filter(caja_pos__empresa=empresa_actual).delete()
+            CorteZ.objects.filter(empresa=empresa_actual).delete()
+            CajaPOS.objects.filter(empresa=empresa_actual).update(estado='cerrada')
+            if 'sesion_caja_id' in request.session:
+                del request.session['sesion_caja_id']
             Cotizacion.objects.filter(empresa=empresa_actual).delete()
             TransaccionCore.objects.filter(empresa=empresa_actual).delete()
             Actividad.objects.filter(empresa=empresa_actual).delete()

@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.db import transaction
 from django.db.models import F, Q, Sum
 from decimal import Decimal
+import json
 import openpyxl
 from datetime import datetime
 
@@ -610,22 +611,29 @@ def api_preparar_surtido(request, ov_id):
     detalles_data = []
     for det in ov.detalles.all():
         extras_disponibles = []
-        if (det.producto.maneja_lote or det.producto.maneja_serie) and almacen_final_id:
+        if (det.producto.maneja_lote or det.producto.maneja_serie or det.producto.maneja_caducidad) and almacen_final_id:
             # Filtro directo por producto_id y por el almacén específico (usando IDs numéricos)
             extras_qs = DetalleRecepcionExtra.objects.filter(
                 almacen_id=almacen_final_id, 
                 producto_id=det.producto_id
             ).filter(Q(cantidad_lote__gt=0) | Q(tipo='serie'))
+
+            if getattr(det.producto, 'maneja_fifo', False):
+                extras_qs = extras_qs.order_by('detalle_recepcion__recepcion__fecha', 'fecha_creacion', 'id')
+            elif getattr(det.producto, 'maneja_lifo', False):
+                extras_qs = extras_qs.order_by('-detalle_recepcion__recepcion__fecha', '-fecha_creacion', '-id')
+            elif getattr(det.producto, 'maneja_fefo', False):
+                extras_qs = extras_qs.order_by(F('fecha_caducidad').asc(nulls_last=True), 'detalle_recepcion__recepcion__fecha', 'fecha_creacion', 'id')
             
             for extra in extras_qs:
                 # Doble validación de stock para lotes
-                if extra.tipo == 'lote' and extra.cantidad_lote <= 0: continue
+                if extra.tipo in ['lote', 'caducidad'] and extra.cantidad_lote <= 0: continue
                 extras_disponibles.append({
                     'id': extra.id, 
                     'tipo': extra.tipo, 
                     'lote': extra.lote, 
                     'serie': extra.serie, 
-                    'cantidad': extra.cantidad_lote if extra.tipo == 'lote' else 1
+                    'cantidad': extra.cantidad_lote if extra.tipo in ['lote', 'caducidad'] else 1
                 })
 
         detalles_data.append({
@@ -1040,6 +1048,9 @@ def punto_de_venta(request):
     # Cajas habilitadas (abiertas por administración) y asignadas a este usuario
     cajas_disponibles = CajaPOS.objects.filter(empresa=empresa_actual, sucursal=sucursal, estado='abierta', usuario_asignado=request.user)
 
+    if not sesion_activa:
+        request.session.pop('pos_bloqueado', None)
+
     contexto = {
         'empresa': empresa_actual,
         'sucursal': sucursal,
@@ -1053,6 +1064,7 @@ def punto_de_venta(request):
         'sesion_activa': sesion_activa,
         'cajas_disponibles': cajas_disponibles,
         'lista_activa_nombre': lista_activa_nombre,
+        'pos_bloqueado': bool(request.session.get('pos_bloqueado', False)),
         'section': 'pos',
     }
     return render(request, 'ventas/punto_de_venta.html', contexto)
@@ -1060,7 +1072,36 @@ def punto_de_venta(request):
 
 @login_required
 @require_POST
+def bloquear_pos_ajax(request):
+    request.session['pos_bloqueado'] = True
+    return JsonResponse({'success': True})
+
+
+@login_required
+@require_POST
+def desbloquear_pos_ajax(request):
+    import json
+    password = request.POST.get('password', '')
+    if not password and request.body:
+        try:
+            data = json.loads(request.body.decode('utf-8'))
+            password = data.get('password', '')
+        except Exception:
+            pass
+    if not password:
+        return JsonResponse({'success': False, 'error': 'Por favor ingresa tu contraseña.'})
+    if request.user.check_password(password):
+        request.session['pos_bloqueado'] = False
+        request.session.modified = True
+        return JsonResponse({'success': True})
+    return JsonResponse({'success': False, 'error': 'Contraseña incorrecta. Intenta nuevamente.'})
+
+
+@login_required
+@require_POST
 def crear_venta_pos_ajax(request):
+    if request.session.get('pos_bloqueado'):
+        return JsonResponse({'success': False, 'error': 'El Punto de Venta está bloqueado. Desbloquéalo con tu contraseña para continuar.'})
     from preferencias.permissions import user_has_sales_permission
     if not user_has_sales_permission(request, 'punto_de_venta', 'crear'):
         return JsonResponse({'success': False, 'error': 'No tienes permisos para realizar ventas.'})
@@ -1475,6 +1516,16 @@ def crear_venta_pos_ajax(request):
                     sucursal=sucursal
                 )
 
+            # 6. Actualizar acumulados en vivo de la sesión de caja activa
+            from django.db.models import Sum
+            from clientes.models import Credito
+            pagos_sesion = PagoPedido.objects.filter(pedido__sesion_caja=sesion, estado='aplicado')
+            sesion.total_ventas_efectivo = pagos_sesion.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+            sesion.total_ventas_tarjeta = pagos_sesion.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito']).aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+            sesion.total_ventas_transferencia = pagos_sesion.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+            sesion.total_ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).exclude(pedido__estado='cancelado').aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
+            sesion.save()
+
             return JsonResponse({'success': True, 'message': 'Venta registrada y pagada correctamente.', 'pedido_id': pedido.id})
 
     except ValueError as ve:
@@ -1563,8 +1614,26 @@ def cortes_caja_list(request):
         cortes_z_qs = cortes_z_qs.none()
 
     # Combinar y etiquetar los registros
+    from clientes.models import Credito
     sesiones = []
     for s in sesiones_qs:
+        if s.estado == 'abierta':
+            pagos_s = PagoPedido.objects.filter(pedido__sesion_caja=s, estado='aplicado')
+            v_ef = pagos_s.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+            v_tj = pagos_s.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito']).aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+            v_tr = pagos_s.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+            v_cr = Credito.objects.filter(pedido__sesion_caja=s).exclude(pedido__estado='cancelado').aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
+            if (
+                s.total_ventas_efectivo != v_ef
+                or s.total_ventas_tarjeta != v_tj
+                or s.total_ventas_transferencia != v_tr
+                or s.total_ventas_credito != v_cr
+            ):
+                s.total_ventas_efectivo = v_ef
+                s.total_ventas_tarjeta = v_tj
+                s.total_ventas_transferencia = v_tr
+                s.total_ventas_credito = v_cr
+                s.save(update_fields=['total_ventas_efectivo', 'total_ventas_tarjeta', 'total_ventas_transferencia', 'total_ventas_credito'])
         s.tipo_corte = 'X'
         s.fecha_orden = s.fecha_apertura
         sesiones.append(s)
@@ -2636,24 +2705,40 @@ def api_devolucion_pedido(request, pedido_id):
                     producto=trans.producto,
                     almacen=trans.almacen,
                     tipo='ajuste',
-                    cantidad=-trans.cantidad,
-                    total=-trans.total,
+                    cantidad=abs(trans.cantidad),
+                    total=abs(trans.total),
                     empresa=empresa_actual,
                     usuario=request.user,
                     referencia=f"Devolución Pedido #{pedido.id}",
+                    extras_data=trans.extras_data,
                     estado='recibida'
                 )
+                if trans.extras_data:
+                    from recepciones.models import DetalleRecepcionExtra
+                    for item in trans.extras_data:
+                        eid = item.get('id')
+                        qty_ret = int(item.get('qty', 1))
+                        try:
+                            extra = DetalleRecepcionExtra.objects.get(id=eid)
+                            if extra.tipo == 'serie':
+                                extra.almacen = trans.almacen
+                                extra.save()
+                            else:
+                                extra.cantidad_lote = (extra.cantidad_lote or 0) + qty_ret
+                                extra.save()
+                        except DetalleRecepcionExtra.DoesNotExist:
+                            pass
                 
-            # 4. Actualizar totales de la sesión de caja si ya estaba cerrada
+            # 4. Actualizar totales de la sesión de caja (abierta o cerrada)
             sesion = pedido.sesion_caja
-            if sesion and sesion.estado == 'cerrada':
+            if sesion:
                 pagos_restantes = PagoPedido.objects.filter(pedido__sesion_caja=sesion, estado='aplicado')
                 sesion.total_ventas_efectivo = pagos_restantes.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
                 sesion.total_ventas_tarjeta = pagos_restantes.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito']).aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
                 sesion.total_ventas_transferencia = pagos_restantes.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
                 
                 from clientes.models import Credito
-                sesion.total_ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
+                sesion.total_ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).exclude(pedido__estado='cancelado').aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
                 sesion.save()
                 
             # 5. Notificación del sistema
@@ -2877,15 +2962,15 @@ def api_devolucion_partida(request, detalle_id):
                 else:
                     cred.save()
                     
-            # 7. Actualizar totales de la sesión de caja
+            # 7. Actualizar totales de la sesión de caja (abierta o cerrada)
             sesion = pedido.sesion_caja
-            if sesion and sesion.estado == 'cerrada':
+            if sesion:
                 pagos_restantes = PagoPedido.objects.filter(pedido__sesion_caja=sesion, estado='aplicado')
                 sesion.total_ventas_efectivo = pagos_restantes.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
                 sesion.total_ventas_tarjeta = pagos_restantes.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito']).aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
                 sesion.total_ventas_transferencia = pagos_restantes.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
                 
-                sesion.total_ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
+                sesion.total_ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).exclude(pedido__estado='cancelado').aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
                 sesion.save()
                 
             # 8. Notificar

@@ -322,12 +322,6 @@
                                                 <i class="bi bi-box-seam"></i>
                                             </span>
                                             {% endif %}
-                                            {% if granular_sales_perms.cortes_de_caja.imprimir_articulo %}
-                                             <span class="icon-action" title="Imprimir Ticket de Corte"
-                                                   onclick="solicitarImpresion({{ sesion.id }})">
-                                                  <i class="bi bi-printer"></i>
-                                             </span>
-                                            {% endif %}
                                              {% if sesion.estado == 'abierta' %}
                                                  {% if granular_sales_perms.cortes_de_caja.hacer_corte %}
                                                      <span class="icon-action" title="Hacer Corte"

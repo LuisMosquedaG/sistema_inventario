@@ -539,6 +539,14 @@ def crear_producto_ajax(request):
                 producto.maneja_lote = request.POST.get('maneja_lote') == 'on'
                 producto.maneja_serie = request.POST.get('maneja_serie') == 'on'
                 producto.maneja_caducidad = request.POST.get('maneja_caducidad') == 'on'
+                producto.maneja_fifo = request.POST.get('maneja_fifo') == 'on'
+                producto.maneja_lifo = request.POST.get('maneja_lifo') == 'on'
+                producto.maneja_fefo = request.POST.get('maneja_fefo') == 'on'
+                if producto.maneja_fifo:
+                    producto.maneja_lifo = False
+                    producto.maneja_fefo = False
+                elif producto.maneja_lifo:
+                    producto.maneja_fefo = False
                 producto.tiene_iva = request.POST.get('tiene_iva') == 'on'
                 producto.mostrar_en_pos = request.POST.get('mostrar_en_pos') == 'on'
                 producto.permitir_modificadores = request.POST.get('permitir_modificadores') == 'on'
@@ -552,8 +560,7 @@ def crear_producto_ajax(request):
                     producto.test_calidad = Test.objects.filter(id=test_id, empresa=empresa_actual).first()
 
                 # Validación de códigos de barras adicionales
-                from django.db import transaction
-                from core.models import CodigoBarrasAdicional, Producto
+                from core.models import CodigoBarrasAdicional
                 barcodes_list = request.POST.getlist('barcodes_adicionales')
                 for code in barcodes_list:
                     code_clean = code.strip()
@@ -896,6 +903,9 @@ def obtener_producto_json(request, producto_id):
             'stock_minimo': producto.stock_minimo, 'stock_maximo': producto.stock_maximo,
             'maneja_lote': producto.maneja_lote, 'maneja_serie': producto.maneja_serie,
             'maneja_caducidad': producto.maneja_caducidad,
+            'maneja_fifo': producto.maneja_fifo,
+            'maneja_lifo': producto.maneja_lifo,
+            'maneja_fefo': producto.maneja_fefo,
             'tiene_iva': producto.tiene_iva,
             'mostrar_en_pos': producto.mostrar_en_pos,
             'permitir_modificadores': producto.permitir_modificadores,
@@ -945,6 +955,14 @@ def actualizar_producto_ajax(request, producto_id):
                 producto.maneja_lote = request.POST.get('maneja_lote') == 'on'
                 producto.maneja_serie = request.POST.get('maneja_serie') == 'on'
                 producto.maneja_caducidad = request.POST.get('maneja_caducidad') == 'on'
+                producto.maneja_fifo = request.POST.get('maneja_fifo') == 'on'
+                producto.maneja_lifo = request.POST.get('maneja_lifo') == 'on'
+                producto.maneja_fefo = request.POST.get('maneja_fefo') == 'on'
+                if producto.maneja_fifo:
+                    producto.maneja_lifo = False
+                    producto.maneja_fefo = False
+                elif producto.maneja_lifo:
+                    producto.maneja_fefo = False
                 producto.tiene_iva = request.POST.get('tiene_iva') == 'on'
                 producto.mostrar_en_pos = request.POST.get('mostrar_en_pos') == 'on'
                 producto.permitir_modificadores = request.POST.get('permitir_modificadores') == 'on'
@@ -960,8 +978,7 @@ def actualizar_producto_ajax(request, producto_id):
                     producto.test_calidad = None
                 
                 # Validación de códigos de barras adicionales
-                from django.db import transaction
-                from core.models import CodigoBarrasAdicional, Producto
+                from core.models import CodigoBarrasAdicional
                 barcodes_list = request.POST.getlist('barcodes_adicionales')
                 for code in barcodes_list:
                     code_clean = code.strip()

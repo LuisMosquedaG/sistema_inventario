@@ -71,13 +71,21 @@ window.abrirNuevoArticulo = function(sucursalId = '') {
     if (selMonedaC) selMonedaC.value = "1.0000";
     if (selMonedaV) selMonedaV.value = "1.0000";
 
-    // Reset IVA
+    // Reset IVA y FIFO/LIFO/FEFO
+    const checkFIFO = document.getElementById('checkFIFO');
+    const checkLIFO = document.getElementById('checkLIFO');
+    const checkFEFO = document.getElementById('checkFEFO');
+    if (checkFIFO) checkFIFO.checked = false;
+    if (checkLIFO) checkLIFO.checked = false;
+    if (checkFEFO) checkFEFO.checked = false;
+
     const checkIVA = document.getElementById('checkIVA');
     if (checkIVA) {
         checkIVA.checked = true;
         const inputIVA = document.getElementById('inputIVA');
         if (inputIVA) {
             inputIVA.disabled = false;
+            inputIVA.readOnly = false;
             inputIVA.classList.remove('bg-light');
             inputIVA.value = "16";
         }
@@ -153,6 +161,12 @@ window.cargarProductoEdicion = function(id) {
             form.querySelector('[name="maneja_lote"]').checked = data.maneja_lote || false;
             form.querySelector('[name="maneja_serie"]').checked = data.maneja_serie || false;
             form.querySelector('[name="maneja_caducidad"]').checked = data.maneja_caducidad || false;
+            const chkFifo = form.querySelector('[name="maneja_fifo"]');
+            const chkLifo = form.querySelector('[name="maneja_lifo"]');
+            const chkFefo = form.querySelector('[name="maneja_fefo"]');
+            if (chkFifo) chkFifo.checked = data.maneja_fifo || false;
+            if (chkLifo) chkLifo.checked = (data.maneja_lifo && !data.maneja_fifo) || false;
+            if (chkFefo) chkFefo.checked = (data.maneja_fefo && !data.maneja_fifo && !data.maneja_lifo) || false;
             form.querySelector('[name="tiene_iva"]').checked = data.tiene_iva ?? true;
             form.querySelector('[name="mostrar_en_pos"]').checked = data.mostrar_en_pos ?? true;
             form.querySelector('[name="permitir_modificadores"]').checked = data.permitir_modificadores || false;
@@ -209,6 +223,24 @@ window.cargarProductoEdicion = function(id) {
             mostrarModal('modalCrearArticulo');
         })
         .catch(err => alert(err.message));
+}
+
+window.toggleFifoLifo = function(modo) {
+    const checkFIFO = document.getElementById('checkFIFO');
+    const checkLIFO = document.getElementById('checkLIFO');
+    const checkFEFO = document.getElementById('checkFEFO');
+    if (!checkFIFO || !checkLIFO || !checkFEFO) return;
+
+    if (modo === 'fifo' && checkFIFO.checked) {
+        checkLIFO.checked = false;
+        checkFEFO.checked = false;
+    } else if (modo === 'lifo' && checkLIFO.checked) {
+        checkFIFO.checked = false;
+        checkFEFO.checked = false;
+    } else if (modo === 'fefo' && checkFEFO.checked) {
+        checkFIFO.checked = false;
+        checkLIFO.checked = false;
+    }
 }
 
 window.toggleIVA = function() {
@@ -1484,6 +1516,15 @@ window.eliminarFotoArticulo = function() {
 
 // --- Inicialización ---
 document.addEventListener('DOMContentLoaded', function() {
+    // Listener para recalcular precios automáticamente al modificar Costo, Venta o IVA (%)
+    ['inputPrecioCosto', 'inputPrecioVenta', 'inputIVA'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', window.actualizarCalculosPrecios);
+            el.addEventListener('change', window.actualizarCalculosPrecios);
+        }
+    });
+
     // Listener para previsualización de imagen de artículo
     const inputImg = document.getElementById('inputImagenArticulo');
     if (inputImg) {

@@ -93,6 +93,9 @@ class Producto(models.Model):
     maneja_lote = models.BooleanField(default=False, verbose_name="Maneja Lote")
     maneja_serie = models.BooleanField(default=False, verbose_name="Maneja No. Serie")
     maneja_caducidad = models.BooleanField(default=False, verbose_name="Maneja Caducidad")
+    maneja_fifo = models.BooleanField(default=False, verbose_name="Maneja FIFO (PEPS)")
+    maneja_lifo = models.BooleanField(default=False, verbose_name="Maneja LIFO (UEPS)")
+    maneja_fefo = models.BooleanField(default=False, verbose_name="Maneja FEFO (PCPS)")
     mostrar_en_pos = models.BooleanField(default=True, verbose_name="Mostrar en POS")
     permitir_modificadores = models.BooleanField(default=False, verbose_name="Permitir Modificadores")
     
@@ -155,6 +158,13 @@ class Producto(models.Model):
         return total_valor / total_unidades
 
     def save(self, *args, **kwargs):
+        # Exclusión mutua entre FIFO, LIFO y FEFO
+        if self.maneja_fifo:
+            self.maneja_lifo = False
+            self.maneja_fefo = False
+        elif self.maneja_lifo:
+            self.maneja_fefo = False
+
         # 1. Ver si existe en BD para comparar costo antes de guardar
         old_cost = None
         if self.pk:
@@ -289,15 +299,21 @@ class Transaccion(models.Model):
                     if self.tipo == 'venta' and q_res == 0:
                         q_res = abs(self.cantidad)
 
+                    extras_out = list(self.extras_data) if self.extras_data else []
                     Inventario.registrar_salida(
                         almacen=self.almacen,
                         producto=self.producto,
                         cantidad_salida=abs(self.cantidad),
                         referencia=self.referencia or f"{self.get_tipo_display()} {self.id}",
                         usuario=self.usuario,
-                        extras_data=self.extras_data,
+                        extras_data=extras_out,
                         quitar_reserva=q_res
                     )
+                    if extras_out and not self.extras_data:
+                        self.extras_data = extras_out
+                        lotes_usados = [str(item.get('lote')) for item in extras_out if item.get('lote')]
+                        if lotes_usados and not self.lote:
+                            self.lote = ", ".join(dict.fromkeys(lotes_usados))
                 except Exception as e:
                     raise e
         

@@ -90,7 +90,7 @@
         color: #ffffff !important;
     }
     .quantity-input {
-        width: 32px !important;
+        width: 44px !important;
         text-align: center !important;
         border: none !important;
         border-left: 1px solid #ced4da !important;
@@ -101,6 +101,7 @@
         height: 28px !important;
         color: #212529 !important;
         box-shadow: none !important;
+        outline: none !important;
     }
     .quantity-input::-webkit-outer-spin-button,
     .quantity-input::-webkit-inner-spin-button {
@@ -290,17 +291,22 @@
                 <div class="border-bottom pb-3 mb-3">
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <h5 class="fw-bold text-dark mb-0"><i class="bi bi-receipt me-2 text-brand"></i>Ticket de Venta</h5>
-                        {% if sesion_activa %}
-                            {% if not granular_sales_perms.punto_de_venta.hacer_corte_pos %}
-                                <button class="btn btn-sm py-1 px-3 fw-bold text-white shadow-sm" style="background-color: #a0a0a0; border: none; border-radius: 8px; font-size: 0.8rem; opacity: 0.55; cursor: not-allowed;" disabled title="No tienes permisos para hacer corte de caja">
-                                    <i class="bi bi-calculator-fill me-1"></i>Hacer Corte
-                                </button>
-                            {% else %}
-                                <button class="btn btn-sm py-1 px-3 fw-bold text-white shadow-sm" style="background-color: #00b8b9; border: none; border-radius: 8px; font-size: 0.8rem;" onclick="abrirModalCorte()">
-                                    <i class="bi bi-calculator-fill me-1"></i>Hacer Corte
-                                </button>
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-sm py-1 px-3 fw-bold text-white shadow-sm" style="background-color: #dc3545; border: none; border-radius: 8px; font-size: 0.8rem;" onclick="bloquearPOS()" title="Bloquear Punto de Venta">
+                                <i class="bi bi-lock-fill me-1"></i>Bloquear
+                            </button>
+                            {% if sesion_activa %}
+                                {% if not granular_sales_perms.punto_de_venta.hacer_corte_pos %}
+                                    <button class="btn btn-sm py-1 px-3 fw-bold text-white shadow-sm" style="background-color: #a0a0a0; border: none; border-radius: 8px; font-size: 0.8rem; opacity: 0.55; cursor: not-allowed;" disabled title="No tienes permisos para hacer corte de caja">
+                                        <i class="bi bi-calculator-fill me-1"></i>Hacer Corte
+                                    </button>
+                                {% else %}
+                                    <button class="btn btn-sm py-1 px-3 fw-bold text-white shadow-sm" style="background-color: #00b8b9; border: none; border-radius: 8px; font-size: 0.8rem;" onclick="abrirModalCorte()">
+                                        <i class="bi bi-calculator-fill me-1"></i>Hacer Corte
+                                    </button>
+                                {% endif %}
                             {% endif %}
-                        {% endif %}
+                        </div>
                     </div>
                     <p class="text-muted small mb-0">
                         <i class="bi bi-geo-alt me-1"></i>Sucursal: <strong class="text-secondary">{{ sucursal.nombre }}</strong>
@@ -444,6 +450,42 @@
         </div>
     </div>
 </div>
+
+<!-- OVERLAY DE BLOQUEO DE PUNTO DE VENTA -->
+<div id="overlayBloqueoPOS" style="display: {% if pos_bloqueado %}flex{% else %}none{% endif %}; position: fixed; inset: 0; z-index: 99999; background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 1rem;">
+    <div class="card border-0 shadow-lg" style="width: 100%; max-width: 420px; border-radius: 16px; overflow: hidden;">
+        <div class="p-4 text-center text-white" style="background: linear-gradient(135deg, #00b8b9 0%, #008a8b 100%);">
+            <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-2" style="width: 64px; height: 64px; background: rgba(255, 255, 255, 0.2);">
+                <i class="bi bi-shield-lock-fill fs-1"></i>
+            </div>
+            <h5 class="fw-bold mb-1">Punto de Venta Bloqueado</h5>
+            <p class="small mb-0 opacity-75">Sesión protegida de <strong>{{ user.username }}</strong></p>
+        </div>
+        <div class="card-body p-4 bg-white">
+            <p class="text-muted small text-center mb-3">
+                Ingresa tu contraseña de acceso al sistema para reanudar las operaciones en caja.
+            </p>
+            <form id="formDesbloquearPOS" onsubmit="event.preventDefault(); desbloquearPOS();">
+                <div class="mb-3">
+                    <label for="inputPasswordDesbloqueoPOS" class="form-label small fw-bold text-secondary">Contraseña</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-key-fill text-muted"></i></span>
+                        <input type="password" id="inputPasswordDesbloqueoPOS" class="form-control border-start-0" placeholder="Escribe tu contraseña..." autocomplete="current-password" required>
+                        <button class="btn btn-outline-secondary" type="button" onclick="toggleVerPasswordBloqueo()" tabindex="-1" title="Mostrar / Ocultar">
+                            <i class="bi bi-eye" id="iconEyeBloqueoPOS"></i>
+                        </button>
+                    </div>
+                    <div id="errorDesbloqueoPOS" class="text-danger small fw-semibold mt-2" style="display: none;">
+                        <i class="bi bi-exclamation-circle-fill me-1"></i><span>Contraseña incorrecta.</span>
+                    </div>
+                </div>
+                <button type="submit" id="btnSubmitDesbloqueoPOS" class="btn text-white w-100 py-2 fw-bold shadow-sm" style="background-color: #00b8b9; border-radius: 10px;">
+                    <i class="bi bi-unlock-fill me-1"></i>Desbloquear Caja
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -458,6 +500,7 @@
 
     // Sesión activa
     const isSessionActive = {% if sesion_activa %}true{% else %}false{% endif %};
+    let isPOSLocked = {% if pos_bloqueado %}true{% else %}false{% endif %};
 
     // Lista de precios por defecto activa por horario
     const activeDefaultPriceList = "{{ lista_activa_nombre|escapejs }}";
@@ -855,6 +898,7 @@
     let lastKeyTime = Date.now();
 
     document.addEventListener('keydown', function(e) {
+        if (isPOSLocked) return;
         // Ignorar si el usuario ya está enfocado en algún campo de entrada
         const activeTag = document.activeElement.tagName;
         if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') {
@@ -1259,6 +1303,122 @@
         }
     }
 
+    // Entrada manual con el teclado en el campo de cantidad
+    window.handleQuantityInput = function(id, inputEl) {
+        const item = cart[id];
+        if (!item) return;
+
+        const cleanVal = inputEl.value.replace(/[^0-9]/g, '');
+        if (inputEl.value !== cleanVal) {
+            inputEl.value = cleanVal;
+        }
+        if (cleanVal === '') {
+            return; // Permitir borrar temporalmente mientras escribe
+        }
+
+        let qty = parseInt(cleanVal, 10);
+        if (isNaN(qty) || qty <= 0) {
+            return;
+        }
+
+        if (item.tipo !== 'servicio' && qty > item.stockMax) {
+            alert(`No puedes agregar más artículos de este producto. Stock máximo disponible: ${item.stockMax}`);
+            qty = item.stockMax;
+            inputEl.value = qty;
+        }
+
+        item.cantidad = qty;
+        const lineSpan = document.getElementById(`lineTotal_${id}`);
+        if (lineSpan) {
+            lineSpan.innerText = '$' + (item.precio * item.cantidad).toFixed(2);
+        }
+        updateCartTotalsOnly();
+    }
+
+    window.commitQuantityInput = function(id, inputEl) {
+        const item = cart[id];
+        if (!item) return;
+
+        const cleanVal = inputEl.value.replace(/[^0-9]/g, '');
+        let qty = parseInt(cleanVal, 10);
+
+        if (cleanVal === '' || isNaN(qty)) {
+            item.cantidad = 1;
+        } else if (qty <= 0) {
+            delete cart[id];
+        } else {
+            if (item.tipo !== 'servicio' && qty > item.stockMax) {
+                alert(`No puedes agregar más artículos de este producto. Stock máximo disponible: ${item.stockMax}`);
+                qty = item.stockMax;
+            }
+            item.cantidad = qty;
+        }
+        renderCart();
+    }
+
+    function updateCartTotalsOnly() {
+        const keys = Object.keys(cart);
+        let subtotal = 0;
+        const aplicaIvaSwitch = document.getElementById('switchAplicaIVA') ? document.getElementById('switchAplicaIVA').checked : true;
+        keys.forEach(key => {
+            const item = cart[key];
+            subtotal += item.precio * item.cantidad;
+        });
+
+        const discountInput = document.getElementById('inputDescuentoPOS');
+        const discountType = document.getElementById('tipoDescuentoPOS') ? document.getElementById('tipoDescuentoPOS').value : 'monto';
+        const descuento = discountInput ? (parseFloat(discountInput.value) || 0) : 0;
+
+        let descuentoMonto = 0;
+        if (discountType === 'porcentaje') {
+            descuentoMonto = subtotal * (descuento / 100);
+        } else {
+            descuentoMonto = descuento;
+        }
+
+        const subtotalConDescuento = Math.max(0, subtotal - descuentoMonto);
+        const factor = subtotal > 0 ? (subtotalConDescuento / subtotal) : 0;
+
+        let totalIva = 0;
+        keys.forEach(key => {
+            const item = cart[key];
+            const lineTotal = item.precio * item.cantidad;
+            const lineTotalDiscounted = lineTotal * factor;
+            const itemIvaRate = aplicaIvaSwitch ? (item.iva || 0) : 0;
+            totalIva += lineTotalDiscounted * (itemIvaRate / 100);
+        });
+
+        const descRow = document.getElementById('posDescuentoRow');
+        const descText = document.getElementById('posDescuento');
+        if (descuentoMonto > 0 && descRow && descText) {
+            if (discountType === 'porcentaje') {
+                descText.innerText = `-${descuento.toFixed(2)}% (-$${descuentoMonto.toFixed(2)})`;
+            } else {
+                descText.innerText = `-$${descuento.toFixed(2)}`;
+            }
+            descRow.style.display = 'flex';
+        } else if (descRow) {
+            descRow.style.display = 'none';
+        }
+
+        const total = Math.ceil(subtotalConDescuento + totalIva);
+        currentTotalVenta = total;
+
+        document.getElementById('posSubtotal').innerText = '$' + subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('posIva').innerText = '$' + totalIva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('posTotal').innerText = '$' + total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+        const paymentRows = document.querySelectorAll('.payment-row');
+        if (paymentRows.length === 1 && !isManualInput) {
+            const amountInput = paymentRows[0].querySelector('.payment-amount-input');
+            const posIngresadoInput = document.getElementById('posIngresadoInput');
+            if (amountInput) amountInput.value = total.toFixed(2);
+            if (posIngresadoInput) posIngresadoInput.value = total.toFixed(2);
+        }
+
+        calculatePaymentTotals();
+    }
+
     // Eliminar renglón del carrito
     function removeItem(id) {
         if (cart[id]) {
@@ -1383,10 +1543,10 @@
                 <div class="d-flex align-items-center gap-3">
                     <div class="quantity-control">
                         <button class="quantity-btn" onclick="decreaseQuantity('${key}')"><i class="bi bi-dash"></i></button>
-                        <input type="text" class="quantity-input" value="${item.cantidad}" readonly>
+                        <input type="text" inputmode="numeric" class="quantity-input" value="${item.cantidad}" onfocus="this.select()" oninput="handleQuantityInput('${key}', this)" onblur="commitQuantityInput('${key}', this)" onkeydown="if(event.key==='Enter'){event.preventDefault(); this.blur();}">
                         <button class="quantity-btn" onclick="increaseQuantity('${key}')"><i class="bi bi-plus"></i></button>
                     </div>
-                    <span class="fw-bold text-dark" style="width: 85px; text-align: right; font-size: 1.1rem;">$${lineTotal.toFixed(2)}</span>
+                    <span id="lineTotal_${key}" class="fw-bold text-dark" style="width: 85px; text-align: right; font-size: 1.1rem;">$${lineTotal.toFixed(2)}</span>
                     <button class="btn btn-delete-pos ms-2" onclick="removeItem('${key}')"><i class="bi bi-x-circle"></i></button>
                 </div>
             </div>`;
@@ -1894,6 +2054,112 @@
                 window.location.href = '{% url "cortes_caja_list" %}';
             });
         }
+
+        if (isPOSLocked) {
+            const inputPwd = document.getElementById('inputPasswordDesbloqueoPOS');
+            if (inputPwd) setTimeout(() => inputPwd.focus(), 150);
+        }
     });
+
+    function bloquearPOS() {
+        fetch('{% url "bloquear_pos_ajax" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                isPOSLocked = true;
+                const overlay = document.getElementById('overlayBloqueoPOS');
+                const inputPwd = document.getElementById('inputPasswordDesbloqueoPOS');
+                const errDiv = document.getElementById('errorDesbloqueoPOS');
+                if (errDiv) errDiv.style.display = 'none';
+                if (inputPwd) inputPwd.value = '';
+                if (overlay) overlay.style.display = 'flex';
+                if (inputPwd) setTimeout(() => inputPwd.focus(), 100);
+            }
+        })
+        .catch(() => {
+            isPOSLocked = true;
+            const overlay = document.getElementById('overlayBloqueoPOS');
+            if (overlay) overlay.style.display = 'flex';
+        });
+    }
+
+    function desbloquearPOS() {
+        const inputPwd = document.getElementById('inputPasswordDesbloqueoPOS');
+        const errDiv = document.getElementById('errorDesbloqueoPOS');
+        const btnSubmit = document.getElementById('btnSubmitDesbloqueoPOS');
+        const password = inputPwd ? inputPwd.value : '';
+
+        if (!password) {
+            if (errDiv) {
+                errDiv.querySelector('span').textContent = 'Ingresa tu contraseña.';
+                errDiv.style.display = 'block';
+            }
+            return;
+        }
+
+        if (btnSubmit) btnSubmit.disabled = true;
+        if (errDiv) errDiv.style.display = 'none';
+
+        fetch('{% url "desbloquear_pos_ajax" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ password: password })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (btnSubmit) btnSubmit.disabled = false;
+            if (data.success) {
+                isPOSLocked = false;
+                if (inputPwd) inputPwd.value = '';
+                const overlay = document.getElementById('overlayBloqueoPOS');
+                if (overlay) overlay.style.display = 'none';
+            } else {
+                if (errDiv) {
+                    errDiv.querySelector('span').textContent = data.error || 'Contraseña incorrecta.';
+                    errDiv.style.display = 'block';
+                }
+                if (inputPwd) {
+                    inputPwd.select();
+                    inputPwd.focus();
+                }
+            }
+        })
+        .catch(() => {
+            if (btnSubmit) btnSubmit.disabled = false;
+            if (errDiv) {
+                errDiv.querySelector('span').textContent = 'Error de conexión al verificar la contraseña.';
+                errDiv.style.display = 'block';
+            }
+        });
+    }
+
+    function toggleVerPasswordBloqueo() {
+        const inputPwd = document.getElementById('inputPasswordDesbloqueoPOS');
+        const icon = document.getElementById('iconEyeBloqueoPOS');
+        if (!inputPwd) return;
+        if (inputPwd.type === 'password') {
+            inputPwd.type = 'text';
+            if (icon) {
+                icon.classList.remove('bi-eye');
+                icon.classList.add('bi-eye-slash');
+            }
+        } else {
+            inputPwd.type = 'password';
+            if (icon) {
+                icon.classList.remove('bi-eye-slash');
+                icon.classList.add('bi-eye');
+            }
+        }
+        inputPwd.focus();
+    }
 </script>
 {% endblock %}

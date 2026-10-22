@@ -169,6 +169,52 @@ class Inventario(models.Model):
 
             # 3. Procesar Trazabilidad (Lotes / Series)
             lote_kardex, serie_kardex = None, None
+
+            # Si no se especificaron lotes manualmente pero el producto tiene activo FIFO, LIFO o FEFO,
+            # seleccionamos automáticamente los lotes/caducidades según corresponda.
+            if not extras_data and (
+                getattr(producto, 'maneja_fifo', False)
+                or getattr(producto, 'maneja_lifo', False)
+                or getattr(producto, 'maneja_fefo', False)
+            ):
+                from django.db.models import Q
+                extras_qs = DetalleRecepcionExtra.objects.filter(
+                    almacen=almacen,
+                    cantidad_lote__gt=0,
+                    tipo__in=['lote', 'caducidad']
+                ).filter(
+                    Q(producto=producto) | Q(detalle_recepcion__producto=producto)
+                )
+                if getattr(producto, 'maneja_fifo', False):
+                    # FIFO (PEPS): Primeras entradas, primeras salidas
+                    extras_qs = extras_qs.order_by('detalle_recepcion__recepcion__fecha', 'fecha_creacion', 'id')
+                elif getattr(producto, 'maneja_lifo', False):
+                    # LIFO (UEPS): Últimas entradas, primeras salidas
+                    extras_qs = extras_qs.order_by('-detalle_recepcion__recepcion__fecha', '-fecha_creacion', '-id')
+                elif getattr(producto, 'maneja_fefo', False):
+                    # FEFO (PCPS): Primero que caduca, primero que sale (caducidades más antiguas primero)
+                    extras_qs = extras_qs.order_by(F('fecha_caducidad').asc(nulls_last=True), 'detalle_recepcion__recepcion__fecha', 'fecha_creacion', 'id')
+
+                pendiente_descontar = int(cantidad_a_restar)
+                auto_extras = []
+                for extra_item in extras_qs:
+                    if pendiente_descontar <= 0:
+                        break
+                    disponible_lote = int(extra_item.cantidad_lote or 0)
+                    if disponible_lote <= 0:
+                        continue
+                    tomar = min(pendiente_descontar, disponible_lote)
+                    nombre_lote = extra_item.lote or (extra_item.fecha_caducidad.strftime('%d/%m/%Y') if extra_item.fecha_caducidad else str(extra_item.id))
+                    auto_extras.append({'id': extra_item.id, 'qty': tomar, 'lote': nombre_lote})
+                    pendiente_descontar -= tomar
+
+                if auto_extras:
+                    if isinstance(extras_data, list):
+                        extras_data.extend(auto_extras)
+                    else:
+                        extras_data = auto_extras
+
+            lotes_usados = []
             if extras_data:
                 for item in extras_data:
                     eid = item.get('id')
@@ -188,7 +234,10 @@ class Inventario(models.Model):
                         
                         extra.cantidad_lote = F('cantidad_lote') - qty
                         extra.save()
-                        lote_kardex = extra.lote
+                        nombre_lote = extra.lote or (extra.fecha_caducidad.strftime('%d/%m/%Y') if extra.fecha_caducidad else str(extra.id))
+                        lotes_usados.append(nombre_lote)
+                if lotes_usados:
+                    lote_kardex = ", ".join(dict.fromkeys(lotes_usados))
 
             # 4. REGISTRAR EN KARDEX
             Kardex.objects.create(
