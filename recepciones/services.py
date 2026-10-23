@@ -224,6 +224,14 @@ def procesar_recepcion_servicio(data_post, empresa_actual, usuario=None):
                 serie=serie_kardex,
                 estado='recibida'
             )
+        else:
+            # Servicio: no genera inventario físico, pero actualiza último costo y costo promedio
+            tipo_cambio_aplicar = Decimal(orden_compra.tipo_cambio or '1.0000')
+            costo_en_pesos = costo * tipo_cambio_aplicar
+            producto.ultimo_costo = costo_en_pesos
+            producto.precio_costo = costo_en_pesos
+            producto.costo_promedio = costo_en_pesos
+            producto.save(update_fields=['ultimo_costo', 'precio_costo', 'costo_promedio'])
 
     # 7. ACTUALIZAR ESTADO DE LA OC
     recalcular_estado_orden_compra(orden_compra)

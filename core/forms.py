@@ -8,9 +8,9 @@ class ProductoForm(forms.ModelForm):
     """
     class Meta:
         model = Producto
-        # Excluimos 'empresa' porque se asigna dinámicamente en la vista
-        # basándose en el usuario logueado.
-        exclude = ['empresa'] 
+        # Excluimos 'empresa' porque se asigna dinámicamente en la vista,
+        # así como 'ultimo_costo' y 'costo_promedio' que se calculan automáticamente por recepciones/kardex.
+        exclude = ['empresa', 'ultimo_costo', 'costo_promedio'] 
 
     # Podemos agregar validaciones personalizadas aquí si quisiéramos
     # Por ejemplo, asegurar que el precio de venta sea mayor al costo:

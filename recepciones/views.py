@@ -172,6 +172,13 @@ def importar_recepciones_ajax(request):
                                         referencia=f"REC-{recepcion.id:04d}",
                                         estado='recibida'
                                     )
+                                else:
+                                    tc_aplicar = Decimal(str(orden.tipo_cambio or '1.0000'))
+                                    costo_pesos = costo_unit * tc_aplicar
+                                    producto.ultimo_costo = costo_pesos
+                                    producto.precio_costo = costo_pesos
+                                    producto.costo_promedio = costo_pesos
+                                    producto.save(update_fields=['ultimo_costo', 'precio_costo', 'costo_promedio'])
 
                         if detalles_creados == 0:
                             recepcion.delete()
@@ -593,6 +600,21 @@ def cancelar_recepcion(request, recepcion_id):
         recepcion.estado = 'cancelada'
         recepcion.save()
 
+        # Recalcular costos de productos afectados (último costo y promedio)
+        for det in recepcion.detalles.all():
+            prod = det.producto
+            prod.recalcular_costo_promedio_global(save=True)
+            ult_det = DetalleRecepcion.objects.filter(
+                producto=prod,
+                recepcion__empresa=empresa_actual,
+                recepcion__estado='completada'
+            ).order_by('-recepcion__fecha', '-id').first()
+            if ult_det:
+                costo_ult = (ult_det.costo_unitario or Decimal('0.00')) * Decimal(str(ult_det.recepcion.tipo_cambio or '1.0000'))
+                prod.ultimo_costo = costo_ult
+                prod.precio_costo = costo_ult
+                prod.save(update_fields=['ultimo_costo', 'precio_costo'])
+
         # Recalcular estado de la OC considerando recepciones y devoluciones activas
         nuevo_estado_oc = recalcular_estado_orden_compra(orden_compra)
 
@@ -789,6 +811,10 @@ def crear_devolucion_recepcion(request, recepcion_id):
                     extras_data=extras_data,
                     estado='recibida'
                 )
+                try:
+                    producto.recalcular_costo_promedio_global(save=True)
+                except Exception:
+                    pass
 
         nuevo_estado_oc = recalcular_estado_orden_compra(recepcion.orden_compra)
 

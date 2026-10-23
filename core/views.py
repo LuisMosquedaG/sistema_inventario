@@ -676,12 +676,40 @@ def dashboard_inventario(request):
 
         # 1. PRECIO PROMEDIO VENTA (GLOBAL)
         avg_venta_subquery = DetalleOrdenVenta.objects.filter(producto=OuterRef('pk')).values('producto').annotate(promedio=Avg('precio_unitario')).values('promedio')[:1]
-        # 2. PRECIO MÁXIMO VENTA (GLOBAL)
-        max_precio_venta = DetalleOrdenVenta.objects.filter(producto=OuterRef('pk')).order_by('-precio_unitario').values('precio_unitario')[:1]
+        # 2. ÚLTIMO PRECIO VENTA (GLOBAL)
+        ultimo_precio_venta = DetalleOrdenVenta.objects.filter(
+            producto=OuterRef('pk')
+        ).exclude(
+            orden_venta__estado='cancelado'
+        ).order_by('-orden_venta__fecha_creacion', '-id').values('precio_unitario')[:1]
         # 3. COSTO MÁXIMO COMPRA (GLOBAL, EN PESOS)
-        max_costo_compra = DetalleRecepcion.objects.filter(producto=OuterRef('pk')).annotate(costo_pesos=ExpressionWrapper(F('costo_unitario') * F('recepcion__tipo_cambio'), output_field=DecimalField(max_digits=10, decimal_places=2))).order_by('-costo_pesos').values('costo_pesos')[:1]
-        # 4. COSTO PROMEDIO COMPRAS (GLOBAL, EN PESOS)
-        costo_promedio_subquery = DetalleRecepcion.objects.filter(producto=OuterRef('pk')).annotate(costo_pesos=ExpressionWrapper(F('costo_unitario') * F('recepcion__tipo_cambio'), output_field=FloatField())).values('producto').annotate(promedio_historico=Avg('costo_pesos')).values('promedio_historico')[:1]
+        max_costo_compra = DetalleRecepcion.objects.filter(
+            producto=OuterRef('pk')
+        ).exclude(
+            recepcion__estado='cancelada'
+        ).annotate(
+            costo_pesos=ExpressionWrapper(F('costo_unitario') * F('recepcion__tipo_cambio'), output_field=DecimalField(max_digits=10, decimal_places=2))
+        ).order_by('-costo_pesos').values('costo_pesos')[:1]
+
+        # 4. COSTO PROMEDIO (PONDERADO POR ALMACÉN O GLOBAL)
+        if almacen_id:
+            costo_promedio_expr = Coalesce(
+                Subquery(
+                    Inventario.objects.filter(
+                        producto=OuterRef('pk'), almacen_id=almacen_id
+                    ).values('costo_promedio')[:1],
+                    output_field=DecimalField(max_digits=10, decimal_places=2)
+                ),
+                F('costo_promedio'),
+                F('precio_costo'),
+                output_field=DecimalField(max_digits=10, decimal_places=2)
+            )
+        else:
+            costo_promedio_expr = Coalesce(
+                F('costo_promedio'),
+                F('precio_costo'),
+                output_field=DecimalField(max_digits=10, decimal_places=2)
+            )
 
         # 5. VALOR TOTAL INVENTARIO (POR ALMACÉN SI SE FILTRA)
         inv_val_filter = Q(producto=OuterRef('pk'), cantidad__gt=0)
@@ -700,9 +728,10 @@ def dashboard_inventario(request):
 
         productos = productos_qs.annotate(
             precio_promedio_venta=Subquery(avg_venta_subquery),
-            precio_max_venta=Subquery(max_precio_venta),
+            ultimo_precio_venta=Subquery(ultimo_precio_venta),
+            precio_max_venta=Subquery(ultimo_precio_venta),
             costo_max_compra=Subquery(max_costo_compra),
-            costo_promedio_anotado=Subquery(costo_promedio_subquery),
+            costo_promedio_anotado=costo_promedio_expr,
             costo_inventario_anotado=Subquery(costo_inventario_subquery),
             stock_fisico=Subquery(get_stock_sub('cantidad')),
             stock_res=Subquery(get_stock_sub('reservado'))
@@ -902,6 +931,8 @@ def obtener_producto_json(request, producto_id):
             'marca': producto.marca or '', 'modelo': producto.modelo or '', 'linea': producto.linea or '',
             'unidad_medida': producto.unidad_medida, 'iva': str(producto.iva), 'ieps': str(producto.ieps),
             'precio_costo': str(producto.precio_costo), 'precio_venta': str(producto.precio_venta),
+            'ultimo_costo': str(producto.ultimo_costo if producto.ultimo_costo is not None else producto.precio_costo),
+            'costo_promedio': str(producto.costo_promedio if producto.costo_promedio is not None else producto.precio_costo),
             'precios_lista': producto.precios_lista, 'costos_lista': producto.costos_lista,
             'listas_maestras': list(listas_maestras),
             'stock_minimo': producto.stock_minimo, 'stock_maximo': producto.stock_maximo,

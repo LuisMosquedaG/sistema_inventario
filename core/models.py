@@ -83,6 +83,8 @@ class Producto(models.Model):
 
     # --- 3. INVENTARIO Y LOGÍSTICA (CAMBIOS) ---
     precio_costo = models.DecimalField(max_digits=10, decimal_places=2)
+    ultimo_costo = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), blank=True, null=True, verbose_name="Último Costo")
+    costo_promedio = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), blank=True, null=True, verbose_name="Costo Promedio")
     precio_venta = models.DecimalField(max_digits=10, decimal_places=2)
     
     # --- ELIMINADO: stock_actual (ahora está en el modelo Inventario) ---
@@ -146,16 +148,23 @@ class Producto(models.Model):
 
     @property
     def costo_promedio_global(self):
+        return self.recalcular_costo_promedio_global(save=False)
+
+    def recalcular_costo_promedio_global(self, save=True):
         from almacenes.models import Inventario
-        inventarios = Inventario.objects.filter(producto=self)
-        
+        inventarios = Inventario.objects.filter(producto=self, cantidad__gt=0)
         total_unidades = sum(i.cantidad for i in inventarios)
-        
-        if total_unidades == 0:
-            return self.precio_costo
-        
-        total_valor = sum(i.cantidad * i.costo_promedio for i in inventarios)
-        return total_valor / total_unidades
+
+        if total_unidades > 0:
+            total_valor = sum(Decimal(str(i.cantidad)) * Decimal(str(i.costo_promedio)) for i in inventarios)
+            nuevo_prom = (total_valor / Decimal(str(total_unidades))).quantize(Decimal('0.01'))
+        else:
+            nuevo_prom = self.ultimo_costo if (self.ultimo_costo and self.ultimo_costo > 0) else self.precio_costo
+
+        self.costo_promedio = nuevo_prom
+        if save and self.pk:
+            Producto.objects.filter(pk=self.pk).update(costo_promedio=nuevo_prom)
+        return nuevo_prom
 
     def save(self, *args, **kwargs):
         # Exclusión mutua entre FIFO, LIFO y FEFO
@@ -256,9 +265,10 @@ class Transaccion(models.Model):
             else:
                 costo_unitario_compra = Decimal(self.producto.precio_costo)
 
-            # Actualizamos precio costo referencia (opcional, depende de tu lógica de negocio)
+            # Actualizamos precio costo referencia y último costo
+            self.producto.ultimo_costo = costo_unitario_compra
             self.producto.precio_costo = costo_unitario_compra
-            self.producto.save()
+            self.producto.save(update_fields=['ultimo_costo', 'precio_costo'])
             self.total = Decimal(self.cantidad) * costo_unitario_compra
 
         elif self.tipo == 'venta':

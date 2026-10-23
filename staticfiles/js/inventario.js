@@ -40,6 +40,12 @@ window.abrirNuevoArticulo = function(sucursalId = '') {
         if (claveInput) claveInput.value = '';
     }
     
+    // Limpiar códigos de barras alternativos
+    activeProductBarcodes = [];
+    renderBarcodeChips();
+    const barcodeInput = document.getElementById('inputBarcodeAlternativo');
+    if (barcodeInput) barcodeInput.value = '';
+    
     const idField = document.getElementById('productoId');
     if (idField) idField.value = '';
 
@@ -65,13 +71,21 @@ window.abrirNuevoArticulo = function(sucursalId = '') {
     if (selMonedaC) selMonedaC.value = "1.0000";
     if (selMonedaV) selMonedaV.value = "1.0000";
 
-    // Reset IVA
+    // Reset IVA y FIFO/LIFO/FEFO
+    const checkFIFO = document.getElementById('checkFIFO');
+    const checkLIFO = document.getElementById('checkLIFO');
+    const checkFEFO = document.getElementById('checkFEFO');
+    if (checkFIFO) checkFIFO.checked = false;
+    if (checkLIFO) checkLIFO.checked = false;
+    if (checkFEFO) checkFEFO.checked = false;
+
     const checkIVA = document.getElementById('checkIVA');
     if (checkIVA) {
         checkIVA.checked = true;
         const inputIVA = document.getElementById('inputIVA');
         if (inputIVA) {
             inputIVA.disabled = false;
+            inputIVA.readOnly = false;
             inputIVA.classList.remove('bg-light');
             inputIVA.value = "16";
         }
@@ -114,6 +128,12 @@ window.cargarProductoEdicion = function(id) {
             document.getElementById('productoId').value = data.id;
             const claveInput = document.getElementById('inputClave');
             if (claveInput) claveInput.value = data.clave || '';
+
+            // Cargar códigos de barras alternativos
+            activeProductBarcodes = data.barcodes || [];
+            renderBarcodeChips();
+            const barcodeInput = document.getElementById('inputBarcodeAlternativo');
+            if (barcodeInput) barcodeInput.value = '';
             
             form.querySelector('[name="nombre"]').value = data.nombre || '';
             form.querySelector('[name="descripcion"]').value = data.descripcion || '';
@@ -141,6 +161,12 @@ window.cargarProductoEdicion = function(id) {
             form.querySelector('[name="maneja_lote"]').checked = data.maneja_lote || false;
             form.querySelector('[name="maneja_serie"]').checked = data.maneja_serie || false;
             form.querySelector('[name="maneja_caducidad"]').checked = data.maneja_caducidad || false;
+            const chkFifo = form.querySelector('[name="maneja_fifo"]');
+            const chkLifo = form.querySelector('[name="maneja_lifo"]');
+            const chkFefo = form.querySelector('[name="maneja_fefo"]');
+            if (chkFifo) chkFifo.checked = data.maneja_fifo || false;
+            if (chkLifo) chkLifo.checked = (data.maneja_lifo && !data.maneja_fifo) || false;
+            if (chkFefo) chkFefo.checked = (data.maneja_fefo && !data.maneja_fifo && !data.maneja_lifo) || false;
             form.querySelector('[name="tiene_iva"]').checked = data.tiene_iva ?? true;
             form.querySelector('[name="mostrar_en_pos"]').checked = data.mostrar_en_pos ?? true;
             form.querySelector('[name="permitir_modificadores"]').checked = data.permitir_modificadores || false;
@@ -197,6 +223,24 @@ window.cargarProductoEdicion = function(id) {
             mostrarModal('modalCrearArticulo');
         })
         .catch(err => alert(err.message));
+}
+
+window.toggleFifoLifo = function(modo) {
+    const checkFIFO = document.getElementById('checkFIFO');
+    const checkLIFO = document.getElementById('checkLIFO');
+    const checkFEFO = document.getElementById('checkFEFO');
+    if (!checkFIFO || !checkLIFO || !checkFEFO) return;
+
+    if (modo === 'fifo' && checkFIFO.checked) {
+        checkLIFO.checked = false;
+        checkFEFO.checked = false;
+    } else if (modo === 'lifo' && checkLIFO.checked) {
+        checkFIFO.checked = false;
+        checkFEFO.checked = false;
+    } else if (modo === 'fefo' && checkFEFO.checked) {
+        checkFIFO.checked = false;
+        checkLIFO.checked = false;
+    }
 }
 
 window.toggleIVA = function() {
@@ -1472,6 +1516,15 @@ window.eliminarFotoArticulo = function() {
 
 // --- Inicialización ---
 document.addEventListener('DOMContentLoaded', function() {
+    // Listener para recalcular precios automáticamente al modificar Costo, Venta o IVA (%)
+    ['inputPrecioCosto', 'inputPrecioVenta', 'inputIVA'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', window.actualizarCalculosPrecios);
+            el.addEventListener('change', window.actualizarCalculosPrecios);
+        }
+    });
+
     // Listener para previsualización de imagen de artículo
     const inputImg = document.getElementById('inputImagenArticulo');
     if (inputImg) {
@@ -1616,3 +1669,53 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // --- Funciones generales (como las de edición de artículo, etc.) ---
 // ... (mantener otras funciones existentes) ...
+
+// --- GESTIÓN DE CÓDIGOS DE BARRAS ALTERNATIVOS ---
+let activeProductBarcodes = [];
+
+window.agregarBarcodeLista = function() {
+    const input = document.getElementById('inputBarcodeAlternativo');
+    if (!input) return;
+    const value = input.value.trim();
+    if (!value) return;
+    
+    // Validar si ya está en la lista actual
+    if (activeProductBarcodes.includes(value)) {
+        alert("Este código de barras ya está en la lista temporaria.");
+        return;
+    }
+    
+    activeProductBarcodes.push(value);
+    input.value = '';
+    renderBarcodeChips();
+};
+
+window.removerBarcodeLista = function(code) {
+    activeProductBarcodes = activeProductBarcodes.filter(c => c !== code);
+    renderBarcodeChips();
+};
+
+window.renderBarcodeChips = function() {
+    const container = document.getElementById('barcodesContainer');
+    const hiddenContainer = document.getElementById('barcodesHiddenInputs');
+    if (!container || !hiddenContainer) return;
+    
+    container.innerHTML = '';
+    hiddenContainer.innerHTML = '';
+    
+    activeProductBarcodes.forEach(code => {
+        // Chip visible
+        const chip = document.createElement('span');
+        chip.className = 'badge bg-secondary d-flex align-items-center gap-1 py-1 px-2';
+        chip.style.fontSize = '0.8rem';
+        chip.innerHTML = `${code} <i class="bi bi-x-circle cursor-pointer text-white opacity-75 hover-opacity-100" onclick="removerBarcodeLista('${code}')"></i>`;
+        container.appendChild(chip);
+        
+        // Input oculto para envío de formulario
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'barcodes_adicionales';
+        hiddenInput.value = code;
+        hiddenContainer.appendChild(hiddenInput);
+    });
+};

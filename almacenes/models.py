@@ -103,6 +103,12 @@ class Inventario(models.Model):
         inventario.sucursal = almacen.sucursal
         inventario.save()
 
+        # Actualizar costo promedio global del producto
+        try:
+            producto.recalcular_costo_promedio_global(save=True)
+        except Exception:
+            pass
+
         # REGISTRAR EN KARDEX
         Kardex.objects.create(
             empresa=almacen.empresa,

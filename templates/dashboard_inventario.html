@@ -375,20 +375,20 @@
                                     </div>
                                 </td>
                                 {% if filtros.vista == 'existencias' %}
-                                    <td class="text-center">
-                                        <div class="text-muted small">Exist: <span class="{% if p.stock_fisico < p.stock_minimo %}text-danger{% else %}text-success{% endif %} fw-bold">{{ p.stock_fisico|default:0 }}</span></div>
-                                        <div class="text-muted small">Reser: <span class="text-warning fw-bold">{{ p.stock_res|default:0 }}</span></div>
-                                        <div class="text-muted small">Dispo: <span class="text-success fw-bold">{{ p.stock_disponible_anotado|default:0 }}</span></div>
+                                    <td class="text-center small text-muted">
+                                        <div>Exist: <span class="{% if p.stock_fisico < p.stock_minimo %}text-danger{% else %}text-success{% endif %}">{{ p.stock_fisico|default:0 }}</span></div>
+                                        <div>Reser: <span class="text-warning">{{ p.stock_res|default:0 }}</span></div>
+                                        <div>Dispo: <span class="text-success">{{ p.stock_disponible_anotado|default:0 }}</span></div>
                                     </td>
                                     <td class="text-center small text-muted">
-                                        <div>Actual: ${{ p.precio_costo|floatformat:2|intcomma|default:"-" }}</div>
-                                        <div>Prom: ${{ p.costo_promedio_anotado|floatformat:2|intcomma|default:"-" }}</div>
-                                        <div>Max: ${{ p.costo_max_compra|floatformat:2|intcomma|default:"-" }}</div>
+                                        <div>Último: {% if p.ultimo_costo and p.ultimo_costo > 0 %}${{ p.ultimo_costo|floatformat:2|intcomma }}{% else %}-${% endif %}</div>
+                                        <div>Prom: {% if p.costo_promedio_anotado and p.costo_promedio_anotado > 0 %}${{ p.costo_promedio_anotado|floatformat:2|intcomma }}{% else %}-${% endif %}</div>
+                                        <div>Base: ${{ p.precio_costo|floatformat:2|intcomma|default:"-" }}</div>
                                     </td>
                                     <td class="text-center small text-muted">
-                                        <div>Actual: ${{ p.precio_venta|floatformat:2|intcomma|default:"-" }}</div>
+                                        <div>Último: ${{ p.ultimo_precio_venta|floatformat:2|intcomma|default:"-" }}</div>
                                         <div>Prom: ${{ p.precio_promedio_venta|floatformat:2|intcomma|default:"-" }}</div>
-                                        <div>Max: ${{ p.precio_max_venta|floatformat:2|intcomma|default:"-" }}</div>
+                                        <div>Base: ${{ p.precio_venta|floatformat:2|intcomma|default:"-" }}</div>
                                     </td>
                                     <td class="text-center">
                                         <div class="text-muted small">${{ p.costo_inventario_anotado|floatformat:2|intcomma|default:"0.00" }}</div>

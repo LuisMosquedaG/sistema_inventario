@@ -151,11 +151,11 @@ function agregarFilaSerie(id) {
     const container = document.getElementById(`lista-series-${id}`);
     if(!container) return;
     const div = document.createElement('div');
-    div.className = 'item-row';
+    div.className = 'item-row d-flex align-items-center gap-1 mb-1';
     div.innerHTML = `
-        <div class="flex-grow-1"><input type="text" class="form-control form-control-sm input-serie" placeholder="Nº Serie" oninput="actualizarContadoresSeries(${id})"></div>
-        <button class="btn btn-sm btn-add-custom" style="width:32px; height:32px;" type="button" onclick="agregarFilaSerie(${id})"><i class="bi bi-plus"></i></button>
-        <button class="btn btn-sm btn-outline-danger" style="width:32px; height:32px;" type="button" onclick="this.closest('.item-row').remove(); actualizarContadoresSeries(${id});"><i class="bi bi-x-lg"></i></button>
+        <div class="flex-grow-1"><input type="text" class="form-control form-control-sm input-serie px-2 py-0" placeholder="Nº Serie" style="font-size: 0.8rem;" oninput="actualizarContadoresSeries(${id})"></div>
+        <button class="btn btn-sm btn-add-custom d-flex align-items-center justify-content-center p-0" style="width:26px; height:26px; min-width:26px;" type="button" title="Agregar serie" onclick="agregarFilaSerie(${id})"><i class="bi bi-plus fs-6"></i></button>
+        <button class="btn btn-sm btn-outline-danger d-flex align-items-center justify-content-center p-0" style="width:26px; height:26px; min-width:26px;" type="button" title="Eliminar serie" onclick="this.closest('.item-row').remove(); actualizarContadoresSeries(${id});"><i class="bi bi-x fs-6"></i></button>
     `;
     container.appendChild(div);
     actualizarContadoresSeries(id);
@@ -176,20 +176,22 @@ function agregarFilaExtras(id, manejaLote, manejaCaducidad) {
     const container = document.getElementById(`lista-extras-${id}`);
     if(!container) return;
     const div = document.createElement('div');
-    div.className = 'item-row';
+    div.className = 'item-row d-flex align-items-center gap-1 mb-1';
     
     let inputsHtml = '';
-    if (manejaLote) {
-        inputsHtml += `<input type="text" class="form-control form-control-sm input-lote-nombre" placeholder="Lote" style="flex:3;" oninput="actualizarContadoresExtras(${id}, ${manejaLote}, ${manejaCaducidad})">`;
-    }
-    if (manejaCaducidad) {
-        inputsHtml += `<input type="date" class="form-control form-control-sm input-caducidad-fecha" style="flex:3;" onchange="actualizarContadoresExtras(${id}, ${manejaLote}, ${manejaCaducidad})">`;
+    if (manejaLote && manejaCaducidad) {
+        inputsHtml += `<input type="text" class="form-control form-control-sm input-lote-nombre px-1 py-0 text-center" placeholder="Lote" style="flex: 1.1; min-width: 65px; font-size: 0.78rem;" oninput="actualizarContadoresExtras(${id}, ${manejaLote}, ${manejaCaducidad})">`;
+        inputsHtml += `<input type="date" class="form-control form-control-sm input-caducidad-fecha px-1 py-0 text-center" style="flex: 1.2; min-width: 95px; font-size: 0.75rem;" onchange="actualizarContadoresExtras(${id}, ${manejaLote}, ${manejaCaducidad})">`;
+    } else if (manejaLote) {
+        inputsHtml += `<input type="text" class="form-control form-control-sm input-lote-nombre px-2 py-0" placeholder="Lote" style="flex: 2; min-width: 80px; font-size: 0.8rem;" oninput="actualizarContadoresExtras(${id}, ${manejaLote}, ${manejaCaducidad})">`;
+    } else if (manejaCaducidad) {
+        inputsHtml += `<input type="date" class="form-control form-control-sm input-caducidad-fecha px-1 py-0 text-center" style="flex: 2; min-width: 100px; font-size: 0.78rem;" onchange="actualizarContadoresExtras(${id}, ${manejaLote}, ${manejaCaducidad})">`;
     }
     
     inputsHtml += `
-        <input type="number" class="form-control form-control-sm input-lote-cant" placeholder="0" style="flex:1;" min="1" oninput="actualizarContadoresExtras(${id}, ${manejaLote}, ${manejaCaducidad})">
-        <button class="btn btn-sm btn-add-custom" style="width:32px; height:32px;" type="button" onclick="agregarFilaExtras(${id}, ${manejaLote}, ${manejaCaducidad})"><i class="bi bi-plus"></i></button>
-        <button class="btn btn-sm btn-outline-danger" style="width:32px; height:32px;" type="button" onclick="this.closest('.item-row').remove(); actualizarContadoresExtras(${id}, ${manejaLote}, ${manejaCaducidad});"><i class="bi bi-x-lg"></i></button>
+        <input type="number" class="form-control form-control-sm input-lote-cant text-center fw-bold px-1 py-0" placeholder="Cant" title="Pzs a recibir" style="flex: 1; min-width: 65px; max-width: 75px; font-size: 0.82rem;" min="1" oninput="actualizarContadoresExtras(${id}, ${manejaLote}, ${manejaCaducidad})">
+        <button class="btn btn-sm btn-add-custom d-flex align-items-center justify-content-center p-0" style="width:26px; height:26px; min-width:26px;" type="button" title="Agregar fila" onclick="agregarFilaExtras(${id}, ${manejaLote}, ${manejaCaducidad})"><i class="bi bi-plus fs-6"></i></button>
+        <button class="btn btn-sm btn-outline-danger d-flex align-items-center justify-content-center p-0" style="width:26px; height:26px; min-width:26px;" type="button" title="Quitar fila" onclick="this.closest('.item-row').remove(); actualizarContadoresExtras(${id}, ${manejaLote}, ${manejaCaducidad});"><i class="bi bi-x fs-6"></i></button>
     `;
     div.innerHTML = inputsHtml;
     container.appendChild(div);

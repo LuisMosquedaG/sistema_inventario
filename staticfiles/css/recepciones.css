@@ -54,8 +54,8 @@
         .item-row {
             display: flex;
             align-items: center;
-            gap: 6px;
-            margin-bottom: 4px;
+            gap: 4px;
+            margin-bottom: 3px;
             border: none !important;
             box-shadow: none !important;
             background-color: transparent !important;
