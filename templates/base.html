@@ -561,7 +561,7 @@
             {% endif %}
 
             <!-- MÓDULO: INVENTARIOS -->
-            {% if inventory_ui_permissions.inventario or inventory_ui_permissions.kardex or inventory_ui_permissions.almacenes or inventory_ui_permissions.categorias %}
+            {% if inventory_ui_permissions.inventario or inventory_ui_permissions.kardex or inventory_ui_permissions.toma_inventario or inventory_ui_permissions.almacenes or inventory_ui_permissions.categorias %}
             <div>
                 <a href="#submenu-inventario" data-bs-toggle="collapse" class="sidebar-link {% if '/inventario/' in request.path %}sidebar-active{% endif %}">
                     <i class="bi bi-box-seam sidebar-icon"></i> Inventarios
@@ -575,6 +575,10 @@
 
                         {% if inventory_ui_permissions.kardex %}
                         <li><a href="/inventario/kardex/" class="sidebar-link sidebar-level-2 {% if '/kardex/' in request.path %}sidebar-sub-active{% endif %}"><i class="bi bi-clock-history me-2 small"></i> Kardex</a></li>
+                        {% endif %}
+
+                        {% if inventory_ui_permissions.toma_inventario %}
+                        <li><a href="/inventario/toma-inventario/" class="sidebar-link sidebar-level-2 {% if '/toma-inventario/' in request.path %}sidebar-sub-active{% endif %}"><i class="bi bi-clipboard-check me-2 small"></i> Inventario</a></li>
                         {% endif %}
 
                         {% if inventory_ui_permissions.almacenes or inventory_ui_permissions.categorias %}

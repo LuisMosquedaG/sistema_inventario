@@ -485,7 +485,7 @@ def dashboard_compras(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    productos = Producto.objects.filter(empresa=empresa_actual)
+    productos = Producto.objects.filter(empresa=empresa_actual).prefetch_related('barcodes')
     almacenes = Almacen.objects.filter(empresa=empresa_actual)
     proveedores_activos = Proveedor.objects.filter(empresa=empresa_actual, estado='activo')
     todos_los_proveedores = Proveedor.objects.filter(empresa=empresa_actual)

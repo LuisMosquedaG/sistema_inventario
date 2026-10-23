@@ -92,6 +92,7 @@ def app_permissions(request):
     p_inventory_ui = {
         'inventario': user_has_inventory_permission(request, 'inventario', 'ver'),
         'kardex': user_has_inventory_permission(request, 'kardex', 'ver'),
+        'toma_inventario': user_has_inventory_permission(request, 'toma_inventario', 'ver') or user_has_inventory_permission(request, 'inventario', 'ver'),
         'almacenes': user_has_inventory_permission(request, 'almacenes', 'ver'),
         'categorias': user_has_inventory_permission(request, 'categorias', 'ver'),
         'listas': user_has_inventory_permission(request, 'listas', 'ver'),

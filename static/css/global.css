@@ -257,4 +257,29 @@ body {
     box-shadow: 0 0 0 0.25rem rgba(0, 184, 185, 0.25) !important;
 }
 
+/* CHIPS DE CÓDIGO DE BARRAS */
+.barcode-chip {
+    background-color: rgba(0, 184, 185, 0.14) !important;
+    color: #007b7c !important;
+    border: 1px solid rgba(0, 184, 185, 0.35) !important;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-family: var(--bs-font-monospace, monospace);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.55rem;
+}
+.barcode-chip .btn-remove-barcode {
+    cursor: pointer;
+    color: #007b7c;
+    opacity: 0.7;
+    transition: all 0.15s ease;
+}
+.barcode-chip .btn-remove-barcode:hover {
+    color: #e03131 !important;
+    opacity: 1 !important;
+}
+
 

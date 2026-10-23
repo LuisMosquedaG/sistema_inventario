@@ -1704,11 +1704,15 @@ window.renderBarcodeChips = function() {
     hiddenContainer.innerHTML = '';
     
     activeProductBarcodes.forEach(code => {
-        // Chip visible
+        // Chip visible con diseño tenue tono marca (botón Guardar)
         const chip = document.createElement('span');
-        chip.className = 'badge bg-secondary d-flex align-items-center gap-1 py-1 px-2';
+        chip.className = 'barcode-chip d-inline-flex align-items-center gap-1 py-1 px-2 fw-semibold';
+        chip.style.backgroundColor = 'rgba(0, 184, 185, 0.14)';
+        chip.style.color = '#007b7c';
+        chip.style.border = '1px solid rgba(0, 184, 185, 0.35)';
+        chip.style.borderRadius = '6px';
         chip.style.fontSize = '0.8rem';
-        chip.innerHTML = `${code} <i class="bi bi-x-circle cursor-pointer text-white opacity-75 hover-opacity-100" onclick="removerBarcodeLista('${code}')"></i>`;
+        chip.innerHTML = `<i class="bi bi-upc me-1 opacity-75"></i><span>${code}</span> <i class="bi bi-x-circle btn-remove-barcode ms-1 cursor-pointer" onclick="removerBarcodeLista('${code}')" title="Eliminar código"></i>`;
         container.appendChild(chip);
         
         // Input oculto para envío de formulario

@@ -409,3 +409,469 @@ def api_detalle_reservas(request, producto_id):
         'reservas': data,
         'total': total_gral
     })
+
+
+# ==============================================================================
+# TOMA DE INVENTARIO FÍSICO (CONTEO FÍSICO Y AJUSTE MASIVO)
+# ==============================================================================
+from django.utils import timezone
+from .models import TomaInventario, DetalleTomaInventario
+
+@login_required(login_url='/login/')
+@require_inventory_permission('inventario', 'ver')
+def dashboard_toma_inventario(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return render(request, 'error_sin_empresa.html', status=403)
+
+    q = request.GET.get('q', '').strip()
+    almacen_id = request.GET.get('almacen', '').strip()
+    estado = request.GET.get('estado', '').strip()
+
+    tomas = TomaInventario.objects.filter(empresa=empresa_actual).select_related('almacen', 'creado_por')
+
+    if q:
+        tomas = tomas.filter(Q(nombre__icontains=q) | Q(almacen__nombre__icontains=q))
+    if almacen_id:
+        tomas = tomas.filter(almacen_id=almacen_id)
+    if estado:
+        tomas = tomas.filter(estado=estado)
+
+    almacenes = Almacen.objects.filter(empresa=empresa_actual).order_by('nombre')
+
+    # Métricas
+    total_tomas = TomaInventario.objects.filter(empresa=empresa_actual).count()
+    en_proceso_count = TomaInventario.objects.filter(empresa=empresa_actual, estado='en_proceso').count()
+    finalizados_count = TomaInventario.objects.filter(empresa=empresa_actual, estado='finalizado').count()
+
+    paginator = Paginator(tomas, 15)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    contexto = {
+        'tomas': page_obj,
+        'almacenes': almacenes,
+        'filtros': {
+            'q': q,
+            'almacen': almacen_id,
+            'estado': estado,
+        },
+        'metricas': {
+            'total': total_tomas,
+            'en_proceso': en_proceso_count,
+            'finalizados': finalizados_count,
+        }
+    }
+    try:
+        return render(request, 'dashboard_toma_inventario.html', contexto)
+    except Exception:
+        return render(request, 'almacenes/dashboard_toma_inventario.html', contexto)
+
+
+@login_required(login_url='/login/')
+@require_inventory_permission('inventario', 'crear', json_response=True)
+def api_crear_toma_inventario(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido.'}, status=405)
+
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Empresa no encontrada.'}, status=403)
+
+    nombre = request.POST.get('nombre', '').strip()
+    almacen_id = request.POST.get('almacen_id')
+    fecha_inicio = request.POST.get('fecha_inicio')
+    fecha_fin = request.POST.get('fecha_fin') or None
+    notas = request.POST.get('notas', '').strip()
+
+    if not nombre:
+        return JsonResponse({'success': False, 'error': 'El nombre del inventario es obligatorio.'})
+    if not almacen_id:
+        return JsonResponse({'success': False, 'error': 'Debe seleccionar un almacén válido.'})
+    if not fecha_inicio:
+        fecha_inicio = timezone.now()
+
+    almacen = get_object_or_404(Almacen, id=almacen_id, empresa=empresa_actual)
+
+    try:
+        with transaction.atomic():
+            toma = TomaInventario.objects.create(
+                empresa=empresa_actual,
+                sucursal=almacen.sucursal,
+                nombre=nombre,
+                almacen=almacen,
+                fecha_inicio=fecha_inicio,
+                fecha_fin=fecha_fin,
+                estado='en_proceso',
+                notas=notas,
+                creado_por=request.user
+            )
+
+            # Cargar todos los productos activos de la empresa para inicializar la toma
+            productos = Producto.objects.filter(empresa=empresa_actual, estado='activo').select_related()
+            inventarios_map = {
+                inv.producto_id: inv 
+                for inv in Inventario.objects.filter(almacen=almacen, producto__in=productos)
+            }
+
+            detalles_bulk = []
+            for p in productos:
+                inv = inventarios_map.get(p.id)
+                existencia = Decimal(str(inv.cantidad)) if inv else Decimal('0.00')
+                costo = (inv.costo_promedio if inv and inv.costo_promedio > 0 else None) or p.costo_promedio or p.ultimo_costo or p.precio_costo or Decimal('0.00')
+
+                detalles_bulk.append(DetalleTomaInventario(
+                    toma_inventario=toma,
+                    producto=p,
+                    existencia_sistema=existencia,
+                    costo_unitario=costo,
+                    cantidad_fisica=Decimal('0.00'),
+                    contado=False
+                ))
+
+            DetalleTomaInventario.objects.bulk_create(detalles_bulk)
+
+        return JsonResponse({
+            'success': True,
+            'id': toma.id,
+            'message': f'Inventario "{toma.nombre}" creado exitosamente con {len(detalles_bulk)} partidas.'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required(login_url='/login/')
+@require_inventory_permission('inventario', 'ver', json_response=True)
+def api_materiales_toma_inventario(request, toma_id):
+    empresa_actual = get_empresa_actual(request)
+    toma = get_object_or_404(TomaInventario, id=toma_id, empresa=empresa_actual)
+
+    q = request.GET.get('q', '').strip()
+    filtro_estado = request.GET.get('filtro_estado', 'todos').strip()
+
+    detalles_qs = DetalleTomaInventario.objects.filter(toma_inventario=toma).select_related('producto', 'usuario_conteo').prefetch_related('producto__barcodes')
+
+    # Filtros opcionales
+    if q:
+        detalles_qs = detalles_qs.filter(
+            Q(producto__nombre__icontains=q) |
+            Q(producto__clave__icontains=q) |
+            Q(producto__barcodes__codigo__icontains=q)
+        ).distinct()
+
+    if filtro_estado == 'contados':
+        detalles_qs = detalles_qs.filter(contado=True)
+    elif filtro_estado == 'pendientes':
+        detalles_qs = detalles_qs.filter(contado=False)
+    elif filtro_estado == 'diferencias':
+        detalles_qs = detalles_qs.exclude(cantidad_fisica=F('existencia_sistema'))
+
+    # Estadísticas globales de la toma
+    todos_detalles = DetalleTomaInventario.objects.filter(toma_inventario=toma)
+    total_partidas = todos_detalles.count()
+    contadas = todos_detalles.filter(contado=True).count()
+    pendientes = total_partidas - contadas
+
+    partidas_data = []
+    total_sistema_importe = Decimal('0.00')
+    total_fisico_importe = Decimal('0.00')
+    con_diferencia_count = 0
+
+    for d in detalles_qs:
+        sub_sist = d.subtotal_sistema
+        sub_fis = d.subtotal_fisico
+        dif = d.diferencia
+        dif_imp = d.diferencia_importe
+
+        total_sistema_importe += sub_sist
+        if d.contado:
+            total_fisico_importe += sub_fis
+        if dif != 0 and d.contado:
+            con_diferencia_count += 1
+
+        barcodes = [b.codigo for b in d.producto.barcodes.all()]
+        clave_efectiva = d.producto.clave or (barcodes[0] if barcodes else '--')
+
+        partidas_data.append({
+            'id': d.id,
+            'producto_id': d.producto.id,
+            'clave': clave_efectiva,
+            'codigos_barras': barcodes,
+            'nombre': d.producto.nombre,
+            'unidad': d.producto.unidad_medida or 'H87',
+            'categoria': d.producto.categoria or '--',
+            'existencia_sistema': float(d.existencia_sistema),
+            'costo_unitario': float(d.costo_unitario),
+            'cantidad_fisica': float(d.cantidad_fisica),
+            'diferencia': float(dif),
+            'diferencia_importe': float(dif_imp),
+            'subtotal_sistema': float(sub_sist),
+            'subtotal_fisico': float(sub_fis),
+            'contado': d.contado,
+            'numero_conteos': d.numero_conteos if d.numero_conteos > 0 else (1 if d.contado else 0),
+            'fecha_conteo': d.fecha_conteo.strftime('%d/%m/%Y %H:%M') if d.fecha_conteo else '',
+            'usuario_conteo': d.usuario_conteo.username if d.usuario_conteo else '',
+            'notas': d.notas or ''
+        })
+
+    return JsonResponse({
+        'success': True,
+        'toma': {
+            'id': toma.id,
+            'nombre': toma.nombre,
+            'almacen': toma.almacen.nombre,
+            'fecha_inicio': toma.fecha_inicio.strftime('%d/%m/%Y %H:%M') if toma.fecha_inicio else '',
+            'fecha_fin': toma.fecha_fin.strftime('%d/%m/%Y %H:%M') if toma.fecha_fin else '',
+            'estado': toma.estado,
+            'estado_display': toma.get_estado_display(),
+            'porcentaje_avance': toma.porcentaje_avance,
+        },
+        'stats': {
+            'total_partidas': total_partidas,
+            'contadas': contadas,
+            'pendientes': pendientes,
+            'con_diferencia': con_diferencia_count,
+            'total_sistema_importe': float(total_sistema_importe),
+            'total_fisico_importe': float(total_fisico_importe),
+            'total_diferencia_importe': float(total_fisico_importe - total_sistema_importe)
+        },
+        'partidas': partidas_data
+    })
+
+
+@login_required(login_url='/login/')
+@require_inventory_permission('inventario', 'ver', json_response=True)
+def api_buscar_articulo_toma(request, toma_id):
+    empresa_actual = get_empresa_actual(request)
+    toma = get_object_or_404(TomaInventario, id=toma_id, empresa=empresa_actual)
+    q = request.GET.get('q', '').strip()
+
+    if not q:
+        return JsonResponse({'success': True, 'resultados': [], 'exacto': None})
+
+    # 1. Búsqueda exacta por código de barras o clave
+    detalle_exacto = DetalleTomaInventario.objects.filter(
+        Q(toma_inventario=toma) &
+        (Q(producto__clave__iexact=q) | Q(producto__barcodes__codigo__iexact=q))
+    ).select_related('producto').prefetch_related('producto__barcodes').first()
+
+    def serializar_detalle(d):
+        barcodes = [b.codigo for b in d.producto.barcodes.all()]
+        clave_efectiva = d.producto.clave or (barcodes[0] if barcodes else '--')
+        return {
+            'id': d.id,
+            'producto_id': d.producto.id,
+            'clave': clave_efectiva,
+            'codigos_barras': barcodes,
+            'nombre': d.producto.nombre,
+            'unidad': d.producto.unidad_medida or 'H87',
+            'existencia_sistema': float(d.existencia_sistema),
+            'costo_unitario': float(d.costo_unitario),
+            'cantidad_fisica': float(d.cantidad_fisica),
+            'contado': d.contado,
+            'numero_conteos': d.numero_conteos if d.numero_conteos > 0 else (1 if d.contado else 0),
+            'fecha_conteo': d.fecha_conteo.strftime('%d/%m/%Y %H:%M') if d.fecha_conteo else '',
+            'notas': d.notas or ''
+        }
+
+    if detalle_exacto:
+        return JsonResponse({
+            'success': True,
+            'exacto': serializar_detalle(detalle_exacto),
+            'resultados': [serializar_detalle(detalle_exacto)]
+        })
+
+    # 2. Búsqueda parcial por clave, nombre o código
+    coincidencias = DetalleTomaInventario.objects.filter(
+        Q(toma_inventario=toma) &
+        (
+            Q(producto__clave__icontains=q) |
+            Q(producto__nombre__icontains=q) |
+            Q(producto__barcodes__codigo__icontains=q)
+        )
+    ).select_related('producto').prefetch_related('producto__barcodes').distinct()[:10]
+
+    return JsonResponse({
+        'success': True,
+        'exacto': None,
+        'resultados': [serializar_detalle(d) for d in coincidencias]
+    })
+
+
+@login_required(login_url='/login/')
+@require_inventory_permission('inventario', 'editar', json_response=True)
+def api_guardar_conteo_toma(request, toma_id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido.'}, status=405)
+
+    empresa_actual = get_empresa_actual(request)
+    toma = get_object_or_404(TomaInventario, id=toma_id, empresa=empresa_actual)
+
+    if toma.estado != 'en_proceso':
+        return JsonResponse({'success': False, 'error': 'No se puede capturar conteos en un inventario que no está "En proceso".'})
+
+    detalle_id = request.POST.get('detalle_id')
+    cantidad_contada_raw = request.POST.get('cantidad_contada', '0').strip()
+    modo = request.POST.get('modo', 'reemplazar') # 'reemplazar' o 'sumar'
+    notas = request.POST.get('notas', '').strip()
+
+    detalle = get_object_or_404(DetalleTomaInventario, id=detalle_id, toma_inventario=toma)
+
+    try:
+        cantidad_num = Decimal(cantidad_contada_raw)
+        if cantidad_num < 0:
+            return JsonResponse({'success': False, 'error': 'La cantidad física no puede ser negativa.'})
+
+        if modo == 'sumar':
+            detalle.cantidad_fisica = detalle.cantidad_fisica + cantidad_num
+        else:
+            detalle.cantidad_fisica = cantidad_num
+
+        if detalle.numero_conteos == 0 and detalle.contado:
+            detalle.numero_conteos = 1
+        detalle.numero_conteos += 1
+        detalle.contado = True
+        detalle.fecha_conteo = timezone.now()
+        detalle.usuario_conteo = request.user
+        if notas:
+            detalle.notas = notas
+        detalle.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Conteo guardado para {detalle.producto.nombre}: {detalle.cantidad_fisica}',
+            'detalle': {
+                'id': detalle.id,
+                'producto_id': detalle.producto.id,
+                'clave': detalle.producto.clave or '--',
+                'nombre': detalle.producto.nombre,
+                'existencia_sistema': float(detalle.existencia_sistema),
+                'cantidad_fisica': float(detalle.cantidad_fisica),
+                'diferencia': float(detalle.diferencia),
+                'diferencia_importe': float(detalle.diferencia_importe),
+                'contado': True,
+                'numero_conteos': detalle.numero_conteos,
+                'fecha_conteo': detalle.fecha_conteo.strftime('%d/%m/%Y %H:%M'),
+                'usuario_conteo': request.user.username
+            },
+            'avance': {
+                'contadas': toma.partidas_contadas,
+                'total': toma.total_partidas,
+                'porcentaje': toma.porcentaje_avance
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required(login_url='/login/')
+@require_inventory_permission('inventario', 'editar', json_response=True)
+def api_cambiar_estado_toma(request, toma_id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido.'}, status=405)
+
+    empresa_actual = get_empresa_actual(request)
+    toma = get_object_or_404(TomaInventario, id=toma_id, empresa=empresa_actual)
+    nuevo_estado = request.POST.get('estado')
+
+    if nuevo_estado not in ['en_proceso', 'finalizado', 'cancelado']:
+        return JsonResponse({'success': False, 'error': 'Estado no válido.'})
+
+    toma.estado = nuevo_estado
+    toma.save()
+
+    return JsonResponse({
+        'success': True,
+        'nuevo_estado': toma.estado,
+        'nuevo_estado_display': toma.get_estado_display(),
+        'message': f'Estado de inventario actualizado a "{toma.get_estado_display()}".'
+    })
+
+
+@login_required(login_url='/login/')
+@require_inventory_permission('inventario', 'eliminar', json_response=True)
+def api_eliminar_toma_inventario(request, toma_id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido.'}, status=405)
+
+    empresa_actual = get_empresa_actual(request)
+    toma = get_object_or_404(TomaInventario, id=toma_id, empresa=empresa_actual)
+    nombre = toma.nombre
+    toma.delete()
+
+    return JsonResponse({
+        'success': True,
+        'message': f'El inventario "{nombre}" ha sido eliminado exitosamente.'
+    })
+
+
+@login_required(login_url='/login/')
+@require_inventory_permission('inventario', 'editar', json_response=True)
+@transaction.atomic
+def api_cerrar_toma_inventario(request, toma_id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido.'}, status=405)
+
+    empresa_actual = get_empresa_actual(request)
+    toma = get_object_or_404(TomaInventario, id=toma_id, empresa=empresa_actual)
+
+    if toma.estado == 'cerrado':
+        return JsonResponse({'success': False, 'error': 'El inventario ya se encuentra cerrado.'})
+
+    accion = request.POST.get('accion_cierre', 'actualizar').strip() # 'actualizar' o 'no_actualizar'
+
+    ajustes_realizados = 0
+    if accion == 'actualizar':
+        detalles_contados = toma.detalles.filter(contado=True).select_related('producto')
+        for det in detalles_contados:
+            inv, _ = Inventario.objects.get_or_create(
+                empresa=toma.empresa,
+                almacen=toma.almacen,
+                producto=det.producto,
+                defaults={
+                    'cantidad': 0,
+                    'reservado': 0,
+                    'costo_promedio': det.costo_unitario,
+                    'sucursal': toma.almacen.sucursal
+                }
+            )
+            stock_anterior = inv.cantidad
+            stock_nuevo = int(round(det.cantidad_fisica))
+            dif = stock_nuevo - stock_anterior
+
+            if dif != 0:
+                inv.cantidad = stock_nuevo
+                inv.save()
+
+                Kardex.objects.create(
+                    empresa=toma.empresa,
+                    sucursal=toma.almacen.sucursal,
+                    producto=det.producto,
+                    almacen=toma.almacen,
+                    tipo_movimiento='ajuste',
+                    cantidad=abs(dif),
+                    stock_anterior=stock_anterior,
+                    stock_nuevo=stock_nuevo,
+                    referencia=f"Toma Inv: {toma.nombre}",
+                    usuario=request.user
+                )
+                ajustes_realizados += 1
+
+    toma.estado = 'cerrado'
+    toma.fecha_fin = timezone.now()
+    toma.save()
+
+    msg = f'Inventario "{toma.nombre}" cerrado exitosamente.'
+    if accion == 'actualizar':
+        msg += f' Se ajustaron las existencias de {ajustes_realizados} artículo(s) en {toma.almacen.nombre}.'
+    else:
+        msg += ' No se modificaron las existencias del sistema (Modo auditoría).'
+
+    return JsonResponse({
+        'success': True,
+        'message': msg,
+        'estado': toma.estado,
+        'estado_display': toma.get_estado_display(),
+        'fecha_fin': toma.fecha_fin.strftime('%d/%m/%Y %H:%M')
+    })
+

@@ -644,7 +644,9 @@
                                                           data-name="{{ p.nombre }}"
                                                           data-precio="{{ p.precio_costo }}" 
                                                           data-iva="{{ p.iva|default:0 }}"
-                                                          data-search="{{ p.nombre }}" 
+                                                          data-clave="{{ p.clave|default:'' }}"
+                                                          data-barcodes="{% for b in p.barcodes.all %}{{ b.codigo }},{% endfor %}"
+                                                          data-search="{{ p.nombre }} {{ p.clave|default:'' }} {% for b in p.barcodes.all %}{{ b.codigo }} {% endfor %}" 
                                                           title="{{ p.nombre }}">
                                                         {{ p.nombre }}
                                                     </span>
@@ -1432,6 +1434,43 @@
                 toggleOptions(true);
             });
 
+            // Lector de código de barras / Selección por Enter
+            searchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    const term = this.value.toLowerCase().trim();
+                    if (!term) return;
+
+                    const options = Array.from(optionsContainer.querySelectorAll('.custom-option'));
+                    
+                    // 1. Match exacto por código de barras o clave
+                    let match = options.find(opt => {
+                        const barcodes = (opt.getAttribute('data-barcodes') || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
+                        const clave = (opt.getAttribute('data-clave') || '').toLowerCase().trim();
+                        return barcodes.includes(term) || clave === term;
+                    });
+
+                    // 2. Si no hay coincidencia exacta de barcode/clave, buscar la primera opción visible
+                    if (!match) {
+                        match = options.find(opt => opt.style.display !== 'none');
+                    }
+
+                    if (match) {
+                        match.click();
+                        // Enfocar cantidad para ingresar cantidad y costo
+                        setTimeout(() => {
+                            const inputCant = document.getElementById('inputCantidadAgregar');
+                            if (inputCant) {
+                                inputCant.focus();
+                                inputCant.select();
+                            }
+                        }, 80);
+                    }
+                }
+            });
+
             optionsContainer.addEventListener('click', (e) => {
                 const option = e.target.closest('.custom-option');
                 if (!option || option.classList.contains('disabled')) return;
@@ -1681,6 +1720,10 @@
             document.getElementById('selectListaPrecioAgregar').value = "";
             
             calcularGranTotalLista();
+
+            // Devolver el foco al buscador para el siguiente escaneo
+            const sInput = document.getElementById('producto_busqueda');
+            if (sInput) sInput.focus();
         }
 
         function editarFilaCompra(btn) {
@@ -1972,6 +2015,23 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Inicializar Custom Select de Producto
             initCustomSelect('wrapperProductoAgregar', 'selectProductoAgregar', 'producto_display_fake', 'producto_busqueda', 'optionsProductoAgregar');
+
+            // Prevenir que presionar Enter dentro del modal de compra guarde la compra prematuramente
+            const formCompra = document.getElementById('formCompra');
+            if (formCompra) {
+                formCompra.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        // Si se presiona Enter en cantidad o costo, agregar la partida
+                        if (e.target.id === 'inputCantidadAgregar' || e.target.id === 'inputPrecioAgregar') {
+                            e.preventDefault();
+                            agregarALista();
+                        } else if (e.target.tagName === 'INPUT' && e.target.type !== 'submit') {
+                            // En cualquier otro input (como búsqueda de producto, notas, etc.), evitar submit
+                            e.preventDefault();
+                        }
+                    }
+                });
+            }
 
             const modalNC = document.getElementById('modalNuevaCompra');
             if (modalNC) {

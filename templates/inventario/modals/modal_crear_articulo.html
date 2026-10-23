@@ -22,6 +22,30 @@
                         border-color: #00b8b9 !important;
                         box-shadow: 0 0 0 1px rgba(0, 184, 185, 0.2) !important;
                     }
+                    /* Chips de Códigos de Barras */
+                    #modalCrearArticulo .barcode-chip {
+                        background-color: rgba(0, 184, 185, 0.14) !important;
+                        color: #007b7c !important;
+                        border: 1px solid rgba(0, 184, 185, 0.35) !important;
+                        border-radius: 6px;
+                        font-size: 0.8rem;
+                        font-weight: 600;
+                        font-family: var(--bs-font-monospace, monospace);
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 0.35rem;
+                        padding: 0.25rem 0.55rem;
+                    }
+                    #modalCrearArticulo .barcode-chip .btn-remove-barcode {
+                        cursor: pointer;
+                        color: #007b7c;
+                        opacity: 0.7;
+                        transition: all 0.15s ease;
+                    }
+                    #modalCrearArticulo .barcode-chip .btn-remove-barcode:hover {
+                        color: #e03131 !important;
+                        opacity: 1 !important;
+                    }
                 </style>
                 <form id="formCrearArticulo" enctype="multipart/form-data">
                     {% csrf_token %}

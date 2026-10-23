@@ -1,0 +1,1293 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block content %}
+<style>
+    /* Estilos de Status Pills */
+    .status-pill {
+        display: inline-flex; align-items: center; font-size: 0.72rem; line-height: 1; padding: 0.3em 0.7em;
+        font-weight: 600; text-align: center; white-space: nowrap; border-radius: 50px; text-transform: capitalize;
+    }
+    .status-en_proceso { background-color: #fff9db; color: #f08c00; border: 1px solid #ffe066; }
+    .status-cerrado, .status-finalizado { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
+    .status-cancelado { background-color: #f1f3f5; color: #868e96; border: 1px solid #dee2e6; }
+    .status-parcial, .status-diferencia { background-color: #fff4e6; color: #d9480f; border: 1px solid #ffe8cc; }
+    .status-borrador, .status-pendiente { background-color: #f1f3f5; color: #495057; border: 1px solid #dee2e6; }
+    .status-recibida, .status-exacto { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
+
+    /* Columna Contado Físico en tono tenue del botón Captura */
+    .col-contado-fisico {
+        background-color: rgba(0, 184, 185, 0.14) !important;
+        color: #000000 !important;
+    }
+    .table-pro tbody tr:hover td.col-contado-fisico {
+        background-color: rgba(0, 184, 185, 0.24) !important;
+        color: #000000 !important;
+    }
+
+    /* Barras de avance súper delgadas estilo Tablero de Control */
+    .progress-slim { 
+        display: flex;
+        height: 4px;
+        overflow: hidden;
+        background-color: #e9ecef;
+        border-radius: 4px;
+        margin-top: 2px; 
+    }
+    .bg-brand-avance { background-color: #00b8b9 !important; }
+    .progress-label { font-size: 0.6rem; color: #868e96; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .option-cierre-card {
+        transition: all 0.2s ease;
+        background: #ffffff;
+    }
+    .option-cierre-card:hover {
+        border-color: #00b8b9 !important;
+        background: #f8fafb;
+    }
+
+    .table-pro tbody tr { transition: background-color 0.2s; }
+    .table-pro tbody tr:hover td { background-color: #f8f9fa; }
+    .table-pro thead th { white-space: nowrap !important; }
+
+    .icon-action {
+        color: #adb5bd;
+        font-size: 1.15rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        text-decoration: none !important;
+    }
+    .icon-action:hover {
+        color: #00b8b9;
+        transform: scale(1.15);
+    }
+    .icon-action.state-cancelled:hover,
+    .icon-action.hover-red:hover {
+        color: #e03131 !important;
+        background: transparent !important;
+    }
+    .icon-action.state-cancelled:hover i,
+    .icon-action.hover-red:hover i {
+        color: #e03131 !important;
+    }
+
+    .btn-action-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        text-decoration: none;
+    }
+    .btn-action-materiales {
+        background-color: #e6fcf5;
+        color: #0ca678;
+        border: 1px solid #b2f2bb;
+    }
+    .btn-action-materiales:hover {
+        background-color: #20c997;
+        color: white;
+    }
+    .btn-action-captura {
+        background-color: #e7f5ff;
+        color: #1971c2;
+        border: 1px solid #a5d8ff;
+    }
+    .btn-action-captura:hover {
+        background-color: #1c7ed6;
+        color: white;
+    }
+
+    /* Modales Estilo Sheet */
+    .modal-sheet .modal-content {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        overflow: hidden;
+    }
+    .modal-sheet .modal-body {
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    .modal-sheet .modal-body::-webkit-scrollbar { width: 6px; }
+    .modal-sheet .modal-body::-webkit-scrollbar-thumb { background-color: #dee2e6; border-radius: 4px; }
+
+    /* Estilos del escáner en Captura */
+    .scanner-box {
+        background: #f8fafc;
+        border: 2px dashed #00b8b9;
+        border-radius: 10px;
+        padding: 1.2rem;
+    }
+    .scanner-input {
+        font-size: 1.15rem;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+    .scanner-input:focus {
+        border-color: #00b8b9;
+        box-shadow: 0 0 0 0.25rem rgba(0, 184, 185, 0.2);
+    }
+</style>
+
+<div class="container-fluid py-2 px-4">
+    <!-- ============================================================== -->
+    <!-- 1. VISTA GENERAL DE INVENTARIOS                                -->
+    <!-- ============================================================== -->
+    <div id="panelVistaGeneral">
+        <!-- HEADER -->
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+            <div>
+                <h4 class="section-title mb-0">Toma de Inventario</h4>
+                <span class="section-subtitle">Conteo físico, auditoría y conciliación de existencias por almacén</span>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <button class="btn btn-brand btn-sm text-white shadow-sm px-3" onclick="abrirModalCrearInventario()">
+                    <i class="bi bi-plus-lg me-1"></i> Nuevo Inventario
+                </button>
+            </div>
+        </div>
+
+        <!-- FILTROS -->
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body p-3">
+                <form method="get" id="formFiltrosToma" class="row g-2 align-items-end">
+                    <div class="col-12 col-md-4 col-lg-3">
+                        <label class="form-label small fw-bold text-secondary">Búsqueda</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                            <input type="text" name="q" class="form-control border-start-0" placeholder="Nombre o almacén..." value="{{ filtros.q }}" onchange="this.form.submit()">
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4 col-lg-3">
+                        <label class="form-label small fw-bold text-secondary">Almacén</label>
+                        <select name="almacen" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="">Todos los almacenes...</option>
+                            {% for a in almacenes %}
+                            <option value="{{ a.id }}" {% if filtros.almacen == a.id|stringformat:"s" %}selected{% endif %}>{{ a.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-3 col-lg-2">
+                        <label class="form-label small fw-bold text-secondary">Estado</label>
+                        <select name="estado" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="">Todos...</option>
+                            <option value="en_proceso" {% if filtros.estado == 'en_proceso' %}selected{% endif %}>En proceso</option>
+                            <option value="finalizado" {% if filtros.estado == 'finalizado' %}selected{% endif %}>Finalizado</option>
+                            <option value="cancelado" {% if filtros.estado == 'cancelado' %}selected{% endif %}>Cancelado</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <a href="{% url 'dashboard_toma_inventario' %}" class="btn btn-light border btn-sm text-secondary">
+                            <i class="bi bi-arrow-counterclockwise"></i> Limpiar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- TABLA DE TOMAS DE INVENTARIO -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-pro mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-center" style="width: 110px;">Acciones</th>
+                                <th class="text-center">Nombre de Inventario</th>
+                                <th class="text-center">Almacén</th>
+                                <th class="text-center">Inicio</th>
+                                <th class="text-center">Fin</th>
+                                <th class="text-center align-middle" style="width: 160px;">Avance</th>
+                                <th class="text-center">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for t in tomas %}
+                            <tr id="filaToma{{ t.id }}">
+                                <td class="text-center" id="colAcciones{{ t.id }}">
+                                    <div class="d-flex justify-content-center gap-1">
+                                        <span onclick="mostrarVistaMateriales({{ t.id }})" class="icon-action" title="Materiales"><i class="bi bi-card-checklist"></i></span>
+                                        {% if t.estado == 'en_proceso' %}
+                                        <span onclick="abrirModalCaptura({{ t.id }})" class="icon-action" title="Captura"><i class="bi bi-upc-scan"></i></span>
+                                        <span onclick="abrirModalCerrarInventario({{ t.id }}, '{{ t.nombre|escapejs }}', '{{ t.almacen.nombre|escapejs }}', {{ t.porcentaje_avance }}, {{ t.partidas_contadas }}, {{ t.total_partidas }})" class="icon-action" title="Cerrar Inventario"><i class="bi bi-lock"></i></span>
+                                        {% else %}
+                                        <span class="icon-action text-muted" style="opacity: 0.35; cursor: not-allowed;" title="Inventario cerrado (Captura deshabilitada)"><i class="bi bi-upc-scan"></i></span>
+                                        <span class="icon-action text-muted" style="opacity: 0.35; cursor: not-allowed;" title="Inventario cerrado"><i class="bi bi-lock-fill"></i></span>
+                                        {% endif %}
+                                        <span onclick="eliminarInventario({{ t.id }})" class="icon-action state-cancelled" title="Eliminar"><i class="bi bi-x-circle"></i></span>
+                                    </div>
+                                </td>
+                                <td class="text-center small text-dark">
+                                    {{ t.nombre }}
+                                </td>
+                                <td class="text-center small text-muted">
+                                    {{ t.almacen.nombre }}
+                                </td>
+                                <td class="text-center small text-muted">
+                                    {{ t.fecha_inicio|date:"d/m/Y H:i"|default:"--" }}
+                                </td>
+                                <td class="text-center small text-muted" id="colFechaFin{{ t.id }}">
+                                    {{ t.fecha_fin|date:"d/m/Y H:i"|default:"Abierto" }}
+                                </td>
+                                <td class="text-center align-middle" style="width: 160px;" id="colAvanceInv{{ t.id }}">
+                                    <div>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="progress-label">Conteo</span>
+                                            <span class="progress-label text-dark fw-bold">{{ t.porcentaje_avance }}%</span>
+                                        </div>
+                                        <div class="progress-slim">
+                                            <div class="progress-bar bg-brand-avance" style="width: {{ t.porcentaje_avance }}%"></div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mt-1">
+                                        <span class="text-muted" style="font-size: 0.65rem;">{{ t.partidas_contadas }} / {{ t.total_partidas }} contados</span>
+                                    </div>
+                                </td>
+                                <td class="text-center" id="colEstado{{ t.id }}">
+                                    <span class="status-pill status-{{ t.estado }}">
+                                        {{ t.get_estado_display }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-5">
+                                    <i class="bi bi-clipboard-x fs-1 text-muted d-block mb-2"></i>
+                                    <h6 class="text-muted fw-bold">No se encontraron inventarios</h6>
+                                    <p class="text-muted small mb-3">Crea un nuevo inventario para comenzar el conteo físico de tus almacenes.</p>
+                                    <button class="btn btn-brand btn-sm text-white px-3" onclick="abrirModalCrearInventario()">
+                                        <i class="bi bi-plus-lg me-1"></i> Crear Primer Inventario
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- PAGINADOR -->
+                {% if tomas.has_other_pages %}
+                <div class="p-3 border-top d-flex justify-content-between align-items-center">
+                    <span class="small text-muted">
+                        Mostrando página {{ tomas.number }} de {{ tomas.paginator.num_pages }}
+                    </span>
+                    <nav>
+                        <ul class="pagination pagination-sm mb-0">
+                            {% if tomas.has_previous %}
+                            <li class="page-item"><a class="page-link" href="?page={{ tomas.previous_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}">Anterior</a></li>
+                            {% endif %}
+                            <li class="page-item active"><span class="page-link bg-brand border-brand">{{ tomas.number }}</span></li>
+                            {% if tomas.has_next %}
+                            <li class="page-item"><a class="page-link" href="?page={{ tomas.next_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}">Siguiente</a></li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- 2. VISTA DE MATERIALES DEL INVENTARIO (ÁREA DE TRABAJO)        -->
+    <!-- ============================================================== -->
+    <div id="panelVistaMateriales" class="d-none">
+        <!-- HEADER DE MATERIALES -->
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+            <div>
+                <h4 class="section-title mb-0" id="matVistaTitulo">Materiales del Inventario</h4>
+                <span class="section-subtitle" id="matVistaSubtitulo">Almacén: -- | Avance: 0%</span>
+            </div>
+            
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <button type="button" class="btn btn-light border text-secondary btn-pro shadow-sm" onclick="volverAVistaGeneral()">
+                    <i class="bi bi-arrow-left me-1"></i> Volver
+                </button>
+                <button type="button" class="btn btn-brand text-white btn-pro shadow-sm" id="btnIrACapturaDesdeMat">
+                    <i class="bi bi-upc-scan me-1"></i> Captura
+                </button>
+            </div>
+        </div>
+
+        <!-- FILTROS Y BÚSQUEDA INTERNA DE MATERIALES -->
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body p-2">
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-6 col-lg-5">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                            <input type="text" id="filtroMaterialesTexto" class="form-control border-start-0" 
+                                   placeholder="Buscar por clave, código de barras o nombre..." oninput="filtrarTablaMateriales()">
+                        </div>
+                    </div>
+                    <div class="col-md-5 col-lg-4">
+                        <select id="filtroMaterialesEstado" class="form-select form-select-sm" onchange="cargarMaterialesServidor()">
+                            <option value="todos">Todos los artículos</option>
+                            <option value="contados">Solo contados (Físico registrado)</option>
+                            <option value="pendientes">Solo pendientes por contar</option>
+                            <option value="diferencias">Solo con diferencias (Físico ≠ Sistema)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLA DE MATERIALES -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-pro table-hover mb-0 align-middle" id="tablaDetalleMateriales">
+                        <thead class="table-light sticky-top" style="z-index: 5;">
+                            <tr>
+                                <th class="ps-3" style="width: 120px;">Clave</th>
+                                <th>Material / Artículo</th>
+                                <th class="text-center" style="width: 90px;">U.M.</th>
+                                <th class="text-end" style="width: 120px;">Exist. Sistema</th>
+                                <th class="text-end" style="width: 120px;">Costo Total</th>
+                                <!-- COLUMNA EXPLICITA SOLICITADA: LO CONTADO (FISICO) -->
+                                <th class="text-end fw-bold col-contado-fisico" style="width: 130px;">
+                                    Contado (Físico)
+                                </th>
+                                <th class="text-end" style="width: 110px;">Diferencia</th>
+                                <th class="text-end" style="width: 120px;">Dif. Importe</th>
+                                <th class="text-center pe-3" style="width: 100px;">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cuerpoTablaMateriales">
+                            <!-- Renderizado vía AJAX -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- POSTERIOR A LA SECCIÓN DE ARTÍCULOS: ETIQUETA MOSTRANDO ARTÍCULOS -->
+            <div class="card-footer bg-white border-top py-2 px-3 d-flex justify-content-between align-items-center">
+                <span class="text-muted small" id="contadorMaterialesFiltrados" style="font-size: 0.75rem;">Mostrando 0 artículos</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- MODAL: CREAR TOMA DE INVENTARIO                                -->
+<!-- ============================================================== -->
+<div class="modal fade" id="modalCrearInventario" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sheet">
+        <div class="modal-content">
+            <div class="modal-header border-bottom bg-light py-2">
+                <h5 class="modal-title fw-bold text-dark fs-6">
+                    <i class="bi bi-clipboard-plus me-2 text-brand"></i> Nuevo Inventario por Almacén
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formCrearInventario" onsubmit="guardarNuevoInventario(event)">
+                {% csrf_token %}
+                <div class="modal-body p-3">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-secondary mb-1">Nombre de Inventario <span class="text-danger">*</span></label>
+                        <input type="text" name="nombre" class="form-control form-control-sm" required placeholder="Ej. Conteo Físico Anual 2026">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-secondary mb-1">Almacén <span class="text-danger">*</span></label>
+                        <select name="almacen_id" class="form-select form-select-sm" required>
+                            <option value="">Seleccione el almacén a auditar...</option>
+                            {% for a in almacenes %}
+                            <option value="{{ a.id }}">{{ a.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text" style="font-size: 0.72rem;">Se capturará una instantánea del stock teórico de todos los productos en este almacén.</div>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary mb-1">Inicio <span class="text-danger">*</span></label>
+                            <input type="datetime-local" name="fecha_inicio" id="crear_fecha_inicio" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary mb-1">Fin Estimado</label>
+                            <input type="datetime-local" name="fecha_fin" class="form-control form-control-sm">
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label small text-secondary mb-1">Observaciones / Notas</label>
+                        <textarea name="notas" rows="2" class="form-control form-control-sm" placeholder="Instrucciones para auditores o detalles del inventario..."></textarea>
+                    </div>
+
+                    <div class="alert alert-info py-2 px-3 small mb-0 border-0 d-flex align-items-center gap-2">
+                        <i class="bi bi-info-circle fs-5"></i>
+                        <span>El inventario se creará con estado <strong>"En proceso"</strong> listo para iniciar la captura de existencias.</span>
+                    </div>
+                </div>
+                <div class="modal-footer border-top bg-white py-2">
+                    <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-brand btn-sm text-white px-4" id="btnSubmitCrearInv">
+                        Crear Inventario
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- MODAL: CERRAR TOMA DE INVENTARIO                               -->
+<!-- ============================================================== -->
+<div class="modal fade" id="modalCerrarInventario" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sheet" style="max-width: 520px;">
+        <div class="modal-content">
+            <div class="modal-header border-bottom bg-light py-2 px-3">
+                <h5 class="modal-title fw-bold text-dark fs-6">
+                    <i class="bi bi-shield-lock me-2 text-brand"></i> Cerrar Toma de Inventario
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formCerrarInventario" onsubmit="ejecutarCierreInventario(event)">
+                <input type="hidden" id="cerrarTomaId" value="">
+                <div class="modal-body p-3">
+                    <div class="card border mb-3 bg-light" style="border-radius: 8px;">
+                        <div class="card-body p-2 px-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="text-muted small">Inventario:</span>
+                                    <strong class="text-dark ms-1" id="cerrarNombreInv">--</strong>
+                                </div>
+                                <div>
+                                    <span class="text-muted small">Almacén:</span>
+                                    <strong class="text-secondary ms-1" id="cerrarAlmacenInv">--</strong>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-1">
+                                <span class="text-muted small">Avance:</span>
+                                <span class="badge bg-white text-dark border fw-semibold" id="cerrarAvanceInv">0%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <label class="form-label small fw-bold text-secondary mb-2">Selecciona la acción para el inventario:</label>
+
+                    <div class="d-flex flex-column gap-2">
+                        <!-- OPCIÓN 1 -->
+                        <label class="p-3 border rounded-3 d-flex align-items-start gap-3 option-cierre-card" for="opcionActualizarStock" style="cursor: pointer;">
+                            <input class="form-check-input mt-1 flex-shrink-0" type="radio" name="accion_cierre" id="opcionActualizarStock" value="actualizar" checked>
+                            <div>
+                                <div class="fw-bold text-dark small">1. Actualizar existencias al inventario actual</div>
+                                <div class="text-muted" style="font-size: 0.75rem;">
+                                    Ajusta las cantidades del almacén con los conteos físicos registrados y genera los movimientos de ajuste correspondientes en el Kardex.
+                                </div>
+                            </div>
+                        </label>
+
+                        <!-- OPCIÓN 2 -->
+                        <label class="p-3 border rounded-3 d-flex align-items-start gap-3 option-cierre-card" for="opcionNoActualizarStock" style="cursor: pointer;">
+                            <input class="form-check-input mt-1 flex-shrink-0" type="radio" name="accion_cierre" id="opcionNoActualizarStock" value="no_actualizar">
+                            <div>
+                                <div class="fw-bold text-dark small">2. No actualizar existencias</div>
+                                <div class="text-muted" style="font-size: 0.75rem;">
+                                    Conserva el stock actual del almacén en sistema sin modificaciones. El inventario se cerrará únicamente como registro de auditoría.
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer border-top bg-white py-2 px-3">
+                    <button type="button" class="btn btn-light border text-secondary btn-pro shadow-sm" data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-brand text-white btn-pro shadow-sm" id="btnConfirmarCierre">
+                        <i class="bi bi-shield-lock me-1"></i> Cerrar Inventario
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- MODAL: ACCIÓN 2 - CAPTURA RÁPIDA (POR CLAVE O CÓDIGO BARRAS)   -->
+<!-- ============================================================== -->
+<div class="modal fade" id="modalCaptura" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sheet" style="max-width: 620px;">
+        <div class="modal-content">
+            <div class="modal-header border-bottom bg-white py-3 px-4">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-3 d-flex align-items-center justify-content-center shadow-xs" 
+                         style="width: 40px; height: 40px; background-color: #e6f7f7; color: #00b8b9;">
+                        <i class="bi bi-upc-scan fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0 fs-6" id="capturaModalTitulo">Captura de Existencia Física</h5>
+                        <span class="text-muted" style="font-size: 0.75rem;" id="capturaModalSubtitulo">Escaneo rápido y conteo</span>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body p-4 bg-white">
+                <!-- CAJA DE ESCÁNER Y BÚSQUEDA -->
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-secondary mb-1">
+                        <i class="bi bi-barcode me-1 text-brand"></i> Buscar por Clave o Código de Barras
+                    </label>
+                    <div class="input-group shadow-xs rounded-3 overflow-hidden border">
+                        <span class="input-group-text bg-white border-0 text-muted ps-3">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" id="inputBuscarCodigoCaptura" class="form-control border-0 py-2 ps-2" 
+                               placeholder="Escanee con lector o ingrese clave / código..." 
+                               autocomplete="off"
+                               style="font-size: 0.92rem;"
+                               onkeydown="manejarTeclaCaptura(event)">
+                        <button class="btn btn-brand text-white px-4 fw-semibold border-0" type="button" onclick="ejecutarBusquedaCaptura()">
+                            Buscar
+                        </button>
+                    </div>
+                    <!-- Lista de sugerencias si hay múltiples -->
+                    <div id="listaSugerenciasCaptura" class="list-group shadow-sm mt-1 d-none" style="max-height: 180px; overflow-y: auto;"></div>
+                </div>
+
+                <!-- CARD ARTÍCULO SELECCIONADO Y CAMPO DE CONTEO -->
+                <div id="panelFormularioConteo" class="card border-0 shadow-sm mb-3 d-none" style="background: #f8fafb; border-left: 4px solid #00b8b9 !important; border-radius: 10px;">
+                    <div class="card-body p-3">
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <h6 class="fw-bold text-dark mb-0 fs-6" id="capturaArticuloNombre">Nombre del Producto</h6>
+                                <div id="infoConteoPrevio">
+                                    <span class="badge bg-light text-muted border">Sin conteo</span>
+                                </div>
+                            </div>
+                            <div class="text-muted small" style="font-size: 0.75rem;" id="capturaArticuloDetallesClave">
+                                <!-- Clave, código de barras y unidad sin fondo -->
+                            </div>
+                        </div>
+
+                        <form id="formRegistroConteo" onsubmit="guardarConteoArticulo(event)" class="mt-3">
+                            <input type="hidden" id="capturaDetalleId" value="">
+                            
+                            <div class="row g-2 align-items-end">
+                                <div class="col-7">
+                                    <label class="form-label small fw-bold text-dark mb-1">
+                                        Existencia Física Contada <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <input type="number" step="0.01" min="0" id="inputNumeroContado" 
+                                               class="form-control text-center fw-bold text-dark" 
+                                               style="font-size: 1.35rem; height: 44px; border-radius: 8px 0 0 8px;" 
+                                               required placeholder="0.00" autofocus>
+                                        <span class="input-group-text bg-white text-muted fw-semibold px-3" id="capturaUnidadLabel" style="border-radius: 0 8px 8px 0;">Pzs</span>
+                                    </div>
+                                </div>
+                                <div class="col-5">
+                                    <button type="submit" class="btn btn-brand w-100 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-1" id="btnGuardarConteo" style="height: 44px; border-radius: 8px; font-size: 0.9rem;">
+                                        <i class="bi bi-check2-circle fs-5"></i> Guardar Conteo
+                                    </button>
+                                </div>
+                                <div class="col-12 mt-2">
+                                    <input type="text" id="capturaNotas" class="form-control form-control-sm bg-white" placeholder="Observaciones opcionales (ej. estante 2, lote verificado)...">
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer border-top bg-white py-2 px-4">
+                <button type="button" class="btn btn-light border text-secondary btn-pro shadow-sm" data-bs-dismiss="modal">
+                    Cerrar Captura
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+    // Variables de estado
+    let currentTomaId = null;
+    let inventarioMaterialesCache = [];
+    let conteosSesionHistorial = [];
+
+    // Helper CSRF
+    function getCSRF() {
+        const input = document.querySelector('[name=csrfmiddlewaretoken]');
+        return input ? input.value : '';
+    }
+
+    // Modal Crear Inventario
+    function abrirModalCrearInventario() {
+        const form = document.getElementById('formCrearInventario');
+        if (form) form.reset();
+        
+        // Poner fecha y hora actual por defecto
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        const isoString = now.toISOString().slice(0, 16);
+        const inputInicio = document.getElementById('crear_fecha_inicio');
+        if (inputInicio) inputInicio.value = isoString;
+
+        const modal = new bootstrap.Modal(document.getElementById('modalCrearInventario'));
+        modal.show();
+    }
+
+    function guardarNuevoInventario(e) {
+        e.preventDefault();
+        const form = document.getElementById('formCrearInventario');
+        const formData = new FormData(form);
+        const btn = document.getElementById('btnSubmitCrearInv');
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Creando...';
+
+        fetch("{% url 'api_crear_toma_inventario' %}", {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': getCSRF()
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = 'Crear Inventario';
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('modalCrearInventario')).hide();
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Inventario Creado!',
+                    text: data.message,
+                    timer: 1800,
+                    showConfirmButton: false
+                }).then(() => {
+                    window.location.reload();
+                });
+            } else {
+                Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'Ocurrió un error al crear el inventario.' });
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = 'Crear Inventario';
+            Swal.fire({ icon: 'error', title: 'Error de Red', text: err.message });
+        });
+    }
+
+    // ==============================================================
+    // ACCIÓN 1: MATERIALES (VISTA EN ÁREA DE TRABAJO)
+    // ==============================================================
+    function mostrarVistaMateriales(tomaId) {
+        currentTomaId = tomaId;
+        const panelGen = document.getElementById('panelVistaGeneral');
+        const panelMat = document.getElementById('panelVistaMateriales');
+        if (panelGen) panelGen.classList.add('d-none');
+        if (panelMat) panelMat.classList.remove('d-none');
+
+        const btnIrCaptura = document.getElementById('btnIrACapturaDesdeMat');
+        if (btnIrCaptura) {
+            btnIrCaptura.onclick = function() {
+                abrirModalCaptura(tomaId);
+            };
+        }
+
+        cargarMaterialesServidor();
+    }
+
+    function volverAVistaGeneral() {
+        const panelGen = document.getElementById('panelVistaGeneral');
+        const panelMat = document.getElementById('panelVistaMateriales');
+        if (panelMat) panelMat.classList.add('d-none');
+        if (panelGen) panelGen.classList.remove('d-none');
+    }
+
+    // Compatibilidad
+    function abrirModalMateriales(tomaId) {
+        mostrarVistaMateriales(tomaId);
+    }
+
+    function cargarMaterialesServidor() {
+        if (!currentTomaId) return;
+        const tbody = document.getElementById('cuerpoTablaMateriales');
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Cargando materiales...</td></tr>';
+
+        const filtroEstado = document.getElementById('filtroMaterialesEstado').value;
+        const queryTexto = document.getElementById('filtroMaterialesTexto').value.trim();
+
+        fetch(`/inventario/toma-inventario/api/materiales/${currentTomaId}/?filtro_estado=${filtroEstado}&q=${encodeURIComponent(queryTexto)}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-danger">${data.error || 'Error al cargar materiales'}</td></tr>`;
+                return;
+            }
+
+            // Actualizar encabezados de la vista de materiales
+            const elTitulo = document.getElementById('matVistaTitulo');
+            if (elTitulo) elTitulo.innerText = `Materiales: ${data.toma.nombre}`;
+            
+            const elSub = document.getElementById('matVistaSubtitulo');
+            if (elSub) elSub.innerText = `Almacén: ${data.toma.almacen} | Avance: ${data.toma.porcentaje_avance}% (${data.stats.contadas}/${data.stats.total_partidas} contados)`;
+
+            const pillEstado = document.getElementById('matVistaPillEstado');
+            if (pillEstado) {
+                pillEstado.className = `status-pill status-${data.toma.estado}`;
+                pillEstado.innerText = data.toma.estado_display;
+            }
+
+            // Si el inventario está cerrado, ocultar el botón Captura
+            const btnIrCaptura = document.getElementById('btnIrACapturaDesdeMat');
+            if (btnIrCaptura) {
+                if (data.toma.estado === 'cerrado' || data.toma.estado === 'finalizado') {
+                    btnIrCaptura.classList.add('d-none');
+                } else {
+                    btnIrCaptura.classList.remove('d-none');
+                }
+            }
+
+            inventarioMaterialesCache = data.partidas;
+            renderizarTablaMateriales(inventarioMaterialesCache);
+        })
+        .catch(err => {
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-danger">${err.message}</td></tr>`;
+        });
+    }
+
+    function renderizarTablaMateriales(lista) {
+        const tbody = document.getElementById('cuerpoTablaMateriales');
+        tbody.innerHTML = '';
+
+        document.getElementById('contadorMaterialesFiltrados').innerText = `Mostrando ${lista.length} artículos`;
+
+        if (lista.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted fst-italic">No se encontraron artículos con el filtro aplicado.</td></tr>';
+            return;
+        }
+
+        lista.forEach(item => {
+            const tr = document.createElement('tr');
+            
+            // Estilos para diferencia
+            let difClass = 'text-muted';
+            let difSign = '';
+            if (item.contado) {
+                if (item.diferencia > 0) {
+                    difClass = 'text-success fw-bold';
+                    difSign = '+';
+                } else if (item.diferencia < 0) {
+                    difClass = 'text-danger fw-bold';
+                }
+            }
+
+            // Estado pill (diseño de pastillas del estado de órdenes de compra)
+            let estadoBadge = '<span class="status-pill status-borrador">Pendiente</span>';
+            if (item.contado) {
+                if (item.diferencia === 0) {
+                    estadoBadge = '<span class="status-pill status-recibida">Exacto</span>';
+                } else {
+                    estadoBadge = '<span class="status-pill status-parcial">Diferencia</span>';
+                }
+            }
+
+            // Enlace de Clave con Código de Barras si cuenta con él
+            let claveHtml = `<div class="fw-semibold text-secondary small">${item.clave}</div>`;
+            if (item.codigos_barras && item.codigos_barras.length > 0) {
+                const barcodesStr = item.codigos_barras.join(', ');
+                claveHtml += `<div class="text-muted" style="font-size: 0.68rem;" title="Código de barras enlazado">
+                                <i class="bi bi-upc me-1 text-primary"></i><span class="font-monospace">${barcodesStr}</span>
+                              </div>`;
+            }
+
+            const costoTotalSistema = (typeof item.subtotal_sistema !== 'undefined') ? item.subtotal_sistema : (item.existencia_sistema * item.costo_unitario);
+
+            tr.innerHTML = `
+                <td class="ps-3">${claveHtml}</td>
+                <td>
+                    <div class="fw-semibold text-dark small">${item.nombre}</div>
+                    <div class="text-muted" style="font-size: 0.68rem;">${item.categoria}</div>
+                </td>
+                <td class="text-center small text-muted">${item.unidad}</td>
+                <td class="text-end small text-dark">${item.existencia_sistema.toFixed(2)}</td>
+                <td class="text-end small text-muted">$${costoTotalSistema.toFixed(2)}</td>
+                <!-- COLUMNA LO CONTADO (FISICO) -->
+                <td class="text-end fw-bold small col-contado-fisico">
+                    ${item.contado ? item.cantidad_fisica.toFixed(2) : '--'}
+                </td>
+                <td class="text-end small ${difClass}">
+                    ${item.contado ? (difSign + item.diferencia.toFixed(2)) : '--'}
+                </td>
+                <td class="text-end small ${difClass}">
+                    ${item.contado ? ('$' + item.diferencia_importe.toFixed(2)) : '--'}
+                </td>
+                <td class="text-center pe-3">${estadoBadge}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function filtrarTablaMateriales() {
+        const query = document.getElementById('filtroMaterialesTexto').value.toLowerCase().trim();
+        if (!query) {
+            renderizarTablaMateriales(inventarioMaterialesCache);
+            return;
+        }
+
+        const filtrados = inventarioMaterialesCache.filter(item => {
+            const matchNombre = item.nombre && item.nombre.toLowerCase().includes(query);
+            const matchClave = item.clave && item.clave.toLowerCase().includes(query);
+            const matchBarcodes = item.codigos_barras && item.codigos_barras.some(cb => cb.toLowerCase().includes(query));
+            return matchNombre || matchClave || matchBarcodes;
+        });
+        renderizarTablaMateriales(filtrados);
+    }
+
+    // ==============================================================
+    // ACCIÓN 2: CAPTURA (POR CLAVE O CÓDIGO DE BARRAS)
+    // ==============================================================
+    function abrirModalCaptura(tomaId) {
+        currentTomaId = tomaId;
+
+        // Verificar si la toma está cerrada en el DOM
+        const colEstado = document.getElementById(`colEstado${tomaId}`);
+        if (colEstado && colEstado.innerText.toLowerCase().includes('cerrado')) {
+            Swal.fire({
+                icon: 'info',
+                title: 'Inventario Cerrado',
+                text: 'Este inventario se encuentra cerrado y no permite capturar más conteos.',
+                confirmButtonColor: '#00b8b9'
+            });
+            return;
+        }
+
+        const panelForm = document.getElementById('panelFormularioConteo');
+        if (panelForm) panelForm.classList.add('d-none');
+
+        const inputCodigo = document.getElementById('inputBuscarCodigoCaptura');
+        if (inputCodigo) inputCodigo.value = '';
+
+        const listaSug = document.getElementById('listaSugerenciasCaptura');
+        if (listaSug) listaSug.classList.add('d-none');
+
+        const modal = new bootstrap.Modal(document.getElementById('modalCaptura'));
+        modal.show();
+
+        // Obtener datos básicos de la toma para el título
+        fetch(`/inventario/toma-inventario/api/materiales/${tomaId}/?filtro_estado=todos`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                if (data.toma.estado === 'cerrado' || data.toma.estado === 'finalizado') {
+                    modal.hide();
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Inventario Cerrado',
+                        text: 'Este inventario se encuentra cerrado y no permite capturar más conteos.',
+                        confirmButtonColor: '#00b8b9'
+                    });
+                    return;
+                }
+                document.getElementById('capturaModalTitulo').innerText = `Captura: ${data.toma.nombre}`;
+                document.getElementById('capturaModalSubtitulo').innerText = `Almacén: ${data.toma.almacen} | Estado: ${data.toma.estado_display}`;
+            }
+        });
+
+        // Autofocus tras renderizar el modal
+        setTimeout(() => {
+            if (inputCodigo) inputCodigo.focus();
+        }, 400);
+    }
+
+    function manejarTeclaCaptura(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            ejecutarBusquedaCaptura();
+        }
+    }
+
+    function ejecutarBusquedaCaptura() {
+        const input = document.getElementById('inputBuscarCodigoCaptura');
+        const query = input.value.trim();
+        const listaSug = document.getElementById('listaSugerenciasCaptura');
+
+        if (!query) return;
+
+        fetch(`/inventario/toma-inventario/api/buscar-articulo/${currentTomaId}/?q=${encodeURIComponent(query)}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'Error al buscar artículo.' });
+                return;
+            }
+
+            // Si hay match exacto (por escáner de código de barras)
+            if (data.exacto) {
+                listaSug.classList.add('d-none');
+                seleccionarArticuloParaConteo(data.exacto);
+                return;
+            }
+
+            // Si hay múltiples resultados parciales
+            if (data.resultados && data.resultados.length > 0) {
+                if (data.resultados.length === 1) {
+                    listaSug.classList.add('d-none');
+                    seleccionarArticuloParaConteo(data.resultados[0]);
+                } else {
+                    mostrarListaSugerencias(data.resultados);
+                }
+            } else {
+                listaSug.classList.add('d-none');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'No encontrado',
+                    text: `No se encontró ningún artículo con la clave o código: "${query}" en este inventario.`,
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+                input.select();
+            }
+        })
+        .catch(err => {
+            Swal.fire({ icon: 'error', title: 'Error de Red', text: err.message });
+        });
+    }
+
+    function mostrarListaSugerencias(items) {
+        const listaSug = document.getElementById('listaSugerenciasCaptura');
+        listaSug.innerHTML = '';
+        listaSug.classList.remove('d-none');
+
+        items.forEach(item => {
+            const a = document.createElement('a');
+            a.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2';
+            a.href = 'javascript:void(0)';
+            
+            const barcodesBadge = (item.codigos_barras && item.codigos_barras.length > 0)
+                ? `<span class="badge bg-light text-muted border font-monospace me-2"><i class="bi bi-upc me-1"></i>${item.codigos_barras.join(', ')}</span>`
+                : '';
+
+            const numPrev = (item.numero_conteos !== undefined && item.numero_conteos > 0) ? item.numero_conteos : (item.contado ? 1 : 0);
+            const conteoTag = (numPrev > 0)
+                ? `<span class="status-pill status-parcial">Conteo ${numPrev + 1}</span>`
+                : `<span class="badge bg-light text-muted border">Sin conteo</span>`;
+
+            a.innerHTML = `
+                <div>
+                    <span class="badge bg-secondary me-2">${item.clave}</span>
+                    ${barcodesBadge}
+                    <strong class="text-dark">${item.nombre}</strong>
+                </div>
+                <div class="text-end text-muted small">
+                    ${conteoTag}
+                </div>
+            `;
+            a.onclick = () => {
+                listaSug.classList.add('d-none');
+                seleccionarArticuloParaConteo(item);
+            };
+            listaSug.appendChild(a);
+        });
+    }
+
+    function seleccionarArticuloParaConteo(item) {
+        document.getElementById('capturaDetalleId').value = item.id;
+        document.getElementById('capturaArticuloNombre').innerText = item.nombre;
+
+        // Clave y Código de barras sin fondo, en la misma letra
+        const elDetalles = document.getElementById('capturaArticuloDetallesClave');
+        let detallesHtml = `Clave: <strong class="text-secondary">${item.clave}</strong>`;
+        if (item.codigos_barras && item.codigos_barras.length > 0) {
+            detallesHtml += ` <span class="mx-1 text-muted">|</span> <i class="bi bi-upc me-1 text-secondary"></i><span class="font-monospace">${item.codigos_barras.join(', ')}</span>`;
+        }
+        if (item.unidad) {
+            detallesHtml += ` <span class="mx-1 text-muted">&bull;</span> Unidad: <span class="text-secondary">${item.unidad}</span>`;
+        }
+        if (elDetalles) elDetalles.innerHTML = detallesHtml;
+
+        document.getElementById('capturaUnidadLabel').innerText = item.unidad || 'Pzs';
+
+        // Etiqueta de conteo al nivel del nombre del artículo
+        const infoPrevio = document.getElementById('infoConteoPrevio');
+        if (infoPrevio) {
+            const numPrev = (item.numero_conteos !== undefined && item.numero_conteos > 0) ? item.numero_conteos : (item.contado ? 1 : 0);
+            if (numPrev > 0) {
+                infoPrevio.innerHTML = `<span class="status-pill status-parcial">Conteo ${numPrev + 1}</span>`;
+            } else {
+                infoPrevio.innerHTML = `<span class="badge bg-light text-muted border">Sin conteo</span>`;
+            }
+        }
+
+        const inputCant = document.getElementById('inputNumeroContado');
+        inputCant.value = '';
+
+        const panelForm = document.getElementById('panelFormularioConteo');
+        panelForm.classList.remove('d-none');
+
+        // Enfocar el input de cantidad
+        setTimeout(() => {
+            inputCant.focus();
+        }, 150);
+    }
+
+    function guardarConteoArticulo(e) {
+        e.preventDefault();
+        const detalleId = document.getElementById('capturaDetalleId').value;
+        const cantVal = document.getElementById('inputNumeroContado').value;
+        const notas = document.getElementById('capturaNotas').value;
+
+        if (!detalleId || cantVal === '') {
+            Swal.fire({ icon: 'warning', title: 'Atención', text: 'Por favor ingrese la cantidad contada.' });
+            return;
+        }
+
+        const btn = document.getElementById('btnGuardarConteo');
+        btn.disabled = true;
+
+        const formData = new FormData();
+        formData.append('detalle_id', detalleId);
+        formData.append('cantidad_contada', cantVal);
+        formData.append('modo', 'reemplazar');
+        formData.append('notas', notas);
+
+        fetch(`/inventario/toma-inventario/api/guardar-conteo/${currentTomaId}/`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': getCSRF()
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            if (data.success) {
+                // Agregar al historial de la sesión
+                agregarAlHistorialSesion(data.detalle);
+
+                // Feedback sonoro/visual ligero
+                mostrarToastConfirmacion(data.message);
+
+                // Resetear buscador para el siguiente artículo
+                document.getElementById('panelFormularioConteo').classList.add('d-none');
+                document.getElementById('inputBuscarCodigoCaptura').value = '';
+                document.getElementById('capturaNotas').value = '';
+                document.getElementById('inputBuscarCodigoCaptura').focus();
+
+                // Actualizar barra de avance en la tabla general si existe
+                const colAvance = document.getElementById(`colAvanceInv${currentTomaId}`);
+                if (colAvance && data.avance) {
+                    colAvance.innerHTML = `
+                        <div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="progress-label">Conteo</span>
+                                <span class="progress-label text-dark fw-bold">${data.avance.porcentaje}%</span>
+                            </div>
+                            <div class="progress-slim">
+                                <div class="progress-bar bg-brand-avance" style="width: ${data.avance.porcentaje}%"></div>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-1">
+                            <span class="text-muted" style="font-size: 0.65rem;">${data.avance.contadas} / ${data.avance.total} contados</span>
+                        </div>
+                    `;
+                }
+
+                // Si la vista de materiales está activa en el área de trabajo, refrescar la lista
+                const panelMat = document.getElementById('panelVistaMateriales');
+                if (panelMat && !panelMat.classList.contains('d-none')) {
+                    cargarMaterialesServidor();
+                }
+            } else {
+                Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'No se pudo guardar el conteo.' });
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            Swal.fire({ icon: 'error', title: 'Error de Red', text: err.message });
+        });
+    }
+
+    function agregarAlHistorialSesion(item) {
+        conteosSesionHistorial.unshift(item);
+    }
+
+    function mostrarToastConfirmacion(mensaje) {
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 2200,
+            timerProgressBar: true
+        });
+        Toast.fire({
+            icon: 'success',
+            title: mensaje
+        });
+    }
+
+    // Cambiar estado de inventario (Finalizar / Cancelar / Reabrir)
+    function cambiarEstadoToma(tomaId, nuevoEstado) {
+        let titulo = '¿Finalizar Inventario?';
+        let texto = 'El inventario se marcará como finalizado.';
+        let btnColor = '#2f9e44';
+
+        if (nuevoEstado === 'cancelado') {
+            titulo = '¿Cancelar Inventario?';
+            texto = 'El inventario quedará marcado como cancelado.';
+            btnColor = '#e03131';
+        } else if (nuevoEstado === 'en_proceso') {
+            titulo = '¿Reabrir Inventario?';
+            texto = 'Podrás continuar capturando conteos físicos.';
+            btnColor = '#f08c00';
+        }
+
+        Swal.fire({
+            title: titulo,
+            text: texto,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: btnColor,
+            cancelButtonColor: '#adb5bd',
+            confirmButtonText: 'Sí, continuar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const formData = new FormData();
+                formData.append('estado', nuevoEstado);
+
+                fetch(`/inventario/toma-inventario/api/cambiar-estado/${tomaId}/`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-CSRFToken': getCSRF() }
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire({ icon: 'success', title: 'Actualizado', text: data.message, timer: 1500, showConfirmButton: false })
+                        .then(() => window.location.reload());
+                    } else {
+                        Swal.fire({ icon: 'error', title: 'Error', text: data.error });
+                    }
+                })
+                .catch(err => Swal.fire({ icon: 'error', title: 'Error', text: err.message }));
+            }
+        });
+    }
+
+    // Cerrar Inventario Físico (Modal de Cierre y Actualización de Stock)
+    function abrirModalCerrarInventario(id, nombre, almacen, avance, contadas, total) {
+        document.getElementById('cerrarTomaId').value = id;
+        document.getElementById('cerrarNombreInv').innerText = nombre;
+        document.getElementById('cerrarAlmacenInv').innerText = almacen;
+        document.getElementById('cerrarAvanceInv').innerText = `${avance}% (${contadas}/${total} contados)`;
+        document.getElementById('opcionActualizarStock').checked = true;
+
+        const modal = new bootstrap.Modal(document.getElementById('modalCerrarInventario'));
+        modal.show();
+    }
+
+    function ejecutarCierreInventario(e) {
+        e.preventDefault();
+        const tomaId = document.getElementById('cerrarTomaId').value;
+        const accion = document.querySelector('input[name="accion_cierre"]:checked').value;
+        const btn = document.getElementById('btnConfirmarCierre');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Cerrando...';
+
+        const formData = new FormData();
+        formData.append('accion_cierre', accion);
+
+        fetch(`/inventario/toma-inventario/api/cerrar/${tomaId}/`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': getCSRF()
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-shield-lock me-1"></i> Cerrar Inventario';
+            if (data.success) {
+                const modalEl = document.getElementById('modalCerrarInventario');
+                const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if (modalInstance) modalInstance.hide();
+
+                // Actualizar la fila en la tabla general
+                const colEstado = document.getElementById(`colEstado${tomaId}`);
+                if (colEstado) {
+                    colEstado.innerHTML = `<span class="status-pill status-cerrado">${data.estado_display || 'Cerrado'}</span>`;
+                }
+                const colFechaFin = document.getElementById(`colFechaFin${tomaId}`);
+                if (colFechaFin && data.fecha_fin) {
+                    colFechaFin.innerText = data.fecha_fin;
+                }
+                const colAcciones = document.getElementById(`colAcciones${tomaId}`);
+                if (colAcciones) {
+                    colAcciones.innerHTML = `
+                        <div class="d-flex justify-content-center gap-1">
+                            <span onclick="mostrarVistaMateriales(${tomaId})" class="icon-action" title="Materiales"><i class="bi bi-card-checklist"></i></span>
+                            <span class="icon-action text-muted" style="opacity: 0.35; cursor: not-allowed;" title="Inventario cerrado (Captura deshabilitada)"><i class="bi bi-upc-scan"></i></span>
+                            <span class="icon-action text-muted" style="opacity: 0.35; cursor: not-allowed;" title="Inventario cerrado"><i class="bi bi-lock-fill"></i></span>
+                            <span onclick="eliminarInventario(${tomaId})" class="icon-action state-cancelled" title="Eliminar"><i class="bi bi-x-circle"></i></span>
+                        </div>
+                    `;
+                }
+
+                // Si la vista de materiales está activa para esta toma, ocultar el botón Captura
+                if (currentTomaId == tomaId) {
+                    const btnCapturaMat = document.getElementById('btnIrACapturaDesdeMat');
+                    if (btnCapturaMat) btnCapturaMat.classList.add('d-none');
+                    cargarMaterialesServidor();
+                }
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Inventario Cerrado',
+                    text: data.message,
+                    timer: 4000,
+                    showConfirmButton: true,
+                    confirmButtonColor: '#00b8b9'
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: data.error || 'No se pudo cerrar el inventario.'
+                });
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-shield-lock me-1"></i> Cerrar Inventario';
+            Swal.fire({ icon: 'error', title: 'Error de Red', text: err.message });
+        });
+    }
+
+    // Eliminar inventario (Idéntico a Proveedores)
+    function eliminarInventario(id) {
+        if (confirm('¿Estás seguro de eliminar este inventario?')) {
+            fetch(`/inventario/toma-inventario/api/eliminar/${id}/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCSRF() }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(err => alert('Error de conexión: ' + err.message));
+        }
+    }
+</script>
+{% endblock %}

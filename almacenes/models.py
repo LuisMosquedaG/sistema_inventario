@@ -308,3 +308,87 @@ class Kardex(models.Model):
 
     def __str__(self):
         return f"{self.producto.nombre} - {self.tipo_movimiento} ({self.cantidad})"
+
+
+# --- MODELO: TOMA DE INVENTARIO FÍSICO ---
+class TomaInventario(models.Model):
+    ESTADOS = [
+        ('en_proceso', 'En proceso'),
+        ('cerrado', 'Cerrado'),
+        ('finalizado', 'Finalizado'),
+        ('cancelado', 'Cancelado'),
+    ]
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
+    sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
+    nombre = models.CharField(max_length=200, verbose_name="Nombre de Inventario")
+    almacen = models.ForeignKey(Almacen, on_delete=models.CASCADE, related_name='tomas_inventario', verbose_name="Almacén")
+    fecha_inicio = models.DateTimeField(verbose_name="Inicio")
+    fecha_fin = models.DateTimeField(null=True, blank=True, verbose_name="Fin")
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='en_proceso', verbose_name="Estado")
+    notas = models.TextField(blank=True, null=True, verbose_name="Observaciones / Notas")
+    creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='tomas_creadas', verbose_name="Creado por")
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Toma de Inventario"
+        verbose_name_plural = "Tomas de Inventario"
+        ordering = ['-fecha_creacion']
+
+    def __str__(self):
+        return f"{self.nombre} ({self.almacen.nombre}) - {self.get_estado_display()}"
+
+    @property
+    def total_partidas(self):
+        return self.detalles.count()
+
+    @property
+    def partidas_contadas(self):
+        return self.detalles.filter(contado=True).count()
+
+    @property
+    def porcentaje_avance(self):
+        total = self.total_partidas
+        if total == 0:
+            return 0
+        return int((self.partidas_contadas / total) * 100)
+
+
+class DetalleTomaInventario(models.Model):
+    toma_inventario = models.ForeignKey(TomaInventario, on_delete=models.CASCADE, related_name='detalles')
+    producto = models.ForeignKey('core.Producto', on_delete=models.CASCADE, related_name='detalles_toma_inventario')
+    existencia_sistema = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Existencia Sistema")
+    costo_unitario = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Costo Unitario")
+    cantidad_fisica = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Cantidad Contada (Físico)")
+    contado = models.BooleanField(default=False, verbose_name="Contado")
+    numero_conteos = models.PositiveIntegerField(default=0, verbose_name="Número de Conteos")
+    fecha_conteo = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de Conteo")
+    usuario_conteo = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Usuario Conteo")
+    notas = models.CharField(max_length=255, blank=True, null=True, verbose_name="Notas")
+
+    class Meta:
+        verbose_name = "Detalle de Toma de Inventario"
+        verbose_name_plural = "Detalles de Toma de Inventario"
+        unique_together = ('toma_inventario', 'producto')
+        ordering = ['producto__nombre']
+
+    def __str__(self):
+        return f"{self.producto.nombre} - Sist: {self.existencia_sistema} | Fís: {self.cantidad_fisica}"
+
+    @property
+    def diferencia(self):
+        return self.cantidad_fisica - self.existencia_sistema
+
+    @property
+    def diferencia_importe(self):
+        return self.diferencia * self.costo_unitario
+
+    @property
+    def subtotal_sistema(self):
+        return self.existencia_sistema * self.costo_unitario
+
+    @property
+    def subtotal_fisico(self):
+        return self.cantidad_fisica * self.costo_unitario
+
