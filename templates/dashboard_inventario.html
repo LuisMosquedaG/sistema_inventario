@@ -268,6 +268,10 @@
                                         <span onclick="abrirModalReservas({{ p.producto.id }}, '{{ p.producto.nombre|escapejs }}')" class="icon-action" title="Reservas"><i class="bi bi-calendar-check"></i></span>
                                         {% endif %}
 
+                                        {% if p.producto.tipo_abastecimiento == 'stock' %}
+                                        <span onclick="abrirModalConversiones({{ p.producto.id }}, '{{ p.producto.nombre|escapejs }}', '{{ p.producto.get_unidad_medida_display|default:p.producto.unidad_medida|escapejs }}')" class="icon-action" title="Conversiones"><i class="bi bi-arrow-left-right"></i></span>
+                                        {% endif %}
+
                                         {% if p.producto.tipo_abastecimiento == 'produccion' %}
                                             {% if granular_inventory_perms.inventario.recetas %}
                                             <span onclick="abrirModalReceta({{ p.producto.id }}, '{{ p.producto.nombre|escapejs }}', {{ p.producto.precio_venta|default:0 }})" class="icon-action" title="Receta"><i class="bi bi-diagram-3"></i></span>
@@ -327,6 +331,10 @@
 
                                         {% if granular_inventory_perms.inventario.existencias %}
                                         <span onclick="abrirModalReservas({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action" title="Reservas"><i class="bi bi-calendar-check"></i></span>
+                                        {% endif %}
+
+                                        {% if p.tipo_abastecimiento == 'stock' %}
+                                        <span onclick="abrirModalConversiones({{ p.id }}, '{{ p.nombre|escapejs }}', '{{ p.get_unidad_medida_display|default:p.unidad_medida|escapejs }}')" class="icon-action" title="Conversiones"><i class="bi bi-arrow-left-right"></i></span>
                                         {% endif %}
 
                                         {% if p.tipo_abastecimiento == 'produccion' %}
@@ -547,6 +555,7 @@
 {% include "inventario/modals/modal_lista_precios.html" %}
 {% include "inventario/modals/modal_traslado.html" %} {# INCLUIR EL NUEVO MODAL #}
 {% include "inventario/modals/modal_modificadores.html" %}
+{% include "inventario/modals/modal_conversiones.html" %}
 
 <!-- MODAL: IMPORTAR ARTICULOS -->
 <div class="modal fade" id="modalImportarArticulos" tabindex="-1" aria-hidden="true">

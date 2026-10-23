@@ -9,7 +9,10 @@ from core.views import (
     actualizar_precio_producto,
     obtener_modificadores_json,
     guardar_modificador_ajax,
-    eliminar_modificador_ajax
+    eliminar_modificador_ajax,
+    api_listar_conversiones,
+    api_guardar_conversion,
+    api_eliminar_conversion
 )
 # NOTA: Eliminamos 'dashboard_compras' de aquí porque ahora vive en la app 'compras'
 from ventas.views import dashboard_ventas     
@@ -160,6 +163,11 @@ urlpatterns = [
     path('inventario/modificadores/<int:producto_id>/', obtener_modificadores_json, name='obtener_modificadores_json'),
     path('inventario/modificadores/guardar/', guardar_modificador_ajax, name='guardar_modificador_ajax'),
     path('inventario/modificadores/eliminar/<int:modificador_id>/', eliminar_modificador_ajax, name='eliminar_modificador_ajax'),
+
+    # --- CONVERSIONES DE UNIDAD (PRESENTACIONES MÚLTIPLES) ---
+    path('inventario/conversiones/<int:producto_id>/', api_listar_conversiones, name='api_listar_conversiones_direct'),
+    path('inventario/conversiones/guardar/', api_guardar_conversion, name='api_guardar_conversion_direct'),
+    path('inventario/conversiones/eliminar/<int:conversion_id>/', api_eliminar_conversion, name='api_eliminar_conversion_direct'),
 ]
 
 # Servir archivos media (desarrollo y producción)

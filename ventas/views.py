@@ -1018,6 +1018,22 @@ def punto_de_venta(request):
                     'cantidad_modificadora': float(m.cantidad_modificadora)
                 })
 
+        # Conversiones de unidad (Presentaciones de Stock)
+        convs_data = []
+        conversion_barcodes = []
+        for c in prod.conversiones.filter(activo=True):
+            convs_data.append({
+                'id': c.id,
+                'unidad_destino': c.unidad_destino,
+                'factor_equivalencia': float(c.factor_equivalencia),
+                'precio_venta': float(c.precio_efectivo),
+                'codigo_barras': c.codigo_barras or ''
+            })
+            if c.codigo_barras:
+                conversion_barcodes.append(c.codigo_barras)
+
+        all_barcodes = list(prod.barcodes.values_list('codigo', flat=True)) + conversion_barcodes
+
         import json
         productos_data.append({
             'id': prod.id,
@@ -1029,10 +1045,12 @@ def punto_de_venta(request):
             'precio_venta': float(precio_redondeado),
             'iva': float(prod.iva or 0),
             'stock': stock,
+            'unidad_medida': prod.get_unidad_medida_display() or prod.unidad_medida or 'Pz',
             'imagen_url': prod.imagen.url if prod.imagen else '',
             'precios_lista_json': json.dumps(precios_completos),
             'modificadores_json': json.dumps(mods_data),
-            'barcodes_json': json.dumps(list(prod.barcodes.values_list('codigo', flat=True)))
+            'conversiones_json': json.dumps(convs_data),
+            'barcodes_json': json.dumps(all_barcodes)
         })
 
     from tesoreria.models import CajaBanco
@@ -1533,6 +1551,9 @@ def crear_venta_pos_ajax(request):
                 price = Decimal(str(item.get('precio_unitario', 0))) * factor
                 producto = Producto.objects.get(id=prod_id, empresa=empresa_actual, estado='activo')
                 modificadores = item.get('modificadores', [])
+                factor_conv = Decimal(str(item.get('factor_conversion', 1.0) or 1.0))
+                unidad_medida_sel = item.get('unidad_medida', '')
+                qty_base = Decimal(str(qty)) * factor_conv
 
                 if producto.tipo != 'servicio':
                     from core.models import DetalleReceta, ModificadorProducto
@@ -1569,7 +1590,7 @@ def crear_venta_pos_ajax(request):
                                     raise ValueError(f"El ingrediente/modificador con ID {comp_id} no existe o está inactivo.")
                                 
                                 if comp_prod.tipo != 'servicio':
-                                    cant_req = cant_unit * qty
+                                    cant_req = cant_unit * qty_base
                                     inv_comp = Inventario.objects.filter(almacen=almacen, producto=comp_prod).first()
                                     stock_disp_comp = (inv_comp.cantidad - inv_comp.reservado) if inv_comp else 0
                                     if stock_disp_comp < cant_req:
@@ -1577,8 +1598,9 @@ def crear_venta_pos_ajax(request):
                     else:
                         inv = Inventario.objects.filter(almacen=almacen, producto=producto).first()
                         stock_disp = (inv.cantidad - inv.reservado) if inv else 0
-                        if stock_disp < qty:
-                            raise ValueError(f"Stock insuficiente para {producto.nombre}. Disponible: {stock_disp}, Solicitado: {qty}")
+                        if stock_disp < qty_base:
+                            unidad_info = f" ({qty} {unidad_medida_sel})" if unidad_medida_sel else ""
+                            raise ValueError(f"Stock insuficiente para {producto.nombre}. Disponible: {stock_disp}, Solicitado: {qty_base}{unidad_info}")
 
                 detalle = DetallePedido.objects.create(
                     pedido=pedido,
@@ -1607,8 +1629,8 @@ def crear_venta_pos_ajax(request):
                                 producto=producto,
                                 almacen=almacen,
                                 tipo='produccion',
-                                cantidad=qty,
-                                total=Decimal(qty) * producto.precio_costo,
+                                cantidad=qty_base,
+                                total=Decimal(qty_base) * producto.precio_costo,
                                 empresa=empresa_actual,
                                 usuario=request.user,
                                 referencia=f"Autoproducción POS Pedido #{pedido.id}",
@@ -1620,7 +1642,7 @@ def crear_venta_pos_ajax(request):
                                     comp_prod = Producto.objects.get(id=comp_id, empresa=empresa_actual, estado='activo')
                                 except Producto.DoesNotExist:
                                     continue
-                                cant_req = cant_unit * qty
+                                cant_req = cant_unit * qty_base
                                 Transaccion.objects.create(
                                     producto=comp_prod,
                                     almacen=almacen,
@@ -1634,15 +1656,16 @@ def crear_venta_pos_ajax(request):
                                 )
 
                     if receta.exists() or not modificadores:
+                        ref_pres = f" ({qty} {unidad_medida_sel})" if unidad_medida_sel else ""
                         Transaccion.objects.create(
                             producto=producto,
                             almacen=almacen,
                             tipo='venta',
-                            cantidad=-qty,
+                            cantidad=-qty_base,
                             total=Decimal(qty) * price,
                             empresa=empresa_actual,
                             usuario=request.user,
-                            referencia=f"Venta POS Pedido #{pedido.id}",
+                            referencia=f"Venta POS Pedido #{pedido.id}{ref_pres}",
                             estado='recibida'
                         )
 

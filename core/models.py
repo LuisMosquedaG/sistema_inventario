@@ -372,3 +372,29 @@ class CodigoBarrasAdicional(models.Model):
 
     def __str__(self):
         return f"{self.codigo} -> {self.producto.nombre}"
+
+class ConversionUnidad(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='conversiones', verbose_name="Producto")
+    unidad_destino = models.CharField(max_length=50, verbose_name="Unidad / Presentación")
+    factor_equivalencia = models.DecimalField(max_digits=12, decimal_places=4, default=1.0000, verbose_name="Equivalencia en Unidad Base")
+    precio_venta = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="Precio de Venta Presentación")
+    codigo_barras = models.CharField(max_length=100, blank=True, null=True, verbose_name="Código de Barras Presentación")
+    activo = models.BooleanField(default=True, verbose_name="Activo")
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Conversión de Unidad"
+        verbose_name_plural = "Conversiones de Unidades"
+        unique_together = ('producto', 'unidad_destino')
+
+    def __str__(self):
+        return f"1 {self.unidad_destino} = {self.factor_equivalencia} {self.producto.unidad_medida} ({self.producto.nombre})"
+
+    @property
+    def precio_efectivo(self):
+        if self.precio_venta is not None:
+            return self.precio_venta
+        if self.producto and self.producto.precio_venta:
+            return self.factor_equivalencia * self.producto.precio_venta
+        return Decimal('0.00')

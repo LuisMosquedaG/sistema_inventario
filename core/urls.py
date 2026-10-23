@@ -21,4 +21,9 @@ urlpatterns = [
     path('importar/', views.importar_articulos_ajax, name='importar_articulos_ajax'),
     path('importar-recetas/', views.importar_recetas_ajax, name='importar_recetas_ajax'),
     path('exportar-existencias/', views.exportar_existencias_excel, name='exportar_existencias_excel'),
+    
+    # Conversiones de Unidad (Múltiples Presentaciones)
+    path('api/conversiones/<int:producto_id>/', views.api_listar_conversiones, name='api_listar_conversiones'),
+    path('api/conversiones/guardar/', views.api_guardar_conversion, name='api_guardar_conversion'),
+    path('api/conversiones/eliminar/<int:conversion_id>/', views.api_eliminar_conversion, name='api_eliminar_conversion'),
 ]

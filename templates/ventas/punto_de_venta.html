@@ -688,6 +688,8 @@
             subcategoria: "{{ prod.subcategoria|escapejs }}",
             precios_lista: JSON.parse('{{ prod.precios_lista_json|escapejs }}'),
             modificadores: JSON.parse('{{ prod.modificadores_json|escapejs }}'),
+            conversiones: JSON.parse('{{ prod.conversiones_json|default:"[]"|escapejs }}'),
+            unidad_medida: "{{ prod.unidad_medida|default:'Pz'|escapejs }}",
             barcodes: JSON.parse('{{ prod.barcodes_json|escapejs }}')
         },
         {% empty %}
@@ -1028,6 +1030,7 @@
             if (query.length > 0) {
                 // 1. Buscar coincidencia exacta por SKU/Clave o códigos alternativos
                 let encontradoId = null;
+                let conversionEncontrada = null;
                 for (const id in productosPOS) {
                     const prod = productosPOS[id];
                     const matchesExactSku = prod.sku && prod.sku.toLowerCase() === query;
@@ -1035,6 +1038,9 @@
                     
                     if (matchesExactSku || matchesExactBarcode) {
                         encontradoId = id;
+                        if (prod.conversiones && prod.conversiones.length > 0) {
+                            conversionEncontrada = prod.conversiones.find(c => c.codigo_barras && c.codigo_barras.toLowerCase() === query) || null;
+                        }
                         break;
                     }
                 }
@@ -1052,7 +1058,7 @@
                 }
                 
                 if (encontradoId) {
-                    selectSearchResult(encontradoId);
+                    selectSearchResult(encontradoId, conversionEncontrada);
                     this.value = '';
                     document.getElementById('posSearchResults').style.display = 'none';
                     e.preventDefault();
@@ -1087,6 +1093,7 @@
 
                 // Buscar coincidencia exacta por SKU/Clave o códigos alternativos
                 let encontradoId = null;
+                let conversionEncontrada = null;
                 for (const id in productosPOS) {
                     const prod = productosPOS[id];
                     const matchesExactSku = prod.sku && prod.sku.toLowerCase() === query;
@@ -1094,6 +1101,9 @@
                     
                     if (matchesExactSku || matchesExactBarcode) {
                         encontradoId = id;
+                        if (prod.conversiones && prod.conversiones.length > 0) {
+                            conversionEncontrada = prod.conversiones.find(c => c.codigo_barras && c.codigo_barras.toLowerCase() === query) || null;
+                        }
                         break;
                     }
                 }
@@ -1101,7 +1111,7 @@
                 if (encontradoId) {
                     // Reproducir bip de confirmación
                     playScanBeep();
-                    selectSearchResult(encontradoId);
+                    selectSearchResult(encontradoId, conversionEncontrada);
                     e.preventDefault();
                 } else {
                     // Si no se encuentra, ponerlo en el buscador para dar retroalimentación visual al usuario
@@ -1279,10 +1289,10 @@
         resultsContainer.style.display = 'block';
     }
 
-    window.selectSearchResult = function(id) {
+    window.selectSearchResult = function(id, conversion = null) {
         const prod = productosPOS[id];
         if (prod) {
-            addToCart(prod.id, prod.nombre, prod.precio_base, prod.tipo, prod.stock, prod.iva);
+            addToCart(prod.id, prod.nombre, prod.precio_base, prod.tipo, prod.stock, prod.iva, conversion);
         }
         document.getElementById('posSearch').value = '';
         document.getElementById('posSearchResults').style.display = 'none';
@@ -1293,9 +1303,11 @@
     }
 
     let modalPersonalizacionInstancia = null;
+    let modalSeleccionPresentacionInstancia = null;
+    window.tempSelectedConversion = null;
 
-    // Intercepta agregar al carrito para ver si tiene modificadores
-    function addToCart(id, nombre, precio, tipo, stockMax, ivaVal = 0) {
+    // Intercepta agregar al carrito para ver si tiene conversiones o modificadores
+    function addToCart(id, nombre, precio, tipo, stockMax, ivaVal = 0, conversionSeleccionada = null) {
         if (tipo !== 'servicio' && stockMax <= 0) {
             alert(`Lo sentimos, el producto "${nombre}" está agotado.`);
             return;
@@ -1303,17 +1315,28 @@
 
         const prodData = productosPOS[id] || {};
         const modificadores = prodData.modificadores || [];
+        const conversiones = prodData.conversiones || [];
+
+        // Si el producto tiene conversiones y no se ha especificado una todavía
+        if (conversiones.length > 0 && !conversionSeleccionada) {
+            abrirModalSeleccionPresentacion(id, nombre, precio, tipo, stockMax, ivaVal);
+            return;
+        }
+
+        const actualConversion = (conversionSeleccionada && conversionSeleccionada !== 'base') ? conversionSeleccionada : null;
 
         if (modificadores.length > 0) {
+            window.tempSelectedConversion = actualConversion;
             // Abrir modal de personalización
             document.getElementById('pers_producto_id').value = id;
             document.getElementById('pers_nombre').value = nombre;
-            document.getElementById('pers_precio').value = precio;
+            document.getElementById('pers_precio').value = actualConversion ? actualConversion.precio_venta : precio;
             document.getElementById('pers_tipo').value = tipo;
             document.getElementById('pers_stock_max').value = stockMax;
             document.getElementById('pers_iva').value = ivaVal;
 
-            document.getElementById('modalPersonalizarProductoLabel').innerText = `Personalizar: ${nombre}`;
+            const labelSuffix = actualConversion ? ` (${actualConversion.unidad_destino})` : '';
+            document.getElementById('modalPersonalizarProductoLabel').innerText = `Personalizar: ${nombre}${labelSuffix}`;
             
             const tbody = document.getElementById('listaPersonalizacionCuerpo');
             tbody.innerHTML = '';
@@ -1357,8 +1380,84 @@
             modalPersonalizacionInstancia.show();
         } else {
             // Agregar directo
-            insertCartItem(id, nombre, precio, tipo, stockMax, ivaVal, []);
+            insertCartItem(id, nombre, precio, tipo, stockMax, ivaVal, [], actualConversion);
         }
+    }
+
+    function abrirModalSeleccionPresentacion(id, nombre, precio, tipo, stockMax, ivaVal) {
+        const prod = productosPOS[id];
+        if (!prod) return;
+
+        const contenedor = document.getElementById('contenedorOpcionesPresentacion');
+        const titulo = document.getElementById('modalSeleccionarPresentacionLabel');
+        const subtitulo = document.getElementById('subtituloSeleccionarPresentacion');
+        
+        titulo.innerHTML = `<i class="bi bi-arrow-left-right text-brand me-2"></i>Presentaciones: ${nombre}`;
+        subtitulo.innerHTML = `Stock disponible: <strong>${stockMax} ${prod.unidad_medida || 'Pz'}</strong>. Selecciona la unidad para la venta:`;
+
+        let html = '';
+        
+        // Opción 1: Unidad Base
+        html += `
+            <div class="card border p-2 shadow-xs cursor-pointer mb-2 transition-all hover-shadow" onclick="seleccionarOpcionPresentacion(${id}, '${escapeQuotes(nombre)}', ${precio}, '${tipo}', ${stockMax}, ${ivaVal}, 'base')">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="fw-bold text-dark"><i class="bi bi-check-circle me-1 text-brand"></i>${prod.unidad_medida || 'Pieza'} <span class="badge bg-light text-secondary border small ms-1">Unidad Base</span></div>
+                        <div class="small text-muted">Stock en almacén: ${stockMax} ${prod.unidad_medida || 'Pz'}</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold fs-6 text-dark">$${parseFloat(precio).toFixed(2)}</div>
+                        <span class="btn btn-sm btn-outline-brand py-0 px-2" style="font-size: 0.75rem;">Vender en ${prod.unidad_medida || 'Pz'}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Opciones: Conversiones
+        prod.conversiones.forEach(c => {
+            const factor = parseFloat(c.factor_equivalencia);
+            const stockEquiv = factor > 0 ? (stockMax / factor).toFixed(2) : 0;
+            const enteras = factor > 0 ? Math.floor(stockMax / factor) : 0;
+            const sinStock = stockMax < factor;
+            const precioVenta = parseFloat(c.precio_venta || (precio * factor));
+
+            html += `
+                <div class="card border p-2 shadow-xs mb-2 transition-all ${sinStock ? 'opacity-50 bg-light' : 'cursor-pointer hover-shadow'}" 
+                     ${sinStock ? '' : `onclick='seleccionarOpcionPresentacion(${id}, "${escapeQuotes(nombre)}", ${precio}, "${tipo}", ${stockMax}, ${ivaVal}, ${JSON.stringify(c)})'`}>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-bold text-dark">
+                                <i class="bi bi-box-seam me-1 text-brand"></i>${c.unidad_destino}
+                                <span class="badge bg-light text-muted border small ms-1">1 ${c.unidad_destino} = ${factor} ${prod.unidad_medida || 'Pz'}</span>
+                            </div>
+                            <div class="small ${sinStock ? 'text-danger fw-semibold' : 'text-muted'}">
+                                ${sinStock ? 'Stock insuficiente (requiere ' + factor + ' ' + (prod.unidad_medida || 'Pz') + ')' : 'Disponible: ' + stockEquiv + ' ' + c.unidad_destino + 's (' + enteras + ' compl.)'}
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-bold fs-6 text-dark">$${precioVenta.toFixed(2)}</div>
+                            ${sinStock 
+                                ? '<span class="badge bg-danger-subtle text-danger small py-1 px-2">Agotado</span>' 
+                                : '<span class="btn btn-sm btn-outline-brand py-0 px-2" style="font-size: 0.75rem;">Vender en ' + c.unidad_destino + '</span>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        contenedor.innerHTML = html;
+
+        if (!modalSeleccionPresentacionInstancia) {
+            modalSeleccionPresentacionInstancia = new bootstrap.Modal(document.getElementById('modalSeleccionarPresentacion'));
+        }
+        modalSeleccionPresentacionInstancia.show();
+    }
+
+    function seleccionarOpcionPresentacion(id, nombre, precio, tipo, stockMax, ivaVal, conversion) {
+        if (modalSeleccionPresentacionInstancia) {
+            modalSeleccionPresentacionInstancia.hide();
+        }
+        addToCart(id, nombre, precio, tipo, stockMax, ivaVal, conversion);
     }
 
     function confirmarPersonalizacion() {
@@ -1383,40 +1482,48 @@
             }
         });
 
-        insertCartItem(id, nombre, precio, tipo, stockMax, ivaVal, seleccionadoModificadores);
+        insertCartItem(id, nombre, precio, tipo, stockMax, ivaVal, seleccionadoModificadores, window.tempSelectedConversion);
+        window.tempSelectedConversion = null;
         
         if (modalPersonalizacionInstancia) {
             modalPersonalizacionInstancia.hide();
         }
     }
 
-    function insertCartItem(id, nombre, precioBase, tipo, stockMax, ivaVal, modificadores) {
-        // Calcular el precio unitario del item sumando los extras
-        let precioUnitario = precioBase;
+    function insertCartItem(id, nombre, precioBase, tipo, stockMax, ivaVal, modificadores, conversion = null) {
+        // Calcular el precio unitario del item
+        let precioUnitario = (conversion && conversion.precio_venta !== undefined) ? conversion.precio_venta : precioBase;
         modificadores.forEach(m => {
             if (m.tipo === 'extra') {
                 precioUnitario += m.precio_extra;
             }
         });
 
-        // Generar llave única para el carrito
-        const key = id + '_' + modificadores.map(m => m.id + '-' + m.tipo).sort().join('_');
+        const convKey = conversion ? `conv_${conversion.id}` : 'base';
+        const key = id + '_' + convKey + '_' + modificadores.map(m => m.id + '-' + m.tipo).sort().join('_');
+        const factorConv = conversion ? parseFloat(conversion.factor_equivalencia) : 1.0;
+        const nombreDisplay = conversion ? `${nombre} (${conversion.unidad_destino})` : nombre;
+        const prodData = productosPOS[id] || {};
+        const unidadMedida = conversion ? conversion.unidad_destino : (prodData.unidad_medida || 'Pz');
 
         if (cart[key]) {
-            if (tipo !== 'servicio' && cart[key].cantidad >= stockMax) {
-                alert(`No puedes agregar más artículos de este producto. Stock máximo disponible: ${stockMax}`);
+            if (tipo !== 'servicio' && (cart[key].cantidad + 1) * factorConv > stockMax) {
+                const maxEnUnidad = Math.floor(stockMax / factorConv);
+                alert(`No puedes agregar más artículos de este producto. Stock máximo disponible: ${maxEnUnidad} ${unidadMedida} (${stockMax} ${prodData.unidad_medida || 'base'})`);
                 return;
             }
             cart[key].cantidad++;
         } else {
-            const prodData = productosPOS[id] || {};
-            const preciosLista = prodData.precios_lista || [];
+            if (tipo !== 'servicio' && factorConv > stockMax) {
+                alert(`Stock insuficiente para vender en ${unidadMedida}. Requiere ${factorConv} ${prodData.unidad_medida || 'unidades base'} pero solo hay ${stockMax} disponibles.`);
+                return;
+            }
 
-            // Determinar si hay una lista de precios por defecto activa por horario
+            const preciosLista = prodData.precios_lista || [];
             let listaSeleccionada = '';
             let precioFinal = precioUnitario;
 
-            if (typeof activeDefaultPriceList !== 'undefined' && activeDefaultPriceList !== '') {
+            if (!conversion && typeof activeDefaultPriceList !== 'undefined' && activeDefaultPriceList !== '') {
                 const lp = preciosLista.find(p => p.nombre === activeDefaultPriceList);
                 if (lp) {
                     listaSeleccionada = activeDefaultPriceList;
@@ -1431,16 +1538,20 @@
 
             cart[key] = {
                 id: id,
-                nombre: nombre,
+                nombre: nombreDisplay,
+                nombreOriginal: nombre,
                 precio: precioFinal,
                 precioBase: precioBase,
                 listaSeleccionada: listaSeleccionada,
-                preciosLista: preciosLista,
+                preciosLista: conversion ? [] : preciosLista,
                 tipo: tipo,
                 stockMax: stockMax,
                 iva: ivaVal,
                 cantidad: 1,
-                modificadores: modificadores
+                modificadores: modificadores,
+                conversionId: conversion ? conversion.id : null,
+                factorConversion: factorConv,
+                unidadMedida: unidadMedida
             };
         }
 
@@ -1805,7 +1916,9 @@
                 cantidad: cart[key].cantidad,
                 precio_unitario: cart[key].precio,
                 lista_seleccionada: cart[key].listaSeleccionada || '',
-                modificadores: cart[key].modificadores || []
+                modificadores: cart[key].modificadores || [],
+                factor_conversion: cart[key].factorConversion || 1.0,
+                unidad_medida: cart[key].unidadMedida || ''
             })),
             pagos: pagos,
             aplica_iva: aplicaIva,
@@ -1946,6 +2059,29 @@
             <div class="modal-footer bg-light border-top">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" onclick="confirmarPersonalizacion()" class="btn btn-brand btn-sm"><i class="bi bi-cart-plus me-1"></i>Agregar al Carrito</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: SELECCIONAR PRESENTACIÓN DE VENTA (CONVERSIONES) -->
+<div class="modal fade" id="modalSeleccionarPresentacion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-bottom bg-light py-2 px-3">
+                <h5 class="modal-title fw-bold fs-6" id="modalSeleccionarPresentacionLabel">
+                    <i class="bi bi-arrow-left-right text-brand me-2"></i>Presentación de Venta
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3">
+                <div class="text-muted small mb-3" id="subtituloSeleccionarPresentacion">Elige en qué unidad o presentación deseas vender este artículo:</div>
+                <div class="d-flex flex-column gap-2" id="contenedorOpcionesPresentacion">
+                    <!-- Opciones generadas vía JS -->
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-top py-2 px-3">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
             </div>
         </div>
     </div>
