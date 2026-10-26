@@ -148,24 +148,32 @@ def importar_recepciones_ajax(request):
                                 # Buscar el detalle de compra correspondiente para vincular
                                 det_compra = DetalleCompra.objects.filter(orden_compra=orden, producto=producto).first()
                                 costo_unit = Decimal(str(det_compra.precio_costo if det_compra else (producto.precio_costo or 0)))
+                                f_conv = Decimal(str(det_compra.factor_conversion if det_compra else 1.0) or '1.0')
+                                if f_conv <= Decimal('0'):
+                                    f_conv = Decimal('1.0000')
+                                cant_base = Decimal(str(cant_rec)) * f_conv
                                 
                                 DetalleRecepcion.objects.create(
                                     recepcion=recepcion,
                                     producto=producto,
                                     detalle_compra=det_compra,
                                     cantidad_recibida=cant_rec,
-                                    costo_unitario=costo_unit
+                                    costo_unitario=costo_unit,
+                                    unidad_compra=det_compra.unidad_compra if det_compra else None,
+                                    factor_conversion=f_conv,
+                                    cantidad_inventario=cant_base
                                 )
                                 detalles_creados += 1
 
                                 if producto.tipo != 'servicio':
                                     tc_aplicar = Decimal(str(orden.tipo_cambio or '1.0000'))
                                     costo_pesos = costo_unit * tc_aplicar
+                                    cant_transaccion = int(round(cant_base))
                                     Transaccion.objects.create(
                                         producto=producto,
                                         almacen=almacen,
                                         tipo='compra',
-                                        cantidad=cant_rec,
+                                        cantidad=cant_transaccion,
                                         total=costo_pesos * Decimal(str(cant_rec)),
                                         empresa=empresa_actual,
                                         usuario=request.user,
@@ -175,9 +183,10 @@ def importar_recepciones_ajax(request):
                                 else:
                                     tc_aplicar = Decimal(str(orden.tipo_cambio or '1.0000'))
                                     costo_pesos = costo_unit * tc_aplicar
-                                    producto.ultimo_costo = costo_pesos
-                                    producto.precio_costo = costo_pesos
-                                    producto.costo_promedio = costo_pesos
+                                    costo_unit_base = (costo_pesos / f_conv) if f_conv > 0 else costo_pesos
+                                    producto.ultimo_costo = costo_unit_base
+                                    producto.precio_costo = costo_unit_base
+                                    producto.costo_promedio = costo_unit_base
                                     producto.save(update_fields=['ultimo_costo', 'precio_costo', 'costo_promedio'])
 
                         if detalles_creados == 0:
@@ -428,6 +437,11 @@ def obtener_items_orden_compra(request, oc_id):
                 'id': det.id,
                 'nombre': det.producto.nombre,
                 'cant_ordenada': det.cantidad,
+                'unidad_compra': det.unidad_compra or '',
+                'unidad_compra_display': det.unidad_compra_display,
+                'factor_conversion': float(det.factor_conversion or 1.0),
+                'cantidad_inventario': float(det.cantidad_inventario_calculada),
+                'unidad_base': det.producto.get_unidad_medida_display() or det.producto.unidad_medida,
                 'cant_recibida_anterior': total_recibido,
                 'costo': float(det.precio_costo),
                 'iva_porcentaje': float(det.producto.iva or 0),
@@ -519,6 +533,11 @@ def api_detalle_recepcion(request, recepcion_id):
                     'id': d.id,
                     'producto': d.producto.nombre,
                     'cant': d.cantidad_recibida,
+                    'unidad_compra': d.unidad_compra or '',
+                    'unidad_compra_display': d.unidad_compra_display,
+                    'factor_conversion': float(d.factor_conversion or 1.0),
+                    'cantidad_inventario': float(d.cantidad_inventario or d.cantidad_inventario_calculada),
+                    'unidad_base': d.producto.get_unidad_medida_display() or d.producto.unidad_medida,
                     'cant_devuelta': d.cantidad_devuelta,
                     'cant_disponible': d.cantidad_disponible_devolver,
                     'precio': float(d.costo_unitario),
@@ -569,9 +588,12 @@ def cancelar_recepcion(request, recepcion_id):
             producto = det.producto
             cant_restante_revertir = det.cantidad_disponible_devolver
             if producto.tipo != 'servicio' and cant_restante_revertir > 0:
+                f_conv = Decimal(str(det.factor_conversion or 1.0))
+                cant_revertir_base = int(round(Decimal(str(cant_restante_revertir)) * f_conv))
+
                 # Preparar datos de extras para revertir (lotes/series)
                 extras_data = []
-                restante_extra = cant_restante_revertir
+                restante_extra = cant_revertir_base
                 for extra in det.extras.all():
                     if restante_extra <= 0:
                         break
@@ -584,12 +606,12 @@ def cancelar_recepcion(request, recepcion_id):
                         restante_extra -= qty_tomar
 
                 # Usamos el modelo Transacción para un log centralizado
-                # Al ser una cancelación de ingreso, es una salida (cantidad negativa)
+                # Al ser una cancelación de ingreso, es una salida (cantidad negativa en unidad base)
                 Transaccion.objects.create(
                     producto=producto,
                     almacen=almacen,
                     tipo='ajuste',
-                    cantidad=-cant_restante_revertir,
+                    cantidad=-cant_revertir_base,
                     empresa=recepcion.empresa,
                     usuario=request.user,
                     referencia=f"CANCELACIÓN: REC-{recepcion.id:04d}",
@@ -668,6 +690,11 @@ def crear_devolucion_recepcion(request, recepcion_id):
                 continue
 
             det_rec = get_object_or_404(DetalleRecepcion.objects.select_for_update(), id=det_id, recepcion=recepcion)
+            f_conv = Decimal(str(det_rec.factor_conversion or 1.0))
+            if f_conv <= Decimal('0'):
+                f_conv = Decimal('1.0000')
+            cant_dev_base = int(round(Decimal(str(cant_dev)) * f_conv))
+
             disponible_devolver = det_rec.cantidad_disponible_devolver
             if cant_dev > disponible_devolver:
                 return JsonResponse({
@@ -678,10 +705,10 @@ def crear_devolucion_recepcion(request, recepcion_id):
             if det_rec.producto.tipo != 'servicio':
                 inv = Inventario.objects.filter(producto=det_rec.producto, almacen=recepcion.almacen).first()
                 stock_actual = inv.cantidad if inv else 0
-                if stock_actual < cant_dev:
+                if stock_actual < cant_dev_base:
                     return JsonResponse({
                         'success': False,
-                        'error': f'Stock insuficiente en almacén "{recepcion.almacen.nombre}" para devolver "{det_rec.producto.nombre}". Disponible en almacén: {stock_actual}.'
+                        'error': f'Stock insuficiente en almacén "{recepcion.almacen.nombre}" para devolver "{det_rec.producto.nombre}". Requiere: {cant_dev_base} en existencias, disponible en almacén: {stock_actual}.'
                     })
 
             # Validar lote / caducidad / serie específicos ingresados en esta recepción
@@ -732,13 +759,13 @@ def crear_devolucion_recepcion(request, recepcion_id):
                         extras_validados.append({'id': extra_obj.id, 'qty': ex_qty})
                         suma_extras += ex_qty
 
-                    if suma_extras != cant_dev:
+                    if suma_extras != cant_dev_base:
                         return JsonResponse({
                             'success': False,
-                            'error': f'La suma de lotes/series seleccionados ({suma_extras}) no coincide con la cantidad a devolver ({cant_dev}) para "{prod.nombre}".'
+                            'error': f'La suma de lotes/series seleccionados ({suma_extras}) no coincide con la cantidad a devolver en existencias ({cant_dev_base}) para "{prod.nombre}".'
                         })
                 else:
-                    restante_extra = cant_dev
+                    restante_extra = cant_dev_base
                     for extra_obj in det_rec.extras.select_for_update().filter(almacen=recepcion.almacen).order_by('id'):
                         if restante_extra <= 0:
                             break
@@ -763,7 +790,7 @@ def crear_devolucion_recepcion(request, recepcion_id):
                             'error': f'No hay suficientes lotes/series disponibles de esta recepción en el almacén para devolver {cant_dev} de "{prod.nombre}".'
                         })
 
-            items_validos.append((det_rec, cant_dev, extras_validados, ", ".join(etiquetas_trazabilidad)))
+            items_validos.append((det_rec, cant_dev, cant_dev_base, extras_validados, ", ".join(etiquetas_trazabilidad)))
 
         if not items_validos:
             return JsonResponse({'success': False, 'error': 'Debes indicar al menos una partida con cantidad mayor a 0 para devolver.'})
@@ -782,7 +809,7 @@ def crear_devolucion_recepcion(request, recepcion_id):
 
         tc = Decimal(str(recepcion.tipo_cambio or '1.0000'))
 
-        for det_rec, cant_dev, extras_data, trazabilidad_str in items_validos:
+        for det_rec, cant_dev, cant_dev_base, extras_data, trazabilidad_str in items_validos:
             DetalleDevolucionRecepcion.objects.create(
                 devolucion=devolucion,
                 detalle_recepcion=det_rec,
@@ -803,7 +830,7 @@ def crear_devolucion_recepcion(request, recepcion_id):
                     producto=producto,
                     almacen=recepcion.almacen,
                     tipo='ajuste',
-                    cantidad=-cant_dev,
+                    cantidad=-cant_dev_base,
                     total=costo_pesos * Decimal(str(cant_dev)),
                     empresa=empresa_actual,
                     usuario=request.user,

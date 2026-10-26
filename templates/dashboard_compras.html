@@ -625,8 +625,11 @@
                                         <label class="form-check-label small fw-bold text-secondary ms-1" for="aplica_iva_switch">Aplica IVA</label>
                                     </div>
                                 </div>
+                                <input type="hidden" id="add_factor_conversion_oc" value="1.0000">
+                                <input type="hidden" id="add_cantidad_inventario_val_oc" value="1.00">
+                                <input type="hidden" id="add_unidad_base_nombre_oc" value="">
                                 <div class="row g-2 align-items-end">
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <label class="form-label small text-muted">Producto</label>
                                         <div class="custom-select-wrapper" id="wrapperProductoAgregar">
                                             <div class="custom-select" id="selectProductoAgregarWrapper">
@@ -643,6 +646,7 @@
                                                           data-value="{{ p.id }}" 
                                                           data-name="{{ p.nombre }}"
                                                           data-precio="{{ p.precio_costo }}" 
+                                                          data-unidad="{{ p.get_unidad_medida_display|default:p.unidad_medida }}"
                                                           data-iva="{{ p.iva|default:0 }}"
                                                           data-clave="{{ p.clave|default:'' }}"
                                                           data-barcodes="{% for b in p.barcodes.all %}{{ b.codigo }},{% endfor %}"
@@ -655,9 +659,23 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
+                                        <label class="form-label small text-muted">Unidad Compra</label>
+                                        <select id="selectUnidadCompraOC" class="form-select form-select-sm" onchange="cambiarUnidadCompraOC()">
+                                            <option value="BASE" data-factor="1">Unidad Base</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-1">
+                                        <label class="form-label small text-muted">Cant.</label>
+                                        <input type="number" id="inputCantidadAgregar" class="form-control form-control-sm text-center" value="1" min="0.01" step="any" oninput="calcularEntradaInventarioOC()">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small text-muted">Entrada Inv.</label>
+                                        <input type="text" id="inputEntradaInventarioOC" class="form-control form-control-sm text-center bg-light fw-bold text-brand" readonly value="--">
+                                    </div>
+                                    <div class="col-md-2">
                                         <label class="form-label small text-muted">Lista</label>
-                                        <select id="selectListaPrecioAgregar" class="form-select form-select-sm">
+                                        <select id="selectListaPrecioAgregar" class="form-select form-select-sm" onchange="aplicarListaCostoOC()">
                                             <option value="">-- Seleccionar --</option>
                                             {% for l in listas_costos %}
                                             <option value="{{ l.id }}" data-porc="{{ l.porcentaje_extra }}" data-monto="{{ l.monto_extra }}">{{ l.nombre }}</option>
@@ -665,14 +683,10 @@
                                         </select>
                                     </div>
                                     <div class="col-md-1">
-                                        <label class="form-label small text-muted">Cant.</label>
-                                        <input type="number" id="inputCantidadAgregar" class="form-control form-control-sm text-center" value="1" min="1">
-                                    </div>
-                                    <div class="col-md-3">
                                         <label class="form-label small text-muted">Costo Unit.</label>
                                         <div class="input-group input-group-sm">
-                                            <span class="input-group-text">$</span>
-                                            <input type="number" id="inputPrecioAgregar" class="form-control form-control-sm" value="0.00" step="0.01">
+                                            <span class="input-group-text p-1" style="font-size: 0.75rem;">$</span>
+                                            <input type="number" id="inputPrecioAgregar" class="form-control form-control-sm text-end px-1" value="0.00" step="0.01">
                                         </div>
                                     </div>
                                     <div class="col-md-1">
@@ -690,12 +704,13 @@
                                     <thead class="table-light">
                                         <tr>
                                             <th class="ps-3">Artículo</th>
-                                            <th class="text-center" style="width: 70px;">Cant.</th>
+                                            <th class="text-center" style="min-width: 95px;">Cant. Compra</th>
+                                            <th class="text-center" style="min-width: 105px;">Entrada Inv.</th>
                                             <th class="text-end" style="width: 90px;">Costo</th>
                                             <th class="text-end" style="width: 90px;">Subtotal</th>
                                             <th class="text-end" style="width: 80px;">IVA</th>
                                             <th class="text-end pe-3" style="width: 100px;">Importe</th>
-                                            <th style="width: 40px;"></th>
+                                            <th style="width: 60px;"></th>
                                         </tr>
                                     </thead>
                                     <tbody id="tablaCuerpo"></tbody>
@@ -1485,6 +1500,17 @@
                 
                 toggleOptions(false);
                 hiddenInput.dispatchEvent(new Event('change'));
+                if (hiddenInputId === 'selectProductoAgregar') {
+                    const pId = hiddenInput.value;
+                    if (pId) {
+                        const opt = document.querySelector(`#optionsProductoAgregar .custom-option[data-value="${pId}"]`);
+                        if (opt) {
+                            document.getElementById('inputPrecioAgregar').value = (parseFloat(opt.dataset.precio) || 0).toFixed(2);
+                            document.getElementById('selectListaPrecioAgregar').value = "";
+                            cargarConversionesParaCompraOC(pId);
+                        }
+                    }
+                }
             });
 
             window.addEventListener('click', (e) => {
@@ -1525,6 +1551,19 @@
 
             const modalTitle = document.querySelector('#modalNuevaCompra .modal-title');
             if (modalTitle) modalTitle.innerHTML = `<i class="bi bi-cart-plus me-2" style="color: #00b8b9;"></i>Registrar Compra`;
+
+            // Reset unidades y conversiones OC
+            const selUOC = document.getElementById('selectUnidadCompraOC');
+            if (selUOC) selUOC.innerHTML = '<option value="BASE" data-factor="1">Unidad Base</option>';
+            const fcOC = document.getElementById('add_factor_conversion_oc');
+            if (fcOC) fcOC.value = '1.0000';
+            const civOC = document.getElementById('add_cantidad_inventario_val_oc');
+            if (civOC) civOC.value = '1.00';
+            const ubnOC = document.getElementById('add_unidad_base_nombre_oc');
+            if (ubnOC) ubnOC.value = '';
+            const entOC = document.getElementById('inputEntradaInventarioOC');
+            if (entOC) entOC.value = '--';
+            productoCompraActualOC = null;
             
             document.getElementById('selectSucursalOC').innerHTML = '<option value="">-- Sin sucursal --</option>';
 
@@ -1612,42 +1651,206 @@
             }
         }
 
-        document.getElementById('selectProductoAgregar').addEventListener('change', function() {
-            const pId = this.value;
-            if (!pId) return;
-            const opt = document.querySelector(`#optionsProductoAgregar .custom-option[data-value="${pId}"]`);
-            if (!opt) return;
-            const base = parseFloat(opt.dataset.precio) || 0;
-            
-            const listaSelect = document.getElementById('selectListaPrecioAgregar');
-            const listaOpt = listaSelect.options[listaSelect.selectedIndex];
-            const p = (listaOpt && listaOpt.value) ? (parseFloat(listaOpt.dataset.porc) || 0) : 0;
-            const m = (listaOpt && listaOpt.value) ? (parseFloat(listaOpt.dataset.monto) || 0) : 0;
-            
-            let final = base;
-            if (p !== 0) final = base + (base * (p / 100));
-            else if (m !== 0) final = base + m;
-            
-            document.getElementById('inputPrecioAgregar').value = final.toFixed(2);
-        });
+        let productoCompraActualOC = null;
 
-        document.getElementById('selectListaPrecioAgregar').addEventListener('change', function() {
+        async function cargarConversionesParaCompraOC(productoId, unidadPrevia = null, factorPrevio = null) {
+            const selectUnidad = document.getElementById('selectUnidadCompraOC');
+            if (!selectUnidad) return;
+
+            if (!productoId) {
+                selectUnidad.innerHTML = '<option value="BASE" data-factor="1">Unidad Base</option>';
+                document.getElementById('add_factor_conversion_oc').value = '1.0000';
+                document.getElementById('add_unidad_base_nombre_oc').value = '';
+                document.getElementById('inputEntradaInventarioOC').value = '--';
+                productoCompraActualOC = null;
+                return;
+            }
+
+            // 1. OBTENCIÓN INMEDIATA DESDE EL DOM
+            const optDom = document.querySelector(`#optionsProductoAgregar .custom-option[data-value="${productoId}"]`);
+            const baseNomDom = optDom ? (optDom.getAttribute('data-unidad') || 'Pieza') : 'Pieza';
+            const baseCostoDom = parseFloat(optDom ? optDom.getAttribute('data-precio') : 0) || 0;
+
+            productoCompraActualOC = {
+                id: productoId,
+                nombre: optDom ? optDom.getAttribute('data-name') : '',
+                unidad_base: baseNomDom,
+                unidad_base_code: '',
+                precio_costo: baseCostoDom,
+                conversiones: []
+            };
+
+            document.getElementById('add_unidad_base_nombre_oc').value = baseNomDom;
+
+            // Poblar de inmediato con Unidad Base
+            selectUnidad.innerHTML = `<option value="BASE" data-factor="1.0000" data-display="${baseNomDom}">${baseNomDom} (Base)</option>`;
+            if (!unidadPrevia) {
+                document.getElementById('add_factor_conversion_oc').value = '1.0000';
+                calcularEntradaInventarioOC();
+            }
+
+            // 2. CONSULTAR CONVERSIONES EN EL BACKEND
+            try {
+                let response = await fetch(`/inventario/api/conversiones/${productoId}/`);
+                if (!response.ok) {
+                    response = await fetch(`/api/conversiones/${productoId}/`);
+                }
+                if (!response.ok) {
+                    response = await fetch(`/inventario/conversiones/${productoId}/`);
+                }
+
+                const data = await response.json();
+
+                if (data && data.success) {
+                    const prod = data.producto;
+                    productoCompraActualOC = {
+                        id: prod.id,
+                        nombre: prod.nombre,
+                        unidad_base: prod.unidad_medida,
+                        unidad_base_code: prod.unidad_medida_code,
+                        precio_costo: parseFloat(prod.precio_costo) || baseCostoDom,
+                        conversiones: data.conversiones || []
+                    };
+
+                    document.getElementById('add_unidad_base_nombre_oc').value = prod.unidad_medida;
+
+                    // Re-poblar select con datos oficiales y conversiones
+                    selectUnidad.innerHTML = '';
+
+                    const optBase = document.createElement('option');
+                    optBase.value = 'BASE';
+                    optBase.setAttribute('data-factor', '1.0000');
+                    optBase.setAttribute('data-display', prod.unidad_medida);
+                    optBase.textContent = `${prod.unidad_medida} (Base)`;
+                    selectUnidad.appendChild(optBase);
+
+                    if (data.conversiones && data.conversiones.length > 0) {
+                        data.conversiones.filter(c => c.activo).forEach(c => {
+                            const opt = document.createElement('option');
+                            const nombreConv = c.unidad_destino_nombre || c.unidad_destino_display;
+                            opt.value = nombreConv;
+                            opt.setAttribute('data-factor', c.factor_equivalencia);
+                            opt.setAttribute('data-display', nombreConv);
+                            opt.textContent = `${nombreConv} (${c.factor_equivalencia} ${prod.unidad_medida})`;
+                            selectUnidad.appendChild(opt);
+                        });
+                    }
+
+                    if (unidadPrevia) {
+                        let matched = false;
+                        for (let i = 0; i < selectUnidad.options.length; i++) {
+                            if (selectUnidad.options[i].value === unidadPrevia || selectUnidad.options[i].getAttribute('data-display') === unidadPrevia) {
+                                selectUnidad.selectedIndex = i;
+                                matched = true;
+                                break;
+                            }
+                        }
+                        if (!matched && factorPrevio) {
+                            for (let i = 0; i < selectUnidad.options.length; i++) {
+                                if (parseFloat(selectUnidad.options[i].getAttribute('data-factor')) === parseFloat(factorPrevio)) {
+                                    selectUnidad.selectedIndex = i;
+                                    break;
+                                }
+                            }
+                        }
+                        cambiarUnidadCompraOC(false);
+                    } else {
+                        cambiarUnidadCompraOC(true);
+                    }
+                }
+            } catch (err) {
+                console.warn("Aviso al cargar conversiones de compra:", err);
+            }
+        }
+
+        function cambiarUnidadCompraOC(actualizarCosto = true) {
+            const selectUnidad = document.getElementById('selectUnidadCompraOC');
+            if (!selectUnidad || selectUnidad.selectedIndex < 0) return;
+
+            const opt = selectUnidad.options[selectUnidad.selectedIndex];
+            const factor = parseFloat(opt.getAttribute('data-factor')) || 1.0;
+            document.getElementById('add_factor_conversion_oc').value = factor.toFixed(4);
+
+            if (actualizarCosto && productoCompraActualOC) {
+                const selectLista = document.getElementById('selectListaPrecioAgregar');
+                const optLista = selectLista && selectLista.selectedIndex >= 0 ? selectLista.options[selectLista.selectedIndex] : null;
+
+                let costoCalculado = productoCompraActualOC.precio_costo * factor;
+
+                if (optLista && selectLista.value) {
+                    const p = parseFloat(optLista.getAttribute('data-porc')) || 0;
+                    const m = parseFloat(optLista.getAttribute('data-monto')) || 0;
+                    if (p !== 0) costoCalculado = costoCalculado + (costoCalculado * (p / 100));
+                    else if (m !== 0) costoCalculado = costoCalculado + (m * factor);
+                }
+
+                document.getElementById('inputPrecioAgregar').value = costoCalculado.toFixed(2);
+            }
+
+            calcularEntradaInventarioOC();
+        }
+
+        function calcularEntradaInventarioOC() {
+            const cant = parseFloat(document.getElementById('inputCantidadAgregar').value) || 0;
+            const factor = parseFloat(document.getElementById('add_factor_conversion_oc').value) || 1.0;
+            const entrada = cant * factor;
+
+            document.getElementById('add_cantidad_inventario_val_oc').value = entrada.toFixed(2);
+
+            const unidadBase = document.getElementById('add_unidad_base_nombre_oc').value || '';
+            const entradaInput = document.getElementById('inputEntradaInventarioOC');
+            if (entradaInput) {
+                if (cant <= 0) {
+                    entradaInput.value = '--';
+                } else {
+                    const entStr = (Math.round(entrada * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
+                    entradaInput.value = `${entStr} ${unidadBase}`.trim();
+                }
+            }
+        }
+
+        function aplicarListaCostoOC() {
             const pId = document.getElementById('selectProductoAgregar').value;
             if (!pId) return;
-            const opt = document.querySelector(`#optionsProductoAgregar .custom-option[data-value="${pId}"]`);
-            if (!opt) return;
-            
-            const base = parseFloat(opt.dataset.precio) || 0;
-            const listaOpt = this.options[this.selectedIndex];
-            const p = (listaOpt && listaOpt.value) ? (parseFloat(listaOpt.dataset.porc) || 0) : 0;
-            const m = (listaOpt && listaOpt.value) ? (parseFloat(listaOpt.dataset.monto) || 0) : 0;
-            
+
+            const optProd = document.querySelector(`#optionsProductoAgregar .custom-option[data-value="${pId}"]`);
+            const factor = parseFloat(document.getElementById('add_factor_conversion_oc').value) || 1.0;
+            const costoUnitBase = productoCompraActualOC ? productoCompraActualOC.precio_costo : (parseFloat(optProd ? optProd.dataset.precio : 0) || 0);
+            const base = costoUnitBase * factor;
+
+            const selectLista = document.getElementById('selectListaPrecioAgregar');
+            const optLista = selectLista.options[selectLista.selectedIndex];
+
+            if (!selectLista.value) {
+                document.getElementById('inputPrecioAgregar').value = base.toFixed(2);
+                return;
+            }
+
+            const p = parseFloat(optLista.getAttribute('data-porc')) || 0;
+            const m = parseFloat(optLista.getAttribute('data-monto')) || 0;
+
             let final = base;
             if (p !== 0) final = base + (base * (p / 100));
-            else if (m !== 0) final = base + m;
-            
+            else if (m !== 0) final = base + (m * factor);
+
             document.getElementById('inputPrecioAgregar').value = final.toFixed(2);
+        }
+
+        document.getElementById('selectProductoAgregar').addEventListener('change', function() {
+            const pId = this.value;
+            if (!pId) {
+                cargarConversionesParaCompraOC(null);
+                return;
+            }
+            const opt = document.querySelector(`#optionsProductoAgregar .custom-option[data-value="${pId}"]`);
+            if (!opt) return;
+            const base = parseFloat(opt.dataset.precio) || 0;
+            document.getElementById('inputPrecioAgregar').value = base.toFixed(2);
+            document.getElementById('selectListaPrecioAgregar').value = "";
+            cargarConversionesParaCompraOC(pId);
         });
+
+        document.getElementById('selectListaPrecioAgregar').addEventListener('change', aplicarListaCostoOC);
 
         function agregarALista() {
             const pInput = document.getElementById('selectProductoAgregar');
@@ -1662,6 +1865,14 @@
 
             if (!productId || cantidad <= 0) return alert("Selecciona un producto y cantidad.");
 
+            const selUnidad = document.getElementById('selectUnidadCompraOC');
+            const optUnidad = selUnidad && selUnidad.selectedIndex >= 0 ? selUnidad.options[selUnidad.selectedIndex] : null;
+            const unidadCompraVal = selUnidad ? selUnidad.value : 'BASE';
+            const unidadCompraDisplay = optUnidad ? (optUnidad.getAttribute('data-display') || optUnidad.text) : '';
+            const factorConv = parseFloat(document.getElementById('add_factor_conversion_oc').value) || 1.0;
+            const cantInv = parseFloat(document.getElementById('add_cantidad_inventario_val_oc').value) || (cantidad * factorConv);
+            const unidadBaseNom = document.getElementById('add_unidad_base_nombre_oc').value || (opt ? opt.getAttribute('data-unidad') : '');
+
             const subtotal = cantidad * precio;
             const ivaMonto = subtotal * (ivaPorc / 100);
             const total = subtotal + ivaMonto;
@@ -1670,23 +1881,32 @@
                 <td class="ps-3">
                     <div class="fw-semibold small text-dark">${productName}</div>
                     <input type="hidden" name="producto_id[]" value="${productId}">
+                    <input type="hidden" name="unidad_base[]" value="${unidadBaseNom}">
                 </td>
                 <td class="text-center">
-                    <span class="small text-dark">${cantidad}</span>
+                    <span class="small fw-semibold text-dark">${cantidad}</span>
+                    <span class="text-muted d-block" style="font-size: 0.72rem;">${unidadCompraDisplay || (unidadCompraVal === 'BASE' ? unidadBaseNom : unidadCompraVal)}</span>
                     <input type="hidden" name="cantidad[]" value="${cantidad}">
+                    <input type="hidden" name="unidad_compra[]" value="${unidadCompraVal}">
+                    <input type="hidden" name="factor_conversion[]" value="${factorConv}">
+                </td>
+                <td class="text-center">
+                    <span class="small fw-bold text-brand">${cantInv}</span>
+                    <span class="text-muted d-block" style="font-size: 0.72rem;">${unidadBaseNom}</span>
+                    <input type="hidden" name="cantidad_inventario[]" value="${cantInv}">
                 </td>
                 <td class="text-end">
                     <span class="small text-muted">$${precio.toFixed(2)}</span>
                     <input type="hidden" name="precio_unitario[]" value="${precio}">
                 </td>
-                <td class="text-end">
+                <td class="text-end cell-subtotal">
                     <span class="small text-dark">$${subtotal.toFixed(2)}</span>
                 </td>
-                <td class="text-end">
+                <td class="text-end cell-iva">
                     <span class="small text-muted">$${ivaMonto.toFixed(2)}</span>
                     <input type="hidden" name="iva_porcentaje[]" value="${ivaPorc}">
                 </td>
-                <td class="text-end pe-3">
+                <td class="text-end pe-3 cell-total">
                     <span class="fw-bold small text-dark">$${total.toFixed(2)}</span>
                 </td>
                 <td class="text-center">
@@ -1718,6 +1938,11 @@
             document.getElementById('inputCantidadAgregar').value = 1;
             document.getElementById('inputPrecioAgregar').value = "0.00";
             document.getElementById('selectListaPrecioAgregar').value = "";
+            document.getElementById('add_factor_conversion_oc').value = "1.0000";
+            document.getElementById('add_cantidad_inventario_val_oc').value = "1.00";
+            document.getElementById('inputEntradaInventarioOC').value = "--";
+            document.getElementById('selectUnidadCompraOC').innerHTML = '<option value="BASE" data-factor="1">Unidad Base</option>';
+            productoCompraActualOC = null;
             
             calcularGranTotalLista();
 
@@ -1726,7 +1951,7 @@
             if (sInput) sInput.focus();
         }
 
-        function editarFilaCompra(btn) {
+        async function editarFilaCompra(btn) {
             const row = btn.closest('tr');
             const tbody = document.getElementById('tablaCuerpo');
             const index = Array.from(tbody.rows).indexOf(row);
@@ -1735,12 +1960,22 @@
             const productName = row.querySelector('.fw-semibold.small.text-dark').innerText.trim();
             const cant = row.querySelector('[name="cantidad[]"]').value;
             const prec = row.querySelector('[name="precio_unitario[]"]').value;
+            const uCompra = row.querySelector('[name="unidad_compra[]"]')?.value || '';
+            const factor = row.querySelector('[name="factor_conversion[]"]')?.value || '1.0000';
+            const uBase = row.querySelector('[name="unidad_base[]"]')?.value || '';
 
             document.getElementById('selectProductoAgregar').value = pId;
             document.getElementById('producto_display_fake').innerText = productName;
             document.getElementById('inputCantidadAgregar').value = cant;
             document.getElementById('inputPrecioAgregar').value = prec;
+            document.getElementById('add_factor_conversion_oc').value = factor;
+            document.getElementById('add_unidad_base_nombre_oc').value = uBase;
             document.getElementById('edit_index_compra').value = index;
+
+            await cargarConversionesParaCompraOC(pId, uCompra, factor);
+            document.getElementById('inputPrecioAgregar').value = prec;
+            document.getElementById('inputCantidadAgregar').value = cant;
+            calcularEntradaInventarioOC();
 
             const btnAdd = document.querySelector('button[onclick="agregarALista()"]');
             if (btnAdd) btnAdd.innerHTML = '<i class="bi bi-check-lg"></i>';
@@ -1757,25 +1992,24 @@
             const aplicaIva = aplicaIvaSwitch ? aplicaIvaSwitch.checked : true;
 
             document.querySelectorAll('#tablaCuerpo tr').forEach(fila => {
-                const sub = parseFloat(fila.cells[3].innerText.replace('$', '').replace(',', '')) || 0;
+                const subCell = fila.querySelector('.cell-subtotal');
+                const ivaCell = fila.querySelector('.cell-iva');
+                const totCell = fila.querySelector('.cell-total');
+                if (!subCell || !ivaCell || !totCell) return;
+
+                const sub = parseFloat(subCell.querySelector('span')?.innerText.replace('$', '').replace(/,/g, '')) || 0;
                 
-                const ivaInput = fila.cells[4].querySelector('input[name="iva_porcentaje[]"]');
+                const ivaInput = ivaCell.querySelector('input[name="iva_porcentaje[]"]');
                 const ivaPorc = ivaInput ? parseFloat(ivaInput.value) : 0;
                 
                 const iva = aplicaIva ? (sub * (ivaPorc / 100)) : 0;
                 const tot = sub + iva;
 
-                // Actualizar visualmente la celda de IVA (span)
-                const ivaSpan = fila.cells[4].querySelector('span');
-                if (ivaSpan) {
-                    ivaSpan.innerText = '$' + iva.toFixed(2);
-                }
+                const ivaSpan = ivaCell.querySelector('span');
+                if (ivaSpan) ivaSpan.innerText = '$' + iva.toFixed(2);
 
-                // Actualizar visualmente la celda de Total (span)
-                const totSpan = fila.cells[5].querySelector('span');
-                if (totSpan) {
-                    totSpan.innerText = '$' + tot.toFixed(2);
-                }
+                const totSpan = totCell.querySelector('span');
+                if (totSpan) totSpan.innerText = '$' + tot.toFixed(2);
 
                 subtotalAcum += sub;
                 ivaAcum += iva;
@@ -1855,28 +2089,39 @@
                 tbody.innerHTML = '';
                 if (data.detalles) {
                     data.detalles.forEach(d => {
+                        const uCompraDisplay = d.unidad_compra_display || d.unidad_compra || '';
+                        const uBaseDisplay = d.unidad_base || '';
                         const fila = `
                             <tr>
                                 <td class="ps-3">
                                     <div class="fw-semibold small text-dark">${d.producto_nombre}</div>
                                     <input type="hidden" name="producto_id[]" value="${d.producto_id}">
+                                    <input type="hidden" name="unidad_base[]" value="${uBaseDisplay}">
                                 </td>
                                 <td class="text-center">
-                                    <span class="small text-dark">${d.cantidad}</span>
+                                    <span class="small fw-semibold text-dark">${d.cantidad}</span>
+                                    <span class="text-muted d-block" style="font-size: 0.72rem;">${uCompraDisplay}</span>
                                     <input type="hidden" name="cantidad[]" value="${d.cantidad}">
+                                    <input type="hidden" name="unidad_compra[]" value="${d.unidad_compra || ''}">
+                                    <input type="hidden" name="factor_conversion[]" value="${d.factor_conversion || 1.0}">
+                                </td>
+                                <td class="text-center">
+                                    <span class="small fw-bold text-brand">${d.cantidad_inventario}</span>
+                                    <span class="text-muted d-block" style="font-size: 0.72rem;">${uBaseDisplay}</span>
+                                    <input type="hidden" name="cantidad_inventario[]" value="${d.cantidad_inventario}">
                                 </td>
                                 <td class="text-end">
-                                    <span class="small text-muted">$${d.precio.toFixed(2)}</span>
+                                    <span class="small text-muted">$${parseFloat(d.precio).toFixed(2)}</span>
                                     <input type="hidden" name="precio_unitario[]" value="${d.precio}">
                                 </td>
-                                <td class="text-end">
+                                <td class="text-end cell-subtotal">
                                     <span class="small text-dark">$${parseFloat(d.subtotal).toFixed(2)}</span>
                                 </td>
-                                <td class="text-end">
+                                <td class="text-end cell-iva">
                                     <span class="small text-muted">$${parseFloat(d.iva_monto).toFixed(2)}</span>
                                     <input type="hidden" name="iva_porcentaje[]" value="${d.iva_porcentaje}">
                                 </td>
-                                <td class="text-end pe-3">
+                                <td class="text-end pe-3 cell-total">
                                     <span class="fw-bold small text-dark">$${parseFloat(d.total).toFixed(2)}</span>
                                 </td>
                                 <td class="text-center">

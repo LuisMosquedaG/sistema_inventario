@@ -142,8 +142,25 @@ class DetalleCompra(models.Model):
         verbose_name="Partida de Pedido Origen"
     )
 
+    # CONVERSIONES DE UNIDAD DE COMPRA
+    unidad_compra = models.CharField(max_length=50, blank=True, null=True, verbose_name="Unidad de Compra")
+    factor_conversion = models.DecimalField(max_digits=12, decimal_places=4, default=1.0000, verbose_name="Factor de Conversión")
+    cantidad_inventario = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Cant. Entrada Inventario")
+
     def __str__(self):
         return f"{self.cantidad} x {self.producto.nombre}"
+
+    @property
+    def cantidad_inventario_calculada(self):
+        if self.cantidad_inventario and self.cantidad_inventario > Decimal('0'):
+            return self.cantidad_inventario
+        return Decimal(str(self.cantidad)) * (self.factor_conversion or Decimal('1.0'))
+
+    @property
+    def unidad_compra_display(self):
+        if self.unidad_compra and self.unidad_compra != 'BASE':
+            return self.unidad_compra
+        return self.producto.get_unidad_medida_display() or self.producto.unidad_medida
 
     @property
     def subtotal(self):

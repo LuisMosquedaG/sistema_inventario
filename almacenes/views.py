@@ -283,7 +283,11 @@ def api_ejecutar_traslado(request):
             producto = get_object_or_404(Producto, id=producto_id, empresa=empresa_actual)
 
             # 1. VALIDAR STOCK EN ORIGEN
-            inv_origen = Inventario.objects.select_for_update().get(almacen=origen, producto=producto)
+            try:
+                inv_origen = Inventario.objects.select_for_update().get(almacen=origen, producto=producto)
+            except Inventario.DoesNotExist:
+                raise ValueError(f"No hay stock suficiente de {producto.nombre} en el origen (Disponible: 0).")
+
             if inv_origen.cantidad < cantidad: 
                 raise ValueError(f"No hay stock suficiente de {producto.nombre} en el origen.")
 

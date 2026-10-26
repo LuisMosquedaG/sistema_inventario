@@ -106,7 +106,14 @@
             <tbody>
                 {% for det in recepcion.detalles.all %}
                 <tr>
-                    <td class="text-center">{{ det.cantidad_recibida }}</td>
+                    <td class="text-center">
+                        <div style="font-weight: 600;">{{ det.cantidad_recibida }} {{ det.unidad_compra_display }}</div>
+                        {% if det.factor_conversion and det.factor_conversion != 1 %}
+                            <div style="font-size: 0.72rem; color: #198754; font-weight: bold;">
+                                (= {{ det.cantidad_inventario_calculada|floatformat:2 }} {{ det.producto.get_unidad_medida_display|default:det.producto.unidad_medida }})
+                            </div>
+                        {% endif %}
+                    </td>
                     <td>
                         <div class="prod-name">{{ det.producto.nombre }}</div>
                         {% if det.producto.descripcion %}

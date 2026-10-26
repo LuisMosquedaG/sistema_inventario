@@ -94,6 +94,9 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
     productos_ids = data_post.getlist('producto_id[]')
     cantidades = data_post.getlist('cantidad[]')
     precios = data_post.getlist('precio_unitario[]')
+    unidades_compra = data_post.getlist('unidad_compra[]')
+    factores_conv = data_post.getlist('factor_conversion[]')
+    cantidades_inv = data_post.getlist('cantidad_inventario[]')
 
     items_creados = 0
 
@@ -101,6 +104,7 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
         prod_id = productos_ids[i]
         cant_str = cantidades[i] if i < len(cantidades) else 0
         precio_str = precios[i] if i < len(precios) else 0.0
+        u_compra = unidades_compra[i] if i < len(unidades_compra) else ''
 
         # Validaciones individuales del ítem
         if not prod_id or prod_id == "":
@@ -112,6 +116,16 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
         except ValueError:
             continue # Ignorar líneas con datos inválidos
 
+        try:
+            f_conv = Decimal(str(factores_conv[i])) if i < len(factores_conv) and factores_conv[i] else Decimal('1.0000')
+        except Exception:
+            f_conv = Decimal('1.0000')
+
+        try:
+            c_inv = Decimal(str(cantidades_inv[i])) if i < len(cantidades_inv) and cantidades_inv[i] else (Decimal(str(cant)) * f_conv)
+        except Exception:
+            c_inv = Decimal(str(cant)) * f_conv
+
         if cant > 0:
             prod_obj = Producto.objects.filter(id=prod_id, empresa=empresa_actual).first()
             if not prod_obj:
@@ -120,7 +134,10 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
                 orden_compra=orden,
                 producto=prod_obj,
                 cantidad=cant,
-                precio_costo=precio
+                precio_costo=precio,
+                unidad_compra=u_compra or None,
+                factor_conversion=f_conv,
+                cantidad_inventario=c_inv
             )
             items_creados += 1
     

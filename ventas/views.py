@@ -1024,7 +1024,8 @@ def punto_de_venta(request):
         for c in prod.conversiones.filter(activo=True):
             convs_data.append({
                 'id': c.id,
-                'unidad_destino': c.unidad_destino,
+                'unidad_destino': c.unidad_destino_nombre if hasattr(c, 'unidad_destino_nombre') else c.unidad_destino,
+                'unidad_destino_sat': c.unidad_destino,
                 'factor_equivalencia': float(c.factor_equivalencia),
                 'precio_venta': float(c.precio_efectivo),
                 'codigo_barras': c.codigo_barras or ''
@@ -1133,10 +1134,19 @@ def detalle_venta_pos_ajax(request, pedido_id):
         }
 
         for det in pedido.detalles.all():
+            u_med = det.producto.get_unidad_medida_display() or det.producto.unidad_medida or 'Pz'
+            if det.modificadores_json:
+                try:
+                    m_data = json.loads(det.modificadores_json)
+                    if isinstance(m_data, dict) and m_data.get('unidad_medida'):
+                        u_med = m_data['unidad_medida']
+                except Exception:
+                    pass
             data['detalles'].append({
                 'id': det.id,
                 'producto': det.producto.nombre,
                 'solicitado': det.cantidad_solicitada,
+                'unidad_medida': u_med,
                 'precio': str(det.precio_unitario),
                 'subtotal': str(det.subtotal),
                 'iva_monto': str(det.iva_monto),
@@ -1428,7 +1438,7 @@ def crear_venta_pos_ajax(request):
                 iva_monto = subtotal * (porc / 100)
                 total_pedido += (subtotal + iva_monto)
 
-            total_pedido = total_pedido.quantize(Decimal('1'), rounding='ROUND_CEILING')
+            total_pedido = total_pedido.quantize(Decimal('0.01'), rounding='ROUND_HALF_UP')
 
             # 2. Validar y procesar pagos
             total_pagos_ingresados = Decimal('0.00')
@@ -1439,8 +1449,11 @@ def crear_venta_pos_ajax(request):
                 else:
                     total_pagos_ingresados += Decimal(str(p.get('monto', 0)))
 
+            total_pagos_ingresados = total_pagos_ingresados.quantize(Decimal('0.01'), rounding='ROUND_HALF_UP')
+            monto_credito = monto_credito.quantize(Decimal('0.01'), rounding='ROUND_HALF_UP')
+
             if total_pagos_ingresados + monto_credito < total_pedido:
-                raise ValueError(f"El monto total pagado y a crédito (${total_pagos_ingresados + monto_credito}) es menor al total de la venta (${total_pedido}).")
+                raise ValueError(f"El monto total pagado y a crédito (${total_pagos_ingresados + monto_credito:.2f}) es menor al total de la venta (${total_pedido:.2f}).")
 
             # Si el monto pagado excede el pedido, primero ajustamos la parte a crédito
             cambio = (total_pagos_ingresados + monto_credito) - total_pedido
@@ -1602,6 +1615,13 @@ def crear_venta_pos_ajax(request):
                             unidad_info = f" ({qty} {unidad_medida_sel})" if unidad_medida_sel else ""
                             raise ValueError(f"Stock insuficiente para {producto.nombre}. Disponible: {stock_disp}, Solicitado: {qty_base}{unidad_info}")
 
+                mods_storage_data = {
+                    'modificadores': modificadores,
+                    'unidad_medida': unidad_medida_sel or (producto.get_unidad_medida_display() or producto.unidad_medida or 'Pz'),
+                    'factor_conversion': float(factor_conv)
+                }
+                mods_storage_json = json.dumps(mods_storage_data)
+
                 detalle = DetallePedido.objects.create(
                     pedido=pedido,
                     producto=producto,
@@ -1609,7 +1629,7 @@ def crear_venta_pos_ajax(request):
                     cantidad_entregada=qty,
                     precio_unitario=price,
                     estado_linea='completo',
-                    modificadores_json=json.dumps(modificadores) if modificadores else None
+                    modificadores_json=mods_storage_json
                 )
 
                 DetalleOrdenVenta.objects.create(
@@ -1617,7 +1637,7 @@ def crear_venta_pos_ajax(request):
                     producto=producto,
                     cantidad=qty,
                     precio_unitario=price,
-                    modificadores_json=json.dumps(modificadores) if modificadores else None
+                    modificadores_json=mods_storage_json
                 )
 
                 if producto.tipo != 'servicio':
@@ -1809,23 +1829,22 @@ def cortes_caja_list(request):
     from tesoreria.models import Egreso
     sesiones = []
     for s in sesiones_qs:
-        if s.estado == 'abierta':
-            pagos_s = PagoPedido.objects.filter(pedido__sesion_caja=s, estado='aplicado')
-            v_ef = pagos_s.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
-            v_tj = pagos_s.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito']).aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
-            v_tr = pagos_s.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
-            v_cr = Credito.objects.filter(pedido__sesion_caja=s).exclude(pedido__estado='cancelado').aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
-            if (
-                s.total_ventas_efectivo != v_ef
-                or s.total_ventas_tarjeta != v_tj
-                or s.total_ventas_transferencia != v_tr
-                or s.total_ventas_credito != v_cr
-            ):
-                s.total_ventas_efectivo = v_ef
-                s.total_ventas_tarjeta = v_tj
-                s.total_ventas_transferencia = v_tr
-                s.total_ventas_credito = v_cr
-                s.save(update_fields=['total_ventas_efectivo', 'total_ventas_tarjeta', 'total_ventas_transferencia', 'total_ventas_credito'])
+        pagos_s = PagoPedido.objects.filter(pedido__sesion_caja=s, estado='aplicado').exclude(pedido__estado='cancelado')
+        v_ef = pagos_s.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+        v_tj = pagos_s.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito']).aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+        v_tr = pagos_s.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
+        v_cr = Credito.objects.filter(pedido__sesion_caja=s).exclude(pedido__estado='cancelado').aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
+        if (
+            s.total_ventas_efectivo != v_ef
+            or s.total_ventas_tarjeta != v_tj
+            or s.total_ventas_transferencia != v_tr
+            or s.total_ventas_credito != v_cr
+        ):
+            s.total_ventas_efectivo = v_ef
+            s.total_ventas_tarjeta = v_tj
+            s.total_ventas_transferencia = v_tr
+            s.total_ventas_credito = v_cr
+            s.save(update_fields=['total_ventas_efectivo', 'total_ventas_tarjeta', 'total_ventas_transferencia', 'total_ventas_credito'])
         s.total_retiros = Egreso.objects.filter(sesion_caja=s, estado='aplicado').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
         s.tipo_corte = 'X'
         s.fecha_orden = s.fecha_apertura
@@ -2071,15 +2090,15 @@ def cierre_sesion_pos_ajax(request):
         return JsonResponse({'success': False, 'error': 'Monto final de efectivo inválido.'})
     
     try:
-        # Calcular los montos dinámicos del sistema para congelarlos
-        pagos = PagoPedido.objects.filter(pedido__sesion_caja=sesion, estado='aplicado')
+        # Calcular los montos dinámicos del sistema para congelarlos (excluyendo ventas canceladas)
+        pagos = PagoPedido.objects.filter(pedido__sesion_caja=sesion, estado='aplicado').exclude(pedido__estado='cancelado')
         
         ventas_efectivo = pagos.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
         ventas_tarjeta = pagos.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito']).aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
         ventas_transferencia = pagos.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
         
         from clientes.models import Credito
-        ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
+        ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).exclude(pedido__estado='cancelado').aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
 
         with transaction.atomic():
             # Actualizar la sesión
@@ -2135,15 +2154,15 @@ def cierre_sesion_pos_por_id_ajax(request, sesion_id):
     except Exception:
         return JsonResponse({'success': False, 'error': 'Monto final de efectivo inválido.'})
     try:
-        # Calcular los montos dinámicos del sistema para congelarlos
-        pagos = PagoPedido.objects.filter(pedido__sesion_caja=sesion, estado='aplicado')
+        # Calcular los montos dinámicos del sistema para congelarlos (excluyendo ventas canceladas)
+        pagos = PagoPedido.objects.filter(pedido__sesion_caja=sesion, estado='aplicado').exclude(pedido__estado='cancelado')
         
         ventas_efectivo = pagos.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
         ventas_tarjeta = pagos.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito']).aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
         ventas_transferencia = pagos.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
         
         from clientes.models import Credito
-        ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
+        ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).exclude(pedido__estado='cancelado').aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
 
         with transaction.atomic():
             # Actualizar la sesión
@@ -2811,9 +2830,16 @@ def imprimir_pedido_ticket(request, pedido_id):
     items_preparados = []
     for d in pedido.detalles.all():
         mods = []
+        u_medida = d.producto.get_unidad_medida_display() or d.producto.unidad_medida or 'Pz'
         if d.modificadores_json:
             try:
-                mods_list = json.loads(d.modificadores_json)
+                mods_raw = json.loads(d.modificadores_json)
+                if isinstance(mods_raw, dict):
+                    mods_list = mods_raw.get('modificadores', [])
+                    if mods_raw.get('unidad_medida'):
+                        u_medida = mods_raw['unidad_medida']
+                else:
+                    mods_list = mods_raw
                 for m in mods_list:
                     tipo_lbl = "Extra" if m.get('tipo') == 'extra' else "Sin"
                     nombre = m.get('nombre', '')
@@ -2824,6 +2850,7 @@ def imprimir_pedido_ticket(request, pedido_id):
             'detalle': d,
             'nombre_producto': d.producto.nombre,
             'cantidad': d.cantidad_solicitada,
+            'unidad_medida': u_medida,
             'precio_unitario': d.precio_unitario,
             'subtotal': d.subtotal,
             'modificadores': mods
@@ -2875,6 +2902,7 @@ def api_devolucion_pedido(request, pedido_id):
         with transaction.atomic():
             # 1. Cancelar pagos e ingresos
             pagos = PagoPedido.objects.filter(pedido=pedido, estado='aplicado')
+            monto_efectivo_devuelto = pagos.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
             for pago in pagos:
                 pago.estado = 'cancelado'
                 pago.motivo_cancelacion = 'Devolución de Pedido'
@@ -2886,8 +2914,11 @@ def api_devolucion_pedido(request, pedido_id):
                     motivo_cancelacion='Devolución de Pedido'
                 )
                 
-            # Eliminar créditos asociados
-            Credito.objects.filter(pedido=pedido, empresa=empresa_actual).delete()
+            # Manejo no destructivo de créditos asociados (preservar registro y auditoría histórica)
+            creditos = Credito.objects.filter(pedido=pedido, empresa=empresa_actual)
+            for cred in creditos:
+                cred.saldo = Decimal('0.00')
+                cred.save()
             
             # 2. Cancelar pedido y partidas
             pedido.estado = 'cancelado'
@@ -2950,10 +2981,39 @@ def api_devolucion_pedido(request, pedido_id):
                         except DetalleRecepcionExtra.DoesNotExist:
                             pass
                 
-            # 4. Actualizar totales de la sesión de caja (abierta o cerrada)
+            # 4. Actualizar totales de la sesión de caja y registrar reembolso si aplica
             sesion = pedido.sesion_caja
+            from tesoreria.models import Egreso
+            from ventas.models import SesionCajaPOS
+            
+            # Sesión activa del cajero actual (por si la venta original era de un turno anterior ya cerrado)
+            sesion_actual_abierta = SesionCajaPOS.objects.filter(
+                caja_pos__empresa=empresa_actual,
+                usuario=request.user,
+                estado='abierta'
+            ).first()
+
+            # Si la sesión original ya estaba cerrada y se devuelve dinero en efectivo físicamente:
+            if sesion and sesion.estado == 'cerrada' and sesion_actual_abierta and monto_efectivo_devuelto > 0:
+                caja_banco_ef = sesion_actual_abierta.caja_pos.caja_efectivo
+                Egreso.objects.create(
+                    empresa=empresa_actual,
+                    fecha=timezone.now().date(),
+                    concepto=f"Reembolso devolución en efectivo - Pedido PED-{pedido.id:04d}",
+                    monto=monto_efectivo_devuelto,
+                    monto_mxn=monto_efectivo_devuelto,
+                    moneda=caja_banco_ef.moneda,
+                    forma_pago='efectivo',
+                    caja_banco=caja_banco_ef,
+                    sesion_caja=sesion_actual_abierta,
+                    sucursal=sesion_actual_abierta.caja_pos.sucursal,
+                    estado='aplicado',
+                    referencia=f"DEV-PED-{pedido.id:04d}"
+                )
+
+            # Recalcular totales de la sesión de caja del pedido
             if sesion:
-                pagos_restantes = PagoPedido.objects.filter(pedido__sesion_caja=sesion, estado='aplicado')
+                pagos_restantes = PagoPedido.objects.filter(pedido__sesion_caja=sesion, estado='aplicado').exclude(pedido__estado='cancelado')
                 sesion.total_ventas_efectivo = pagos_restantes.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
                 sesion.total_ventas_tarjeta = pagos_restantes.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito']).aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
                 sesion.total_ventas_transferencia = pagos_restantes.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
@@ -2961,6 +3021,16 @@ def api_devolucion_pedido(request, pedido_id):
                 from clientes.models import Credito
                 sesion.total_ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).exclude(pedido__estado='cancelado').aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
                 sesion.save()
+
+                # Sincronizar Corte Z si la sesión ya formaba parte de uno
+                if sesion.corte_z:
+                    cz = sesion.corte_z
+                    cz.total_efectivo = cz.sesiones_corte.aggregate(Sum('total_ventas_efectivo'))['total_ventas_efectivo__sum'] or Decimal('0.00')
+                    cz.total_tarjeta = cz.sesiones_corte.aggregate(Sum('total_ventas_tarjeta'))['total_ventas_tarjeta__sum'] or Decimal('0.00')
+                    cz.total_transferencia = cz.sesiones_corte.aggregate(Sum('total_ventas_transferencia'))['total_ventas_transferencia__sum'] or Decimal('0.00')
+                    cz.total_credito = cz.sesiones_corte.aggregate(Sum('total_ventas_credito'))['total_ventas_credito__sum'] or Decimal('0.00')
+                    cz.total_ventas = cz.total_efectivo + cz.total_tarjeta + cz.total_transferencia + cz.total_credito
+                    cz.save()
                 
             # 5. Notificación del sistema
             crear_notificacion(
@@ -3148,71 +3218,115 @@ def api_devolucion_partida(request, detalle_id):
                         orden.estado_entrega = 'cancelado'
                         orden.save()
                         
-            # 5. Descontar de los pagos aplicados
-            reembolso_pendiente = monto_reembolso
-            pagos = PagoPedido.objects.filter(pedido=pedido, estado='aplicado').order_by('-id')
-            for p in pagos:
-                if reembolso_pendiente <= 0:
-                    break
-                if p.monto >= reembolso_pendiente:
-                    p.monto -= reembolso_pendiente
-                    p.monto_mxn -= reembolso_pendiente * p.tipo_cambio
-                    if p.monto == 0:
+            # 5. Ajustar Crédito primero de forma no destructiva (si hay saldo de crédito pendiente, reducir deuda antes de reembolsar efectivo)
+            monto_ajuste_credito = Decimal('0.00')
+            creditos = Credito.objects.filter(pedido=pedido, empresa=empresa_actual)
+            reembolso_a_credito_restante = monto_reembolso
+            for cred in creditos:
+                if cred.saldo > 0 and reembolso_a_credito_restante > 0:
+                    rebaja = min(cred.saldo, reembolso_a_credito_restante)
+                    cred.saldo -= rebaja
+                    cred.monto_total = max(Decimal('0.00'), cred.monto_total - rebaja)
+                    reembolso_a_credito_restante -= rebaja
+                    monto_ajuste_credito += rebaja
+                cred.save()
+
+            # 6. Descontar el remanente de los pagos aplicados (reembolso en efectivo/tarjeta/transferencia)
+            monto_efectivo_reembolsado = Decimal('0.00')
+            reembolso_pendiente = monto_reembolso - monto_ajuste_credito
+            if reembolso_pendiente > 0:
+                pagos = PagoPedido.objects.filter(pedido=pedido, estado='aplicado').order_by('-id')
+                for p in pagos:
+                    if reembolso_pendiente <= 0:
+                        break
+                    deduccion = min(p.monto, reembolso_pendiente)
+                    if p.forma_pago == 'efectivo':
+                        monto_efectivo_reembolsado += deduccion * p.tipo_cambio
+
+                    if p.monto >= reembolso_pendiente:
+                        p.monto -= reembolso_pendiente
+                        p.monto_mxn -= reembolso_pendiente * p.tipo_cambio
+                        if p.monto == 0:
+                            p.estado = 'cancelado'
+                            p.motivo_cancelacion = f'Devolución de partida {detalle.producto.nombre}'
+                        p.save()
+                        
+                        try:
+                            ing = p.ingreso_vinc
+                            if ing:
+                                ing.monto = p.monto
+                                ing.monto_mxn = p.monto_mxn
+                                if ing.monto == 0:
+                                    ing.estado = 'cancelado'
+                                    ing.motivo_cancelacion = f'Devolución de partida {detalle.producto.nombre}'
+                                ing.save()
+                        except Exception:
+                            pass
+                        reembolso_pendiente = Decimal('0.00')
+                    else:
+                        reembolso_pendiente -= p.monto
+                        p.monto = Decimal('0.00')
+                        p.monto_mxn = Decimal('0.00')
                         p.estado = 'cancelado'
                         p.motivo_cancelacion = f'Devolución de partida {detalle.producto.nombre}'
-                    p.save()
-                    
-                    try:
-                        ing = p.ingreso_vinc
-                        if ing:
-                            ing.monto = p.monto
-                            ing.monto_mxn = p.monto_mxn
-                            if ing.monto == 0:
+                        p.save()
+                        
+                        try:
+                            ing = p.ingreso_vinc
+                            if ing:
+                                ing.monto = Decimal('0.00')
+                                ing.monto_mxn = Decimal('0.00')
                                 ing.estado = 'cancelado'
                                 ing.motivo_cancelacion = f'Devolución de partida {detalle.producto.nombre}'
-                            ing.save()
-                    except Exception:
-                        pass
-                    reembolso_pendiente = Decimal('0.00')
-                else:
-                    reembolso_pendiente -= p.monto
-                    p.monto = Decimal('0.00')
-                    p.monto_mxn = Decimal('0.00')
-                    p.estado = 'cancelado'
-                    p.motivo_cancelacion = f'Devolución de partida {detalle.producto.nombre}'
-                    p.save()
+                                ing.save()
+                        except Exception:
+                            pass
                     
-                    try:
-                        ing = p.ingreso_vinc
-                        if ing:
-                            ing.monto = Decimal('0.00')
-                            ing.monto_mxn = Decimal('0.00')
-                            ing.estado = 'cancelado'
-                            ing.motivo_cancelacion = f'Devolución de partida {detalle.producto.nombre}'
-                            ing.save()
-                    except Exception:
-                        pass
-                        
-            # 6. Actualizar Crédito
-            creditos = Credito.objects.filter(pedido=pedido, empresa=empresa_actual)
-            for cred in creditos:
-                cred.monto_total = max(Decimal('0.00'), cred.monto_total - monto_reembolso)
-                cred.saldo = max(Decimal('0.00'), cred.saldo - monto_reembolso)
-                if cred.monto_total == 0:
-                    cred.delete()
-                else:
-                    cred.save()
-                    
-            # 7. Actualizar totales de la sesión de caja (abierta o cerrada)
+            # 7. Actualizar totales de la sesión de caja y registrar reembolso si aplica
             sesion = pedido.sesion_caja
+            from tesoreria.models import Egreso
+            from ventas.models import SesionCajaPOS
+            sesion_actual_abierta = SesionCajaPOS.objects.filter(
+                caja_pos__empresa=empresa_actual,
+                usuario=request.user,
+                estado='abierta'
+            ).first()
+
+            # Si la sesión original ya estaba cerrada y se devuelve dinero en efectivo físicamente:
+            if sesion and sesion.estado == 'cerrada' and sesion_actual_abierta and monto_efectivo_reembolsado > 0:
+                caja_banco_ef = sesion_actual_abierta.caja_pos.caja_efectivo
+                Egreso.objects.create(
+                    empresa=empresa_actual,
+                    fecha=timezone.now().date(),
+                    concepto=f"Reembolso por devolución parcial {detalle.producto.nombre} - Pedido PED-{pedido.id:04d}",
+                    monto=monto_efectivo_reembolsado,
+                    monto_mxn=monto_efectivo_reembolsado,
+                    moneda=caja_banco_ef.moneda,
+                    forma_pago='efectivo',
+                    caja_banco=caja_banco_ef,
+                    sesion_caja=sesion_actual_abierta,
+                    sucursal=sesion_actual_abierta.caja_pos.sucursal,
+                    estado='aplicado',
+                    referencia=f"DEV-PAR-{detalle.id:04d}"
+                )
+
             if sesion:
-                pagos_restantes = PagoPedido.objects.filter(pedido__sesion_caja=sesion, estado='aplicado')
+                pagos_restantes = PagoPedido.objects.filter(pedido__sesion_caja=sesion, estado='aplicado').exclude(pedido__estado='cancelado')
                 sesion.total_ventas_efectivo = pagos_restantes.filter(forma_pago='efectivo').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
                 sesion.total_ventas_tarjeta = pagos_restantes.filter(forma_pago__in=['tarjeta_debito', 'tarjeta_credito']).aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
                 sesion.total_ventas_transferencia = pagos_restantes.filter(forma_pago='transferencia').aggregate(Sum('monto_mxn'))['monto_mxn__sum'] or Decimal('0.00')
                 
                 sesion.total_ventas_credito = Credito.objects.filter(pedido__sesion_caja=sesion).exclude(pedido__estado='cancelado').aggregate(Sum('monto_total'))['monto_total__sum'] or Decimal('0.00')
                 sesion.save()
+
+                if sesion.corte_z:
+                    cz = sesion.corte_z
+                    cz.total_efectivo = cz.sesiones_corte.aggregate(Sum('total_ventas_efectivo'))['total_ventas_efectivo__sum'] or Decimal('0.00')
+                    cz.total_tarjeta = cz.sesiones_corte.aggregate(Sum('total_ventas_tarjeta'))['total_ventas_tarjeta__sum'] or Decimal('0.00')
+                    cz.total_transferencia = cz.sesiones_corte.aggregate(Sum('total_ventas_transferencia'))['total_ventas_transferencia__sum'] or Decimal('0.00')
+                    cz.total_credito = cz.sesiones_corte.aggregate(Sum('total_ventas_credito'))['total_ventas_credito__sum'] or Decimal('0.00')
+                    cz.total_ventas = cz.total_efectivo + cz.total_tarjeta + cz.total_transferencia + cz.total_credito
+                    cz.save()
                 
             # 8. Notificar
             crear_notificacion(

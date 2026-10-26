@@ -168,12 +168,21 @@ def procesar_recepcion_servicio(data_post, empresa_actual, usuario=None):
         cant_rec = item['cantidad']
         costo = item['costo']
 
+        # Extraer factor de conversión y unidad de compra
+        f_conv = Decimal(str(getattr(detalle_original, 'factor_conversion', None) or 1.0))
+        if f_conv <= Decimal('0'):
+            f_conv = Decimal('1.0000')
+        cant_base = Decimal(str(cant_rec)) * f_conv
+
         detalle_recepcion_creado = DetalleRecepcion.objects.create(
             recepcion=recepcion,
             detalle_compra=detalle_original,
             producto=detalle_original.producto,
             cantidad_recibida=cant_rec,
-            costo_unitario=costo
+            costo_unitario=costo,
+            unidad_compra=getattr(detalle_original, 'unidad_compra', None),
+            factor_conversion=f_conv,
+            cantidad_inventario=cant_base
         )
         
         producto = detalle_original.producto
@@ -191,12 +200,13 @@ def procesar_recepcion_servicio(data_post, empresa_actual, usuario=None):
                 try:
                     extras_list = json.loads(extra_data_json)
                     for extra in extras_list:
+                        cant_lote_base = int(round(Decimal(str(extra.get('cantidad_lote', 0) or 0)) * f_conv))
                         DetalleRecepcionExtra.objects.create(
                             detalle_recepcion=detalle_recepcion_creado,
                             producto=producto, # <--- ASIGNAR PRODUCTO
                             tipo=extra['tipo'],
                             lote=extra.get('lote'),
-                            cantidad_lote=extra.get('cantidad_lote', 0),
+                            cantidad_lote=cant_lote_base,
                             serie=extra.get('serie'),
                             fecha_caducidad=extra.get('fecha_caducidad'),
                             almacen=almacen  # <--- ASIGNAR ALMACÉN INICIAL
@@ -211,11 +221,13 @@ def procesar_recepcion_servicio(data_post, empresa_actual, usuario=None):
                 except json.JSONDecodeError: pass
 
             # USAR MÉTODO CENTRALIZADO (Vía Transacción para log centralizado)
+            # En existencias físicas entra la cantidad convertida a la unidad base:
+            cant_transaccion = int(round(cant_base))
             Transaccion.objects.create(
                 producto=producto,
                 almacen=almacen,
                 tipo='compra',
-                cantidad=cant_rec,
+                cantidad=cant_transaccion,
                 total=costo_en_pesos * Decimal(cant_rec),
                 empresa=empresa_actual,
                 usuario=usuario,
@@ -228,9 +240,10 @@ def procesar_recepcion_servicio(data_post, empresa_actual, usuario=None):
             # Servicio: no genera inventario físico, pero actualiza último costo y costo promedio
             tipo_cambio_aplicar = Decimal(orden_compra.tipo_cambio or '1.0000')
             costo_en_pesos = costo * tipo_cambio_aplicar
-            producto.ultimo_costo = costo_en_pesos
-            producto.precio_costo = costo_en_pesos
-            producto.costo_promedio = costo_en_pesos
+            costo_unitario_base = (costo_en_pesos / f_conv) if f_conv > 0 else costo_en_pesos
+            producto.ultimo_costo = costo_unitario_base
+            producto.precio_costo = costo_unitario_base
+            producto.costo_promedio = costo_unitario_base
             producto.save(update_fields=['ultimo_costo', 'precio_costo', 'costo_promedio'])
 
     # 7. ACTUALIZAR ESTADO DE LA OC

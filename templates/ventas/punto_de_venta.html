@@ -831,6 +831,30 @@
         if (ticketUser && ticketUser.innerText.includes('@')) {
             ticketUser.innerText = ticketUser.innerText.split('@')[0];
         }
+
+        // Auto-enfocar el campo de búsqueda de artículo al cargar la pantalla
+        const searchInput = document.getElementById('posSearch');
+        if (searchInput && isSessionActive && !isPOSLocked) {
+            setTimeout(() => searchInput.focus(), 200);
+        }
+
+        // Mantener enfocado el campo de artículo al hacer clic en cualquier parte vacía o no interactiva
+        document.addEventListener('click', function(e) {
+            const tag = e.target.tagName;
+            const isInteractive = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'A' || e.target.closest('.modal') || e.target.closest('.custom-select') || e.target.closest('.search-result-item') || e.target.closest('.quantity-control');
+            if (!isInteractive && isSessionActive && !isPOSLocked) {
+                const searchInp = document.getElementById('posSearch');
+                if (searchInp) searchInp.focus();
+            }
+        });
+
+        // Al cerrar cualquier modal, devolver el cursor automáticamente al campo de artículo
+        document.addEventListener('hidden.bs.modal', function() {
+            const searchInp = document.getElementById('posSearch');
+            if (searchInp && isSessionActive && !isPOSLocked) {
+                setTimeout(() => searchInp.focus(), 100);
+            }
+        });
     });
 
     // Agregar renglón de pago dinámico
@@ -1004,11 +1028,8 @@
         });
     }
 
-    // Buscador interactivo
+    // Buscador interactivo (solo se despliega al escribir o al hacer clic explícito en el campo)
     document.getElementById('posSearch').addEventListener('input', function(e) {
-        applyAllFilters();
-    });
-    document.getElementById('posSearch').addEventListener('focus', function(e) {
         applyAllFilters();
     });
     document.getElementById('posSearch').addEventListener('click', function(e) {
@@ -1023,125 +1044,193 @@
         }
     });
 
-    // Escuchador para Enter (Lector de códigos de barras)
+    // Función unificada para procesar códigos de barras o SKU escaneados
+    window.procesarCodigoBarrasPOS = function(rawQuery) {
+        if (!rawQuery) return false;
+        const query = String(rawQuery).trim().toLowerCase();
+        if (query.length === 0) return false;
+
+        if (!isSessionActive) {
+            alert("⚠️ Debes abrir el turno de caja antes de poder registrar ventas.");
+            return false;
+        }
+
+        // 1. Buscar coincidencia exacta por SKU/Clave o códigos alternativos/conversiones
+        let encontradoId = null;
+        let conversionEncontrada = null;
+
+        for (const id in productosPOS) {
+            const prod = productosPOS[id];
+            if (!prod) continue;
+
+            const skuStr = prod.sku ? String(prod.sku).trim().toLowerCase() : '';
+            const matchesExactSku = skuStr === query;
+
+            const matchesExactBarcode = Array.isArray(prod.barcodes) && prod.barcodes.some(b => {
+                return b !== null && b !== undefined && String(b).trim().toLowerCase() === query;
+            });
+
+            if (matchesExactSku || matchesExactBarcode) {
+                encontradoId = id;
+                if (prod.conversiones && prod.conversiones.length > 0) {
+                    conversionEncontrada = prod.conversiones.find(c => {
+                        return c && c.codigo_barras && String(c.codigo_barras).trim().toLowerCase() === query;
+                    }) || 'base';
+                } else {
+                    conversionEncontrada = 'base';
+                }
+                break;
+            }
+        }
+
+        if (encontradoId) {
+            playScanBeep();
+            selectSearchResult(encontradoId, conversionEncontrada);
+            const searchInput = document.getElementById('posSearch');
+            if (searchInput) {
+                searchInput.value = '';
+                searchInput.focus();
+            }
+            const results = document.getElementById('posSearchResults');
+            if (results) results.style.display = 'none';
+            return true;
+        }
+
+        // 2. Si no hay coincidencia exacta de SKU/código, revisar si el buscador tiene 1 coincidencia en el autocompletado
+        const searchInput = document.getElementById('posSearch');
+        if (searchInput) {
+            searchInput.value = query;
+            applyAllFilters();
+            searchInput.focus();
+
+            const items = document.querySelectorAll('#posSearchResults .search-result-item');
+            if (items.length === 1) {
+                items[0].click();
+                searchInput.value = '';
+                const results = document.getElementById('posSearchResults');
+                if (results) results.style.display = 'none';
+                return true;
+            }
+        }
+
+        return false;
+    };
+
+    // Escuchador para Enter o Tab en el campo de búsqueda de artículo
     document.getElementById('posSearch').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            const query = this.value.trim().toLowerCase();
-            if (query.length > 0) {
-                // 1. Buscar coincidencia exacta por SKU/Clave o códigos alternativos
-                let encontradoId = null;
-                let conversionEncontrada = null;
-                for (const id in productosPOS) {
-                    const prod = productosPOS[id];
-                    const matchesExactSku = prod.sku && prod.sku.toLowerCase() === query;
-                    const matchesExactBarcode = prod.barcodes && prod.barcodes.some(b => b.toLowerCase() === query);
-                    
-                    if (matchesExactSku || matchesExactBarcode) {
-                        encontradoId = id;
-                        if (prod.conversiones && prod.conversiones.length > 0) {
-                            conversionEncontrada = prod.conversiones.find(c => c.codigo_barras && c.codigo_barras.toLowerCase() === query) || null;
-                        }
-                        break;
-                    }
-                }
-                
-                // 2. Si no hay coincidencia exacta por SKU/Código, pero solo hay 1 coincidencia en el resultado de búsqueda
-                if (!encontradoId) {
-                    const items = document.querySelectorAll('#posSearchResults .search-result-item');
-                    if (items.length === 1) {
-                        items[0].click();
-                        this.value = '';
-                        document.getElementById('posSearchResults').style.display = 'none';
-                        e.preventDefault();
-                        return;
-                    }
-                }
-                
-                if (encontradoId) {
-                    selectSearchResult(encontradoId, conversionEncontrada);
-                    this.value = '';
-                    document.getElementById('posSearchResults').style.display = 'none';
-                    e.preventDefault();
-                }
+        if (e.key === 'Enter' || e.key === 'Tab' || e.keyCode === 13 || e.keyCode === 9) {
+            const query = this.value;
+            if (query && query.trim().length > 0) {
+                e.preventDefault();
+                procesarCodigoBarrasPOS(query);
             }
         }
     });
 
-    // Buffer global para el lector de códigos de barras (escaneo en segundo plano)
+    // Buffer global para el lector de códigos de barras (escaneo en segundo plano en cualquier parte de la pantalla)
     let globalBarcodeBuffer = "";
     let lastKeyTime = Date.now();
+    let isRapidScannerBurst = false;
+    let targetInputBeforeScan = null;
+    let targetInputValueBeforeScan = "";
+    let scannerSilenceTimer = null;
 
     document.addEventListener('keydown', function(e) {
         if (isPOSLocked) return;
-        // Ignorar si el usuario ya está enfocado en algún campo de entrada
-        const activeTag = document.activeElement.tagName;
-        if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') {
+
+        const activeEl = document.activeElement;
+        const activeTag = activeEl ? activeEl.tagName : '';
+        const isSearchInput = (activeEl && activeEl.id === 'posSearch');
+        const isTextInput = (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT');
+
+        const now = Date.now();
+        const diff = now - lastKeyTime;
+        lastKeyTime = now;
+
+        const isEnterOrTab = (e.key === 'Enter' || e.key === 'Tab' || e.keyCode === 13 || e.keyCode === 9);
+
+        // Si el usuario ya está en el buscador de artículo (#posSearch), su propio keydown listener procesa el Enter
+        if (isSearchInput) {
             return;
         }
 
-        // Si presionan Enter, procesamos el buffer
-        if (e.key === 'Enter') {
+        // Si se presiona Enter o Tab y tenemos algo acumulado en el buffer del lector
+        if (isEnterOrTab) {
             if (globalBarcodeBuffer.length > 0) {
-                const query = globalBarcodeBuffer.trim().toLowerCase();
-                globalBarcodeBuffer = ""; // Limpiar buffer
-                
-                if (!isSessionActive) {
-                    alert("⚠️ Debes abrir el turno de caja antes de poder registrar ventas.");
-                    e.preventDefault();
-                    return;
+                const codeToProcess = globalBarcodeBuffer;
+                globalBarcodeBuffer = "";
+                isRapidScannerBurst = false;
+                if (scannerSilenceTimer) clearTimeout(scannerSilenceTimer);
+
+                // Si el escáner escribió por accidente en otro campo de texto (ej. cantidad o cliente), restauramos su valor
+                if (targetInputBeforeScan && targetInputBeforeScan !== document.getElementById('posSearch')) {
+                    try {
+                        targetInputBeforeScan.value = targetInputValueBeforeScan;
+                    } catch (err) {}
+                    targetInputBeforeScan = null;
+                    targetInputValueBeforeScan = "";
                 }
 
-                // Buscar coincidencia exacta por SKU/Clave o códigos alternativos
-                let encontradoId = null;
-                let conversionEncontrada = null;
-                for (const id in productosPOS) {
-                    const prod = productosPOS[id];
-                    const matchesExactSku = prod.sku && prod.sku.toLowerCase() === query;
-                    const matchesExactBarcode = prod.barcodes && prod.barcodes.some(b => b.toLowerCase() === query);
-                    
-                    if (matchesExactSku || matchesExactBarcode) {
-                        encontradoId = id;
-                        if (prod.conversiones && prod.conversiones.length > 0) {
-                            conversionEncontrada = prod.conversiones.find(c => c.codigo_barras && c.codigo_barras.toLowerCase() === query) || null;
-                        }
-                        break;
-                    }
-                }
-
-                if (encontradoId) {
-                    // Reproducir bip de confirmación
-                    playScanBeep();
-                    selectSearchResult(encontradoId, conversionEncontrada);
-                    e.preventDefault();
-                } else {
-                    // Si no se encuentra, ponerlo en el buscador para dar retroalimentación visual al usuario
-                    const searchInput = document.getElementById('posSearch');
-                    if (searchInput) {
-                        searchInput.focus();
-                        searchInput.value = query;
-                        applyAllFilters();
-                    }
-                    e.preventDefault();
-                }
+                e.preventDefault();
+                e.stopPropagation();
+                procesarCodigoBarrasPOS(codeToProcess);
+                return;
             }
             return;
         }
 
-        // Evitar teclas de control, atajos de teclado o teclas de navegación
+        // Evitar teclas de control o teclas de navegación largas
         if (e.key.length > 1 || e.ctrlKey || e.altKey || e.metaKey) {
             return;
         }
 
-        // Control de tiempo para limpiar el buffer si es escritura manual muy lenta (más de 1.5s entre teclas)
-        const now = Date.now();
-        if (now - lastKeyTime > 1500) {
+        // Detección de velocidad de escáner:
+        // Los lectores de códigos de barras físicos envían teclas a menos de 50ms entre cada una
+        if (diff < 50) {
+            isRapidScannerBurst = true;
+            if (isTextInput && !targetInputBeforeScan) {
+                targetInputBeforeScan = activeEl;
+                targetInputValueBeforeScan = (activeEl.value !== undefined) ? activeEl.value.slice(0, -1) : "";
+            }
+        } else if (diff > 250) {
+            // Teclado manual lento (>250ms), reiniciamos buffer
             globalBarcodeBuffer = "";
+            isRapidScannerBurst = false;
+            targetInputBeforeScan = null;
         }
-        lastKeyTime = now;
 
-        // Acumular el carácter en el buffer
+        // Si el usuario está escribiendo manualmente en otro campo de texto, no intervenir
+        if (isTextInput && !isRapidScannerBurst && globalBarcodeBuffer.length === 0) {
+            return;
+        }
+
+        // Acumular carácter en el buffer del escáner
         globalBarcodeBuffer += e.key;
-    });
+
+        // Si el escáner dispara en otro input, evitar que ese input capture los caracteres del código
+        if (isTextInput && isRapidScannerBurst) {
+            e.preventDefault();
+        }
+
+        // Temporizador de silencio: si el lector no envía Enter pero terminó la ráfaga de caracteres
+        if (scannerSilenceTimer) clearTimeout(scannerSilenceTimer);
+        if (globalBarcodeBuffer.length >= 3 && isRapidScannerBurst) {
+            scannerSilenceTimer = setTimeout(() => {
+                if (globalBarcodeBuffer.length >= 3) {
+                    const codeToProcess = globalBarcodeBuffer;
+                    globalBarcodeBuffer = "";
+                    isRapidScannerBurst = false;
+                    if (targetInputBeforeScan && targetInputBeforeScan !== document.getElementById('posSearch')) {
+                        try {
+                            targetInputBeforeScan.value = targetInputValueBeforeScan;
+                        } catch (err) {}
+                        targetInputBeforeScan = null;
+                    }
+                    procesarCodigoBarrasPOS(codeToProcess);
+                }
+            }, 65);
+        }
+    }, true);
 
     // Función para reproducir el tono de escaneo (pitido de Honeywell/Zebra)
     function playScanBeep() {
@@ -1268,15 +1357,47 @@
             if (matchesQuery && matchesType && matchesCategory && matchesSubcategory) {
                 count++;
                 const isService = prod.tipo === 'servicio';
-                const stockText = isService ? '<span class="badge-service-pos"><i class="bi bi-lightning-fill me-1"></i>Servicio</span>' : (prod.stock <= 0 ? '<span class="badge-out-pos"><i class="bi bi-x-circle-fill me-1"></i>Agotado</span>' : `<span class="badge-in-pos"><i class="bi bi-check-circle-fill me-1"></i>Stock: ${prod.stock}</span>`);
+                const uMedida = prod.unidad_medida || 'Pz';
+                const stockText = isService ? '<span class="badge-service-pos"><i class="bi bi-lightning-fill me-1"></i>Servicio</span>' : (prod.stock <= 0 ? '<span class="badge-out-pos"><i class="bi bi-x-circle-fill me-1"></i>Agotado</span>' : `<span class="badge-in-pos"><i class="bi bi-check-circle-fill me-1"></i>Stock: ${prod.stock} ${uMedida}</span>`);
+                const tieneConv = prod.conversiones && prod.conversiones.length > 0;
+                const convBadge = tieneConv ? `<span class="badge bg-info-subtle text-brand border border-info-subtle ms-1" style="font-size: 0.7rem;"><i class="bi bi-arrow-left-right me-1"></i>${prod.conversiones.length} pres.</span>` : '';
                 
+                // Si la búsqueda coincide con el código de barras de una conversión específica
+                let convIndex = null;
+                if (query.length > 0 && tieneConv) {
+                    const idx = prod.conversiones.findIndex(c => c.codigo_barras && c.codigo_barras.toLowerCase() === query);
+                    if (idx !== -1) convIndex = idx;
+                }
+                const convEnfocada = convIndex !== null ? prod.conversiones[convIndex] : null;
+
+                const matchesExactSku = prod.sku && prod.sku.toLowerCase() === query;
+                const matchesExactBaseBarcode = prod.barcodes && prod.barcodes.some(b => b.toLowerCase() === query && (!convEnfocada));
+                const isExactBaseCode = matchesExactSku || matchesExactBaseBarcode;
+
+                let selectArg = '';
+                if (convEnfocada) {
+                    selectArg = `, ${JSON.stringify(convEnfocada).replace(/"/g, '&quot;')}`;
+                } else if (isExactBaseCode && tieneConv) {
+                    selectArg = `, 'base'`;
+                }
+
                 html += `
-                <div class="d-flex justify-content-between align-items-center search-result-item" style="cursor: pointer;" onclick="selectSearchResult(${prod.id})">
+                <div class="d-flex justify-content-between align-items-center search-result-item" style="cursor: pointer;" onclick="selectSearchResult(${prod.id}${selectArg})">
                     <div>
-                        <div class="fw-bold text-dark" style="font-size: 0.9rem;">${prod.nombre}</div>
-                        <div class="text-muted small" style="font-size: 0.75rem;">Clave: ${prod.sku || 'N/A'} | Existencias: ${prod.tipo === 'servicio' ? 'N/A' : prod.stock} | ${stockText}</div>
+                        <div class="fw-bold text-dark" style="font-size: 0.9rem;">
+                            ${prod.nombre}
+                            <span class="badge bg-light text-secondary border ms-1" style="font-size: 0.72rem;">${uMedida}</span>
+                            ${convBadge}
+                            ${convEnfocada ? `<span class="badge bg-success-subtle text-success border border-success ms-1 small" style="font-size: 0.72rem;">Código: ${convEnfocada.unidad_destino}</span>` : ''}
+                        </div>
+                        <div class="text-muted small" style="font-size: 0.75rem;">
+                            Clave: ${prod.sku || 'N/A'} | Existencias: ${isService ? 'N/A' : prod.stock + ' ' + uMedida} | ${stockText}
+                        </div>
                     </div>
-                    <div class="fw-bold text-brand" style="font-size: 0.95rem;">$${prod.precio_base.toFixed(2)}</div>
+                    <div class="text-end">
+                        <div class="fw-bold text-brand" style="font-size: 0.95rem;">$${(convEnfocada ? convEnfocada.precio_venta : prod.precio_base).toFixed(2)}</div>
+                        <span class="text-muted small" style="font-size: 0.7rem;">/${convEnfocada ? convEnfocada.unidad_destino : uMedida}</span>
+                    </div>
                 </div>`;
             }
         }
@@ -1294,8 +1415,15 @@
         if (prod) {
             addToCart(prod.id, prod.nombre, prod.precio_base, prod.tipo, prod.stock, prod.iva, conversion);
         }
-        document.getElementById('posSearch').value = '';
-        document.getElementById('posSearchResults').style.display = 'none';
+        const searchInput = document.getElementById('posSearch');
+        if (searchInput) {
+            searchInput.value = '';
+            if (isSessionActive && !isPOSLocked) {
+                setTimeout(() => searchInput.focus(), 50);
+            }
+        }
+        const results = document.getElementById('posSearchResults');
+        if (results) results.style.display = 'none';
     }
 
     function applyAllFilters() {
@@ -1384,6 +1512,13 @@
         }
     }
 
+    function escapeQuotes(str) {
+        if (!str) return '';
+        return String(str).replace(/'/g, "\\'").replace(/"/g, '\\"');
+    }
+
+    window.tempCartKeyToReplace = null;
+
     function abrirModalSeleccionPresentacion(id, nombre, precio, tipo, stockMax, ivaVal) {
         const prod = productosPOS[id];
         if (!prod) return;
@@ -1392,14 +1527,14 @@
         const titulo = document.getElementById('modalSeleccionarPresentacionLabel');
         const subtitulo = document.getElementById('subtituloSeleccionarPresentacion');
         
-        titulo.innerHTML = `<i class="bi bi-arrow-left-right text-brand me-2"></i>Presentaciones: ${nombre}`;
-        subtitulo.innerHTML = `Stock disponible: <strong>${stockMax} ${prod.unidad_medida || 'Pz'}</strong>. Selecciona la unidad para la venta:`;
+        titulo.innerHTML = `<i class="bi bi-arrow-left-right text-brand me-2"></i>Presentaciones / Unidad: ${prod.nombre}`;
+        subtitulo.innerHTML = `Existencias actuales: <strong>${prod.stock} ${prod.unidad_medida || 'Pz'}</strong>. Selecciona la unidad para la venta:`;
 
         let html = '';
         
         // Opción 1: Unidad Base
         html += `
-            <div class="card border p-2 shadow-xs cursor-pointer mb-2 transition-all hover-shadow" onclick="seleccionarOpcionPresentacion(${id}, '${escapeQuotes(nombre)}', ${precio}, '${tipo}', ${stockMax}, ${ivaVal}, 'base')">
+            <div class="card border p-2 shadow-xs cursor-pointer mb-2 transition-all hover-shadow" onclick="seleccionarOpcionPresentacionPorIndice(${id}, 'base')">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <div class="fw-bold text-dark"><i class="bi bi-check-circle me-1 text-brand"></i>${prod.unidad_medida || 'Pieza'} <span class="badge bg-light text-secondary border small ms-1">Unidad Base</span></div>
@@ -1414,36 +1549,39 @@
         `;
 
         // Opciones: Conversiones
-        prod.conversiones.forEach(c => {
-            const factor = parseFloat(c.factor_equivalencia);
-            const stockEquiv = factor > 0 ? (stockMax / factor).toFixed(2) : 0;
-            const enteras = factor > 0 ? Math.floor(stockMax / factor) : 0;
-            const sinStock = stockMax < factor;
-            const precioVenta = parseFloat(c.precio_venta || (precio * factor));
+        if (prod.conversiones && prod.conversiones.length > 0) {
+            prod.conversiones.forEach((c, idx) => {
+                const factor = parseFloat(c.factor_equivalencia);
+                const stockEquiv = factor > 0 ? (stockMax / factor).toFixed(2).replace(/\.00$/, '') : 0;
+                const enteras = factor > 0 ? Math.floor(stockMax / factor) : 0;
+                const sinStock = stockMax < factor;
+                const precioVenta = parseFloat(c.precio_venta || (precio * factor));
 
-            html += `
-                <div class="card border p-2 shadow-xs mb-2 transition-all ${sinStock ? 'opacity-50 bg-light' : 'cursor-pointer hover-shadow'}" 
-                     ${sinStock ? '' : `onclick='seleccionarOpcionPresentacion(${id}, "${escapeQuotes(nombre)}", ${precio}, "${tipo}", ${stockMax}, ${ivaVal}, ${JSON.stringify(c)})'`}>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="fw-bold text-dark">
-                                <i class="bi bi-box-seam me-1 text-brand"></i>${c.unidad_destino}
-                                <span class="badge bg-light text-muted border small ms-1">1 ${c.unidad_destino} = ${factor} ${prod.unidad_medida || 'Pz'}</span>
+                html += `
+                    <div class="card border p-2 shadow-xs mb-2 transition-all ${sinStock ? 'opacity-50 bg-light' : 'cursor-pointer hover-shadow'}" 
+                         ${sinStock ? '' : `onclick="seleccionarOpcionPresentacionPorIndice(${id}, ${idx})"`}>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-bold text-dark">
+                                    <i class="bi bi-box-seam me-1 text-brand"></i>${c.unidad_destino}
+                                    <span class="badge bg-light text-muted border small ms-1">1 ${c.unidad_destino} = ${factor} ${prod.unidad_medida || 'Pz'}</span>
+                                    ${c.codigo_barras ? `<span class="badge bg-light text-secondary border font-monospace ms-1" style="font-size: 0.68rem;"><i class="bi bi-upc me-1"></i>${c.codigo_barras}</span>` : ''}
+                                </div>
+                                <div class="small ${sinStock ? 'text-danger fw-semibold' : 'text-muted'}">
+                                    ${sinStock ? 'Stock insuficiente (requiere ' + factor + ' ' + (prod.unidad_medida || 'Pz') + ')' : 'Disponible: ' + stockEquiv + ' ' + c.unidad_destino + 's (' + enteras + ' compl.)'}
+                                </div>
                             </div>
-                            <div class="small ${sinStock ? 'text-danger fw-semibold' : 'text-muted'}">
-                                ${sinStock ? 'Stock insuficiente (requiere ' + factor + ' ' + (prod.unidad_medida || 'Pz') + ')' : 'Disponible: ' + stockEquiv + ' ' + c.unidad_destino + 's (' + enteras + ' compl.)'}
+                            <div class="text-end">
+                                <div class="fw-bold fs-6 text-dark">$${precioVenta.toFixed(2)}</div>
+                                ${sinStock 
+                                    ? '<span class="badge bg-danger-subtle text-danger small py-1 px-2">Agotado</span>' 
+                                    : '<span class="btn btn-sm btn-outline-brand py-0 px-2" style="font-size: 0.75rem;">Vender en ' + c.unidad_destino + '</span>'}
                             </div>
-                        </div>
-                        <div class="text-end">
-                            <div class="fw-bold fs-6 text-dark">$${precioVenta.toFixed(2)}</div>
-                            ${sinStock 
-                                ? '<span class="badge bg-danger-subtle text-danger small py-1 px-2">Agotado</span>' 
-                                : '<span class="btn btn-sm btn-outline-brand py-0 px-2" style="font-size: 0.75rem;">Vender en ' + c.unidad_destino + '</span>'}
                         </div>
                     </div>
-                </div>
-            `;
-        });
+                `;
+            });
+        }
 
         contenedor.innerHTML = html;
 
@@ -1453,12 +1591,39 @@
         modalSeleccionPresentacionInstancia.show();
     }
 
+    function seleccionarOpcionPresentacionPorIndice(id, convIdx) {
+        if (modalSeleccionPresentacionInstancia) {
+            modalSeleccionPresentacionInstancia.hide();
+        }
+        const prod = productosPOS[id];
+        if (!prod) return;
+        const conv = (convIdx === 'base') ? 'base' : (prod.conversiones[convIdx] || null);
+
+        // Si estamos cambiando la unidad de un ítem existente en el carrito:
+        if (window.tempCartKeyToReplace) {
+            const oldKey = window.tempCartKeyToReplace;
+            window.tempCartKeyToReplace = null;
+            if (cart[oldKey]) {
+                delete cart[oldKey];
+            }
+        }
+
+        addToCart(prod.id, prod.nombre, prod.precio_base, prod.tipo, prod.stock, prod.iva, conv);
+    }
+
     function seleccionarOpcionPresentacion(id, nombre, precio, tipo, stockMax, ivaVal, conversion) {
         if (modalSeleccionPresentacionInstancia) {
             modalSeleccionPresentacionInstancia.hide();
         }
         addToCart(id, nombre, precio, tipo, stockMax, ivaVal, conversion);
     }
+
+    window.cambiarPresentacionItemCarrito = function(key) {
+        const item = cart[key];
+        if (!item) return;
+        window.tempCartKeyToReplace = key;
+        abrirModalSeleccionPresentacion(item.id, item.nombreOriginal, item.precioBase, item.tipo, item.stockMax, item.iva);
+    };
 
     function confirmarPersonalizacion() {
         const id = document.getElementById('pers_producto_id').value;
@@ -1505,17 +1670,18 @@
         const nombreDisplay = conversion ? `${nombre} (${conversion.unidad_destino})` : nombre;
         const prodData = productosPOS[id] || {};
         const unidadMedida = conversion ? conversion.unidad_destino : (prodData.unidad_medida || 'Pz');
+        const unidadBase = prodData.unidad_medida || 'Pz';
 
         if (cart[key]) {
             if (tipo !== 'servicio' && (cart[key].cantidad + 1) * factorConv > stockMax) {
                 const maxEnUnidad = Math.floor(stockMax / factorConv);
-                alert(`No puedes agregar más artículos de este producto. Stock máximo disponible: ${maxEnUnidad} ${unidadMedida} (${stockMax} ${prodData.unidad_medida || 'base'})`);
+                alert(`No puedes agregar más artículos de este producto. Stock máximo disponible: ${maxEnUnidad} ${unidadMedida} (${stockMax} ${unidadBase})`);
                 return;
             }
             cart[key].cantidad++;
         } else {
             if (tipo !== 'servicio' && factorConv > stockMax) {
-                alert(`Stock insuficiente para vender en ${unidadMedida}. Requiere ${factorConv} ${prodData.unidad_medida || 'unidades base'} pero solo hay ${stockMax} disponibles.`);
+                alert(`Stock insuficiente para vender en ${unidadMedida}. Requiere ${factorConv} ${unidadBase} pero solo hay ${stockMax} disponibles.`);
                 return;
             }
 
@@ -1551,7 +1717,8 @@
                 modificadores: modificadores,
                 conversionId: conversion ? conversion.id : null,
                 factorConversion: factorConv,
-                unidadMedida: unidadMedida
+                unidadMedida: unidadMedida,
+                unidadBase: unidadBase
             };
         }
 
@@ -1573,8 +1740,10 @@
     function increaseQuantity(id) {
         const item = cart[id];
         if (item) {
-            if (item.tipo !== 'servicio' && item.cantidad >= item.stockMax) {
-                alert(`No puedes agregar más artículos de este producto. Stock máximo disponible: ${item.stockMax}`);
+            const factorConv = item.factorConversion || 1.0;
+            if (item.tipo !== 'servicio' && (item.cantidad + 1) * factorConv > item.stockMax) {
+                const maxEnUnidad = Math.floor(item.stockMax / factorConv);
+                alert(`No puedes agregar más artículos de este producto. Stock máximo disponible: ${maxEnUnidad} ${item.unidadMedida} (${item.stockMax} ${item.unidadBase || 'base'})`);
                 return;
             }
             item.cantidad++;
@@ -1600,9 +1769,11 @@
             return;
         }
 
-        if (item.tipo !== 'servicio' && qty > item.stockMax) {
-            alert(`No puedes agregar más artículos de este producto. Stock máximo disponible: ${item.stockMax}`);
-            qty = item.stockMax;
+        const factorConv = item.factorConversion || 1.0;
+        if (item.tipo !== 'servicio' && qty * factorConv > item.stockMax) {
+            const maxEnUnidad = Math.floor(item.stockMax / factorConv);
+            alert(`No puedes agregar más artículos de este producto. Stock máximo disponible: ${maxEnUnidad} ${item.unidadMedida} (${item.stockMax} ${item.unidadBase || 'base'})`);
+            qty = maxEnUnidad > 0 ? maxEnUnidad : 1;
             inputEl.value = qty;
         }
 
@@ -1610,6 +1781,10 @@
         const lineSpan = document.getElementById(`lineTotal_${id}`);
         if (lineSpan) {
             lineSpan.innerText = '$' + (item.precio * item.cantidad).toFixed(2);
+        }
+        const spanSalida = document.getElementById(`itemSalidaInv_${id}`);
+        if (spanSalida && item.factorConversion) {
+            spanSalida.innerText = (item.cantidad * item.factorConversion).toFixed(2).replace(/\.00$/, '');
         }
         updateCartTotalsOnly();
     }
@@ -1621,14 +1796,16 @@
         const cleanVal = inputEl.value.replace(/[^0-9]/g, '');
         let qty = parseInt(cleanVal, 10);
 
+        const factorConv = item.factorConversion || 1.0;
         if (cleanVal === '' || isNaN(qty)) {
             item.cantidad = 1;
         } else if (qty <= 0) {
             delete cart[id];
         } else {
-            if (item.tipo !== 'servicio' && qty > item.stockMax) {
-                alert(`No puedes agregar más artículos de este producto. Stock máximo disponible: ${item.stockMax}`);
-                qty = item.stockMax;
+            if (item.tipo !== 'servicio' && qty * factorConv > item.stockMax) {
+                const maxEnUnidad = Math.floor(item.stockMax / factorConv);
+                alert(`No puedes agregar más artículos de este producto. Stock máximo disponible: ${maxEnUnidad} ${item.unidadMedida} (${item.stockMax} ${item.unidadBase || 'base'})`);
+                qty = maxEnUnidad > 0 ? maxEnUnidad : 1;
             }
             item.cantidad = qty;
         }
@@ -1792,13 +1969,39 @@
                            `</div>`;
             }
 
+            const tieneConv = item.conversionId || (item.factorConversion && item.factorConversion > 1);
+            const prodData = productosPOS[item.id] || {};
+            const tieneMultiplesPresentaciones = prodData.conversiones && prodData.conversiones.length > 0;
+            
+            const badgeUnidad = `
+                <span class="badge ${tieneConv ? 'bg-info-subtle text-brand border border-info-subtle' : 'bg-light text-secondary border'} px-2 py-1 fw-bold" style="font-size: 0.78rem;">
+                    ${item.unidadMedida}
+                </span>
+            `;
+            
+            const btnCambiarUnidad = tieneMultiplesPresentaciones ? `
+                <button type="button" class="btn btn-xs btn-outline-brand py-0 px-2 fw-semibold" style="font-size: 0.7rem; border-radius: 4px; height: 20px; line-height: 18px;" onclick="cambiarPresentacionItemCarrito('${key}')" title="Cambiar unidad de venta">
+                    <i class="bi bi-arrow-left-right me-1"></i>Cambiar
+                </button>
+            ` : '';
+            
+            const equivalenciaHtml = (item.factorConversion && item.factorConversion !== 1.0) ? `
+                <div class="small mt-1 text-muted fw-semibold" style="font-size: 0.75rem;">
+                    ↳ Salida Existencias: <span class="text-success fw-bold" id="itemSalidaInv_${key}">${(item.cantidad * item.factorConversion).toFixed(2).replace(/\.00$/, '')}</span> ${item.unidadBase || 'Pz'}
+                </div>
+            ` : '';
+
             html += `
             <div class="cart-item-row d-flex justify-content-between align-items-center">
-                <!-- Columna Izquierda: Nombre, Precio y Lista en una sola fila -->
+                <!-- Columna Izquierda: Nombre, Unidad, Precio y Lista en una sola fila -->
                 <div class="flex-grow-1 pe-3">
-                    <div class="d-flex align-items-center gap-3 flex-wrap">
-                        <h5 class="fw-bold mb-0 text-dark text-truncate" style="max-width: 250px; font-size: 1.15rem;">${item.nombre}</h5>
-                        <span class="small fw-semibold text-muted" style="font-size: 0.85rem; flex-shrink: 0;">$${item.precio.toFixed(2)} c/u</span>
+                    <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                        <h5 class="fw-bold mb-0 text-dark text-truncate" style="max-width: 230px; font-size: 1.1rem;" title="${item.nombre}">${item.nombre}</h5>
+                        ${badgeUnidad}
+                        ${btnCambiarUnidad}
+                        <span class="small fw-semibold text-muted" style="font-size: 0.85rem; flex-shrink: 0;">
+                            $${item.precio.toFixed(2)} <span class="text-muted" style="font-size: 0.75rem;">/${item.unidadMedida}</span>
+                        </span>
                         ${showList ? `
                             <div class="position-relative d-inline-block" style="width: auto; max-width: 175px; flex-shrink: 0; ${canChangeList ? '' : 'opacity: 0.55; pointer-events: none;'}">
                                 <select class="form-select form-select-sm py-0 text-muted" ${canChangeList ? '' : 'disabled'} style="font-size: 0.7rem; width: 100%; height: 20px; border-radius: 4px; line-height: 1; padding-left: 6px !important; padding-right: 20px !important; appearance: none; -webkit-appearance: none; -moz-appearance: none; background-image: none;" onchange="updateItemPriceList('${key}', this.value)">
@@ -1815,18 +2018,20 @@
                             </div>
                         ` : ''}
                     </div>
+                    ${equivalenciaHtml}
                     ${modsHtml}
                 </div>
 
                 <!-- Columna Derecha: Controles y Acciones -->
-                <div class="d-flex align-items-center gap-3">
-                    <div class="quantity-control">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="quantity-control d-flex align-items-center">
                         <button class="quantity-btn" onclick="decreaseQuantity('${key}')"><i class="bi bi-dash"></i></button>
                         <input type="text" inputmode="numeric" class="quantity-input" value="${item.cantidad}" onfocus="this.select()" oninput="handleQuantityInput('${key}', this)" onblur="commitQuantityInput('${key}', this)" onkeydown="if(event.key==='Enter'){event.preventDefault(); this.blur();}">
                         <button class="quantity-btn" onclick="increaseQuantity('${key}')"><i class="bi bi-plus"></i></button>
                     </div>
-                    <span id="lineTotal_${key}" class="fw-bold text-dark" style="width: 85px; text-align: right; font-size: 1.1rem;">$${lineTotal.toFixed(2)}</span>
-                    <button class="btn btn-delete-pos ms-2" onclick="removeItem('${key}')"><i class="bi bi-x-circle"></i></button>
+                    <span class="small text-muted fw-bold" style="font-size: 0.75rem; min-width: 25px;">${item.unidadMedida}</span>
+                    <span id="lineTotal_${key}" class="fw-bold text-dark" style="width: 80px; text-align: right; font-size: 1.05rem;">$${lineTotal.toFixed(2)}</span>
+                    <button class="btn btn-delete-pos ms-1" onclick="removeItem('${key}')" title="Eliminar partida"><i class="bi bi-x-circle"></i></button>
                 </div>
             </div>`;
         });

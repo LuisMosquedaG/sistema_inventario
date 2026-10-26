@@ -73,6 +73,13 @@ function cargarItemsOrdenCompra() {
                 const cant_faltante = item.cant_ordenada - item.cant_recibida_anterior;
                 if (cant_faltante <= 0) return;
 
+                const factor = parseFloat(item.factor_conversion || 1.0);
+                const tieneConversion = factor > 0 && factor !== 1.0;
+                const cantInvFaltante = (cant_faltante * factor).toFixed(2).replace(/\.00$/, '');
+                const uBase = item.unidad_base || 'Pieza';
+                const uCompra = item.unidad_compra || uBase;
+                const uCompraDisplay = item.unidad_compra_display || uCompra;
+
                 let inputHtml = '';
                 
                 if (item.maneja_serie) {
@@ -81,6 +88,10 @@ function cargarItemsOrdenCompra() {
                             <div id="lista-series-${item.id}" class="d-flex flex-column gap-1"></div>
                             <input type="hidden" name="cantidad_recibida[]" class="hidden-cant" id="hidden-cant-${item.id}" value="0">
                             <input type="hidden" name="extra_data_${item.id}" id="extra-data-${item.id}">
+                            ${tieneConversion ? `
+                            <div class="small text-muted mt-1 text-center" style="font-size: 0.75rem;">
+                                ↳ Entrada Inv: <span class="fw-bold text-success entrada-inv-span" id="inv-span-${item.id}">0</span> ${uBase}
+                            </div>` : ''}
                         </div>
                     `;
                     setTimeout(() => { for(let i=0; i<cant_faltante; i++) agregarFilaSerie(item.id); }, 100);
@@ -91,18 +102,30 @@ function cargarItemsOrdenCompra() {
                             <div id="lista-extras-${item.id}" class="lote-serie-container"></div>
                             <input type="hidden" name="cantidad_recibida[]" class="hidden-cant" id="hidden-cant-${item.id}" value="0">
                             <input type="hidden" name="extra_data_${item.id}" id="extra-data-${item.id}">
+                            ${tieneConversion ? `
+                            <div class="small text-muted mt-1 text-center" style="font-size: 0.75rem;">
+                                ↳ Entrada Inv: <span class="fw-bold text-success entrada-inv-span" id="inv-span-${item.id}">0</span> ${uBase}
+                            </div>` : ''}
                         </div>
                     `;
                     setTimeout(() => agregarFilaExtras(item.id, item.maneja_lote, item.maneja_caducidad), 100);
 
                 } else {
                     inputHtml = `
-                        <input type="number" name="cantidad_recibida[]" 
-                            class="form-control form-control-sm text-center input-cant-recibir mx-auto" 
-                            style="max-width: 80px;"
-                            value="${cant_faltante}" 
-                            min="0" max="${cant_faltante}" 
-                            onchange="recalcularFila(this, ${item.costo}, ${item.iva_porcentaje})" oninput="recalcularFila(this, ${item.costo}, ${item.iva_porcentaje})">
+                        <div class="d-flex flex-column align-items-center">
+                            <input type="number" name="cantidad_recibida[]" 
+                                class="form-control form-control-sm text-center input-cant-recibir mx-auto" 
+                                style="max-width: 85px;"
+                                value="${cant_faltante}" 
+                                min="0" max="${cant_faltante}" 
+                                data-factor="${factor}"
+                                data-unidad-base="${uBase}"
+                                onchange="recalcularFila(this, ${item.costo}, ${item.iva_porcentaje})" oninput="recalcularFila(this, ${item.costo}, ${item.iva_porcentaje})">
+                            ${tieneConversion ? `
+                            <div class="small text-muted mt-1 text-center" style="font-size: 0.75rem;">
+                                ↳ Entrada Inv: <span class="fw-bold text-success entrada-inv-span" id="inv-span-${item.id}">${cantInvFaltante}</span> ${uBase}
+                            </div>` : ''}
+                        </div>
                     `;
                 }
 
@@ -111,18 +134,25 @@ function cargarItemsOrdenCompra() {
                 const total = subtotal + ivaMonto;
                 
                 const filaHtml = `
-                    <tr data-detalle-id="${item.id}" data-costo="${item.costo}" data-iva-porc="${item.iva_porcentaje}" data-tipo="${item.maneja_serie ? 'serie' : (item.maneja_lote ? 'lote' : (item.maneja_caducidad ? 'caducidad' : 'normal'))}">
+                    <tr data-detalle-id="${item.id}" data-costo="${item.costo}" data-iva-porc="${item.iva_porcentaje}" data-factor="${factor}" data-unidad-base="${uBase}" data-tipo="${item.maneja_serie ? 'serie' : (item.maneja_lote ? 'lote' : (item.maneja_caducidad ? 'caducidad' : 'normal'))}">
                         <td class="ps-3">
                             <div class="fw-semibold small text-dark text-truncate" style="max-width: 100%;" title="${item.nombre}">
                                 ${item.nombre}
                             </div>
                             <input type="hidden" name="detalle_compra_id[]" value="${item.id}">
                         </td>
-                        <td class="text-center small">${item.cant_ordenada}</td>
-                        <td class="text-center small fw-bold text-brand">${cant_faltante}</td>
+                        <td class="text-center small">
+                            <div class="fw-semibold">${item.cant_ordenada}</div>
+                            <span class="badge bg-light text-secondary border d-inline-block mt-1 fw-normal" style="font-size: 0.68rem;" title="${uCompraDisplay}">${uCompra}</span>
+                        </td>
+                        <td class="text-center small">
+                            <div class="fw-bold text-brand">${cant_faltante}</div>
+                            <span class="text-muted d-block" style="font-size: 0.7rem;">${uCompra}</span>
+                        </td>
                         <td class="text-center">${inputHtml}</td>
                         <td class="text-end small text-muted">
-                            $${parseFloat(item.costo).toFixed(2)}
+                            <div>$${parseFloat(item.costo).toFixed(2)}</div>
+                            <span class="text-muted" style="font-size: 0.68rem;">/${uCompra}</span>
                             <input type="hidden" name="costo_unitario[]" value="${item.costo}">
                         </td>
                         <td class="text-end small text-dark row-subtotal">$${subtotal.toFixed(2)}</td>
@@ -236,6 +266,12 @@ function recalcularFilaPorId(id) {
     const cant = h ? parseFloat(h.value) : 0;
     const costo = parseFloat(tr.getAttribute('data-costo'));
     const ivaPorc = parseFloat(tr.getAttribute('data-iva-porc')) || 0;
+    const factor = parseFloat(tr.getAttribute('data-factor') || 1.0);
+
+    const spanInv = tr.querySelector('.entrada-inv-span');
+    if (spanInv) {
+        spanInv.innerText = (cant * factor).toFixed(2).replace(/\.00$/, '');
+    }
 
     const sub = cant * costo;
     const iva = sub * (ivaPorc / 100);
@@ -256,6 +292,13 @@ function recalcularFilaPorId(id) {
 function recalcularFila(input, costo, ivaPorc) {
     const fila = input.closest('tr');
     const cant = parseFloat(input.value || 0);
+    const factor = parseFloat(input.getAttribute('data-factor') || fila.getAttribute('data-factor') || 1.0);
+
+    const spanInv = fila.querySelector('.entrada-inv-span');
+    if (spanInv) {
+        spanInv.innerText = (cant * factor).toFixed(2).replace(/\.00$/, '');
+    }
+
     const sub = cant * costo;
     const iva = sub * (ivaPorc / 100);
     const total = sub + iva;
@@ -323,6 +366,12 @@ function verRecepcion(id) {
             
             if (data.detalles && data.detalles.length > 0) {
                 data.detalles.forEach(det => {
+                    const tieneConv = det.factor_conversion && det.factor_conversion !== 1;
+                    const uCompra = det.unidad_compra || det.unidad_base || '';
+                    const cantDisplay = `
+                        <div class="fw-semibold">${det.cant} <span class="text-muted small">${uCompra}</span></div>
+                        ${tieneConv ? `<div class="small text-success fw-semibold" style="font-size: 0.72rem;">(= ${det.cantidad_inventario} ${det.unidad_base})</div>` : ''}
+                    `;
                     const fila = `
                         <tr>
                             <td class="ps-3">
@@ -330,7 +379,7 @@ function verRecepcion(id) {
                                     ${det.producto}
                                 </div>
                             </td>
-                            <td class="text-center small">${det.cant}</td>
+                            <td class="text-center small">${cantDisplay}</td>
                             <td class="text-end small text-muted">$${parseFloat(det.precio).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                             <td class="text-end small text-dark">$${parseFloat(det.subtotal).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                             <td class="text-end small text-muted">$${parseFloat(det.iva_monto || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>

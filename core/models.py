@@ -64,12 +64,23 @@ class Producto(models.Model):
     linea = models.CharField(max_length=100, blank=True, null=True, verbose_name="Línea")
     UNIDAD_OPCIONES = [
         ('H87', 'H87 (Pieza)'),
-        ('E48', 'E48 (Unidad de servicio)'),
+        ('XBX', 'XBX (Caja)'),
+        ('XPK', 'XPK (Paquete)'),
+        ('DZN', 'DZN (Docena)'),
+        ('XPL', 'XPL (Tarima / Pallet)'),
+        ('XSA', 'XSA (Saco / Costal)'),
+        ('XRO', 'XRO (Rollo)'),
+        ('XKI', 'XKI (Kit)'),
+        ('XLT', 'XLT (Lote)'),
+        ('XBA', 'XBA (Barril)'),
         ('KGM', 'KGM (Kilogramo)'),
         ('GRM', 'GRM (Gramo)'),
         ('LTR', 'LTR (Litro)'),
         ('MLT', 'MLT (Mililitro)'),
         ('MTR', 'MTR (Metro)'),
+        ('MTK', 'MTK (Metro cuadrado)'),
+        ('MTQ', 'MTQ (Metro cúbico)'),
+        ('E48', 'E48 (Unidad de servicio)'),
     ]
     unidad_medida = models.CharField(
         max_length=50, 
@@ -390,6 +401,17 @@ class ConversionUnidad(models.Model):
 
     def __str__(self):
         return f"1 {self.unidad_destino} = {self.factor_equivalencia} {self.producto.unidad_medida} ({self.producto.nombre})"
+
+    @property
+    def unidad_destino_display(self):
+        return dict(Producto.UNIDAD_OPCIONES).get(self.unidad_destino, self.unidad_destino)
+
+    @property
+    def unidad_destino_nombre(self):
+        import re
+        display = self.unidad_destino_display
+        m = re.search(r'\((.*?)\)', display)
+        return m.group(1) if m else display
 
     @property
     def precio_efectivo(self):

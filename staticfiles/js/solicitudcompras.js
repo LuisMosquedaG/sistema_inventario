@@ -66,6 +66,9 @@ function initCustomSelect(wrapperId, hiddenInputId, fakeDisplayId, searchInputId
         
         toggleOptions(false);
         hiddenInput.dispatchEvent(new Event('change'));
+        if (hiddenInputId === 'add_producto') {
+            actualizarCostoDefault();
+        }
     });
 
     window.addEventListener('click', (e) => {
@@ -92,6 +95,8 @@ function getCookie(name) {
 }
 
 const csrftoken = getCookie('csrftoken');
+
+let productoCompraActual = null;
 
 // --- INICIALIZACIÓN ---
 function prepararNuevaSolicitud() {
@@ -142,6 +147,19 @@ function prepararNuevaSolicitud() {
         genSuc.innerHTML = '<option value="">Seleccione proveedor primero...</option>';
         genSuc.disabled = true;
     }
+
+    // Resetear unidades y conversiones
+    const addUC = document.getElementById('add_unidad_compra');
+    if (addUC) addUC.innerHTML = '<option value="BASE" data-factor="1">Unidad Base</option>';
+    const addFC = document.getElementById('add_factor_conversion');
+    if (addFC) addFC.value = '1.0000';
+    const addCIV = document.getElementById('add_cantidad_inventario_val');
+    if (addCIV) addCIV.value = '1.00';
+    const addUBN = document.getElementById('add_unidad_base_nombre');
+    if (addUBN) addUBN.value = '';
+    const addEI = document.getElementById('add_entrada_inventario');
+    if (addEI) addEI.value = '--';
+    productoCompraActual = null;
 }
 
 // --- LOGICA DE SUCURSALES ---
@@ -167,6 +185,166 @@ async function cargarSucursalesProveedor(proveedorId, targetSelectId, selectedSu
         select.disabled = false;
     } catch (error) {
         console.error("Error al cargar sucursales:", error);
+    }
+}
+
+// --- CONVERSIONES Y ENTRADA A INVENTARIO ---
+async function cargarConversionesParaCompra(productoId, unidadPrevia = null, factorPrevio = null) {
+    const selectUnidad = document.getElementById('add_unidad_compra');
+    if (!selectUnidad) return;
+
+    if (!productoId) {
+        selectUnidad.innerHTML = '<option value="BASE" data-factor="1">Unidad Base</option>';
+        document.getElementById('add_factor_conversion').value = '1.0000';
+        document.getElementById('add_unidad_base_nombre').value = '';
+        document.getElementById('add_entrada_inventario').value = '--';
+        productoCompraActual = null;
+        return;
+    }
+
+    // 1. OBTENCIÓN INMEDIATA DESDE EL DOM PARA RESPUESTA INSTANTÁNEA
+    const optDom = document.querySelector(`#optionsAddProducto .custom-option[data-value="${productoId}"]`);
+    const baseNomDom = optDom ? (optDom.getAttribute('data-unidad') || 'Pieza') : 'Pieza';
+    const baseCostoDom = parseFloat(optDom ? optDom.getAttribute('data-precio') : 0) || 0;
+
+    productoCompraActual = {
+        id: productoId,
+        nombre: optDom ? optDom.getAttribute('data-name') : '',
+        unidad_base: baseNomDom,
+        unidad_base_code: '',
+        precio_costo: baseCostoDom,
+        conversiones: []
+    };
+
+    document.getElementById('add_unidad_base_nombre').value = baseNomDom;
+
+    // Poblar de inmediato con Unidad Base para que nunca quede vacío
+    selectUnidad.innerHTML = `<option value="BASE" data-factor="1.0000" data-display="${baseNomDom}">${baseNomDom} (Base)</option>`;
+    if (!unidadPrevia) {
+        document.getElementById('add_factor_conversion').value = '1.0000';
+        calcularEntradaInventario();
+    }
+
+    // 2. CONSULTAR CONVERSIONES EN EL BACKEND
+    try {
+        let response = await fetch(`/inventario/api/conversiones/${productoId}/`);
+        if (!response.ok) {
+            response = await fetch(`/api/conversiones/${productoId}/`);
+        }
+        if (!response.ok) {
+            response = await fetch(`/inventario/conversiones/${productoId}/`);
+        }
+
+        const data = await response.json();
+
+        if (data && data.success) {
+            const prod = data.producto;
+            productoCompraActual = {
+                id: prod.id,
+                nombre: prod.nombre,
+                unidad_base: prod.unidad_medida,
+                unidad_base_code: prod.unidad_medida_code,
+                precio_costo: parseFloat(prod.precio_costo) || baseCostoDom,
+                conversiones: data.conversiones || []
+            };
+
+            document.getElementById('add_unidad_base_nombre').value = prod.unidad_medida;
+
+            // Re-poblar select con datos oficiales y conversiones
+            selectUnidad.innerHTML = '';
+
+            // Opción Base
+            const optBase = document.createElement('option');
+            optBase.value = 'BASE';
+            optBase.setAttribute('data-factor', '1.0000');
+            optBase.setAttribute('data-display', prod.unidad_medida);
+            optBase.textContent = `${prod.unidad_medida} (Base)`;
+            selectUnidad.appendChild(optBase);
+
+            // Opciones Conversiones
+            if (data.conversiones && data.conversiones.length > 0) {
+                data.conversiones.filter(c => c.activo).forEach(c => {
+                    const opt = document.createElement('option');
+                    const nombreConv = c.unidad_destino_nombre || c.unidad_destino_display;
+                    opt.value = nombreConv;
+                    opt.setAttribute('data-factor', c.factor_equivalencia);
+                    opt.setAttribute('data-display', nombreConv);
+                    opt.textContent = `${nombreConv} (${c.factor_equivalencia} ${prod.unidad_medida})`;
+                    selectUnidad.appendChild(opt);
+                });
+            }
+
+            // Si se indicó unidad previa (al editar partida)
+            if (unidadPrevia) {
+                let matched = false;
+                for (let i = 0; i < selectUnidad.options.length; i++) {
+                    if (selectUnidad.options[i].value === unidadPrevia || selectUnidad.options[i].getAttribute('data-display') === unidadPrevia) {
+                        selectUnidad.selectedIndex = i;
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched && factorPrevio) {
+                    for (let i = 0; i < selectUnidad.options.length; i++) {
+                        if (parseFloat(selectUnidad.options[i].getAttribute('data-factor')) === parseFloat(factorPrevio)) {
+                            selectUnidad.selectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+                cambiarUnidadCompra(false);
+            } else {
+                cambiarUnidadCompra(true);
+            }
+        }
+    } catch (err) {
+        console.warn("Aviso al cargar conversiones de compra:", err);
+    }
+}
+
+function cambiarUnidadCompra(actualizarCosto = true) {
+    const selectUnidad = document.getElementById('add_unidad_compra');
+    if (!selectUnidad || selectUnidad.selectedIndex < 0) return;
+
+    const opt = selectUnidad.options[selectUnidad.selectedIndex];
+    const factor = parseFloat(opt.getAttribute('data-factor')) || 1.0;
+    document.getElementById('add_factor_conversion').value = factor.toFixed(4);
+
+    if (actualizarCosto && productoCompraActual) {
+        const selectLista = document.getElementById('add_lista');
+        const optLista = selectLista && selectLista.selectedIndex >= 0 ? selectLista.options[selectLista.selectedIndex] : null;
+
+        let costoCalculado = productoCompraActual.precio_costo * factor;
+
+        if (optLista && selectLista.value) {
+            const p = parseFloat(optLista.getAttribute('data-porc')) || 0;
+            const m = parseFloat(optLista.getAttribute('data-monto')) || 0;
+            if (p !== 0) costoCalculado = costoCalculado + (costoCalculado * (p / 100));
+            else if (m !== 0) costoCalculado = costoCalculado + (m * factor);
+        }
+
+        document.getElementById('add_costo').value = costoCalculado.toFixed(2);
+    }
+
+    calcularEntradaInventario();
+}
+
+function calcularEntradaInventario() {
+    const cant = parseFloat(document.getElementById('add_cantidad').value) || 0;
+    const factor = parseFloat(document.getElementById('add_factor_conversion').value) || 1.0;
+    const entrada = cant * factor;
+
+    document.getElementById('add_cantidad_inventario_val').value = entrada.toFixed(2);
+
+    const unidadBase = document.getElementById('add_unidad_base_nombre').value || '';
+    const entradaInput = document.getElementById('add_entrada_inventario');
+    if (entradaInput) {
+        if (cant <= 0) {
+            entradaInput.value = '--';
+        } else {
+            const entStr = (Math.round(entrada * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
+            entradaInput.value = `${entStr} ${unidadBase}`.trim();
+        }
     }
 }
 
@@ -214,10 +392,23 @@ function agregarArticuloManual() {
     const monId = document.getElementById('gen_moneda').value;
     const monSiglas = document.getElementById('gen_moneda').options[document.getElementById('gen_moneda').selectedIndex].text;
 
+    const selUnidad = document.getElementById('add_unidad_compra');
+    const optUnidad = selUnidad && selUnidad.selectedIndex >= 0 ? selUnidad.options[selUnidad.selectedIndex] : null;
+    const unidadCompraVal = selUnidad ? selUnidad.value : 'BASE';
+    const unidadCompraDisplay = optUnidad ? (optUnidad.getAttribute('data-display') || optUnidad.text) : '';
+    const factorConv = parseFloat(document.getElementById('add_factor_conversion').value) || 1.0;
+    const cantInv = parseFloat(document.getElementById('add_cantidad_inventario_val').value) || (cantidad * factorConv);
+    const unidadBaseNom = document.getElementById('add_unidad_base_nombre').value || (opt ? opt.getAttribute('data-unidad') : '');
+
     const datos = {
         producto_id: prodId,
         producto_nombre: prodNombre,
         cantidad: cantidad,
+        unidad_compra: unidadCompraVal === 'BASE' ? (unidadBaseNom || 'BASE') : unidadCompraVal,
+        unidad_compra_display: unidadCompraDisplay,
+        factor_conversion: factorConv,
+        cantidad_inventario: cantInv,
+        unidad_base: unidadBaseNom,
         proveedor_id: provId,
         proveedor_nombre: provNombre,
         sucursal_id: sucId,
@@ -259,6 +450,12 @@ function agregarArticuloManual() {
     document.getElementById('add_lista').value = '';
     document.getElementById('add_cantidad').value = 1;
     document.getElementById('add_costo').value = '0.00';
+    document.getElementById('add_factor_conversion').value = '1.0000';
+    document.getElementById('add_cantidad_inventario_val').value = '1.00';
+    document.getElementById('add_entrada_inventario').value = '--';
+    const resetUC = document.getElementById('add_unidad_compra');
+    if (resetUC) resetUC.innerHTML = '<option value="BASE" data-factor="1">Unidad Base</option>';
+    productoCompraActual = null;
     calcularTotalSolicitud();
 }
 
@@ -275,11 +472,18 @@ function agregarFilaProducto(datos) {
 }
 
 function actualizarFilaHtml(row, datos) {
+    const cantCompra = parseFloat(datos.cantidad) || 0;
+    const factor = parseFloat(datos.factor_conversion) || 1.0;
+    const cantInv = parseFloat(datos.cantidad_inventario) || (cantCompra * factor);
+    const uCompraDisplay = datos.unidad_compra_display || datos.unidad_compra || '';
+    const uBaseDisplay = datos.unidad_base || '';
+
     row.innerHTML = `
         <td class="ps-3">
             <div class="fw-bold text-dark text-truncate" style="max-width: 200px;" title="${datos.producto_nombre}">${datos.producto_nombre}</div>
             <input type="hidden" name="producto_id[]" value="${datos.producto_id}">
             <input type="hidden" name="pedido_det_id[]" value="${datos.detalle_pedido_origen_id || ''}">
+            <input type="hidden" name="unidad_base[]" value="${uBaseDisplay}">
         </td>
         <td>
             <span class="text-muted small">${datos.lista_id ? datos.lista_nombre : 'Manual'}</span>
@@ -299,21 +503,29 @@ function actualizarFilaHtml(row, datos) {
             <input type="hidden" name="almacen_id[]" value="${datos.almacen_id || ''}">
         </td>
         <td class="text-center">
-            <span class="small">${datos.cantidad}</span>
-            <input type="hidden" name="cantidad[]" value="${datos.cantidad}">
+            <span class="small fw-semibold text-dark">${cantCompra}</span>
+            <span class="text-muted d-block" style="font-size: 0.72rem;">${uCompraDisplay}</span>
+            <input type="hidden" name="cantidad[]" value="${cantCompra}">
+            <input type="hidden" name="unidad_compra[]" value="${datos.unidad_compra || ''}">
+            <input type="hidden" name="factor_conversion[]" value="${factor}">
+        </td>
+        <td class="text-center">
+            <span class="small fw-bold text-brand">${cantInv}</span>
+            <span class="text-muted d-block" style="font-size: 0.72rem;">${uBaseDisplay}</span>
+            <input type="hidden" name="cantidad_inventario[]" value="${cantInv}">
         </td>
         <td class="text-end">
             <span class="small text-muted">$${parseFloat(datos.costo_unitario).toFixed(2)}</span>
             <input type="hidden" name="costo_unitario[]" value="${datos.costo_unitario}">
         </td>
-        <td class="text-end">
+        <td class="text-end cell-subtotal">
             <span class="small text-dark">$${parseFloat(datos.subtotal).toFixed(2)}</span>
         </td>
-        <td class="text-end">
+        <td class="text-end cell-iva">
             <span class="small text-muted">$${parseFloat(datos.iva_monto).toFixed(2)}</span>
             <input type="hidden" name="iva_porcentaje[]" value="${datos.iva_porcentaje}">
         </td>
-        <td class="text-end pe-3">
+        <td class="text-end pe-3 cell-total">
             <span class="fw-bold small text-dark">$${parseFloat(datos.total).toFixed(2)}</span>
         </td>
         <td class="text-center">
@@ -338,21 +550,26 @@ function calcularTotalSolicitud() {
     const aplicaIva = aplicaIvaSwitch ? aplicaIvaSwitch.checked : true;
 
     document.querySelectorAll('#cuerpoTablaSolicitud tr').forEach(fila => {
-        const sub = parseFloat(fila.cells[7].innerText.replace('$', '').replace(',', '')) || 0;
+        const subCell = fila.querySelector('.cell-subtotal');
+        const ivaCell = fila.querySelector('.cell-iva');
+        const totCell = fila.querySelector('.cell-total');
+        if (!subCell || !ivaCell || !totCell) return;
+
+        const sub = parseFloat(subCell.querySelector('span')?.innerText.replace('$', '').replace(/,/g, '')) || 0;
         
-        // Obtener el IVA porcentaje original del input hidden en la celda 8
-        const ivaInput = fila.cells[8].querySelector('input[name="iva_porcentaje[]"]');
+        // Obtener el IVA porcentaje original del input hidden
+        const ivaInput = ivaCell.querySelector('input[name="iva_porcentaje[]"]');
         const ivaPorc = ivaInput ? parseFloat(ivaInput.value) : 0;
         
         const iva = aplicaIva ? (sub * (ivaPorc / 100)) : 0;
         const tot = sub + iva;
         
         // Actualizar visualmente la celda de IVA
-        const ivaSpan = fila.cells[8].querySelector('span');
+        const ivaSpan = ivaCell.querySelector('span');
         if (ivaSpan) ivaSpan.innerText = '$' + iva.toFixed(2);
         
         // Actualizar visualmente la celda de Importe
-        const totSpan = fila.cells[9].querySelector('span');
+        const totSpan = totCell.querySelector('span');
         if (totSpan) totSpan.innerText = '$' + tot.toFixed(2);
         
         subtotalTotal += sub;
@@ -365,7 +582,7 @@ function calcularTotalSolicitud() {
     document.getElementById('granTotalSolicitud').innerText = '$' + granTotal.toLocaleString('en-US', {minimumFractionDigits: 2});
 }
 
-function cargarItemParaEdicion(btn) {
+async function cargarItemParaEdicion(btn) {
     const row = btn.closest('tr');
     const index = row.rowIndex - 1; 
     
@@ -379,6 +596,9 @@ function cargarItemParaEdicion(btn) {
     const almId = row.querySelector('[name="almacen_id[]"]').value;
     const cant = row.querySelector('[name="cantidad[]"]').value;
     const costo = row.querySelector('[name="costo_unitario[]"]').value;
+    const uCompra = row.querySelector('[name="unidad_compra[]"]')?.value || '';
+    const factor = row.querySelector('[name="factor_conversion[]"]')?.value || '1.0000';
+    const uBase = row.querySelector('[name="unidad_base[]"]')?.value || '';
 
     document.getElementById('add_producto').value = prodId;
     document.getElementById('add_producto_display_fake').innerHTML = `<span>${prodNombre}</span>`;
@@ -386,12 +606,21 @@ function cargarItemParaEdicion(btn) {
     document.getElementById('add_cantidad').value = cant;
     document.getElementById('add_costo').value = costo;
     document.getElementById('edit_item_pedido_det_id').value = pedDetId;
+    document.getElementById('add_factor_conversion').value = factor;
+    document.getElementById('add_unidad_base_nombre').value = uBase;
     
     document.getElementById('gen_proveedor').value = provId;
     document.getElementById('gen_almacen').value = almId;
     document.getElementById('gen_moneda').value = monId;
     
     cargarSucursalesProveedor(provId, 'gen_sucursal', sucId);
+
+    // Cargar conversiones y seleccionar unidad
+    await cargarConversionesParaCompra(prodId, uCompra, factor);
+    // Mantener los valores guardados
+    document.getElementById('add_costo').value = costo;
+    document.getElementById('add_cantidad').value = cant;
+    calcularEntradaInventario();
 
     document.getElementById('item_indice_edicion').value = index;
     const btnAdd = document.getElementById('btnAddItem');
@@ -473,13 +702,18 @@ function eliminarFila(btn) {
 
 function actualizarCostoDefault() {
     const prodId = document.getElementById('add_producto').value;
-    if (!prodId) return;
+    if (!prodId) {
+        cargarConversionesParaCompra(null);
+        return;
+    }
 
     const opt = document.querySelector(`#optionsAddProducto .custom-option[data-value="${prodId}"]`);
     const precio = opt ? opt.getAttribute('data-precio') : '0.00';
     
     document.getElementById('add_costo').value = precio;
     document.getElementById('add_lista').value = '';
+
+    cargarConversionesParaCompra(prodId);
 }
 
 function aplicarListaCosto() {
@@ -490,7 +724,10 @@ function aplicarListaCosto() {
     if (!prodId) return;
 
     const optProd = document.querySelector(`#optionsAddProducto .custom-option[data-value="${prodId}"]`);
-    const base = parseFloat(optProd ? optProd.getAttribute('data-precio') : 0) || 0;
+    const factor = parseFloat(document.getElementById('add_factor_conversion').value) || 1.0;
+    const costoUnitBase = productoCompraActual ? productoCompraActual.precio_costo : (parseFloat(optProd ? optProd.getAttribute('data-precio') : 0) || 0);
+    const base = costoUnitBase * factor;
+
     const optLista = selectLista.options[selectLista.selectedIndex];
 
     if (!selectLista.value) {
@@ -503,7 +740,7 @@ function aplicarListaCosto() {
 
     let final = base;
     if (p !== 0) final = base + (base * (p / 100));
-    else if (m !== 0) final = base + m;
+    else if (m !== 0) final = base + (m * factor);
 
     inputCosto.value = final.toFixed(2);
 }
@@ -585,7 +822,7 @@ async function verSolicitud(id) {
                 const trGrupo = document.createElement('tr');
                 trGrupo.style.backgroundColor = '#f8f9fa';
                 trGrupo.innerHTML = `
-                    <td colspan="9" class="ps-3 py-2">
+                    <td colspan="10" class="ps-3 py-2">
                         <div class="d-flex align-items-center">
                             <i class="bi ${isDirect ? 'bi-cart-fill' : 'bi-gear-wide-connected'} me-2 text-brand" style="font-size: 1rem;"></i>
                             <span class="fw-bold text-dark uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">
@@ -606,7 +843,14 @@ async function verSolicitud(id) {
                                 <span class="text-dark small" title="${d.producto_nombre}">${d.producto_nombre}</span>
                             </div>
                         </td>
-                        <td class="text-center small">${d.cantidad}</td>
+                        <td class="text-center small">
+                            <span class="fw-semibold">${d.cantidad}</span>
+                            <span class="text-muted d-block" style="font-size: 0.72rem;">${d.unidad_compra_display || d.unidad_compra || ''}</span>
+                        </td>
+                        <td class="text-center small">
+                            <span class="text-brand fw-semibold">${d.cantidad_inventario}</span>
+                            <span class="text-muted d-block" style="font-size: 0.72rem;">${d.unidad_base || ''}</span>
+                        </td>
                         <td class="small text-muted text-truncate" style="max-width: 150px;" title="${d.proveedor_nombre}">${d.proveedor_nombre}</td>
                         <td class="small text-muted text-truncate" style="max-width: 120px;" title="${d.almacen_nombre}">${d.almacen_nombre}</td>
                         <td class="text-end small">$${parseFloat(d.costo_unitario).toLocaleString('en-US', {minimumFractionDigits:2})}</td>
@@ -619,7 +863,7 @@ async function verSolicitud(id) {
                 });
             });
         } else {
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center py-3 text-muted fst-italic">No hay artículos en esta solicitud.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center py-3 text-muted fst-italic">No hay artículos en esta solicitud.</td></tr>';
         }
 
         document.getElementById('ver_solicitud_subtotal').innerText = `$${parseFloat(data.subtotal_total || 0).toLocaleString('en-US', {minimumFractionDigits:2})}`;
@@ -681,6 +925,11 @@ async function cargarParaEdicion(id) {
                 producto_id: d.producto_id,
                 producto_nombre: d.producto_nombre,
                 cantidad: d.cantidad,
+                unidad_compra: d.unidad_compra,
+                unidad_compra_display: d.unidad_compra_display,
+                factor_conversion: d.factor_conversion,
+                cantidad_inventario: d.cantidad_inventario,
+                unidad_base: d.unidad_base,
                 proveedor_id: d.proveedor_id,
                 proveedor_nombre: d.proveedor_nombre,
                 sucursal_id: d.sucursal_id,

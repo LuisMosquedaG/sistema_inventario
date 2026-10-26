@@ -116,7 +116,7 @@
                             <div class="modifier-item">* {{ mod }}</div>
                         {% endfor %}
                     </td>
-                    <td class="text-center">{{ item.cantidad }}</td>
+                    <td class="text-center">{{ item.cantidad }} <span style="font-size: 8px;">{{ item.unidad_medida|default:"" }}</span></td>
                     <td class="text-right">${{ item.subtotal|floatformat:2|intcomma }}</td>
                 </tr>
             {% endfor %}

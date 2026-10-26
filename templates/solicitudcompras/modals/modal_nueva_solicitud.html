@@ -98,8 +98,11 @@
                                 </div>
                             </div>
                             <input type="hidden" id="edit_item_pedido_det_id" value="">
+                            <input type="hidden" id="add_factor_conversion" value="1.0000">
+                            <input type="hidden" id="add_cantidad_inventario_val" value="1.00">
+                            <input type="hidden" id="add_unidad_base_nombre" value="">
                             <div class="row g-2 align-items-end">
-                                <div class="col-md-5">
+                                <div class="col-md-3">
                                     <label class="form-label small fw-bold text-secondary">Producto</label>
                                     <div class="d-flex align-items-center">
                                         <div class="custom-select-wrapper flex-grow-1" id="wrapperAddProducto">
@@ -117,6 +120,7 @@
                                                           data-value="{{ p.id }}" 
                                                           data-name="{{ p.nombre }}"
                                                           data-precio="{{ p.precio_costo }}" 
+                                                          data-unidad="{{ p.unidad_medida_display|default:p.unidad_medida }}" 
                                                           data-iva="{{ p.iva|default:0 }}"
                                                           data-search="{{ p.nombre }}" 
                                                           title="{{ p.nombre }}">
@@ -134,7 +138,21 @@
                                         </button>
                                     </div>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold text-secondary">Unidad Compra</label>
+                                    <select id="add_unidad_compra" class="form-select form-select-sm" onchange="cambiarUnidadCompra()">
+                                        <option value="BASE" data-factor="1">Unidad Base</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-1">
+                                    <label class="form-label small fw-bold text-secondary">Cant.</label>
+                                    <input type="number" id="add_cantidad" class="form-control form-control-sm text-center" value="1" min="0.01" step="any" oninput="calcularEntradaInventario()">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold text-secondary">Entrada Inv.</label>
+                                    <input type="text" id="add_entrada_inventario" class="form-control form-control-sm text-center bg-light fw-bold text-brand" readonly value="--">
+                                </div>
+                                <div class="col-md-2">
                                     <label class="form-label small fw-bold text-secondary">Lista de Costo</label>
                                     <select id="add_lista" class="form-select form-select-sm" onchange="aplicarListaCosto()">
                                         <option value="">Manual</option>
@@ -144,14 +162,10 @@
                                     </select>
                                 </div>
                                 <div class="col-md-1">
-                                    <label class="form-label small fw-bold text-secondary">Cant.</label>
-                                    <input type="number" id="add_cantidad" class="form-control form-control-sm text-center" value="1" min="1">
-                                </div>
-                                <div class="col-md-2">
                                     <label class="form-label small fw-bold text-secondary">Costo Unit.</label>
                                     <div class="input-group input-group-sm">
-                                        <span class="input-group-text">$</span>
-                                        <input type="number" id="add_costo" class="form-control form-control-sm text-end" value="0.00" step="0.01">
+                                        <span class="input-group-text p-1" style="font-size: 0.75rem;">$</span>
+                                        <input type="number" id="add_costo" class="form-control form-control-sm text-end px-1" value="0.00" step="0.01">
                                     </div>
                                 </div>
                                 <div class="col-md-1">
@@ -175,7 +189,8 @@
                                             <th style="min-width: 80px;">Moneda</th>
                                             <th style="min-width: 150px;">Proveedor</th>
                                             <th style="min-width: 120px;">Almacén</th>
-                                            <th class="text-center" style="width: 70px;">Cant.</th>
+                                            <th class="text-center" style="min-width: 95px;">Cant. Compra</th>
+                                            <th class="text-center" style="min-width: 105px;">Entrada Inv.</th>
                                             <th class="text-end" style="width: 90px;">Costo</th>
                                             <th class="text-end" style="width: 90px;">Subtotal</th>
                                             <th class="text-end" style="width: 80px;">IVA</th>
@@ -195,7 +210,7 @@
                         </div>
                         <div class="card-footer bg-white border-0 py-3">
                             <div class="row justify-content-end">
-                                <div class="col-md-5">
+                                <div class="col-md-3">
                                     <div class="d-flex justify-content-between mb-1">
                                         <span class="text-muted small">Subtotal:</span>
                                         <span class="fw-semibold text-dark" id="solicitudSubtotal">$0.00</span>

@@ -5,6 +5,7 @@ from .models import Producto, Transaccion, DetalleReceta
 from django.contrib.auth.decorators import login_required
 from panel.models import Empresa
 import json
+import re
 import openpyxl
 from datetime import datetime
 from django.db import transaction
@@ -1286,60 +1287,76 @@ def eliminar_modificador_ajax(request, modificador_id):
 from core.models import ConversionUnidad
 
 @login_required
-@require_inventory_permission('inventario', 'ver', json_response=True)
 def api_listar_conversiones(request, producto_id):
-    empresa_actual = get_empresa_actual(request)
-    if not empresa_actual:
-        return JsonResponse({'success': False, 'error': 'Empresa no encontrada.'})
-    
-    producto = get_object_or_404(Producto, id=producto_id, empresa=empresa_actual)
-    
-    # Calcular stock base total disponible
-    from almacenes.models import Inventario
-    invs = Inventario.objects.filter(producto=producto)
-    stock_total = sum((inv.cantidad - inv.reservado) for inv in invs) if invs.exists() else 0
-    
-    conversiones = ConversionUnidad.objects.filter(producto=producto).order_by('id')
-    conversiones_list = []
-    
-    for c in conversiones:
-        stock_en_presentacion = 0
-        stock_texto = "0"
-        if c.factor_equivalencia > 0:
-            stock_en_presentacion = round(float(stock_total) / float(c.factor_equivalencia), 2)
-            cajas_enteras = int(stock_total // c.factor_equivalencia)
-            sobrante = float(stock_total % c.factor_equivalencia)
-            unidad_nombre = producto.get_unidad_medida_display() or producto.unidad_medida
-            if sobrante > 0:
-                stock_texto = f"{stock_en_presentacion} ({cajas_enteras} compl. + {sobrante:g} {unidad_nombre})"
-            else:
-                stock_texto = f"{cajas_enteras} compl."
-
-        conversiones_list.append({
-            'id': c.id,
-            'unidad_destino': c.unidad_destino,
-            'factor_equivalencia': float(c.factor_equivalencia),
-            'precio_venta': float(c.precio_venta) if c.precio_venta is not None else float(c.precio_efectivo),
-            'precio_venta_raw': float(c.precio_venta) if c.precio_venta is not None else None,
-            'codigo_barras': c.codigo_barras or '',
-            'activo': c.activo,
-            'stock_calculado': stock_en_presentacion,
-            'stock_texto': stock_texto
-        })
+    try:
+        empresa_actual = get_empresa_actual(request)
+        if not empresa_actual:
+            return JsonResponse({'success': False, 'error': 'Empresa no encontrada.'})
         
-    return JsonResponse({
-        'success': True,
-        'producto': {
-            'id': producto.id,
-            'nombre': producto.nombre,
-            'clave': producto.clave or '',
-            'unidad_medida': producto.get_unidad_medida_display() or producto.unidad_medida,
-            'unidad_medida_code': producto.unidad_medida,
-            'precio_venta': float(producto.precio_venta or 0),
-            'stock_total': float(stock_total)
-        },
-        'conversiones': conversiones_list
-    })
+        producto = get_object_or_404(Producto, id=producto_id, empresa=empresa_actual)
+        
+        # Calcular stock base total disponible
+        from almacenes.models import Inventario
+        invs = Inventario.objects.filter(producto=producto)
+        stock_total = sum((inv.cantidad - inv.reservado) for inv in invs) if invs.exists() else 0
+        
+        conversiones = ConversionUnidad.objects.filter(producto=producto).order_by('id')
+        conversiones_list = []
+        
+        for c in conversiones:
+            stock_en_presentacion = 0
+            stock_texto = "0"
+            sat_display = dict(Producto.UNIDAD_OPCIONES).get(c.unidad_destino, c.unidad_destino)
+            nombre_amigable = getattr(c, 'unidad_destino_nombre', sat_display)
+
+            if c.factor_equivalencia > 0:
+                stock_en_presentacion = round(float(stock_total) / float(c.factor_equivalencia), 2)
+                cajas_enteras = int(stock_total // c.factor_equivalencia)
+                sobrante = float(stock_total % c.factor_equivalencia)
+                unidad_nombre = producto.get_unidad_medida_display() or producto.unidad_medida
+                if sobrante > 0:
+                    stock_texto = f"{stock_en_presentacion} ({cajas_enteras} compl. + {sobrante:g} {unidad_nombre})"
+                else:
+                    stock_texto = f"{cajas_enteras} compl."
+
+            conversiones_list.append({
+                'id': c.id,
+                'unidad_destino': c.unidad_destino,
+                'unidad_destino_display': sat_display,
+                'unidad_destino_nombre': nombre_amigable,
+                'factor_equivalencia': float(c.factor_equivalencia),
+                'precio_venta': float(c.precio_venta) if c.precio_venta is not None else float(c.precio_efectivo),
+                'precio_venta_raw': float(c.precio_venta) if c.precio_venta is not None else None,
+                'codigo_barras': c.codigo_barras or '',
+                'activo': c.activo,
+                'stock_calculado': stock_en_presentacion,
+                'stock_texto': stock_texto
+            })
+            
+        u_disp = producto.get_unidad_medida_display() or producto.unidad_medida
+        m_u = re.search(r'\((.*?)\)', u_disp) if u_disp else None
+        u_nom = m_u.group(1) if m_u else u_disp
+
+        return JsonResponse({
+            'success': True,
+            'producto': {
+                'id': producto.id,
+                'nombre': producto.nombre,
+                'clave': producto.clave or '',
+                'unidad_medida': u_nom or 'Pieza',
+                'unidad_medida_full': u_disp or 'Pieza',
+                'unidad_medida_code': producto.unidad_medida,
+                'precio_costo': float(producto.precio_costo or 0),
+                'precio_venta': float(producto.precio_venta or 0),
+                'stock_total': float(stock_total)
+            },
+            'unidades_sat': [
+                {'codigo': code, 'nombre': label} for code, label in Producto.UNIDAD_OPCIONES
+            ],
+            'conversiones': conversiones_list
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 @login_required
 @require_inventory_permission('inventario', 'editar', json_response=True)
@@ -1358,7 +1375,16 @@ def api_guardar_conversion(request):
             codigo_barras = request.POST.get('codigo_barras', '').strip() or None
             
             if not unidad_destino:
-                return JsonResponse({'success': False, 'error': 'Debes especificar la unidad o presentación (ej. Caja).'})
+                return JsonResponse({'success': False, 'error': 'Debes seleccionar una unidad de medida SAT del listado desplegable.'})
+                
+            producto = get_object_or_404(Producto, id=producto_id, empresa=empresa_actual)
+
+            # Evitar error: seleccionar la misma unidad base del artículo
+            if unidad_destino == producto.unidad_medida:
+                return JsonResponse({
+                    'success': False, 
+                    'error': f'La presentación no puede ser la misma unidad base ({producto.get_unidad_medida_display()}) del artículo.'
+                })
                 
             try:
                 factor_equivalencia = Decimal(factor_equivalencia)
@@ -1374,15 +1400,15 @@ def api_guardar_conversion(request):
                     if precio_decimal < 0:
                         raise ValueError()
                 except (ValueError, TypeError):
-                    return JsonResponse({'success': False, 'error': 'El precio de venta debe ser un número válido.'})
+                    return JsonResponse({'success': False, 'error': 'El precio de venta debe ser un número válido mayor o igual a 0.'})
             
-            producto = get_object_or_404(Producto, id=producto_id, empresa=empresa_actual)
+            nombre_unidad_sat = dict(Producto.UNIDAD_OPCIONES).get(unidad_destino, unidad_destino)
             
             if conversion_id:
                 conversion = get_object_or_404(ConversionUnidad, id=conversion_id, producto=producto, empresa=empresa_actual)
                 dupe = ConversionUnidad.objects.filter(producto=producto, unidad_destino__iexact=unidad_destino).exclude(id=conversion_id).first()
                 if dupe:
-                    return JsonResponse({'success': False, 'error': f'Ya existe una presentación "{unidad_destino}" para este artículo.'})
+                    return JsonResponse({'success': False, 'error': f'Ya existe una presentación con la unidad "{nombre_unidad_sat}" para este artículo.'})
                 conversion.unidad_destino = unidad_destino
                 conversion.factor_equivalencia = factor_equivalencia
                 conversion.precio_venta = precio_decimal
@@ -1391,7 +1417,7 @@ def api_guardar_conversion(request):
             else:
                 dupe = ConversionUnidad.objects.filter(producto=producto, unidad_destino__iexact=unidad_destino).first()
                 if dupe:
-                    return JsonResponse({'success': False, 'error': f'Ya existe una presentación "{unidad_destino}" para este artículo.'})
+                    return JsonResponse({'success': False, 'error': f'Ya existe una presentación con la unidad "{nombre_unidad_sat}" para este artículo.'})
                 ConversionUnidad.objects.create(
                     empresa=empresa_actual,
                     producto=producto,

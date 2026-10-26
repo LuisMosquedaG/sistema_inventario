@@ -168,6 +168,9 @@ urlpatterns = [
     path('inventario/conversiones/<int:producto_id>/', api_listar_conversiones, name='api_listar_conversiones_direct'),
     path('inventario/conversiones/guardar/', api_guardar_conversion, name='api_guardar_conversion_direct'),
     path('inventario/conversiones/eliminar/<int:conversion_id>/', api_eliminar_conversion, name='api_eliminar_conversion_direct'),
+    path('api/conversiones/<int:producto_id>/', api_listar_conversiones, name='api_listar_conversiones_root'),
+    path('api/conversiones/guardar/', api_guardar_conversion, name='api_guardar_conversion_root'),
+    path('api/conversiones/eliminar/<int:conversion_id>/', api_eliminar_conversion, name='api_eliminar_conversion_root'),
 ]
 
 # Servir archivos media (desarrollo y producción)

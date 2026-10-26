@@ -99,7 +99,8 @@
         <table>
             <thead>
                 <tr>
-                    <th style="width: 40px;" class="text-center">Cant.</th>
+                    <th style="width: 70px;" class="text-center">Cant. Compra</th>
+                    <th style="width: 80px;" class="text-center">Entrada Inv.</th>
                     <th>Descripción del Producto</th>
                     <th style="width: 80px;" class="text-right">Unitario</th>
                     <th style="width: 80px;" class="text-right">Subtotal</th>
@@ -110,7 +111,14 @@
             <tbody>
                 {% for det in orden.detalles.all %}
                 <tr>
-                    <td class="text-center">{{ det.cantidad }}</td>
+                    <td class="text-center">
+                        <strong>{{ det.cantidad }}</strong>
+                        {% if det.unidad_compra_display %}<div style="font-size: 8pt; color: #555;">{{ det.unidad_compra_display }}</div>{% endif %}
+                    </td>
+                    <td class="text-center">
+                        <strong>{{ det.cantidad_inventario_calculada|floatformat:2 }}</strong>
+                        <div style="font-size: 8pt; color: #555;">{{ det.producto.get_unidad_medida_display|default:det.producto.unidad_medida }}</div>
+                    </td>
                     <td>
                         <div class="prod-name">{{ det.producto.nombre }}</div>
                         {% if det.producto.descripcion %}

@@ -147,10 +147,16 @@ class Inventario(models.Model):
         
         with transaction.atomic():
             # Bloqueamos y buscamos el registro de inventario
-            inventario = cls.objects.select_for_update().get(
-                producto=producto,
-                almacen=almacen
-            )
+            try:
+                inventario = cls.objects.select_for_update().get(
+                    producto=producto,
+                    almacen=almacen
+                )
+            except cls.DoesNotExist:
+                raise IntegrityError(
+                    f"Stock insuficiente para {producto.nombre} en {almacen.nombre}. "
+                    f"El producto no cuenta con existencias registradas en este almacén (Disponible: 0, Solicitado: {cantidad_a_restar})."
+                )
 
             if inventario.cantidad < cantidad_a_restar:
                 raise IntegrityError(

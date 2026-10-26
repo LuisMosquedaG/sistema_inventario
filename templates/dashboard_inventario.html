@@ -269,7 +269,7 @@
                                         {% endif %}
 
                                         {% if p.producto.tipo_abastecimiento == 'stock' %}
-                                        <span onclick="abrirModalConversiones({{ p.producto.id }}, '{{ p.producto.nombre|escapejs }}', '{{ p.producto.get_unidad_medida_display|default:p.producto.unidad_medida|escapejs }}')" class="icon-action" title="Conversiones"><i class="bi bi-arrow-left-right"></i></span>
+                                        <span onclick="abrirModalConversiones({{ p.producto.id }}, '{{ p.producto.nombre|escapejs }}', '{{ p.producto.get_unidad_medida_display|default:p.producto.unidad_medida|escapejs }}', {{ p.producto.precio_costo|default:0 }}, '{{ p.producto.clave|default:''|escapejs }}')" class="icon-action" title="Conversiones"><i class="bi bi-arrow-left-right"></i></span>
                                         {% endif %}
 
                                         {% if p.producto.tipo_abastecimiento == 'produccion' %}
@@ -334,7 +334,7 @@
                                         {% endif %}
 
                                         {% if p.tipo_abastecimiento == 'stock' %}
-                                        <span onclick="abrirModalConversiones({{ p.id }}, '{{ p.nombre|escapejs }}', '{{ p.get_unidad_medida_display|default:p.unidad_medida|escapejs }}')" class="icon-action" title="Conversiones"><i class="bi bi-arrow-left-right"></i></span>
+                                        <span onclick="abrirModalConversiones({{ p.id }}, '{{ p.nombre|escapejs }}', '{{ p.get_unidad_medida_display|default:p.unidad_medida|escapejs }}', {{ p.precio_costo|default:0 }}, '{{ p.clave|default:''|escapejs }}')" class="icon-action" title="Conversiones"><i class="bi bi-arrow-left-right"></i></span>
                                         {% endif %}
 
                                         {% if p.tipo_abastecimiento == 'produccion' %}

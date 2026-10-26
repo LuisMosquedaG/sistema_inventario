@@ -72,24 +72,39 @@
             
             <!-- BODY -->
             <div class="modal-body p-3 bg-light">
-                <!-- INFO BANNER -->
+                <!-- INFO BANNER (TABLA) -->
                 <div class="card border-0 shadow-sm mb-3">
-                    <div class="card-body p-3 bg-white rounded">
-                        <div class="row g-2 align-items-center">
-                            <div class="col-md-4">
-                                <div class="text-muted small text-uppercase fw-semibold" style="font-size: 0.68rem; letter-spacing: 0.5px;">Artículo</div>
-                                <div class="fw-bold text-dark text-truncate" id="infoConvProductoNombre">--</div>
-                                <div class="text-muted small" style="font-size: 0.75rem;">Clave: <span id="infoConvProductoClave">--</span></div>
-                            </div>
-                            <div class="col-md-4 text-md-center">
-                                <div class="text-muted small text-uppercase fw-semibold" style="font-size: 0.68rem; letter-spacing: 0.5px;">Unidad Base de Inventario</div>
-                                <div class="badge bg-light text-dark border px-2 py-1 fs-6" id="infoConvUnidadBase">--</div>
-                            </div>
-                            <div class="col-md-4 text-md-end">
-                                <div class="text-muted small text-uppercase fw-semibold" style="font-size: 0.68rem; letter-spacing: 0.5px;">Stock Total Disponible</div>
-                                <div class="fw-bold text-brand fs-5" id="infoConvStockTotal">0.00</div>
-                            </div>
-                        </div>
+                    <div class="table-responsive bg-white rounded">
+                        <table class="table table-sm table-borderless align-middle mb-0">
+                            <thead class="bg-light border-bottom">
+                                <tr>
+                                    <th class="text-dark small text-uppercase fw-bold text-center text-nowrap py-2" style="font-size: 0.68rem; letter-spacing: 0.5px; width: 16%;">Clave</th>
+                                    <th class="text-dark small text-uppercase fw-bold text-center py-2" style="font-size: 0.68rem; letter-spacing: 0.5px; width: 34%;">Nombre</th>
+                                    <th class="text-dark small text-uppercase fw-bold text-center text-nowrap py-2" style="font-size: 0.68rem; letter-spacing: 0.5px; width: 20%;">Unidad de Medida</th>
+                                    <th class="text-dark small text-uppercase fw-bold text-center text-nowrap py-2" style="font-size: 0.68rem; letter-spacing: 0.5px; width: 15%;">Costo Base</th>
+                                    <th class="text-dark small text-uppercase fw-bold text-center text-nowrap py-2" style="font-size: 0.68rem; letter-spacing: 0.5px; width: 15%;">Existencias</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="text-center py-2">
+                                        <div class="text-muted small" style="font-size: 0.75rem;" id="infoConvProductoClave">--</div>
+                                    </td>
+                                    <td class="text-center py-2">
+                                        <div class="text-muted small" style="font-size: 0.75rem;" id="infoConvProductoNombre">--</div>
+                                    </td>
+                                    <td class="text-center py-2">
+                                        <div class="text-muted small" style="font-size: 0.75rem;" id="infoConvUnidadBase">--</div>
+                                    </td>
+                                    <td class="text-center py-2">
+                                        <div class="text-muted small" style="font-size: 0.75rem;" id="infoConvCostoBase">$0.00</div>
+                                    </td>
+                                    <td class="text-center py-2">
+                                        <div class="text-muted small" style="font-size: 0.75rem;" id="infoConvStockTotal">0.00</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -97,7 +112,7 @@
                 <div class="card border-0 shadow-sm mb-3">
                     <div class="card-body p-3 bg-white rounded">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="text-uppercase text-muted fw-bold mb-0" id="tituloFormConversion" style="font-size: 0.7rem; letter-spacing: 1px;">
+                            <h6 class="text-uppercase text-dark fw-bold mb-0" id="tituloFormConversion" style="font-size: 0.72rem; letter-spacing: 1px;">
                                 <i class="bi bi-plus-circle me-1 text-brand"></i>Nueva Conversión de Presentación
                             </h6>
                             <button type="button" class="btn btn-link btn-sm text-decoration-none text-muted p-0 d-none" id="btnCancelarEdicionConv" onclick="cancelarEdicionConversion()">
@@ -112,29 +127,33 @@
                             
                             <!-- UNIDAD DESTINO -->
                             <div class="col-md-3">
-                                <label class="form-label small fw-bold mb-1">Presentación / Unidad*</label>
-                                <input type="text" class="form-control form-control-sm" id="conv_unidad_destino" name="unidad_destino" list="listaSugerenciasPresentaciones" placeholder="Ej. Caja, Paquete" required autocomplete="off">
-                                <datalist id="listaSugerenciasPresentaciones">
-                                    <option value="Caja">
-                                    <option value="Paquete">
-                                    <option value="Docena">
-                                    <option value="Display">
-                                    <option value="Bulto">
-                                    <option value="Costal">
-                                    <option value="Tarima">
-                                    <option value="Reja">
-                                    <option value="Tira">
-                                    <option value="Rollo">
-                                    <option value="Lata">
-                                    <option value="Botella">
-                                </datalist>
+                                <label class="form-label text-dark small text-uppercase fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.5px;">Conversión*</label>
+                                <select class="form-select form-select-sm" id="conv_unidad_destino" name="unidad_destino" required>
+                                    <option value="">Selecciona unidad SAT...</option>
+                                    <option value="XBX" data-nombre="Caja">XBX (Caja)</option>
+                                    <option value="XPK" data-nombre="Paquete">XPK (Paquete)</option>
+                                    <option value="DZN" data-nombre="Docena">DZN (Docena)</option>
+                                    <option value="XPL" data-nombre="Tarima / Pallet">XPL (Tarima / Pallet)</option>
+                                    <option value="H87" data-nombre="Pieza">H87 (Pieza)</option>
+                                    <option value="XSA" data-nombre="Saco">XSA (Saco / Costal)</option>
+                                    <option value="XRO" data-nombre="Rollo">XRO (Rollo)</option>
+                                    <option value="XKI" data-nombre="Kit">XKI (Kit)</option>
+                                    <option value="XLT" data-nombre="Lote">XLT (Lote)</option>
+                                    <option value="XBA" data-nombre="Barril">XBA (Barril)</option>
+                                    <option value="KGM" data-nombre="Kilogramo">KGM (Kilogramo)</option>
+                                    <option value="GRM" data-nombre="Gramo">GRM (Gramo)</option>
+                                    <option value="LTR" data-nombre="Litro">LTR (Litro)</option>
+                                    <option value="MLT" data-nombre="Mililitro">MLT (Mililitro)</option>
+                                    <option value="MTR" data-nombre="Metro">MTR (Metro)</option>
+                                    <option value="MTK" data-nombre="Metro cuadrado">MTK (Metro cuadrado)</option>
+                                    <option value="MTQ" data-nombre="Metro cúbico">MTQ (Metro cúbico)</option>
+                                    <option value="E48" data-nombre="Servicio">E48 (Unidad de servicio)</option>
+                                </select>
                             </div>
                             
                             <!-- FACTOR DE EQUIVALENCIA -->
                             <div class="col-md-3">
-                                <label class="form-label small fw-bold mb-1">
-                                    Equivale a (<span id="lblConvUnidadBase">Base</span>)*
-                                </label>
+                                <label class="form-label text-dark small text-uppercase fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.5px;">Equivalencia*</label>
                                 <div class="input-group input-group-sm">
                                     <input type="number" step="0.0001" min="0.0001" class="form-control form-control-sm" id="conv_factor_equivalencia" name="factor_equivalencia" placeholder="100.00" required>
                                     <span class="input-group-text small text-muted px-2" id="addonConvUnidadBase">u.</span>
@@ -143,16 +162,16 @@
 
                             <!-- PRECIO VENTA -->
                             <div class="col-md-3">
-                                <label class="form-label small fw-bold mb-1">Precio Venta ($)</label>
+                                <label class="form-label text-dark small text-uppercase fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.5px;">Precio Venta ($)</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text small px-2">$</span>
-                                    <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="conv_precio_venta" name="precio_venta" placeholder="Auto calculado">
+                                    <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="conv_precio_venta" name="precio_venta" placeholder="Sugerido">
                                 </div>
                             </div>
 
                             <!-- CODIGO BARRAS -->
                             <div class="col-md-2">
-                                <label class="form-label small fw-bold mb-1">Código de Barras</label>
+                                <label class="form-label text-dark small text-uppercase fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.5px;">Código de Barras</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text small px-2"><i class="bi bi-upc"></i></span>
                                     <input type="text" class="form-control form-control-sm" id="conv_codigo_barras" name="codigo_barras" placeholder="Opcional">
@@ -165,33 +184,23 @@
                                     <i class="bi bi-plus-lg fs-6"></i>
                                 </button>
                             </div>
-
-                            <!-- TEXTO DINÁMICO DE EQUIVALENCIA -->
-                            <div class="col-12 mt-1">
-                                <div class="small text-muted fst-italic" id="textoPrevisualizacionConversion">
-                                    <i class="bi bi-info-circle me-1"></i>Define cuántas unidades base contiene una presentación (ej. 1 Caja = 100 Piezas).
-                                </div>
-                            </div>
                         </form>
                     </div>
                 </div>
 
                 <!-- TABLA DE CONVERSIONES CONFIGURADAS -->
-                <h6 class="text-uppercase text-muted fw-bold mb-2" style="font-size: 0.7rem; letter-spacing: 1px;">
-                    Conversiones Activas del Artículo
-                </h6>
                 <div class="card border-0 shadow-sm">
                     <div class="card-body p-0">
                         <div class="table-responsive bg-white rounded">
                             <table class="table table-sm table-hover mb-0" id="tablaConversiones">
-                                <thead class="table-light">
+                                <thead class="bg-light border-bottom">
                                     <tr>
-                                        <th class="ps-3">Presentación</th>
-                                        <th class="text-center">Equivalencia</th>
-                                        <th class="text-center">Stock Calculado</th>
-                                        <th class="text-end">Precio Venta</th>
-                                        <th class="text-center">Código de Barras</th>
-                                        <th class="text-center" style="width: 80px;">Acciones</th>
+                                        <th class="text-dark small text-uppercase fw-bold text-center py-2" style="font-size: 0.68rem; letter-spacing: 0.5px;">Conversión</th>
+                                        <th class="text-dark small text-uppercase fw-bold text-center py-2" style="font-size: 0.68rem; letter-spacing: 0.5px;">Equivalencia</th>
+                                        <th class="text-dark small text-uppercase fw-bold text-center py-2" style="font-size: 0.68rem; letter-spacing: 0.5px;">Stock Calculado</th>
+                                        <th class="text-dark small text-uppercase fw-bold text-center py-2" style="font-size: 0.68rem; letter-spacing: 0.5px;">Precio Venta</th>
+                                        <th class="text-dark small text-uppercase fw-bold text-center py-2" style="font-size: 0.68rem; letter-spacing: 0.5px;">Código de Barras</th>
+                                        <th class="text-dark small text-uppercase fw-bold text-center py-2" style="font-size: 0.68rem; letter-spacing: 0.5px; width: 80px;">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody id="listaConversionesCuerpo">
@@ -215,11 +224,16 @@
     let modalConversionesInstancia = null;
     let productoBaseActual = null;
 
-    function abrirModalConversiones(productoId, productoNombre, productoUnidad) {
+    function abrirModalConversiones(productoId, productoNombre, productoUnidad, productoCosto = 0, productoClave = '') {
         document.getElementById('conv_producto_id').value = productoId;
         document.getElementById('infoConvProductoNombre').innerText = productoNombre || '--';
+        document.getElementById('infoConvProductoClave').innerText = productoClave || '--';
         document.getElementById('infoConvUnidadBase').innerText = productoUnidad || 'Pz';
-        document.getElementById('lblConvUnidadBase').innerText = productoUnidad || 'Base';
+        const costoNum = parseFloat(productoCosto) || 0;
+        document.getElementById('infoConvCostoBase').innerText = `$${costoNum.toLocaleString('es-MX', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        document.getElementById('infoConvStockTotal').innerText = '--';
+        const elLblBase = document.getElementById('lblConvUnidadBase');
+        if (elLblBase) elLblBase.innerText = productoUnidad || 'Base';
         document.getElementById('addonConvUnidadBase').innerText = productoUnidad || 'u.';
         
         cancelarEdicionConversion();
@@ -247,12 +261,30 @@
             document.getElementById('infoConvProductoNombre').innerText = data.producto.nombre;
             document.getElementById('infoConvProductoClave').innerText = data.producto.clave || '--';
             document.getElementById('infoConvUnidadBase').innerText = data.producto.unidad_medida;
-            document.getElementById('lblConvUnidadBase').innerText = data.producto.unidad_medida;
+            const costoBase = parseFloat(data.producto.precio_costo || 0);
+            document.getElementById('infoConvCostoBase').innerText = `$${costoBase.toLocaleString('es-MX', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            const elLblBase2 = document.getElementById('lblConvUnidadBase');
+            if (elLblBase2) elLblBase2.innerText = data.producto.unidad_medida;
             document.getElementById('addonConvUnidadBase').innerText = data.producto.unidad_medida_code || 'u.';
-            document.getElementById('infoConvStockTotal').innerText = `${parseFloat(data.producto.stock_total).toLocaleString('es-MX', {minimumFractionDigits: 0, maximumFractionDigits: 2})} ${data.producto.unidad_medida}`;
+            document.getElementById('infoConvStockTotal').innerText = parseFloat(data.producto.stock_total).toLocaleString('es-MX', {minimumFractionDigits: 0, maximumFractionDigits: 2});
+
+            // Deshabilitar la opción de la unidad base del artículo en el selector para evitar errores
+            const baseCode = data.producto.unidad_medida_code;
+            const selectEl = document.getElementById('conv_unidad_destino');
+            Array.from(selectEl.options).forEach(opt => {
+                if (opt.value && (opt.value === baseCode || opt.value === data.producto.unidad_medida)) {
+                    opt.disabled = true;
+                    if (!opt.text.includes('(Unidad Base actual)')) {
+                        opt.text = opt.text + ' (Unidad Base actual)';
+                    }
+                } else if (opt.value) {
+                    opt.disabled = false;
+                    opt.text = opt.text.replace(' (Unidad Base actual)', '');
+                }
+            });
 
             // Auto-sugerir cálculo en el formulario
-            actualizarPreviewTexto();
+            actualizarPrecioSugerido();
 
             tbody.innerHTML = '';
             if (!data.conversiones || data.conversiones.length === 0) {
@@ -273,21 +305,22 @@
                 const barcodeHtml = c.codigo_barras 
                     ? `<span class="conv-barcode-pill"><i class="bi bi-upc"></i> ${c.codigo_barras}</span>` 
                     : '<span class="text-muted small">--</span>';
+                const stockVal = parseFloat(c.stock_calculado || 0).toLocaleString('es-MX', {minimumFractionDigits: 0, maximumFractionDigits: 2});
+                const unidadNombre = c.unidad_destino_nombre || c.unidad_destino;
+                const stockTextoSimple = `${stockVal} ${unidadNombre}`;
 
                 tbody.innerHTML += `
                     <tr>
-                        <td class="ps-3 align-middle fw-semibold text-dark">
-                            <i class="bi bi-box-seam me-1 text-brand"></i>${c.unidad_destino}
+                        <td class="text-center align-middle">
+                            ${c.unidad_destino_display || c.unidad_destino}
                         </td>
                         <td class="text-center align-middle">
-                            <span class="small fw-semibold text-dark">1 ${c.unidad_destino} = ${parseFloat(c.factor_equivalencia)} ${data.producto.unidad_medida}</span>
+                            1 ${c.unidad_destino_nombre || c.unidad_destino} = ${parseFloat(c.factor_equivalencia)} ${data.producto.unidad_medida}
                         </td>
                         <td class="text-center align-middle">
-                            <span class="conv-pill-stock" title="Existencia equivalente con el stock actual">
-                                <i class="bi bi-check2-circle me-1"></i>${c.stock_texto}
-                            </span>
+                            ${stockTextoSimple}
                         </td>
-                        <td class="text-end align-middle fw-semibold text-dark">
+                        <td class="text-center align-middle">
                             ${precioStr}
                         </td>
                         <td class="text-center align-middle">
@@ -317,7 +350,22 @@
 
     function cargarEdicionConversion(id, unidadDestino, factor, precioVenta, codigoBarras) {
         document.getElementById('conv_id').value = id;
-        document.getElementById('conv_unidad_destino').value = unidadDestino;
+        
+        const selectEl = document.getElementById('conv_unidad_destino');
+        let found = false;
+        for (let i = 0; i < selectEl.options.length; i++) {
+            const opt = selectEl.options[i];
+            if (opt.value === unidadDestino || opt.text === unidadDestino || (opt.dataset.nombre && opt.dataset.nombre.toLowerCase() === unidadDestino.toLowerCase())) {
+                selectEl.selectedIndex = i;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            const newOpt = new Option(unidadDestino, unidadDestino, true, true);
+            selectEl.add(newOpt);
+        }
+
         document.getElementById('conv_factor_equivalencia').value = factor;
         document.getElementById('conv_precio_venta').value = (precioVenta !== null && precioVenta !== undefined) ? precioVenta : '';
         document.getElementById('conv_codigo_barras').value = codigoBarras || '';
@@ -329,12 +377,13 @@
         btnSave.innerHTML = '<i class="bi bi-check-lg fs-6"></i>';
         btnSave.title = "Actualizar Conversión";
 
-        actualizarPreviewTexto();
+        actualizarPrecioSugerido();
     }
 
     function cancelarEdicionConversion() {
         document.getElementById('conv_id').value = '';
         document.getElementById('formConversion').reset();
+        document.getElementById('conv_unidad_destino').selectedIndex = 0;
         document.getElementById('tituloFormConversion').innerHTML = '<i class="bi bi-plus-circle me-1 text-brand"></i>Nueva Conversión de Presentación';
         document.getElementById('btnCancelarEdicionConv').classList.add('d-none');
         
@@ -342,41 +391,23 @@
         btnSave.innerHTML = '<i class="bi bi-plus-lg fs-6"></i>';
         btnSave.title = "Guardar Conversión";
 
-        actualizarPreviewTexto();
+        actualizarPrecioSugerido();
     }
 
-    function actualizarPreviewTexto() {
-        const unidadDestino = document.getElementById('conv_unidad_destino').value.trim() || 'Presentación';
-        const factor = parseFloat(document.getElementById('conv_factor_equivalencia').value);
-        const unidadBase = productoBaseActual ? productoBaseActual.unidad_medida : 'Pieza';
-        const stockTotal = productoBaseActual ? productoBaseActual.stock_total : 0;
-        const previewDiv = document.getElementById('textoPrevisualizacionConversion');
-
-        if (!factor || factor <= 0) {
-            previewDiv.innerHTML = `<i class="bi bi-info-circle me-1"></i>Define cuántas unidades base contiene una presentación (ej. 1 ${unidadDestino} = 100 ${unidadBase}s).`;
-            return;
-        }
-
-        const cajasPosibles = (stockTotal / factor).toFixed(2);
-        const cajasEnteras = Math.floor(stockTotal / factor);
-        const sobrante = (stockTotal % factor);
-
-        let stockMsg = `Con las <strong>${stockTotal} ${unidadBase}s</strong> en existencia, podrás vender hasta <strong>${cajasPosibles} ${unidadDestino}s</strong> (${cajasEnteras} enteras + ${sobrante} ${unidadBase}s).`;
-        previewDiv.innerHTML = `<i class="bi bi-calculator me-1 text-brand"></i>1 <strong>${unidadDestino}</strong> = <strong>${factor} ${unidadBase}s</strong>. ${stockMsg}`;
-    }
-
-    document.getElementById('conv_unidad_destino').addEventListener('input', actualizarPreviewTexto);
-    document.getElementById('conv_factor_equivalencia').addEventListener('input', function() {
-        actualizarPreviewTexto();
-        // Si el precio de venta está vacío, sugerir automáticamente factor * precio_base
+    function actualizarPrecioSugerido() {
         const precioInput = document.getElementById('conv_precio_venta');
-        if (!precioInput.value && productoBaseActual && productoBaseActual.precio_venta > 0) {
-            const factor = parseFloat(this.value);
-            if (factor > 0) {
-                precioInput.placeholder = `$${(factor * productoBaseActual.precio_venta).toFixed(2)} (Sugerido)`;
-            }
+        const factor = parseFloat(document.getElementById('conv_factor_equivalencia').value);
+        const costoBase = productoBaseActual ? parseFloat(productoBaseActual.precio_costo || 0) : 0;
+
+        if (factor > 0 && costoBase > 0) {
+            const precioSugerido = (factor * costoBase).toFixed(2);
+            precioInput.placeholder = `$${precioSugerido} (Sugerido)`;
+        } else {
+            precioInput.placeholder = "Sugerido";
         }
-    });
+    }
+
+    document.getElementById('conv_factor_equivalencia').addEventListener('input', actualizarPrecioSugerido);
 
     document.getElementById('formConversion').addEventListener('submit', function(e) {
         e.preventDefault();

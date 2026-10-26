@@ -6,6 +6,7 @@ from django.http import JsonResponse, HttpResponse
 from django.core.paginator import Paginator
 from django.forms.models import model_to_dict
 from django.db import transaction
+from decimal import Decimal
 import openpyxl
 from datetime import datetime
 from collections import defaultdict
@@ -322,7 +323,18 @@ def dashboard_solicitudcompras(request):
     todos_los_proveedores = Proveedor.objects.filter(empresa=empresa_actual)
     lista_almacenes = Almacen.objects.filter(empresa=empresa_actual).values('id', 'nombre')
     lista_monedas = Moneda.objects.filter(empresa=empresa_actual).values('id', 'siglas', 'simbolo')
-    lista_productos = Producto.objects.filter(empresa=empresa_actual).values('id', 'nombre', 'precio_costo')
+    
+    import re
+    unidad_dict = dict(Producto.UNIDAD_OPCIONES)
+    lista_productos_raw = list(Producto.objects.filter(empresa=empresa_actual).values('id', 'nombre', 'precio_costo', 'unidad_medida', 'iva'))
+    lista_productos = []
+    for p in lista_productos_raw:
+        u_raw = p.get('unidad_medida') or 'H87'
+        u_full = unidad_dict.get(u_raw, u_raw)
+        m_u = re.search(r'\((.*?)\)', u_full)
+        p['unidad_medida_display'] = m_u.group(1) if m_u else u_full
+        lista_productos.append(p)
+
     listas_costos = ListaPrecioCosto.objects.filter(empresa=empresa_actual, tipo='costo')
     todas_categorias = CategoriaCatalogo.objects.filter(empresa=empresa_actual)
     
@@ -550,6 +562,11 @@ def obtener_solicitud_json(request, solicitud_id):
                 'moneda_siglas': det.moneda.siglas if det.moneda else 'MXN',
                 'tipo_cambio': str(det.moneda.factor) if det.moneda else '1.0000',
                 'lista_id': det.lista.id if det.lista else None,
+                'unidad_compra': det.unidad_compra or '',
+                'unidad_compra_display': det.unidad_compra_display,
+                'factor_conversion': float(det.factor_conversion or 1.0),
+                'cantidad_inventario': float(det.cantidad_inventario_calculada),
+                'unidad_base': det.producto.get_unidad_medida_display() or det.producto.unidad_medida,
                 'detalle_pedido_origen_id': det.detalle_pedido_origen.id if det.detalle_pedido_origen else None
             }
             
@@ -619,10 +636,23 @@ def actualizar_solicitud(request, solicitud_id):
             monedas_ids = request.POST.getlist('moneda_id[]') 
             listas_ids = request.POST.getlist('lista_id[]')
             pedidos_det_ids = request.POST.getlist('pedido_det_id[]') 
+            unidades_compra = request.POST.getlist('unidad_compra[]')
+            factores_conv = request.POST.getlist('factor_conversion[]')
+            cantidades_inv = request.POST.getlist('cantidad_inventario[]')
 
             # Zip de todas las listas
-            for p_id, cant, prov_id, suc_id, cost, alm_id, mon_id, p_det_id, l_id in zip(productos_ids, cantidades, proveedores_ids, sucursales_ids, costos, almacenes_ids, monedas_ids, pedidos_det_ids, listas_ids):
+            for i, (p_id, cant, prov_id, suc_id, cost, alm_id, mon_id, p_det_id, l_id) in enumerate(zip(productos_ids, cantidades, proveedores_ids, sucursales_ids, costos, almacenes_ids, monedas_ids, pedidos_det_ids, listas_ids)):
                 if p_id and p_id != '':
+                    u_compra = unidades_compra[i] if i < len(unidades_compra) else ''
+                    try:
+                        f_conv = Decimal(str(factores_conv[i])) if i < len(factores_conv) and factores_conv[i] else Decimal('1.0000')
+                    except Exception:
+                        f_conv = Decimal('1.0000')
+                    try:
+                        c_inv = Decimal(str(cantidades_inv[i])) if i < len(cantidades_inv) and cantidades_inv[i] else (Decimal(str(cant)) * f_conv)
+                    except Exception:
+                        c_inv = Decimal(str(cant)) * f_conv
+
                     DetalleSolicitudCompra.objects.create(
                         solicitud=solicitud,
                         producto_id=p_id,
@@ -633,6 +663,9 @@ def actualizar_solicitud(request, solicitud_id):
                         almacen_id=alm_id if alm_id else None,
                         moneda_id=mon_id if mon_id else None,
                         lista_id=l_id if l_id else None,
+                        unidad_compra=u_compra or None,
+                        factor_conversion=f_conv,
+                        cantidad_inventario=c_inv,
                         detalle_pedido_origen_id=p_det_id if p_det_id else None 
                     )
             
@@ -681,10 +714,23 @@ def crear_solicitud_manual(request):
             almacenes_ids = request.POST.getlist('almacen_id[]')
             monedas_ids = request.POST.getlist('moneda_id[]')
             listas_ids = request.POST.getlist('lista_id[]')
+            unidades_compra = request.POST.getlist('unidad_compra[]')
+            factores_conv = request.POST.getlist('factor_conversion[]')
+            cantidades_inv = request.POST.getlist('cantidad_inventario[]')
 
             count = 0
-            for p_id, cant, prov_id, suc_id, cost, alm_id, mon_id, l_id in zip(productos_ids, cantidades, proveedores_ids, sucursales_ids, costos, almacenes_ids, monedas_ids, listas_ids):
+            for i, (p_id, cant, prov_id, suc_id, cost, alm_id, mon_id, l_id) in enumerate(zip(productos_ids, cantidades, proveedores_ids, sucursales_ids, costos, almacenes_ids, monedas_ids, listas_ids)):
                 if p_id and p_id != '':
+                    u_compra = unidades_compra[i] if i < len(unidades_compra) else ''
+                    try:
+                        f_conv = Decimal(str(factores_conv[i])) if i < len(factores_conv) and factores_conv[i] else Decimal('1.0000')
+                    except Exception:
+                        f_conv = Decimal('1.0000')
+                    try:
+                        c_inv = Decimal(str(cantidades_inv[i])) if i < len(cantidades_inv) and cantidades_inv[i] else (Decimal(str(cant)) * f_conv)
+                    except Exception:
+                        c_inv = Decimal(str(cant)) * f_conv
+
                     DetalleSolicitudCompra.objects.create(
                         solicitud=solicitud,
                         producto_id=p_id,
@@ -694,7 +740,10 @@ def crear_solicitud_manual(request):
                         costo_unitario=cost,
                         almacen_id=alm_id if alm_id else None,
                         moneda_id=mon_id if mon_id else None,
-                        lista_id=l_id if l_id else None
+                        lista_id=l_id if l_id else None,
+                        unidad_compra=u_compra or None,
+                        factor_conversion=f_conv,
+                        cantidad_inventario=c_inv
                     )
                     count += 1
             
@@ -781,6 +830,9 @@ def autorizar_solicitud(request, solicitud_id):
                     producto=det_solicitud.producto,
                     cantidad=det_solicitud.cantidad_solicitada,
                     precio_costo=det_solicitud.costo_unitario,
+                    unidad_compra=det_solicitud.unidad_compra,
+                    factor_conversion=det_solicitud.factor_conversion,
+                    cantidad_inventario=det_solicitud.cantidad_inventario_calculada,
                     detalle_pedido_origen=det_solicitud.detalle_pedido_origen
                 )
 

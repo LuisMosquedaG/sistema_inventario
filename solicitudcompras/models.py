@@ -96,10 +96,27 @@ class DetalleSolicitudCompra(models.Model):
     # NUEVO CAMPO: LISTA DE COSTO
     lista = models.ForeignKey('categorias.ListaPrecioCosto', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Lista de Costo")
 
+    # CONVERSIONES DE UNIDAD DE COMPRA
+    unidad_compra = models.CharField(max_length=50, blank=True, null=True, verbose_name="Unidad de Compra")
+    factor_conversion = models.DecimalField(max_digits=12, decimal_places=4, default=1.0000, verbose_name="Factor de Conversión")
+    cantidad_inventario = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Cant. Entrada Inventario")
+
     detalle_pedido_origen = models.ForeignKey(DetallePedido, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
         return f"{self.cantidad_solicitada} x {self.producto.nombre}"
+
+    @property
+    def cantidad_inventario_calculada(self):
+        if self.cantidad_inventario and self.cantidad_inventario > 0:
+            return self.cantidad_inventario
+        return Decimal(str(self.cantidad_solicitada)) * (self.factor_conversion or Decimal('1.0'))
+
+    @property
+    def unidad_compra_display(self):
+        if self.unidad_compra:
+            return dict(Producto.UNIDAD_OPCIONES).get(self.unidad_compra, self.unidad_compra)
+        return self.producto.get_unidad_medida_display() or self.producto.unidad_medida
 
     @property
     def subtotal(self):

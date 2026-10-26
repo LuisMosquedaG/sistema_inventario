@@ -78,6 +78,22 @@ class DetalleRecepcion(models.Model):
     cantidad_recibida = models.PositiveIntegerField(default=0)
     costo_unitario = models.DecimalField(max_digits=10, decimal_places=2)
 
+    # CONVERSIONES DE UNIDADES
+    unidad_compra = models.CharField(max_length=50, blank=True, null=True, verbose_name="Unidad de Compra")
+    factor_conversion = models.DecimalField(max_digits=12, decimal_places=4, default=Decimal('1.0000'), verbose_name="Factor de Conversión")
+    cantidad_inventario = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Cant. Entrada Inventario")
+
+    @property
+    def cantidad_inventario_calculada(self):
+        f = self.factor_conversion or Decimal('1.0000')
+        return Decimal(str(self.cantidad_recibida)) * f
+
+    @property
+    def unidad_compra_display(self):
+        if not self.unidad_compra:
+            return self.producto.get_unidad_medida_display() or self.producto.unidad_medida
+        return self.unidad_compra
+
     @property
     def subtotal(self):
         if self.costo_unitario is None:

@@ -583,6 +583,11 @@ def obtener_compra_json(request, compra_id):
                 'producto_id': d.producto.id,
                 'producto_nombre': d.producto.nombre,
                 'cantidad': d.cantidad,
+                'unidad_compra': d.unidad_compra or '',
+                'unidad_compra_display': d.unidad_compra_display,
+                'factor_conversion': float(d.factor_conversion or 1.0),
+                'cantidad_inventario': float(d.cantidad_inventario_calculada),
+                'unidad_base': d.producto.get_unidad_medida_display() or d.producto.unidad_medida,
                 'precio': float(d.precio_costo),
                 'iva_porcentaje': float(d.producto.iva or 0),
                 'subtotal': float(d.subtotal),
@@ -693,12 +698,27 @@ def actualizar_compra(request, compra_id):
             productos_ids = request.POST.getlist('producto_id[]')
             cantidades = request.POST.getlist('cantidad[]')
             precios = request.POST.getlist('precio_unitario[]')
+            unidades_compra = request.POST.getlist('unidad_compra[]')
+            factores_conv = request.POST.getlist('factor_conversion[]')
+            cantidades_inv = request.POST.getlist('cantidad_inventario[]')
 
             for i in range(len(productos_ids)):
                 prod_id = productos_ids[i]
                 if not prod_id: continue
                 cant = int(cantidades[i])
                 precio = float(precios[i])
+                u_compra = unidades_compra[i] if i < len(unidades_compra) else ''
+
+                try:
+                    f_conv = Decimal(str(factores_conv[i])) if i < len(factores_conv) and factores_conv[i] else Decimal('1.0000')
+                except Exception:
+                    f_conv = Decimal('1.0000')
+
+                try:
+                    c_inv = Decimal(str(cantidades_inv[i])) if i < len(cantidades_inv) and cantidades_inv[i] else (Decimal(str(cant)) * f_conv)
+                except Exception:
+                    c_inv = Decimal(str(cant)) * f_conv
+
                 if prod_id and cant > 0:
                     prod_obj = Producto.objects.filter(id=prod_id, empresa=empresa_actual).first()
                     if not prod_obj:
@@ -707,7 +727,10 @@ def actualizar_compra(request, compra_id):
                         orden_compra=orden,
                         producto=prod_obj,
                         cantidad=cant,
-                        precio_costo=precio
+                        precio_costo=precio,
+                        unidad_compra=u_compra or None,
+                        factor_conversion=f_conv,
+                        cantidad_inventario=c_inv
                     )
             return JsonResponse({'success': True, 'message': 'Orden actualizada correctamente.'})
         except Exception as e:
