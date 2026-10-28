@@ -1,0 +1,929 @@
+{% extends 'base.html' %}
+{% load static humanize %}
+
+{% block content %}
+<style>
+    /* Estilos Generales del Módulo de Reportes */
+    .report-card {
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .report-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+    .kpi-title {
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #64748b;
+        margin-bottom: 4px;
+    }
+    .kpi-value {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #1e293b;
+        line-height: 1.2;
+    }
+    .kpi-icon-wrap {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .kpi-icon-wrap:hover {
+        transform: scale(1.1);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    }
+    .filter-badge-btn {
+        border-radius: 20px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        padding: 5px 14px;
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        color: #475569;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        display: inline-block;
+        white-space: nowrap;
+    }
+    .filter-badge-btn:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+    }
+    .filter-badge-btn.active {
+        background: #00b8b9;
+        color: #ffffff;
+        border-color: #00b8b9;
+        box-shadow: 0 2px 6px rgba(0, 184, 185, 0.3);
+    }
+    .nav-tabs-custom .nav-link {
+        font-weight: 600;
+        color: #64748b;
+        border: none;
+        border-bottom: 3px solid transparent;
+        padding: 10px 18px;
+        font-size: 0.9rem;
+    }
+    .nav-tabs-custom .nav-link:hover {
+        color: #00b8b9;
+    }
+    .nav-tabs-custom .nav-link.active {
+        color: #00b8b9;
+        background: transparent;
+        border-bottom: 3px solid #00b8b9;
+    }
+    .table-report th {
+        background-color: #f8fafc;
+        color: #475569;
+        font-weight: 600;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        border-bottom: 2px solid #e2e8f0;
+        padding: 10px 14px;
+        white-space: nowrap;
+    }
+    .table-report td {
+        font-size: 0.85rem;
+        padding: 10px 14px;
+        vertical-align: middle;
+        color: #334155;
+    }
+    #tablaProductosReporte th,
+    #tablaProductosReporte td,
+    #tablaVendedoresReporte th,
+    #tablaVendedoresReporte td,
+    #tablaDetalleVentas th,
+    #tablaDetalleVentas td {
+        text-align: center !important;
+    }
+    .badge-canal-pos {
+        background-color: #e6fcf5;
+        color: #0ca678;
+        border: 1px solid #c3fae8;
+        font-weight: 600;
+        font-size: 0.7rem;
+        border-radius: 50px;
+        padding: 3px 8px;
+    }
+    .badge-canal-mostrador {
+        background-color: #f1f3f5;
+        color: #495057;
+        border: 1px solid #dee2e6;
+        font-weight: 600;
+        font-size: 0.7rem;
+        border-radius: 50px;
+        padding: 3px 8px;
+    }
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.72rem;
+        line-height: 1;
+        padding: 0.4em 0.85em;
+        font-weight: 600;
+        border-radius: 50px;
+    }
+    .status-completo { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
+    .status-cancelado { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
+    .status-pendiente { background-color: #fff9db; color: #f08c00; border: 1px solid #ffe066; }
+
+    /* Estilos de pastilla translúcida para Margen de Productos */
+    .margin-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.72rem;
+        line-height: 1;
+        padding: 0.4em 0.85em;
+        font-weight: 600;
+        border-radius: 50px;
+        min-width: 60px;
+    }
+    .margin-alto { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
+    .margin-medio { background-color: #fff9db; color: #f08c00; border: 1px solid #ffe066; }
+    .margin-bajo { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
+
+    @media print {
+        #sidebar, .navbar, .filters-container, .btn-print-hide {
+            display: none !important;
+        }
+        .container-fluid {
+            padding: 0 !important;
+        }
+        .tab-pane {
+            display: block !important;
+            opacity: 1 !important;
+        }
+    }
+</style>
+
+<div class="container-fluid py-3 px-4">
+    <!-- HEADER -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+        <div>
+            <h4 class="section-title mb-0 d-flex align-items-center gap-2">
+                <i class="bi bi-graph-up-arrow text-brand" style="color: #00b8b9;"></i>
+                Reportes de Ventas y Rendimiento
+            </h4>
+            <span class="section-subtitle text-muted">Auditoría ejecutiva de ventas, márgenes de utilidad, formas de cobro y rotación comercial</span>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2 btn-print-hide">
+            <button type="button" class="btn btn-light text-secondary border shadow-sm btn-sm fw-semibold" onclick="window.print()">
+                <i class="bi bi-printer me-1"></i> Imprimir
+            </button>
+            {% if granular_sales_perms.reportes.exportar or request.user.is_superuser %}
+            <a href="{% url 'exportar_reporte_ventas_excel' %}?periodo={{ datos.periodo }}&fecha_inicio={{ datos.fecha_inicio_str }}&fecha_fin={{ datos.fecha_fin_str }}&sucursal_id={{ datos.sucursal_id }}&vendedor_id={{ datos.vendedor_id }}&canal={{ datos.canal }}&forma_pago={{ datos.forma_pago_filtro }}&estado={{ datos.estado }}" class="btn btn-brand text-white shadow-sm btn-sm fw-semibold" style="background-color: #00b8b9; border-color: #00b8b9;">
+                <i class="bi bi-file-earmark-excel me-1"></i> Exportar a Excel
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- BARRA DE FILTROS -->
+    <div class="report-card p-3 mb-4 filters-container">
+        <!-- Fila 1: Botones Tipo Pastilla de Periodo -->
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-3 pb-2 border-bottom">
+            <span class="small fw-bold text-muted me-2"><i class="bi bi-calendar3 me-1"></i> Periodo:</span>
+            <a href="?periodo=hoy&sucursal_id={{ datos.sucursal_id }}&vendedor_id={{ datos.vendedor_id }}&canal={{ datos.canal }}&forma_pago={{ datos.forma_pago_filtro }}&estado={{ datos.estado }}" class="filter-badge-btn {% if datos.periodo == 'hoy' %}active{% endif %}">Hoy</a>
+            <a href="?periodo=ayer&sucursal_id={{ datos.sucursal_id }}&vendedor_id={{ datos.vendedor_id }}&canal={{ datos.canal }}&forma_pago={{ datos.forma_pago_filtro }}&estado={{ datos.estado }}" class="filter-badge-btn {% if datos.periodo == 'ayer' %}active{% endif %}">Ayer</a>
+            <a href="?periodo=esta_semana&sucursal_id={{ datos.sucursal_id }}&vendedor_id={{ datos.vendedor_id }}&canal={{ datos.canal }}&forma_pago={{ datos.forma_pago_filtro }}&estado={{ datos.estado }}" class="filter-badge-btn {% if datos.periodo == 'esta_semana' %}active{% endif %}">Esta Semana</a>
+            <a href="?periodo=este_mes&sucursal_id={{ datos.sucursal_id }}&vendedor_id={{ datos.vendedor_id }}&canal={{ datos.canal }}&forma_pago={{ datos.forma_pago_filtro }}&estado={{ datos.estado }}" class="filter-badge-btn {% if datos.periodo == 'este_mes' %}active{% endif %}">Este Mes</a>
+            <a href="?periodo=mes_pasado&sucursal_id={{ datos.sucursal_id }}&vendedor_id={{ datos.vendedor_id }}&canal={{ datos.canal }}&forma_pago={{ datos.forma_pago_filtro }}&estado={{ datos.estado }}" class="filter-badge-btn {% if datos.periodo == 'mes_pasado' %}active{% endif %}">Mes Pasado</a>
+            <a href="?periodo=anio_actual&sucursal_id={{ datos.sucursal_id }}&vendedor_id={{ datos.vendedor_id }}&canal={{ datos.canal }}&forma_pago={{ datos.forma_pago_filtro }}&estado={{ datos.estado }}" class="filter-badge-btn {% if datos.periodo == 'anio_actual' %}active{% endif %}">Año Actual</a>
+        </div>
+
+        <!-- Fila 2: Todos los Demás Filtros (Sin títulos, solo los campos) -->
+        <form id="formFiltrosReporte" method="GET" action="{% url 'reportes_ventas' %}" class="row g-2 align-items-center">
+            <input type="hidden" name="periodo" id="filtroPeriodo" value="{{ datos.periodo }}">
+
+            <div class="col-6 col-md-2">
+                <input type="date" name="fecha_inicio" class="form-control form-control-sm" value="{{ datos.fecha_inicio_str }}" title="Fecha Desde" onchange="document.getElementById('filtroPeriodo').value='personalizado'; document.getElementById('formFiltrosReporte').submit()">
+            </div>
+            
+            <div class="col-6 col-md-2">
+                <input type="date" name="fecha_fin" class="form-control form-control-sm" value="{{ datos.fecha_fin_str }}" title="Fecha Hasta" onchange="document.getElementById('filtroPeriodo').value='personalizado'; document.getElementById('formFiltrosReporte').submit()">
+            </div>
+
+            <div class="col-6 col-md-2">
+                <select name="sucursal_id" class="form-select form-select-sm" title="Sucursal" onchange="document.getElementById('formFiltrosReporte').submit()">
+                    <option value="todas">Todas las Sucursales</option>
+                    {% for suc in sucursales %}
+                        <option value="{{ suc.id }}" {% if datos.sucursal_id == suc.id|stringformat:"s" %}selected{% endif %}>{{ suc.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-6 col-md-2">
+                <select name="vendedor_id" class="form-select form-select-sm" title="Vendedor" onchange="document.getElementById('formFiltrosReporte').submit()">
+                    <option value="todos">Todos los Vendedores</option>
+                    {% for vend in vendedores %}
+                        <option value="{{ vend.id }}" {% if datos.vendedor_id == vend.id|stringformat:"s" %}selected{% endif %}>
+                            {{ vend.get_full_name|default:vend.username }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-6 col-md-2">
+                <select name="canal" class="form-select form-select-sm" title="Canal" onchange="document.getElementById('formFiltrosReporte').submit()">
+                    <option value="todos" {% if datos.canal == 'todos' %}selected{% endif %}>Todos los Canales</option>
+                    <option value="pos" {% if datos.canal == 'pos' %}selected{% endif %}>Punto de Venta (POS)</option>
+                    <option value="pedidos" {% if datos.canal == 'pedidos' or datos.canal == 'mostrador' %}selected{% endif %}>Pedidos</option>
+                </select>
+            </div>
+
+            <div class="col-6 col-md-2">
+                <select name="forma_pago" class="form-select form-select-sm" title="Forma de Pago" onchange="document.getElementById('formFiltrosReporte').submit()">
+                    <option value="todas" {% if datos.forma_pago_filtro == 'todas' %}selected{% endif %}>Todas las Formas</option>
+                    <option value="efectivo" {% if datos.forma_pago_filtro == 'efectivo' %}selected{% endif %}>Efectivo</option>
+                    <option value="tarjeta" {% if datos.forma_pago_filtro == 'tarjeta' %}selected{% endif %}>Tarjetas (Débito/Crédito)</option>
+                    <option value="transferencia" {% if datos.forma_pago_filtro == 'transferencia' %}selected{% endif %}>Transferencia</option>
+                    <option value="credito" {% if datos.forma_pago_filtro == 'credito' %}selected{% endif %}>Ventas a Crédito</option>
+                </select>
+            </div>
+        </form>
+    </div>
+
+    <!-- TARJETAS DE KPIS PRINCIPALES -->
+    <div class="row g-3 mb-4">
+        <!-- KPI 1: Ventas Netas -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="report-card p-3 h-100 d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="kpi-title">Ventas Totales Netas</div>
+                    <div class="kpi-value text-success">${{ datos.total_ventas|floatformat:2|intcomma }}</div>
+                    <div class="small text-muted mt-1">
+                        Subtotal: ${{ datos.total_subtotal|floatformat:2|intcomma }}
+                    </div>
+                </div>
+                <div class="kpi-icon-wrap" style="background-color: #ebfbee; color: #2f9e44;"
+                     data-bs-toggle="tooltip" data-bs-placement="top"
+                     title="Ventas Totales Netas: Importe total cobrado de pedidos válidos en el periodo (incluye IVA y deduce cancelaciones). El subtotal refleja la base antes de impuestos.">
+                    <i class="bi bi-cash-coin"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPI 2: Pedidos / Tickets -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="report-card p-3 h-100 d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="kpi-title">Tickets / Pedidos</div>
+                    <div class="kpi-value">{{ datos.total_pedidos|intcomma }}</div>
+                    <div class="small text-muted mt-1">
+                        Ticket Prom.: <strong class="text-dark">${{ datos.ticket_promedio|floatformat:2|intcomma }}</strong>
+                    </div>
+                </div>
+                <div class="kpi-icon-wrap" style="background-color: #e7f5ff; color: #1971c2;"
+                     data-bs-toggle="tooltip" data-bs-placement="top"
+                     title="Tickets / Pedidos: Cantidad total de transacciones o notas de venta completadas. El ticket promedio indica el gasto medio por cliente (${{ datos.ticket_promedio|floatformat:2|intcomma }}).">
+                    <i class="bi bi-receipt"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPI 3: Utilidad Bruta Estimada -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="report-card p-3 h-100 d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="kpi-title">Utilidad Bruta Est.</div>
+                    <div class="kpi-value" style="color: #008b8c;">${{ datos.utilidad_bruta|floatformat:2|intcomma }}</div>
+                    <div class="small mt-1">
+                        <span class="badge bg-light text-dark border fw-bold">{{ datos.margen_bruto_pct|floatformat:2 }}% Margen</span>
+                    </div>
+                </div>
+                <div class="kpi-icon-wrap" style="background-color: #e6f7f8; color: #00b8b9;"
+                     data-bs-toggle="tooltip" data-bs-placement="top"
+                     title="Utilidad Bruta Estimada: Ganancia comercial calculada como (Subtotal de ventas - Costo de los productos). El margen del {{ datos.margen_bruto_pct|floatformat:2 }}% representa la rentabilidad porcentual sobre las ventas.">
+                    <i class="bi bi-graph-up"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPI 4: Descuentos e Impuestos -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="report-card p-3 h-100 d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="kpi-title">Descuentos & IVA</div>
+                    <div class="kpi-value text-secondary">${{ datos.total_iva|floatformat:2|intcomma }}</div>
+                    <div class="small text-muted mt-1">
+                        Descuentos aplicados: <span class="text-danger fw-semibold">-${{ datos.total_descuentos|floatformat:2|intcomma }}</span>
+                    </div>
+                </div>
+                <div class="kpi-icon-wrap" style="background-color: #f8f9fa; color: #495057;"
+                     data-bs-toggle="tooltip" data-bs-placement="top"
+                     title="Descuentos & IVA: Desglose impositivo y promocional. Muestra el IVA recaudado (${{ datos.total_iva|floatformat:2|intcomma }}) junto con el total de descuentos y promociones otorgadas (-${{ datos.total_descuentos|floatformat:2|intcomma }}).">
+                    <i class="bi bi-percent"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PESTAÑAS DE REPORTES -->
+    <div class="report-card p-0 mb-4 overflow-hidden">
+        <div class="bg-light px-3 pt-2 border-bottom">
+            <ul class="nav nav-tabs nav-tabs-custom border-0" id="reportTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="tab-resumen-btn" data-bs-toggle="tab" data-bs-target="#tab-resumen" type="button" role="tab">
+                        <i class="bi bi-bar-chart-line me-1"></i> Gráficos & Tendencias
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-productos-btn" data-bs-toggle="tab" data-bs-target="#tab-productos" type="button" role="tab">
+                        <i class="bi bi-trophy me-1"></i> Top Productos & Rentabilidad
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-pagos-btn" data-bs-toggle="tab" data-bs-target="#tab-pagos" type="button" role="tab">
+                        <i class="bi bi-credit-card me-1"></i> Métodos de Pago & Créditos
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-vendedores-btn" data-bs-toggle="tab" data-bs-target="#tab-vendedores" type="button" role="tab">
+                        <i class="bi bi-people me-1"></i> Rendimiento por Vendedor
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-detalle-btn" data-bs-toggle="tab" data-bs-target="#tab-detalle" type="button" role="tab">
+                        <i class="bi bi-list-check me-1"></i> Auditoría Detallada
+                    </button>
+                </li>
+            </ul>
+        </div>
+
+        <div class="tab-content p-4" id="reportTabsContent">
+            <!-- PESTAÑA 1: GRÁFICOS Y TENDENCIAS -->
+            <div class="tab-pane fade show active" id="tab-resumen" role="tabpanel">
+                <div class="row g-4 mb-4">
+                    <!-- Gráfico 1: Ventas en el Tiempo -->
+                    <div class="col-12 col-lg-8">
+                        <div class="p-3 border rounded-3 bg-white h-100">
+                            <h6 class="fw-bold text-dark mb-3">
+                                <i class="bi bi-graph-up me-1 text-primary"></i> Ventas en el Tiempo ($)
+                                <span class="small text-muted fw-normal ms-2">({{ datos.chart_tiempo_subtitulo }})</span>
+                            </h6>
+                            <div style="height: 320px; position: relative;">
+                                <canvas id="chartVentasTiempo"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gráfico 2: Formas de Pago -->
+                    <div class="col-12 col-lg-4">
+                        <div class="p-3 border rounded-3 bg-white h-100">
+                            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-pie-chart me-1 text-success"></i> Participación por Forma de Pago</h6>
+                            <div style="height: 250px; position: relative;">
+                                <canvas id="chartFormasPago"></canvas>
+                            </div>
+                            <div class="small text-muted text-center mt-2">
+                                Efectivo: ${{ datos.ventas_por_forma_pago.efectivo|floatformat:2|intcomma }} | Digital: ${{ datos.ventas_por_forma_pago.tarjeta|add:datos.ventas_por_forma_pago.transferencia|floatformat:2|intcomma }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gráfico 3: Ventas por Sucursal -->
+                {% if datos.sucursales_list|length > 1 %}
+                <div class="row">
+                    <div class="col-12">
+                        <div class="p-3 border rounded-3 bg-white">
+                            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-shop me-1 text-info"></i> Comparativa de Ventas por Sucursal ($)</h6>
+                            <div style="height: 220px; position: relative;">
+                                <canvas id="chartSucursales"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- PESTAÑA 2: TOP PRODUCTOS -->
+            <div class="tab-pane fade" id="tab-productos" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold text-dark mb-0">Listado de Artículos Vendidos en el Periodo</h6>
+                    <div style="width: 280px;">
+                        <input type="text" id="filtroProductosInput" class="form-control form-control-sm" placeholder="Buscar producto o clave..." onkeyup="filtrarTablaProductos()">
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover table-report mb-0" id="tablaProductosReporte">
+                        <thead>
+                            <tr>
+                                <th class="text-center">#</th>
+                                <th class="text-center">Producto</th>
+                                <th class="text-center">Clave / SKU</th>
+                                <th class="text-center">Categoría</th>
+                                <th class="text-center">Cant. Vendida</th>
+                                <th class="text-center">Total Ventas ($)</th>
+                                <th class="text-center">Costo Est. ($)</th>
+                                <th class="text-center">Utilidad Bruta ($)</th>
+                                <th class="text-center">Margen (%)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for prod in datos.top_productos %}
+                            <tr>
+                                <td class="text-muted">{{ forloop.counter }}</td>
+                                <td class="fw-medium text-dark">{{ prod.nombre }}</td>
+                                <td>{{ prod.clave|default:"—" }}</td>
+                                <td>{{ prod.categoria }}</td>
+                                <td>{{ prod.cantidad|intcomma }}</td>
+                                <td>${{ prod.total_venta|floatformat:2|intcomma }}</td>
+                                <td>${{ prod.costo_total|floatformat:2|intcomma }}</td>
+                                <td>${{ prod.utilidad|floatformat:2|intcomma }}</td>
+                                <td>
+                                    <span class="margin-pill {% if prod.margen_pct >= 50 %}margin-alto{% elif prod.margen_pct >= 5 %}margin-medio{% else %}margin-bajo{% endif %}">
+                                        {{ prod.margen_pct|floatformat:2 }}%
+                                    </span>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="9" class="text-center py-4 text-muted">No se registraron ventas de artículos en este periodo.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- PESTAÑA 3: FORMAS DE PAGO Y CRÉDITOS -->
+            <div class="tab-pane fade" id="tab-pagos" role="tabpanel">
+                <div class="row g-4">
+                    <!-- Resumen Métodos de Pago -->
+                    <div class="col-12 col-md-6">
+                        <div class="p-3 border rounded-3 bg-white h-100">
+                            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-wallet2 text-success me-1"></i> Desglose de Cobranza</h6>
+                            <table class="table table-report mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Método de Pago</th>
+                                        <th class="text-end">Monto Cobrado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><i class="bi bi-cash me-2 text-success"></i> Efectivo</td>
+                                        <td class="text-end fw-bold">${{ datos.ventas_por_forma_pago.efectivo|floatformat:2|intcomma }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><i class="bi bi-credit-card me-2 text-primary"></i> Tarjetas (Débito / Crédito)</td>
+                                        <td class="text-end fw-bold">${{ datos.ventas_por_forma_pago.tarjeta|floatformat:2|intcomma }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><i class="bi bi-bank me-2 text-info"></i> Transferencias</td>
+                                        <td class="text-end fw-bold">${{ datos.ventas_por_forma_pago.transferencia|floatformat:2|intcomma }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><i class="bi bi-clock-history me-2 text-warning"></i> Ventas a Crédito</td>
+                                        <td class="text-end fw-bold">${{ datos.ventas_por_forma_pago.credito|floatformat:2|intcomma }}</td>
+                                    </tr>
+                                    {% if datos.ventas_por_forma_pago.otros > 0 %}
+                                    <tr>
+                                        <td><i class="bi bi-three-dots me-2 text-muted"></i> Otros</td>
+                                        <td class="text-end fw-bold">${{ datos.ventas_por_forma_pago.otros|floatformat:2|intcomma }}</td>
+                                    </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Resumen Cartera y Créditos -->
+                    <div class="col-12 col-md-6">
+                        <div class="p-3 border rounded-3 bg-white h-100">
+                            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-receipt-cutoff text-warning me-1"></i> Cuentas por Cobrar (Crédito)</h6>
+                            <div class="mb-3">
+                                <span class="small text-muted d-block">Créditos Otorgados en este Periodo</span>
+                                <h4 class="fw-bold text-dark mb-0">${{ datos.creditos_otorgados|floatformat:2|intcomma }}</h4>
+                            </div>
+                            <div class="row g-2 mb-3">
+                                <div class="col-6">
+                                    <div class="p-2 border rounded bg-light">
+                                        <span class="small text-muted d-block">Recuperado (Abonos)</span>
+                                        <strong class="text-success">${{ datos.creditos_recuperados|floatformat:2|intcomma }}</strong>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="p-2 border rounded bg-light">
+                                        <span class="small text-muted d-block">Saldo Pendiente</span>
+                                        <strong class="text-danger">${{ datos.creditos_saldo_pendiente|floatformat:2|intcomma }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="small text-muted mb-0">
+                                <i class="bi bi-info-circle me-1"></i> Para consultar la antigüedad de saldos y registrar abonos detallados, puedes dirigirte al módulo de <a href="/clientes/" class="fw-bold text-brand">Clientes y Créditos</a>.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PESTAÑA 4: RENDIMIENTO POR VENDEDOR -->
+            <div class="tab-pane fade" id="tab-vendedores" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold text-dark mb-0">Ventas y Productividad por Colaborador</h6>
+                    <div style="width: 280px;">
+                        <input type="text" id="filtroVendedoresInput" class="form-control form-control-sm" placeholder="Buscar colaborador..." onkeyup="filtrarTablaVendedores()">
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover table-report mb-0" id="tablaVendedoresReporte">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Colaborador</th>
+                                <th>Totales Ventas ($)</th>
+                                <th>Tickets Cerrados</th>
+                                <th>Tickets Promedio ($)</th>
+                                <th>Devoluciones Totales ($)</th>
+                                <th>Descuentos Otorgados ($)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for v in datos.vendedores_list %}
+                            <tr>
+                                <td class="text-muted">{{ forloop.counter }}</td>
+                                <td class="fw-medium text-dark">{{ v.nombre }}</td>
+                                <td>${{ v.total|floatformat:2|intcomma }}</td>
+                                <td>{{ v.pedidos|intcomma }}</td>
+                                <td>${{ v.ticket_promedio|floatformat:2|intcomma }}</td>
+                                <td>${{ v.devoluciones|floatformat:2|intcomma }}</td>
+                                <td>${{ v.descuentos|floatformat:2|intcomma }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">No se registran datos de colaboradores en este periodo.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- PESTAÑA 5: AUDITORÍA DETALLADA -->
+            <div class="tab-pane fade" id="tab-detalle" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold text-dark mb-0">Listado Cronológico de Tickets y Ventas</h6>
+                    <div style="width: 280px;">
+                        <input type="text" id="filtroDetalleInput" class="form-control form-control-sm" placeholder="Buscar por folio, cliente..." onkeyup="filtrarTablaDetalle()">
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover table-report mb-0" id="tablaDetalleVentas">
+                        <thead>
+                            <tr>
+                                <th>Folio</th>
+                                <th>Fecha</th>
+                                <th>Cliente</th>
+                                <th>Vendedor</th>
+                                <th>Sucursal</th>
+                                <th>Canal</th>
+                                <th>Forma de Pago</th>
+                                <th>Subtotal</th>
+                                <th>IVA</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in datos.pedidos_detalle %}
+                            <tr>
+                                <td>
+                                    <a href="javascript:void(0);" onclick="verPedido({{ p.id }})" class="text-decoration-none text-brand fw-semibold" title="Ver desglose del pedido">
+                                        {{ p.folio }}
+                                    </a>
+                                </td>
+                                <td class="text-nowrap">{{ p.fecha_str }}</td>
+                                <td>{{ p.cliente }}</td>
+                                <td>{{ p.vendedor }}</td>
+                                <td>{{ p.sucursal }}</td>
+                                <td>{{ p.canal }}</td>
+                                <td>{{ p.formas_pago }}</td>
+                                <td>${{ p.subtotal|floatformat:2|intcomma }}</td>
+                                <td>${{ p.iva|floatformat:2|intcomma }}</td>
+                                <td class="fw-bold text-dark">${{ p.total|floatformat:2|intcomma }}</td>
+                                <td>
+                                    <span class="status-pill status-{{ p.estado }}">
+                                        {{ p.estado_display }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="11" class="text-center py-4 text-muted">No se encontraron ventas para los filtros seleccionados.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Inicializar Gráficos con Chart.js y Tooltips
+    document.addEventListener("DOMContentLoaded", function() {
+        // Inicializar tooltips de Bootstrap
+        if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        }
+
+        const diasLabels = {{ datos.chart_dias_labels_json|safe }};
+        const diasVentas = {{ datos.chart_dias_ventas_json|safe }};
+        const diasPedidos = {{ datos.chart_dias_pedidos_json|safe }};
+
+        // 1. Gráfico de Ventas en el Tiempo (Línea + Barras)
+        const ctxTiempo = document.getElementById('chartVentasTiempo');
+        if (ctxTiempo) {
+            new Chart(ctxTiempo.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: diasLabels,
+                    datasets: [
+                        {
+                            label: 'Ventas Netas ($)',
+                            data: diasVentas,
+                            borderColor: '#00b8b9',
+                            backgroundColor: 'rgba(0, 184, 185, 0.1)',
+                            borderWidth: 2.5,
+                            fill: true,
+                            tension: 0.35,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            pointBackgroundColor: '#00b8b9',
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Tickets (#)',
+                            data: diasPedidos,
+                            type: 'bar',
+                            backgroundColor: 'rgba(203, 213, 225, 0.5)',
+                            borderColor: '#cbd5e1',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            ticks: {
+                                callback: function(value) { return '$' + value.toLocaleString(); }
+                            },
+                            grid: { color: '#f1f5f9' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: { stepSize: 1 }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.dataset.yAxisID === 'y') {
+                                        return ' ' + context.dataset.label + ': $' + context.parsed.y.toLocaleString('es-MX', { minimumFractionDigits: 2 });
+                                    }
+                                    return ' ' + context.dataset.label + ': ' + context.parsed.y;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 2. Gráfico de Formas de Pago (Doughnut)
+        const ctxPagos = document.getElementById('chartFormasPago');
+        if (ctxPagos) {
+            const pagosLabels = {{ datos.chart_pagos_labels_json|safe }};
+            const pagosData = {{ datos.chart_pagos_data_json|safe }};
+            
+            new Chart(ctxPagos.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: pagosLabels,
+                    datasets: [{
+                        data: pagosData,
+                        backgroundColor: [
+                            'rgba(47, 158, 68, 0.28)',    // Efectivo (verde traslúcido)
+                            'rgba(25, 113, 194, 0.28)',   // Tarjeta (azul traslúcido)
+                            'rgba(16, 152, 173, 0.28)',   // Transferencia (turquesa traslúcido)
+                            'rgba(245, 159, 0, 0.28)',    // Crédito (ámbar traslúcido)
+                            'rgba(134, 142, 150, 0.28)'   // Otros (gris traslúcido)
+                        ],
+                        hoverBackgroundColor: [
+                            '#2f9e44',                    // Efectivo encendido
+                            '#1971c2',                    // Tarjeta encendida
+                            '#1098ad',                    // Transferencia encendida
+                            '#f59f00',                    // Crédito encendido
+                            '#868e96'                     // Otros encendido
+                        ],
+                        borderColor: [
+                            '#2f9e44',
+                            '#1971c2',
+                            '#1098ad',
+                            '#f59f00',
+                            '#868e96'
+                        ],
+                        borderWidth: 1.5,
+                        hoverBorderColor: '#ffffff',
+                        hoverBorderWidth: 2,
+                        hoverOffset: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return ' ' + context.label + ': $' + context.parsed.toLocaleString('es-MX', { minimumFractionDigits: 2 });
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 3. Gráfico de Sucursales (Barra Horizontal)
+        const ctxSuc = document.getElementById('chartSucursales');
+        if (ctxSuc) {
+            const sucLabels = {{ datos.chart_sucursales_labels_json|safe }};
+            const sucData = {{ datos.chart_sucursales_data_json|safe }};
+            
+            new Chart(ctxSuc.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: sucLabels,
+                    datasets: [{
+                        label: 'Ventas por Sucursal ($)',
+                        data: sucData,
+                        backgroundColor: '#00b8b9',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: {
+                        x: {
+                            ticks: {
+                                callback: function(value) { return '$' + value.toLocaleString(); }
+                            },
+                            grid: { color: '#f1f5f9' }
+                        },
+                        y: {
+                            grid: { display: false }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+    });
+
+    // Filtros de búsqueda en vivo en tablas
+    function filtrarTablaProductos() {
+        const input = document.getElementById("filtroProductosInput").value.toLowerCase();
+        const filas = document.querySelectorAll("#tablaProductosReporte tbody tr");
+        filas.forEach(fila => {
+            const texto = fila.innerText.toLowerCase();
+            fila.style.display = texto.includes(input) ? "" : "none";
+        });
+    }
+
+    function filtrarTablaVendedores() {
+        const input = document.getElementById("filtroVendedoresInput").value.toLowerCase();
+        const filas = document.querySelectorAll("#tablaVendedoresReporte tbody tr");
+        filas.forEach(fila => {
+            const texto = fila.innerText.toLowerCase();
+            fila.style.display = texto.includes(input) ? "" : "none";
+        });
+    }
+
+    function filtrarTablaDetalle() {
+        const input = document.getElementById("filtroDetalleInput").value.toLowerCase();
+        const filas = document.querySelectorAll("#tablaDetalleVentas tbody tr");
+        filas.forEach(fila => {
+            const texto = fila.innerText.toLowerCase();
+            fila.style.display = texto.includes(input) ? "" : "none";
+        });
+    }
+
+    function verPedido(id) {
+        const tbody = document.getElementById('ver_pedido_tabla_cuerpo');
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</td></tr>';
+        
+        const modalEl = document.getElementById('modalVerPedido');
+        let modal = bootstrap.Modal.getInstance(modalEl);
+        if (!modal) {
+            modal = new bootstrap.Modal(modalEl);
+        }
+        modal.show();
+
+        fetch(`/pedidos/api/ver/${id}/`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                document.getElementById('ver_pedido_folio').innerText = data.folio;
+                document.getElementById('ver_pedido_cliente').innerText = data.cliente_nombre;
+                document.getElementById('ver_pedido_contacto').innerText = data.contacto_nombre;
+                document.getElementById('ver_pedido_cliente_tel').innerText = data.cliente_tel;
+                document.getElementById('ver_pedido_cliente_email').innerText = data.cliente_email;
+                document.getElementById('ver_pedido_fecha').innerText = data.fecha;
+                document.getElementById('ver_pedido_cotizacion').innerText = data.cotizacion_folio;
+                document.getElementById('ver_pedido_contacto_nom').innerText = data.contacto_nombre;
+                document.getElementById('ver_pedido_contacto_tel').innerText = data.contacto_tel;
+                document.getElementById('ver_pedido_contacto_email').innerText = data.contacto_email;
+
+                // Ocultar cabecera de acciones (devoluciones) en vista de reportes
+                const actionsHdr = document.querySelector('.ver-pedido-acciones-hdr');
+                if (actionsHdr) {
+                    actionsHdr.style.display = 'none';
+                }
+
+                tbody.innerHTML = '';
+                if (data.detalles && data.detalles.length > 0) {
+                    data.detalles.forEach(det => {
+                        tbody.insertAdjacentHTML('beforeend', `
+                            <tr>
+                                <td class="ps-3 fw-semibold small text-dark">${det.producto}</td>
+                                <td class="text-center small">${det.solicitado}</td>
+                                <td class="text-end small text-muted">$${parseFloat(det.precio).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                <td class="text-end small text-dark">$${parseFloat(det.subtotal).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                <td class="text-end small text-muted">$${parseFloat(det.iva_monto).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                <td class="text-end pe-3 fw-bold small text-dark">$${parseFloat(det.total).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                            </tr>
+                        `);
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-muted fst-italic">No hay artículos en este pedido.</td></tr>';
+                }
+
+                const elSub = document.getElementById('ver_pedido_subtotal');
+                if (elSub) elSub.innerText = '$' + parseFloat(data.subtotal_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+
+                const elIva = document.getElementById('ver_pedido_iva_total');
+                if (elIva) elIva.innerText = '$' + parseFloat(data.iva_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+
+                const elTotal = document.getElementById('ver_pedido_gran_total');
+                if (elTotal) elTotal.innerText = '$' + parseFloat(data.gran_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+            })
+            .catch(error => {
+                console.error("Error al cargar pedido:", error);
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-3">Error al cargar datos.</td></tr>';
+            });
+    }
+</script>
+{% include "pedidos/modals/modal_ver_pedido.html" %}
+{% endblock %}
+{% endblock %}

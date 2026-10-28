@@ -2210,6 +2210,14 @@ def obtener_ventas_sesion_ajax(request, sesion_id):
         total_subtotal = Decimal('0.00')
         total_iva = Decimal('0.00')
         total_final = Decimal('0.00')
+
+        devoluciones_subtotal = Decimal('0.00')
+        devoluciones_iva = Decimal('0.00')
+        devoluciones_total = Decimal('0.00')
+
+        brutas_subtotal = Decimal('0.00')
+        brutas_iva = Decimal('0.00')
+        brutas_total = Decimal('0.00')
         
         ventas_data = []
         for p in pedidos:
@@ -2224,8 +2232,16 @@ def obtener_ventas_sesion_ajax(request, sesion_id):
             for d in p.detalles.all():
                 p_subtotal += d.subtotal
                 p_iva += d.iva_monto
+
+            brutas_subtotal += p_subtotal
+            brutas_iva += p_iva
+            brutas_total += p.total_pedido
                 
-            if p.estado != 'cancelado':
+            if p.estado == 'cancelado':
+                devoluciones_subtotal += p_subtotal
+                devoluciones_iva += p_iva
+                devoluciones_total += p.total_pedido
+            else:
                 total_subtotal += p_subtotal
                 total_iva += p_iva
                 total_final += p.total_pedido
@@ -2247,7 +2263,13 @@ def obtener_ventas_sesion_ajax(request, sesion_id):
             'ventas': ventas_data,
             'subtotal': float(total_subtotal),
             'iva': float(total_iva),
-            'total': float(total_final)
+            'total': float(total_final),
+            'devoluciones_subtotal': float(devoluciones_subtotal),
+            'devoluciones_iva': float(devoluciones_iva),
+            'devoluciones_total': float(devoluciones_total),
+            'brutas_subtotal': float(brutas_subtotal),
+            'brutas_iva': float(brutas_iva),
+            'brutas_total': float(brutas_total)
         })
     except SesionCajaPOS.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'La sesión de caja no existe o no pertenece a la empresa.'}, status=404)
@@ -3339,3 +3361,666 @@ def api_devolucion_partida(request, detalle_id):
         return JsonResponse({'success': True, 'message': 'Devolución de partida procesada correctamente.'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+
+# ==========================================
+# MÓDULO DE REPORTES DE VENTAS
+# ==========================================
+
+def _calcular_datos_reporte_ventas(request, empresa_actual):
+    from decimal import Decimal
+    from datetime import datetime, timedelta
+    from collections import defaultdict
+    import json
+    from django.utils import timezone
+    from pedidos.models import Pedido
+    from tesoreria.models import PagoPedido
+    from clientes.models import Credito
+
+    today = timezone.localdate()
+    periodo = request.GET.get('periodo', 'este_mes')
+    fecha_inicio_str = request.GET.get('fecha_inicio', '').strip()
+    fecha_fin_str = request.GET.get('fecha_fin', '').strip()
+
+    if periodo == 'hoy':
+        fecha_inicio = today
+        fecha_fin = today
+    elif periodo == 'ayer':
+        fecha_inicio = today - timedelta(days=1)
+        fecha_fin = today - timedelta(days=1)
+    elif periodo == 'esta_semana':
+        fecha_inicio = today - timedelta(days=today.weekday())
+        fecha_fin = today
+    elif periodo == 'este_mes':
+        fecha_inicio = today.replace(day=1)
+        fecha_fin = today
+    elif periodo == 'mes_pasado':
+        primer_dia_este_mes = today.replace(day=1)
+        ultimo_dia_mes_pasado = primer_dia_este_mes - timedelta(days=1)
+        fecha_inicio = ultimo_dia_mes_pasado.replace(day=1)
+        fecha_fin = ultimo_dia_mes_pasado
+    elif periodo == 'anio_actual':
+        fecha_inicio = today.replace(month=1, day=1)
+        fecha_fin = today
+    elif periodo == 'personalizado' or (fecha_inicio_str and fecha_fin_str):
+        periodo = 'personalizado'
+        try:
+            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+        except Exception:
+            fecha_inicio = today.replace(day=1)
+        try:
+            fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+        except Exception:
+            fecha_fin = today
+    else:
+        periodo = 'este_mes'
+        fecha_inicio = today.replace(day=1)
+        fecha_fin = today
+
+    pedidos_qs = Pedido.objects.filter(
+        empresa=empresa_actual,
+        fecha_creacion__date__gte=fecha_inicio,
+        fecha_creacion__date__lte=fecha_fin
+    ).select_related('cliente', 'vendedor', 'sucursal', 'sesion_caja')
+
+    sucursal_id = request.GET.get('sucursal_id', '')
+    if sucursal_id and sucursal_id != 'todas':
+        try:
+            pedidos_qs = pedidos_qs.filter(sucursal_id=int(sucursal_id))
+        except Exception:
+            pass
+
+    vendedor_id = request.GET.get('vendedor_id', '')
+    if vendedor_id and vendedor_id != 'todos':
+        try:
+            pedidos_qs = pedidos_qs.filter(vendedor_id=int(vendedor_id))
+        except Exception:
+            pass
+
+    canal = request.GET.get('canal', 'todos')
+    if canal == 'pos':
+        pedidos_qs = pedidos_qs.filter(sesion_caja__isnull=False)
+    elif canal in ['mostrador', 'pedidos']:
+        pedidos_qs = pedidos_qs.filter(sesion_caja__isnull=True)
+
+    estado = request.GET.get('estado', 'validas')
+    if estado == 'validas':
+        pedidos_qs = pedidos_qs.exclude(estado='cancelado')
+    elif estado == 'canceladas':
+        pedidos_qs = pedidos_qs.filter(estado='cancelado')
+
+    forma_pago_filtro = request.GET.get('forma_pago', 'todas')
+    if forma_pago_filtro and forma_pago_filtro != 'todas':
+        if forma_pago_filtro == 'credito':
+            pedidos_qs = pedidos_qs.filter(creditos__isnull=False).distinct()
+        elif forma_pago_filtro == 'tarjeta':
+            pedidos_qs = pedidos_qs.filter(pagos__forma_pago__in=['tarjeta_debito', 'tarjeta_credito'], pagos__estado='aplicado').distinct()
+        else:
+            pedidos_qs = pedidos_qs.filter(pagos__forma_pago=forma_pago_filtro, pagos__estado='aplicado').distinct()
+
+    pedidos_qs = pedidos_qs.prefetch_related(
+        'detalles__producto',
+        'pagos',
+        'creditos'
+    ).order_by('-fecha_creacion')
+
+    total_pedidos = pedidos_qs.count()
+    total_subtotal = Decimal('0.00')
+    total_iva = Decimal('0.00')
+    total_ventas = Decimal('0.00')
+    total_costo = Decimal('0.00')
+    total_descuentos = Decimal('0.00')
+
+    ventas_por_dia = defaultdict(lambda: {'total': Decimal('0.00'), 'subtotal': Decimal('0.00'), 'iva': Decimal('0.00'), 'pedidos': 0})
+    ventas_por_hora = defaultdict(lambda: {'total': Decimal('0.00'), 'subtotal': Decimal('0.00'), 'iva': Decimal('0.00'), 'pedidos': 0})
+    ventas_por_forma_pago = {
+        'efectivo': Decimal('0.00'),
+        'tarjeta': Decimal('0.00'),
+        'transferencia': Decimal('0.00'),
+        'credito': Decimal('0.00'),
+        'otros': Decimal('0.00')
+    }
+    ventas_por_sucursal = defaultdict(lambda: {'nombre': '', 'total': Decimal('0.00'), 'pedidos': 0})
+    ventas_por_vendedor = defaultdict(lambda: {'nombre': '', 'total': Decimal('0.00'), 'pedidos': 0, 'descuentos': Decimal('0.00'), 'devoluciones': Decimal('0.00')})
+    productos_dict = defaultdict(lambda: {
+        'id': None, 'nombre': '', 'clave': '', 'categoria': 'Sin Categoría', 'cantidad': 0,
+        'total_venta': Decimal('0.00'), 'costo_total': Decimal('0.00'), 'utilidad': Decimal('0.00'), 'margen_pct': 0.0
+    })
+
+    creditos_otorgados = Decimal('0.00')
+    creditos_saldo_pendiente = Decimal('0.00')
+
+    pedidos_detalle_list = []
+
+    for p in pedidos_qs:
+        p_subtotal = p.calcular_subtotal
+        p_iva = p.calcular_iva
+        p_total = p.total_pedido
+
+        total_subtotal += p_subtotal
+        total_iva += p_iva
+        total_ventas += p_total
+
+        # Descuentos en notas
+        desc_pedido = Decimal('0.00')
+        if p.notas:
+            try:
+                notas_obj = json.loads(p.notas)
+                if isinstance(notas_obj, dict):
+                    desc_pedido = Decimal(str(notas_obj.get('descuento_monto', 0.00)))
+            except Exception:
+                pass
+        total_descuentos += desc_pedido
+
+        # Agrupación por día y hora (en zona horaria local)
+        p_fecha_local = timezone.localtime(p.fecha_creacion)
+        dia_str = p_fecha_local.strftime('%Y-%m-%d')
+        hora_int = p_fecha_local.hour
+
+        ventas_por_dia[dia_str]['total'] += p_total
+        ventas_por_dia[dia_str]['subtotal'] += p_subtotal
+        ventas_por_dia[dia_str]['iva'] += p_iva
+        ventas_por_dia[dia_str]['pedidos'] += 1
+
+        ventas_por_hora[hora_int]['total'] += p_total
+        ventas_por_hora[hora_int]['subtotal'] += p_subtotal
+        ventas_por_hora[hora_int]['iva'] += p_iva
+        ventas_por_hora[hora_int]['pedidos'] += 1
+
+        # Agrupación por Sucursal
+        suc_nombre = p.sucursal.nombre if p.sucursal else "Principal / General"
+        suc_id = p.sucursal.id if p.sucursal else 0
+        ventas_por_sucursal[suc_id]['nombre'] = suc_nombre
+        ventas_por_sucursal[suc_id]['total'] += p_total
+        ventas_por_sucursal[suc_id]['pedidos'] += 1
+
+        # Agrupación por Vendedor
+        vend_nombre = p.vendedor.username.split('@')[0] if p.vendedor else "Sistema"
+        vend_id = p.vendedor.id if p.vendedor else 0
+        ventas_por_vendedor[vend_id]['nombre'] = vend_nombre
+        ventas_por_vendedor[vend_id]['total'] += p_total
+        ventas_por_vendedor[vend_id]['pedidos'] += 1
+        ventas_por_vendedor[vend_id]['descuentos'] += desc_pedido
+
+        # Formas de Pago
+        pagos_aplicados = p.pagos.filter(estado='aplicado')
+        pago_formas_str_list = []
+        for pago in pagos_aplicados:
+            fp = pago.forma_pago
+            m_mxn = Decimal(str(pago.monto_mxn or pago.monto or 0))
+            if fp == 'efectivo':
+                ventas_por_forma_pago['efectivo'] += m_mxn
+                pago_formas_str_list.append('Efectivo')
+            elif fp in ['tarjeta_debito', 'tarjeta_credito']:
+                ventas_por_forma_pago['tarjeta'] += m_mxn
+                pago_formas_str_list.append('Tarjeta')
+            elif fp == 'transferencia':
+                ventas_por_forma_pago['transferencia'] += m_mxn
+                pago_formas_str_list.append('Transferencia')
+            elif fp == 'credito':
+                ventas_por_forma_pago['credito'] += m_mxn
+                pago_formas_str_list.append('Crédito')
+            else:
+                ventas_por_forma_pago['otros'] += m_mxn
+                pago_formas_str_list.append(fp.capitalize())
+
+        # Créditos otorgados
+        if p.estado != 'cancelado':
+            for c in p.creditos.all():
+                m_cred = Decimal(str(c.monto_total or 0))
+                s_cred = Decimal(str(c.saldo or 0))
+                creditos_otorgados += m_cred
+                creditos_saldo_pendiente += s_cred
+                if not any(fp.forma_pago == 'credito' for fp in pagos_aplicados):
+                    ventas_por_forma_pago['credito'] += m_cred
+                if 'Crédito' not in pago_formas_str_list:
+                    pago_formas_str_list.append('Crédito')
+
+        # Partidas del pedido (Productos y Costos)
+        for det in p.detalles.all():
+            prod = det.producto
+            cant = det.cantidad_solicitada
+            sub_lin = det.subtotal
+            tot_lin = det.total
+            costo_unit = Decimal(str(prod.costo_promedio or prod.precio_costo or 0))
+            costo_lin = Decimal(str(cant)) * costo_unit
+            total_costo += costo_lin
+
+            p_item = productos_dict[prod.id]
+            p_item['id'] = prod.id
+            p_item['nombre'] = prod.nombre
+            p_item['clave'] = prod.clave or ''
+            p_item['categoria'] = str(prod.categoria) if prod.categoria else 'Sin Categoría'
+            p_item['cantidad'] += cant
+            p_item['total_venta'] += sub_lin
+            p_item['costo_total'] += costo_lin
+            p_item['utilidad'] += (sub_lin - costo_lin)
+
+        formas_pago_display = ", ".join(dict.fromkeys(pago_formas_str_list)) if pago_formas_str_list else "Pendiente / Sin Pago"
+
+        pedidos_detalle_list.append({
+            'id': p.id,
+            'folio': f"PED-{p.id:04d}",
+            'fecha': p_fecha_local,
+            'fecha_str': p_fecha_local.strftime('%d/%m/%Y %H:%M'),
+            'cliente': str(p.cliente),
+            'vendedor': vend_nombre,
+            'sucursal': suc_nombre,
+            'canal': 'POS' if p.sesion_caja else 'Pedidos',
+            'estado': p.estado,
+            'estado_display': p.get_estado_display(),
+            'formas_pago': formas_pago_display,
+            'subtotal': p_subtotal,
+            'descuento': desc_pedido,
+            'iva': p_iva,
+            'total': p_total
+        })
+
+    utilidad_bruta = max(Decimal('0.00'), total_subtotal - total_costo)
+    margen_bruto_pct = (utilidad_bruta / total_subtotal * Decimal('100.00')) if total_subtotal > Decimal('0.00') else Decimal('0.00')
+    ticket_promedio = (total_ventas / Decimal(str(total_pedidos))) if total_pedidos > 0 else Decimal('0.00')
+    creditos_recuperados = max(Decimal('0.00'), creditos_otorgados - creditos_saldo_pendiente)
+
+    # Calcular márgenes individuales por producto
+    top_productos_list = []
+    for item in productos_dict.values():
+        if item['total_venta'] > Decimal('0.00'):
+            item['margen_pct'] = round(float((item['utilidad'] / item['total_venta']) * Decimal('100.00')), 2)
+        else:
+            item['margen_pct'] = 0.0
+        top_productos_list.append(item)
+    top_productos_list.sort(key=lambda x: x['total_venta'], reverse=True)
+
+    # Calcular devoluciones por vendedor en el periodo
+    devoluciones_por_vendedor = defaultdict(lambda: Decimal('0.00'))
+    pedidos_cancelados = Pedido.objects.filter(
+        empresa=empresa_actual,
+        estado='cancelado',
+        fecha_creacion__date__gte=fecha_inicio,
+        fecha_creacion__date__lte=fecha_fin
+    ).select_related('vendedor')
+    for pc in pedidos_cancelados:
+        vid = pc.vendedor_id if pc.vendedor_id else 0
+        devoluciones_por_vendedor[vid] += pc.total_pedido
+
+    from core.models import Transaccion
+    trans_partidas = Transaccion.objects.filter(
+        empresa=empresa_actual,
+        tipo='ajuste',
+        referencia__startswith='Devolución Partida',
+        fecha__date__gte=fecha_inicio,
+        fecha__date__lte=fecha_fin
+    )
+    import re
+    for tp in trans_partidas:
+        match = re.search(r'PED-(\d+)', tp.referencia or '')
+        if match:
+            p_id = int(match.group(1))
+            p_obj = Pedido.objects.filter(id=p_id, empresa=empresa_actual).first()
+            if p_obj and p_obj.estado != 'cancelado':
+                vid = p_obj.vendedor_id if p_obj.vendedor_id else 0
+                monto_dev = Decimal(str(tp.total or 0))
+                if p_obj.aplica_iva:
+                    monto_dev = (monto_dev * Decimal('1.16')).quantize(Decimal('0.01'))
+                devoluciones_por_vendedor[vid] += monto_dev
+
+    for vid, v in ventas_por_vendedor.items():
+        v['devoluciones'] = devoluciones_por_vendedor.get(vid, Decimal('0.00'))
+
+    from django.contrib.auth.models import User
+    for vid, monto_dev in devoluciones_por_vendedor.items():
+        if vid not in ventas_por_vendedor and monto_dev > Decimal('0.00'):
+            user_obj = User.objects.filter(id=vid).first() if vid else None
+            v_name = user_obj.username.split('@')[0] if user_obj else "Sistema"
+            ventas_por_vendedor[vid] = {
+                'nombre': v_name,
+                'total': Decimal('0.00'),
+                'pedidos': 0,
+                'descuentos': Decimal('0.00'),
+                'devoluciones': monto_dev
+            }
+
+    # Calcular ticket promedio por vendedor
+    vendedores_list = list(ventas_por_vendedor.values())
+    for v in vendedores_list:
+        v['ticket_promedio'] = (v['total'] / Decimal(str(v['pedidos']))) if v['pedidos'] > 0 else Decimal('0.00')
+    vendedores_list.sort(key=lambda x: x['total'], reverse=True)
+
+    sucursales_list = list(ventas_por_sucursal.values())
+    sucursales_list.sort(key=lambda x: x['total'], reverse=True)
+
+    # Preparar datos cronológicos para gráficos
+    chart_dias_labels = []
+    chart_dias_ventas = []
+    chart_dias_pedidos = []
+
+    if fecha_inicio == fecha_fin:
+        # Modo intradía / por horas (ideal para "Hoy", "Ayer" o cualquier día seleccionado)
+        horas_con_datos = [h for h, val in ventas_por_hora.items() if val['pedidos'] > 0]
+        hora_min = min(horas_con_datos) if horas_con_datos else 8
+        hora_max = max(horas_con_datos) if horas_con_datos else 20
+        hora_inicio = min(8, hora_min)
+        hora_fin = max(20, hora_max)
+        if fecha_inicio == today:
+            hora_fin = max(hora_fin, timezone.localtime().hour)
+
+        for h in range(hora_inicio, min(24, hora_fin + 1)):
+            chart_dias_labels.append(f"{h:02d}:00")
+            val_h = ventas_por_hora.get(h, {'total': Decimal('0.00'), 'pedidos': 0})
+            chart_dias_ventas.append(float(val_h['total']))
+            chart_dias_pedidos.append(val_h['pedidos'])
+        chart_tiempo_subtitulo = f"Ventas y tickets por hora ({fecha_inicio.strftime('%d/%m/%Y')})"
+    else:
+        # Modo por días (rango extendido)
+        cur_d = fecha_inicio
+        while cur_d <= fecha_fin:
+            d_key = cur_d.strftime('%Y-%m-%d')
+            chart_dias_labels.append(cur_d.strftime('%d/%m'))
+            val_d = ventas_por_dia.get(d_key, {'total': Decimal('0.00'), 'pedidos': 0})
+            chart_dias_ventas.append(float(val_d['total']))
+            chart_dias_pedidos.append(val_d['pedidos'])
+            cur_d += timedelta(days=1)
+        chart_tiempo_subtitulo = f"Evolución diaria ({fecha_inicio.strftime('%d/%m/%Y')} al {fecha_fin.strftime('%d/%m/%Y')})"
+
+    chart_pagos_labels = ['Efectivo', 'Tarjeta (Débito/Crédito)', 'Transferencia', 'Crédito', 'Otros']
+    chart_pagos_data = [
+        float(ventas_por_forma_pago['efectivo']),
+        float(ventas_por_forma_pago['tarjeta']),
+        float(ventas_por_forma_pago['transferencia']),
+        float(ventas_por_forma_pago['credito']),
+        float(ventas_por_forma_pago['otros'])
+    ]
+
+    chart_sucursales_labels = [s['nombre'] for s in sucursales_list]
+    chart_sucursales_data = [float(s['total']) for s in sucursales_list]
+
+    return {
+        'periodo': periodo,
+        'fecha_inicio': fecha_inicio,
+        'fecha_fin': fecha_fin,
+        'fecha_inicio_str': fecha_inicio.strftime('%Y-%m-%d'),
+        'fecha_fin_str': fecha_fin.strftime('%Y-%m-%d'),
+        'chart_tiempo_subtitulo': chart_tiempo_subtitulo,
+        'sucursal_id': sucursal_id,
+        'vendedor_id': vendedor_id,
+        'forma_pago_filtro': forma_pago_filtro,
+        'canal': canal,
+        'estado': estado,
+        # KPIs
+        'total_pedidos': total_pedidos,
+        'total_subtotal': total_subtotal,
+        'total_descuentos': total_descuentos,
+        'total_iva': total_iva,
+        'total_ventas': total_ventas,
+        'total_costo': total_costo,
+        'utilidad_bruta': utilidad_bruta,
+        'margen_bruto_pct': round(float(margen_bruto_pct), 2),
+        'ticket_promedio': ticket_promedio,
+        # Pagos & Crédito
+        'ventas_por_forma_pago': ventas_por_forma_pago,
+        'creditos_otorgados': creditos_otorgados,
+        'creditos_saldo_pendiente': creditos_saldo_pendiente,
+        'creditos_recuperados': creditos_recuperados,
+        # Listas agrupadas
+        'top_productos': top_productos_list,
+        'vendedores_list': vendedores_list,
+        'sucursales_list': sucursales_list,
+        'pedidos_detalle': pedidos_detalle_list,
+        # Datos para Charts JSON
+        'chart_dias_labels_json': json.dumps(chart_dias_labels),
+        'chart_dias_ventas_json': json.dumps(chart_dias_ventas),
+        'chart_dias_pedidos_json': json.dumps(chart_dias_pedidos),
+        'chart_pagos_labels_json': json.dumps(chart_pagos_labels),
+        'chart_pagos_data_json': json.dumps(chart_pagos_data),
+        'chart_sucursales_labels_json': json.dumps(chart_sucursales_labels),
+        'chart_sucursales_data_json': json.dumps(chart_sucursales_data),
+    }
+
+
+@login_required
+def reportes_ventas(request):
+    from preferencias.permissions import user_has_sales_permission, get_granular_sales_permissions, get_sales_ui_permissions
+    if not (user_has_sales_permission(request, 'reportes', 'ver') or request.user.is_superuser):
+        return render(request, 'error_sin_empresa.html', status=403)
+
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return render(request, 'error_sin_empresa.html', status=403)
+
+    datos = _calcular_datos_reporte_ventas(request, empresa_actual)
+    
+    from preferencias.models import Sucursal
+    from django.contrib.auth.models import User
+    
+    sucursales = Sucursal.objects.filter(empresa=empresa_actual)
+    vendedores_ids = Pedido.objects.filter(empresa=empresa_actual, vendedor__isnull=False).values_list('vendedor_id', flat=True).distinct()
+    vendedores = User.objects.filter(id__in=vendedores_ids).order_by('first_name', 'username')
+    if not vendedores.exists():
+        vendedores = User.objects.filter(is_active=True).order_by('username')
+
+    context = {
+        'empresa_actual': empresa_actual,
+        'datos': datos,
+        'sucursales': sucursales,
+        'vendedores': vendedores,
+        'granular_sales_perms': get_granular_sales_permissions(request),
+        'sales_ui_permissions': get_sales_ui_permissions(request),
+    }
+    return render(request, 'ventas/reportes.html', context)
+
+
+@login_required
+def exportar_reporte_ventas_excel(request):
+    from preferencias.permissions import user_has_sales_permission
+    if not (user_has_sales_permission(request, 'reportes', 'exportar') or request.user.is_superuser):
+        return JsonResponse({'error': 'No tienes permisos para exportar reportes.'}, status=403)
+
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'error': 'Empresa no encontrada.'}, status=403)
+
+    datos = _calcular_datos_reporte_ventas(request, empresa_actual)
+
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from django.http import HttpResponse
+
+    wb = openpyxl.Workbook()
+    # Pestaña 1: Resumen Ejecutivo
+    ws_resumen = wb.active
+    ws_resumen.title = "Resumen Ejecutivo"
+
+    # Estilos de formato
+    teal_fill = PatternFill(start_color="00B8B9", end_color="00B8B9", fill_type="solid")
+    dark_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+    font_header_white = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    font_title = Font(name="Calibri", size=15, bold=True, color="1E293B")
+    font_bold = Font(name="Calibri", size=11, bold=True)
+    font_sub = Font(name="Calibri", size=10, italic=True, color="64748B")
+    border_thin = Border(
+        left=Side(style='thin', color="CBD5E1"),
+        right=Side(style='thin', color="CBD5E1"),
+        top=Side(style='thin', color="CBD5E1"),
+        bottom=Side(style='thin', color="CBD5E1")
+    )
+
+    # Título y Encabezado
+    ws_resumen['A1'] = f"REPORTE GENERAL DE VENTAS - {empresa_actual.nombre.upper()}"
+    ws_resumen['A1'].font = font_title
+    ws_resumen['A2'] = f"Periodo: {datos['fecha_inicio_str']} al {datos['fecha_fin_str']} | Generado: {timezone.localtime().strftime('%Y-%m-%d %H:%M')}"
+    ws_resumen['A2'].font = font_sub
+
+    # Bloque 1: KPIs Clave
+    ws_resumen['A4'] = "INDICADOR (KPI)"
+    ws_resumen['B4'] = "VALOR"
+    ws_resumen['A4'].fill = dark_fill
+    ws_resumen['A4'].font = font_header_white
+    ws_resumen['B4'].fill = dark_fill
+    ws_resumen['B4'].font = font_header_white
+
+    kpi_rows = [
+        ("Ventas Totales Netas", float(datos['total_ventas']), "$#,##0.00"),
+        ("Total de Pedidos / Tickets", datos['total_pedidos'], "#,##0"),
+        ("Ticket Promedio", float(datos['ticket_promedio']), "$#,##0.00"),
+        ("Subtotal Acumulado", float(datos['total_subtotal']), "$#,##0.00"),
+        ("Descuentos Otorgados", float(datos['total_descuentos']), "$#,##0.00"),
+        ("Impuestos (IVA)", float(datos['total_iva']), "$#,##0.00"),
+        ("Costo Estimado de Mercancía", float(datos['total_costo']), "$#,##0.00"),
+        ("Utilidad Bruta Estimada", float(datos['utilidad_bruta']), "$#,##0.00"),
+        ("Margen Bruto Estimado", datos['margen_bruto_pct'] / 100.0, "0.00%"),
+    ]
+
+    for idx, (label, val, fmt) in enumerate(kpi_rows, start=5):
+        c1 = ws_resumen.cell(row=idx, column=1, value=label)
+        c2 = ws_resumen.cell(row=idx, column=2, value=val)
+        c1.font = font_bold
+        c1.border = border_thin
+        c2.number_format = fmt
+        c2.border = border_thin
+
+    # Bloque 2: Métodos de Pago
+    ws_resumen['D4'] = "MÉTODO DE PAGO"
+    ws_resumen['E4'] = "MONTO COBRADO"
+    ws_resumen['D4'].fill = teal_fill
+    ws_resumen['D4'].font = font_header_white
+    ws_resumen['E4'].fill = teal_fill
+    ws_resumen['E4'].font = font_header_white
+
+    fp_rows = [
+        ("Efectivo", float(datos['ventas_por_forma_pago']['efectivo'])),
+        ("Tarjeta (Débito/Crédito)", float(datos['ventas_por_forma_pago']['tarjeta'])),
+        ("Transferencia", float(datos['ventas_por_forma_pago']['transferencia'])),
+        ("Crédito a Clientes", float(datos['ventas_por_forma_pago']['credito'])),
+        ("Otros", float(datos['ventas_por_forma_pago']['otros'])),
+    ]
+    for idx, (label, val) in enumerate(fp_rows, start=5):
+        c1 = ws_resumen.cell(row=idx, column=4, value=label)
+        c2 = ws_resumen.cell(row=idx, column=5, value=val)
+        c1.border = border_thin
+        c2.number_format = "$#,##0.00"
+        c2.border = border_thin
+
+    # Bloque 3: Crédito y Cobranza
+    ws_resumen['D11'] = "CRÉDITO Y COBRANZA"
+    ws_resumen['E11'] = "MONTO"
+    ws_resumen['D11'].fill = dark_fill
+    ws_resumen['D11'].font = font_header_white
+    ws_resumen['E11'].fill = dark_fill
+    ws_resumen['E11'].font = font_header_white
+
+    cr_rows = [
+        ("Créditos Otorgados en Periodo", float(datos['creditos_otorgados'])),
+        ("Abonos Cobrados (Recuperación)", float(datos['creditos_recuperados'])),
+        ("Saldo Pendiente de Cobro", float(datos['creditos_saldo_pendiente'])),
+    ]
+    for idx, (label, val) in enumerate(cr_rows, start=12):
+        c1 = ws_resumen.cell(row=idx, column=4, value=label)
+        c2 = ws_resumen.cell(row=idx, column=5, value=val)
+        c1.border = border_thin
+        c2.number_format = "$#,##0.00"
+        c2.border = border_thin
+
+    # Pestaña 2: Top Productos
+    ws_prod = wb.create_sheet(title="Top Productos")
+    headers_prod = ["Producto", "Clave / SKU", "Categoría", "Cant. Vendida", "Total Ventas ($)", "Costo Estimado ($)", "Utilidad ($)", "Margen (%)"]
+    ws_prod.append(headers_prod)
+    for col_num in range(1, len(headers_prod) + 1):
+        cell = ws_prod.cell(row=1, column=col_num)
+        cell.fill = teal_fill
+        cell.font = font_header_white
+        cell.alignment = Alignment(horizontal="center")
+
+    for item in datos['top_productos']:
+        ws_prod.append([
+            item['nombre'],
+            item['clave'],
+            item['categoria'],
+            item['cantidad'],
+            float(item['total_venta']),
+            float(item['costo_total']),
+            float(item['utilidad']),
+            item['margen_pct'] / 100.0
+        ])
+    for row in ws_prod.iter_rows(min_row=2, max_row=ws_prod.max_row):
+        row[3].number_format = "#,##0"
+        row[4].number_format = "$#,##0.00"
+        row[5].number_format = "$#,##0.00"
+        row[6].number_format = "$#,##0.00"
+        row[7].number_format = "0.00%"
+        for c in row:
+            c.border = border_thin
+
+    # Pestaña 3: Vendedores
+    ws_vend = wb.create_sheet(title="Vendedores")
+    headers_vend = ["Vendedor / Colaborador", "Tickets / Pedidos (#)", "Total Vendido ($)", "Ticket Promedio ($)", "Descuentos Otorgados ($)"]
+    ws_vend.append(headers_vend)
+    for col_num in range(1, len(headers_vend) + 1):
+        cell = ws_vend.cell(row=1, column=col_num)
+        cell.fill = dark_fill
+        cell.font = font_header_white
+        cell.alignment = Alignment(horizontal="center")
+
+    for v in datos['vendedores_list']:
+        ws_vend.append([
+            v['nombre'],
+            v['pedidos'],
+            float(v['total']),
+            float(v['ticket_promedio']),
+            float(v['descuentos'])
+        ])
+    for row in ws_vend.iter_rows(min_row=2, max_row=ws_vend.max_row):
+        row[1].number_format = "#,##0"
+        row[2].number_format = "$#,##0.00"
+        row[3].number_format = "$#,##0.00"
+        row[4].number_format = "$#,##0.00"
+        for c in row:
+            c.border = border_thin
+
+    # Pestaña 4: Detalle de Ventas
+    ws_det = wb.create_sheet(title="Detalle de Ventas")
+    headers_det = ["Folio", "Fecha", "Cliente", "Vendedor", "Sucursal", "Canal", "Estado", "Formas de Pago", "Subtotal ($)", "Descuento ($)", "IVA ($)", "Total ($)"]
+    ws_det.append(headers_det)
+    for col_num in range(1, len(headers_det) + 1):
+        cell = ws_det.cell(row=1, column=col_num)
+        cell.fill = teal_fill
+        cell.font = font_header_white
+        cell.alignment = Alignment(horizontal="center")
+
+    for p in datos['pedidos_detalle']:
+        ws_det.append([
+            p['folio'],
+            p['fecha_str'],
+            p['cliente'],
+            p['vendedor'],
+            p['sucursal'],
+            p['canal'],
+            p['estado_display'],
+            p['formas_pago'],
+            float(p['subtotal']),
+            float(p['descuento']),
+            float(p['iva']),
+            float(p['total'])
+        ])
+    for row in ws_det.iter_rows(min_row=2, max_row=ws_det.max_row):
+        row[8].number_format = "$#,##0.00"
+        row[9].number_format = "$#,##0.00"
+        row[10].number_format = "$#,##0.00"
+        row[11].number_format = "$#,##0.00"
+        for c in row:
+            c.border = border_thin
+
+    # Autoajuste de columnas
+    for sheet in wb.worksheets:
+        for col in sheet.columns:
+            max_len = 0
+            col_letter = col[0].column_letter
+            for c in col:
+                val = str(c.value or '')
+                if len(val) > max_len:
+                    max_len = len(val)
+            sheet.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="Reporte_Ventas_{empresa_actual.nombre}_{datos["fecha_inicio_str"]}_{datos["fecha_fin_str"]}.xlsx"'
+    wb.save(response)
+    return response

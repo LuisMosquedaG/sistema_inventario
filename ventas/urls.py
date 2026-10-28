@@ -58,4 +58,8 @@ urlpatterns = [
     path('cortes-caja/corte-z/imprimir/<int:corte_z_id>/', views.imprimir_corte_z_ticket, name='imprimir_corte_z_ticket'),
     path('cortes-caja/devolucion-pedido/<int:pedido_id>/', views.api_devolucion_pedido, name='api_devolucion_pedido'),
     path('cortes-caja/devolucion-partida/<int:detalle_id>/', views.api_devolucion_partida, name='api_devolucion_partida'),
+
+    # 11. Módulo de Reportes de Ventas
+    path('reportes/', views.reportes_ventas, name='reportes_ventas'),
+    path('reportes/exportar-excel/', views.exportar_reporte_ventas_excel, name='exportar_reporte_ventas_excel'),
 ]

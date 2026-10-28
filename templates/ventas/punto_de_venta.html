@@ -2872,7 +2872,8 @@
             </tr>
         `;
 
-        fetch(`/ventas/cortes-caja/ventas-sesion/${sesionId}/`, {
+        fetch(`/ventas/cortes-caja/ventas-sesion/${sesionId}/?t=${Date.now()}`, {
+            cache: 'no-store',
             method: 'GET',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
@@ -2905,9 +2906,9 @@
                                     <td class="text-center text-decoration-line-through">${folioFormatted}</td>
                                     <td class="text-center small text-decoration-line-through">${v.fecha}</td>
                                     <td class="text-center text-decoration-line-through">${v.cliente}</td>
-                                    <td class="text-center text-decoration-line-through">$${v.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                                    <td class="text-center text-decoration-line-through">$${v.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                                    <td class="text-center text-decoration-line-through">$${v.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    <td class="text-center text-danger text-decoration-line-through">-$${v.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    <td class="text-center text-danger text-decoration-line-through">-$${v.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    <td class="text-center text-danger text-decoration-line-through">-$${v.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                                     <td class="text-center"><span class="status-pill status-cancelado">Devolución</span></td>
                                 </tr>
                             `;
@@ -2942,15 +2943,41 @@
                         }
                     });
 
-                    html += `
-                        <tr class="table-light border-top fw-bold text-dark border-bottom">
-                            <td colspan="4" class="text-end py-2 pe-4">Totales:</td>
-                            <td class="text-center py-2">$${data.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                            <td class="text-center py-2">$${data.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                            <td class="text-center py-2">$${data.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                            <td></td>
-                        </tr>
-                    `;
+                    if (data.devoluciones_total > 0) {
+                        html += `
+                            <tr class="table-light border-top text-muted small">
+                                <td colspan="4" class="text-end py-1 pe-4 fw-semibold">Ventas Brutas:</td>
+                                <td class="text-center py-1">$${data.brutas_subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                <td class="text-center py-1">$${data.brutas_iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                <td class="text-center py-1">$${data.brutas_total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                <td></td>
+                            </tr>
+                            <tr class="table-light text-danger small">
+                                <td colspan="4" class="text-end py-1 pe-4 fw-semibold">Devoluciones:</td>
+                                <td class="text-center py-1">-$${data.devoluciones_subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                <td class="text-center py-1">-$${data.devoluciones_iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                <td class="text-center py-1">-$${data.devoluciones_total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                <td></td>
+                            </tr>
+                            <tr class="table-light border-top fw-bold text-dark border-bottom">
+                                <td colspan="4" class="text-end py-2 pe-4">Total Neto:</td>
+                                <td class="text-center py-2">$${data.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                <td class="text-center py-2">$${data.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                <td class="text-center py-2">$${data.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                <td></td>
+                            </tr>
+                        `;
+                    } else {
+                        html += `
+                            <tr class="table-light border-top fw-bold text-dark border-bottom">
+                                <td colspan="4" class="text-end py-2 pe-4">Totales:</td>
+                                <td class="text-center py-2">$${data.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                <td class="text-center py-2">$${data.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                <td class="text-center py-2">$${data.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                <td></td>
+                            </tr>
+                        `;
+                    }
                     tbody.innerHTML = html;
                 }
             } else {

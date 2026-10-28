@@ -286,11 +286,14 @@ def crear_pedido_manual(request):
                 import datetime
                 parsed_d = parse_date(fecha_str)
                 if parsed_d:
-                    current_time = datetime.datetime.now().time()
-                    fecha_creacion = timezone.make_aware(
-                        datetime.datetime.combine(parsed_d, current_time),
-                        timezone.get_current_timezone()
-                    )
+                    if parsed_d == timezone.localdate():
+                        fecha_creacion = timezone.now()
+                    else:
+                        current_time = timezone.localtime().time()
+                        fecha_creacion = timezone.make_aware(
+                            datetime.datetime.combine(parsed_d, current_time),
+                            timezone.get_current_timezone()
+                        )
 
             aplica_iva = request.POST.get('aplica_iva') == 'on'
 
