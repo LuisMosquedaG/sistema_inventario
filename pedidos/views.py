@@ -1046,9 +1046,18 @@ def obtener_pedido_json(request, pedido_id):
         }
 
         for det in pedido.detalles.all():
+            u_med = det.producto.get_unidad_medida_display() or det.producto.unidad_medida or 'Pz'
+            if det.modificadores_json:
+                try:
+                    m_data = json.loads(det.modificadores_json)
+                    if isinstance(m_data, dict) and m_data.get('unidad_medida'):
+                        u_med = m_data['unidad_medida']
+                except Exception:
+                    pass
             data['detalles'].append({
                 'id': det.id,
                 'producto': det.producto.nombre,
+                'unidad_medida': u_med,
                 'solicitado': det.cantidad_solicitada,
                 'precio': str(det.precio_unitario),
                 'subtotal': str(det.subtotal),

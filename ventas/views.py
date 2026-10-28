@@ -3444,9 +3444,7 @@ def _calcular_datos_reporte_ventas(request, empresa_actual):
         pedidos_qs = pedidos_qs.filter(sesion_caja__isnull=True)
 
     estado = request.GET.get('estado', 'validas')
-    if estado == 'validas':
-        pedidos_qs = pedidos_qs.exclude(estado='cancelado')
-    elif estado == 'canceladas':
+    if estado == 'canceladas':
         pedidos_qs = pedidos_qs.filter(estado='cancelado')
 
     forma_pago_filtro = request.GET.get('forma_pago', 'todas')
@@ -3464,7 +3462,7 @@ def _calcular_datos_reporte_ventas(request, empresa_actual):
         'creditos'
     ).order_by('-fecha_creacion')
 
-    total_pedidos = pedidos_qs.count()
+    total_pedidos = pedidos_qs.exclude(estado='cancelado').count()
     total_subtotal = Decimal('0.00')
     total_iva = Decimal('0.00')
     total_ventas = Decimal('0.00')
@@ -3496,10 +3494,11 @@ def _calcular_datos_reporte_ventas(request, empresa_actual):
         p_subtotal = p.calcular_subtotal
         p_iva = p.calcular_iva
         p_total = p.total_pedido
-
-        total_subtotal += p_subtotal
-        total_iva += p_iva
-        total_ventas += p_total
+        p_fecha_local = timezone.localtime(p.fecha_creacion)
+        suc_nombre = p.sucursal.nombre if p.sucursal else "Principal / General"
+        suc_id = p.sucursal.id if p.sucursal else 0
+        vend_nombre = p.vendedor.username.split('@')[0] if p.vendedor else "Sistema"
+        vend_id = p.vendedor.id if p.vendedor else 0
 
         # Descuentos en notas
         desc_pedido = Decimal('0.00')
@@ -3510,62 +3509,61 @@ def _calcular_datos_reporte_ventas(request, empresa_actual):
                     desc_pedido = Decimal(str(notas_obj.get('descuento_monto', 0.00)))
             except Exception:
                 pass
-        total_descuentos += desc_pedido
 
-        # Agrupación por día y hora (en zona horaria local)
-        p_fecha_local = timezone.localtime(p.fecha_creacion)
-        dia_str = p_fecha_local.strftime('%Y-%m-%d')
-        hora_int = p_fecha_local.hour
-
-        ventas_por_dia[dia_str]['total'] += p_total
-        ventas_por_dia[dia_str]['subtotal'] += p_subtotal
-        ventas_por_dia[dia_str]['iva'] += p_iva
-        ventas_por_dia[dia_str]['pedidos'] += 1
-
-        ventas_por_hora[hora_int]['total'] += p_total
-        ventas_por_hora[hora_int]['subtotal'] += p_subtotal
-        ventas_por_hora[hora_int]['iva'] += p_iva
-        ventas_por_hora[hora_int]['pedidos'] += 1
-
-        # Agrupación por Sucursal
-        suc_nombre = p.sucursal.nombre if p.sucursal else "Principal / General"
-        suc_id = p.sucursal.id if p.sucursal else 0
-        ventas_por_sucursal[suc_id]['nombre'] = suc_nombre
-        ventas_por_sucursal[suc_id]['total'] += p_total
-        ventas_por_sucursal[suc_id]['pedidos'] += 1
-
-        # Agrupación por Vendedor
-        vend_nombre = p.vendedor.username.split('@')[0] if p.vendedor else "Sistema"
-        vend_id = p.vendedor.id if p.vendedor else 0
-        ventas_por_vendedor[vend_id]['nombre'] = vend_nombre
-        ventas_por_vendedor[vend_id]['total'] += p_total
-        ventas_por_vendedor[vend_id]['pedidos'] += 1
-        ventas_por_vendedor[vend_id]['descuentos'] += desc_pedido
-
-        # Formas de Pago
-        pagos_aplicados = p.pagos.filter(estado='aplicado')
-        pago_formas_str_list = []
-        for pago in pagos_aplicados:
-            fp = pago.forma_pago
-            m_mxn = Decimal(str(pago.monto_mxn or pago.monto or 0))
-            if fp == 'efectivo':
-                ventas_por_forma_pago['efectivo'] += m_mxn
-                pago_formas_str_list.append('Efectivo')
-            elif fp in ['tarjeta_debito', 'tarjeta_credito']:
-                ventas_por_forma_pago['tarjeta'] += m_mxn
-                pago_formas_str_list.append('Tarjeta')
-            elif fp == 'transferencia':
-                ventas_por_forma_pago['transferencia'] += m_mxn
-                pago_formas_str_list.append('Transferencia')
-            elif fp == 'credito':
-                ventas_por_forma_pago['credito'] += m_mxn
-                pago_formas_str_list.append('Crédito')
-            else:
-                ventas_por_forma_pago['otros'] += m_mxn
-                pago_formas_str_list.append(fp.capitalize())
-
-        # Créditos otorgados
         if p.estado != 'cancelado':
+            total_subtotal += p_subtotal
+            total_iva += p_iva
+            total_ventas += p_total
+            total_descuentos += desc_pedido
+
+            # Agrupación por día y hora (en zona horaria local)
+            dia_str = p_fecha_local.strftime('%Y-%m-%d')
+            hora_int = p_fecha_local.hour
+
+            ventas_por_dia[dia_str]['total'] += p_total
+            ventas_por_dia[dia_str]['subtotal'] += p_subtotal
+            ventas_por_dia[dia_str]['iva'] += p_iva
+            ventas_por_dia[dia_str]['pedidos'] += 1
+
+            ventas_por_hora[hora_int]['total'] += p_total
+            ventas_por_hora[hora_int]['subtotal'] += p_subtotal
+            ventas_por_hora[hora_int]['iva'] += p_iva
+            ventas_por_hora[hora_int]['pedidos'] += 1
+
+            # Agrupación por Sucursal
+            ventas_por_sucursal[suc_id]['nombre'] = suc_nombre
+            ventas_por_sucursal[suc_id]['total'] += p_total
+            ventas_por_sucursal[suc_id]['pedidos'] += 1
+
+            # Agrupación por Vendedor
+            ventas_por_vendedor[vend_id]['nombre'] = vend_nombre
+            ventas_por_vendedor[vend_id]['total'] += p_total
+            ventas_por_vendedor[vend_id]['pedidos'] += 1
+            ventas_por_vendedor[vend_id]['descuentos'] += desc_pedido
+
+            # Formas de Pago
+            pagos_aplicados = p.pagos.filter(estado='aplicado')
+            pago_formas_str_list = []
+            for pago in pagos_aplicados:
+                fp = pago.forma_pago
+                m_mxn = Decimal(str(pago.monto_mxn or pago.monto or 0))
+                if fp == 'efectivo':
+                    ventas_por_forma_pago['efectivo'] += m_mxn
+                    pago_formas_str_list.append('Efectivo')
+                elif fp in ['tarjeta_debito', 'tarjeta_credito']:
+                    ventas_por_forma_pago['tarjeta'] += m_mxn
+                    pago_formas_str_list.append('Tarjeta')
+                elif fp == 'transferencia':
+                    ventas_por_forma_pago['transferencia'] += m_mxn
+                    pago_formas_str_list.append('Transferencia')
+                elif fp == 'credito':
+                    ventas_por_forma_pago['credito'] += m_mxn
+                    pago_formas_str_list.append('Crédito')
+                else:
+                    ventas_por_forma_pago['otros'] += m_mxn
+                    pago_formas_str_list.append(fp.capitalize())
+
+            # Créditos otorgados
             for c in p.creditos.all():
                 m_cred = Decimal(str(c.monto_total or 0))
                 s_cred = Decimal(str(c.saldo or 0))
@@ -3576,25 +3574,28 @@ def _calcular_datos_reporte_ventas(request, empresa_actual):
                 if 'Crédito' not in pago_formas_str_list:
                     pago_formas_str_list.append('Crédito')
 
-        # Partidas del pedido (Productos y Costos)
-        for det in p.detalles.all():
-            prod = det.producto
-            cant = det.cantidad_solicitada
-            sub_lin = det.subtotal
-            tot_lin = det.total
-            costo_unit = Decimal(str(prod.costo_promedio or prod.precio_costo or 0))
-            costo_lin = Decimal(str(cant)) * costo_unit
-            total_costo += costo_lin
+            # Partidas del pedido (Productos y Costos)
+            for det in p.detalles.all():
+                prod = det.producto
+                cant = det.cantidad_solicitada
+                sub_lin = det.subtotal
+                tot_lin = det.total
+                costo_unit = Decimal(str(prod.costo_promedio or prod.precio_costo or 0))
+                costo_lin = Decimal(str(cant)) * costo_unit
+                total_costo += costo_lin
 
-            p_item = productos_dict[prod.id]
-            p_item['id'] = prod.id
-            p_item['nombre'] = prod.nombre
-            p_item['clave'] = prod.clave or ''
-            p_item['categoria'] = str(prod.categoria) if prod.categoria else 'Sin Categoría'
-            p_item['cantidad'] += cant
-            p_item['total_venta'] += sub_lin
-            p_item['costo_total'] += costo_lin
-            p_item['utilidad'] += (sub_lin - costo_lin)
+                p_item = productos_dict[prod.id]
+                p_item['id'] = prod.id
+                p_item['nombre'] = prod.nombre
+                p_item['clave'] = prod.clave or ''
+                p_item['categoria'] = str(prod.categoria) if prod.categoria else 'Sin Categoría'
+                p_item['cantidad'] += cant
+                p_item['total_venta'] += sub_lin
+                p_item['costo_total'] += costo_lin
+                p_item['utilidad'] += (sub_lin - costo_lin)
+        else:
+            # Para pedidos cancelados, obtener nombres de formas de pago registradas
+            pago_formas_str_list = [pago.get_forma_pago_display() for pago in p.pagos.all()]
 
         formas_pago_display = ", ".join(dict.fromkeys(pago_formas_str_list)) if pago_formas_str_list else "Pendiente / Sin Pago"
 
@@ -3608,7 +3609,7 @@ def _calcular_datos_reporte_ventas(request, empresa_actual):
             'sucursal': suc_nombre,
             'canal': 'POS' if p.sesion_caja else 'Pedidos',
             'estado': p.estado,
-            'estado_display': p.get_estado_display(),
+            'estado_display': 'Devolución' if p.estado == 'cancelado' else p.get_estado_display(),
             'formas_pago': formas_pago_display,
             'subtotal': p_subtotal,
             'descuento': desc_pedido,

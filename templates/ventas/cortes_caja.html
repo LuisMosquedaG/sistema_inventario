@@ -1117,7 +1117,7 @@
                                     <td class="text-center text-danger text-decoration-line-through">-$${v.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                                     <td class="text-center text-danger text-decoration-line-through">-$${v.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                                     <td class="text-center text-danger text-decoration-line-through">-$${v.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                                    <td></td>
+                                    <td class="text-center"><span class="status-pill status-cancelado">Devolución</span></td>
                                 </tr>
                             `;
                         } else {
@@ -1526,7 +1526,7 @@
     function verPedido(id) {
         const tbody = document.getElementById('ver_pedido_tabla_cuerpo');
         if (!tbody) return;
-        tbody.innerHTML = `<tr><td colspan="${canMakeRefund ? 7 : 6}" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="${canMakeRefund ? 8 : 7}" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</td></tr>`;
         
         const modalEl = document.getElementById('modalVerPedido');
         let modal = bootstrap.Modal.getInstance(modalEl);
@@ -1572,6 +1572,7 @@
                         tbody.insertAdjacentHTML('beforeend', `
                             <tr>
                                 <td class="ps-3 fw-semibold small text-dark">${det.producto}</td>
+                                <td class="text-center small text-secondary">${det.unidad_medida || 'Pz'}</td>
                                 <td class="text-center small">${det.solicitado}</td>
                                 <td class="text-end small text-muted">$${parseFloat(det.precio).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                                 <td class="text-end small text-dark">$${parseFloat(det.subtotal).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
@@ -1582,7 +1583,7 @@
                         `);
                     });
                 } else {
-                    tbody.innerHTML = `<tr><td colspan="${canMakeRefund ? 7 : 6}" class="text-center py-3 text-muted fst-italic">No hay artículos en este pedido.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="${canMakeRefund ? 8 : 7}" class="text-center py-3 text-muted fst-italic">No hay artículos en este pedido.</td></tr>`;
                 }
 
                 const elSub = document.getElementById('ver_pedido_subtotal');
