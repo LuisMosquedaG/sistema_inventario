@@ -53,6 +53,12 @@ function abrirModalSurtido(ovId, forceAlmacenId = null) {
                 return;
             }
 
+            if (data.estado === 'cancelado') {
+                alert('Esta orden está cancelada y no puede ser surtida.');
+                modal.hide();
+                return;
+            }
+
             // --- ACTUALIZAR SELECT DE ALMACENES ---
             // Solo mostramos los que pertenecen a la sucursal de la orden
             if (data.almacenes_validos) {
@@ -196,6 +202,12 @@ function abrirModalDetalle(ovId) {
 
             // Actualizar folio en el título
             document.getElementById('detFolio').innerText = data.folio_display || '';
+
+            const badgeContainer = document.getElementById('detEstadoBadge');
+            if (badgeContainer) {
+                badgeContainer.className = `status-pill status-${data.estado || 'borrador'} ms-2`;
+                badgeContainer.innerText = data.estado_display || data.estado || '';
+            }
 
             document.getElementById('detClienteNombre').innerText = data.cliente_razon || data.cliente_nombre;
             document.getElementById('detClienteTel').innerText = data.cliente_telefono || '-';

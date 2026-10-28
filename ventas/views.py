@@ -539,13 +539,15 @@ def api_preparar_surtido(request, ov_id):
     empresa_actual = get_empresa_actual(request)
     ov = get_object_or_404(OrdenVenta, id=ov_id, empresa=empresa_actual)
 
-    if ov.estado not in ['borrador', 'aprobado', 'surtido']:
+    if ov.estado not in ['borrador', 'aprobado', 'surtido', 'cancelado']:
         return JsonResponse({'success': False, 'error': 'Estado inválido para ver detalles.'})
 
     almacen_id_req = request.GET.get('almacen_id')
     
     # --- RESTRICCIÓN: Solo almacenes de la sucursal de la orden ---
-    almacenes_disponibles = Almacen.objects.filter(empresa=empresa_actual, sucursal=ov.sucursal)
+    almacenes_disponibles = Almacen.objects.filter(empresa=empresa_actual)
+    if ov.sucursal:
+        almacenes_disponibles = almacenes_disponibles.filter(sucursal=ov.sucursal)
     
     # Asegurar que almacen_final_id sea un ID numérico válido
     try:
@@ -655,6 +657,8 @@ def api_preparar_surtido(request, ov_id):
         'success': True, 'id': ov.id, 'almacen_id': almacen_final_id,
         'almacenes_validos': list(almacenes_disponibles.values('id', 'nombre')),
         'folio_display': ov.folio_display,
+        'estado': ov.estado,
+        'estado_display': ov.get_estado_display(),
         'cliente_razon': razon_social, 'cliente_nombre': nombre_completo, 'cliente_correo': correo_cliente, 'cliente_telefono': telefono_cliente, 'cliente_direccion': direccion_completa,
         'contacto_nombre': contacto_nombre, 'contacto_correo': contacto_correo, 'contacto_telefono': contacto_telefono,
         'direccion_envio': ov.direccion_envio or direccion_cliente_envio,
@@ -693,8 +697,8 @@ def ejecutar_surtido(request, ov_id):
             empresa_actual = get_empresa_actual(request)
             ov = get_object_or_404(OrdenVenta, id=ov_id, empresa=empresa_actual)
 
-            if ov.estado == 'surtido':
-                return JsonResponse({'success': False, 'error': 'Esta orden ya ha sido surtida.'})
+            if ov.estado in ['surtido', 'cancelado']:
+                return JsonResponse({'success': False, 'error': f'Esta orden no puede ser surtida porque su estado actual es {ov.get_estado_display().lower()}.'})
 
             almacen_id = request.POST.get('almacen_id')
             if not almacen_id: raise ValueError("Debes seleccionar un almacén de salida.")
