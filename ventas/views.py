@@ -638,10 +638,12 @@ def api_preparar_surtido(request, ov_id):
                     'cantidad': extra.cantidad_lote if extra.tipo in ['lote', 'caducidad'] else 1
                 })
 
+        u_medida = det.producto.get_unidad_medida_display() or det.producto.unidad_medida or 'Pz'
         detalles_data.append({
             'id': det.id, 
             'producto_id': det.producto.id, 
             'producto_nombre': det.producto.nombre,
+            'unidad_medida': u_medida,
             'cantidad': det.cantidad, 
             'precio': float(det.precio_unitario),
             'iva_porcentaje': float(det.producto.iva or 0),
