@@ -2336,12 +2336,16 @@ def api_crear_solicitud_stock_minimo(request):
         costo_unitario = costo_base * f_conv
         cant_inventario = Decimal(str(cant)) * f_conv
 
+        from preferencias.models import Moneda
+        moneda_sol_default = Moneda.objects.filter(empresa=empresa_actual, siglas='MXN').first() or Moneda.objects.filter(empresa=empresa_actual).first()
+
         DetalleSolicitudCompra.objects.create(
             solicitud=solicitud,
             producto=prod,
             cantidad_solicitada=cant,
             costo_unitario=costo_unitario,
             almacen_id=item_alm_id,
+            moneda=moneda_sol_default,
             unidad_compra=u_compra,
             factor_conversion=f_conv,
             cantidad_inventario=cant_inventario

@@ -763,10 +763,11 @@ function toggleAplicarTodo() {
 }
 
 function sincronizarSiAplicarTodo(campo) {
-    const isChecked = document.getElementById('switchAplicarTodo').checked;
+    const isChecked = document.getElementById('switchAplicarTodo')?.checked;
     if (!isChecked) return;
 
     const tbody = document.getElementById('cuerpoTablaSolicitud');
+    if (!tbody) return;
     const rows = tbody.rows;
 
     let newValue = "";
@@ -775,37 +776,43 @@ function sincronizarSiAplicarTodo(campo) {
     switch(campo) {
         case 'proveedor':
             const selProv = document.getElementById('gen_proveedor');
-            newValue = selProv.value;
-            newText = newValue ? selProv.options[selProv.selectedIndex].text : 'No asignado';
+            newValue = selProv ? selProv.value : '';
+            newText = (selProv && selProv.selectedIndex >= 0 && newValue) ? selProv.options[selProv.selectedIndex].text : 'No asignado';
             for (let i = 0; i < rows.length; i++) {
-                rows[i].querySelector('[name="proveedor_id[]"]').value = newValue;
-                rows[i].cells[3].querySelector('div').innerText = newText;
+                const provInp = rows[i].querySelector('[name="proveedor_id[]"]');
+                if (provInp) provInp.value = newValue;
+                const cellText = rows[i].cells[3]?.querySelector('div') || rows[i].cells[3]?.querySelector('span') || rows[i].cells[3];
+                if (cellText) cellText.innerText = newText;
             }
             break;
         case 'sucursal':
             const selSuc = document.getElementById('gen_sucursal');
-            newValue = selSuc.value;
-            newText = (newValue && !selSuc.disabled) ? selSuc.options[selSuc.selectedIndex].text : (document.getElementById('gen_proveedor').value ? 'Matriz' : '--');
+            newValue = selSuc ? selSuc.value : '';
             for (let i = 0; i < rows.length; i++) {
-                rows[i].querySelector('[name="sucursal_id[]"]').value = newValue;
+                const sucInp = rows[i].querySelector('[name="sucursal_id[]"]');
+                if (sucInp) sucInp.value = newValue;
             }
             break;
         case 'almacen':
             const selAlm = document.getElementById('gen_almacen');
-            newValue = selAlm.value;
-            newText = newValue ? selAlm.options[selAlm.selectedIndex].text : 'No asignado';
+            newValue = selAlm ? selAlm.value : '';
+            newText = (selAlm && selAlm.selectedIndex >= 0 && newValue) ? selAlm.options[selAlm.selectedIndex].text : 'No asignado';
             for (let i = 0; i < rows.length; i++) {
-                rows[i].querySelector('[name="almacen_id[]"]').value = newValue;
-                rows[i].cells[4].querySelector('div').innerText = newText;
+                const almInp = rows[i].querySelector('[name="almacen_id[]"]');
+                if (almInp) almInp.value = newValue;
+                const cellText = rows[i].cells[4]?.querySelector('div') || rows[i].cells[4]?.querySelector('span') || rows[i].cells[4];
+                if (cellText) cellText.innerText = newText;
             }
             break;
         case 'moneda':
             const selMon = document.getElementById('gen_moneda');
-            newValue = selMon.value;
-            newText = selMon.options[selMon.selectedIndex].text;
+            newValue = selMon ? selMon.value : '';
+            newText = (selMon && selMon.selectedIndex >= 0) ? selMon.options[selMon.selectedIndex].text : 'MXN';
             for (let i = 0; i < rows.length; i++) {
-                rows[i].querySelector('[name="moneda_id[]"]').value = newValue;
-                rows[i].cells[2].querySelector('.badge').innerText = newText;
+                const monInp = rows[i].querySelector('[name="moneda_id[]"]');
+                if (monInp) monInp.value = newValue;
+                const cellText = rows[i].cells[2]?.querySelector('span') || rows[i].cells[2];
+                if (cellText) cellText.innerText = newText;
             }
             break;
     }
@@ -872,6 +879,31 @@ function aplicarListaCosto() {
 // --- GUARDAR ---
 async function guardarSolicitud(event) {
     event.preventDefault();
+
+    // Si la configuración general tiene valores, asegurar que las partidas no queden vacías
+    const genProv = document.getElementById('gen_proveedor')?.value || '';
+    const genSuc = document.getElementById('gen_sucursal')?.value || '';
+    const genAlm = document.getElementById('gen_almacen')?.value || '';
+    const genMon = document.getElementById('gen_moneda')?.value || '';
+
+    document.querySelectorAll('#cuerpoTablaSolicitud tr').forEach(row => {
+        const monInp = row.querySelector('[name="moneda_id[]"]');
+        if (monInp && (!monInp.value || monInp.value === 'null' || monInp.value === '')) {
+            if (genMon) monInp.value = genMon;
+        }
+        const almInp = row.querySelector('[name="almacen_id[]"]');
+        if (almInp && (!almInp.value || almInp.value === 'null' || almInp.value === '')) {
+            if (genAlm) almInp.value = genAlm;
+        }
+        const provInp = row.querySelector('[name="proveedor_id[]"]');
+        if (provInp && (!provInp.value || provInp.value === 'null' || provInp.value === '')) {
+            if (genProv) provInp.value = genProv;
+        }
+        const sucInp = row.querySelector('[name="sucursal_id[]"]');
+        if (sucInp && (!sucInp.value || sucInp.value === 'null' || sucInp.value === '')) {
+            if (genSuc) sucInp.value = genSuc;
+        }
+    });
     
     if (document.getElementById('cuerpoTablaSolicitud').children.length === 0) {
         alert("Debes agregar al menos un producto a la solicitud.");
