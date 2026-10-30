@@ -1,21 +1,26 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
-from .models import Producto, Transaccion, DetalleReceta
+from .models import Producto, Transaccion, DetalleReceta, CodigoBarrasAdicional
 from django.contrib.auth.decorators import login_required
 from panel.models import Empresa
 import json
 import re
 import openpyxl
-from datetime import datetime
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.datavalidation import DataValidation
+import datetime
+from datetime import datetime, date
+from decimal import Decimal
 from django.db import transaction
-from django.db.models import Sum, Q, Subquery, OuterRef, DecimalField, Avg, ExpressionWrapper, F, FloatField, IntegerField
+from django.db.models import Sum, Q, Subquery, OuterRef, DecimalField, Avg, ExpressionWrapper, F, FloatField, IntegerField, Case, When, Value, CharField
 from django.db.models.functions import Coalesce
 from collections import defaultdict
 from categorias.models import Categoria, Subcategoria
 from almacenes.models import Almacen, Inventario
 from proveedores.models import Proveedor
-from preferencias.models import Moneda
+from preferencias.models import Moneda, Sucursal
 from django.core.paginator import Paginator
 from recepciones.models import Recepcion, DetalleRecepcion, DetalleRecepcionExtra
 from compras.models import OrdenCompra
@@ -27,22 +32,267 @@ from preferencias.permissions import require_inventory_permission
 @login_required(login_url='/login/')
 @require_inventory_permission('inventario', 'crear')
 def descargar_plantilla_articulos(request):
+    empresa_actual = get_empresa_actual(request)
+
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = "Plantilla Articulos"
+    ws.title = "Layout-articulos"
 
-    headers = [
-        'Clave', 'Nombre*', 'Tipo (producto/servicio)', 'Abastecimiento (stock/produccion/compra)',
-        'Categoria', 'Subcategoria', 'Marca', 'Modelo', 'Unidad Medida (H87/E48)', 'Costo*', 'Precio Venta*',
-        'IVA (%)', 'Stock Minimo', 'Stock Maximo', 'Maneja Lote (si/no)', 'Maneja Serie (si/no)',
-        'Estado (activo/inactivo/descontinuado/revision)'
+    # Estilos basados en los exportadores del módulo de contratistas (Layout-detalle-contrato)
+    fill_main = PatternFill(start_color="00b8b9", end_color="00b8b9", fill_type="solid")
+    fill_head = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+    border = Border(
+        left=Side(style='thin', color="B2B2B2"),
+        right=Side(style='thin', color="B2B2B2"),
+        top=Side(style='thin', color="B2B2B2"),
+        bottom=Side(style='thin', color="B2B2B2")
+    )
+    center_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    # 5 Grupos principales (Fila 1)
+    groups = [
+        {'title': 'Identificación', 'start_col': 1, 'end_col': 6},
+        {'title': 'Clasificación', 'start_col': 7, 'end_col': 14},
+        {'title': 'Inventario y precios', 'start_col': 15, 'end_col': 27},
+        {'title': 'Códigos de barras', 'start_col': 28, 'end_col': 28},
+        {'title': 'Existencias', 'start_col': 29, 'end_col': 33},
     ]
-    ws.append(headers)
-    for col_idx, header in enumerate(headers, 1):
-        ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = len(header) + 5
+
+    # Encabezados de columnas (Fila 2)
+    headers = [
+        # Identificación (1-6)
+        'Clave', 'Nombre*', 'Tipo', 'Descripción', 'Estado', 'Tipo de abastecimiento',
+        # Clasificación (7-14)
+        'Categoría', 'Subcategoría', 'Marca', 'Modelo', 'Línea', 'Unidad de medida', 'IVA (%)', 'IEPS (%)',
+        # Inventario y precios (15-27)
+        'Costo base*', 'Venta base*', 'Stock mínimo', 'Stock máximo', 'Lote', 'Serie', 'Caducidad', 'FIFO', 'LIFO', 'FEFO', 'IVA incluido', 'POS', 'Modificadores',
+        # Códigos de barras (28)
+        'Código de barras (separar con ",")',
+        # Existencias (29-33)
+        'Existencias', 'Lote', 'Fecha de caducidad (YYYY-MM-DD)', 'Almacén', 'Sucursal'
+    ]
+
+    # Fila de ejemplo (Fila 3)
+    sample_row = [
+        # Identificación
+        'ART-001', 'Artículo de Muestra', 'producto', 'Descripción de ejemplo del producto', 'activo', 'compra',
+        # Clasificación
+        'General', 'Subgeneral', 'Genérica', 'STD-100', 'Línea A', 'H87', 16, 0,
+        # Inventario y precios
+        100.00, 150.00, 5, 100, 'si', 'no', 'si', 'si', 'no', 'no', 'si', 'si', 'no',
+        # Códigos de barras
+        '7501000123456, 7501000123457',
+        # Existencias
+        10, 'LOTE-2026-A', '2027-12-31', 'Almacén Principal', 'Matriz'
+    ]
+
+    # 1. Aplicar Fila 1 (Grupos con estilo corporativo 00b8b9 y texto blanco)
+    font_group = Font(name='Calibri', size=11, bold=True, color='FFFFFF')
+
+    for g in groups:
+        if g['start_col'] != g['end_col']:
+            ws.merge_cells(start_row=1, start_column=g['start_col'], end_row=1, end_column=g['end_col'])
+        cell_start = ws.cell(row=1, column=g['start_col'])
+        cell_start.value = g['title']
+        for c in range(g['start_col'], g['end_col'] + 1):
+            cell = ws.cell(row=1, column=c)
+            cell.fill = fill_main
+            cell.font = font_group
+            cell.alignment = center_align
+            # Separador blanco nítido al borde derecho de cada grupo para delimitación limpia
+            if c == g['end_col']:
+                cell.border = Border(
+                    left=Side(style='thin', color="B2B2B2"),
+                    right=Side(style='medium', color="FFFFFF"),
+                    top=Side(style='thin', color="B2B2B2"),
+                    bottom=Side(style='thin', color="B2B2B2")
+                )
+            else:
+                cell.border = border
+
+    # 2. Aplicar Fila 2 (Cabeceras de Columnas estilo fill_head F2F2F2, negrita, B2B2B2)
+    font_head = Font(name='Calibri', size=10, bold=True, color='000000')
+
+    for col_idx, header_text in enumerate(headers, 1):
+        cell = ws.cell(row=2, column=col_idx, value=header_text)
+        cell.font = font_head
+        cell.fill = fill_head
+        cell.alignment = center_align
+        cell.border = border
+
+    # 3. Aplicar Fila 3 (Ejemplo con formatos numéricos y alineaciones estándar de layout)
+    font_data = Font(name='Calibri', size=10, color='000000')
+
+    for col_idx, val in enumerate(sample_row, 1):
+        cell = ws.cell(row=3, column=col_idx, value=val)
+        cell.font = font_data
+        cell.border = border
+
+        # Formatos y alineaciones por columna
+        if col_idx in [15, 16]:  # Costo y Venta
+            cell.number_format = '"$"#,##0.00'
+            cell.alignment = Alignment(horizontal='right', vertical='center')
+        elif col_idx in [13, 14]:  # IVA y IEPS
+            cell.number_format = '0.00'
+            cell.alignment = Alignment(horizontal='right', vertical='center')
+        elif col_idx in [17, 18, 29]:  # Stocks y Existencias
+            cell.number_format = '#,##0'
+            cell.alignment = Alignment(horizontal='right', vertical='center')
+        elif col_idx in [1, 28, 30]:  # Clave, Códigos de barras, Lote
+            cell.number_format = '@'
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+        elif col_idx == 31:  # Fecha de caducidad
+            cell.number_format = 'yyyy-mm-dd'
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+        elif str(val).lower() in ['si', 'no', 'activo', 'compra', 'producto', 'stock', 'produccion', 'h87', 'e48']:
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+        else:
+            cell.alignment = Alignment(horizontal='left', vertical='center')
+
+    # Ajuste de anchos de columna (mínimo 18 como en Layout-detalle-contrato)
+    for col_idx in range(1, len(headers) + 1):
+        col_letter = get_column_letter(col_idx)
+        header_len = len(str(headers[col_idx - 1]))
+        sample_len = len(str(sample_row[col_idx - 1]))
+        max_len = max(header_len, sample_len)
+        ws.column_dimensions[col_letter].width = max(max_len + 4, 18)
+
+    # 4. Obtener catálogos dinámicos del sistema para esta empresa
+    cat_filter = {'empresa': empresa_actual} if empresa_actual else {}
+    categorias_qs = Categoria.objects.filter(**cat_filter).values_list('nombre', flat=True).order_by('nombre')
+    categorias_list = [c.strip() for c in categorias_qs if c and c.strip()] or ['General']
+
+    subcategorias_qs = Subcategoria.objects.filter(**cat_filter).values_list('nombre', flat=True).order_by('nombre')
+    subcategorias_list = [s.strip() for s in subcategorias_qs if s and s.strip()] or ['General']
+
+    prod_filter = {'empresa': empresa_actual} if empresa_actual else {}
+    marcas_qs = Producto.objects.filter(**prod_filter).exclude(marca__isnull=True).exclude(marca='').values_list('marca', flat=True).distinct().order_by('marca')
+    marcas_list = [m.strip() for m in marcas_qs if m and m.strip()] or ['Genérica']
+
+    modelos_qs = Producto.objects.filter(**prod_filter).exclude(modelo__isnull=True).exclude(modelo='').values_list('modelo', flat=True).distinct().order_by('modelo')
+    modelos_list = [m.strip() for m in modelos_qs if m and m.strip()] or ['Estándar']
+
+    lineas_qs = Producto.objects.filter(**prod_filter).exclude(linea__isnull=True).exclude(linea='').values_list('linea', flat=True).distinct().order_by('linea')
+    lineas_list = [l.strip() for l in lineas_qs if l and l.strip()] or ['Principal']
+
+    udm_list = [opt[0] for opt in Producto.UNIDAD_OPCIONES]
+
+    alm_filter = {'empresa': empresa_actual} if empresa_actual else {}
+    almacenes_qs = Almacen.objects.filter(**alm_filter).values_list('nombre', flat=True).order_by('nombre')
+    almacenes_list = [a.strip() for a in almacenes_qs if a and a.strip()] or ['Almacén Principal']
+
+    suc_filter = {'empresa': empresa_actual} if empresa_actual else {}
+    sucursales_qs = Sucursal.objects.filter(**suc_filter).values_list('nombre', flat=True).order_by('nombre')
+    sucursales_list = [s.strip() for s in sucursales_qs if s and s.strip()] or ['Matriz']
+
+    # 5. Hoja de Catálogos (referencia para listas desplegables)
+    ws_cat = wb.create_sheet(title="Catalogos")
+    cat_columns = [
+        ('Categorías', categorias_list, 1),
+        ('Subcategorías', subcategorias_list, 2),
+        ('Marcas', marcas_list, 3),
+        ('Modelos', modelos_list, 4),
+        ('Líneas', lineas_list, 5),
+        ('Unidades de Medida', udm_list, 6),
+        ('Almacenes', almacenes_list, 7),
+        ('Sucursales', sucursales_list, 8),
+    ]
+
+    for title, data_list, col_num in cat_columns:
+        cell_h = ws_cat.cell(row=1, column=col_num, value=title)
+        cell_h.font = font_head
+        cell_h.fill = fill_head
+        cell_h.border = border
+        cell_h.alignment = center_align
+        for r_idx, val in enumerate(data_list, start=2):
+            cell_v = ws_cat.cell(row=r_idx, column=col_num, value=val)
+            cell_v.border = border
+        ws_cat.column_dimensions[get_column_letter(col_num)].width = max(len(title) + 5, 20)
+
+    # 6. Definición y Asignación de Listas Desplegables (DataValidation)
+    # A) Predefinidos fijos del sistema
+    # Tipo (Col C: C3:C1000)
+    dv_tipo = DataValidation(type="list", formula1='"producto,servicio"', allow_blank=True)
+    dv_tipo.error = 'Seleccione "producto" o "servicio"'
+    dv_tipo.errorTitle = 'Tipo inválido'
+    ws.add_data_validation(dv_tipo)
+    dv_tipo.add('C3:C1000')
+
+    # Estado (Col E: E3:E1000)
+    dv_estado = DataValidation(type="list", formula1='"activo,inactivo,descontinuado,revision"', allow_blank=True)
+    dv_estado.error = 'Seleccione activo, inactivo, descontinuado o revision'
+    dv_estado.errorTitle = 'Estado inválido'
+    ws.add_data_validation(dv_estado)
+    dv_estado.add('E3:E1000')
+
+    # Tipo de abastecimiento (Col F: F3:F1000)
+    dv_abast = DataValidation(type="list", formula1='"stock,produccion,compra"', allow_blank=True)
+    dv_abast.error = 'Seleccione stock, produccion o compra'
+    dv_abast.errorTitle = 'Abastecimiento inválido'
+    ws.add_data_validation(dv_abast)
+    dv_abast.add('F3:F1000')
+
+    # Indicadores Booleanos Sí / No (Cols S a AA: S3:AA1000)
+    # Lote, Serie, Caducidad, FIFO, LIFO, FEFO, IVA incluido, POS, Modificadores
+    dv_sino = DataValidation(type="list", formula1='"si,no"', allow_blank=True)
+    dv_sino.error = 'Seleccione "si" o "no"'
+    dv_sino.errorTitle = 'Opción inválida'
+    ws.add_data_validation(dv_sino)
+    dv_sino.add('S3:AA1000')
+
+    # B) Catálogos dinámicos basados en la base de datos (con showErrorMessage=False para permitir altas manuales si se requiere)
+    # Categoría (Col G: G3:G1000)
+    dv_cat = DataValidation(type="list", formula1=f"Catalogos!$A$2:$A${len(categorias_list)+1}", allow_blank=True)
+    dv_cat.showErrorMessage = False
+    ws.add_data_validation(dv_cat)
+    dv_cat.add('G3:G1000')
+
+    # Subcategoría (Col H: H3:H1000)
+    dv_sub = DataValidation(type="list", formula1=f"Catalogos!$B$2:$B${len(subcategorias_list)+1}", allow_blank=True)
+    dv_sub.showErrorMessage = False
+    ws.add_data_validation(dv_sub)
+    dv_sub.add('H3:H1000')
+
+    # Marca (Col I: I3:I1000)
+    dv_marca = DataValidation(type="list", formula1=f"Catalogos!$C$2:$C${len(marcas_list)+1}", allow_blank=True)
+    dv_marca.showErrorMessage = False
+    ws.add_data_validation(dv_marca)
+    dv_marca.add('I3:I1000')
+
+    # Modelo (Col J: J3:J1000)
+    dv_modelo = DataValidation(type="list", formula1=f"Catalogos!$D$2:$D${len(modelos_list)+1}", allow_blank=True)
+    dv_modelo.showErrorMessage = False
+    ws.add_data_validation(dv_modelo)
+    dv_modelo.add('J3:J1000')
+
+    # Línea (Col K: K3:K1000)
+    dv_linea = DataValidation(type="list", formula1=f"Catalogos!$E$2:$E${len(lineas_list)+1}", allow_blank=True)
+    dv_linea.showErrorMessage = False
+    ws.add_data_validation(dv_linea)
+    dv_linea.add('K3:K1000')
+
+    # Unidad de medida (Col L: L3:L1000)
+    dv_udm = DataValidation(type="list", formula1=f"Catalogos!$F$2:$F${len(udm_list)+1}", allow_blank=True)
+    ws.add_data_validation(dv_udm)
+    dv_udm.add('L3:L1000')
+
+    # Almacén (Col AF: AF3:AF1000)
+    dv_alm = DataValidation(type="list", formula1=f"Catalogos!$G$2:$G${len(almacenes_list)+1}", allow_blank=True)
+    dv_alm.showErrorMessage = False
+    ws.add_data_validation(dv_alm)
+    dv_alm.add('AF3:AF1000')
+
+    # Sucursal (Col AG: AG3:AG1000)
+    dv_suc = DataValidation(type="list", formula1=f"Catalogos!$H$2:$H${len(sucursales_list)+1}", allow_blank=True)
+    dv_suc.showErrorMessage = False
+    ws.add_data_validation(dv_suc)
+    dv_suc.add('AG3:AG1000')
+
+    # Asegurar que la hoja principal sea la que aparezca activa al abrir el archivo
+    wb.active = ws
 
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="Plantilla_Articulos.xlsx"'
+    response['Content-Disposition'] = 'attachment; filename="Layout_Plantilla_Articulos.xlsx"'
     wb.save(response)
     return response
 
@@ -54,19 +304,70 @@ def importar_articulos_ajax(request):
         excel_file = request.FILES['archivo_articulos']
         
         try:
-            wb = openpyxl.load_workbook(excel_file)
+            wb = openpyxl.load_workbook(excel_file, data_only=True)
             ws = wb.active
             rows = list(ws.iter_rows(values_only=True))
             
             if len(rows) < 2:
                 return JsonResponse({'success': False, 'error': 'El archivo está vacío.'})
             
-            data_rows = rows[1:]
+            # Detectar si la fila 1 contiene nombres de grupos ("identificacion"...)
+            first_row_txt = " ".join([str(c or '').lower() for c in rows[0][:8]])
+            if 'identific' in first_row_txt:
+                data_rows = rows[2:]
+                start_excel_idx = 3
+            else:
+                data_rows = rows[1:]
+                start_excel_idx = 2
+
+            def to_bool_val(val, default=False):
+                if val is None:
+                    return default
+                s = str(val).strip().lower()
+                if s in ['si', 'sí', 's', 'true', '1', 'yes', 'y']:
+                    return True
+                if s in ['no', 'n', 'false', '0']:
+                    return False
+                return default
+
+            def to_float_val(val, default=0.0):
+                if val is None:
+                    return default
+                try:
+                    s = str(val).strip().replace('$', '').replace(',', '')
+                    return float(s)
+                except (ValueError, TypeError):
+                    return default
+
+            def to_int_val(val, default=0):
+                if val is None:
+                    return default
+                try:
+                    s = str(val).strip().replace(',', '')
+                    return int(float(s))
+                except (ValueError, TypeError):
+                    return default
+
+            def parse_date_val(val):
+                if not val:
+                    return None
+                if isinstance(val, date):
+                    return val
+                if isinstance(val, datetime):
+                    return val.date()
+                val_str = str(val).strip()
+                for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y', '%Y/%m/%d'):
+                    try:
+                        return datetime.strptime(val_str, fmt).date()
+                    except ValueError:
+                        pass
+                return None
+
             creados = 0
             actualizados = 0
             errores = []
             
-            for idx, row in enumerate(data_rows, start=2):
+            for idx, row in enumerate(data_rows, start=start_excel_idx):
                 if not any(row): continue
                 
                 try:
@@ -78,37 +379,105 @@ def importar_articulos_ajax(request):
                             errores.append(f"Fila {idx}: El nombre es obligatorio.")
                             continue
 
-                        # --- LÓGICA DE IDENTIFICACIÓN: CLAVE Y NOMBRE ---
+                        is_33_cols = len(row) >= 20
+
+                        if is_33_cols:
+                            # Formato completo de 33 columnas
+                            val_tipo = str(row[2] or '').strip().lower()
+                            val_desc = str(row[3] or '').strip()
+                            val_estado = str(row[4] or '').strip().lower()
+                            val_abast = str(row[5] or '').strip().lower()
+
+                            val_cat = str(row[6] or '').strip()
+                            val_sub = str(row[7] or '').strip()
+                            val_marca = str(row[8] or '').strip()
+                            val_modelo = str(row[9] or '').strip()
+                            val_linea = str(row[10] or '').strip()
+                            val_unidad = str(row[11] or '').strip().upper()
+                            val_iva = to_float_val(row[12]) if row[12] is not None else None
+                            val_ieps = to_float_val(row[13]) if row[13] is not None else None
+
+                            val_costo = to_float_val(row[14]) if row[14] is not None else None
+                            val_venta = to_float_val(row[15]) if row[15] is not None else None
+                            val_stock_min = to_int_val(row[16]) if row[16] is not None else None
+                            val_stock_max = to_int_val(row[17]) if row[17] is not None else None
+
+                            val_lote = to_bool_val(row[18]) if len(row) > 18 and row[18] is not None else None
+                            val_serie = to_bool_val(row[19]) if len(row) > 19 and row[19] is not None else None
+                            val_caducidad = to_bool_val(row[20]) if len(row) > 20 and row[20] is not None else None
+                            val_fifo = to_bool_val(row[21]) if len(row) > 21 and row[21] is not None else None
+                            val_lifo = to_bool_val(row[22]) if len(row) > 22 and row[22] is not None else None
+                            val_fefo = to_bool_val(row[23]) if len(row) > 23 and row[23] is not None else None
+                            val_tiene_iva = to_bool_val(row[24]) if len(row) > 24 and row[24] is not None else None
+                            val_pos = to_bool_val(row[25]) if len(row) > 25 and row[25] is not None else None
+                            val_modificadores = to_bool_val(row[26]) if len(row) > 26 and row[26] is not None else None
+
+                            val_barcodes = str(row[27] or '').strip() if len(row) > 27 else ''
+                            val_existencias = to_int_val(row[28]) if len(row) > 28 and row[28] is not None else 0
+                            val_lote_stock = str(row[29] or '').strip() if len(row) > 29 else ''
+                            val_caducidad_stock = parse_date_val(row[30]) if len(row) > 30 and row[30] is not None else None
+                            val_almacen_stock = str(row[31] or '').strip() if len(row) > 31 else ''
+                            val_sucursal_stock = str(row[32] or '').strip() if len(row) > 32 else ''
+                        else:
+                            # Formato anterior (17 columnas)
+                            val_tipo = str(row[2] or '').strip().lower()
+                            val_desc = ''
+                            val_abast = str(row[3] or '').strip().lower()
+                            val_cat = str(row[4] or '').strip()
+                            val_sub = str(row[5] or '').strip()
+                            val_marca = str(row[6] or '').strip()
+                            val_modelo = str(row[7] or '').strip()
+                            val_linea = ''
+                            val_unidad = str(row[8] or '').strip().upper()
+                            val_costo = to_float_val(row[9]) if row[9] is not None else None
+                            val_venta = to_float_val(row[10]) if row[10] is not None else None
+                            val_iva = to_float_val(row[11]) if row[11] is not None else None
+                            val_ieps = None
+                            val_stock_min = to_int_val(row[12]) if row[12] is not None else None
+                            val_stock_max = to_int_val(row[13]) if row[13] is not None else None
+                            val_lote = to_bool_val(row[14]) if len(row) > 14 and row[14] is not None else None
+                            val_serie = to_bool_val(row[15]) if len(row) > 15 and row[15] is not None else None
+                            val_caducidad = None
+                            val_fifo = None
+                            val_lifo = None
+                            val_fefo = None
+                            val_tiene_iva = None
+                            val_pos = None
+                            val_modificadores = None
+                            val_estado = str(row[16] or '').strip().lower() if len(row) > 16 and row[16] is not None else ''
+                            val_barcodes = ''
+                            val_existencias = 0
+                            val_lote_stock = ''
+                            val_caducidad_stock = None
+                            val_almacen_stock = ''
+                            val_sucursal_stock = ''
+
+                        # Buscar producto existente
                         if not clave:
-                            # Escenario 1: Clave vacía en Excel -> Buscar mismo nombre con clave vacía/nula en DB
                             producto = Producto.objects.filter(
                                 Q(clave__isnull=True) | Q(clave=''),
                                 nombre=nombre,
                                 empresa=empresa_actual
                             ).first()
                         else:
-                            # Escenario 2: Clave con datos en Excel -> Coincidencia exacta de Clave y Nombre
                             producto = Producto.objects.filter(
                                 clave=clave,
                                 nombre=nombre,
                                 empresa=empresa_actual
                             ).first()
+                            if not producto:
+                                producto = Producto.objects.filter(
+                                    clave=clave,
+                                    empresa=empresa_actual
+                                ).first()
 
                         if producto:
-                            # --- ACTUALIZAR EXISTENTE (Solo campos no vacíos en Excel) ---
-                            # Tipo
-                            val_tipo = str(row[2] or '').strip().lower()
-                            if val_tipo in ['producto', 'servicio']: 
-                                producto.tipo = val_tipo
-                            
-                            # Abastecimiento
-                            val_abast = str(row[3] or '').strip().lower()
-                            if val_abast in ['stock', 'produccion', 'compra']:
-                                producto.tipo_abastecimiento = val_abast
+                            # --- ACTUALIZAR PRODUCTO EXISTENTE ---
+                            if val_tipo in ['producto', 'servicio']: producto.tipo = val_tipo
+                            if val_desc: producto.descripcion = val_desc
+                            if val_estado in ['activo', 'inactivo', 'descontinuado', 'revision']: producto.estado = val_estado
+                            if val_abast in ['stock', 'produccion', 'compra']: producto.tipo_abastecimiento = val_abast
 
-                            # Categoría y Subcategoría (con auto-creación)
-                            val_cat = str(row[4] or '').strip()
-                            val_sub = str(row[5] or '').strip()
                             if val_cat:
                                 producto.categoria = val_cat
                                 cat_obj, _ = Categoria.objects.get_or_create(nombre=val_cat, empresa=empresa_actual)
@@ -116,65 +485,145 @@ def importar_articulos_ajax(request):
                                     producto.subcategoria = val_sub
                                     Subcategoria.objects.get_or_create(nombre=val_sub, categoria=cat_obj, empresa=empresa_actual)
 
-                            if str(row[6] or '').strip(): producto.marca = str(row[6]).strip()
-                            if str(row[7] or '').strip(): producto.modelo = str(row[7]).strip()
-                            if str(row[8] or '').strip(): producto.unidad_medida = str(row[8]).strip().upper()
-                            
-                            if row[9] is not None: producto.precio_costo = float(row[9])
-                            if row[10] is not None: producto.precio_venta = float(row[10])
-                            if row[11] is not None: producto.iva = float(row[11])
-                            if row[12] is not None: producto.stock_minimo = int(row[12])
-                            if row[13] is not None: producto.stock_maximo = int(row[13])
-                            
-                            if row[14] is not None: producto.maneja_lote = str(row[14]).strip().lower() == 'si'
-                            if row[15] is not None: producto.maneja_serie = str(row[15]).strip().lower() == 'si'
-                            
-                            # Estado
-                            if len(row) > 16 and row[16] is not None:
-                                val_estado = str(row[16]).strip().lower()
-                                if val_estado in ['activo', 'inactivo', 'descontinuado', 'revision']:
-                                    producto.estado = val_estado
-                            
+                            if val_marca: producto.marca = val_marca
+                            if val_modelo: producto.modelo = val_modelo
+                            if val_linea: producto.linea = val_linea
+                            if val_unidad: producto.unidad_medida = val_unidad
+                            if val_iva is not None: producto.iva = val_iva
+                            if val_ieps is not None: producto.ieps = val_ieps
+
+                            if val_costo is not None: producto.precio_costo = val_costo
+                            if val_venta is not None: producto.precio_venta = val_venta
+                            if val_stock_min is not None: producto.stock_minimo = val_stock_min
+                            if val_stock_max is not None: producto.stock_maximo = val_stock_max
+
+                            if val_lote is not None: producto.maneja_lote = val_lote
+                            if val_serie is not None: producto.maneja_serie = val_serie
+                            if val_caducidad is not None: producto.maneja_caducidad = val_caducidad
+                            if val_fifo is not None: producto.maneja_fifo = val_fifo
+                            if val_lifo is not None: producto.maneja_lifo = val_lifo
+                            if val_fefo is not None: producto.maneja_fefo = val_fefo
+                            if val_tiene_iva is not None: producto.tiene_iva = val_tiene_iva
+                            if val_pos is not None: producto.mostrar_en_pos = val_pos
+                            if val_modificadores is not None: producto.permitir_modificadores = val_modificadores
+
                             producto.save()
                             actualizados += 1
                         else:
-                            # --- CREAR NUEVO ---
-                            cat_name = str(row[4] or '').strip()
-                            subcat_name = str(row[5] or '').strip()
-                            
-                            if cat_name:
-                                cat_obj, _ = Categoria.objects.get_or_create(nombre=cat_name, empresa=empresa_actual)
-                                if subcat_name:
-                                    Subcategoria.objects.get_or_create(nombre=subcat_name, categoria=cat_obj, empresa=empresa_actual)
+                            # --- CREAR NUEVO PRODUCTO ---
+                            if val_cat:
+                                cat_obj, _ = Categoria.objects.get_or_create(nombre=val_cat, empresa=empresa_actual)
+                                if val_sub:
+                                    Subcategoria.objects.get_or_create(nombre=val_sub, categoria=cat_obj, empresa=empresa_actual)
 
-                            # Determinar estado inicial
-                            nuevo_estado = 'activo'
-                            if len(row) > 16 and row[16] is not None:
-                                val_estado = str(row[16]).strip().lower()
-                                if val_estado in ['activo', 'inactivo', 'descontinuado', 'revision']:
-                                    nuevo_estado = val_estado
+                            nuevo_estado = val_estado if val_estado in ['activo', 'inactivo', 'descontinuado', 'revision'] else 'activo'
+                            nuevo_tipo = val_tipo if val_tipo in ['producto', 'servicio'] else 'producto'
+                            nuevo_abast = val_abast if val_abast in ['stock', 'produccion', 'compra'] else 'compra'
 
-                            Producto.objects.create(
+                            producto = Producto.objects.create(
                                 empresa=empresa_actual,
                                 clave=clave,
                                 nombre=nombre,
-                                tipo=str(row[2] or 'producto').strip().lower() if str(row[2] or '').strip().lower() in ['producto', 'servicio'] else 'producto',
-                                tipo_abastecimiento=str(row[3] or 'compra').strip().lower() if str(row[3] or '').strip().lower() in ['stock', 'produccion', 'compra'] else 'compra',
-                                categoria=cat_name,
-                                subcategoria=subcat_name,
-                                marca=str(row[6] or '').strip(),
-                                modelo=str(row[7] or '').strip(),
-                                unidad_medida=str(row[8] or 'H87').strip().upper(),
-                                precio_costo=float(row[9] or 0),
-                                precio_venta=float(row[10] or 0),
-                                iva=float(row[11] or 0),
-                                stock_minimo=int(row[12] or 0),
-                                stock_maximo=int(row[13] or 1000),
-                                maneja_lote=str(row[14] or 'no').strip().lower() == 'si',
-                                maneja_serie=str(row[15] or 'no').strip().lower() == 'si',
-                                estado=nuevo_estado
+                                tipo=nuevo_tipo,
+                                descripcion=val_desc or '',
+                                estado=nuevo_estado,
+                                tipo_abastecimiento=nuevo_abast,
+                                categoria=val_cat,
+                                subcategoria=val_sub,
+                                marca=val_marca,
+                                modelo=val_modelo,
+                                linea=val_linea,
+                                unidad_medida=val_unidad if val_unidad else 'H87',
+                                iva=val_iva if val_iva is not None else 0.00,
+                                ieps=val_ieps if val_ieps is not None else 0.00,
+                                precio_costo=val_costo if val_costo is not None else 0.00,
+                                precio_venta=val_venta if val_venta is not None else 0.00,
+                                stock_minimo=val_stock_min if val_stock_min is not None else 0,
+                                stock_maximo=val_stock_max if val_stock_max is not None else 1000,
+                                maneja_lote=val_lote if val_lote is not None else False,
+                                maneja_serie=val_serie if val_serie is not None else False,
+                                maneja_caducidad=val_caducidad if val_caducidad is not None else False,
+                                maneja_fifo=val_fifo if val_fifo is not None else False,
+                                maneja_lifo=val_lifo if val_lifo is not None else False,
+                                maneja_fefo=val_fefo if val_fefo is not None else False,
+                                tiene_iva=val_tiene_iva if val_tiene_iva is not None else True,
+                                mostrar_en_pos=val_pos if val_pos is not None else True,
+                                permitir_modificadores=val_modificadores if val_modificadores is not None else False,
                             )
                             creados += 1
+
+                        # Procesar códigos de barras adicionales (separados por coma)
+                        if val_barcodes:
+                            bcs = [b.strip() for b in val_barcodes.split(',') if b.strip()]
+                            for bc in bcs:
+                                existing_bc = CodigoBarrasAdicional.objects.filter(codigo=bc).first()
+                                if existing_bc:
+                                    if existing_bc.producto_id != producto.id:
+                                        existing_bc.producto = producto
+                                        existing_bc.save(update_fields=['producto'])
+                                else:
+                                    CodigoBarrasAdicional.objects.create(producto=producto, codigo=bc)
+
+                        # Procesar existencias iniciales si cantidad > 0
+                        if val_existencias > 0 and producto.tipo != 'servicio':
+                            almacen_obj = None
+                            if val_almacen_stock:
+                                almacen_obj = Almacen.objects.filter(empresa=empresa_actual, nombre__iexact=val_almacen_stock).first()
+                                if not almacen_obj:
+                                    almacen_obj = Almacen.objects.filter(empresa=empresa_actual, nombre__icontains=val_almacen_stock).first()
+
+                            sucursal_obj = None
+                            if val_sucursal_stock:
+                                sucursal_obj = Sucursal.objects.filter(empresa=empresa_actual, nombre__iexact=val_sucursal_stock).first()
+                                if not sucursal_obj:
+                                    sucursal_obj = Sucursal.objects.filter(empresa=empresa_actual, nombre__icontains=val_sucursal_stock).first()
+
+                            if not almacen_obj:
+                                if sucursal_obj:
+                                    almacen_obj = Almacen.objects.filter(empresa=empresa_actual, sucursal=sucursal_obj).first()
+                                if not almacen_obj:
+                                    almacen_obj = Almacen.objects.filter(empresa=empresa_actual).first()
+
+                            if not almacen_obj:
+                                almacen_obj = Almacen.objects.create(
+                                    empresa=empresa_actual,
+                                    sucursal=sucursal_obj,
+                                    nombre=val_almacen_stock or "Almacén Principal"
+                                )
+
+                            costo_u = producto.precio_costo if producto.precio_costo else Decimal('0.00')
+
+                            Inventario.registrar_ingreso(
+                                almacen=almacen_obj,
+                                producto=producto,
+                                cantidad_ingreso=val_existencias,
+                                costo_unitario=costo_u,
+                                referencia="Importación Inicial Excel",
+                                lote=val_lote_stock if val_lote_stock else None,
+                                usuario=request.user
+                            )
+
+                            if val_lote_stock or val_caducidad_stock:
+                                DetalleRecepcionExtra.objects.create(
+                                    producto=producto,
+                                    almacen=almacen_obj,
+                                    tipo='lote' if val_lote_stock else 'caducidad',
+                                    lote=val_lote_stock or '',
+                                    cantidad_lote=val_existencias,
+                                    fecha_caducidad=val_caducidad_stock
+                                )
+
+                            # Actualizar flags del producto si se definió lote o caducidad
+                            update_flags = []
+                            if val_lote_stock and not producto.maneja_lote:
+                                producto.maneja_lote = True
+                                update_flags.append('maneja_lote')
+                            if val_caducidad_stock and not producto.maneja_caducidad:
+                                producto.maneja_caducidad = True
+                                update_flags.append('maneja_caducidad')
+                            if update_flags:
+                                producto.save(update_fields=update_flags)
+
                 except Exception as row_err:
                     errores.append(f"Fila {idx}: {str(row_err)}")
             
@@ -246,10 +695,12 @@ def exportar_existencias_excel(request):
         stock_disponible_anotado=F('stock_fisico_anotado') - F('stock_res_anotado')
     )
 
-    if stock_status == 'con':
-        productos = productos.filter(stock_fisico_anotado__gt=0)
-    elif stock_status == 'sin':
-        productos = productos.filter(stock_fisico_anotado__lte=0)
+    vista = request.GET.get('vista', 'existencias')
+    if vista not in ['minimos_y_maximos', 'productos']:
+        if stock_status == 'con':
+            productos = productos.filter(stock_fisico_anotado__gt=0)
+        elif stock_status == 'sin':
+            productos = productos.filter(stock_fisico_anotado__lte=0)
 
     # --- Generar Excel ---
     wb = openpyxl.Workbook()
@@ -613,8 +1064,12 @@ def dashboard_inventario(request):
     q = request.GET.get('q')
     estado = request.GET.get('estado')
     vista = request.GET.get('vista', 'existencias')
-    stock_status = request.GET.get('existencias')
+    stock_status = request.GET.get('existencias', 'con')
+    if stock_status not in ['con', 'sin']:
+        stock_status = 'con'
     categoria_id = request.GET.get('categoria')
+    orden = request.GET.get('orden', '')
+    direccion = request.GET.get('dir', 'asc')
 
     if vista == 'lotes_y_caducidades':
         from recepciones.models import DetalleRecepcionExtra
@@ -637,7 +1092,18 @@ def dashboard_inventario(request):
         if categoria_id:
             extras_qs = extras_qs.filter(producto__categoria=categoria_id)
             
-        extras_qs = extras_qs.order_by('producto__nombre', 'fecha_caducidad', 'lote')
+        # Ordenamiento dinámico para lotes_y_caducidades
+        prefix = '-' if direccion == 'desc' else ''
+        orden_map_lotes = {
+            'nombre': f'{prefix}producto__nombre',
+            'lote': f'{prefix}lote',
+            'caducidad': f'{prefix}fecha_caducidad',
+            'existencias': f'{prefix}cantidad_lote',
+            'reservado': f'{prefix}id', # Lotes no manejan reserva diferenciada
+            'disponible': f'{prefix}cantidad_lote',
+        }
+        campo_orden_lote = orden_map_lotes.get(orden, 'producto__nombre')
+        extras_qs = extras_qs.order_by(campo_orden_lote, 'id')
         
         # Calcular totales consolidados
         totales_resumen = extras_qs.aggregate(
@@ -692,25 +1158,38 @@ def dashboard_inventario(request):
             costo_pesos=ExpressionWrapper(F('costo_unitario') * F('recepcion__tipo_cambio'), output_field=DecimalField(max_digits=10, decimal_places=2))
         ).order_by('-costo_pesos').values('costo_pesos')[:1]
 
+        # 3.1 ÚLTIMO COSTO COMPRA (RECEPCIÓN MÁS RECIENTE, EN PESOS)
+        ultimo_costo_subquery = DetalleRecepcion.objects.filter(
+            producto=OuterRef('pk')
+        ).exclude(
+            recepcion__estado='cancelada'
+        ).annotate(
+            costo_pesos=ExpressionWrapper(
+                F('costo_unitario') * Coalesce(F('recepcion__tipo_cambio'), 1.0),
+                output_field=DecimalField(max_digits=12, decimal_places=2)
+            )
+        ).order_by('-recepcion__fecha', '-id').values('costo_pesos')[:1]
+
         # 4. COSTO PROMEDIO (PONDERADO POR ALMACÉN O GLOBAL)
         if almacen_id:
-            costo_promedio_expr = Coalesce(
-                Subquery(
-                    Inventario.objects.filter(
-                        producto=OuterRef('pk'), almacen_id=almacen_id
-                    ).values('costo_promedio')[:1],
-                    output_field=DecimalField(max_digits=10, decimal_places=2)
-                ),
-                F('costo_promedio'),
-                F('precio_costo'),
-                output_field=DecimalField(max_digits=10, decimal_places=2)
-            )
+            inv_cost_sub = Inventario.objects.filter(
+                producto=OuterRef('pk'), almacen_id=almacen_id, costo_promedio__gt=0
+            ).values('costo_promedio')[:1]
         else:
-            costo_promedio_expr = Coalesce(
-                F('costo_promedio'),
-                F('precio_costo'),
+            inv_cost_qs = Inventario.objects.filter(producto=OuterRef('pk'), costo_promedio__gt=0)
+            if sucursal_id:
+                inv_cost_qs = inv_cost_qs.filter(sucursal_id=sucursal_id)
+            inv_cost_sub = inv_cost_qs.values('producto').annotate(avg=Avg('costo_promedio')).values('avg')[:1]
+
+        costo_promedio_expr = Coalesce(
+            Subquery(inv_cost_sub, output_field=DecimalField(max_digits=10, decimal_places=2)),
+            Case(
+                When(costo_promedio__gt=0, then=F('costo_promedio')),
+                default=F('precio_costo'),
                 output_field=DecimalField(max_digits=10, decimal_places=2)
-            )
+            ),
+            output_field=DecimalField(max_digits=10, decimal_places=2)
+        )
 
         # 5. VALOR TOTAL INVENTARIO (POR ALMACÉN SI SE FILTRA)
         inv_val_filter = Q(producto=OuterRef('pk'), cantidad__gt=0)
@@ -718,7 +1197,15 @@ def dashboard_inventario(request):
             inv_val_filter &= Q(sucursal_id=sucursal_id)
         if almacen_id:
             inv_val_filter &= Q(almacen_id=almacen_id)
-        costo_inventario_subquery = Inventario.objects.filter(inv_val_filter).values('producto').annotate(valor_total=Sum(ExpressionWrapper(F('cantidad') * F('costo_promedio'), output_field=FloatField()))).values('valor_total')[:1]
+
+        costo_unit_val = Case(
+            When(costo_promedio__gt=0, then=F('costo_promedio')),
+            default=F('producto__precio_costo'),
+            output_field=DecimalField(max_digits=12, decimal_places=2)
+        )
+        costo_inventario_subquery = Inventario.objects.filter(inv_val_filter).values('producto').annotate(
+            valor_total=Sum(ExpressionWrapper(F('cantidad') * costo_unit_val, output_field=FloatField()))
+        ).values('valor_total')[:1]
 
         # 6. STOCK FISICO Y RESERVADO (DINÁMICO)
         def get_stock_sub(field):
@@ -732,23 +1219,45 @@ def dashboard_inventario(request):
             ultimo_precio_venta=Subquery(ultimo_precio_venta),
             precio_max_venta=Subquery(ultimo_precio_venta),
             costo_max_compra=Subquery(max_costo_compra),
+            ultimo_costo_anotado=Coalesce(
+                Subquery(ultimo_costo_subquery),
+                Case(
+                    When(ultimo_costo__gt=0, then=F('ultimo_costo')),
+                    default=F('precio_costo'),
+                    output_field=DecimalField(max_digits=10, decimal_places=2)
+                ),
+                output_field=DecimalField(max_digits=10, decimal_places=2)
+            ),
             costo_promedio_anotado=costo_promedio_expr,
-            costo_inventario_anotado=Subquery(costo_inventario_subquery),
-            stock_fisico=Subquery(get_stock_sub('cantidad')),
-            stock_res=Subquery(get_stock_sub('reservado'))
+            costo_inventario_anotado=Coalesce(Subquery(costo_inventario_subquery), 0.0, output_field=FloatField()),
+            stock_fisico=Coalesce(Subquery(get_stock_sub('cantidad')), 0),
+            stock_res=Coalesce(Subquery(get_stock_sub('reservado')), 0)
         ).annotate(
             stock_disponible_anotado=ExpressionWrapper(
-                Coalesce(F('stock_fisico'), 0) - Coalesce(F('stock_res'), 0),
+                F('stock_fisico') - F('stock_res'),
                 output_field=IntegerField()
             )
         )
 
-        if stock_status == 'con':
-            productos = productos.filter(stock_fisico__gt=0)
-        elif stock_status == 'sin':
-            productos = productos.filter(Q(stock_fisico__lte=0) | Q(stock_fisico__isnull=True))
+        if vista not in ['minimos_y_maximos', 'productos']:
+            if stock_status == 'con':
+                productos = productos.filter(stock_fisico__gt=0)
+            elif stock_status == 'sin':
+                productos = productos.filter(stock_fisico__lte=0)
 
-        productos = productos.order_by('nombre')
+        # Ordenamiento dinámico para existencias, productos y minimos_y_maximos
+        prefix = '-' if direccion == 'desc' else ''
+        orden_map_productos = {
+            'nombre': f'{prefix}nombre',
+            'existencias': f'{prefix}stock_fisico',
+            'costo_base': f'{prefix}precio_costo',
+            'precio_base': f'{prefix}precio_venta',
+            'costo_inventario': f'{prefix}costo_inventario_anotado',
+            'minimos': f'{prefix}stock_minimo',
+            'maximos': f'{prefix}stock_maximo',
+        }
+        campo_orden_prod = orden_map_productos.get(orden, 'nombre')
+        productos = productos.order_by(campo_orden_prod, 'id')
         
         # Calcular totales consolidados (del total de productos filtrados, no solo de la página)
         totales_resumen = productos.aggregate(
@@ -808,9 +1317,46 @@ def dashboard_inventario(request):
         costo_valorizado=ExpressionWrapper(F('cantidad_lote') * F('producto__precio_costo'), output_field=FloatField())
     ).order_by('fecha_caducidad')[:5]
 
+    # Artículos con stock por debajo o próximos al stock mínimo requerido
+    def get_stock_min_sub(field):
+        qs_sub = Inventario.objects.filter(producto=OuterRef('pk'))
+        if sucursal_id:
+            qs_sub = qs_sub.filter(sucursal_id=sucursal_id)
+        if almacen_id:
+            qs_sub = qs_sub.filter(almacen_id=almacen_id)
+        return qs_sub.values('producto').annotate(total=Sum(field)).values('total')[:1]
+
+    articulos_stock_minimo_qs = Producto.objects.filter(
+        empresa=empresa_actual,
+        stock_minimo__gt=0
+    ).annotate(
+        stock_fisico_calc=Coalesce(Subquery(get_stock_min_sub('cantidad')), 0),
+        stock_res_calc=Coalesce(Subquery(get_stock_min_sub('reservado')), 0)
+    ).annotate(
+        stock_disp_calc=ExpressionWrapper(
+            F('stock_fisico_calc') - F('stock_res_calc'),
+            output_field=IntegerField()
+        ),
+        diferencia_minimo=ExpressionWrapper(
+            F('stock_minimo') - (F('stock_fisico_calc') - F('stock_res_calc')),
+            output_field=IntegerField()
+        )
+    ).annotate(
+        nivel_riesgo=Case(
+            When(stock_disp_calc__lte=0, then=Value('agotado')),
+            When(stock_disp_calc__lt=F('stock_minimo'), then=Value('bajo')),
+            When(stock_disp_calc=F('stock_minimo'), then=Value('minimo')),
+            default=Value('proximo'),
+            output_field=CharField()
+        )
+    ).filter(
+        stock_disp_calc__lte=ExpressionWrapper(F('stock_minimo') * 1.25, output_field=IntegerField())
+    ).order_by('-diferencia_minimo', 'stock_disp_calc')[:10]
+
     contexto = {
         'page_obj': page_obj,
         'proximos_caducar': proximos_caducar,
+        'articulos_stock_minimo': articulos_stock_minimo_qs,
         'almacenes': almacenes,
         'almacenes_todos': almacenes_todos,
         'sucursales': sucursales,
@@ -827,7 +1373,9 @@ def dashboard_inventario(request):
             'estado': estado or '',
             'vista': vista,
             'existencias': stock_status or '',
-            'categoria': categoria_id or ''
+            'categoria': categoria_id or '',
+            'orden': orden or '',
+            'dir': direccion or 'asc'
         },
         'section': 'inventario'
     }
@@ -1050,6 +1598,97 @@ def actualizar_producto_ajax(request, producto_id):
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+@login_required
+@require_POST
+def eliminar_producto_ajax(request, producto_id):
+    empresa_actual = get_empresa_actual(request)
+    producto = get_object_or_404(Producto, id=producto_id, empresa=empresa_actual)
+
+    # 1. Verificar asociaciones con otros registros
+    from almacenes.models import Inventario, Kardex, DetalleTomaInventario
+    from compras.models import DetalleCompra
+    from recepciones.models import DetalleRecepcion, DetalleRecepcionExtra, DetalleDevolucionRecepcion
+    from ventas.models import DetalleOrdenVenta
+    from pedidos.models import DetallePedido
+    from cotizaciones.models import DetalleCotizacion
+    from solicitudcompras.models import DetalleSolicitudCompra
+    from produccion.models import OrdenProduccion, DetalleOrdenProduccion
+    from core.models import DetalleReceta
+
+    asociaciones = []
+
+    # Stock en almacén mayor a cero
+    stock_agg = Inventario.objects.filter(producto=producto).aggregate(
+        total=Sum('cantidad'),
+        res=Sum('reservado')
+    )
+    total_stock = stock_agg.get('total') or 0
+    total_res = stock_agg.get('res') or 0
+    if total_stock > 0 or total_res > 0:
+        asociaciones.append("Existencias en almacén (stock mayor a cero)")
+
+    if Kardex.objects.filter(producto=producto).exists():
+        asociaciones.append("Movimientos en Kardex")
+
+    if DetalleCompra.objects.filter(producto=producto).exists():
+        asociaciones.append("Órdenes de compra")
+
+    if DetalleRecepcion.objects.filter(producto=producto).exists() or DetalleRecepcionExtra.objects.filter(producto=producto).exists():
+        asociaciones.append("Recepciones de mercancía / Lotes")
+
+    if DetalleDevolucionRecepcion.objects.filter(producto=producto).exists():
+        asociaciones.append("Devoluciones de compra")
+
+    if DetalleOrdenVenta.objects.filter(producto=producto).exists():
+        asociaciones.append("Ventas registradas")
+
+    if DetallePedido.objects.filter(producto=producto).exists():
+        asociaciones.append("Pedidos de clientes")
+
+    if DetalleCotizacion.objects.filter(producto=producto).exists():
+        asociaciones.append("Cotizaciones")
+
+    if DetalleSolicitudCompra.objects.filter(producto=producto).exists():
+        asociaciones.append("Solicitudes de compra")
+
+    if OrdenProduccion.objects.filter(producto=producto).exists() or DetalleOrdenProduccion.objects.filter(producto=producto).exists():
+        asociaciones.append("Órdenes de producción")
+
+    if DetalleReceta.objects.filter(componente=producto).exists():
+        asociaciones.append("Recetas activas (se utiliza como componente)")
+
+    if asociaciones:
+        asociaciones_str = ", ".join(asociaciones)
+        return JsonResponse({
+            'success': False,
+            'error': f"No se puede eliminar el artículo '{producto.nombre}' porque tiene asociación con otros registros en el sistema ({asociaciones_str})."
+        })
+
+    try:
+        with transaction.atomic():
+            # Limpiar registros dependientes que no impiden la eliminación
+            producto.barcodes.all().delete()
+            producto.conversiones.all().delete()
+            producto.receta.all().delete()
+            producto.modificadores.all().delete()
+            producto.detalles_toma_inventario.all().delete()
+            Inventario.objects.filter(producto=producto).delete()
+            from proveedores.models import MapeoProductoProveedor
+            MapeoProductoProveedor.objects.filter(producto=producto).delete()
+
+            nombre_prod = producto.nombre
+            producto.delete()
+
+            return JsonResponse({
+                'success': True,
+                'message': f"El artículo '{nombre_prod}' ha sido eliminado correctamente."
+            })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f"Ocurrió un error al intentar eliminar el artículo: {str(e)}"
+        })
 
 @login_required
 @require_inventory_permission('inventario', 'ver', json_response=True)

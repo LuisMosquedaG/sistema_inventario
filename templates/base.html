@@ -563,11 +563,11 @@
             </div>
             {% endif %}
 
-            <!-- MÓDULO: INVENTARIOS -->
+            <!-- MÓDULO: ALMACENES -->
             {% if inventory_ui_permissions.inventario or inventory_ui_permissions.kardex or inventory_ui_permissions.toma_inventario or inventory_ui_permissions.almacenes or inventory_ui_permissions.categorias %}
             <div>
                 <a href="#submenu-inventario" data-bs-toggle="collapse" class="sidebar-link {% if '/inventario/' in request.path %}sidebar-active{% endif %}">
-                    <i class="bi bi-box-seam sidebar-icon"></i> Inventarios
+                    <i class="bi bi-box-seam sidebar-icon"></i> Almacenes
                     <i class="bi bi-chevron-down small ms-auto" style="font-size: 0.7rem;"></i>
                 </a>
                 <div class="collapse {% if '/inventario/' in request.path %}show{% endif %}" id="submenu-inventario">
@@ -581,7 +581,7 @@
                         {% endif %}
 
                         {% if inventory_ui_permissions.toma_inventario %}
-                        <li><a href="/inventario/toma-inventario/" class="sidebar-link sidebar-level-2 {% if '/toma-inventario/' in request.path %}sidebar-sub-active{% endif %}"><i class="bi bi-clipboard-check me-2 small"></i> Inventario</a></li>
+                        <li><a href="/inventario/toma-inventario/" class="sidebar-link sidebar-level-2 {% if '/toma-inventario/' in request.path %}sidebar-sub-active{% endif %}"><i class="bi bi-clipboard-check me-2 small"></i> Inventarios</a></li>
                         {% endif %}
 
                         {% if inventory_ui_permissions.almacenes or inventory_ui_permissions.categorias %}

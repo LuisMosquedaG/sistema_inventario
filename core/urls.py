@@ -8,6 +8,7 @@ urlpatterns = [
     path('api/crear-producto-rapido/', views.crear_producto_rapido, name='crear_producto_rapido'),
     path('api/producto/<int:producto_id>/', views.obtener_producto_json, name='obtener_producto'),
     path('api/actualizar-producto/<int:producto_id>/', views.actualizar_producto_ajax, name='actualizar_producto'),
+    path('api/eliminar-producto/<int:producto_id>/', views.eliminar_producto_ajax, name='eliminar_producto_ajax'),
     path('api/actualizar-precio-producto/<int:producto_id>/', views.actualizar_precio_producto, name='actualizar_precio_producto'),
     path('api/detalle-producto/<int:producto_id>/', views.api_detalle_producto_inventario, name='api_detalle_producto'),
     path('api/detalle-documento/', views.api_detalle_documento, name='api_detalle_documento'),

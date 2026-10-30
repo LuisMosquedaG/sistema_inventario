@@ -80,6 +80,105 @@
         border: 1px solid #ffd8a8;
     }
 
+    .status-agotado {
+        background-color: #fff5f5;
+        color: #e03131;
+        border: 1px solid #ffc9c9;
+    }
+
+    .status-bajo {
+        background-color: #fff4e6;
+        color: #d9480f;
+        border: 1px solid #ffd8a8;
+    }
+
+    .status-minimo {
+        background-color: #fff9db;
+        color: #f08c00;
+        border: 1px solid #ffe066;
+    }
+
+    .status-proximo {
+        background-color: #e7f5ff;
+        color: #1971c2;
+        border: 1px solid #d0ebff;
+    }
+
+    /* PESTAÑAS PERSONALIZADAS ESTILO REPORTES */
+    .nav-tabs-custom .nav-link {
+        font-weight: 600;
+        color: #64748b;
+        border: none;
+        border-bottom: 3px solid transparent;
+        padding: 10px 18px;
+        font-size: 0.9rem;
+        background: transparent;
+        transition: all 0.2s ease;
+    }
+    .nav-tabs-custom .nav-link:hover {
+        color: #00b8b9;
+    }
+    .nav-tabs-custom .nav-link.active {
+        color: #00b8b9;
+        background: transparent;
+        border-bottom: 3px solid #00b8b9;
+    }
+
+    /* ESTILOS DE ORDENAMIENTO EN CABECERAS */
+    .table-pro thead th.th-sortable {
+        cursor: pointer;
+        user-select: none;
+        background-color: #f8f9fa !important;
+        transition: color 0.15s ease;
+    }
+    .table-pro thead th.th-sortable:hover {
+        background-color: #f8f9fa !important;
+        color: #00b8b9 !important;
+    }
+    .sort-icon-box {
+        display: inline-flex;
+        flex-direction: column;
+        line-height: 0.5;
+        vertical-align: middle;
+        font-size: 0.62rem;
+        margin-left: 4px;
+        opacity: 0.4;
+        transition: opacity 0.15s ease;
+    }
+    .th-sortable:hover .sort-icon-box {
+        opacity: 0.8;
+    }
+    .sort-icon-box.active {
+        opacity: 1;
+        color: #00b8b9;
+    }
+    .sort-icon-box.active .active-arrow {
+        color: #00b8b9;
+        font-weight: bold;
+    }
+
+    /* SWITCH DE EXISTENCIAS EN PESTAÑAS */
+    .switch-existencias .form-check-input {
+        cursor: pointer;
+        width: 2.2em;
+        height: 1.2em;
+    }
+    .switch-existencias .form-check-input:checked {
+        background-color: #00b8b9;
+        border-color: #00b8b9;
+    }
+    .switch-existencias .form-check-input:focus {
+        border-color: #00b8b9;
+        box-shadow: 0 0 0 0.2rem rgba(0, 184, 185, 0.25);
+    }
+    .switch-existencias .form-check-label {
+        cursor: pointer;
+        user-select: none;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #475569;
+    }
+
     /* ==========================================
     ZONA DE IMPORTACIÓN
     ========================================== */
@@ -150,32 +249,37 @@
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body p-3">
             <form method="get" id="formFiltrosInventario" class="row g-2 align-items-end">
-            <div class="col-12" style="width: 16%;">
-                <label class="form-label small fw-bold text-secondary">Búsqueda General</label>
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
-                    <input type="text" name="q" class="form-control border-start-0" placeholder="Buscar..." value="{{ filtros.q }}" onchange="this.form.submit()">
+                <input type="hidden" name="vista" id="inputFiltroVista" value="{{ filtros.vista|default:'existencias' }}">
+                <input type="hidden" name="orden" id="inputFiltroOrden" value="{{ filtros.orden|default:'' }}">
+                <input type="hidden" name="dir" id="inputFiltroDir" value="{{ filtros.dir|default:'asc' }}">
+                <input type="hidden" name="existencias" id="inputFiltroExistencias" value="{{ filtros.existencias|default:'con' }}">
+
+                <div class="col-12 col-md-3">
+                    <label class="form-label small fw-bold text-secondary">Búsqueda General</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                        <input type="text" name="q" class="form-control border-start-0" placeholder="Buscar..." value="{{ filtros.q }}" onchange="this.form.submit()">
+                    </div>
                 </div>
-            </div>
-            <div class="col-12" style="width: 14%;">
-                <label class="form-label small fw-bold text-secondary">Sucursal</label>
-                <select name="sucursal" class="form-select form-select-sm" onchange="this.form.submit()">
-                    <option value="">Todas...</option>
-                    {% for s in sucursales %}
-                    <option value="{{ s.id }}" {% if filtros.sucursal == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-12" style="width: 14%;">
-                <label class="form-label small fw-bold text-secondary">Almacén</label>
-                <select name="almacen" class="form-select form-select-sm" onchange="this.form.submit()">
-                    <option value="">Todos...</option>
-                    {% for a in almacenes %}
-                    <option value="{{ a.id }}" {% if filtros.almacen == a.id|stringformat:"s" %}selected{% endif %}>{{ a.nombre }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-                <div class="col-12" style="width: 14%;">
+                <div class="col-6 col-md-2">
+                    <label class="form-label small fw-bold text-secondary">Sucursal</label>
+                    <select name="sucursal" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todas...</option>
+                        {% for s in sucursales %}
+                        <option value="{{ s.id }}" {% if filtros.sucursal == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small fw-bold text-secondary">Almacén</label>
+                    <select name="almacen" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todos...</option>
+                        {% for a in almacenes %}
+                        <option value="{{ a.id }}" {% if filtros.almacen == a.id|stringformat:"s" %}selected{% endif %}>{{ a.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
                     <label class="form-label small fw-bold text-secondary">Categoría</label>
                     <select name="categoria" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="">Todas...</option>
@@ -184,23 +288,7 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-12" style="width: 14%;">
-                    <label class="form-label small fw-bold text-secondary">Vista</label>
-                    <select name="vista" class="form-select form-select-sm" onchange="this.form.submit()">
-                        <option value="existencias" {% if filtros.vista == 'existencias' %}selected{% endif %}>Existencias</option>
-                        <option value="productos" {% if filtros.vista == 'productos' %}selected{% endif %}>Productos</option>
-                        <option value="lotes_y_caducidades" {% if filtros.vista == 'lotes_y_caducidades' %}selected{% endif %}>Lotes y Caducidades</option>
-                    </select>
-                </div>
-                <div class="col-12" style="width: 14%;">
-                    <label class="form-label small fw-bold text-secondary">Existencias</label>
-                    <select name="existencias" class="form-select form-select-sm" onchange="this.form.submit()">
-                        <option value="">Todas...</option>
-                        <option value="con" {% if filtros.existencias == 'con' %}selected{% endif %}>Con existencias</option>
-                        <option value="sin" {% if filtros.existencias == 'sin' %}selected{% endif %}>Sin existencias</option>
-                    </select>
-                </div>
-                <div class="col-12" style="width: 14%;">
+                <div class="col-6 col-md-2">
                     <label class="form-label small fw-bold text-secondary">Estado</label>
                     <select name="estado" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="">Todos...</option>
@@ -214,34 +302,173 @@
         </div>
     </div>
 
-    <!-- TABLA -->
-    <div class="card border-0 shadow-sm">
+    <!-- PESTAÑAS DE VISTAS Y TABLA DE ARTÍCULOS -->
+    <div class="card border-0 shadow-sm overflow-hidden mb-3">
+        <!-- Cabecera con Pestañas Estilo Reportes y Switch de Existencias -->
+        <div class="bg-light px-3 pt-2 border-bottom d-flex flex-wrap justify-content-between align-items-center">
+            <ul class="nav nav-tabs nav-tabs-custom border-0" id="vistasTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <a href="javascript:void(0)" onclick="cambiarVistaExistencias('existencias')" 
+                       class="nav-link {% if filtros.vista == 'existencias' or not filtros.vista %}active{% endif %}">
+                        <i class="bi bi-box-seam me-1"></i> Existencias
+                    </a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a href="javascript:void(0)" onclick="cambiarVistaExistencias('productos')" 
+                       class="nav-link {% if filtros.vista == 'productos' %}active{% endif %}">
+                        <i class="bi bi-tags me-1"></i> Productos
+                    </a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a href="javascript:void(0)" onclick="cambiarVistaExistencias('lotes_y_caducidades')" 
+                       class="nav-link {% if filtros.vista == 'lotes_y_caducidades' %}active{% endif %}">
+                        <i class="bi bi-calendar-event me-1"></i> Lotes y Caducidades
+                    </a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a href="javascript:void(0)" onclick="cambiarVistaExistencias('minimos_y_maximos')" 
+                       class="nav-link {% if filtros.vista == 'minimos_y_maximos' %}active{% endif %}">
+                        <i class="bi bi-sliders2-vertical me-1"></i> Mínimos y Máximos
+                    </a>
+                </li>
+            </ul>
+            {% if filtros.vista == 'existencias' or not filtros.vista %}
+            <div class="form-check form-switch switch-existencias d-flex align-items-center gap-2 mb-2 me-2">
+                <input class="form-check-input mt-0" type="checkbox" role="switch" id="switchExistencias"
+                       {% if filtros.existencias != 'sin' %}checked{% endif %}
+                       onchange="toggleFiltroExistencias(this)">
+                <label class="form-check-label" for="switchExistencias" id="labelSwitchExistencias">
+                    {% if filtros.existencias == 'sin' %}Sin existencias{% else %}Con existencias{% endif %}
+                </label>
+            </div>
+            {% endif %}
+        </div>
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-pro mb-0">
                     <thead>
                         <tr>
                             {% if filtros.vista == 'lotes_y_caducidades' %}
-                                <th class="text-center" style="width: 100px;">Acciones</th>
+                                <th class="text-center" style="width: 135px;">Acciones</th>
                                 <th class="text-center" style="width: 60px;">Imagen</th>
-                                <th class="text-center">Nombre</th>
-                                <th class="text-center">Lote</th>
-                                <th class="text-center">Fecha de Caducidad</th>
-                                <th class="text-center">Existencias</th>
-                                <th class="text-center">Reservado</th>
-                                <th class="text-center">Disponible</th>
+                                <th class="text-center th-sortable" onclick="ordenarExistencias('nombre')">
+                                    Nombre
+                                    <span class="sort-icon-box {% if filtros.orden == 'nombre' %}active{% endif %}">
+                                        <i class="bi bi-caret-up-fill {% if filtros.orden == 'nombre' and filtros.dir == 'asc' %}active-arrow{% endif %}"></i>
+                                        <i class="bi bi-caret-down-fill {% if filtros.orden == 'nombre' and filtros.dir == 'desc' %}active-arrow{% endif %}"></i>
+                                    </span>
+                                </th>
+                                <th class="text-center th-sortable" onclick="ordenarExistencias('lote')">
+                                    Lote
+                                    <span class="sort-icon-box {% if filtros.orden == 'lote' %}active{% endif %}">
+                                        <i class="bi bi-caret-up-fill {% if filtros.orden == 'lote' and filtros.dir == 'asc' %}active-arrow{% endif %}"></i>
+                                        <i class="bi bi-caret-down-fill {% if filtros.orden == 'lote' and filtros.dir == 'desc' %}active-arrow{% endif %}"></i>
+                                    </span>
+                                </th>
+                                <th class="text-center th-sortable" onclick="ordenarExistencias('caducidad')">
+                                    Fecha de Caducidad
+                                    <span class="sort-icon-box {% if filtros.orden == 'caducidad' %}active{% endif %}">
+                                        <i class="bi bi-caret-up-fill {% if filtros.orden == 'caducidad' and filtros.dir == 'asc' %}active-arrow{% endif %}"></i>
+                                        <i class="bi bi-caret-down-fill {% if filtros.orden == 'caducidad' and filtros.dir == 'desc' %}active-arrow{% endif %}"></i>
+                                    </span>
+                                </th>
+                                <th class="text-center th-sortable" onclick="ordenarExistencias('existencias')">
+                                    Existencias
+                                    <span class="sort-icon-box {% if filtros.orden == 'existencias' %}active{% endif %}">
+                                        <i class="bi bi-caret-up-fill {% if filtros.orden == 'existencias' and filtros.dir == 'asc' %}active-arrow{% endif %}"></i>
+                                        <i class="bi bi-caret-down-fill {% if filtros.orden == 'existencias' and filtros.dir == 'desc' %}active-arrow{% endif %}"></i>
+                                    </span>
+                                </th>
+                                <th class="text-center th-sortable" onclick="ordenarExistencias('reservado')">
+                                    Reservado
+                                    <span class="sort-icon-box {% if filtros.orden == 'reservado' %}active{% endif %}">
+                                        <i class="bi bi-caret-up-fill {% if filtros.orden == 'reservado' and filtros.dir == 'asc' %}active-arrow{% endif %}"></i>
+                                        <i class="bi bi-caret-down-fill {% if filtros.orden == 'reservado' and filtros.dir == 'desc' %}active-arrow{% endif %}"></i>
+                                    </span>
+                                </th>
+                                <th class="text-center th-sortable" onclick="ordenarExistencias('disponible')">
+                                    Disponible
+                                    <span class="sort-icon-box {% if filtros.orden == 'disponible' %}active{% endif %}">
+                                        <i class="bi bi-caret-up-fill {% if filtros.orden == 'disponible' and filtros.dir == 'asc' %}active-arrow{% endif %}"></i>
+                                        <i class="bi bi-caret-down-fill {% if filtros.orden == 'disponible' and filtros.dir == 'desc' %}active-arrow{% endif %}"></i>
+                                    </span>
+                                </th>
                                 <th class="text-center">Estado</th>
-                            {% else %}
-                                <th class="text-center" style="width: 100px;">Acciones</th>
+                            {% elif filtros.vista == 'minimos_y_maximos' %}
+                                <th class="text-center" style="width: 135px;">Acciones</th>
                                 <th class="text-center" style="width: 60px;">Imagen</th>
-                                <th class="text-center">Nombre</th>
-                                <th class="text-center">Categoría / Subcategoría</th>
-                                <th class="text-center">Marca / Modelo</th>
+                                <th class="text-center th-sortable" onclick="ordenarExistencias('nombre')">
+                                    Nombre
+                                    <span class="sort-icon-box {% if filtros.orden == 'nombre' %}active{% endif %}">
+                                        <i class="bi bi-caret-up-fill {% if filtros.orden == 'nombre' and filtros.dir == 'asc' %}active-arrow{% endif %}"></i>
+                                        <i class="bi bi-caret-down-fill {% if filtros.orden == 'nombre' and filtros.dir == 'desc' %}active-arrow{% endif %}"></i>
+                                    </span>
+                                </th>
+                                <th class="text-center th-sortable" style="width: 120px;" onclick="ordenarExistencias('minimos')">
+                                    Mínimos
+                                    <span class="sort-icon-box {% if filtros.orden == 'minimos' %}active{% endif %}">
+                                        <i class="bi bi-caret-up-fill {% if filtros.orden == 'minimos' and filtros.dir == 'asc' %}active-arrow{% endif %}"></i>
+                                        <i class="bi bi-caret-down-fill {% if filtros.orden == 'minimos' and filtros.dir == 'desc' %}active-arrow{% endif %}"></i>
+                                    </span>
+                                </th>
+                                <th class="text-center th-sortable" style="width: 120px;" onclick="ordenarExistencias('maximos')">
+                                    Máximos
+                                    <span class="sort-icon-box {% if filtros.orden == 'maximos' %}active{% endif %}">
+                                        <i class="bi bi-caret-up-fill {% if filtros.orden == 'maximos' and filtros.dir == 'asc' %}active-arrow{% endif %}"></i>
+                                        <i class="bi bi-caret-down-fill {% if filtros.orden == 'maximos' and filtros.dir == 'desc' %}active-arrow{% endif %}"></i>
+                                    </span>
+                                </th>
+                                <th class="text-center th-sortable" style="width: 120px;" onclick="ordenarExistencias('existencias')">
+                                    Existencias
+                                    <span class="sort-icon-box {% if filtros.orden == 'existencias' %}active{% endif %}">
+                                        <i class="bi bi-caret-up-fill {% if filtros.orden == 'existencias' and filtros.dir == 'asc' %}active-arrow{% endif %}"></i>
+                                        <i class="bi bi-caret-down-fill {% if filtros.orden == 'existencias' and filtros.dir == 'desc' %}active-arrow{% endif %}"></i>
+                                    </span>
+                                </th>
+                                <th class="text-center" style="width: 110px;">Estado</th>
+                            {% else %}
+                                <th class="text-center" style="width: 135px;">Acciones</th>
+                                <th class="text-center" style="width: 60px;">Imagen</th>
+                                <th class="text-center th-sortable" onclick="ordenarExistencias('nombre')">
+                                    Nombre
+                                    <span class="sort-icon-box {% if filtros.orden == 'nombre' %}active{% endif %}">
+                                        <i class="bi bi-caret-up-fill {% if filtros.orden == 'nombre' and filtros.dir == 'asc' %}active-arrow{% endif %}"></i>
+                                        <i class="bi bi-caret-down-fill {% if filtros.orden == 'nombre' and filtros.dir == 'desc' %}active-arrow{% endif %}"></i>
+                                    </span>
+                                </th>
                                 {% if filtros.vista == 'existencias' %}
-                                    <th class="text-center">Stock</th>
-                                    <th class="text-center">Costos</th>
-                                    <th class="text-center">Precios</th>
-                                    <th class="text-center">Costo Inv.</th>
+                                    <th class="text-center th-sortable" onclick="ordenarExistencias('existencias')">
+                                        Stock
+                                        <span class="sort-icon-box {% if filtros.orden == 'existencias' %}active{% endif %}">
+                                            <i class="bi bi-caret-up-fill {% if filtros.orden == 'existencias' and filtros.dir == 'asc' %}active-arrow{% endif %}"></i>
+                                            <i class="bi bi-caret-down-fill {% if filtros.orden == 'existencias' and filtros.dir == 'desc' %}active-arrow{% endif %}"></i>
+                                        </span>
+                                    </th>
+                                    <th class="text-center th-sortable" onclick="ordenarExistencias('costo_base')">
+                                        Costos
+                                        <span class="sort-icon-box {% if filtros.orden == 'costo_base' %}active{% endif %}">
+                                            <i class="bi bi-caret-up-fill {% if filtros.orden == 'costo_base' and filtros.dir == 'asc' %}active-arrow{% endif %}"></i>
+                                            <i class="bi bi-caret-down-fill {% if filtros.orden == 'costo_base' and filtros.dir == 'desc' %}active-arrow{% endif %}"></i>
+                                        </span>
+                                    </th>
+                                    <th class="text-center th-sortable" onclick="ordenarExistencias('precio_base')">
+                                        Precios
+                                        <span class="sort-icon-box {% if filtros.orden == 'precio_base' %}active{% endif %}">
+                                            <i class="bi bi-caret-up-fill {% if filtros.orden == 'precio_base' and filtros.dir == 'asc' %}active-arrow{% endif %}"></i>
+                                            <i class="bi bi-caret-down-fill {% if filtros.orden == 'precio_base' and filtros.dir == 'desc' %}active-arrow{% endif %}"></i>
+                                        </span>
+                                    </th>
+                                    <th class="text-center th-sortable" onclick="ordenarExistencias('costo_inventario')">
+                                        Costo Inv.
+                                        <span class="sort-icon-box {% if filtros.orden == 'costo_inventario' %}active{% endif %}">
+                                            <i class="bi bi-caret-up-fill {% if filtros.orden == 'costo_inventario' and filtros.dir == 'asc' %}active-arrow{% endif %}"></i>
+                                            <i class="bi bi-caret-down-fill {% if filtros.orden == 'costo_inventario' and filtros.dir == 'desc' %}active-arrow{% endif %}"></i>
+                                        </span>
+                                    </th>
+                                {% elif filtros.vista == 'productos' %}
+                                    <th class="text-center">Categoría</th>
+                                    <th class="text-center">Subcategoría</th>
+                                    <th class="text-center">Abastecimiento</th>
                                 {% else %}
                                     <th class="text-center">Abastecimiento</th>
                                 {% endif %}
@@ -277,6 +504,7 @@
                                             <span onclick="abrirModalReceta({{ p.producto.id }}, '{{ p.producto.nombre|escapejs }}', {{ p.producto.precio_venta|default:0 }})" class="icon-action" title="Receta"><i class="bi bi-diagram-3"></i></span>
                                             {% endif %}
                                         {% endif %}
+                                        <span onclick="eliminarArticulo({{ p.producto.id }}, '{{ p.producto.nombre|escapejs }}')" class="icon-action hover-red" title="Eliminar"><i class="bi bi-x-circle"></i></span>
                                     </div>
                                 </td>
                                 <td class="text-center">
@@ -295,7 +523,6 @@
                                         {{ p.producto.nombre }}
                                     </div>
                                     <div class="text-muted small">Clave: {{ p.producto.clave|default:"--" }}</div>
-                                    <div class="text-muted small" style="font-size: 0.7rem;"><i class="bi bi-house-door me-1"></i>{{ p.almacen.nombre|default:"--" }}</div>
                                 </td>
                                 <td class="text-center small text-muted">
                                     {{ p.lote|default:"--" }}
@@ -304,13 +531,13 @@
                                     {% if p.fecha_caducidad %}{{ p.fecha_caducidad|date:"Y-m-d" }}{% else %}--{% endif %}
                                 </td>
                                 <td class="text-center small text-muted">
-                                    {{ p.cantidad_lote }} u.
+                                    {{ p.cantidad_lote }}
                                 </td>
                                 <td class="text-center small text-muted">
-                                    0 u.
+                                    0
                                 </td>
                                 <td class="text-center small text-muted">
-                                    {{ p.cantidad_lote }} u.
+                                    {{ p.cantidad_lote }}
                                 </td>
                                 <td class="text-center">
                                     <span class="status-pill status-{{ p.producto.estado|lower }}">
@@ -345,6 +572,7 @@
                                         {% if empresa.modulo_pos and p.permitir_modificadores %}
                                         <span onclick="abrirModalModificadores({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action" title="Modificadores"><i class="bi bi-sliders"></i></span>
                                         {% endif %}
+                                        <span onclick="eliminarArticulo({{ p.id }}, '{{ p.nombre|escapejs }}')" class="icon-action hover-red" title="Eliminar"><i class="bi bi-x-circle"></i></span>
                                     </div>
                                 </td>
                                 <td class="text-center">
@@ -366,22 +594,6 @@
                                     </div>
                                     <div class="text-muted small">Tipo: {{ p.tipo }}</div>
                                 </td>
-                                <td class="text-center">
-                                    <div class="small fw-semibold">{{ p.categoria|default:"--" }}</div>
-                                    <div class="text-muted small" style="font-size:0.75rem;">{{ p.subcategoria|default:"--" }}</div>
-                                </td>
-                                <td class="text-center">
-                                    <div class="small text-truncate mx-auto" 
-                                         style="max-width: {% if filtros.vista == 'productos' %}350px{% else %}150px{% endif %};" 
-                                         title="{{ p.marca|default:'' }}">
-                                        {{ p.marca|default:"--" }}
-                                    </div>
-                                    <div class="text-muted small text-truncate mx-auto" 
-                                         style="font-size:0.75rem; max-width: {% if filtros.vista == 'productos' %}350px{% else %}180px{% endif %};" 
-                                         title="{{ p.modelo|default:'' }}">
-                                        {{ p.modelo|default:"--" }}
-                                    </div>
-                                </td>
                                 {% if filtros.vista == 'existencias' %}
                                     <td class="text-center small text-muted">
                                         <div>Exist: <span class="{% if p.stock_fisico < p.stock_minimo %}text-danger{% else %}text-success{% endif %}">{{ p.stock_fisico|default:0 }}</span></div>
@@ -389,7 +601,7 @@
                                         <div>Dispo: <span class="text-success">{{ p.stock_disponible_anotado|default:0 }}</span></div>
                                     </td>
                                     <td class="text-center small text-muted">
-                                        <div>Último: {% if p.ultimo_costo and p.ultimo_costo > 0 %}${{ p.ultimo_costo|floatformat:2|intcomma }}{% else %}-${% endif %}</div>
+                                        <div>Último: {% if p.ultimo_costo_anotado and p.ultimo_costo_anotado > 0 %}${{ p.ultimo_costo_anotado|floatformat:2|intcomma }}{% elif p.ultimo_costo and p.ultimo_costo > 0 %}${{ p.ultimo_costo|floatformat:2|intcomma }}{% else %}-${% endif %}</div>
                                         <div>Prom: {% if p.costo_promedio_anotado and p.costo_promedio_anotado > 0 %}${{ p.costo_promedio_anotado|floatformat:2|intcomma }}{% else %}-${% endif %}</div>
                                         <div>Base: ${{ p.precio_costo|floatformat:2|intcomma|default:"-" }}</div>
                                     </td>
@@ -400,6 +612,26 @@
                                     </td>
                                     <td class="text-center">
                                         <div class="text-muted small">${{ p.costo_inventario_anotado|floatformat:2|intcomma|default:"0.00" }}</div>
+                                    </td>
+                                {% elif filtros.vista == 'minimos_y_maximos' %}
+                                    <td class="text-center">
+                                        <div class="small text-uppercase fw-semibold text-secondary">{{ p.stock_minimo|default:0 }}</div>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="small text-uppercase fw-semibold text-secondary">{{ p.stock_maximo|default:0 }}</div>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="small text-uppercase fw-semibold text-secondary">{{ p.stock_fisico|default:0 }}</div>
+                                    </td>
+                                {% elif filtros.vista == 'productos' %}
+                                    <td class="text-center">
+                                        <div class="small text-uppercase fw-semibold text-secondary">{{ p.categoria|default:"--" }}</div>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="small text-uppercase fw-semibold text-secondary">{{ p.subcategoria|default:"--" }}</div>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="small text-uppercase fw-semibold text-secondary">{{ p.tipo_abastecimiento }}</div>
                                     </td>
                                 {% else %}
                                     <td class="text-center">
@@ -415,7 +647,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="{% if filtros.vista == 'existencias' %}10{% elif filtros.vista == 'lotes_y_caducidades' %}9{% else %}7{% endif %}" class="text-center py-5">
+                            <td colspan="{% if filtros.vista == 'existencias' %}8{% elif filtros.vista == 'lotes_y_caducidades' %}9{% elif filtros.vista == 'minimos_y_maximos' %}7{% elif filtros.vista == 'productos' %}7{% else %}5{% endif %}" class="text-center py-5">
                                 <i class="bi bi-inbox display-6 text-muted mb-2 d-block"></i>
                                 <span class="text-muted fst-italic small">No hay artículos que coincidan con los filtros</span>
                             </td>
@@ -433,10 +665,10 @@
             <div class="d-flex gap-1">
                 {% if page_obj.has_previous %}
                     <!-- Primero -->
-                    <a href="?page=1{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Primera página">&laquo;&laquo;</a>
+                    <a href="?page=1{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}{% if filtros.orden %}&orden={{ filtros.orden }}{% endif %}{% if filtros.dir %}&dir={{ filtros.dir }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Primera página">&laquo;&laquo;</a>
                     
                     <!-- Anterior -->
-                    <a href="?page={{ page_obj.previous_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Anterior">&laquo;</a>
+                    <a href="?page={{ page_obj.previous_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}{% if filtros.orden %}&orden={{ filtros.orden }}{% endif %}{% if filtros.dir %}&dir={{ filtros.dir }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Anterior">&laquo;</a>
                 {% else %}
                     <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;&laquo;</button>
                     <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;</button>
@@ -448,7 +680,7 @@
                         {% if page_obj.number == i %}
                             <button class="btn btn-sm btn-brand text-white fw-bold shadow-sm" style="min-width: 32px;">{{ i }}</button>
                         {% else %}
-                            <a href="?page={{ i }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}" 
+                            <a href="?page={{ i }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}{% if filtros.orden %}&orden={{ filtros.orden }}{% endif %}{% if filtros.dir %}&dir={{ filtros.dir }}{% endif %}" 
                                class="btn btn-sm btn-light border-0 text-dark" style="min-width: 32px;">{{ i }}</a>
                         {% endif %}
                     {% endif %}
@@ -456,10 +688,10 @@
                 
                 {% if page_obj.has_next %}
                     <!-- Siguiente -->
-                    <a href="?page={{ page_obj.next_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Siguiente">&raquo;</a>
+                    <a href="?page={{ page_obj.next_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}{% if filtros.orden %}&orden={{ filtros.orden }}{% endif %}{% if filtros.dir %}&dir={{ filtros.dir }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Siguiente">&raquo;</a>
                     
                     <!-- Último -->
-                    <a href="?page={{ page_obj.paginator.num_pages }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Última página">&raquo;&raquo;</a>
+                    <a href="?page={{ page_obj.paginator.num_pages }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}{% if filtros.orden %}&orden={{ filtros.orden }}{% endif %}{% if filtros.dir %}&dir={{ filtros.dir }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Última página">&raquo;&raquo;</a>
                 {% else %}
                     <button class="btn btn-sm btn-light border-0 text-muted" disabled>&raquo;</button>
                     <button class="btn btn-sm btn-light border-0 text-muted" disabled>&raquo;&raquo;</button>
@@ -468,81 +700,146 @@
         </div>
     </div>
 
-    <!-- Sección de Totales Consolidados -->
-    {% if filtros.vista == 'existencias' or filtros.vista == 'lotes_y_caducidades' %}
-    <div class="d-flex flex-wrap gap-4 align-items-stretch mt-4 mb-4">
+    <!-- Sección de Totales Consolidados y Alertas de Stock -->
+    <div class="row g-3 align-items-stretch mt-3 mb-4">
         <!-- Tarjeta 1: Resumen de Totales -->
-        <div class="card shadow-sm border-0 animate__animated animate__fadeIn flex-grow-1" style="border-radius: 12px; background: #fff; max-width: 380px; min-width: 280px; margin-right: 0;">
-            <div class="card-body p-3">
-                <h6 class="fw-bold text-dark mb-3 d-flex align-items-center" style="font-size: 0.9rem; letter-spacing: 0.2px;">
-                    <i class="bi bi-calculator me-2" style="color: #00b8b9;"></i>
-                    Resumen de Totales
-                </h6>
-                <ul class="list-group list-group-flush" style="font-size: 0.85rem;">
-                    <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2 bg-transparent border-0">
-                        <span class="text-muted">Existencia</span>
-                        <span class="text-muted">{{ resumen_totales.stock_fisico|intcomma }} u.</span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2 bg-transparent border-0" style="border-top: 1px dashed #eee !important;">
-                        <span class="text-muted">Retenido</span>
-                        <span class="text-muted">{{ resumen_totales.stock_reservado|intcomma }} u.</span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2 bg-transparent border-0" style="border-top: 1px dashed #eee !important;">
-                        <span class="text-muted">Disponibilidad</span>
-                        <span class="text-muted">{{ resumen_totales.stock_disponible|intcomma }} u.</span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2 bg-transparent border-0" style="border-top: 1px dashed #eee !important;">
-                        <span class="text-muted">Costo total de inventario</span>
-                        <span class="text-muted">${{ resumen_totales.costo_inventario|floatformat:2|intcomma }}</span>
-                    </li>
-                </ul>
+        <div class="col-12 col-lg-3">
+            <div class="card shadow-sm border-0 h-100 animate__animated animate__fadeIn" style="border-radius: 12px; background: #fff;">
+                <div class="card-body p-3">
+                    <h6 class="fw-bold text-dark mb-3 d-flex align-items-center" style="font-size: 0.9rem; letter-spacing: 0.2px;">
+                        <i class="bi bi-calculator me-2" style="color: #00b8b9;"></i>
+                        Resumen de Totales
+                    </h6>
+                    <ul class="list-group list-group-flush" style="font-size: 0.85rem;">
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2 bg-transparent border-0">
+                            <span class="text-muted">Existencia</span>
+                            <span class="text-muted">{{ resumen_totales.stock_fisico|intcomma }} u.</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2 bg-transparent border-0" style="border-top: 1px dashed #eee !important;">
+                            <span class="text-muted">Retenido</span>
+                            <span class="text-muted">{{ resumen_totales.stock_reservado|intcomma }} u.</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2 bg-transparent border-0" style="border-top: 1px dashed #eee !important;">
+                            <span class="text-muted">Disponibilidad</span>
+                            <span class="text-muted">{{ resumen_totales.stock_disponible|intcomma }} u.</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2 bg-transparent border-0" style="border-top: 1px dashed #eee !important;">
+                            <span class="text-muted">Costo total de inventario</span>
+                            <span class="text-muted">${{ resumen_totales.costo_inventario|floatformat:2|intcomma }}</span>
+                        </li>
+                    </ul>
+                </div>
             </div>
         </div>
 
-        <!-- Tarjeta 2: Próximos a Caducar (Doble de tamaño) -->
-        <div class="card shadow-sm border-0 animate__animated animate__fadeIn flex-grow-1" style="border-radius: 12px; background: #fff; max-width: 760px; min-width: 320px; flex: 2 1 600px;">
-            <div class="card-body p-3">
-                <h6 class="fw-bold text-dark mb-3 d-flex align-items-center" style="font-size: 0.9rem; letter-spacing: 0.2px;">
-                    <i class="bi bi-calendar-x me-2" style="color: #00b8b9;"></i>
-                    Artículos Próximos a Caducar
-                </h6>
-                {% if proximos_caducar %}
-                <div class="table-responsive">
-                    <table class="table table-sm table-hover mb-0 align-middle" style="font-size: 0.8rem;">
-                        <thead>
-                            <tr class="text-secondary">
-                                <th style="width: 35%;">Nombre</th>
-                                <th style="width: 15%;">Lote</th>
-                                <th class="text-center" style="width: 20%;">Caducidad</th>
-                                <th class="text-center" style="width: 15%;">Piezas</th>
-                                <th class="text-end" style="width: 15%;">Costo</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in proximos_caducar %}
-                            <tr>
-                                <td class="fw-bold text-dark text-truncate" style="max-width: 180px;" title="{{ item.producto.nombre }}">{{ item.producto.nombre }}</td>
-                                <td class="small text-muted">{{ item.lote|default:"--" }}</td>
-                                <td class="text-center small text-muted">
-                                    {% if item.fecha_caducidad %}{{ item.fecha_caducidad|date:"Y-m-d" }}{% else %}--{% endif %}
-                                </td>
-                                <td class="text-center small text-muted">{{ item.cantidad_lote }} u.</td>
-                                <td class="text-end small text-muted">${{ item.costo_valorizado|floatformat:2|intcomma }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+        <!-- Tarjeta 2: Próximos a Caducar -->
+        <div class="col-12 col-lg-4 col-xl-4">
+            <div class="card shadow-sm border-0 h-100 animate__animated animate__fadeIn" style="border-radius: 12px; background: #fff;">
+                <div class="card-body p-3">
+                    <h6 class="fw-bold text-dark mb-3 d-flex align-items-center" style="font-size: 0.9rem; letter-spacing: 0.2px;">
+                        <i class="bi bi-calendar-x me-2" style="color: #00b8b9;"></i>
+                        Artículos Próximos a Caducar
+                    </h6>
+                    {% if proximos_caducar %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0 align-middle" style="font-size: 0.8rem;">
+                            <thead>
+                                <tr class="text-secondary">
+                                    <th style="width: 40%;">Productos</th>
+                                    <th style="width: 20%;">Lote</th>
+                                    <th class="text-center" style="width: 20%;">Caducidad</th>
+                                    <th class="text-end" style="width: 20%;">Piezas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in proximos_caducar %}
+                                <tr>
+                                    <td class="text-muted text-truncate" style="max-width: 130px; font-size: 0.85rem;" title="{{ item.producto.nombre }}">{{ item.producto.nombre }}</td>
+                                    <td class="small text-muted">{{ item.lote|default:"--" }}</td>
+                                    <td class="text-center small text-muted">
+                                        {% if item.fecha_caducidad %}{{ item.fecha_caducidad|date:"Y-m-d" }}{% else %}--{% endif %}
+                                    </td>
+                                    <td class="text-end small text-muted">{{ item.cantidad_lote }} u.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted small">
+                        <i class="bi bi-shield-check text-success display-6 mb-2 d-block"></i>
+                        No hay artículos con fecha de caducidad cercana o activa.
+                    </div>
+                    {% endif %}
                 </div>
-                {% else %}
-                <div class="text-center py-4 text-muted small">
-                    <i class="bi bi-shield-check text-success display-6 mb-2 d-block"></i>
-                    No hay artículos con fecha de caducidad cercana o activa.
+            </div>
+        </div>
+
+        <!-- Tarjeta 3: Artículos en Stock Mínimo o Crítico -->
+        <div class="col-12 col-lg-5 col-xl-5">
+            <div class="card shadow-sm border-0 h-100 animate__animated animate__fadeIn" style="border-radius: 12px; background: #fff;">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold text-dark mb-0 d-flex align-items-center" style="font-size: 0.9rem; letter-spacing: 0.2px;">
+                            <i class="bi bi-exclamation-triangle-fill me-2 text-danger"></i>
+                            Artículos en Stock Mínimo
+                        </h6>
+                    </div>
+                    {% if articulos_stock_minimo %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0 align-middle" style="font-size: 0.8rem;">
+                            <thead>
+                                <tr class="text-secondary">
+                                    <th>Productos</th>
+                                    <th class="text-center" style="width: 75px;">Mínimo</th>
+                                    <th class="text-center" style="width: 75px;">Actual</th>
+                                    <th class="text-center" style="width: 75px;">Faltante</th>
+                                    <th class="text-center" style="width: 80px;">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for prod in articulos_stock_minimo %}
+                                <tr>
+                                    <td class="text-muted text-truncate" style="max-width: 140px; font-size: 0.85rem;" title="{{ prod.nombre }}">
+                                        {{ prod.nombre }}
+                                    </td>
+                                    <td class="text-center small text-muted">{{ prod.stock_minimo|default:0 }}</td>
+                                    <td class="text-center small text-muted">{{ prod.stock_disp_calc|default:0 }}</td>
+                                    <td class="text-center small text-muted">
+                                        {% if prod.diferencia_minimo > 0 %}
+                                            -{{ prod.diferencia_minimo }}
+                                        {% else %}
+                                            0
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="status-pill status-{{ prod.nivel_riesgo }}">
+                                            {% if prod.nivel_riesgo == 'agotado' %}
+                                                Agotado
+                                            {% elif prod.nivel_riesgo == 'bajo' %}
+                                                Bajo
+                                            {% elif prod.nivel_riesgo == 'minimo' %}
+                                                Mínimo
+                                            {% else %}
+                                                Próximo
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted small">
+                        <i class="bi bi-check-circle text-success display-6 mb-2 d-block"></i>
+                        No hay artículos por debajo ni próximos al stock mínimo.
+                    </div>
+                    {% endif %}
                 </div>
-                {% endif %}
             </div>
         </div>
     </div>
-    {% endif %}
 </div>
 
 <!-- MODALES -->
@@ -641,6 +938,74 @@
         window.location.href = `{% url 'exportar_existencias_excel' %}?${params}`;
     }
 
+    function cambiarVistaExistencias(vista) {
+        const inputVista = document.getElementById('inputFiltroVista');
+        if (inputVista) {
+            inputVista.value = vista;
+        }
+        const form = document.getElementById('formFiltrosInventario');
+        if (form) {
+            form.submit();
+        }
+    }
+
+    function ordenarExistencias(campo) {
+        const inputOrden = document.getElementById('inputFiltroOrden');
+        const inputDir = document.getElementById('inputFiltroDir');
+        const form = document.getElementById('formFiltrosInventario');
+        if (!inputOrden || !inputDir || !form) return;
+
+        if (inputOrden.value === campo) {
+            inputDir.value = (inputDir.value === 'asc') ? 'desc' : 'asc';
+        } else {
+            inputOrden.value = campo;
+            inputDir.value = 'asc';
+        }
+        form.submit();
+    }
+
+    function toggleFiltroExistencias(checkbox) {
+        const input = document.getElementById('inputFiltroExistencias');
+        if (input) {
+            input.value = checkbox.checked ? 'con' : 'sin';
+        }
+        const label = document.getElementById('labelSwitchExistencias');
+        if (label) {
+            label.textContent = checkbox.checked ? 'Con existencias' : 'Sin existencias';
+        }
+        const form = document.getElementById('formFiltrosInventario');
+        if (form) {
+            form.submit();
+        }
+    }
+
+    function eliminarArticulo(productoId, productoNombre) {
+        if (!confirm(`¿Estás seguro de que deseas eliminar el artículo "${productoNombre}"? Esta acción no se puede deshacer.`)) {
+            return;
+        }
+
+        fetch(`/inventario/api/eliminar-producto/${productoId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert(data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error al eliminar artículo:', error);
+            alert('Ocurrió un error al intentar eliminar el artículo.');
+        });
+    }
+
     function updateArtFileName(input) {
         const display = document.getElementById('artFileNameDisplay');
         if (input.files && input.files[0]) {
@@ -721,6 +1086,7 @@
         api_crear_producto: "/inventario/api/crear-producto/",
         api_actualizar_producto: "/inventario/api/actualizar-producto/0/",
         api_actualizar_precio: "/inventario/api/actualizar-precio-producto/0/",
+        api_eliminar_producto: "/inventario/api/eliminar-producto/0/",
         // NUEVAS URLS PARA TRASLADOS (CORREGIDAS)
         api_productos_con_stock: "/inventario/api/productos-con-stock/",
         api_extras_producto: "/inventario/api/extras-producto/",

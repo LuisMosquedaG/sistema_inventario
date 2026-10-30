@@ -254,6 +254,9 @@ def reiniciar_transacciones_ajax(request):
             ResultadoTestOP.objects.filter(orden_produccion__empresa=empresa_actual).delete()
             DetalleCotizacion.objects.filter(cotizacion__empresa=empresa_actual).delete()
             Kardex.objects.filter(empresa=empresa_actual).delete()
+            from almacenes.models import TomaInventario, DetalleTomaInventario
+            DetalleTomaInventario.objects.filter(toma_inventario__empresa=empresa_actual).delete()
+            TomaInventario.objects.filter(empresa=empresa_actual).delete()
             
             # 3. Cabeceras y Cortes de Caja
             Recepcion.objects.filter(empresa=empresa_actual).delete()
