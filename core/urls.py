@@ -27,4 +27,8 @@ urlpatterns = [
     path('api/conversiones/<int:producto_id>/', views.api_listar_conversiones, name='api_listar_conversiones'),
     path('api/conversiones/guardar/', views.api_guardar_conversion, name='api_guardar_conversion'),
     path('api/conversiones/eliminar/<int:conversion_id>/', views.api_eliminar_conversion, name='api_eliminar_conversion'),
+    
+    # Solicitud de Compra Automática por Stock Mínimo
+    path('api/articulos-stock-minimo/', views.api_articulos_stock_minimo, name='api_articulos_stock_minimo'),
+    path('api/crear-solicitud-stock-minimo/', views.api_crear_solicitud_stock_minimo, name='api_crear_solicitud_stock_minimo'),
 ]

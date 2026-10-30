@@ -237,6 +237,10 @@
             </button>
             {% endif %}
 
+            <button type="button" class="btn btn-light border text-secondary btn-pro shadow-sm" onclick="abrirModalSolicitudStockMinimo()" title="Generar Solicitud de Compra de materiales en Stock Mínimo">
+                <i class="bi bi-cart-plus me-1"></i> Solicitud de Compra
+            </button>
+
             {% if granular_inventory_perms.inventario.crear %}
             <button class="btn btn-brand text-white btn-pro shadow-sm" onclick="abrirNuevoArticulo('{{ filtros.sucursal }}')">
                 <i class="bi bi-plus-lg me-1"></i> Nuevo Artículo
@@ -853,6 +857,7 @@
 {% include "inventario/modals/modal_traslado.html" %} {# INCLUIR EL NUEVO MODAL #}
 {% include "inventario/modals/modal_modificadores.html" %}
 {% include "inventario/modals/modal_conversiones.html" %}
+{% include "inventario/modals/modal_solicitud_stock_minimo.html" %}
 
 <!-- MODAL: IMPORTAR ARTICULOS -->
 <div class="modal fade" id="modalImportarArticulos" tabindex="-1" aria-hidden="true">

@@ -1,0 +1,793 @@
+<style>
+    #modalSolicitudStockMinimo .status-pill {
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.7rem;
+        line-height: 1;
+        padding: 0.35em 0.8em;
+        font-weight: 600;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: middle;
+        border-radius: 50px;
+        text-transform: capitalize;
+        letter-spacing: 0.3px;
+    }
+    #modalSolicitudStockMinimo .status-agotado {
+        background-color: #fff5f5;
+        color: #e03131;
+        border: 1px solid #ffc9c9;
+    }
+    #modalSolicitudStockMinimo .status-bajo {
+        background-color: #fff4e6;
+        color: #d9480f;
+        border: 1px solid #ffd8a8;
+    }
+    #modalSolicitudStockMinimo .status-minimo {
+        background-color: #fff9db;
+        color: #f08c00;
+        border: 1px solid #ffe066;
+    }
+    #modalSolicitudStockMinimo .status-proximo {
+        background-color: #e7f5ff;
+        color: #1971c2;
+        border: 1px solid #d0ebff;
+    }
+    #modalSolicitudStockMinimo .select-unidad-solmin {
+        -webkit-appearance: none !important;
+        -moz-appearance: none !important;
+        appearance: none !important;
+        background-image: none !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+        text-align: center !important;
+        text-align-last: center !important;
+        cursor: pointer;
+    }
+
+    /* ESTILOS PARA CUSTOM SELECT (Buscador de Producto) */
+    #modalSolicitudStockMinimo .custom-select-wrapper { position: relative; user-select: none; width: 100%; }
+    #modalSolicitudStockMinimo .custom-select { position: relative; display: flex; flex-direction: column; }
+    #modalSolicitudStockMinimo .custom-select__trigger {
+        position: relative; display: flex; align-items: center; justify-content: flex-start;
+        padding: 0 0.75rem; font-size: 0.875rem; font-weight: 400; color: #212529;
+        height: 31px; background: #ffffff; border: 1px solid #dee2e6; border-radius: 0.375rem;
+        cursor: pointer; transition: all 0.2s ease;
+    }
+    #modalSolicitudStockMinimo .custom-select__trigger:hover { border-color: #00b8b9; }
+    #modalSolicitudStockMinimo .custom-select.open .custom-select__trigger { border-color: #00b8b9; box-shadow: 0 0 0 0.25rem rgba(0, 184, 185, 0.15); }
+    #modalSolicitudStockMinimo .fake-input-layer { position: absolute; left: 0.75rem; right: 2rem; pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; z-index: 1; transition: opacity 0.1s; }
+    #modalSolicitudStockMinimo .real-input-layer { position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 1; background: transparent; border: none; padding: 0 0.75rem; outline: none; z-index: 2; font-size: 0.875rem; }
+    #modalSolicitudStockMinimo .custom-options {
+        position: absolute; display: block; top: 100%; left: 0; right: 0; border: 1px solid #dee2e6;
+        background: #fff; transition: all 0.2s; opacity: 0; visibility: hidden; pointer-events: none;
+        z-index: 1060; border-radius: 0.375rem; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        max-height: 240px; overflow-y: auto; margin-top: 4px;
+    }
+    #modalSolicitudStockMinimo .custom-select.open .custom-options { opacity: 1; visibility: visible; pointer-events: all; }
+    #modalSolicitudStockMinimo .custom-option {
+        position: relative; display: flex; align-items: center; padding: 0.45rem 0.75rem;
+        font-size: 0.85rem; color: #495057; cursor: pointer; transition: all 0.15s; border-bottom: 1px solid #f8f9fa;
+    }
+    #modalSolicitudStockMinimo .custom-option:last-child { border-bottom: none; }
+    #modalSolicitudStockMinimo .custom-option:hover { background: #f0fdfa; color: #00b8b9; }
+    #modalSolicitudStockMinimo .custom-option.selected { background: #e7f5ff; color: #00b8b9; }
+</style>
+
+<div class="modal fade" id="modalSolicitudStockMinimo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-sheet">
+        <div class="modal-content">
+            <div class="modal-header border-bottom bg-light py-2">
+                <h5 class="modal-title fw-bold text-dark">
+                    <i class="bi bi-cart-plus me-2 text-brand"></i>
+                    Generar Solicitud de Compra por Stock Mínimo
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body p-3 bg-light">
+                <!-- 1. FILTROS Y PREGUNTAS -->
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body p-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="bi bi-funnel-fill text-brand me-2"></i>
+                            <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.75rem; letter-spacing: 1px;">
+                                ¿Qué tipo de materiales pedirá de acuerdo al estado de stock mínimo?
+                            </h6>
+                        </div>
+
+                        <div class="row g-2 align-items-end">
+                            <!-- ESTADO DE STOCK -->
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-secondary mb-1">Estado de Stock Mínimo</label>
+                                <select id="solMinFiltroRiesgo" class="form-select form-select-sm" onchange="cargarArticulosStockMinimoModal()">
+                                    <option value="todos" selected>Todos (Agotado, Bajo, Mínimo y Próximo)</option>
+                                    <option value="agotado">Agotado</option>
+                                    <option value="bajo">Bajo</option>
+                                    <option value="minimo">Mínimo</option>
+                                    <option value="proximo">Próximo</option>
+                                </select>
+                            </div>
+
+                            <!-- ALMACÉN DESTINO -->
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-secondary mb-1">Almacén Destino</label>
+                                <select id="solMinAlmacenDestino" class="form-select form-select-sm" onchange="cargarArticulosStockMinimoModal()">
+                                    <option value="">Almacén Principal (Todos)</option>
+                                    {% for a in almacenes_todos %}
+                                    <option value="{{ a.id }}" {% if a.id|stringformat:"s" == filtros.almacen %}selected{% endif %}>{{ a.nombre }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- BUSCADOR DE PRODUCTO CON BOTÓN + -->
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-secondary mb-1">Producto</label>
+                                <div class="d-flex align-items-center">
+                                    <div class="custom-select-wrapper flex-grow-1" id="wrapperAddProductSolMin">
+                                        <div class="custom-select" id="selectAddProductSolMinWrapper">
+                                            <div class="custom-select__trigger" style="border-top-right-radius: 0; border-bottom-right-radius: 0;">
+                                                <div id="add_product_solmin_display_fake" class="fake-input-layer">
+                                                    <span class="text-muted" style="font-weight:400;">Buscar producto para agregar...</span>
+                                                </div>
+                                                <input type="text" id="add_product_solmin_busqueda" autocomplete="off" class="real-input-layer">
+                                                <input type="hidden" id="add_product_solmin" value="">
+                                            </div>
+                                            <div class="custom-options" id="optionsAddProductSolMin">
+                                                {% for p in productos_todos_solmin %}
+                                                <span class="custom-option" 
+                                                      data-value="{{ p.id }}" 
+                                                      data-name="{{ p.nombre }}"
+                                                      data-clave="{{ p.clave }}"
+                                                      data-categoria="{{ p.categoria }}"
+                                                      data-precio="{{ p.precio_costo }}" 
+                                                      data-unidad="{{ p.unidad_medida_display }}" 
+                                                      data-search="{{ p.nombre }} {{ p.clave }}" 
+                                                      title="{{ p.nombre }}">
+                                                    <div class="d-flex justify-content-between align-items-center w-100">
+                                                        <span class="text-truncate" style="max-width: 80%;">
+                                                            <strong class="text-dark">{{ p.nombre }}</strong>
+                                                            {% if p.clave %}<small class="text-muted font-monospace ms-1">({{ p.clave }})</small>{% endif %}
+                                                        </span>
+                                                        <span class="badge bg-light text-secondary border">{{ p.unidad_medida_display }}</span>
+                                                    </div>
+                                                </span>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-brand btn-sm shadow-none" 
+                                            style="height: 31px; width: 34px; border-radius: 0 0.25rem 0.25rem 0; display: flex; align-items: center; justify-content: center; padding: 0; margin-left: -1px; border-left: none;" 
+                                            onclick="agregarProductoManualSolMin()"
+                                            title="Agregar a la solicitud">
+                                        <i class="bi bi-plus-lg text-white" style="font-size: 1rem;"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. TABLA DE ARTÍCULOS DETECTADOS -->
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fw-bold text-dark small">Materiales a Incluir en la Solicitud</span>
+                            <span class="badge bg-light text-dark border" id="badgeTotalDetectados">0 artículos</span>
+                        </div>
+                        <div class="form-check form-check-inline m-0">
+                            <input class="form-check-input" type="checkbox" id="checkAllSolMin" onchange="toggleSelectAllSolMin(this)" checked>
+                            <label class="form-check-label small text-muted" for="checkAllSolMin">Seleccionar todos</label>
+                        </div>
+                    </div>
+
+                    <div class="card-body p-0">
+                        <div class="table-responsive" style="max-height: 380px; overflow-y: auto;">
+                            <table class="table table-hover table-sm align-middle mb-0" id="tablaArticulosSolMin">
+                                <thead class="table-light sticky-top">
+                                    <tr class="small text-secondary" style="font-size: 0.75rem;">
+                                        <th style="width: 40px;" class="text-center">#</th>
+                                        <th class="text-center">Artículo</th>
+                                        <th class="text-center">Categoría</th>
+                                        <th class="text-center">Estado</th>
+                                        <th class="text-center">Stock Actual</th>
+                                        <th class="text-center">Stock Mínimo</th>
+                                        <th class="text-center">Stock Máximo</th>
+                                        <th class="text-center">Unidad de Compra</th>
+                                        <th class="text-center" style="width: 140px;">Cant. a Solicitar</th>
+                                        <th class="text-center">Costo Ref.</th>
+                                        <th class="text-center">Subtotal Est.</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodySolMin">
+                                    <tr>
+                                        <td colspan="11" class="text-center py-4 text-muted">
+                                            <div class="spinner-border spinner-border-sm text-brand me-2" role="status"></div>
+                                            Cargando materiales en stock mínimo...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. NOTAS Y RESUMEN -->
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-3">
+                        <div class="row g-3 align-items-center">
+                            <div class="col-md-7">
+                                <label class="form-label small fw-bold text-secondary mb-1">Notas de la Solicitud de Compra</label>
+                                <input type="text" id="solMinNotas" class="form-control form-control-sm" placeholder="Ej. Solicitud automática para resurtido de materiales en stock mínimo..." value="Resurtido automático por artículos en Stock Mínimo.">
+                            </div>
+                            <div class="col-md-5">
+                                <div class="bg-light p-2 rounded border text-end">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span class="small text-muted">Partidas seleccionadas:</span>
+                                        <span class="fw-bold small" id="solMinPartidasSel">0</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span class="small text-muted">Total unidades a pedir:</span>
+                                        <span class="fw-bold small" id="solMinUnidadesSel">0</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between border-top pt-1">
+                                        <span class="small fw-bold text-dark">Monto Total Estimado:</span>
+                                        <span class="fw-bold text-brand fs-6" id="solMinMontoSel">$0.00</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer border-top bg-white py-2">
+                <button type="button" class="btn btn-light btn-sm text-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-brand text-white btn-sm px-4 fw-bold shadow-sm" id="btnConfirmarSolMin" onclick="crearSolicitudStockMinimoAjax()">
+                    <i class="bi bi-cart-check-fill me-1"></i> Generar Solicitud de Compra
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script id="productos_todos_solmin_data" type="application/json">{{ productos_todos_json|safe }}</script>
+
+<script>
+let articulosSolMinData = [];
+let catalogoProductosMap = new Map();
+
+function initCatalogoMap() {
+    try {
+        const raw = document.getElementById('productos_todos_solmin_data')?.textContent;
+        if (raw) {
+            const arr = JSON.parse(raw);
+            arr.forEach(p => catalogoProductosMap.set(parseInt(p.id), p));
+        }
+    } catch (e) {
+        console.error("Error al inicializar catálogo de productos:", e);
+    }
+}
+
+function initCustomSelect(wrapperId, hiddenInputId, fakeDisplayId, searchInputId, optionsContainerId) {
+    const wrapper = document.getElementById(wrapperId);
+    if (!wrapper) return;
+    const hiddenInput = document.getElementById(hiddenInputId);
+    const fakeDisplay = document.getElementById(fakeDisplayId);
+    const searchInput = document.getElementById(searchInputId);
+    const optionsContainer = document.getElementById(optionsContainerId);
+    const selectDiv = wrapper.querySelector('.custom-select');
+
+    const placeholderText = fakeDisplay ? fakeDisplay.innerText.trim() : 'Buscar producto para agregar...';
+
+    function toggleOptions(show) {
+        if (!selectDiv) return;
+        if (show) selectDiv.classList.add('open');
+        else selectDiv.classList.remove('open');
+    }
+
+    function updateDisplay() {
+        if (!fakeDisplay || !searchInput) return;
+        if (document.activeElement === searchInput) {
+            fakeDisplay.style.visibility = "hidden";
+        } else {
+            fakeDisplay.style.visibility = "visible";
+            if (!hiddenInput || !hiddenInput.value || hiddenInput.value === "") {
+                fakeDisplay.innerHTML = `<span class="text-muted" style="font-weight:400;">${placeholderText}</span>`;
+            }
+        }
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('focus', () => {
+            toggleOptions(true);
+            updateDisplay();
+        });
+
+        searchInput.addEventListener('blur', () => {
+            setTimeout(() => {
+                toggleOptions(false);
+                updateDisplay();
+            }, 200);
+        });
+
+        searchInput.addEventListener('input', function() {
+            updateDisplay();
+            const term = this.value.toLowerCase().trim();
+            const options = optionsContainer ? optionsContainer.querySelectorAll('.custom-option') : [];
+            options.forEach(opt => {
+                const searchText = (opt.getAttribute('data-search') || opt.textContent).toLowerCase();
+                opt.style.display = searchText.includes(term) ? 'flex' : 'none';
+            });
+            toggleOptions(true);
+        });
+    }
+
+    if (optionsContainer) {
+        optionsContainer.addEventListener('click', (e) => {
+            const option = e.target.closest('.custom-option');
+            if (!option || option.classList.contains('disabled')) return;
+
+            const valId = option.getAttribute('data-value');
+            const valText = (option.getAttribute('data-name') || option.textContent).trim();
+
+            if (hiddenInput) hiddenInput.value = valId;
+            if (fakeDisplay) fakeDisplay.innerText = valText;
+            if (searchInput) searchInput.value = '';
+            updateDisplay();
+            toggleOptions(false);
+        });
+    }
+
+    window.addEventListener('click', (e) => {
+        if (wrapper && !wrapper.contains(e.target)) {
+            toggleOptions(false);
+            updateDisplay();
+        }
+    });
+}
+
+function limpiarNombreUnidad(texto) {
+    if (!texto) return 'Pieza';
+    const m = texto.match(/\((.*?)\)/);
+    let limpio = m ? m[1].trim() : texto.trim();
+    if (!limpio) return 'Pieza';
+    return limpio.charAt(0).toUpperCase() + limpio.slice(1);
+}
+
+function abrirModalSolicitudStockMinimo() {
+    const modalEl = document.getElementById('modalSolicitudStockMinimo');
+    if (!modalEl) return;
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+    initCatalogoMap();
+    initCustomSelect('wrapperAddProductSolMin', 'add_product_solmin', 'add_product_solmin_display_fake', 'add_product_solmin_busqueda', 'optionsAddProductSolMin');
+    cargarArticulosStockMinimoModal();
+}
+
+function cargarArticulosStockMinimoModal() {
+    const tbody = document.getElementById('tbodySolMin');
+    if (!tbody) return;
+
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="11" class="text-center py-4 text-muted">
+                <div class="spinner-border spinner-border-sm text-brand me-2" role="status"></div>
+                Consultando artículos en stock mínimo...
+            </td>
+        </tr>
+    `;
+
+    const riesgo = document.getElementById('solMinFiltroRiesgo')?.value || 'todos';
+    const almacen = document.getElementById('solMinAlmacenDestino')?.value || '';
+
+    const params = new URLSearchParams({
+        riesgo: riesgo,
+        tipo_abastecimiento: 'todos',
+        almacen: almacen
+    });
+
+    fetch(`/inventario/api/articulos-stock-minimo/?${params.toString()}`)
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                tbody.innerHTML = `<tr><td colspan="11" class="text-center py-4 text-danger">Error: ${data.error || 'No se pudieron consultar los artículos.'}</td></tr>`;
+                return;
+            }
+
+            // Preservar partidas agregadas manualmente
+            const manualItems = articulosSolMinData.filter(x => x.es_manual);
+
+            const autoItems = (data.articulos || []).map(item => {
+                item.row_uid = 'auto_' + item.id;
+                return item;
+            });
+
+            articulosSolMinData = [...manualItems, ...autoItems];
+            document.getElementById('badgeTotalDetectados').innerText = `${articulosSolMinData.length} artículos`;
+
+            if (articulosSolMinData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="11" class="text-center py-5 text-muted">
+                            <i class="bi bi-check-circle-fill text-success fs-3 d-block mb-2"></i>
+                            No se encontraron materiales bajo el stock mínimo con los filtros seleccionados.
+                        </td>
+                    </tr>
+                `;
+                recalcularTotalesSolMin();
+                return;
+            }
+
+            let html = '';
+            articulosSolMinData.forEach(item => {
+                const rowId = item.row_uid;
+                let badgeRiesgo = '<span class="status-pill status-proximo">Manual</span>';
+                if (!item.es_manual) {
+                    let labelRiesgo = 'Normal';
+                    if (item.nivel_riesgo === 'agotado') {
+                        labelRiesgo = 'Agotado';
+                    } else if (item.nivel_riesgo === 'bajo') {
+                        labelRiesgo = 'Bajo';
+                    } else if (item.nivel_riesgo === 'minimo') {
+                        labelRiesgo = 'Mínimo';
+                    } else if (item.nivel_riesgo === 'proximo') {
+                        labelRiesgo = 'Próximo';
+                    }
+                    badgeRiesgo = `<span class="status-pill status-${item.nivel_riesgo}">${labelRiesgo}</span>`;
+                }
+
+                const subtotalItem = (item.cantidad_default * item.precio_costo).toFixed(2);
+                const uBaseNombre = limpiarNombreUnidad(item.unidad_medida_nombre || item.unidad_medida_display);
+
+                let unidadCell = '';
+                if (item.conversiones && item.conversiones.length > 0) {
+                    let opts = `<option value="BASE" data-factor="1.0" selected>${uBaseNombre}</option>`;
+                    item.conversiones.forEach(c => {
+                        const nombreConv = limpiarNombreUnidad(c.unidad_destino_nombre || c.unidad_destino_display);
+                        opts += `<option value="${nombreConv}" data-factor="${c.factor_equivalencia}">${nombreConv}</option>`;
+                    });
+                    unidadCell = `
+                        <td class="text-center small text-muted">
+                            <select id="unidadSolMin_${rowId}" 
+                                    class="form-select form-select-sm select-unidad-solmin text-secondary small py-0 px-2 text-center mx-auto" 
+                                    style="font-size: 0.78rem; height: 28px; width: auto; min-width: 90px;"
+                                    onchange="cambiarUnidadArticuloSolMin('${rowId}')">
+                                ${opts}
+                            </select>
+                        </td>
+                    `;
+                } else {
+                    unidadCell = `<td class="text-center small text-muted text-truncate" style="max-width: 120px;">${uBaseNombre}</td>`;
+                }
+
+                html += `
+                    <tr id="rowSolMin_${rowId}" class="${item.es_manual ? 'table-info bg-opacity-10' : ''}">
+                        <td class="text-center">
+                            <input type="checkbox" class="form-check-input check-item-solmin" value="${rowId}" onchange="recalcularTotalesSolMin()" checked>
+                        </td>
+                        <td class="text-center">
+                            <span class="fw-bold text-dark text-truncate d-block mx-auto" style="max-width: 180px; font-size: 0.85rem;" title="${item.nombre}">${item.nombre}</span>
+                            <span class="small text-muted font-monospace">${item.clave || 'S/C'}</span>
+                        </td>
+                        <td class="text-center small text-muted text-truncate" style="max-width: 120px;">${item.categoria}</td>
+                        <td class="text-center">${badgeRiesgo}</td>
+                        <td class="text-center small text-muted">${item.stock_disponible}</td>
+                        <td class="text-center small text-muted">${item.stock_minimo}</td>
+                        <td class="text-center small text-muted">${item.stock_maximo}</td>
+                        ${unidadCell}
+                        <td class="text-center small text-muted">
+                            <input type="number" 
+                                   id="cantSolMin_${rowId}" 
+                                   class="form-control form-control-sm text-center small text-muted mx-auto" 
+                                   min="1" 
+                                   value="${item.cantidad_default}" 
+                                   oninput="actualizarSubtotalFila('${rowId}')"
+                                   style="width: 100px; display: inline-block;">
+                        </td>
+                        <td class="text-center small text-muted" id="costoSolMin_${rowId}">$${item.precio_costo.toFixed(2)}</td>
+                        <td class="text-center small text-muted" id="subtotalSolMin_${rowId}">$${subtotalItem}</td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+            recalcularTotalesSolMin();
+        })
+        .catch(err => {
+            console.error("Error al cargar artículos:", err);
+            tbody.innerHTML = `<tr><td colspan="11" class="text-center py-4 text-danger">Error de conexión al cargar artículos.</td></tr>`;
+        });
+}
+
+function agregarProductoManualSolMin() {
+    const hiddenInput = document.getElementById('add_product_solmin');
+    const searchInput = document.getElementById('add_product_solmin_busqueda');
+    let prodId = hiddenInput ? parseInt(hiddenInput.value) : null;
+
+    if (!prodId) {
+        const firstVisible = document.querySelector('#optionsAddProductSolMin .custom-option:not([style*="display: none"])');
+        if (firstVisible) {
+            prodId = parseInt(firstVisible.getAttribute('data-value'));
+        }
+    }
+
+    if (!prodId) {
+        alert("Por favor busca y selecciona un producto de la lista.");
+        return;
+    }
+
+    const prod = catalogoProductosMap.get(prodId);
+    if (!prod) {
+        alert("No se encontró la información del producto seleccionado.");
+        return;
+    }
+
+    const rowId = 'manual_' + prod.id + '_' + Date.now();
+    const cantDefault = (prod.stock_maximo && prod.stock_maximo > 0) ? prod.stock_maximo : 1;
+    const subtotal = (cantDefault * prod.precio_costo).toFixed(2);
+    const uBaseNombre = limpiarNombreUnidad(prod.unidad_medida_display);
+
+    let unidadCell = '';
+    if (prod.conversiones && prod.conversiones.length > 0) {
+        let opts = `<option value="BASE" data-factor="1.0" selected>${uBaseNombre}</option>`;
+        prod.conversiones.forEach(c => {
+            const nombreConv = limpiarNombreUnidad(c.unidad_destino_nombre || c.unidad_destino);
+            opts += `<option value="${nombreConv}" data-factor="${c.factor_equivalencia}">${nombreConv}</option>`;
+        });
+        unidadCell = `
+            <td class="text-center small text-muted">
+                <select id="unidadSolMin_${rowId}" 
+                        class="form-select form-select-sm select-unidad-solmin text-secondary small py-0 px-2 text-center mx-auto" 
+                        style="font-size: 0.78rem; height: 28px; width: auto; min-width: 90px;"
+                        onchange="cambiarUnidadArticuloSolMin('${rowId}')">
+                    ${opts}
+                </select>
+            </td>
+        `;
+    } else {
+        unidadCell = `<td class="text-center small text-muted text-truncate" style="max-width: 120px;">${uBaseNombre}</td>`;
+    }
+
+    const newItem = {
+        id: prod.id,
+        row_uid: rowId,
+        nombre: prod.nombre,
+        clave: prod.clave,
+        categoria: prod.categoria,
+        precio_costo: prod.precio_costo,
+        stock_minimo: prod.stock_minimo,
+        stock_maximo: prod.stock_maximo,
+        stock_disponible: '--',
+        unidad_medida_display: uBaseNombre,
+        cantidad_default: cantDefault,
+        conversiones: prod.conversiones || [],
+        es_manual: true
+    };
+    articulosSolMinData.unshift(newItem);
+
+    const rowHtml = `
+        <tr id="rowSolMin_${rowId}" class="table-info bg-opacity-10 animate__animated animate__fadeIn">
+            <td class="text-center">
+                <input type="checkbox" class="form-check-input check-item-solmin" value="${rowId}" onchange="recalcularTotalesSolMin()" checked>
+            </td>
+            <td class="text-center">
+                <span class="fw-bold text-dark text-truncate d-block mx-auto" style="max-width: 180px; font-size: 0.85rem;" title="${prod.nombre}">${prod.nombre}</span>
+                <span class="small text-muted font-monospace">${prod.clave || 'S/C'}</span>
+            </td>
+            <td class="text-center small text-muted text-truncate" style="max-width: 120px;">${prod.categoria}</td>
+            <td class="text-center"><span class="status-pill status-proximo">Manual</span></td>
+            <td class="text-center small text-muted">--</td>
+            <td class="text-center small text-muted">${prod.stock_minimo || 0}</td>
+            <td class="text-center small text-muted">${prod.stock_maximo || 0}</td>
+            ${unidadCell}
+            <td class="text-center small text-muted">
+                <input type="number" 
+                       id="cantSolMin_${rowId}" 
+                       class="form-control form-control-sm text-center small text-muted mx-auto fw-bold" 
+                       min="1" 
+                       value="${cantDefault}" 
+                       oninput="actualizarSubtotalFila('${rowId}')"
+                       style="width: 100px; display: inline-block;">
+            </td>
+            <td class="text-center small text-muted" id="costoSolMin_${rowId}">$${prod.precio_costo.toFixed(2)}</td>
+            <td class="text-center small text-muted" id="subtotalSolMin_${rowId}">$${subtotal}</td>
+        </tr>
+    `;
+
+    const tbody = document.getElementById('tbodySolMin');
+    if (tbody) {
+        if (tbody.querySelector('.spinner-border') || tbody.innerText.includes('No se encontraron materiales')) {
+            tbody.innerHTML = '';
+        }
+        tbody.insertAdjacentHTML('afterbegin', rowHtml);
+    }
+
+    const checks = document.querySelectorAll('.check-item-solmin');
+    document.getElementById('badgeTotalDetectados').innerText = `${checks.length} artículos`;
+
+    recalcularTotalesSolMin();
+
+    // Limpiar input del selector
+    if (hiddenInput) hiddenInput.value = '';
+    if (searchInput) searchInput.value = '';
+    const fakeDisplay = document.getElementById('add_product_solmin_display_fake');
+    if (fakeDisplay) fakeDisplay.innerHTML = `<span class="text-muted" style="font-weight:400;">Buscar producto para agregar...</span>`;
+
+    // Enfocar el input de cantidad de la nueva fila
+    const newCantInput = document.getElementById(`cantSolMin_${rowId}`);
+    if (newCantInput) {
+        newCantInput.focus();
+        newCantInput.select();
+    }
+}
+
+function cambiarUnidadArticuloSolMin(rowId) {
+    const item = articulosSolMinData.find(x => x.row_uid === rowId || String(x.id) === String(rowId));
+    if (!item) return;
+
+    const selU = document.getElementById(`unidadSolMin_${rowId}`);
+    const optU = selU && selU.selectedIndex >= 0 ? selU.options[selU.selectedIndex] : null;
+    const factor = optU ? (parseFloat(optU.getAttribute('data-factor')) || 1.0) : 1.0;
+
+    const costoUnit = item.precio_costo * factor;
+    const cellCosto = document.getElementById(`costoSolMin_${rowId}`);
+    if (cellCosto) cellCosto.innerText = `$${costoUnit.toFixed(2)}`;
+
+    // Sugerir cantidad ajustada si correspondía al stock máximo base
+    const inputCant = document.getElementById(`cantSolMin_${rowId}`);
+    if (inputCant) {
+        let cantSugerida = Math.max(1, Math.round(item.cantidad_default / factor));
+        inputCant.value = cantSugerida;
+    }
+
+    actualizarSubtotalFila(rowId);
+}
+
+function actualizarSubtotalFila(rowId) {
+    const item = articulosSolMinData.find(x => x.row_uid === rowId || String(x.id) === String(rowId));
+    if (!item) return;
+
+    const inputCant = document.getElementById(`cantSolMin_${rowId}`);
+    const cellSub = document.getElementById(`subtotalSolMin_${rowId}`);
+    const selU = document.getElementById(`unidadSolMin_${rowId}`);
+    const optU = selU && selU.selectedIndex >= 0 ? selU.options[selU.selectedIndex] : null;
+    const factor = optU ? (parseFloat(optU.getAttribute('data-factor')) || 1.0) : 1.0;
+
+    const costoUnit = item.precio_costo * factor;
+    let cant = parseFloat(inputCant ? inputCant.value : 0) || 0;
+    if (cant < 0) cant = 0;
+    const subtotal = cant * costoUnit;
+    if (cellSub) cellSub.innerText = `$${subtotal.toFixed(2)}`;
+    recalcularTotalesSolMin();
+}
+
+function toggleSelectAllSolMin(masterCheckbox) {
+    const checks = document.querySelectorAll('.check-item-solmin');
+    checks.forEach(c => c.checked = masterCheckbox.checked);
+    recalcularTotalesSolMin();
+}
+
+function recalcularTotalesSolMin() {
+    const checks = document.querySelectorAll('.check-item-solmin:checked');
+    let totalPartidas = checks.length;
+    let totalUnidades = 0;
+    let totalMonto = 0;
+
+    checks.forEach(c => {
+        const rowId = c.value;
+        const item = articulosSolMinData.find(x => x.row_uid === rowId || String(x.id) === String(rowId));
+        const inputCant = document.getElementById(`cantSolMin_${rowId}`);
+        const cant = inputCant ? (parseFloat(inputCant.value) || 0) : 0;
+
+        const selU = document.getElementById(`unidadSolMin_${rowId}`);
+        const optU = selU && selU.selectedIndex >= 0 ? selU.options[selU.selectedIndex] : null;
+        const factor = optU ? (parseFloat(optU.getAttribute('data-factor')) || 1.0) : 1.0;
+
+        const costoBase = item ? item.precio_costo : 0;
+        const costoUnit = costoBase * factor;
+
+        totalUnidades += cant;
+        totalMonto += (cant * costoUnit);
+    });
+
+    document.getElementById('solMinPartidasSel').innerText = totalPartidas;
+    document.getElementById('solMinUnidadesSel').innerText = totalUnidades;
+    document.getElementById('solMinMontoSel').innerText = `$${totalMonto.toLocaleString('es-MX', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+    const btnConfirmar = document.getElementById('btnConfirmarSolMin');
+    if (btnConfirmar) {
+        btnConfirmar.disabled = (totalPartidas === 0);
+    }
+}
+
+function crearSolicitudStockMinimoAjax() {
+    const checks = document.querySelectorAll('.check-item-solmin:checked');
+    if (checks.length === 0) {
+        alert('Por favor selecciona al menos un artículo para la solicitud.');
+        return;
+    }
+
+    const items = [];
+    checks.forEach(c => {
+        const rowId = c.value;
+        const item = articulosSolMinData.find(x => x.row_uid === rowId || String(x.id) === String(rowId));
+        if (!item) return;
+
+        const inputCant = document.getElementById(`cantSolMin_${rowId}`);
+        const cant = inputCant ? (parseFloat(inputCant.value) || 0) : 0;
+
+        const selU = document.getElementById(`unidadSolMin_${rowId}`);
+        const optU = selU && selU.selectedIndex >= 0 ? selU.options[selU.selectedIndex] : null;
+        const uCompra = optU ? optU.value : 'BASE';
+        const fConv = optU ? (parseFloat(optU.getAttribute('data-factor')) || 1.0) : 1.0;
+
+        if (cant > 0) {
+            items.push({
+                producto_id: item.id,
+                cantidad: cant,
+                unidad_compra: uCompra,
+                factor_conversion: fConv
+            });
+        }
+    });
+
+    if (items.length === 0) {
+        alert('Las cantidades a solicitar deben ser mayores a 0.');
+        return;
+    }
+
+    const btnConfirmar = document.getElementById('btnConfirmarSolMin');
+    const originalText = btnConfirmar.innerHTML;
+    btnConfirmar.disabled = true;
+    btnConfirmar.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Generando...`;
+
+    const notas = document.getElementById('solMinNotas')?.value || '';
+    const almacen_id = document.getElementById('solMinAlmacenDestino')?.value || '';
+
+    // Obtener token CSRF
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+
+    fetch('/inventario/api/crear-solicitud-stock-minimo/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify({
+            items: items,
+            notas: notas,
+            almacen_id: almacen_id
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        btnConfirmar.disabled = false;
+        btnConfirmar.innerHTML = originalText;
+
+        if (data.success) {
+            const modalEl = document.getElementById('modalSolicitudStockMinimo');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+
+            const irA = confirm(`${data.mensaje}\n\n¿Deseas abrir el módulo de Solicitudes de Compra ahora para revisarla?`);
+            if (irA) {
+                window.location.href = data.url_solicitudes || '/solicitudes-compras/';
+            }
+        } else {
+            alert('Error al crear solicitud: ' + (data.error || 'Ocurrió un error inesperado.'));
+        }
+    })
+    .catch(err => {
+        btnConfirmar.disabled = false;
+        btnConfirmar.innerHTML = originalText;
+        console.error("Error al crear solicitud:", err);
+        alert('Ocurrió un error al procesar la solicitud.');
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    initCatalogoMap();
+    initCustomSelect('wrapperAddProductSolMin', 'add_product_solmin', 'add_product_solmin_display_fake', 'add_product_solmin_busqueda', 'optionsAddProductSolMin');
+});
+</script>

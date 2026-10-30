@@ -1353,10 +1353,51 @@ def dashboard_inventario(request):
         stock_disp_calc__lte=ExpressionWrapper(F('stock_minimo') * 1.25, output_field=IntegerField())
     ).order_by('-diferencia_minimo', 'stock_disp_calc')[:10]
 
+    # Catálogo completo de productos activos con conversiones para el modal de Solicitud de Compra
+    lista_productos_qs = Producto.objects.filter(
+        empresa=empresa_actual,
+        estado='activo'
+    ).prefetch_related('conversiones').order_by('nombre')
+
+    unidad_dict = dict(Producto.UNIDAD_OPCIONES)
+    productos_todos_solmin = []
+    for p in lista_productos_qs:
+        u_full = unidad_dict.get(p.unidad_medida, p.unidad_medida or 'Pieza')
+        m_u = re.search(r'\((.*?)\)', u_full)
+        u_nom = m_u.group(1).strip() if m_u else u_full.strip()
+        convs = []
+        for c in p.conversiones.all():
+            if not c.activo:
+                continue
+            sat_d = unidad_dict.get(c.unidad_destino, c.unidad_destino)
+            nom_c = getattr(c, 'unidad_destino_nombre', sat_d)
+            m_c = re.search(r'\((.*?)\)', nom_c)
+            nom_limpio = m_c.group(1).strip() if m_c else nom_c.strip()
+            convs.append({
+                'id': c.id,
+                'unidad_destino': c.unidad_destino,
+                'unidad_destino_nombre': nom_limpio,
+                'factor_equivalencia': float(c.factor_equivalencia)
+            })
+        productos_todos_solmin.append({
+            'id': p.id,
+            'nombre': p.nombre,
+            'clave': p.clave or '',
+            'categoria': p.categoria or 'Sin categoría',
+            'precio_costo': float(p.precio_costo or 0),
+            'stock_minimo': p.stock_minimo or 0,
+            'stock_maximo': p.stock_maximo or 0,
+            'unidad_medida': p.unidad_medida or 'H87',
+            'unidad_medida_display': u_nom,
+            'conversiones': convs
+        })
+
     contexto = {
         'page_obj': page_obj,
         'proximos_caducar': proximos_caducar,
         'articulos_stock_minimo': articulos_stock_minimo_qs,
+        'productos_todos_solmin': productos_todos_solmin,
+        'productos_todos_json': json.dumps(productos_todos_solmin),
         'almacenes': almacenes,
         'almacenes_todos': almacenes_todos,
         'sucursales': sucursales,
@@ -2086,4 +2127,236 @@ def api_eliminar_conversion(request, conversion_id):
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+@login_required
+@require_inventory_permission('inventario', 'ver', json_response=True)
+def api_articulos_stock_minimo(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'articulos': [], 'error': 'Empresa no encontrada.'})
+
+    sucursal_id = request.GET.get('sucursal')
+    almacen_id = request.GET.get('almacen')
+    estado_riesgo = request.GET.get('riesgo', 'todos')
+    tipo_abast = request.GET.get('tipo_abastecimiento', 'todos')
+    categoria_id = request.GET.get('categoria', '')
+
+    def get_stock_min_sub(field):
+        qs_sub = Inventario.objects.filter(producto=OuterRef('pk'))
+        if sucursal_id:
+            qs_sub = qs_sub.filter(almacen__sucursal_id=sucursal_id)
+        if almacen_id:
+            qs_sub = qs_sub.filter(almacen_id=almacen_id)
+        return qs_sub.values('producto').annotate(total=Sum(field)).values('total')[:1]
+
+    qs = Producto.objects.filter(
+        empresa=empresa_actual,
+        stock_minimo__gt=0,
+        estado='activo'
+    ).annotate(
+        stock_fisico_calc=Coalesce(Subquery(get_stock_min_sub('cantidad')), 0),
+        stock_res_calc=Coalesce(Subquery(get_stock_min_sub('reservado')), 0)
+    ).annotate(
+        stock_disp_calc=ExpressionWrapper(
+            F('stock_fisico_calc') - F('stock_res_calc'),
+            output_field=IntegerField()
+        ),
+        diferencia_minimo=ExpressionWrapper(
+            F('stock_minimo') - (F('stock_fisico_calc') - F('stock_res_calc')),
+            output_field=IntegerField()
+        )
+    ).annotate(
+        nivel_riesgo=Case(
+            When(stock_disp_calc__lte=0, then=Value('agotado')),
+            When(stock_disp_calc__lt=F('stock_minimo'), then=Value('bajo')),
+            When(stock_disp_calc=F('stock_minimo'), then=Value('minimo')),
+            default=Value('proximo'),
+            output_field=CharField()
+        )
+    )
+
+    if tipo_abast and tipo_abast != 'todos':
+        qs = qs.filter(tipo_abastecimiento=tipo_abast)
+
+    if categoria_id and categoria_id != 'todas' and categoria_id != '':
+        qs = qs.filter(categoria=categoria_id)
+
+    if estado_riesgo == 'agotado':
+        qs = qs.filter(stock_disp_calc__lte=0)
+    elif estado_riesgo == 'bajo':
+        qs = qs.filter(stock_disp_calc__gt=0, stock_disp_calc__lt=F('stock_minimo'))
+    elif estado_riesgo == 'minimo':
+        qs = qs.filter(stock_disp_calc=F('stock_minimo'))
+    elif estado_riesgo == 'proximo':
+        qs = qs.filter(stock_disp_calc__gt=F('stock_minimo'), stock_disp_calc__lte=ExpressionWrapper(F('stock_minimo') * 1.25, output_field=IntegerField()))
+    else:
+        qs = qs.filter(stock_disp_calc__lte=ExpressionWrapper(F('stock_minimo') * 1.25, output_field=IntegerField()))
+
+    qs = qs.prefetch_related('conversiones').order_by('-diferencia_minimo', 'nombre')
+
+    items = []
+    for p in qs:
+        # Default de cantidad a solicitar: Stock máximo configurado en el artículo
+        if p.stock_maximo and p.stock_maximo > 0:
+            cant_default = p.stock_maximo
+        elif p.diferencia_minimo and p.diferencia_minimo > 0:
+            cant_default = p.diferencia_minimo
+        else:
+            cant_default = p.stock_minimo or 1
+
+        unidad_disp = dict(Producto.UNIDAD_OPCIONES).get(p.unidad_medida, p.unidad_medida or 'Pieza')
+        m_u = re.search(r'\((.*?)\)', unidad_disp)
+        unidad_nombre = m_u.group(1).strip() if m_u else unidad_disp.strip()
+
+        # Conversiones de unidad configuradas para el artículo
+        convs_list = []
+        for c in p.conversiones.all():
+            if not c.activo:
+                continue
+            sat_display = dict(Producto.UNIDAD_OPCIONES).get(c.unidad_destino, c.unidad_destino)
+            nombre_amigable = getattr(c, 'unidad_destino_nombre', sat_display)
+            m_c = re.search(r'\((.*?)\)', nombre_amigable)
+            nombre_limpio = m_c.group(1).strip() if m_c else nombre_amigable.strip()
+            convs_list.append({
+                'id': c.id,
+                'unidad_destino': c.unidad_destino,
+                'unidad_destino_display': sat_display,
+                'unidad_destino_nombre': nombre_limpio,
+                'factor_equivalencia': float(c.factor_equivalencia),
+            })
+
+        items.append({
+            'id': p.id,
+            'clave': p.clave or '',
+            'nombre': p.nombre,
+            'categoria': p.categoria or 'Sin categoría',
+            'tipo_abastecimiento': p.tipo_abastecimiento or 'compra',
+            'tipo_abastecimiento_display': p.get_tipo_abastecimiento_display() if hasattr(p, 'get_tipo_abastecimiento_display') else (p.tipo_abastecimiento or 'Compra'),
+            'unidad_medida': p.unidad_medida or 'H87',
+            'unidad_medida_display': unidad_disp,
+            'unidad_medida_nombre': unidad_nombre,
+            'conversiones': convs_list,
+            'stock_fisico': p.stock_fisico_calc,
+            'stock_disponible': p.stock_disp_calc,
+            'stock_minimo': p.stock_minimo,
+            'stock_maximo': p.stock_maximo,
+            'cantidad_default': cant_default,
+            'precio_costo': float(p.precio_costo or 0),
+            'nivel_riesgo': p.nivel_riesgo,
+        })
+
+    return JsonResponse({'success': True, 'articulos': items, 'total': len(items)})
+
+@login_required
+@require_inventory_permission('inventario', 'crear', json_response=True)
+@transaction.atomic
+def api_crear_solicitud_stock_minimo(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido.'})
+
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Empresa no detectada.'})
+
+    import json
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        data = request.POST
+
+    items_data = data.get('items', [])
+    if isinstance(items_data, str):
+        try:
+            items_data = json.loads(items_data)
+        except Exception:
+            items_data = []
+
+    if not items_data:
+        return JsonResponse({'success': False, 'error': 'No se seleccionó ningún artículo para solicitar.'})
+
+    almacen_id = data.get('almacen_id')
+    sucursal_id = data.get('sucursal_id')
+    notas = (data.get('notas') or '').strip()
+    if not notas:
+        notas = "Solicitud generada automáticamente desde Inventario por Stock Mínimo."
+
+    almacen_obj = None
+    if almacen_id:
+        almacen_obj = Almacen.objects.filter(id=almacen_id, empresa=empresa_actual).first()
+    if not almacen_obj:
+        almacen_obj = Almacen.objects.filter(empresa=empresa_actual).first()
+
+    sucursal_obj = None
+    if sucursal_id:
+        from preferencias.models import Sucursal
+        sucursal_obj = Sucursal.objects.filter(id=sucursal_id, empresa=empresa_actual).first()
+    elif almacen_obj and almacen_obj.sucursal:
+        sucursal_obj = almacen_obj.sucursal
+
+    from solicitudcompras.models import SolicitudCompra, DetalleSolicitudCompra
+
+    # 1. Crear UNA SOLA solicitud de compra para todos los materiales
+    solicitud = SolicitudCompra.objects.create(
+        solicitante=request.user,
+        empresa=empresa_actual,
+        sucursal=sucursal_obj,
+        estado='borrador',
+        notas=notas,
+        aplica_iva=True
+    )
+
+    creados = 0
+    for it in items_data:
+        prod_id = it.get('producto_id') or it.get('id')
+        try:
+            cant = int(float(it.get('cantidad', 0)))
+        except (ValueError, TypeError):
+            cant = 0
+
+        if not prod_id or cant <= 0:
+            continue
+
+        prod = Producto.objects.filter(id=prod_id, empresa=empresa_actual).first()
+        if not prod:
+            continue
+
+        item_alm_id = it.get('almacen_id') or (almacen_obj.id if almacen_obj else None)
+
+        u_compra = it.get('unidad_compra')
+        try:
+            f_conv = Decimal(str(it.get('factor_conversion', '1.0000')))
+        except Exception:
+            f_conv = Decimal('1.0000')
+
+        if not u_compra or u_compra == 'BASE':
+            u_compra = prod.unidad_medida
+            f_conv = Decimal('1.0000')
+
+        costo_base = prod.precio_costo or Decimal('0.00')
+        costo_unitario = costo_base * f_conv
+        cant_inventario = Decimal(str(cant)) * f_conv
+
+        DetalleSolicitudCompra.objects.create(
+            solicitud=solicitud,
+            producto=prod,
+            cantidad_solicitada=cant,
+            costo_unitario=costo_unitario,
+            almacen_id=item_alm_id,
+            unidad_compra=u_compra,
+            factor_conversion=f_conv,
+            cantidad_inventario=cant_inventario
+        )
+        creados += 1
+
+    if creados == 0:
+        solicitud.delete()
+        return JsonResponse({'success': False, 'error': 'No se pudo crear ninguna partida válida para la solicitud.'})
+
+    return JsonResponse({
+        'success': True,
+        'solicitud_id': solicitud.id,
+        'partidas_creadas': creados,
+        'mensaje': f'Se ha generado con éxito la Solicitud de Compra #{solicitud.id} con {creados} materiales.',
+        'url_solicitudes': '/solicitudes-compras/'
+    })
 

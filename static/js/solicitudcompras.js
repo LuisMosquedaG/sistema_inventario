@@ -1,3 +1,13 @@
+function limpiarNombreUnidad(texto) {
+    if (!texto) return '';
+    let limpio = texto.replace(/\s*\([^)]*\)/g, '');
+    limpio = limpio.replace(/^[A-Za-z0-9]{2,5}\s*[-–]\s*/i, '');
+    limpio = limpio.replace(/\s*[-–]\s*[A-Za-z0-9]{2,5}$/i, '');
+    limpio = limpio.trim();
+    if (!limpio) return texto.trim();
+    return limpio.charAt(0).toUpperCase() + limpio.slice(1);
+}
+
 // SOLICITUDCOMPRAS.JS — Lógica para Gestión de Requisiciones
 
 // --- UTILERÍAS ---
@@ -348,24 +358,106 @@ function calcularEntradaInventario() {
     }
 }
 
+// --- LIMPIEZA DE CAMPOS DE PARTIDA ---
+function limpiarCamposArticuloNuevo() {
+    // 1. Producto
+    const pInput = document.getElementById('add_producto');
+    if (pInput) pInput.value = '';
+    const sInput = document.getElementById('add_producto_busqueda');
+    if (sInput) sInput.value = '';
+    const pFake = document.getElementById('add_producto_display_fake');
+    if (pFake) {
+        pFake.innerHTML = '<span class="text-muted" style="font-weight:400;">Buscar producto...</span>';
+        pFake.style.visibility = 'visible';
+    }
+    const optionsContainer = document.getElementById('optionsAddProducto');
+    if (optionsContainer) {
+        optionsContainer.querySelectorAll('.custom-option').forEach(opt => {
+            opt.style.display = 'flex';
+            opt.classList.remove('selected');
+        });
+    }
+
+    // 2. Unidad
+    const selUC = document.getElementById('add_unidad_compra');
+    if (selUC) selUC.innerHTML = '<option value="BASE" data-factor="1">Unidad Base</option>';
+    const ubNombre = document.getElementById('add_unidad_base_nombre');
+    if (ubNombre) ubNombre.value = '';
+    const addFC = document.getElementById('add_factor_conversion');
+    if (addFC) addFC.value = '1.0000';
+
+    // 3. Cantidad
+    const addCant = document.getElementById('add_cantidad');
+    if (addCant) addCant.value = 1;
+
+    // 4. Entrada Inventario
+    const addEnt = document.getElementById('add_entrada_inventario');
+    if (addEnt) addEnt.value = '--';
+    const addCIV = document.getElementById('add_cantidad_inventario_val');
+    if (addCIV) addCIV.value = '1.00';
+
+    // 5. Lista de costo
+    const addLista = document.getElementById('add_lista');
+    if (addLista) addLista.value = '';
+
+    // 6. Costo
+    const addCosto = document.getElementById('add_costo');
+    if (addCosto) addCosto.value = '0.00';
+
+    // 7. Estado de edición y botón
+    const editPedDet = document.getElementById('edit_item_pedido_det_id');
+    if (editPedDet) editPedDet.value = '';
+    const itemEditIdx = document.getElementById('item_indice_edicion');
+    if (itemEditIdx) itemEditIdx.value = '-1';
+
+    // Quitar marcas de fila en edición
+    document.querySelectorAll('#cuerpoTablaSolicitud tr.fila-editando').forEach(r => {
+        r.classList.remove('table-warning', 'fila-editando');
+    });
+
+    // Resetear botón a "+" azulito
+    const btn = document.getElementById('btnAddItem');
+    if (btn) {
+        btn.innerHTML = '<i class="bi bi-plus-lg"></i>';
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-brand');
+        btn.title = 'Agregar Item';
+    }
+
+    productoCompraActual = null;
+}
+
 // --- AGREGAR / ACTUALIZAR ARTÍCULO ---
 function agregarArticuloManual() {
     const pInput = document.getElementById('add_producto');
-    const prodId = pInput.value;
+    const prodId = pInput ? pInput.value : '';
     
     if (!prodId) {
         alert("Selecciona un producto.");
         return;
     }
 
+    const tbody = document.getElementById('cuerpoTablaSolicitud');
+    const indiceEdicion = parseInt(document.getElementById('item_indice_edicion')?.value ?? '-1');
+    const rowEditando = (tbody ? tbody.querySelector('tr.fila-editando') : null) || (indiceEdicion >= 0 && tbody && tbody.rows[indiceEdicion] ? tbody.rows[indiceEdicion] : null);
+
     const opt = document.querySelector(`#optionsAddProducto .custom-option[data-value="${prodId}"]`);
-    const prodNombre = opt ? opt.getAttribute('data-name') : "Producto";
-    const ivaPorc = parseFloat(opt ? opt.getAttribute('data-iva') : 0) || 0;
     
-    const listaId = document.getElementById('add_lista').value;
-    const listaNombre = document.getElementById('add_lista').options[document.getElementById('add_lista').selectedIndex].text;
-    const cantidad = parseFloat(document.getElementById('add_cantidad').value) || 0;
-    const costo = parseFloat(document.getElementById('add_costo').value) || 0;
+    let prodNombre = productoCompraActual?.nombre;
+    if (!prodNombre && opt) prodNombre = opt.getAttribute('data-name');
+    if (!prodNombre && rowEditando) {
+        prodNombre = rowEditando.querySelector('.fw-bold.text-dark')?.innerText || rowEditando.cells[0]?.innerText.trim();
+    }
+    if (!prodNombre) prodNombre = "Producto";
+
+    const ivaPorc = parseFloat(opt ? opt.getAttribute('data-iva') : (rowEditando?.querySelector('[name="iva_porcentaje[]"]')?.value || 0)) || 0;
+    
+    const selectLista = document.getElementById('add_lista');
+    const listaId = selectLista ? selectLista.value : '';
+    const listaNombre = (selectLista && selectLista.selectedIndex >= 0) ? selectLista.options[selectLista.selectedIndex].text : 'Manual';
+    
+    const cantidad = parseFloat(document.getElementById('add_cantidad')?.value) || 0;
+    const costo = parseFloat(document.getElementById('add_costo')?.value) || 0;
 
     if (cantidad <= 0) {
         alert("Selecciona una cantidad válida.");
@@ -377,28 +469,32 @@ function agregarArticuloManual() {
     const ivaMonto = subtotal * (ivaPorc / 100);
     const total = subtotal + ivaMonto;
 
-    // Obtener valores de Configuración General (Defaults)
-    const provId = document.getElementById('gen_proveedor').value;
-    const provNombre = provId ? document.getElementById('gen_proveedor').options[document.getElementById('gen_proveedor').selectedIndex].text : 'No asignado';
+    // Obtener valores de Configuración General de forma segura
+    const selProv = document.getElementById('gen_proveedor');
+    const provId = selProv ? selProv.value : '';
+    const provNombre = (selProv && selProv.selectedIndex >= 0 && provId) ? selProv.options[selProv.selectedIndex].text : 'No asignado';
     
-    const sucId = document.getElementById('gen_sucursal').value;
-    const sucNombre = (sucId && !document.getElementById('gen_sucursal').disabled) ? 
-                      document.getElementById('gen_sucursal').options[document.getElementById('gen_sucursal').selectedIndex].text : 
+    const selSuc = document.getElementById('gen_sucursal');
+    const sucId = selSuc ? selSuc.value : '';
+    const sucNombre = (selSuc && !selSuc.disabled && selSuc.selectedIndex >= 0 && sucId) ? 
+                      selSuc.options[selSuc.selectedIndex].text : 
                       (provId ? 'Matriz' : '--');
 
-    const almId = document.getElementById('gen_almacen').value;
-    const almNombre = almId ? document.getElementById('gen_almacen').options[document.getElementById('gen_almacen').selectedIndex].text : 'No asignado';
+    const selAlm = document.getElementById('gen_almacen');
+    const almId = selAlm ? selAlm.value : '';
+    const almNombre = (selAlm && selAlm.selectedIndex >= 0 && almId) ? selAlm.options[selAlm.selectedIndex].text : 'No asignado';
 
-    const monId = document.getElementById('gen_moneda').value;
-    const monSiglas = document.getElementById('gen_moneda').options[document.getElementById('gen_moneda').selectedIndex].text;
+    const selMon = document.getElementById('gen_moneda');
+    const monId = selMon ? selMon.value : '';
+    const monSiglas = (selMon && selMon.selectedIndex >= 0) ? selMon.options[selMon.selectedIndex].text : 'MXN';
 
     const selUnidad = document.getElementById('add_unidad_compra');
     const optUnidad = selUnidad && selUnidad.selectedIndex >= 0 ? selUnidad.options[selUnidad.selectedIndex] : null;
     const unidadCompraVal = selUnidad ? selUnidad.value : 'BASE';
     const unidadCompraDisplay = optUnidad ? (optUnidad.getAttribute('data-display') || optUnidad.text) : '';
-    const factorConv = parseFloat(document.getElementById('add_factor_conversion').value) || 1.0;
-    const cantInv = parseFloat(document.getElementById('add_cantidad_inventario_val').value) || (cantidad * factorConv);
-    const unidadBaseNom = document.getElementById('add_unidad_base_nombre').value || (opt ? opt.getAttribute('data-unidad') : '');
+    const factorConv = parseFloat(document.getElementById('add_factor_conversion')?.value) || 1.0;
+    const cantInv = parseFloat(document.getElementById('add_cantidad_inventario_val')?.value) || (cantidad * factorConv);
+    const unidadBaseNom = document.getElementById('add_unidad_base_nombre')?.value || (opt ? opt.getAttribute('data-unidad') : '');
 
     const datos = {
         producto_id: prodId,
@@ -424,38 +520,20 @@ function agregarArticuloManual() {
         moneda_siglas: monSiglas,
         lista_id: listaId,
         lista_nombre: listaNombre,
-        detalle_pedido_origen_id: document.getElementById('edit_item_pedido_det_id').value
+        detalle_pedido_origen_id: document.getElementById('edit_item_pedido_det_id')?.value || ''
     };
 
-    const indiceEdicion = parseInt(document.getElementById('item_indice_edicion').value);
-
-    if (indiceEdicion >= 0) {
-        const tbody = document.getElementById('cuerpoTablaSolicitud');
-        const row = tbody.rows[indiceEdicion];
-        if (row) {
-            actualizarFilaHtml(row, datos);
-        }
-        document.getElementById('item_indice_edicion').value = '-1';
-        document.getElementById('edit_item_pedido_det_id').value = '';
-        const btn = document.getElementById('btnAddItem');
-        btn.innerHTML = '<i class="bi bi-plus-lg"></i>';
-        btn.classList.replace('btn-success', 'btn-brand');
+    if (rowEditando) {
+        actualizarFilaHtml(rowEditando, datos);
+        rowEditando.classList.remove('table-warning', 'fila-editando');
     } else {
         agregarFilaProducto(datos);
     }
 
-    // Resetear selección
-    pInput.value = '';
-    document.getElementById('add_producto_display_fake').innerHTML = '<span class="text-muted" style="font-weight:400;">Buscar producto...</span>';
-    document.getElementById('add_lista').value = '';
-    document.getElementById('add_cantidad').value = 1;
-    document.getElementById('add_costo').value = '0.00';
-    document.getElementById('add_factor_conversion').value = '1.0000';
-    document.getElementById('add_cantidad_inventario_val').value = '1.00';
-    document.getElementById('add_entrada_inventario').value = '--';
-    const resetUC = document.getElementById('add_unidad_compra');
-    if (resetUC) resetUC.innerHTML = '<option value="BASE" data-factor="1">Unidad Base</option>';
-    productoCompraActual = null;
+    // Resetear formulario completo para un nuevo artículo
+    limpiarCamposArticuloNuevo();
+
+    // Recalcular totales
     calcularTotalSolicitud();
 }
 
@@ -475,60 +553,59 @@ function actualizarFilaHtml(row, datos) {
     const cantCompra = parseFloat(datos.cantidad) || 0;
     const factor = parseFloat(datos.factor_conversion) || 1.0;
     const cantInv = parseFloat(datos.cantidad_inventario) || (cantCompra * factor);
-    const uCompraDisplay = datos.unidad_compra_display || datos.unidad_compra || '';
-    const uBaseDisplay = datos.unidad_base || '';
+    const uCompraDisplay = limpiarNombreUnidad(datos.unidad_compra_display || datos.unidad_compra || '');
+    const uBaseDisplay = limpiarNombreUnidad(datos.unidad_base || '');
+
+    function cleanFk(val) {
+        if (!val || val === 'null' || val === 'None' || val === 'undefined') return '';
+        return val;
+    }
 
     row.innerHTML = `
-        <td class="ps-3">
-            <div class="fw-bold text-dark text-truncate" style="max-width: 200px;" title="${datos.producto_nombre}">${datos.producto_nombre}</div>
-            <input type="hidden" name="producto_id[]" value="${datos.producto_id}">
-            <input type="hidden" name="pedido_det_id[]" value="${datos.detalle_pedido_origen_id || ''}">
-            <input type="hidden" name="unidad_base[]" value="${uBaseDisplay}">
+        <td class="text-center align-middle">
+            <div class="fw-bold text-dark text-truncate mx-auto" style="max-width: 200px; font-size: 0.85rem;" title="${datos.producto_nombre}">${datos.producto_nombre}</div>
+            <input type="hidden" name="producto_id[]" value="${cleanFk(datos.producto_id)}">
+            <input type="hidden" name="pedido_det_id[]" value="${cleanFk(datos.detalle_pedido_origen_id)}">
+            <input type="hidden" name="unidad_base[]" value="${cleanFk(uBaseDisplay)}">
         </td>
-        <td>
-            <span class="text-muted small">${datos.lista_id ? datos.lista_nombre : 'Manual'}</span>
-            <input type="hidden" name="lista_id[]" value="${datos.lista_id || ''}">
+        <td class="text-center align-middle text-muted" style="font-size: 0.85rem;">
+            <span class="text-muted" style="font-size: 0.85rem;">${(datos.lista_id && cleanFk(datos.lista_id)) ? datos.lista_nombre : 'Manual'}</span>
+            <input type="hidden" name="lista_id[]" value="${cleanFk(datos.lista_id)}">
         </td>
-        <td class="text-center">
-            <span class="badge bg-light text-dark border">${datos.moneda_siglas}</span>
-            <input type="hidden" name="moneda_id[]" value="${datos.moneda_id}">
+        <td class="text-center align-middle text-muted" style="font-size: 0.85rem;">
+            <span class="text-muted" style="font-size: 0.85rem;">${datos.moneda_siglas || 'MXN'}</span>
+            <input type="hidden" name="moneda_id[]" value="${cleanFk(datos.moneda_id)}">
         </td>
-        <td>
-            <div class="small text-truncate" style="max-width: 150px;" title="${datos.proveedor_nombre}">${datos.proveedor_nombre}</div>
-            <input type="hidden" name="proveedor_id[]" value="${datos.proveedor_id || ''}">
-            <input type="hidden" name="sucursal_id[]" value="${datos.sucursal_id || ''}">
+        <td class="text-center align-middle text-muted" style="font-size: 0.85rem;">
+            <div class="text-muted text-truncate mx-auto" style="max-width: 150px; font-size: 0.85rem;" title="${datos.proveedor_nombre}">${datos.proveedor_nombre}</div>
+            <input type="hidden" name="proveedor_id[]" value="${cleanFk(datos.proveedor_id)}">
+            <input type="hidden" name="sucursal_id[]" value="${cleanFk(datos.sucursal_id)}">
         </td>
-        <td>
-            <div class="small text-truncate" style="max-width: 120px;" title="${datos.almacen_nombre}">${datos.almacen_nombre}</div>
-            <input type="hidden" name="almacen_id[]" value="${datos.almacen_id || ''}">
+        <td class="text-center align-middle text-muted" style="font-size: 0.85rem;">
+            <div class="text-muted text-truncate mx-auto" style="max-width: 120px; font-size: 0.85rem;" title="${datos.almacen_nombre}">${datos.almacen_nombre}</div>
+            <input type="hidden" name="almacen_id[]" value="${cleanFk(datos.almacen_id)}">
         </td>
-        <td class="text-center">
-            <span class="small fw-semibold text-dark">${cantCompra}</span>
-            <span class="text-muted d-block" style="font-size: 0.72rem;">${uCompraDisplay}</span>
+        <td class="text-center align-middle text-muted" style="font-size: 0.85rem;">
+            <span class="text-muted fw-semibold" style="font-size: 0.85rem;">${cantCompra}</span>
+            <span class="text-muted d-block" style="font-size: 0.85rem;">${uCompraDisplay}</span>
             <input type="hidden" name="cantidad[]" value="${cantCompra}">
-            <input type="hidden" name="unidad_compra[]" value="${datos.unidad_compra || ''}">
+            <input type="hidden" name="unidad_compra[]" value="${cleanFk(datos.unidad_compra)}">
             <input type="hidden" name="factor_conversion[]" value="${factor}">
         </td>
-        <td class="text-center">
-            <span class="small fw-bold text-brand">${cantInv}</span>
-            <span class="text-muted d-block" style="font-size: 0.72rem;">${uBaseDisplay}</span>
+        <td class="text-center align-middle text-muted" style="font-size: 0.85rem;">
+            <span class="text-muted fw-semibold" style="font-size: 0.85rem;">${cantInv}</span>
+            <span class="text-muted d-block" style="font-size: 0.85rem;">${uBaseDisplay}</span>
             <input type="hidden" name="cantidad_inventario[]" value="${cantInv}">
         </td>
-        <td class="text-end">
-            <span class="small text-muted">$${parseFloat(datos.costo_unitario).toFixed(2)}</span>
+        <td class="text-center align-middle text-muted" style="font-size: 0.85rem;">
+            <span class="text-muted" style="font-size: 0.85rem;">$${parseFloat(datos.costo_unitario).toFixed(2)}</span>
             <input type="hidden" name="costo_unitario[]" value="${datos.costo_unitario}">
         </td>
-        <td class="text-end cell-subtotal">
-            <span class="small text-dark">$${parseFloat(datos.subtotal).toFixed(2)}</span>
+        <td class="text-center align-middle cell-subtotal text-muted" style="font-size: 0.85rem;">
+            <span class="text-muted fw-semibold" style="font-size: 0.85rem;">$${parseFloat(datos.subtotal).toFixed(2)}</span>
+            <input type="hidden" name="iva_porcentaje[]" value="${datos.iva_porcentaje || 0}">
         </td>
-        <td class="text-end cell-iva">
-            <span class="small text-muted">$${parseFloat(datos.iva_monto).toFixed(2)}</span>
-            <input type="hidden" name="iva_porcentaje[]" value="${datos.iva_porcentaje}">
-        </td>
-        <td class="text-end pe-3 cell-total">
-            <span class="fw-bold small text-dark">$${parseFloat(datos.total).toFixed(2)}</span>
-        </td>
-        <td class="text-center">
+        <td class="text-center align-middle">
             <div class="d-flex justify-content-center gap-1">
                 <button type="button" class="icon-action" onclick="cargarItemParaEdicion(this)" title="Editar Partida">
                     <i class="bi bi-pencil-square"></i>
@@ -551,82 +628,125 @@ function calcularTotalSolicitud() {
 
     document.querySelectorAll('#cuerpoTablaSolicitud tr').forEach(fila => {
         const subCell = fila.querySelector('.cell-subtotal');
-        const ivaCell = fila.querySelector('.cell-iva');
-        const totCell = fila.querySelector('.cell-total');
-        if (!subCell || !ivaCell || !totCell) return;
+        if (!subCell) return;
 
         const sub = parseFloat(subCell.querySelector('span')?.innerText.replace('$', '').replace(/,/g, '')) || 0;
         
-        // Obtener el IVA porcentaje original del input hidden
-        const ivaInput = ivaCell.querySelector('input[name="iva_porcentaje[]"]');
+        // Obtener el IVA porcentaje original del input hidden (en la celda de subtotal o en la fila)
+        const ivaInput = fila.querySelector('input[name="iva_porcentaje[]"]');
         const ivaPorc = ivaInput ? parseFloat(ivaInput.value) : 0;
         
         const iva = aplicaIva ? (sub * (ivaPorc / 100)) : 0;
         const tot = sub + iva;
         
-        // Actualizar visualmente la celda de IVA
-        const ivaSpan = ivaCell.querySelector('span');
-        if (ivaSpan) ivaSpan.innerText = '$' + iva.toFixed(2);
+        // Actualizar visualmente celda de IVA si existiera
+        const ivaCell = fila.querySelector('.cell-iva');
+        if (ivaCell) {
+            const ivaSpan = ivaCell.querySelector('span');
+            if (ivaSpan) ivaSpan.innerText = '$' + iva.toFixed(2);
+        }
         
-        // Actualizar visualmente la celda de Importe
-        const totSpan = totCell.querySelector('span');
-        if (totSpan) totSpan.innerText = '$' + tot.toFixed(2);
+        // Actualizar visualmente celda de Importe si existiera
+        const totCell = fila.querySelector('.cell-total');
+        if (totCell) {
+            const totSpan = totCell.querySelector('span');
+            if (totSpan) totSpan.innerText = '$' + tot.toFixed(2);
+        }
         
         subtotalTotal += sub;
         ivaTotal += iva;
         granTotal += tot;
     });
 
-    document.getElementById('solicitudSubtotal').innerText = '$' + subtotalTotal.toLocaleString('en-US', {minimumFractionDigits: 2});
-    document.getElementById('solicitudIvaTotal').innerText = '$' + ivaTotal.toLocaleString('en-US', {minimumFractionDigits: 2});
-    document.getElementById('granTotalSolicitud').innerText = '$' + granTotal.toLocaleString('en-US', {minimumFractionDigits: 2});
+    const subEl = document.getElementById('solicitudSubtotal');
+    if (subEl) subEl.innerText = '$' + subtotalTotal.toLocaleString('en-US', {minimumFractionDigits: 2});
+    const ivaEl = document.getElementById('solicitudIvaTotal');
+    if (ivaEl) ivaEl.innerText = '$' + ivaTotal.toLocaleString('en-US', {minimumFractionDigits: 2});
+    const totEl = document.getElementById('granTotalSolicitud');
+    if (totEl) totEl.innerText = '$' + granTotal.toLocaleString('en-US', {minimumFractionDigits: 2});
 }
 
 async function cargarItemParaEdicion(btn) {
     const row = btn.closest('tr');
-    const index = row.rowIndex - 1; 
+    if (!row) return;
+
+    const tbody = document.getElementById('cuerpoTablaSolicitud');
+    const allRows = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
+    const index = allRows.indexOf(row);
     
-    const prodId = row.querySelector('[name="producto_id[]"]').value;
-    const prodNombre = row.querySelector('.fw-bold.text-dark').innerText;
+    // Marcar visualmente la fila en edición
+    allRows.forEach(r => r.classList.remove('table-warning', 'fila-editando'));
+    row.classList.add('table-warning', 'fila-editando');
+    
+    const prodId = row.querySelector('[name="producto_id[]"]')?.value || '';
+    const prodNombre = row.querySelector('.fw-bold.text-dark')?.innerText || row.cells[0]?.innerText.trim() || 'Producto';
     const pedDetId = row.querySelector('[name="pedido_det_id[]"]')?.value || '';
-    const listaId = row.querySelector('[name="lista_id[]"]').value;
-    const monId = row.querySelector('[name="moneda_id[]"]').value;
-    const provId = row.querySelector('[name="proveedor_id[]"]').value;
-    const sucId = row.querySelector('[name="sucursal_id[]"]').value;
-    const almId = row.querySelector('[name="almacen_id[]"]').value;
-    const cant = row.querySelector('[name="cantidad[]"]').value;
-    const costo = row.querySelector('[name="costo_unitario[]"]').value;
+    const listaId = row.querySelector('[name="lista_id[]"]')?.value || '';
+    const monId = row.querySelector('[name="moneda_id[]"]')?.value || '';
+    const provId = row.querySelector('[name="proveedor_id[]"]')?.value || '';
+    const sucId = row.querySelector('[name="sucursal_id[]"]')?.value || '';
+    const almId = row.querySelector('[name="almacen_id[]"]')?.value || '';
+    const cant = row.querySelector('[name="cantidad[]"]')?.value || '1';
+    const costo = row.querySelector('[name="costo_unitario[]"]')?.value || '0.00';
     const uCompra = row.querySelector('[name="unidad_compra[]"]')?.value || '';
     const factor = row.querySelector('[name="factor_conversion[]"]')?.value || '1.0000';
     const uBase = row.querySelector('[name="unidad_base[]"]')?.value || '';
 
-    document.getElementById('add_producto').value = prodId;
-    document.getElementById('add_producto_display_fake').innerHTML = `<span>${prodNombre}</span>`;
-    document.getElementById('add_lista').value = listaId;
-    document.getElementById('add_cantidad').value = cant;
-    document.getElementById('add_costo').value = costo;
-    document.getElementById('edit_item_pedido_det_id').value = pedDetId;
-    document.getElementById('add_factor_conversion').value = factor;
-    document.getElementById('add_unidad_base_nombre').value = uBase;
+    const pInput = document.getElementById('add_producto');
+    if (pInput) pInput.value = prodId;
+
+    const fakeDisplay = document.getElementById('add_producto_display_fake');
+    if (fakeDisplay) {
+        fakeDisplay.innerHTML = `<span>${prodNombre}</span>`;
+        fakeDisplay.style.visibility = 'visible';
+    }
+    const searchInput = document.getElementById('add_producto_busqueda');
+    if (searchInput) searchInput.value = '';
+
+    const selLista = document.getElementById('add_lista');
+    if (selLista) selLista.value = listaId;
+
+    const inputCant = document.getElementById('add_cantidad');
+    if (inputCant) inputCant.value = cant;
+
+    const inputCosto = document.getElementById('add_costo');
+    if (inputCosto) inputCosto.value = costo;
+
+    const inputPedDet = document.getElementById('edit_item_pedido_det_id');
+    if (inputPedDet) inputPedDet.value = pedDetId;
+
+    const inputFactor = document.getElementById('add_factor_conversion');
+    if (inputFactor) inputFactor.value = factor;
+
+    const inputUBN = document.getElementById('add_unidad_base_nombre');
+    if (inputUBN) inputUBN.value = uBase;
     
-    document.getElementById('gen_proveedor').value = provId;
-    document.getElementById('gen_almacen').value = almId;
-    document.getElementById('gen_moneda').value = monId;
+    if (provId) document.getElementById('gen_proveedor').value = provId;
+    if (almId) document.getElementById('gen_almacen').value = almId;
+    if (monId) document.getElementById('gen_moneda').value = monId;
     
-    cargarSucursalesProveedor(provId, 'gen_sucursal', sucId);
+    if (provId) {
+        cargarSucursalesProveedor(provId, 'gen_sucursal', sucId);
+    }
 
     // Cargar conversiones y seleccionar unidad
     await cargarConversionesParaCompra(prodId, uCompra, factor);
+    
     // Mantener los valores guardados
-    document.getElementById('add_costo').value = costo;
-    document.getElementById('add_cantidad').value = cant;
+    if (inputCosto) inputCosto.value = costo;
+    if (inputCant) inputCant.value = cant;
     calcularEntradaInventario();
 
-    document.getElementById('item_indice_edicion').value = index;
+    const itemEditIdx = document.getElementById('item_indice_edicion');
+    if (itemEditIdx) itemEditIdx.value = index;
+
     const btnAdd = document.getElementById('btnAddItem');
-    btnAdd.innerHTML = '<i class="bi bi-check-lg"></i>';
-    btnAdd.classList.remove('btn-brand');
-    btnAdd.classList.add('btn-success');
+    if (btnAdd) {
+        btnAdd.innerHTML = '<i class="bi bi-check-lg"></i>';
+        btnAdd.classList.remove('btn-success');
+        btnAdd.classList.add('btn-brand');
+        btnAdd.title = 'Actualizar Partida';
+    }
     
     document.querySelector('.modal-body').scrollTop = 0;
 }
@@ -693,9 +813,13 @@ function sincronizarSiAplicarTodo(campo) {
 
 function eliminarFila(btn) {
     const row = btn.closest('tr');
-    row.remove();
+    const wasEditing = row && row.classList.contains('fila-editando');
+    if (row) row.remove();
     if (document.getElementById('cuerpoTablaSolicitud').children.length === 0) {
         document.getElementById('mensajeVacioSolicitud').style.display = 'block';
+    }
+    if (wasEditing) {
+        limpiarCamposArticuloNuevo();
     }
     calcularTotalSolicitud();
 }
@@ -755,8 +879,10 @@ async function guardarSolicitud(event) {
     }
 
     const form = document.getElementById('formNuevaSolicitud');
-    const id = document.getElementById('solicitud_id_edit').value;
-    const url = id ? `/solicitudes-compras/actualizar/${id}/` : '/solicitudes-compras/crear-manual/';
+    const idInput = document.getElementById('solicitud_id_edit');
+    const id = idInput ? idInput.value.trim() : '';
+    const isEdit = id && id !== 'null' && id !== 'None' && id !== 'undefined' && id !== '';
+    const url = isEdit ? `/solicitudes-compras/actualizar/${id}/` : '/solicitudes-compras/crear-manual/';
     
     const formData = new FormData(form);
     const btn = document.getElementById('btnGuardarSolicitud');
@@ -822,7 +948,7 @@ async function verSolicitud(id) {
                 const trGrupo = document.createElement('tr');
                 trGrupo.style.backgroundColor = '#f8f9fa';
                 trGrupo.innerHTML = `
-                    <td colspan="10" class="ps-3 py-2">
+                    <td colspan="8" class="text-start ps-3 py-2">
                         <div class="d-flex align-items-center">
                             <i class="bi ${isDirect ? 'bi-cart-fill' : 'bi-gear-wide-connected'} me-2 text-brand" style="font-size: 1rem;"></i>
                             <span class="fw-bold text-dark uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">
@@ -835,35 +961,36 @@ async function verSolicitud(id) {
 
                 // Filas de Items del Grupo
                 grupo.items.forEach(d => {
+                    const uCompraLimpia = limpiarNombreUnidad(d.unidad_compra_display || d.unidad_compra || '');
+                    const uBaseLimpia = limpiarNombreUnidad(d.unidad_base || '');
+
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td class="ps-5">
-                            <div class="d-flex align-items-center">
+                        <td class="text-center align-middle">
+                            <div class="d-flex align-items-center justify-content-center">
                                 <i class="bi bi-arrow-return-right text-muted me-2"></i>
-                                <span class="text-dark small" title="${d.producto_nombre}">${d.producto_nombre}</span>
+                                <span class="fw-bold text-dark text-truncate" style="font-size: 0.85rem;" title="${d.producto_nombre}">${d.producto_nombre}</span>
                             </div>
                         </td>
-                        <td class="text-center small">
-                            <span class="fw-semibold">${d.cantidad}</span>
-                            <span class="text-muted d-block" style="font-size: 0.72rem;">${d.unidad_compra_display || d.unidad_compra || ''}</span>
+                        <td class="text-center align-middle text-muted" style="font-size: 0.85rem;">
+                            <span class="text-muted fw-semibold" style="font-size: 0.85rem;">${d.cantidad}</span>
+                            <span class="text-muted d-block" style="font-size: 0.85rem;">${uCompraLimpia}</span>
                         </td>
-                        <td class="text-center small">
-                            <span class="text-brand fw-semibold">${d.cantidad_inventario}</span>
-                            <span class="text-muted d-block" style="font-size: 0.72rem;">${d.unidad_base || ''}</span>
+                        <td class="text-center align-middle text-muted" style="font-size: 0.85rem;">
+                            <span class="text-muted fw-semibold" style="font-size: 0.85rem;">${d.cantidad_inventario}</span>
+                            <span class="text-muted d-block" style="font-size: 0.85rem;">${uBaseLimpia}</span>
                         </td>
-                        <td class="small text-muted text-truncate" style="max-width: 150px;" title="${d.proveedor_nombre}">${d.proveedor_nombre}</td>
-                        <td class="small text-muted text-truncate" style="max-width: 120px;" title="${d.almacen_nombre}">${d.almacen_nombre}</td>
-                        <td class="text-end small">$${parseFloat(d.costo_unitario).toLocaleString('en-US', {minimumFractionDigits:2})}</td>
-                        <td class="text-center small text-muted">${d.tipo_cambio}</td>
-                        <td class="text-end small text-dark">$${parseFloat(d.subtotal).toLocaleString('en-US', {minimumFractionDigits:2})}</td>
-                        <td class="text-end small text-muted">$${parseFloat(d.iva_monto).toLocaleString('en-US', {minimumFractionDigits:2})}</td>
-                        <td class="text-end pe-3 fw-bold small text-dark">$${parseFloat(d.total).toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+                        <td class="text-center align-middle text-muted text-truncate" style="max-width: 150px; font-size: 0.85rem;" title="${d.proveedor_nombre}">${d.proveedor_nombre}</td>
+                        <td class="text-center align-middle text-muted text-truncate" style="max-width: 120px; font-size: 0.85rem;" title="${d.almacen_nombre}">${d.almacen_nombre}</td>
+                        <td class="text-center align-middle text-muted" style="font-size: 0.85rem;">$${parseFloat(d.costo_unitario).toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+                        <td class="text-center align-middle text-muted" style="font-size: 0.85rem;">${d.tipo_cambio}</td>
+                        <td class="text-center align-middle text-muted fw-semibold" style="font-size: 0.85rem;">$${parseFloat(d.subtotal).toLocaleString('en-US', {minimumFractionDigits:2})}</td>
                     `;
                     tbody.appendChild(tr);
                 });
             });
         } else {
-            tbody.innerHTML = '<tr><td colspan="10" class="text-center py-3 text-muted fst-italic">No hay artículos en esta solicitud.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-3 text-muted fst-italic">No hay artículos en esta solicitud.</td></tr>';
         }
 
         document.getElementById('ver_solicitud_subtotal').innerText = `$${parseFloat(data.subtotal_total || 0).toLocaleString('en-US', {minimumFractionDigits:2})}`;

@@ -640,9 +640,18 @@ def actualizar_solicitud(request, solicitud_id):
             factores_conv = request.POST.getlist('factor_conversion[]')
             cantidades_inv = request.POST.getlist('cantidad_inventario[]')
 
+            def _clean_id(val):
+                if not val or str(val).strip().lower() in ('', 'null', 'none', 'undefined', '0'):
+                    return None
+                try:
+                    return int(val)
+                except (ValueError, TypeError):
+                    return None
+
             # Zip de todas las listas
             for i, (p_id, cant, prov_id, suc_id, cost, alm_id, mon_id, p_det_id, l_id) in enumerate(zip(productos_ids, cantidades, proveedores_ids, sucursales_ids, costos, almacenes_ids, monedas_ids, pedidos_det_ids, listas_ids)):
-                if p_id and p_id != '':
+                clean_p_id = _clean_id(p_id)
+                if clean_p_id:
                     u_compra = unidades_compra[i] if i < len(unidades_compra) else ''
                     try:
                         f_conv = Decimal(str(factores_conv[i])) if i < len(factores_conv) and factores_conv[i] else Decimal('1.0000')
@@ -655,18 +664,18 @@ def actualizar_solicitud(request, solicitud_id):
 
                     DetalleSolicitudCompra.objects.create(
                         solicitud=solicitud,
-                        producto_id=p_id,
+                        producto_id=clean_p_id,
                         cantidad_solicitada=cant,
-                        proveedor_id=prov_id if prov_id else None,
-                        sucursal_id=suc_id if (suc_id and suc_id != '') else None,
+                        proveedor_id=_clean_id(prov_id),
+                        sucursal_id=_clean_id(suc_id),
                         costo_unitario=cost,
-                        almacen_id=alm_id if alm_id else None,
-                        moneda_id=mon_id if mon_id else None,
-                        lista_id=l_id if l_id else None,
+                        almacen_id=_clean_id(alm_id),
+                        moneda_id=_clean_id(mon_id),
+                        lista_id=_clean_id(l_id),
                         unidad_compra=u_compra or None,
                         factor_conversion=f_conv,
                         cantidad_inventario=c_inv,
-                        detalle_pedido_origen_id=p_det_id if p_det_id else None 
+                        detalle_pedido_origen_id=_clean_id(p_det_id)
                     )
             
             messages.success(request, f'Solicitud #{solicitud.id} actualizada.')
@@ -718,9 +727,18 @@ def crear_solicitud_manual(request):
             factores_conv = request.POST.getlist('factor_conversion[]')
             cantidades_inv = request.POST.getlist('cantidad_inventario[]')
 
+            def _clean_id(val):
+                if not val or str(val).strip().lower() in ('', 'null', 'none', 'undefined', '0'):
+                    return None
+                try:
+                    return int(val)
+                except (ValueError, TypeError):
+                    return None
+
             count = 0
             for i, (p_id, cant, prov_id, suc_id, cost, alm_id, mon_id, l_id) in enumerate(zip(productos_ids, cantidades, proveedores_ids, sucursales_ids, costos, almacenes_ids, monedas_ids, listas_ids)):
-                if p_id and p_id != '':
+                clean_p_id = _clean_id(p_id)
+                if clean_p_id:
                     u_compra = unidades_compra[i] if i < len(unidades_compra) else ''
                     try:
                         f_conv = Decimal(str(factores_conv[i])) if i < len(factores_conv) and factores_conv[i] else Decimal('1.0000')
@@ -733,14 +751,14 @@ def crear_solicitud_manual(request):
 
                     DetalleSolicitudCompra.objects.create(
                         solicitud=solicitud,
-                        producto_id=p_id,
+                        producto_id=clean_p_id,
                         cantidad_solicitada=cant,
-                        proveedor_id=prov_id if prov_id else None,
-                        sucursal_id=suc_id if (suc_id and suc_id != '') else None,
+                        proveedor_id=_clean_id(prov_id),
+                        sucursal_id=_clean_id(suc_id),
                         costo_unitario=cost,
-                        almacen_id=alm_id if alm_id else None,
-                        moneda_id=mon_id if mon_id else None,
-                        lista_id=l_id if l_id else None,
+                        almacen_id=_clean_id(alm_id),
+                        moneda_id=_clean_id(mon_id),
+                        lista_id=_clean_id(l_id),
                         unidad_compra=u_compra or None,
                         factor_conversion=f_conv,
                         cantidad_inventario=c_inv
