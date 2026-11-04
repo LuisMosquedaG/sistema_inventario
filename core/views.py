@@ -1065,6 +1065,7 @@ def dashboard_inventario(request):
     q = request.GET.get('q')
     estado = request.GET.get('estado')
     estado_caducidad = request.GET.get('estado_caducidad', '')
+    estado_stock = request.GET.get('estado_stock', '')
     vista = request.GET.get('vista', 'existencias')
     stock_status = request.GET.get('existencias', 'con')
     if stock_status not in ['con', 'sin']:
@@ -1269,7 +1270,29 @@ def dashboard_inventario(request):
                 F('stock_fisico') - F('stock_res'),
                 output_field=IntegerField()
             )
+        ).annotate(
+            nivel_riesgo=Case(
+                When(Q(stock_disponible_anotado__lte=0) & (Q(stock_minimo__isnull=True) | Q(stock_minimo__lte=0)), then=Value('agotado')),
+                When(stock_disponible_anotado__lte=0, then=Value('critico')),
+                When(Q(stock_minimo__isnull=True) | Q(stock_minimo__lte=0) | Q(stock_maximo__isnull=True) | Q(stock_maximo__lte=0), then=Value('indefinido')),
+                When(stock_disponible_anotado__lte=F('stock_minimo'), then=Value('minimo')),
+                When(stock_disponible_anotado__lte=F('stock_maximo'), then=Value('normal')),
+                default=Value('maximo'),
+                output_field=CharField()
+            ),
+            nivel_riesgo_display=Case(
+                When(Q(stock_disponible_anotado__lte=0) & (Q(stock_minimo__isnull=True) | Q(stock_minimo__lte=0)), then=Value('Agotado')),
+                When(stock_disponible_anotado__lte=0, then=Value('Crítico')),
+                When(Q(stock_minimo__isnull=True) | Q(stock_minimo__lte=0) | Q(stock_maximo__isnull=True) | Q(stock_maximo__lte=0), then=Value('Indefinido')),
+                When(stock_disponible_anotado__lte=F('stock_minimo'), then=Value('Mínimo')),
+                When(stock_disponible_anotado__lte=F('stock_maximo'), then=Value('Normal')),
+                default=Value('Máximo'),
+                output_field=CharField()
+            )
         )
+
+        if vista == 'minimos_y_maximos' and estado_stock:
+            productos = productos.filter(nivel_riesgo=estado_stock)
 
         if vista not in ['minimos_y_maximos', 'productos']:
             if stock_status == 'con':
@@ -1287,6 +1310,8 @@ def dashboard_inventario(request):
             'costo_inventario': f'{prefix}costo_inventario_anotado',
             'minimos': f'{prefix}stock_minimo',
             'maximos': f'{prefix}stock_maximo',
+            'estado_stock': f'{prefix}nivel_riesgo',
+            'estado': f'{prefix}nivel_riesgo' if vista == 'minimos_y_maximos' else f'{prefix}estado',
         }
         campo_orden_prod = orden_map_productos.get(orden, 'nombre')
         productos = productos.order_by(campo_orden_prod, 'id')
@@ -1445,6 +1470,7 @@ def dashboard_inventario(request):
             'q': q or '',
             'estado': estado or '',
             'estado_caducidad': estado_caducidad or '',
+            'estado_stock': estado_stock or '',
             'vista': vista,
             'existencias': stock_status or '',
             'categoria': categoria_id or '',
