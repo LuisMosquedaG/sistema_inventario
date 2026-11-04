@@ -11,7 +11,8 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 import datetime
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
+from django.utils import timezone
 from decimal import Decimal
 from django.db import transaction
 from django.db.models import Sum, Q, Subquery, OuterRef, DecimalField, Avg, ExpressionWrapper, F, FloatField, IntegerField, Case, When, Value, CharField
@@ -1063,6 +1064,7 @@ def dashboard_inventario(request):
         
     q = request.GET.get('q')
     estado = request.GET.get('estado')
+    estado_caducidad = request.GET.get('estado_caducidad', '')
     vista = request.GET.get('vista', 'existencias')
     stock_status = request.GET.get('existencias', 'con')
     if stock_status not in ['con', 'sin']:
@@ -1073,6 +1075,8 @@ def dashboard_inventario(request):
 
     if vista == 'lotes_y_caducidades':
         from recepciones.models import DetalleRecepcionExtra
+        hoy = timezone.localdate()
+        limite_alerta = hoy + timedelta(days=7)
         extras_qs = DetalleRecepcionExtra.objects.filter(
             producto__empresa=empresa_actual,
             cantidad_lote__gt=0
@@ -1091,6 +1095,32 @@ def dashboard_inventario(request):
             extras_qs = extras_qs.filter(producto__estado=estado)
         if categoria_id:
             extras_qs = extras_qs.filter(producto__categoria=categoria_id)
+
+        # Filtro de Estado de Caducidad
+        if estado_caducidad == 'vigente':
+            extras_qs = extras_qs.filter(fecha_caducidad__gt=limite_alerta)
+        elif estado_caducidad == 'por_caducar':
+            extras_qs = extras_qs.filter(fecha_caducidad__gte=hoy, fecha_caducidad__lte=limite_alerta)
+        elif estado_caducidad == 'caducado':
+            extras_qs = extras_qs.filter(fecha_caducidad__lt=hoy)
+
+        # Anotación del Estado de Caducidad dinámico
+        extras_qs = extras_qs.annotate(
+            estado_caducidad=Case(
+                When(fecha_caducidad__isnull=True, then=Value('Sin caducidad')),
+                When(fecha_caducidad__lt=hoy, then=Value('Caducado')),
+                When(fecha_caducidad__lte=limite_alerta, then=Value('Por caducar')),
+                default=Value('Vigente'),
+                output_field=CharField()
+            ),
+            estado_caducidad_slug=Case(
+                When(fecha_caducidad__isnull=True, then=Value('sin-fecha')),
+                When(fecha_caducidad__lt=hoy, then=Value('caducado')),
+                When(fecha_caducidad__lte=limite_alerta, then=Value('por-caducar')),
+                default=Value('vigente'),
+                output_field=CharField()
+            )
+        )
             
         # Ordenamiento dinámico para lotes_y_caducidades
         prefix = '-' if direccion == 'desc' else ''
@@ -1101,6 +1131,8 @@ def dashboard_inventario(request):
             'existencias': f'{prefix}cantidad_lote',
             'reservado': f'{prefix}id', # Lotes no manejan reserva diferenciada
             'disponible': f'{prefix}cantidad_lote',
+            'estado': f'{prefix}estado_caducidad',
+            'estado_caducidad': f'{prefix}estado_caducidad',
         }
         campo_orden_lote = orden_map_lotes.get(orden, 'producto__nombre')
         extras_qs = extras_qs.order_by(campo_orden_lote, 'id')
@@ -1412,6 +1444,7 @@ def dashboard_inventario(request):
             'almacen': almacen_id or '', 
             'q': q or '',
             'estado': estado or '',
+            'estado_caducidad': estado_caducidad or '',
             'vista': vista,
             'existencias': stock_status or '',
             'categoria': categoria_id or '',

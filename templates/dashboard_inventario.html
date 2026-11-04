@@ -74,6 +74,30 @@
         border: 1px solid #ffc9c9;
     }
 
+    .status-vigente {
+        background-color: #ebfbee;
+        color: #2f9e44;
+        border: 1px solid #b2f2bb;
+    }
+
+    .status-por-caducar, .status-por_caducar {
+        background-color: #fff9db;
+        color: #f08c00;
+        border: 1px solid #ffe066;
+    }
+
+    .status-caducado {
+        background-color: #fff5f5;
+        color: #e03131;
+        border: 1px solid #ffc9c9;
+    }
+
+    .status-sin-fecha {
+        background-color: #f1f3f5;
+        color: #868e96;
+        border: 1px solid #dee2e6;
+    }
+
     .status-revision {
         background-color: #fff4e6;
         color: #d9480f;
@@ -293,6 +317,15 @@
                     </select>
                 </div>
                 <div class="col-6 col-md-2">
+                    {% if filtros.vista == 'lotes_y_caducidades' %}
+                    <label class="form-label small fw-bold text-secondary">Estado Caducidad</label>
+                    <select name="estado_caducidad" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todos...</option>
+                        <option value="vigente" {% if filtros.estado_caducidad == 'vigente' %}selected{% endif %}>Vigente</option>
+                        <option value="por_caducar" {% if filtros.estado_caducidad == 'por_caducar' %}selected{% endif %}>Por caducar</option>
+                        <option value="caducado" {% if filtros.estado_caducidad == 'caducado' %}selected{% endif %}>Caducado</option>
+                    </select>
+                    {% else %}
                     <label class="form-label small fw-bold text-secondary">Estado</label>
                     <select name="estado" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="">Todos...</option>
@@ -301,6 +334,7 @@
                         <option value="descontinuado" {% if filtros.estado == 'descontinuado' %}selected{% endif %}>Descontinuado</option>
                         <option value="revision" {% if filtros.estado == 'revision' %}selected{% endif %}>Revisión</option>
                     </select>
+                    {% endif %}
                 </div>
             </form>
         </div>
@@ -397,7 +431,13 @@
                                         <i class="bi bi-caret-down-fill {% if filtros.orden == 'disponible' and filtros.dir == 'desc' %}active-arrow{% endif %}"></i>
                                     </span>
                                 </th>
-                                <th class="text-center">Estado</th>
+                                <th class="text-center th-sortable" onclick="ordenarExistencias('estado_caducidad')">
+                                    Estado
+                                    <span class="sort-icon-box {% if filtros.orden == 'estado_caducidad' %}active{% endif %}">
+                                        <i class="bi bi-caret-up-fill {% if filtros.orden == 'estado_caducidad' and filtros.dir == 'asc' %}active-arrow{% endif %}"></i>
+                                        <i class="bi bi-caret-down-fill {% if filtros.orden == 'estado_caducidad' and filtros.dir == 'desc' %}active-arrow{% endif %}"></i>
+                                    </span>
+                                </th>
                             {% elif filtros.vista == 'minimos_y_maximos' %}
                                 <th class="text-center" style="width: 135px;">Acciones</th>
                                 <th class="text-center" style="width: 60px;">Imagen</th>
@@ -544,9 +584,13 @@
                                     {{ p.cantidad_lote }}
                                 </td>
                                 <td class="text-center">
-                                    <span class="status-pill status-{{ p.producto.estado|lower }}">
-                                        {{ p.producto.get_estado_display }}
-                                    </span>
+                                    {% if p.estado_caducidad %}
+                                        <span class="status-pill status-{{ p.estado_caducidad_slug }}">
+                                            {{ p.estado_caducidad }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted small">--</span>
+                                    {% endif %}
                                 </td>
                             {% else %}
                                 <!-- Vista Estándar (Existencias o Productos) -->
@@ -669,10 +713,10 @@
             <div class="d-flex gap-1">
                 {% if page_obj.has_previous %}
                     <!-- Primero -->
-                    <a href="?page=1{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}{% if filtros.orden %}&orden={{ filtros.orden }}{% endif %}{% if filtros.dir %}&dir={{ filtros.dir }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Primera página">&laquo;&laquo;</a>
+                    <a href="?page=1{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.estado_caducidad %}&estado_caducidad={{ filtros.estado_caducidad }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}{% if filtros.orden %}&orden={{ filtros.orden }}{% endif %}{% if filtros.dir %}&dir={{ filtros.dir }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Primera página">&laquo;&laquo;</a>
                     
                     <!-- Anterior -->
-                    <a href="?page={{ page_obj.previous_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}{% if filtros.orden %}&orden={{ filtros.orden }}{% endif %}{% if filtros.dir %}&dir={{ filtros.dir }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Anterior">&laquo;</a>
+                    <a href="?page={{ page_obj.previous_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.estado_caducidad %}&estado_caducidad={{ filtros.estado_caducidad }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}{% if filtros.orden %}&orden={{ filtros.orden }}{% endif %}{% if filtros.dir %}&dir={{ filtros.dir }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Anterior">&laquo;</a>
                 {% else %}
                     <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;&laquo;</button>
                     <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;</button>
@@ -684,7 +728,7 @@
                         {% if page_obj.number == i %}
                             <button class="btn btn-sm btn-brand text-white fw-bold shadow-sm" style="min-width: 32px;">{{ i }}</button>
                         {% else %}
-                            <a href="?page={{ i }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}{% if filtros.orden %}&orden={{ filtros.orden }}{% endif %}{% if filtros.dir %}&dir={{ filtros.dir }}{% endif %}" 
+                            <a href="?page={{ i }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.estado_caducidad %}&estado_caducidad={{ filtros.estado_caducidad }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}{% if filtros.orden %}&orden={{ filtros.orden }}{% endif %}{% if filtros.dir %}&dir={{ filtros.dir }}{% endif %}" 
                                class="btn btn-sm btn-light border-0 text-dark" style="min-width: 32px;">{{ i }}</a>
                         {% endif %}
                     {% endif %}
@@ -692,10 +736,10 @@
                 
                 {% if page_obj.has_next %}
                     <!-- Siguiente -->
-                    <a href="?page={{ page_obj.next_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}{% if filtros.orden %}&orden={{ filtros.orden }}{% endif %}{% if filtros.dir %}&dir={{ filtros.dir }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Siguiente">&raquo;</a>
+                    <a href="?page={{ page_obj.next_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.estado_caducidad %}&estado_caducidad={{ filtros.estado_caducidad }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}{% if filtros.orden %}&orden={{ filtros.orden }}{% endif %}{% if filtros.dir %}&dir={{ filtros.dir }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Siguiente">&raquo;</a>
                     
                     <!-- Último -->
-                    <a href="?page={{ page_obj.paginator.num_pages }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}{% if filtros.orden %}&orden={{ filtros.orden }}{% endif %}{% if filtros.dir %}&dir={{ filtros.dir }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Última página">&raquo;&raquo;</a>
+                    <a href="?page={{ page_obj.paginator.num_pages }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.estado_caducidad %}&estado_caducidad={{ filtros.estado_caducidad }}{% endif %}{% if filtros.vista %}&vista={{ filtros.vista }}{% endif %}{% if filtros.existencias %}&existencias={{ filtros.existencias }}{% endif %}{% if filtros.orden %}&orden={{ filtros.orden }}{% endif %}{% if filtros.dir %}&dir={{ filtros.dir }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Última página">&raquo;&raquo;</a>
                 {% else %}
                     <button class="btn btn-sm btn-light border-0 text-muted" disabled>&raquo;</button>
                     <button class="btn btn-sm btn-light border-0 text-muted" disabled>&raquo;&raquo;</button>
@@ -950,6 +994,10 @@
         }
         const form = document.getElementById('formFiltrosInventario');
         if (form) {
+            const selEstado = form.querySelector('[name="estado"]');
+            if (selEstado) selEstado.value = '';
+            const selCad = form.querySelector('[name="estado_caducidad"]');
+            if (selCad) selCad.value = '';
             form.submit();
         }
     }
