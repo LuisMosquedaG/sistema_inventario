@@ -15,7 +15,7 @@ from datetime import datetime, date, timedelta
 from django.utils import timezone
 from decimal import Decimal
 from django.db import transaction
-from django.db.models import Sum, Q, Subquery, OuterRef, DecimalField, Avg, ExpressionWrapper, F, FloatField, IntegerField, Case, When, Value, CharField
+from django.db.models import Sum, Q, Subquery, OuterRef, DecimalField, Avg, ExpressionWrapper, F, FloatField, IntegerField, Case, When, Value, CharField, BooleanField
 from django.db.models.functions import Coalesce
 from collections import defaultdict
 from categorias.models import Categoria, Subcategoria
@@ -1370,8 +1370,20 @@ def dashboard_inventario(request):
     if almacen_id:
         proximos_caducar_qs = proximos_caducar_qs.filter(almacen_id=almacen_id)
         
+    hoy_cad = timezone.localdate()
+    limite_por_caducar = hoy_cad + timedelta(days=7)
     proximos_caducar = proximos_caducar_qs.annotate(
-        costo_valorizado=ExpressionWrapper(F('cantidad_lote') * F('producto__precio_costo'), output_field=FloatField())
+        costo_valorizado=ExpressionWrapper(F('cantidad_lote') * F('producto__precio_costo'), output_field=FloatField()),
+        esta_caducado=Case(
+            When(fecha_caducidad__lt=hoy_cad, then=Value(True)),
+            default=Value(False),
+            output_field=BooleanField()
+        ),
+        esta_por_caducar=Case(
+            When(fecha_caducidad__gte=hoy_cad, fecha_caducidad__lte=limite_por_caducar, then=Value(True)),
+            default=Value(False),
+            output_field=BooleanField()
+        )
     ).order_by('fecha_caducidad')[:5]
 
     # Artículos con stock por debajo o próximos al stock mínimo requerido
@@ -1399,6 +1411,16 @@ def dashboard_inventario(request):
             output_field=IntegerField()
         )
     ).annotate(
+        es_critico=Case(
+            When(stock_disp_calc__lte=0, then=Value(True)),
+            default=Value(False),
+            output_field=BooleanField()
+        ),
+        es_minimo=Case(
+            When(stock_disp_calc__gt=0, stock_disp_calc__lte=F('stock_minimo'), then=Value(True)),
+            default=Value(False),
+            output_field=BooleanField()
+        ),
         nivel_riesgo=Case(
             When(stock_disp_calc__lte=0, then=Value('agotado')),
             When(stock_disp_calc__lt=F('stock_minimo'), then=Value('bajo')),

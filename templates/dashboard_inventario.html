@@ -140,6 +140,10 @@
         border: 1px solid #ffd8a8;
     }
 
+    .text-minimo {
+        color: #d97706 !important;
+    }
+
     .status-minimo {
         background-color: #fff9db;
         color: #f08c00;
@@ -849,12 +853,14 @@
                             <tbody>
                                 {% for item in proximos_caducar %}
                                 <tr>
-                                    <td class="text-muted text-truncate" style="max-width: 130px; font-size: 0.85rem;" title="{{ item.producto.nombre }}">{{ item.producto.nombre }}</td>
-                                    <td class="small text-muted">{{ item.lote|default:"--" }}</td>
-                                    <td class="text-center small text-muted">
+                                    <td class="text-truncate {% if item.esta_caducado %}text-danger{% elif item.esta_por_caducar %}text-minimo{% else %}text-muted{% endif %}" style="max-width: 130px; font-size: 0.85rem;" title="{{ item.producto.nombre }}">
+                                        {{ item.producto.nombre }}
+                                    </td>
+                                    <td class="small {% if item.esta_caducado %}text-danger{% elif item.esta_por_caducar %}text-minimo{% else %}text-muted{% endif %}">{{ item.lote|default:"--" }}</td>
+                                    <td class="text-center small {% if item.esta_caducado %}text-danger{% elif item.esta_por_caducar %}text-minimo{% else %}text-muted{% endif %}">
                                         {% if item.fecha_caducidad %}{{ item.fecha_caducidad|date:"Y-m-d" }}{% else %}--{% endif %}
                                     </td>
-                                    <td class="text-end small text-muted">{{ item.cantidad_lote }} u.</td>
+                                    <td class="text-end small {% if item.esta_caducado %}text-danger{% elif item.esta_por_caducar %}text-minimo{% else %}text-muted{% endif %}">{{ item.cantidad_lote }} u.</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -894,12 +900,12 @@
                             <tbody>
                                 {% for prod in articulos_stock_minimo %}
                                 <tr>
-                                    <td class="text-muted text-truncate" style="max-width: 140px; font-size: 0.85rem;" title="{{ prod.nombre }}">
+                                    <td class="text-truncate {% if prod.es_critico %}text-danger{% elif prod.es_minimo %}text-minimo{% else %}text-muted{% endif %}" style="max-width: 140px; font-size: 0.85rem;" title="{{ prod.nombre }}">
                                         {{ prod.nombre }}
                                     </td>
-                                    <td class="text-center small text-muted">{{ prod.stock_minimo|default:0 }}</td>
-                                    <td class="text-center small text-muted">{{ prod.stock_disp_calc|default:0 }}</td>
-                                    <td class="text-center small text-muted">
+                                    <td class="text-center small {% if prod.es_critico %}text-danger{% elif prod.es_minimo %}text-minimo{% else %}text-muted{% endif %}">{{ prod.stock_minimo|default:0 }}</td>
+                                    <td class="text-center small {% if prod.es_critico %}text-danger{% elif prod.es_minimo %}text-minimo{% else %}text-muted{% endif %}">{{ prod.stock_disp_calc|default:0 }}</td>
+                                    <td class="text-center small {% if prod.es_critico %}text-danger{% elif prod.es_minimo %}text-minimo{% else %}text-muted{% endif %}">
                                         {% if prod.diferencia_minimo > 0 %}
                                             -{{ prod.diferencia_minimo }}
                                         {% else %}
