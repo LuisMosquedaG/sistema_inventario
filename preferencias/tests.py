@@ -212,3 +212,80 @@ class UserSMTPSettingsTest(TestCase):
         self.assertTrue(data['success'])
         self.assertEqual(data['smtp']['smtp_host'], 'smtp.mail.com')
         self.assertEqual(data['smtp']['smtp_port'], 465)
+
+
+class HRAndAdminModuleVisibilityTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa RH Test",
+            subdominio="rhtest",
+            modulo_recursos_humanos=True,
+            modulo_pos=False,
+            modulo_ventas=False
+        )
+        self.sadmin = User.objects.create_user(
+            username="sadmin@rhtest",
+            password="password",
+            is_staff=True,
+            is_superuser=True
+        )
+        # admin estándar creado por sistema: staff=True, superuser=False, sin rol explícito
+        self.admin = User.objects.create_user(
+            username="admin@rhtest",
+            password="password",
+            is_staff=True,
+            is_superuser=False
+        )
+        self.user = User.objects.create_user(
+            username="empleado@rhtest",
+            password="password",
+            is_staff=False,
+            is_superuser=False
+        )
+
+    def test_context_processor_with_modulo_pos_false(self):
+        from preferencias.context_processors import app_permissions
+        from django.test import RequestFactory
+        factory = RequestFactory()
+        request = factory.get('/')
+        request.user = self.sadmin
+        
+        perms = app_permissions(request)
+        # Asegurarse de que no esté vacío a pesar de modulo_pos=False
+        self.assertTrue(perms['hr_ui_permissions']['empleados'])
+        self.assertTrue(perms['hr_ui_permissions']['contratos'])
+
+    def test_admin_and_sadmin_have_hr_permissions(self):
+        from preferencias.permissions import user_has_hr_permission
+        from django.test import RequestFactory
+        factory = RequestFactory()
+        
+        # Test sadmin
+        req_sadmin = factory.get('/')
+        req_sadmin.user = self.sadmin
+        self.assertTrue(user_has_hr_permission(req_sadmin, 'empleados', 'ver'))
+        self.assertTrue(user_has_hr_permission(req_sadmin, 'sua', 'ver'))
+
+        # Test admin
+        req_admin = factory.get('/')
+        req_admin.user = self.admin
+        self.assertTrue(user_has_hr_permission(req_admin, 'empleados', 'ver'))
+        self.assertTrue(user_has_hr_permission(req_admin, 'contratos', 'ver'))
+
+    def test_normal_user_role_fallback_for_hr(self):
+        from preferencias.models import Rol, AsignacionRolUsuario
+        from preferencias.permissions import user_has_hr_permission
+        from django.test import RequestFactory
+        
+        rol = Rol.objects.create(nombre="Rol Operativo", empresa=self.empresa)
+        AsignacionRolUsuario.objects.create(usuario=self.user, rol=rol, empresa=self.empresa)
+
+        factory = RequestFactory()
+        req_user = factory.get('/')
+        req_user.user = self.user
+
+        # Sin registros en PermisoRolAccion para recursos_humanos, debe permitir 'ver' por fallback
+        self.assertTrue(user_has_hr_permission(req_user, 'empleados', 'ver'))
+        # Pero no debe permitir 'crear' o 'eliminar' sin permiso explícito
+        self.assertFalse(user_has_hr_permission(req_user, 'empleados', 'eliminar'))
+
