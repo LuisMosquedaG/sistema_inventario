@@ -663,7 +663,38 @@
         </div>
     </header>
 
-    <div class="pt-2"></div>
+    <!-- BARRA INDICADORA DE SUCURSAL DE COMPRA -->
+    {% if sucursales %}
+    <div class="container px-3 pb-2 pt-1" style="max-width: 720px;">
+        <div class="d-flex align-items-center justify-content-between p-2 px-3 rounded-4 bg-white border shadow-sm">
+            <div class="d-flex align-items-center gap-2 overflow-hidden cursor-pointer" onclick="abrirModalSeleccionSucursal()" style="cursor: pointer;">
+                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 32px; height: 32px; background-color: #e7f5ff; color: #1971c2;">
+                    <i class="bi bi-geo-alt-fill fs-6"></i>
+                </div>
+                <div class="text-truncate">
+                    <div class="text-muted" style="font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Sucursal de Compra</div>
+                    <div class="fw-bold text-dark d-flex align-items-center gap-1 text-truncate" style="font-size: 0.86rem;">
+                        <span class="text-truncate" id="nombreSucursalPill">{{ sucursal_seleccionada.nombre|default:"General" }}</span>
+                        {% if tiene_multiples_sucursales %}
+                        <i class="bi bi-chevron-down text-muted fs-7 flex-shrink-0"></i>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% if tiene_multiples_sucursales %}
+            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 flex-shrink-0" style="font-size: 0.75rem; font-weight: 600;" onclick="abrirModalSeleccionSucursal()">
+                Cambiar
+            </button>
+            {% else %}
+            <span class="badge bg-light text-success border rounded-pill px-2 py-1" style="font-size: 0.7rem;">
+                <i class="bi bi-check-circle-fill me-1"></i> Única
+            </span>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="pt-1"></div>
 
     <!-- CONTENEDOR DE RESULTADOS DE BÚSQUEDA Y FILTROS (GRID) -->
     <div id="contenedorResultadosFiltrados" class="d-none">
@@ -826,6 +857,25 @@
                 </button>
             </div>
 
+            <!-- SELECTOR DE SUCURSAL EN MENÚ -->
+            {% if sucursales %}
+            <div class="mb-3 mt-2 p-2 rounded-3 bg-light border">
+                <label class="form-label small fw-bold text-dark d-flex align-items-center gap-1 mb-1" style="font-size: 0.78rem;">
+                    <i class="bi bi-geo-alt-fill" style="color: #1971c2;"></i> Sucursal de Compra
+                </label>
+                <select class="form-select form-select-sm rounded-3 shadow-none fw-semibold" id="selectSucursalOffcanvas" onchange="cambiarSucursal(this.value)">
+                    {% for s in sucursales %}
+                    <option value="{{ s.id }}" {% if sucursal_seleccionada and sucursal_seleccionada.id == s.id %}selected{% endif %}>
+                        {{ s.nombre }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <div class="form-text" style="font-size: 0.68rem;">
+                    Las existencias mostradas corresponden a esta sucursal.
+                </div>
+            </div>
+            {% endif %}
+
             <!-- FILTRO: CATEGORÍAS -->
             {% if filtros_categorias %}
             <div class="filter-section-title">Categorías</div>
@@ -878,6 +928,47 @@
             <button class="btn btn-brand-primary w-100" data-bs-dismiss="offcanvas">
                 Ver Productos
             </button>
+        </div>
+    </div>
+
+    <!-- MODAL DE SELECCIÓN DE SUCURSAL (BIENVENIDA / CAMBIO) -->
+    <div class="modal fade" id="modalSeleccionSucursal" tabindex="-1" aria-labelledby="modalSeleccionSucursalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+                <div class="modal-body p-4 text-center">
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3 shadow-sm" style="width: 64px; height: 64px; background-color: #e7f5ff; color: #1971c2;">
+                        <i class="bi bi-shop-window fs-2"></i>
+                    </div>
+                    <h5 class="fw-extrabold text-dark mb-2" id="modalSeleccionSucursalLabel">Selecciona tu Sucursal</h5>
+                    <p class="text-muted small mb-4">
+                        Para mostrarte las existencias y disponibilidad exacta en tiempo real, elige la sucursal de tu preferencia para recolectar tu pedido:
+                    </p>
+                    
+                    <div class="text-start mb-4">
+                        <label class="form-label small fw-bold text-secondary mb-2">
+                            <i class="bi bi-geo-alt-fill me-1" style="color: #1971c2;"></i> Sucursal de compra:
+                        </label>
+                        <select class="form-select form-select-lg rounded-3 fs-6 py-3 fw-semibold shadow-none border-2" id="selectSucursalModalBienvenida">
+                            {% for s in sucursales %}
+                            <option value="{{ s.id }}" {% if sucursal_seleccionada and sucursal_seleccionada.id == s.id %}selected{% endif %}>
+                                {{ s.nombre }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button type="button" class="btn btn-brand-primary w-100 py-3 fs-6 d-flex align-items-center justify-content-center gap-2" onclick="confirmarSucursalBienvenida()">
+                        <span>Confirmar y Entrar</span>
+                        <i class="bi bi-arrow-right"></i>
+                    </button>
+                    
+                    {% if sucursal_seleccionada %}
+                    <button type="button" class="btn btn-sm btn-link text-muted text-decoration-none mt-2" data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1065,6 +1156,64 @@
         const PRODUCTOS_CATALOGO = {{ productos_json|safe }};
         const SLUG_EMPRESA = "{{ empresa.subdominio }}";
         const SOLO_CON_STOCK = {% if config_ecom.solo_con_stock or config_ecom.mostrar_solo_con_stock %}true{% else %}false{% endif %};
+        const SUCURSAL_ACTIVA_ID = "{{ sucursal_seleccionada_id|default:'' }}";
+        const TIENE_MULTIPLES_SUC = {% if tiene_multiples_sucursales %}true{% else %}false{% endif %};
+
+        // --- CONTROL DE SUCURSAL DE COMPRA ---
+        function verificarSucursalInicial() {
+            if (!TIENE_MULTIPLES_SUC) {
+                if (SUCURSAL_ACTIVA_ID) {
+                    localStorage.setItem('ecom_sucursal_' + SLUG_EMPRESA, SUCURSAL_ACTIVA_ID);
+                }
+                return;
+            }
+
+            const storageKey = 'ecom_sucursal_' + SLUG_EMPRESA;
+            const sucGuardada = localStorage.getItem(storageKey);
+            const urlParams = new URLSearchParams(window.location.search);
+            const paramSuc = urlParams.get('sucursal_id');
+
+            if (!sucGuardada && !paramSuc) {
+                // Primera vez que entra a la tienda y hay más de 1 sucursal
+                abrirModalSeleccionSucursal();
+            } else if (sucGuardada && !paramSuc && sucGuardada !== SUCURSAL_ACTIVA_ID) {
+                // Redirigir a la sucursal previamente elegida por el cliente
+                window.location.replace(`?sucursal_id=${sucGuardada}`);
+            } else if (paramSuc) {
+                localStorage.setItem(storageKey, paramSuc);
+            }
+        }
+
+        function cambiarSucursal(nuevaSucId) {
+            if (!nuevaSucId || nuevaSucId === SUCURSAL_ACTIVA_ID) return;
+            const storageKey = 'ecom_sucursal_' + SLUG_EMPRESA;
+            localStorage.setItem(storageKey, nuevaSucId);
+            window.location.href = `?sucursal_id=${nuevaSucId}`;
+        }
+
+        function confirmarSucursalBienvenida() {
+            const selectEl = document.getElementById('selectSucursalModalBienvenida');
+            const elegida = selectEl ? selectEl.value : SUCURSAL_ACTIVA_ID;
+            const storageKey = 'ecom_sucursal_' + SLUG_EMPRESA;
+            localStorage.setItem(storageKey, elegida);
+            if (elegida !== SUCURSAL_ACTIVA_ID) {
+                window.location.href = `?sucursal_id=${elegida}`;
+            } else {
+                const modalEl = document.getElementById('modalSeleccionSucursal');
+                if (modalEl) {
+                    const inst = bootstrap.Modal.getInstance(modalEl);
+                    if (inst) inst.hide();
+                }
+            }
+        }
+
+        function abrirModalSeleccionSucursal() {
+            const modalEl = document.getElementById('modalSeleccionSucursal');
+            if (modalEl) {
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+            }
+        }
 
         // Estado del Carrito: { [prodId]: cantidad }
         let carrito = {};
@@ -1540,6 +1689,7 @@
                     nombre: nombre,
                     telefono: telefono,
                     fecha_recoleccion: fechaRecoleccion,
+                    sucursal_id: SUCURSAL_ACTIVA_ID,
                     notas: notas,
                     items: items
                 })
@@ -1668,6 +1818,7 @@
         // Inicialización
         document.addEventListener('DOMContentLoaded', function() {
             actualizarUI();
+            verificarSucursalInicial();
             const inputRec = document.getElementById('inputFechaRecoleccion');
             if (inputRec) {
                 const tzoffset = (new Date()).getTimezoneOffset() * 60000;

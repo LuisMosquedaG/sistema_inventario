@@ -1320,11 +1320,12 @@ def portal_ecommerce(request, slug_empresa):
     Vista pública móvil/web tipo catálogo ecommerce para clientes de una empresa.
     Permite explorar productos por categoría en carruseles, buscar, filtrar por
     categoría/subcategoría/marca y levantar pedidos al carrito.
+    Soporta múltiples sucursales con existencias de sus respectivos almacenes.
     """
     from panel.models import Empresa
-    from preferencias.models import ConfiguracionEcommerce
+    from preferencias.models import ConfiguracionEcommerce, Sucursal
     from core.models import Producto
-    from almacenes.models import Inventario
+    from almacenes.models import Almacen, Inventario
     from django.db.models import Sum
 
     empresa = get_object_or_404(Empresa, subdominio=slug_empresa, activa=True)
@@ -1333,17 +1334,49 @@ def portal_ecommerce(request, slug_empresa):
     if not config_ecom.activo:
         return render(request, 'ecommerce/tienda_inactiva.html', {'empresa': empresa}, status=503)
 
+    # Obtener sucursales de la empresa
+    sucursales = list(Sucursal.objects.filter(empresa=empresa).order_by('id'))
+    sucursal_id_param = request.GET.get('sucursal_id')
+    sucursal_seleccionada = None
+
+    if sucursal_id_param:
+        try:
+            sucursal_seleccionada = next((s for s in sucursales if s.id == int(sucursal_id_param)), None)
+        except (ValueError, TypeError):
+            pass
+
+    if not sucursal_seleccionada and sucursales:
+        sucursal_seleccionada = sucursales[0]
+
     # Obtener productos activos de la empresa
     productos_qs = Producto.objects.filter(
         empresa=empresa,
         estado='activo'
     ).order_by('nombre')
 
-    # Mapeo de stock físico disponible por producto en la empresa
+    # Mapeo de stock físico disponible por producto según almacenes de la sucursal seleccionada
     stock_map = {}
-    invs = Inventario.objects.filter(empresa=empresa).values('producto_id').annotate(
-        total_disp=Sum('cantidad') - Sum('reservado')
-    )
+    if sucursal_seleccionada:
+        almacenes_suc = Almacen.objects.filter(empresa=empresa, sucursal=sucursal_seleccionada)
+        if almacenes_suc.exists():
+            invs = Inventario.objects.filter(empresa=empresa, almacen__in=almacenes_suc).values('producto_id').annotate(
+                total_disp=Sum('cantidad') - Sum('reservado')
+            )
+        else:
+            almacenes_gen = Almacen.objects.filter(empresa=empresa, sucursal__isnull=True)
+            if almacenes_gen.exists():
+                invs = Inventario.objects.filter(empresa=empresa, almacen__in=almacenes_gen).values('producto_id').annotate(
+                    total_disp=Sum('cantidad') - Sum('reservado')
+                )
+            else:
+                invs = Inventario.objects.filter(empresa=empresa).values('producto_id').annotate(
+                    total_disp=Sum('cantidad') - Sum('reservado')
+                )
+    else:
+        invs = Inventario.objects.filter(empresa=empresa).values('producto_id').annotate(
+            total_disp=Sum('cantidad') - Sum('reservado')
+        )
+
     for inv in invs:
         stock_map[inv['producto_id']] = max(0, inv['total_disp'] or 0)
 
@@ -1427,6 +1460,10 @@ def portal_ecommerce(request, slug_empresa):
     contexto = {
         'empresa': empresa,
         'config_ecom': config_ecom,
+        'sucursales': sucursales,
+        'sucursal_seleccionada': sucursal_seleccionada,
+        'sucursal_seleccionada_id': sucursal_seleccionada.id if sucursal_seleccionada else None,
+        'tiene_multiples_sucursales': len(sucursales) > 1,
         'productos_json': json.dumps(productos_list),
         'productos_mas_vendidos': productos_mas_vendidos,
         'categorias_catalogo': categorias_ordenadas,
@@ -1524,13 +1561,24 @@ def crear_pedido_ecommerce_ajax(request, slug_empresa):
                 cliente_obj.save(update_fields=['razon_social'])
 
         # 2. Asignar sucursal y vendedor
-        sucursal = Sucursal.objects.filter(empresa=empresa).first()
+        sucursal_id_req = data.get('sucursal_id')
+        sucursal = None
+        if sucursal_id_req:
+            try:
+                sucursal = Sucursal.objects.filter(empresa=empresa, id=int(sucursal_id_req)).first()
+            except Exception:
+                pass
+        if not sucursal:
+            sucursal = Sucursal.objects.filter(empresa=empresa).first()
+
         vendedor = User.objects.filter(username__contains=f"@{empresa.subdominio}").first()
         if not vendedor:
             vendedor = User.objects.filter(is_superuser=True).first() or User.objects.first()
 
         # 3. Crear cabecera de Pedido
         notas_completas = f"🛍️ Pedido levantado desde Portal Ecommerce.\nCliente: {cliente_nombre}\nTeléfono: {cliente_telefono}"
+        if sucursal:
+            notas_completas += f"\n🏢 Sucursal de Compra / Recolección: {sucursal.nombre}"
         if fecha_recoleccion_display:
             notas_completas += f"\n📅 Fecha de Recolección: {fecha_recoleccion_display}"
         if cliente_email:
@@ -1564,11 +1612,21 @@ def crear_pedido_ecommerce_ajax(request, slug_empresa):
                 continue
 
             if (config_ecom.solo_con_stock or config_ecom.mostrar_solo_con_stock) and producto.tipo != 'servicio':
-                stock_disp = producto.stock_disponible
+                almacenes_suc = Almacen.objects.filter(empresa=empresa, sucursal=sucursal) if sucursal else Almacen.objects.none()
+                if almacenes_suc.exists():
+                    inv_cant = Inventario.objects.filter(producto=producto, almacen__in=almacenes_suc).aggregate(
+                        disp=Sum('cantidad') - Sum('reservado')
+                    )['disp'] or 0
+                else:
+                    inv_cant = Inventario.objects.filter(producto=producto, empresa=empresa).aggregate(
+                        disp=Sum('cantidad') - Sum('reservado')
+                    )['disp'] or 0
+
+                stock_disp = max(0, inv_cant)
                 if cant > stock_disp:
                     return JsonResponse({
                         'success': False, 
-                        'error': f'Stock insuficiente para "{producto.nombre}". Existencia disponible: {max(0, stock_disp)}.'
+                        'error': f'Stock insuficiente en sucursal "{sucursal.nombre if sucursal else "seleccionada"}" para "{producto.nombre}". Existencia disponible: {stock_disp}.'
                     }, status=400)
 
             precio_unit = Decimal(str(producto.precio_venta or 0))
@@ -1645,10 +1703,21 @@ def crear_pedido_ecommerce_ajax(request, slug_empresa):
         iva_calc = float(pedido.calcular_iva) if pedido.aplica_iva else 0.0
         total_calc = float(pedido.total_pedido)
 
+        sucursal_dir = ""
+        if sucursal:
+            s_parts = []
+            if sucursal.calle:
+                s_parts.append(f"{sucursal.calle} {sucursal.numero_exterior or ''}".strip())
+            if sucursal.colonia:
+                s_parts.append(sucursal.colonia)
+            if sucursal.ciudad:
+                s_parts.append(sucursal.ciudad)
+            sucursal_dir = ", ".join(s_parts)
+
         ticket_data = {
             'empresa_nombre': (empresa.nombre or '').upper(),
-            'sucursal': 'E-COMMERCE',
-            'empresa_direccion': empresa_dir_str,
+            'sucursal': (sucursal.nombre if sucursal else 'E-COMMERCE').upper(),
+            'empresa_direccion': sucursal_dir or empresa_dir_str,
             'empresa_telefono': empresa.telefono_contacto or '',
             'folio': folio_str,
             'fecha_hora': pedido.fecha_creacion.strftime('%d/%m/%Y %H:%M'),

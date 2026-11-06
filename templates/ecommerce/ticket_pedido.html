@@ -80,7 +80,7 @@
 
     <div class="text-center">
         <span class="title">{{ empresa.nombre|upper }}</span><br>
-        <span>SUCURSAL: E-COMMERCE</span><br>
+        <span>SUCURSAL: {{ pedido.sucursal.nombre|upper|default:"E-COMMERCE" }}</span><br>
         {% if empresa.calle %}
             <span>{{ empresa.calle }} {{ empresa.numero|default:"" }}</span><br>
         {% endif %}
