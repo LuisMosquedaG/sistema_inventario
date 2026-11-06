@@ -857,25 +857,6 @@
                 </button>
             </div>
 
-            <!-- SELECTOR DE SUCURSAL EN MENÚ -->
-            {% if sucursales %}
-            <div class="mb-3 mt-2 p-2 rounded-3 bg-light border">
-                <label class="form-label small fw-bold text-dark d-flex align-items-center gap-1 mb-1" style="font-size: 0.78rem;">
-                    <i class="bi bi-geo-alt-fill" style="color: #1971c2;"></i> Sucursal de Compra
-                </label>
-                <select class="form-select form-select-sm rounded-3 shadow-none fw-semibold" id="selectSucursalOffcanvas" onchange="cambiarSucursal(this.value)">
-                    {% for s in sucursales %}
-                    <option value="{{ s.id }}" {% if sucursal_seleccionada and sucursal_seleccionada.id == s.id %}selected{% endif %}>
-                        {{ s.nombre }}
-                    </option>
-                    {% endfor %}
-                </select>
-                <div class="form-text" style="font-size: 0.68rem;">
-                    Las existencias mostradas corresponden a esta sucursal.
-                </div>
-            </div>
-            {% endif %}
-
             <!-- FILTRO: CATEGORÍAS -->
             {% if filtros_categorias %}
             <div class="filter-section-title">Categorías</div>
