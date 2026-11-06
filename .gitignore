@@ -33,3 +33,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Archivos subidos por los usuarios (Media / Productos / Logos)
+media/
+staticfiles/

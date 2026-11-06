@@ -17,10 +17,11 @@ jobs:
           script: |
             cd /var/www/django/sistema_inventario
             git fetch origin
-            git clean -fd
             git reset --hard origin/main
+            mkdir -p media
+            chmod -R 775 media
             /var/www/django/sistema_inventario/venv/bin/pip install -r requirements.txt
             /var/www/django/sistema_inventario/venv/bin/python manage.py migrate --noinput
             /var/www/django/sistema_inventario/venv/bin/python manage.py collectstatic --clear --noinput
-            sudo systemctl restart gunicorn-sistema
+            sudo supervisorctl restart sistema_inventario || sudo systemctl restart gunicorn-sistema
             sudo systemctl reload nginx
