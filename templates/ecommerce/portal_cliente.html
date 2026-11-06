@@ -652,13 +652,9 @@
                 </button>
             </div>
 
-            <!-- Logo a la derecha (círculo flotante) -->
-            <a href="javascript:void(0)" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="header-logo-circle" title="{{ empresa.nombre }}">
-                {% if empresa.logo %}
-                    <img src="{{ empresa.logo.url }}" alt="{{ empresa.nombre }}" class="header-logo-img">
-                {% else %}
-                    <img src="{% static 'img/Logo.png' %}" alt="Logo" class="header-logo-img">
-                {% endif %}
+            <!-- Logo del sistema a la derecha (círculo flotante) -->
+            <a href="javascript:void(0)" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="header-logo-circle" title="CrossoverSuite">
+                <img src="{% static 'img/Logo.png' %}" alt="CrossoverSuite" class="header-logo-img">
             </a>
         </div>
     </header>
