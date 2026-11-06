@@ -1548,6 +1548,8 @@
                 document.getElementById('ver_pedido_fecha').innerText = data.fecha;
                 const elRec = document.getElementById('ver_pedido_fecha_recoleccion');
                 if (elRec) elRec.innerText = data.fecha_recoleccion || '--';
+                const elSuc = document.getElementById('ver_pedido_sucursal');
+                if (elSuc) elSuc.innerText = data.sucursal || '--';
                 document.getElementById('ver_pedido_cotizacion').innerText = data.cotizacion_folio;
                 document.getElementById('ver_pedido_contacto_nom').innerText = data.contacto_nombre;
                 document.getElementById('ver_pedido_contacto_tel').innerText = data.contacto_tel;

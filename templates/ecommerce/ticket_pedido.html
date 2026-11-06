@@ -81,11 +81,18 @@
     <div class="text-center">
         <span class="title">{{ empresa.nombre|upper }}</span><br>
         <span>SUCURSAL: {{ pedido.sucursal.nombre|upper|default:"E-COMMERCE" }}</span><br>
-        {% if empresa.calle %}
-            <span>{{ empresa.calle }} {{ empresa.numero|default:"" }}</span><br>
-        {% endif %}
-        {% if empresa.colonia %}
-            <span>{{ empresa.colonia }}{% if empresa.cp %}, C.P. {{ empresa.cp }}{% endif %}</span><br>
+        {% if pedido.sucursal and pedido.sucursal.calle %}
+            <span>{{ pedido.sucursal.calle }} {{ pedido.sucursal.numero_exterior|default:"" }}</span><br>
+            {% if pedido.sucursal.colonia %}
+                <span>{{ pedido.sucursal.colonia }}{% if pedido.sucursal.ciudad %}, {{ pedido.sucursal.ciudad }}{% endif %}</span><br>
+            {% endif %}
+        {% else %}
+            {% if empresa.calle %}
+                <span>{{ empresa.calle }} {{ empresa.numero|default:"" }}</span><br>
+            {% endif %}
+            {% if empresa.colonia %}
+                <span>{{ empresa.colonia }}{% if empresa.cp %}, C.P. {{ empresa.cp }}{% endif %}</span><br>
+            {% endif %}
         {% endif %}
         {% if empresa.telefono_contacto %}
             <span>Tel: {{ empresa.telefono_contacto }}</span><br>

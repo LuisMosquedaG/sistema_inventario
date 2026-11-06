@@ -1049,6 +1049,7 @@ def obtener_pedido_json(request, pedido_id):
             'contacto_email': pedido.contacto.correo_1 if pedido.contacto else '--',
             'fecha': pedido.fecha_creacion.strftime('%d/%m/%Y'),
             'fecha_recoleccion': fecha_recoleccion or '--',
+            'sucursal': pedido.sucursal.nombre if pedido.sucursal else '--',
             'cotizacion_folio': f"COT-{pedido.cotizacion_origen_id:04d}" if pedido.cotizacion_origen_id else '--',
             'detalles': []
         }
@@ -1387,11 +1388,13 @@ def portal_ecommerce(request, slug_empresa):
     subcategorias_dict_counts = {}
     marcas_dict_counts = {}
 
+    ocultar_sin_stock = bool(config_ecom.solo_con_stock or config_ecom.mostrar_solo_con_stock)
+
     for p in productos_qs:
         disp = stock_map.get(p.id, 0) if p.tipo != 'servicio' else 9999
 
         # Si la configuración oculta productos sin existencias
-        if (config_ecom.solo_con_stock or config_ecom.mostrar_solo_con_stock) and disp <= 0:
+        if ocultar_sin_stock and disp <= 0:
             continue
 
         cat_nom = (p.categoria or 'General').strip()
@@ -1662,6 +1665,8 @@ def crear_pedido_ecommerce_ajax(request, slug_empresa):
             f"👤 *Cliente:* {cliente_nombre}\n"
             f"📱 *Teléfono:* {cliente_telefono}\n"
         )
+        if sucursal:
+            msg_wa += f"🏢 *Sucursal:* {sucursal.nombre}\n"
         if fecha_recoleccion_display:
             msg_wa += f"📅 *Fecha de Recolección:* {fecha_recoleccion_display}\n"
         msg_wa += (

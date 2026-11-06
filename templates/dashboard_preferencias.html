@@ -491,12 +491,20 @@
                                 <!-- QR CODE BOX -->
                                 <div class="text-center p-3 border rounded-3 bg-light mt-3">
                                     <div class="d-flex justify-content-center mb-2">
-                                        <div id="qrcodeEcommerce" class="p-2 bg-white rounded shadow-xs" style="display: inline-block; min-width: 140px; min-height: 140px;"></div>
+                                        <div id="qrcodeEcommerce" class="p-2 bg-white rounded shadow-sm" style="display: inline-block;">
+                                            {% if qr_code_base64 %}
+                                                <img src="{{ qr_code_base64 }}" alt="Código QR Ecommerce" id="imgQREcommerce" style="width: 160px; height: 160px; display: block;" class="rounded">
+                                            {% else %}
+                                                <div id="qrcodeJsFallback" style="width: 160px; height: 160px; display: flex; align-items: center; justify-content: center;">
+                                                    <span class="text-muted small">Cargando QR...</span>
+                                                </div>
+                                            {% endif %}
+                                        </div>
                                     </div>
                                     <div class="small fw-semibold text-dark">{{ empresa.nombre }}</div>
                                     <span class="badge bg-white text-secondary border mt-1">Escanea para pedir</span>
                                     <div class="mt-3">
-                                        <button class="btn btn-sm btn-outline-dark" onclick="descargarQREcommerce()">
+                                        <button type="button" class="btn btn-sm btn-outline-dark" onclick="descargarQREcommerce()">
                                             <i class="bi bi-download me-1"></i> Descargar Código QR (PNG)
                                         </button>
                                     </div>
@@ -2104,22 +2112,131 @@
     });
 </script>
 
-{% endblock %}
 <!-- Scripts Ecommerce en Preferencias -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
-function initQREcommerce() {
+function copiarLinkEcommerce() {
+    const input = document.getElementById('inputEcommerceLink');
+    if (!input) return;
+    const texto = input.value;
+
+    function mostrarFeedback() {
+        const toast = document.getElementById('toastCopiarLink');
+        if (toast) {
+            toast.classList.remove('d-none');
+            setTimeout(() => toast.classList.add('d-none'), 3000);
+        }
+        const btn = document.getElementById('btnCopiarLink');
+        if (btn) {
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-check2 me-1 text-success"></i> Copiado';
+            setTimeout(() => { btn.innerHTML = originalHtml; }, 2000);
+        }
+    }
+
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(texto)
+            .then(mostrarFeedback)
+            .catch(() => ejecutarCopiaFallback(input, mostrarFeedback));
+    } else {
+        ejecutarCopiaFallback(input, mostrarFeedback);
+    }
+}
+
+function ejecutarCopiaFallback(input, callback) {
+    try {
+        input.select();
+        input.setSelectionRange(0, 99999);
+        const exitoso = document.execCommand('copy');
+        if (exitoso) {
+            if (callback) callback();
+            return;
+        }
+    } catch(err) {
+        console.warn('execCommand falló, intentando con elemento auxiliar', err);
+    }
+
+    try {
+        const aux = document.createElement('textarea');
+        aux.value = input.value;
+        aux.setAttribute('readonly', '');
+        aux.style.position = 'absolute';
+        aux.style.left = '-9999px';
+        document.body.appendChild(aux);
+        aux.select();
+        document.execCommand('copy');
+        document.body.removeChild(aux);
+        if (callback) callback();
+    } catch (e) {
+        prompt('Copia manualmente este enlace con Ctrl+C:', input.value);
+    }
+}
+
+function descargarQREcommerce() {
     const container = document.getElementById('qrcodeEcommerce');
     if (!container) return;
-    container.innerHTML = '';
+    const img = document.getElementById('imgQREcommerce') || container.querySelector('img') || container.querySelector('canvas');
+    if (!img) {
+        alert('El código QR aún no está listo. Por favor espera un momento.');
+        return;
+    }
+    let dataUrl = img.src;
+    if (img.tagName.toLowerCase() === 'canvas') {
+        dataUrl = img.toDataURL('image/png');
+    }
+    if (!dataUrl) {
+        alert('No se pudo obtener la imagen del código QR.');
+        return;
+    }
+
+    try {
+        const arr = dataUrl.split(',');
+        const mime = arr[0].match(/:(.*?);/)[1];
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blob = new Blob([u8arr], { type: mime });
+        const blobUrl = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = blobUrl;
+        a.download = 'qr_catalogo_{{ empresa.subdominio }}.png';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(blobUrl);
+        }, 150);
+    } catch (e) {
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = 'qr_catalogo_{{ empresa.subdominio }}.png';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+}
+
+function initQREcommerce() {
+    const img = document.getElementById('imgQREcommerce');
+    if (img && img.src) return; // Ya generado por backend
+
+    const container = document.getElementById('qrcodeEcommerce');
+    if (!container) return;
+    const fallbackBox = document.getElementById('qrcodeJsFallback') || container;
     const input = document.getElementById('inputEcommerceLink');
     if (!input || !input.value) return;
-    
+
     if (typeof QRCode !== 'undefined') {
-        new QRCode(container, {
+        fallbackBox.innerHTML = '';
+        new QRCode(fallbackBox, {
             text: input.value,
-            width: 140,
-            height: 140,
+            width: 160,
+            height: 160,
             colorDark: "#0f172a",
             colorLight: "#ffffff",
             correctLevel: QRCode.CorrectLevel.H
@@ -2127,88 +2244,95 @@ function initQREcommerce() {
     }
 }
 
-function copiarLinkEcommerce() {
-    const input = document.getElementById('inputEcommerceLink');
-    if (!input) return;
-    input.select();
-    input.setSelectionRange(0, 99999);
-    navigator.clipboard.writeText(input.value).then(() => {
-        const toast = document.getElementById('toastCopiarLink');
-        if (toast) {
-            toast.classList.remove('d-none');
-            setTimeout(() => toast.classList.add('d-none'), 3000);
-        }
-    });
-}
-
-function descargarQREcommerce() {
-    const container = document.getElementById('qrcodeEcommerce');
-    if (!container) return;
-    const img = container.querySelector('img') || container.querySelector('canvas');
-    if (!img) {
-        alert('Generando código QR, por favor espera un segundo.');
-        return;
-    }
-    let dataUrl = img.src;
-    if (img.tagName.toLowerCase() === 'canvas') {
-        dataUrl = img.toDataURL('image/png');
-    }
-    const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = 'qr_catalogo_{{ empresa.subdominio }}.png';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-}
+document.addEventListener('DOMContentLoaded', function() {
+    initQREcommerce();
+});
 
 function guardarConfigEcommerce(e) {
-    e.preventDefault();
+    if (e && typeof e.preventDefault === 'function') {
+        e.preventDefault();
+    }
     const btn = document.getElementById('btnGuardarEcommerce');
     const alertBox = document.getElementById('alertaConfigEcommerce');
-    const originalText = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
+    const originalText = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
+    }
 
-    const formData = new FormData(document.getElementById('formConfigEcommerce'));
-    formData.set('activo', document.getElementById('switchEcommerceActivo').checked ? 'true' : 'false');
-    formData.set('solo_con_stock', document.getElementById('switchSoloConStock').checked ? 'true' : 'false');
+    const form = document.getElementById('formConfigEcommerce');
+    if (!form) return;
+
+    const switchActivo = document.getElementById('switchEcommerceActivo');
+    const switchStock = document.getElementById('switchSoloConStock');
+
+    const formData = new FormData(form);
+    formData.set('activo', switchActivo && switchActivo.checked ? 'true' : 'false');
+    formData.set('solo_con_stock', switchStock && switchStock.checked ? 'true' : 'false');
+
+    const csrfInput = form.querySelector('[name=csrfmiddlewaretoken]') || document.querySelector('[name=csrfmiddlewaretoken]');
+    const csrfVal = csrfInput ? csrfInput.value : '{{ csrf_token }}';
 
     fetch("{% url 'actualizar_config_ecommerce_ajax' %}", {
         method: 'POST',
         headers: {
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            'X-CSRFToken': csrfVal,
+            'X-Requested-With': 'XMLHttpRequest'
         },
         body: formData
     })
     .then(r => r.json())
     .then(res => {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
         if (alertBox) {
             alertBox.classList.remove('d-none', 'alert-danger', 'alert-success');
             if (res.success) {
                 alertBox.classList.add('alert-success');
-                alertBox.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> ' + res.message;
+                const estadoStock = res.solo_con_stock 
+                    ? 'Ocultar productos sin existencias <strong>activado</strong> (no se mostrarán artículos sin stock).' 
+                    : 'Catálogo completo habilitado (artículos sin existencias con estado <strong>"Bajo pedido"</strong>).';
+                alertBox.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> ' + estadoStock;
             } else {
                 alertBox.classList.add('alert-danger');
                 alertBox.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> ' + (res.error || 'Ocurrió un error');
             }
-            setTimeout(() => alertBox.classList.add('d-none'), 4000);
+            setTimeout(() => alertBox.classList.add('d-none'), 5000);
         }
     })
     .catch(err => {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
         if (alertBox) {
             alertBox.classList.remove('d-none', 'alert-success');
             alertBox.classList.add('alert-danger');
             alertBox.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> Error de conexión al guardar.';
-            setTimeout(() => alertBox.classList.add('d-none'), 4000);
+            setTimeout(() => alertBox.classList.add('d-none'), 5000);
         }
     });
 }
 
 document.addEventListener('DOMContentLoaded', function() {
     initQREcommerce();
+
+    const switchSoloStock = document.getElementById('switchSoloConStock');
+    if (switchSoloStock) {
+        switchSoloStock.addEventListener('change', function() {
+            guardarConfigEcommerce();
+        });
+    }
+
+    const switchEcommerceActivo = document.getElementById('switchEcommerceActivo');
+    if (switchEcommerceActivo) {
+        switchEcommerceActivo.addEventListener('change', function() {
+            guardarConfigEcommerce();
+        });
+    }
 });
 </script>
+
+{% endblock %}

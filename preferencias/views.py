@@ -41,6 +41,8 @@ def get_empresa_actual(request):
             return Empresa.objects.get(subdominio=subdominio)
         except Empresa.DoesNotExist:
             return None
+    elif request.user.is_authenticated and (request.user.is_superuser or request.user.is_staff):
+        return Empresa.objects.filter(activa=True).first()
     return None
 
 # --- VISTA PRINCIPAL (MODIFICADA) ---
@@ -133,7 +135,28 @@ def dashboard_preferencias(request):
         from .models import ConfiguracionEcommerce
         config_ecom, _ = ConfiguracionEcommerce.objects.get_or_create(empresa=empresa_actual)
         contexto['config_ecommerce'] = config_ecom
-        contexto['ecommerce_url'] = request.build_absolute_uri(f"/ecommerce/{empresa_actual.subdominio}/")
+        ecommerce_url = request.build_absolute_uri(f"/ecommerce/{empresa_actual.subdominio}/")
+        contexto['ecommerce_url'] = ecommerce_url
+
+        try:
+            import qrcode
+            import io
+            import base64
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_H,
+                box_size=8,
+                border=2,
+            )
+            qr.add_data(ecommerce_url)
+            qr.make(fit=True)
+            img_qr = qr.make_image(fill_color="#0f172a", back_color="#ffffff")
+            buf = io.BytesIO()
+            img_qr.save(buf, format='PNG')
+            qr_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+            contexto['qr_code_base64'] = f"data:image/png;base64,{qr_b64}"
+        except Exception:
+            contexto['qr_code_base64'] = ''
             
     return render(request, 'dashboard_preferencias.html', contexto)
 
@@ -1185,10 +1208,24 @@ def actualizar_config_ecommerce_ajax(request):
         from .models import ConfiguracionEcommerce
         config_ecom, _ = ConfiguracionEcommerce.objects.get_or_create(empresa=empresa_actual)
         
-        config_ecom.activo = request.POST.get('activo') in ['true', 'on', '1']
-        solo_con_stock = request.POST.get('solo_con_stock') in ['true', 'on', '1']
-        config_ecom.solo_con_stock = solo_con_stock
-        config_ecom.mostrar_solo_con_stock = solo_con_stock
+        data = request.POST
+        if not data and request.body:
+            try:
+                import json
+                data = json.loads(request.body)
+            except Exception:
+                data = {}
+
+        activo_val = data.get('activo')
+        solo_stock_val = data.get('solo_con_stock')
+
+        if activo_val is not None:
+            config_ecom.activo = str(activo_val).lower() in ['true', 'on', '1']
+        if solo_stock_val is not None:
+            solo_con_stock = str(solo_stock_val).lower() in ['true', 'on', '1']
+            config_ecom.solo_con_stock = solo_con_stock
+            config_ecom.mostrar_solo_con_stock = solo_con_stock
+
         config_ecom.save()
         
         return JsonResponse({

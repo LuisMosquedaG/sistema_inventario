@@ -1047,7 +1047,7 @@
                             <div id="ticketImprimible" class="ticket-card">
                                 <div class="text-center">
                                     <div class="ticket-title" id="ticketEmpresaNombre">{{ empresa.nombre|upper }}</div>
-                                    <div class="ticket-line">SUCURSAL: E-COMMERCE</div>
+                                    <div class="ticket-line" id="ticketSucursalNombre">SUCURSAL: E-COMMERCE</div>
                                     <div class="ticket-line" id="ticketEmpresaDireccion"></div>
                                     <div class="ticket-line" id="ticketEmpresaTelefono"></div>
                                 </div>
@@ -1272,6 +1272,11 @@
 
             // Filtrar productos
             const resultados = PRODUCTOS_CATALOGO.filter(p => {
+                // Si la tienda oculta productos sin existencias
+                if (SOLO_CON_STOCK && (!p.tiene_stock || p.stock_disponible <= 0)) {
+                    return false;
+                }
+
                 // Match por texto (nombre, descripción, clave)
                 if (query.length > 0) {
                     const matchNombre = (p.nombre || '').toLowerCase().includes(query);
@@ -1698,6 +1703,11 @@
 
                     // Poblar campos del ticket
                     document.getElementById('ticketEmpresaNombre').textContent = ticket.empresa_nombre || '{{ empresa.nombre|upper }}';
+                    
+                    const sucEl = document.getElementById('ticketSucursalNombre');
+                    if (sucEl) {
+                        sucEl.textContent = `SUCURSAL: ${ticket.sucursal || 'E-COMMERCE'}`;
+                    }
                     
                     const dirEl = document.getElementById('ticketEmpresaDireccion');
                     if (ticket.empresa_direccion) {
