@@ -139,13 +139,17 @@
                                 <a href="?section=monedas" class="sub-nav-link {% if seccion == 'monedas' %}active{% endif %}">
                                     <i class="bi bi-currency-exchange me-2"></i> Tipos de Moneda
                                 </a>
+                                {% if empresa.modulo_ventas %}
                                 <a href="?section=ecommerce" class="sub-nav-link {% if seccion == 'ecommerce' %}active{% endif %}">
                                     <i class="bi bi-shop me-2"></i> Ecommerce
                                 </a>
-                                {% if user.is_staff %}
+                                {% endif %}
+                                {% if user.is_staff and empresa.modulo_recursos_humanos %}
                                 <a href="?section=obligaciones_patronales" class="sub-nav-link {% if seccion == 'obligaciones_patronales' %}active{% endif %}">
                                     <i class="bi bi-file-earmark-medical me-2"></i> Obligaciones Patronales
                                 </a>
+                                {% endif %}
+                                {% if user.is_staff %}
                                 <a href="?section=datos" class="sub-nav-link {% if seccion == 'datos' %}active{% endif %}">
                                     <i class="bi bi-database-fill-gear me-2"></i> Datos
                                 </a>
@@ -413,7 +417,7 @@
                             </div>
                         </div>
                     </div>
-                {% elif seccion == 'obligaciones_patronales' %}
+                {% elif seccion == 'obligaciones_patronales' and empresa.modulo_recursos_humanos %}
                 <!-- SECCIÓN OBLIGACIONES PATRONALES -->
                 <div class="card-header bg-white border-0 py-3">
                     <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-file-earmark-medical me-2 text-secondary"></i>Obligaciones Patronales</h5>
@@ -449,7 +453,7 @@
                         </div>
                     </form>
                 </div>
-                {% elif seccion == 'ecommerce' %}
+                {% elif seccion == 'ecommerce' and empresa.modulo_ventas %}
                 <!-- SECCIÓN ECOMMERCE -->
                 <div class="card-header bg-white border-0 py-3">
                     <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-shop me-2 text-secondary"></i>Catálogo Ecommerce para Clientes</h5>

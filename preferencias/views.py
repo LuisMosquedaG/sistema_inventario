@@ -118,12 +118,18 @@ def dashboard_preferencias(request):
         contexto['sucursales'] = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
         contexto['clientes_activos'] = Cliente.objects.filter(empresa=empresa_actual, estado='activo').order_by('razon_social', 'nombre')
     
+    elif seccion_activa == 'obligaciones_patronales':
+        if not getattr(empresa_actual, 'modulo_recursos_humanos', True):
+            return redirect('dashboard_preferencias')
+
     elif seccion_activa == 'datos':
         # Solo admin/sadmin pueden entrar aquí
         if not request.user.is_staff:
             return render(request, 'error_sin_empresa.html', status=403)
 
     elif seccion_activa == 'ecommerce':
+        if not getattr(empresa_actual, 'modulo_ventas', True):
+            return redirect('dashboard_preferencias')
         from .models import ConfiguracionEcommerce
         config_ecom, _ = ConfiguracionEcommerce.objects.get_or_create(empresa=empresa_actual)
         contexto['config_ecommerce'] = config_ecom
@@ -989,7 +995,7 @@ def eliminar_sucursal_ajax(request, sucursal_id):
 @require_POST
 def actualizar_obligaciones_patronales_ajax(request):
     empresa_actual = get_empresa_actual(request)
-    if not empresa_actual or not request.user.is_staff:
+    if not empresa_actual or not request.user.is_staff or not getattr(empresa_actual, 'modulo_recursos_humanos', True):
         return JsonResponse({'success': False, 'error': 'Acceso denegado'})
     try:
         uma_val = request.POST.get('uma')
@@ -1172,8 +1178,8 @@ def api_probar_smtp(request):
 @require_POST
 def actualizar_config_ecommerce_ajax(request):
     empresa_actual = get_empresa_actual(request)
-    if not empresa_actual:
-        return JsonResponse({'success': False, 'error': 'Empresa no encontrada.'}, status=403)
+    if not empresa_actual or not getattr(empresa_actual, 'modulo_ventas', True):
+        return JsonResponse({'success': False, 'error': 'Acceso denegado.'}, status=403)
     
     try:
         from .models import ConfiguracionEcommerce

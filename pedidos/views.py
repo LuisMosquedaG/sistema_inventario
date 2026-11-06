@@ -1329,6 +1329,8 @@ def portal_ecommerce(request, slug_empresa):
     from django.db.models import Sum
 
     empresa = get_object_or_404(Empresa, subdominio=slug_empresa, activa=True)
+    if not empresa.modulo_ventas:
+        return render(request, 'ecommerce/tienda_inactiva.html', {'empresa': empresa}, status=503)
     config_ecom, _ = ConfiguracionEcommerce.objects.get_or_create(empresa=empresa)
 
     if not config_ecom.activo:
@@ -1491,6 +1493,8 @@ def crear_pedido_ecommerce_ajax(request, slug_empresa):
     from decimal import Decimal
 
     empresa = get_object_or_404(Empresa, subdominio=slug_empresa, activa=True)
+    if not empresa.modulo_ventas:
+        return JsonResponse({'success': False, 'error': 'El módulo de ventas no está habilitado.'}, status=403)
     config_ecom, _ = ConfiguracionEcommerce.objects.get_or_create(empresa=empresa)
 
     if not config_ecom.activo:

@@ -289,3 +289,45 @@ class HRAndAdminModuleVisibilityTest(TestCase):
         # Pero no debe permitir 'crear' o 'eliminar' sin permiso explícito
         self.assertFalse(user_has_hr_permission(req_user, 'empleados', 'eliminar'))
 
+    def test_preferencias_general_menu_hides_obligaciones_patronales_when_disabled(self):
+        # Deshabilitar módulo en empresa
+        self.empresa.modulo_recursos_humanos = False
+        self.empresa.save()
+
+        self.client.login(username="admin@rhtest", password="password")
+        response = self.client.get(reverse('dashboard_preferencias'))
+        self.assertEqual(response.status_code, 200)
+        # La opción no debe aparecer en el HTML de preferencias
+        self.assertNotContains(response, 'section=obligaciones_patronales')
+
+        # Intentar acceder directamente a la sección de obligaciones patronales debe redirigir
+        response_sec = self.client.get(reverse('dashboard_preferencias') + '?section=obligaciones_patronales')
+        self.assertEqual(response_sec.status_code, 302)
+
+        # Endpoint AJAX debe denegar acceso
+        response_ajax = self.client.post(reverse('actualizar_obligaciones_patronales_ajax'), {'uma': '120.00'})
+        self.assertEqual(response_ajax.status_code, 200)
+        self.assertJSONEqual(response_ajax.content.decode(), {'success': False, 'error': 'Acceso denegado'})
+
+    def test_preferencias_general_menu_hides_ecommerce_when_ventas_disabled(self):
+        # Deshabilitar módulo de ventas en la empresa
+        self.empresa.modulo_ventas = False
+        self.empresa.save()
+
+        self.client.login(username="admin@rhtest", password="password")
+        response = self.client.get(reverse('dashboard_preferencias'))
+        self.assertEqual(response.status_code, 200)
+        # La opción no debe aparecer en el HTML de preferencias
+        self.assertNotContains(response, 'section=ecommerce')
+
+        # Intentar acceder directamente a la sección de ecommerce debe redirigir
+        response_sec = self.client.get(reverse('dashboard_preferencias') + '?section=ecommerce')
+        self.assertEqual(response_sec.status_code, 302)
+
+        # Endpoint AJAX de configuración ecommerce debe denegar acceso
+        response_ajax = self.client.post(reverse('actualizar_config_ecommerce_ajax'), {'activo': 'true'})
+        self.assertEqual(response_ajax.status_code, 403)
+        self.assertJSONEqual(response_ajax.content.decode(), {'success': False, 'error': 'Acceso denegado.'})
+
+
+
