@@ -25,14 +25,38 @@ from .permissions import (
 
 
 def app_permissions(request):
+    if not hasattr(request, 'user') or not request.user.is_authenticated:
+        return {
+            'sales_ui_permissions': {},
+            'purchase_ui_permissions': {},
+            'inventory_ui_permissions': {},
+            'production_ui_permissions': {},
+            'treasury_ui_permissions': {},
+            'hr_ui_permissions': {},
+            'inicio_ui_permissions': {},
+            'perms_produccion': {},
+            'granular_sales_perms': {},
+            'granular_purchase_perms': {},
+            'granular_production_perms': {},
+            'granular_inventory_perms': {},
+            'granular_treasury_perms': {},
+            'granular_hr_perms': {},
+            'granular_inicio_perms': {},
+            'sales_permission_matrix': SALES_PERMISSION_MATRIX,
+            'purchases_permission_matrix': PURCHASES_PERMISSION_MATRIX,
+            'production_permission_matrix': PRODUCTION_PERMISSION_MATRIX,
+            'inventory_permission_matrix': INVENTORY_PERMISSION_MATRIX,
+            'treasury_permission_matrix': TREASURY_PERMISSION_MATRIX,
+            'hr_permission_matrix': HR_PERMISSION_MATRIX,
+            'inicio_permission_matrix': INICIO_PERMISSION_MATRIX,
+        }
+
     from .permissions import get_empresa_actual
     empresa_actual = get_empresa_actual(request)
 
     sales_matrix = SALES_PERMISSION_MATRIX
     if empresa_actual and not getattr(empresa_actual, 'modulo_pos', True):
         sales_matrix = {k: v for k, v in SALES_PERMISSION_MATRIX.items() if k not in ['punto_de_venta', 'cortes_de_caja']}
-
-    if not request.user.is_authenticated:
         return {
             'sales_ui_permissions': {},
             'purchase_ui_permissions': {},

@@ -36,8 +36,10 @@ from preferencias.views import (
     crear_rol_ajax, api_detalle_rol, actualizar_rol_ajax,
     crear_sucursal_ajax, api_detalle_sucursal, actualizar_sucursal_ajax, eliminar_sucursal_ajax,
     cambiar_sucursal_ajax, actualizar_obligaciones_patronales_ajax,
-    obtener_sucursales_usuario_json, guardar_sucursales_usuario_ajax
+    obtener_sucursales_usuario_json, guardar_sucursales_usuario_ajax,
+    actualizar_config_ecommerce_ajax
 )
+from pedidos.views import portal_ecommerce, crear_pedido_ecommerce_ajax, ticket_pedido_ecommerce
 from django.contrib.auth import views as auth_views 
 from django.contrib.auth import logout
 from django.shortcuts import render, redirect
@@ -97,6 +99,12 @@ urlpatterns = [
     path('preferencias/eliminar-sucursal/<int:sucursal_id>/', eliminar_sucursal_ajax, name='eliminar_sucursal_ajax'),
     path('preferencias/cambiar-sucursal/', cambiar_sucursal_ajax, name='cambiar_sucursal_ajax'),
     path('preferencias/actualizar-obligaciones-patronales/', actualizar_obligaciones_patronales_ajax, name='actualizar_obligaciones_patronales_ajax'),
+    path('preferencias/actualizar-config-ecommerce/', actualizar_config_ecommerce_ajax, name='actualizar_config_ecommerce_ajax'),
+    
+    # --- RUTAS PÚBLICAS PORTAL ECOMMERCE / PEDIDOS ---
+    path('ecommerce/<slug:slug_empresa>/', portal_ecommerce, name='portal_ecommerce'),
+    path('ecommerce/<slug:slug_empresa>/crear-pedido/', crear_pedido_ecommerce_ajax, name='crear_pedido_ecommerce_ajax'),
+    path('ecommerce/<slug:slug_empresa>/ticket/<int:pedido_id>/', ticket_pedido_ecommerce, name='ticket_pedido_ecommerce'),
     
     # --- RUTAS DE GESTIÓN DE DATOS ---
     path('preferencias/exportar-datos/', exportar_datos_zip, name='exportar_datos_zip'),

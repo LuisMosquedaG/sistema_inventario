@@ -68,7 +68,9 @@ HR_PERMISSION_MATRIX = {
 
 
 def get_empresa_actual(request):
-    username = request.user.username
+    if not hasattr(request, 'user') or not request.user.is_authenticated:
+        return None
+    username = getattr(request.user, 'username', '')
     if '@' in username:
         subdominio = username.split('@')[1]
         try:

@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from .models import Cliente, ContactoCliente
 from .forms import ClienteForm
+from .services import sincronizar_tipos_clientes
 from django.http import JsonResponse
 from django.forms.models import model_to_dict
 from django.views.decorators.csrf import csrf_exempt
@@ -105,7 +106,7 @@ def importar_clientes_ajax(request):
                             envio_correo=str(row[20] or '').strip(),
                             envio_notas=str(row[21] or '').strip(),
                             estado=(str(row[22] or 'activo')).strip().lower(),
-                            tipo=(str(row[23] or 'prospecto')).strip().lower(),
+                            tipo=(str(row[23] or 'cliente_nuevo')).strip().lower(),
                             relacion=(str(row[24] or 'directo')).strip().lower(),
                         )
                         
@@ -140,6 +141,9 @@ def exportar_clientes_excel(request):
     if not empresa_actual:
         return HttpResponse("No autorizado", status=403)
         
+    # Sincronizar tipos de clientes según reglas de ciclo de vida
+    sincronizar_tipos_clientes(empresa=empresa_actual)
+
     # --- Mismo filtrado que dashboard_clientes ---
     q = request.GET.get('q', '')
     cliente_id = request.GET.get('cliente_id', '')
@@ -223,6 +227,9 @@ def dashboard_clientes(request):
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)
     
+    # Sincronizar ciclo de vida de clientes (nuevo, activo, inactivo)
+    sincronizar_tipos_clientes(empresa=empresa_actual)
+
     # --- LÓGICA DE FILTRADO ---
     q = request.GET.get('q', '')
     cliente_id = request.GET.get('cliente_id', '')

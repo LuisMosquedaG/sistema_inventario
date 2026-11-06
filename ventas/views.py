@@ -513,6 +513,149 @@ def crear_orden_venta(request, pedido_id):
         messages.success(request, f'Orden de Salida #{ov.id} creada en estado Borrador.')
     return redirect('dashboard_ventas')
 
+@login_required(login_url='/login/')
+def entregar_pedido_directo(request, pedido_id):
+    """
+    Crea la Orden de Salida para un pedido y en automático la procesa como 'entregado',
+    descontando stock y actualizando el estado de entrega a 'Entregado'.
+    """
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        messages.error(request, "Empresa no detectada")
+        return redirect('dashboard_pedidos')
+
+    pedido = get_object_or_404(Pedido, id=pedido_id, empresa=empresa_actual)
+    if pedido.estado not in ['confirmado', 'completo']:
+        messages.error(request, 'Solo se pueden entregar pedidos confirmados o completos.')
+        return redirect('dashboard_pedidos')
+
+    orden_entregada = OrdenVenta.objects.filter(pedido_origen=pedido, estado_entrega='entregado').exists()
+    if orden_entregada:
+        messages.warning(request, 'Este pedido ya tiene una Orden de Salida entregada.')
+        return redirect('dashboard_pedidos')
+
+    almacen_defecto = Almacen.objects.filter(empresa=empresa_actual, sucursal=pedido.sucursal).first()
+    if not almacen_defecto:
+        almacen_defecto = Almacen.objects.filter(empresa=empresa_actual).first()
+
+    # Si ya tiene una orden abierta (borrador o aprobado), reutilizarla; sino, crear una nueva
+    ov = OrdenVenta.objects.filter(pedido_origen=pedido, estado__in=['borrador', 'aprobado']).first()
+    lineas_pedido = pedido.detalles.filter(parent_line__isnull=True)
+
+    try:
+        with transaction.atomic():
+            if not ov:
+                ov = OrdenVenta.objects.create(
+                    pedido_origen=pedido,
+                    cliente=pedido.cliente,
+                    vendedor=pedido.vendedor,
+                    empresa=empresa_actual,
+                    sucursal=pedido.sucursal,
+                    estado='surtido',
+                    estado_entrega='entregado',
+                    fecha_surtido=timezone.now(),
+                    almacen=almacen_defecto,
+                    quien_recibe=pedido.cliente.nombre_completo,
+                    direccion_envio=f"{pedido.cliente.calle or ''} {pedido.cliente.numero_ext or ''}".strip()
+                )
+                for linea in lineas_pedido:
+                    DetalleOrdenVenta.objects.create(
+                        orden_venta=ov,
+                        producto=linea.producto,
+                        cantidad=linea.cantidad_solicitada,
+                        precio_unitario=linea.precio_unitario or 0
+                    )
+            else:
+                ov.estado = 'surtido'
+                ov.estado_entrega = 'entregado'
+                ov.fecha_surtido = timezone.now()
+                if not ov.almacen:
+                    ov.almacen = almacen_defecto
+                ov.save()
+
+            # Descontar inventario y registrar transacciones de salida para productos tangibles
+            for linea in lineas_pedido:
+                cant = linea.cantidad_solicitada - linea.cantidad_entregada
+                if cant > 0 and linea.producto.tipo != 'servicio':
+                    # Determinar el almacén correcto para este producto:
+                    # 1. Donde esté la reserva del producto
+                    inv = Inventario.objects.filter(
+                        producto=linea.producto,
+                        almacen__empresa=empresa_actual,
+                        reservado__gt=0
+                    ).first()
+
+                    # 2. O en la sucursal del pedido con stock
+                    if not inv and pedido.sucursal:
+                        inv = Inventario.objects.filter(
+                            producto=linea.producto,
+                            almacen__empresa=empresa_actual,
+                            almacen__sucursal=pedido.sucursal,
+                            cantidad__gt=0
+                        ).first()
+
+                    # 3. O cualquier almacén de la empresa con stock
+                    if not inv:
+                        inv = Inventario.objects.filter(
+                            producto=linea.producto,
+                            almacen__empresa=empresa_actual
+                        ).order_by('-cantidad').first()
+
+                    # 4. Fallback si no existía registro de inventario
+                    if not inv:
+                        almacen_target = almacen_defecto
+                        inv, _ = Inventario.objects.get_or_create(
+                            producto=linea.producto,
+                            almacen=almacen_target,
+                            defaults={'cantidad': Decimal('0'), 'reservado': Decimal('0')}
+                        )
+                    else:
+                        almacen_target = inv.almacen
+
+                    # Si el almacén tiene menos stock del solicitado, nivelar para permitir la entrega física
+                    if inv.cantidad < Decimal(str(cant)):
+                        inv.cantidad = Decimal(str(cant))
+                        inv.save(update_fields=['cantidad'])
+
+                    reserva_a_quitar = min(int(inv.reservado), cant) if linea.estado_linea == 'reservado' else 0
+
+                    Transaccion.objects.create(
+                        producto=linea.producto,
+                        almacen=almacen_target,
+                        tipo='venta',
+                        cantidad=cant,
+                        total=Decimal(str(cant)) * (linea.precio_unitario or Decimal('0')),
+                        empresa=empresa_actual,
+                        usuario=request.user,
+                        referencia=ov.folio_display,
+                        quitar_reserva=reserva_a_quitar,
+                        estado='recibida'
+                    )
+
+                    if not ov.almacen:
+                        ov.almacen = almacen_target
+                        ov.save(update_fields=['almacen'])
+
+                linea.cantidad_entregada = linea.cantidad_solicitada
+                linea.estado_linea = 'completo'
+                linea.save()
+
+            pedido.estado = 'completo'
+            pedido.save()
+
+            crear_notificacion(
+                empresa=empresa_actual,
+                mensaje=f"Se entregó directamente el Pedido #{pedido.id} ({ov.folio_display})",
+                actor=request.user,
+                propietario=pedido.vendedor
+            )
+
+        messages.success(request, f'Pedido #{pedido.id} entregado con éxito. Se generó la salida {ov.folio_display} como Entregado.')
+    except Exception as e:
+        messages.error(request, f'Error al entregar pedido: {str(e)}')
+
+    return redirect('dashboard_pedidos')
+
 @login_required
 @require_sales_permission('salidas', 'aprobar')
 def cambiar_estado_ov(request, ov_id, nuevo_estado):
@@ -3445,9 +3588,15 @@ def _calcular_datos_reporte_ventas(request, empresa_actual):
 
     canal = request.GET.get('canal', 'todos')
     if canal == 'pos':
-        pedidos_qs = pedidos_qs.filter(sesion_caja__isnull=False)
+        pedidos_qs = pedidos_qs.filter(Q(canal__iexact='pos') | Q(sesion_caja__isnull=False))
+    elif canal == 'ecommerce':
+        pedidos_qs = pedidos_qs.filter(Q(canal__iexact='ecommerce') | Q(notas__icontains='Ecommerce'))
     elif canal in ['mostrador', 'pedidos']:
-        pedidos_qs = pedidos_qs.filter(sesion_caja__isnull=True)
+        pedidos_qs = pedidos_qs.filter(
+            (Q(canal__iexact='pedidos') | Q(canal__isnull=True)) & 
+            Q(sesion_caja__isnull=True) & 
+            ~Q(notas__icontains='Ecommerce')
+        )
 
     estado = request.GET.get('estado', 'validas')
     if estado == 'canceladas':
@@ -3483,6 +3632,11 @@ def _calcular_datos_reporte_ventas(request, empresa_actual):
         'transferencia': Decimal('0.00'),
         'credito': Decimal('0.00'),
         'otros': Decimal('0.00')
+    }
+    ventas_por_canal = {
+        'pos': Decimal('0.00'),
+        'pedidos': Decimal('0.00'),
+        'ecommerce': Decimal('0.00'),
     }
     ventas_por_sucursal = defaultdict(lambda: {'nombre': '', 'total': Decimal('0.00'), 'pedidos': 0})
     ventas_por_vendedor = defaultdict(lambda: {'nombre': '', 'total': Decimal('0.00'), 'pedidos': 0, 'descuentos': Decimal('0.00'), 'devoluciones': Decimal('0.00')})
@@ -3540,6 +3694,15 @@ def _calcular_datos_reporte_ventas(request, empresa_actual):
             ventas_por_sucursal[suc_id]['nombre'] = suc_nombre
             ventas_por_sucursal[suc_id]['total'] += p_total
             ventas_por_sucursal[suc_id]['pedidos'] += 1
+
+            # Agrupación por Canal de Venta
+            c_disp = p.canal_display
+            if c_disp == 'POS':
+                ventas_por_canal['pos'] += p_total
+            elif c_disp == 'E-commerce':
+                ventas_por_canal['ecommerce'] += p_total
+            else:
+                ventas_por_canal['pedidos'] += p_total
 
             # Agrupación por Vendedor
             ventas_por_vendedor[vend_id]['nombre'] = vend_nombre
@@ -3613,7 +3776,7 @@ def _calcular_datos_reporte_ventas(request, empresa_actual):
             'cliente': str(p.cliente),
             'vendedor': vend_nombre,
             'sucursal': suc_nombre,
-            'canal': 'POS' if p.sesion_caja else 'Pedidos',
+            'canal': p.canal_display,
             'estado': p.estado,
             'estado_display': 'Devolución' if p.estado == 'cancelado' else p.get_estado_display(),
             'formas_pago': formas_pago_display,
@@ -3738,6 +3901,13 @@ def _calcular_datos_reporte_ventas(request, empresa_actual):
         float(ventas_por_forma_pago['otros'])
     ]
 
+    chart_canales_labels = ['Punto de Venta (POS)', 'Pedidos', 'E-commerce']
+    chart_canales_data = [
+        float(ventas_por_canal['pos']),
+        float(ventas_por_canal['pedidos']),
+        float(ventas_por_canal['ecommerce'])
+    ]
+
     chart_sucursales_labels = [s['nombre'] for s in sucursales_list]
     chart_sucursales_data = [float(s['total']) for s in sucursales_list]
 
@@ -3765,6 +3935,7 @@ def _calcular_datos_reporte_ventas(request, empresa_actual):
         'ticket_promedio': ticket_promedio,
         # Pagos & Crédito
         'ventas_por_forma_pago': ventas_por_forma_pago,
+        'ventas_por_canal': ventas_por_canal,
         'creditos_otorgados': creditos_otorgados,
         'creditos_saldo_pendiente': creditos_saldo_pendiente,
         'creditos_recuperados': creditos_recuperados,
@@ -3779,6 +3950,8 @@ def _calcular_datos_reporte_ventas(request, empresa_actual):
         'chart_dias_pedidos_json': json.dumps(chart_dias_pedidos),
         'chart_pagos_labels_json': json.dumps(chart_pagos_labels),
         'chart_pagos_data_json': json.dumps(chart_pagos_data),
+        'chart_canales_labels_json': json.dumps(chart_canales_labels),
+        'chart_canales_data_json': json.dumps(chart_canales_data),
         'chart_sucursales_labels_json': json.dumps(chart_sucursales_labels),
         'chart_sucursales_data_json': json.dumps(chart_sucursales_data),
     }
@@ -3985,7 +4158,7 @@ def exportar_reporte_ventas_excel(request):
 
     # Pestaña 4: Detalle de Ventas
     ws_det = wb.create_sheet(title="Detalle de Ventas")
-    headers_det = ["Folio", "Fecha", "Cliente", "Vendedor", "Sucursal", "Canal", "Estado", "Formas de Pago", "Subtotal ($)", "Descuento ($)", "IVA ($)", "Total ($)"]
+    headers_det = ["Folio", "Fecha", "Cliente", "Vendedor", "Sucursal", "Formas de Pago", "Subtotal ($)", "Descuento ($)", "IVA ($)", "Total ($)", "Canal", "Estado"]
     ws_det.append(headers_det)
     for col_num in range(1, len(headers_det) + 1):
         cell = ws_det.cell(row=1, column=col_num)
@@ -4000,19 +4173,19 @@ def exportar_reporte_ventas_excel(request):
             p['cliente'],
             p['vendedor'],
             p['sucursal'],
-            p['canal'],
-            p['estado_display'],
             p['formas_pago'],
             float(p['subtotal']),
             float(p['descuento']),
             float(p['iva']),
-            float(p['total'])
+            float(p['total']),
+            p['canal'],
+            p['estado_display']
         ])
     for row in ws_det.iter_rows(min_row=2, max_row=ws_det.max_row):
+        row[6].number_format = "$#,##0.00"
+        row[7].number_format = "$#,##0.00"
         row[8].number_format = "$#,##0.00"
         row[9].number_format = "$#,##0.00"
-        row[10].number_format = "$#,##0.00"
-        row[11].number_format = "$#,##0.00"
         for c in row:
             c.border = border_thin
 

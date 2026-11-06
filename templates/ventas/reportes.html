@@ -116,10 +116,20 @@
         border-radius: 50px;
         padding: 3px 8px;
     }
+    .badge-canal-pedidos,
     .badge-canal-mostrador {
-        background-color: #f1f3f5;
-        color: #495057;
-        border: 1px solid #dee2e6;
+        background-color: #e7f5ff;
+        color: #1971c2;
+        border: 1px solid #d0ebff;
+        font-weight: 600;
+        font-size: 0.7rem;
+        border-radius: 50px;
+        padding: 3px 8px;
+    }
+    .badge-canal-ecommerce {
+        background-color: #f3f0ff;
+        color: #7950f2;
+        border: 1px solid #d0bfff;
         font-weight: 600;
         font-size: 0.7rem;
         border-radius: 50px;
@@ -130,13 +140,16 @@
         align-items: center;
         font-size: 0.72rem;
         line-height: 1;
-        padding: 0.4em 0.85em;
-        font-weight: 600;
+        padding: 0.35em 0.8em;
+        font-weight: normal;
         border-radius: 50px;
     }
+    .status-borrador { background-color: #f1f3f5; color: #495057; border: 1px solid #dee2e6; }
+    .status-revision { background-color: #fff3bf; color: #f08c00; border: 1px solid #ffec99; }
+    .status-confirmado { background-color: #e7f5ff; color: #1971c2; border: 1px solid #d0ebff; }
+    .status-pendiente { background-color: #fff4e6; color: #d9480f; border: 1px solid #ffe8cc; }
     .status-completo { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
     .status-cancelado { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
-    .status-pendiente { background-color: #fff9db; color: #f08c00; border: 1px solid #ffe066; }
 
     /* Estilos de pastilla translúcida para Margen de Productos */
     .margin-pill {
@@ -240,6 +253,7 @@
                     <option value="todos" {% if datos.canal == 'todos' %}selected{% endif %}>Todos los Canales</option>
                     <option value="pos" {% if datos.canal == 'pos' %}selected{% endif %}>Punto de Venta (POS)</option>
                     <option value="pedidos" {% if datos.canal == 'pedidos' or datos.canal == 'mostrador' %}selected{% endif %}>Pedidos</option>
+                    <option value="ecommerce" {% if datos.canal == 'ecommerce' %}selected{% endif %}>E-commerce</option>
                 </select>
             </div>
 
@@ -379,10 +393,38 @@
                         </div>
                     </div>
 
-                    <!-- Gráfico 2: Formas de Pago -->
+                    <!-- Gráfico 2: Canales de Venta -->
                     <div class="col-12 col-lg-4">
                         <div class="p-3 border rounded-3 bg-white h-100">
-                            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-pie-chart me-1 text-success"></i> Participación por Forma de Pago</h6>
+                            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-pie-chart me-1 text-primary"></i> Participación por Canal</h6>
+                            <div style="height: 250px; position: relative;">
+                                <canvas id="chartCanales"></canvas>
+                            </div>
+                            <div class="small text-muted text-center mt-2">
+                                POS: ${{ datos.ventas_por_canal.pos|floatformat:2|intcomma }} | Pedidos: ${{ datos.ventas_por_canal.pedidos|floatformat:2|intcomma }} | E-comm: ${{ datos.ventas_por_canal.ecommerce|floatformat:2|intcomma }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fila Inferior de Gráficos -->
+                <div class="row g-4">
+                    <!-- Gráfico: Ventas por Sucursal -->
+                    {% if datos.sucursales_list|length > 1 %}
+                    <div class="col-12 col-lg-7">
+                        <div class="p-3 border rounded-3 bg-white h-100">
+                            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-shop me-1 text-info"></i> Comparativa de Ventas por Sucursal ($)</h6>
+                            <div style="height: 250px; position: relative;">
+                                <canvas id="chartSucursales"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Gráfico: Formas de Pago -->
+                    <div class="col-12 {% if datos.sucursales_list|length > 1 %}col-lg-5{% else %}col-lg-6{% endif %}">
+                        <div class="p-3 border rounded-3 bg-white h-100">
+                            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-credit-card me-1 text-success"></i> Participación por Forma de Pago</h6>
                             <div style="height: 250px; position: relative;">
                                 <canvas id="chartFormasPago"></canvas>
                             </div>
@@ -392,20 +434,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Gráfico 3: Ventas por Sucursal -->
-                {% if datos.sucursales_list|length > 1 %}
-                <div class="row">
-                    <div class="col-12">
-                        <div class="p-3 border rounded-3 bg-white">
-                            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-shop me-1 text-info"></i> Comparativa de Ventas por Sucursal ($)</h6>
-                            <div style="height: 220px; position: relative;">
-                                <canvas id="chartSucursales"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
             </div>
 
             <!-- PESTAÑA 2: TOP PRODUCTOS -->
@@ -591,11 +619,11 @@
                                 <th>Cliente</th>
                                 <th>Vendedor</th>
                                 <th>Sucursal</th>
-                                <th>Canal</th>
                                 <th>Forma de Pago</th>
                                 <th>Subtotal</th>
                                 <th>IVA</th>
                                 <th>Total</th>
+                                <th>Canal</th>
                                 <th>Estado</th>
                             </tr>
                         </thead>
@@ -611,11 +639,19 @@
                                 <td>{{ p.cliente }}</td>
                                 <td>{{ p.vendedor }}</td>
                                 <td>{{ p.sucursal }}</td>
-                                <td>{{ p.canal }}</td>
                                 <td>{{ p.formas_pago }}</td>
                                 <td>${{ p.subtotal|floatformat:2|intcomma }}</td>
                                 <td>${{ p.iva|floatformat:2|intcomma }}</td>
                                 <td class="fw-bold text-dark">${{ p.total|floatformat:2|intcomma }}</td>
+                                <td>
+                                    {% if p.canal == 'E-commerce' or p.canal == 'ecommerce' %}
+                                        <span class="badge-canal-ecommerce">E-commerce</span>
+                                    {% elif p.canal == 'POS' or p.canal == 'pos' %}
+                                        <span class="badge-canal-pos">POS</span>
+                                    {% else %}
+                                        <span class="badge-canal-pedidos">Pedidos</span>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     <span class="status-pill status-{{ p.estado }}">
                                         {{ p.estado_display }}
@@ -730,7 +766,57 @@
             });
         }
 
-        // 2. Gráfico de Formas de Pago (Doughnut)
+        // 2. Gráfico de Canales (Doughnut)
+        const ctxCanales = document.getElementById('chartCanales');
+        if (ctxCanales) {
+            const canalesLabels = {{ datos.chart_canales_labels_json|safe }};
+            const canalesData = {{ datos.chart_canales_data_json|safe }};
+            
+            new Chart(ctxCanales.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: canalesLabels,
+                    datasets: [{
+                        data: canalesData,
+                        backgroundColor: [
+                            'rgba(12, 166, 120, 0.28)',   // POS (verde menta traslúcido)
+                            'rgba(25, 113, 194, 0.28)',   // Pedidos (azul traslúcido)
+                            'rgba(121, 80, 242, 0.28)'    // E-commerce (morado traslúcido)
+                        ],
+                        hoverBackgroundColor: [
+                            '#0ca678',                    // POS encendido
+                            '#1971c2',                    // Pedidos encendido
+                            '#7950f2'                     // E-commerce encendido
+                        ],
+                        borderColor: [
+                            '#0ca678',
+                            '#1971c2',
+                            '#7950f2'
+                        ],
+                        borderWidth: 1.5,
+                        hoverBorderColor: '#ffffff',
+                        hoverBorderWidth: 2,
+                        hoverOffset: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return ' ' + context.label + ': $' + context.parsed.toLocaleString('es-MX', { minimumFractionDigits: 2 });
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 3. Gráfico de Formas de Pago (Doughnut)
         const ctxPagos = document.getElementById('chartFormasPago');
         if (ctxPagos) {
             const pagosLabels = {{ datos.chart_pagos_labels_json|safe }};
@@ -880,6 +966,8 @@
                 document.getElementById('ver_pedido_cliente_tel').innerText = data.cliente_tel;
                 document.getElementById('ver_pedido_cliente_email').innerText = data.cliente_email;
                 document.getElementById('ver_pedido_fecha').innerText = data.fecha;
+                const elRec = document.getElementById('ver_pedido_fecha_recoleccion');
+                if (elRec) elRec.innerText = data.fecha_recoleccion || '--';
                 document.getElementById('ver_pedido_cotizacion').innerText = data.cotizacion_folio;
                 document.getElementById('ver_pedido_contacto_nom').innerText = data.contacto_nombre;
                 document.getElementById('ver_pedido_contacto_tel').innerText = data.contacto_tel;

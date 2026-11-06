@@ -5,7 +5,7 @@ def empresa_actual(request):
     """
     Context processor para inyectar la empresa actual y sus sucursales en todos los templates.
     """
-    if not request.user.is_authenticated:
+    if not hasattr(request, 'user') or not request.user.is_authenticated:
         return {}
     
     username = request.user.username

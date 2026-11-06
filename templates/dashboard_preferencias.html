@@ -131,13 +131,16 @@
                         
                         <!-- General (Acordeón) -->
                         <div>
-                            <a class="nav-link {% if seccion == 'monedas' or seccion == 'datos' or seccion == 'obligaciones_patronales' %}active{% endif %}" href="#menuGeneral" data-bs-toggle="collapse">
+                            <a class="nav-link {% if seccion == 'monedas' or seccion == 'datos' or seccion == 'obligaciones_patronales' or seccion == 'ecommerce' %}active{% endif %}" href="#menuGeneral" data-bs-toggle="collapse">
                                 <i class="bi bi-sliders"></i> General
                                 <i class="bi bi-chevron-down ms-auto small"></i>
                             </a>
-                            <div class="collapse {% if seccion == 'monedas' or seccion == 'datos' or seccion == 'obligaciones_patronales' %}show{% endif %}" id="menuGeneral">
+                            <div class="collapse {% if seccion == 'monedas' or seccion == 'datos' or seccion == 'obligaciones_patronales' or seccion == 'ecommerce' %}show{% endif %}" id="menuGeneral">
                                 <a href="?section=monedas" class="sub-nav-link {% if seccion == 'monedas' %}active{% endif %}">
                                     <i class="bi bi-currency-exchange me-2"></i> Tipos de Moneda
+                                </a>
+                                <a href="?section=ecommerce" class="sub-nav-link {% if seccion == 'ecommerce' %}active{% endif %}">
+                                    <i class="bi bi-shop me-2"></i> Ecommerce
                                 </a>
                                 {% if user.is_staff %}
                                 <a href="?section=obligaciones_patronales" class="sub-nav-link {% if seccion == 'obligaciones_patronales' %}active{% endif %}">
@@ -445,6 +448,95 @@
                             </div>
                         </div>
                     </form>
+                </div>
+                {% elif seccion == 'ecommerce' %}
+                <!-- SECCIÓN ECOMMERCE -->
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-shop me-2 text-secondary"></i>Catálogo Ecommerce para Clientes</h5>
+                    <p class="text-muted small mb-0">Enlace personalizado y configuración del portal móvil para que tus clientes levanten pedidos.</p>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-4">
+                        <!-- Columna Izquierda: Link y Código QR -->
+                        <div class="col-12 col-lg-6">
+                            <div class="border rounded-3 p-4 bg-white shadow-sm h-100">
+                                <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">
+                                    <i class="bi bi-link-45deg me-1 text-brand"></i>Link Ecommerce Particular
+                                </h6>
+                                <p class="text-muted small mb-3">
+                                    Comparte este link o el código QR con tus clientes para que puedan explorar tus productos y levantar sus pedidos directamente desde su celular.
+                                </p>
+
+                                <div class="mb-3">
+                                    <label class="form-label small fw-bold text-secondary">Link Ecommerce</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-light"><i class="bi bi-globe"></i></span>
+                                        <input type="text" class="form-control" id="inputEcommerceLink" value="{{ ecommerce_url }}" readonly>
+                                        <button class="btn btn-outline-secondary" type="button" onclick="copiarLinkEcommerce()" id="btnCopiarLink" title="Copiar enlace">
+                                            <i class="bi bi-clipboard me-1"></i> Copiar
+                                        </button>
+                                        <a href="{{ ecommerce_url }}" target="_blank" class="btn btn-brand text-white" title="Abrir tienda en nueva pestaña">
+                                            <i class="bi bi-box-arrow-up-right me-1"></i> Abrir
+                                        </a>
+                                    </div>
+                                    <div id="toastCopiarLink" class="text-success small fw-semibold mt-1 d-none">
+                                        <i class="bi bi-check-circle-fill me-1"></i> ¡Enlace copiado al portapapeles!
+                                    </div>
+                                </div>
+
+                                <!-- QR CODE BOX -->
+                                <div class="text-center p-3 border rounded-3 bg-light mt-3">
+                                    <div class="d-flex justify-content-center mb-2">
+                                        <div id="qrcodeEcommerce" class="p-2 bg-white rounded shadow-xs" style="display: inline-block; min-width: 140px; min-height: 140px;"></div>
+                                    </div>
+                                    <div class="small fw-semibold text-dark">{{ empresa.nombre }}</div>
+                                    <span class="badge bg-white text-secondary border mt-1">Escanea para pedir</span>
+                                    <div class="mt-3">
+                                        <button class="btn btn-sm btn-outline-dark" onclick="descargarQREcommerce()">
+                                            <i class="bi bi-download me-1"></i> Descargar Código QR (PNG)
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Columna Derecha: Opciones y Switches -->
+                        <div class="col-12 col-lg-6">
+                            <div class="border rounded-3 p-4 bg-white shadow-sm h-100">
+                                <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">
+                                    <i class="bi bi-sliders me-1 text-brand"></i>Comportamiento del Ecommerce
+                                </h6>
+                                <form id="formConfigEcommerce" onsubmit="guardarConfigEcommerce(event)">
+                                    {% csrf_token %}
+                                    <div class="form-check form-switch p-3 mb-3 border rounded-3 bg-light">
+                                        <input class="form-check-input ms-0 me-3" type="checkbox" role="switch" id="switchEcommerceActivo" name="activo" {% if config_ecommerce.activo %}checked{% endif %}>
+                                        <label class="form-check-label fw-bold text-dark d-block" for="switchEcommerceActivo">
+                                            Habilitar Portal Ecommerce
+                                        </label>
+                                        <small class="text-muted d-block">Si está desactivado, el link mostrará un mensaje de catálogo cerrado temporalmente.</small>
+                                    </div>
+
+                                    <div class="form-check form-switch p-3 mb-3 border rounded-3 bg-light">
+                                        <input class="form-check-input ms-0 me-3" type="checkbox" role="switch" id="switchSoloConStock" name="solo_con_stock" {% if config_ecommerce.solo_con_stock or config_ecommerce.mostrar_solo_con_stock %}checked{% endif %}>
+                                        <label class="form-check-label fw-bold text-dark d-block" for="switchSoloConStock">
+                                            Ocultar productos sin existencias
+                                        </label>
+                                        <small class="text-muted d-block">Si está prendido, no se mostrarán artículos sin existencias en el catálogo. Si está apagado, se mostrarán todos los artículos (con y sin existencias).</small>
+                                    </div>
+
+
+
+                                    <div id="alertaConfigEcommerce" class="alert d-none py-2 small mb-3"></div>
+
+                                    <div class="d-flex justify-content-end mt-4">
+                                        <button type="submit" class="btn btn-brand text-white btn-sm px-4 fw-bold" id="btnGuardarEcommerce">
+                                            <i class="bi bi-save me-1"></i> Guardar Cambios
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 {% endif %}
 
@@ -2009,3 +2101,110 @@
 </script>
 
 {% endblock %}
+<!-- Scripts Ecommerce en Preferencias -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+function initQREcommerce() {
+    const container = document.getElementById('qrcodeEcommerce');
+    if (!container) return;
+    container.innerHTML = '';
+    const input = document.getElementById('inputEcommerceLink');
+    if (!input || !input.value) return;
+    
+    if (typeof QRCode !== 'undefined') {
+        new QRCode(container, {
+            text: input.value,
+            width: 140,
+            height: 140,
+            colorDark: "#0f172a",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.H
+        });
+    }
+}
+
+function copiarLinkEcommerce() {
+    const input = document.getElementById('inputEcommerceLink');
+    if (!input) return;
+    input.select();
+    input.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(input.value).then(() => {
+        const toast = document.getElementById('toastCopiarLink');
+        if (toast) {
+            toast.classList.remove('d-none');
+            setTimeout(() => toast.classList.add('d-none'), 3000);
+        }
+    });
+}
+
+function descargarQREcommerce() {
+    const container = document.getElementById('qrcodeEcommerce');
+    if (!container) return;
+    const img = container.querySelector('img') || container.querySelector('canvas');
+    if (!img) {
+        alert('Generando código QR, por favor espera un segundo.');
+        return;
+    }
+    let dataUrl = img.src;
+    if (img.tagName.toLowerCase() === 'canvas') {
+        dataUrl = img.toDataURL('image/png');
+    }
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = 'qr_catalogo_{{ empresa.subdominio }}.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+function guardarConfigEcommerce(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnGuardarEcommerce');
+    const alertBox = document.getElementById('alertaConfigEcommerce');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
+
+    const formData = new FormData(document.getElementById('formConfigEcommerce'));
+    formData.set('activo', document.getElementById('switchEcommerceActivo').checked ? 'true' : 'false');
+    formData.set('solo_con_stock', document.getElementById('switchSoloConStock').checked ? 'true' : 'false');
+
+    fetch("{% url 'actualizar_config_ecommerce_ajax' %}", {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: formData
+    })
+    .then(r => r.json())
+    .then(res => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        if (alertBox) {
+            alertBox.classList.remove('d-none', 'alert-danger', 'alert-success');
+            if (res.success) {
+                alertBox.classList.add('alert-success');
+                alertBox.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> ' + res.message;
+            } else {
+                alertBox.classList.add('alert-danger');
+                alertBox.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> ' + (res.error || 'Ocurrió un error');
+            }
+            setTimeout(() => alertBox.classList.add('d-none'), 4000);
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        if (alertBox) {
+            alertBox.classList.remove('d-none', 'alert-success');
+            alertBox.classList.add('alert-danger');
+            alertBox.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> Error de conexión al guardar.';
+            setTimeout(() => alertBox.classList.add('d-none'), 4000);
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    initQREcommerce();
+});
+</script>

@@ -19,6 +19,7 @@ from solicitudcompras.models import SolicitudCompra, DetalleSolicitudCompra
 from produccion.models import OrdenProduccion
 from notificaciones.utils import crear_notificacion
 from preferencias.permissions import require_sales_permission
+from django.views.decorators.csrf import csrf_exempt
 
 @login_required(login_url='/login/')
 @require_sales_permission('pedidos', 'crear')
@@ -367,7 +368,7 @@ def dashboard_pedidos(request):
     estado = request.GET.get('estado', '')
     sucursal_id_filtro = request.GET.get('sucursal', '')
 
-    lista_pedidos = Pedido.objects.filter(empresa=empresa_actual).select_related('cliente', 'vendedor', 'sucursal').order_by('-fecha_creacion')
+    lista_pedidos = Pedido.objects.filter(empresa=empresa_actual).select_related('cliente', 'vendedor', 'sucursal', 'sesion_caja').order_by('-fecha_creacion')
 
     if q:
         lista_pedidos = lista_pedidos.filter(
@@ -1032,6 +1033,12 @@ def obtener_pedido_json(request, pedido_id):
         empresa_actual = get_empresa_actual(request)
         pedido = get_object_or_404(Pedido, id=pedido_id, empresa=empresa_actual)
         
+        fecha_recoleccion = ''
+        if pedido.notas:
+            m_rec = re.search(r'Fecha de Recolección:\s*([^\n\r]+)', pedido.notas)
+            if m_rec:
+                fecha_recoleccion = m_rec.group(1).strip()
+
         data = {
             'folio': f"PED-{pedido.id:04d}",
             'cliente_nombre': pedido.cliente.razon_social or f"{pedido.cliente.nombre} {pedido.cliente.apellidos}",
@@ -1041,6 +1048,7 @@ def obtener_pedido_json(request, pedido_id):
             'contacto_tel': pedido.contacto.telefono_1 if pedido.contacto else '--',
             'contacto_email': pedido.contacto.correo_1 if pedido.contacto else '--',
             'fecha': pedido.fecha_creacion.strftime('%d/%m/%Y'),
+            'fecha_recoleccion': fecha_recoleccion or '--',
             'cotizacion_folio': f"COT-{pedido.cotizacion_origen_id:04d}" if pedido.cotizacion_origen_id else '--',
             'detalles': []
         }
@@ -1298,3 +1306,416 @@ def cancelar_reserva(request, detalle_id):
         pedido.save()
 
     return JsonResponse({'success': True, 'message': 'Reserva liberada correctamente. La partida vuelve a estar Pendiente.'})
+
+
+# ==========================================================
+# SECCIÓN: PORTAL ECOMMERCE / CATÁLOGO MÓVIL PARA CLIENTES
+# ==========================================================
+from django.views.decorators.http import require_POST
+import urllib.parse
+import re
+
+def portal_ecommerce(request, slug_empresa):
+    """
+    Vista pública móvil/web tipo catálogo ecommerce para clientes de una empresa.
+    Permite explorar productos por categoría en carruseles, buscar, filtrar por
+    categoría/subcategoría/marca y levantar pedidos al carrito.
+    """
+    from panel.models import Empresa
+    from preferencias.models import ConfiguracionEcommerce
+    from core.models import Producto
+    from almacenes.models import Inventario
+    from django.db.models import Sum
+
+    empresa = get_object_or_404(Empresa, subdominio=slug_empresa, activa=True)
+    config_ecom, _ = ConfiguracionEcommerce.objects.get_or_create(empresa=empresa)
+
+    if not config_ecom.activo:
+        return render(request, 'ecommerce/tienda_inactiva.html', {'empresa': empresa}, status=503)
+
+    # Obtener productos activos de la empresa
+    productos_qs = Producto.objects.filter(
+        empresa=empresa,
+        estado='activo'
+    ).order_by('nombre')
+
+    # Mapeo de stock físico disponible por producto en la empresa
+    stock_map = {}
+    invs = Inventario.objects.filter(empresa=empresa).values('producto_id').annotate(
+        total_disp=Sum('cantidad') - Sum('reservado')
+    )
+    for inv in invs:
+        stock_map[inv['producto_id']] = max(0, inv['total_disp'] or 0)
+
+    productos_list = []
+    categorias_dict_counts = {}
+    subcategorias_dict_counts = {}
+    marcas_dict_counts = {}
+
+    for p in productos_qs:
+        disp = stock_map.get(p.id, 0) if p.tipo != 'servicio' else 9999
+
+        # Si la configuración oculta productos sin existencias
+        if (config_ecom.solo_con_stock or config_ecom.mostrar_solo_con_stock) and disp <= 0:
+            continue
+
+        cat_nom = (p.categoria or 'General').strip()
+        subcat_nom = (p.subcategoria or '').strip()
+        marca_nom = (p.marca or '').strip()
+
+        p_data = {
+            'id': p.id,
+            'nombre': p.nombre,
+            'descripcion': p.descripcion or '',
+            'clave': p.clave or '',
+            'categoria': cat_nom,
+            'subcategoria': subcat_nom,
+            'marca': marca_nom,
+            'precio_venta': float(p.precio_venta or 0),
+            'imagen_url': p.imagen.url if p.imagen else '',
+            'unidad_medida': p.get_unidad_medida_display() if hasattr(p, 'get_unidad_medida_display') else (p.unidad_medida or 'Pza'),
+            'stock_disponible': disp,
+            'tiene_stock': disp > 0,
+        }
+        productos_list.append(p_data)
+
+        if cat_nom:
+            categorias_dict_counts[cat_nom] = categorias_dict_counts.get(cat_nom, 0) + 1
+        if subcat_nom:
+            subcategorias_dict_counts[subcat_nom] = subcategorias_dict_counts.get(subcat_nom, 0) + 1
+        if marca_nom:
+            marcas_dict_counts[marca_nom] = marcas_dict_counts.get(marca_nom, 0) + 1
+
+    # Identificar productos más vendidos (top 10 o los primeros con stock)
+    top_vendidos_ids = list(
+        DetallePedido.objects.filter(pedido__empresa=empresa)
+        .values('producto_id')
+        .annotate(total_cant=Sum('cantidad_solicitada'))
+        .order_by('-total_cant')[:10]
+        .values_list('producto_id', flat=True)
+    )
+
+    productos_mas_vendidos = []
+    prod_dict = {p['id']: p for p in productos_list}
+    if top_vendidos_ids:
+        for pid in top_vendidos_ids:
+            if pid in prod_dict:
+                productos_mas_vendidos.append(prod_dict[pid])
+
+    if len(productos_mas_vendidos) < 3:
+        productos_mas_vendidos = [p for p in productos_list if p['tiene_stock']][:8]
+        if not productos_mas_vendidos:
+            productos_mas_vendidos = productos_list[:8]
+
+    # Agrupar productos por categoría para los carruseles
+    categorias_dict = {}
+    for p in productos_list:
+        cat = p['categoria']
+        if cat not in categorias_dict:
+            categorias_dict[cat] = []
+        categorias_dict[cat].append(p)
+
+    categorias_ordenadas = [
+        {'nombre': cat, 'productos': prods, 'total': len(prods)}
+        for cat, prods in sorted(categorias_dict.items(), key=lambda x: x[0].lower())
+    ]
+
+    filtros_categorias = sorted([{'nombre': k, 'total': v} for k, v in categorias_dict_counts.items()], key=lambda x: x['nombre'].lower())
+    filtros_subcategorias = sorted([{'nombre': k, 'total': v} for k, v in subcategorias_dict_counts.items()], key=lambda x: x['nombre'].lower())
+    filtros_marcas = sorted([{'nombre': k, 'total': v} for k, v in marcas_dict_counts.items()], key=lambda x: x['nombre'].lower())
+
+    contexto = {
+        'empresa': empresa,
+        'config_ecom': config_ecom,
+        'productos_json': json.dumps(productos_list),
+        'productos_mas_vendidos': productos_mas_vendidos,
+        'categorias_catalogo': categorias_ordenadas,
+        'filtros_categorias': filtros_categorias,
+        'filtros_subcategorias': filtros_subcategorias,
+        'filtros_marcas': filtros_marcas,
+        'total_productos': len(productos_list),
+    }
+    return render(request, 'ecommerce/portal_cliente.html', contexto)
+
+
+@csrf_exempt
+@require_POST
+def crear_pedido_ecommerce_ajax(request, slug_empresa):
+    """
+    Endpoint público para levantar un pedido desde el catálogo Ecommerce.
+    Crea o vincula el Cliente por número de teléfono para conservar histórico,
+    registra el Pedido en estado 'borrador', y sus líneas de DetallePedido.
+    """
+    from panel.models import Empresa
+    from preferencias.models import ConfiguracionEcommerce, Sucursal
+    from clientes.models import Cliente
+    from core.models import Producto
+    from django.contrib.auth.models import User
+    from decimal import Decimal
+
+    empresa = get_object_or_404(Empresa, subdominio=slug_empresa, activa=True)
+    config_ecom, _ = ConfiguracionEcommerce.objects.get_or_create(empresa=empresa)
+
+    if not config_ecom.activo:
+        return JsonResponse({'success': False, 'error': 'El portal de pedidos está temporalmente desactivado.'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Datos de pedido inválidos.'}, status=400)
+
+    cliente_nombre = data.get('nombre', '').strip()
+    cliente_telefono = data.get('telefono', '').strip()
+    cliente_email = data.get('email', '').strip()
+    fecha_recoleccion_raw = data.get('fecha_recoleccion', '').strip()
+    notas_entrega = data.get('notas', '').strip()
+    items = data.get('items', [])
+
+    if not cliente_nombre:
+        return JsonResponse({'success': False, 'error': 'Por favor ingresa tu nombre completo.'}, status=400)
+    if not cliente_telefono:
+        return JsonResponse({'success': False, 'error': 'Por favor ingresa un número de teléfono celular.'}, status=400)
+    if not fecha_recoleccion_raw:
+        return JsonResponse({'success': False, 'error': 'Por favor selecciona la fecha y hora de recolección.'}, status=400)
+    if not items or len(items) == 0:
+        return JsonResponse({'success': False, 'error': 'El carrito está vacío. Agrega al menos un producto.'}, status=400)
+
+    # Formatear fecha y hora de recolección
+    fecha_recoleccion_display = ''
+    if fecha_recoleccion_raw:
+        try:
+            from datetime import datetime
+            dt_rec = datetime.fromisoformat(fecha_recoleccion_raw.replace('Z', ''))
+            fecha_recoleccion_display = dt_rec.strftime('%d/%m/%Y %H:%M hrs')
+        except Exception:
+            fecha_recoleccion_display = fecha_recoleccion_raw
+
+    telefono_limpio = re.sub(r'[^\d]', '', cliente_telefono)
+    if len(telefono_limpio) < 7:
+        return JsonResponse({'success': False, 'error': 'Por favor ingresa un número de teléfono válido.'}, status=400)
+
+    with transaction.atomic():
+        # 1. Buscar si ya existe el Cliente por teléfono en esta Empresa
+        cliente_obj = Cliente.objects.filter(
+            empresa=empresa
+        ).filter(
+            Q(telefono=cliente_telefono) | Q(telefono=telefono_limpio)
+        ).first()
+
+        if not cliente_obj:
+            partes = cliente_nombre.split(' ', 1)
+            nom = partes[0]
+            ape = partes[1] if len(partes) > 1 else ''
+
+            cliente_obj = Cliente.objects.create(
+                nombre=nom,
+                apellidos=ape,
+                razon_social=cliente_nombre,
+                telefono=telefono_limpio,
+                email=cliente_email if cliente_email else None,
+                empresa=empresa,
+                estado='activo',
+                tipo='cliente_nuevo',
+                relacion='directo'
+            )
+        else:
+            if not cliente_obj.razon_social and not cliente_obj.nombre:
+                cliente_obj.razon_social = cliente_nombre
+                cliente_obj.save(update_fields=['razon_social'])
+
+        # 2. Asignar sucursal y vendedor
+        sucursal = Sucursal.objects.filter(empresa=empresa).first()
+        vendedor = User.objects.filter(username__contains=f"@{empresa.subdominio}").first()
+        if not vendedor:
+            vendedor = User.objects.filter(is_superuser=True).first() or User.objects.first()
+
+        # 3. Crear cabecera de Pedido
+        notas_completas = f"🛍️ Pedido levantado desde Portal Ecommerce.\nCliente: {cliente_nombre}\nTeléfono: {cliente_telefono}"
+        if fecha_recoleccion_display:
+            notas_completas += f"\n📅 Fecha de Recolección: {fecha_recoleccion_display}"
+        if cliente_email:
+            notas_completas += f"\nCorreo: {cliente_email}"
+        if notas_entrega:
+            notas_completas += f"\nNotas / Entrega:\n{notas_entrega}"
+
+        pedido = Pedido.objects.create(
+            cliente=cliente_obj,
+            vendedor=vendedor,
+            empresa=empresa,
+            sucursal=sucursal,
+            estado='borrador',
+            canal='ecommerce',
+            notas=notas_completas,
+            aplica_iva=True
+        )
+
+        total_items_creados = 0
+        total_monto = Decimal('0.00')
+        resumen_texto_whatsapp = []
+
+        for item in items:
+            prod_id = item.get('id')
+            cant = int(item.get('cantidad', 1))
+            if cant <= 0:
+                continue
+
+            producto = Producto.objects.filter(id=prod_id, empresa=empresa, estado='activo').first()
+            if not producto:
+                continue
+
+            if (config_ecom.solo_con_stock or config_ecom.mostrar_solo_con_stock) and producto.tipo != 'servicio':
+                stock_disp = producto.stock_disponible
+                if cant > stock_disp:
+                    return JsonResponse({
+                        'success': False, 
+                        'error': f'Stock insuficiente para "{producto.nombre}". Existencia disponible: {max(0, stock_disp)}.'
+                    }, status=400)
+
+            precio_unit = Decimal(str(producto.precio_venta or 0))
+            subtotal_linea = precio_unit * Decimal(cant)
+            total_monto += subtotal_linea
+
+            DetallePedido.objects.create(
+                pedido=pedido,
+                producto=producto,
+                cantidad_solicitada=cant,
+                precio_unitario=precio_unit,
+                estado_linea='pendiente'
+            )
+            total_items_creados += 1
+            resumen_texto_whatsapp.append(f"• {cant}x {producto.nombre} - ${subtotal_linea:,.2f}")
+
+        if total_items_creados == 0:
+            transaction.set_rollback(True)
+            return JsonResponse({'success': False, 'error': 'No se pudo agregar ningún producto válido.'}, status=400)
+
+        telefono_negocio = empresa.telefono_contacto or ''
+        telefono_negocio_limpio = re.sub(r'[^\d]', '', telefono_negocio)
+
+        items_msg = "\n".join(resumen_texto_whatsapp)
+        folio_str = f"PED-{pedido.id:05d}"
+        msg_wa = (
+            f"¡Hola {empresa.nombre}! Acabo de levantar un pedido en su catálogo en línea:\n\n"
+            f"📋 *Folio:* {folio_str}\n"
+            f"👤 *Cliente:* {cliente_nombre}\n"
+            f"📱 *Teléfono:* {cliente_telefono}\n"
+        )
+        if fecha_recoleccion_display:
+            msg_wa += f"📅 *Fecha de Recolección:* {fecha_recoleccion_display}\n"
+        msg_wa += (
+            f"\n*Productos solicitados:*\n{items_msg}\n\n"
+            f"💰 *Total estimado:* ${pedido.total_pedido:,.2f}\n"
+        )
+        if notas_entrega:
+            msg_wa += f"📍 *Notas de Entrega:* {notas_entrega}\n"
+
+        msg_wa_encoded = urllib.parse.quote(msg_wa)
+        whatsapp_url = ""
+        if telefono_negocio_limpio:
+            whatsapp_url = f"https://wa.me/{telefono_negocio_limpio}?text={msg_wa_encoded}"
+        else:
+            whatsapp_url = f"https://api.whatsapp.com/send?text={msg_wa_encoded}"
+
+        # Preparación de datos para el Ticket estilo POS
+        direccion_partes = []
+        if empresa.calle:
+            direccion_partes.append(f"{empresa.calle} {empresa.numero or ''}".strip())
+        if empresa.colonia:
+            direccion_partes.append(empresa.colonia)
+        if empresa.cp:
+            direccion_partes.append(f"C.P. {empresa.cp}")
+        if empresa.estado:
+            direccion_partes.append(empresa.estado)
+        empresa_dir_str = ", ".join(direccion_partes) if direccion_partes else ""
+
+        items_ticket = []
+        for det in pedido.detalles.all():
+            u_med = ''
+            if hasattr(det.producto, 'unidad_medida') and det.producto.unidad_medida:
+                u_med = det.producto.unidad_medida.codigo if hasattr(det.producto.unidad_medida, 'codigo') else str(det.producto.unidad_medida)
+            items_ticket.append({
+                'nombre': det.producto.nombre,
+                'cantidad': det.cantidad_solicitada,
+                'unidad_medida': u_med,
+                'precio_unitario': float(det.precio_unitario),
+                'subtotal': float(det.subtotal)
+            })
+
+        subtotal_calc = float(pedido.calcular_subtotal)
+        iva_calc = float(pedido.calcular_iva) if pedido.aplica_iva else 0.0
+        total_calc = float(pedido.total_pedido)
+
+        ticket_data = {
+            'empresa_nombre': (empresa.nombre or '').upper(),
+            'sucursal': 'E-COMMERCE',
+            'empresa_direccion': empresa_dir_str,
+            'empresa_telefono': empresa.telefono_contacto or '',
+            'folio': folio_str,
+            'fecha_hora': pedido.fecha_creacion.strftime('%d/%m/%Y %H:%M'),
+            'cliente_nombre': cliente_nombre.upper(),
+            'cliente_telefono': cliente_telefono,
+            'fecha_recoleccion': fecha_recoleccion_display,
+            'items': items_ticket,
+            'subtotal': subtotal_calc,
+            'iva': iva_calc,
+            'aplica_iva': pedido.aplica_iva,
+            'total': total_calc,
+            'ticket_url': f"/ecommerce/{slug_empresa}/ticket/{pedido.id}/"
+        }
+
+        return JsonResponse({
+            'success': True,
+            'pedido_id': pedido.id,
+            'folio': folio_str,
+            'total': total_calc,
+            'whatsapp_url': whatsapp_url,
+            'cliente_nombre': cliente_nombre,
+            'ticket': ticket_data
+        })
+
+
+def ticket_pedido_ecommerce(request, slug_empresa, pedido_id):
+    """
+    Vista pública para visualizar o imprimir el ticket de un pedido levantado en ecommerce.
+    Toma de referencia el diseño y estructura del ticket del punto de venta (POS).
+    """
+    import re
+    from panel.models import Empresa
+    empresa = get_object_or_404(Empresa, subdominio=slug_empresa, activa=True)
+    pedido = get_object_or_404(Pedido, id=pedido_id, empresa=empresa)
+
+    items_preparados = []
+    for d in pedido.detalles.all():
+        u_medida = ''
+        if hasattr(d.producto, 'unidad_medida') and d.producto.unidad_medida:
+            u_medida = d.producto.unidad_medida.codigo if hasattr(d.producto.unidad_medida, 'codigo') else str(d.producto.unidad_medida)
+        items_preparados.append({
+            'nombre_producto': d.producto.nombre,
+            'cantidad': d.cantidad_solicitada,
+            'unidad_medida': u_medida,
+            'precio_unitario': d.precio_unitario,
+            'subtotal': d.subtotal,
+        })
+
+    telefono_cliente = pedido.cliente.telefono if pedido.cliente else ''
+    if not telefono_cliente and pedido.notas:
+        m = re.search(r'Teléfono:\s*([^\n\r]+)', pedido.notas)
+        if m:
+            telefono_cliente = m.group(1).strip()
+
+    fecha_recoleccion = ''
+    if pedido.notas:
+        m_rec = re.search(r'Fecha de Recolección:\s*([^\n\r]+)', pedido.notas)
+        if m_rec:
+            fecha_recoleccion = m_rec.group(1).strip()
+
+    context = {
+        'pedido': pedido,
+        'empresa': empresa,
+        'telefono_cliente': telefono_cliente,
+        'fecha_recoleccion': fecha_recoleccion,
+        'items': items_preparados,
+    }
+    return render(request, 'ecommerce/ticket_pedido.html', context)
+
+

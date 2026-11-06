@@ -170,3 +170,23 @@ class UsuarioCorreoSMTP(models.Model):
 
     def __str__(self):
         return f"SMTP: {self.usuario.username} ({self.smtp_user})"
+
+
+class ConfiguracionEcommerce(models.Model):
+    empresa = models.OneToOneField(Empresa, on_delete=models.CASCADE, related_name='config_ecommerce', verbose_name="Empresa")
+    activo = models.BooleanField(default=True, verbose_name="Ecommerce Habilitado")
+    solo_con_stock = models.BooleanField(default=False, verbose_name="Permitir pedidos solo con existencia")
+    mostrar_solo_con_stock = models.BooleanField(default=False, verbose_name="Ocultar productos sin existencias")
+    whatsapp_contacto = models.CharField(max_length=20, blank=True, null=True, verbose_name="WhatsApp para Notificaciones")
+    mensaje_bienvenida = models.CharField(max_length=255, blank=True, null=True, default="¡Bienvenido a nuestro catálogo en línea!", verbose_name="Mensaje de Bienvenida")
+    
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuración de Ecommerce"
+        verbose_name_plural = "Configuraciones de Ecommerce"
+
+    def __str__(self):
+        return f"Ecommerce: {self.empresa.nombre} ({'Activo' if self.activo else 'Inactivo'})"
+

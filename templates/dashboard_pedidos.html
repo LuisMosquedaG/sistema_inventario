@@ -43,6 +43,9 @@
         .status-confirmado { background-color: #e7f5ff; color: #1971c2; border: 1px solid #d0ebff; }
         .status-completo { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
         .status-cancelado { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
+        .status-canal-pos { background-color: #e6fcf5; color: #0ca678; border: 1px solid #b2f2bb; text-transform: uppercase; }
+        .status-canal-pedidos { background-color: #e7f5ff; color: #1971c2; border: 1px solid #d0ebff; text-transform: capitalize; }
+        .status-canal-ecommerce { background-color: #f3f0ff; color: #7950f2; border: 1px solid #d0bfff; }
 
         /* ESTILOS DE PAGO (Pills) */
         .pay-pill {
@@ -152,6 +155,17 @@
                 {% endif %}
             </div>
         </div>
+
+        {% if messages %}
+        <div class="mb-3">
+            {% for message in messages %}
+                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
+                    <i class="bi bi-info-circle me-2"></i>{{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        </div>
+        {% endif %}
 
         <!-- FILTROS DE PEDIDOS -->
         <div class="card border-0 shadow-sm mb-3">
@@ -284,14 +298,14 @@
                             <tr>
                                 <th class="text-center align-middle" style="width: 100px;">Acciones</th>
                                 <th class="text-center align-middle" style="width: 100px;">Sucursal</th>
-                                <th class="text-center align-middle" style="width: 150px;">Folio Ped. / Cot.</th>
-                                <th class="text-center align-middle" style="width: 130px;">Cliente / Contacto</th>
-                                <th class="text-center align-middle" style="width: 130px;">Fecha</th>
-                                <th class="text-center align-middle" style="width: 160px;">Avance</th>
-                                <th class="text-center align-middle" style="width: 120px;">Total</th>
-                                <th class="text-center align-middle" style="width: 140px;">Estado de pago</th>
-                                <th class="text-center align-middle" style="width: 130px;">Estado Envío</th>
-                                <th class="text-center align-middle" style="width: 120px;">Estado</th>
+                                <th class="text-center align-middle" style="width: 130px;">Folio Ped. / Cot.</th>
+                                <th class="text-center align-middle" style="width: 150px;">Cliente / Contacto</th>
+                                <th class="text-center align-middle" style="width: 110px;">Fecha</th>
+                                <th class="text-center align-middle" style="width: 110px;">Total</th>
+                                <th class="text-center align-middle" style="width: 100px;">Canales</th>
+                                <th class="text-center align-middle" style="width: 130px;">Estado de pago</th>
+                                <th class="text-center align-middle" style="width: 130px;">Estado Entrega</th>
+                                <th class="text-center align-middle" style="width: 110px;">Estado</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -333,7 +347,7 @@
                                         <!-- ESTADO: BORRADOR -->
                                         {% if p.estado == 'borrador' %}
                                             {% if granular_sales_perms.pedidos.validar_stock %}
-                                            <a href="{% url 'validar_pedido' p.id %}" class="icon-action" title="Validar Stock" onclick="return confirm('¿Validar disponibilidad de stock?')">
+                                             <a href="{% url 'validar_pedido' p.id %}" class="icon-action" title="Validar Stock" onclick="return confirm('¿Validar disponibilidad de stock?')">
                                                 <i class="bi bi-clipboard-check"></i>
                                             </a>
                                             {% endif %}
@@ -367,12 +381,27 @@
                                         <!-- ESTADO: COMPLETO -->
                                         {% elif p.estado == 'completo' %}
                                             {% if not p.tiene_orden_venta %}
-                                                {% if granular_sales_perms.salidas.crear %}
+                                                {% if granular_sales_perms.salidas.crear or request.user.is_superuser or not granular_sales_perms %}
                                                 <a href="{% url 'crear_orden_venta' p.id %}" 
                                                    class="icon-action" 
-                                                   title="Generar Orden de Salida"
+                                                   title="Generar Orden de Salida (Seguimiento)"
                                                    onclick="return confirm('¿Generar Orden de Salida para este pedido?');">
                                                     <i class="bi bi-truck"></i>
+                                                </a>
+                                                <a href="{% url 'entregar_pedido_directo' p.id %}" 
+                                                   class="icon-action" 
+                                                   title="Entregar Pedido"
+                                                   onclick="return confirm('¿Entregar este pedido directamente? Se creará la salida y pasará a entregado en automático.');">
+                                                    <i class="bi bi-check2-circle"></i>
+                                                </a>
+                                                {% endif %}
+                                            {% elif p.envio_status != 'Entregado' %}
+                                                {% if granular_sales_perms.salidas.crear or request.user.is_superuser or not granular_sales_perms %}
+                                                <a href="{% url 'entregar_pedido_directo' p.id %}" 
+                                                   class="icon-action" 
+                                                   title="Entregar Pedido"
+                                                   onclick="return confirm('¿Entregar este pedido directamente? Pasará a entregado en automático.');">
+                                                    <i class="bi bi-check2-circle"></i>
                                                 </a>
                                                 {% endif %}
                                             {% endif %}
@@ -382,14 +411,14 @@
 
                                 <!-- 1.5 SUCURSAL -->
                                 <td class="text-center align-middle">
-                                    <span class="badge bg-light text-secondary border small">{{ p.sucursal.nombre|default:"Principal" }}</span>
+                                    <span class="text-dark" style="font-weight: 400;">{{ p.sucursal.nombre|default:"Principal" }}</span>
                                 </td>
 
                                 <!-- 2. FOLIO PEDIDO / COTIZACIÓN -->
                                 <td class="text-center align-middle">
-                                    <div class="fw-bold text-dark font-monospace" style="font-size: 0.9rem;">PED-{{ p.id|stringformat:"04d" }}</div>
+                                    <div class="text-dark" style="font-weight: 400;">PED-{{ p.id|stringformat:"04d" }}</div>
                                     {% if p.cotizacion_origen_id %}
-                                        <div class="text-secondary small font-monospace" style="font-size: 0.75rem;">COT-{{ p.cotizacion_origen_id|stringformat:"04d" }}</div>
+                                        <div class="text-secondary small" style="font-weight: 400; font-size: 0.75rem;">COT-{{ p.cotizacion_origen_id|stringformat:"04d" }}</div>
                                     {% endif %}
                                 </td>
                                 
@@ -415,26 +444,23 @@
 
                                 <!-- 5. FECHA -->
                                 <td class="text-center align-middle">
-                                    <div class="text-dark fw-medium">{{ p.fecha_creacion|date:"d M Y" }}</div>
-                                </td>
-
-                                <!-- 5. AVANCE -->
-                                <td class="text-center align-middle px-3">
-                                    <div class="mb-1">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <span class="progress-label">Surtido</span>
-                                            <span class="progress-label text-dark">{{ p.porcentaje_avance }}%</span>
-                                        </div>
-                                        <div class="progress-slim">
-                                            <div class="progress-bar bg-brand-avance" 
-                                                 style="width: {{ p.porcentaje_avance }}%"></div>
-                                        </div>
-                                    </div>
+                                    <span class="text-dark" style="font-weight: 400;">{{ p.fecha_creacion|date:"d M Y" }}</span>
                                 </td>
 
                                 <!-- 6. TOTAL -->
                                 <td class="text-center align-middle">
                                     <span class="text-dark" style="font-weight: 400;">${{ p.total_pedido|intcomma }}</span>
+                                </td>
+
+                                <!-- 6.5 CANALES -->
+                                <td class="text-center align-middle">
+                                    {% if p.canal == 'pos' or p.canal == 'POS' or p.sesion_caja %}
+                                        <span class="status-pill status-canal-pos">POS</span>
+                                    {% elif p.canal == 'ecommerce' or p.canal == 'E-commerce' or 'Ecommerce' in p.notas %}
+                                        <span class="status-pill status-canal-ecommerce">E-commerce</span>
+                                    {% else %}
+                                        <span class="status-pill status-canal-pedidos">Pedidos</span>
+                                    {% endif %}
                                 </td>
 
                                 <!-- 7. ESTADO DE PAGO -->
@@ -450,7 +476,7 @@
                                     {% endif %}
                                 </td>
 
-                                <!-- 7.5 ESTADO DE ENVÍO -->
+                                <!-- 7.5 ESTADO DE ENTREGA -->
                                 <td class="text-center align-middle">
                                     {% if p.envio_status %}
                                         <span class="status-pill {{ p.envio_status_color }}">{{ p.envio_status }}</span>
@@ -1900,6 +1926,8 @@
                 document.getElementById('ver_pedido_cliente_tel').innerText = data.cliente_tel;
                 document.getElementById('ver_pedido_cliente_email').innerText = data.cliente_email;
                 document.getElementById('ver_pedido_fecha').innerText = data.fecha;
+                const elRec = document.getElementById('ver_pedido_fecha_recoleccion');
+                if (elRec) elRec.innerText = data.fecha_recoleccion || '--';
                 document.getElementById('ver_pedido_cotizacion').innerText = data.cotizacion_folio;
                 document.getElementById('ver_pedido_contacto_nom').innerText = data.contacto_nombre;
                 document.getElementById('ver_pedido_contacto_tel').innerText = data.contacto_tel;

@@ -1,4 +1,6 @@
 from django.db import models
+from django.utils import timezone
+from datetime import timedelta
 from panel.models import Empresa  # <--- IMPORTANTE
 
 class Cliente(models.Model):
@@ -62,10 +64,62 @@ class Cliente(models.Model):
     )
 
     estado = models.CharField(max_length=20, choices=ESTADO_OPCIONES, default='activo', verbose_name="Estado")
-    tipo = models.CharField(max_length=20, choices=TIPO_OPCIONES, default='prospecto', verbose_name="Tipo")
+    tipo = models.CharField(max_length=20, choices=TIPO_OPCIONES, default='cliente_nuevo', verbose_name="Tipo")
     relacion = models.CharField(max_length=20, choices=RELACION_OPCIONES, default='directo', verbose_name="Relación")
     
     creado_en = models.DateTimeField(auto_now_add=True, verbose_name="Registrado el")
+
+    def actualizar_tipo_cliente(self, commit=True):
+        """
+        Ciclo de vida del cliente:
+        - Clientes nuevos: tipo 'cliente_nuevo'.
+        - Cuando genere otro pedido (>= 2 pedidos válidos y recientes): 'cliente_activo'.
+        - Cliente con más de 1 mes (30 días) sin ventas: 'cliente_inactivo'.
+        - Cliente inactivo que vuelve a comprar: 'cliente_activo'.
+        - Si es VIP, se conserva la categoría manual VIP.
+        """
+        if self.tipo == 'vip':
+            return self.tipo
+
+        ahora = timezone.now()
+        limite_30_dias = ahora - timedelta(days=30)
+
+        # Pedidos válidos (excluyendo cancelados)
+        pedidos_validos = self.pedido_set.exclude(estado='cancelado').order_by('-fecha_creacion')
+        total_pedidos = pedidos_validos.count()
+        ultimo_pedido = pedidos_validos.first()
+
+        nuevo_tipo = self.tipo
+
+        if total_pedidos == 0:
+            # Sin pedidos
+            if self.creado_en and self.creado_en < limite_30_dias:
+                nuevo_tipo = 'cliente_inactivo'
+            else:
+                nuevo_tipo = 'cliente_nuevo'
+        else:
+            fecha_ultima_compra = ultimo_pedido.fecha_creacion
+            if fecha_ultima_compra < limite_30_dias:
+                # Más de 1 mes sin compras
+                nuevo_tipo = 'cliente_inactivo'
+            else:
+                # Compra reciente (dentro de los últimos 30 días)
+                if self.tipo == 'cliente_inactivo':
+                    # Inactivo que vuelve a comprar -> activo
+                    nuevo_tipo = 'cliente_activo'
+                elif total_pedidos >= 2:
+                    # Cuando genere otro pedido -> activo
+                    nuevo_tipo = 'cliente_activo'
+                else:
+                    # 1er pedido reciente
+                    nuevo_tipo = 'cliente_nuevo'
+
+        if nuevo_tipo != self.tipo:
+            self.tipo = nuevo_tipo
+            if commit:
+                self.save(update_fields=['tipo'])
+
+        return self.tipo
 
     def __str__(self):
         return self.nombre_completo

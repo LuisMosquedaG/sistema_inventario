@@ -122,6 +122,12 @@ def dashboard_preferencias(request):
         # Solo admin/sadmin pueden entrar aquí
         if not request.user.is_staff:
             return render(request, 'error_sin_empresa.html', status=403)
+
+    elif seccion_activa == 'ecommerce':
+        from .models import ConfiguracionEcommerce
+        config_ecom, _ = ConfiguracionEcommerce.objects.get_or_create(empresa=empresa_actual)
+        contexto['config_ecommerce'] = config_ecom
+        contexto['ecommerce_url'] = request.build_absolute_uri(f"/ecommerce/{empresa_actual.subdominio}/")
             
     return render(request, 'dashboard_preferencias.html', contexto)
 
@@ -1160,3 +1166,32 @@ def api_probar_smtp(request):
         return JsonResponse({'success': True, 'message': f'Conexión SMTP exitosa. Correo de prueba enviado a {destinatario}.'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': f'Error de conexión SMTP: {str(e)}'})
+
+
+@login_required
+@require_POST
+def actualizar_config_ecommerce_ajax(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Empresa no encontrada.'}, status=403)
+    
+    try:
+        from .models import ConfiguracionEcommerce
+        config_ecom, _ = ConfiguracionEcommerce.objects.get_or_create(empresa=empresa_actual)
+        
+        config_ecom.activo = request.POST.get('activo') in ['true', 'on', '1']
+        solo_con_stock = request.POST.get('solo_con_stock') in ['true', 'on', '1']
+        config_ecom.solo_con_stock = solo_con_stock
+        config_ecom.mostrar_solo_con_stock = solo_con_stock
+        config_ecom.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Configuración de Ecommerce guardada correctamente.',
+            'activo': config_ecom.activo,
+            'solo_con_stock': config_ecom.solo_con_stock,
+            'mostrar_solo_con_stock': config_ecom.mostrar_solo_con_stock
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+

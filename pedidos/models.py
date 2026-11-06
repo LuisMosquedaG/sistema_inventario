@@ -59,6 +59,25 @@ class Pedido(models.Model):
 
     def __str__(self):
         return f"Pedido #{self.id} - {self.cliente}"
+
+    canal = models.CharField(
+        max_length=20,
+        default='pedidos',
+        choices=(
+            ('pedidos', 'Pedidos'),
+            ('pos', 'POS'),
+            ('ecommerce', 'E-commerce'),
+        ),
+        verbose_name="Canal de Venta"
+    )
+
+    @property
+    def canal_display(self):
+        if self.canal in ['ecommerce', 'E-commerce'] or (self.notas and 'Ecommerce' in self.notas):
+            return 'E-commerce'
+        if self.canal in ['pos', 'POS'] or self.sesion_caja_id:
+            return 'POS'
+        return 'Pedidos'
     
     @property
     def total_pedido(self):

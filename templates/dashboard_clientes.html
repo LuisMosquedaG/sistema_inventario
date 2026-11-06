@@ -553,10 +553,10 @@
                                         <div class="col-md-4">
                                             <label class="form-label small fw-bold text-secondary">Tipo</label>
                                             <select name="tipo" id="inputTipo" class="form-select form-select-sm">
-                                                <option value="prospecto">Prospecto</option>
-                                                <option value="cliente_nuevo">Cliente Nuevo</option>
+                                                <option value="cliente_nuevo" selected>Cliente Nuevo</option>
                                                 <option value="cliente_activo">Cliente Activo</option>
                                                 <option value="cliente_inactivo">Cliente Inactivo</option>
+                                                <option value="prospecto">Prospecto</option>
                                                 <option value="vip">VIP</option>
                                             </select>
                                         </div>
@@ -984,7 +984,7 @@
 
         // --- NUEVO: LIMPIEZA DE CLASIFICACIÓN (NUEVOS CAMPOS) ---
         document.getElementById('inputEstado').value = 'activo';
-        document.getElementById('inputTipo').value = 'prospecto';
+        document.getElementById('inputTipo').value = 'cliente_nuevo';
         document.getElementById('inputRelacion').value = 'directo';
 
         // --- LIMPIEZA DE DIRECCIÓN DE ENVÍO (NUEVO) ---
@@ -1278,7 +1278,7 @@
 
                 // --- B. Llenar Clasificación ---
                 document.getElementById('inputEstado').value = data.estado || 'activo';
-                document.getElementById('inputTipo').value = data.tipo || 'prospecto';
+                document.getElementById('inputTipo').value = data.tipo || 'cliente_nuevo';
                 document.getElementById('inputRelacion').value = data.relacion || 'directo';
 
                 // --- C. Llenar Datos de Dirección FISCAL (Esta es la parte crítica) ---

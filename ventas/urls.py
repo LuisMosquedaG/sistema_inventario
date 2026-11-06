@@ -10,6 +10,7 @@ urlpatterns = [
 
     # 3. Creación de Orden de Venta (desde un Pedido)
     path('crear-desde-pedido/<int:pedido_id>/', views.crear_orden_venta, name='crear_orden_venta'),
+    path('entregar-desde-pedido/<int:pedido_id>/', views.entregar_pedido_directo, name='entregar_pedido_directo'),
 
     # 3. Cambio de Estado simple (Borrador -> Aprobado)
     path('cambiar-estado/<int:ov_id>/<str:nuevo_estado>/', views.cambiar_estado_ov, name='cambiar_estado_ov'),
