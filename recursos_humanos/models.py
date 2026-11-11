@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 from panel.models import Empresa
 from django.core.files.storage import FileSystemStorage
 from django.conf import settings
@@ -78,6 +79,7 @@ class Empleado(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
     sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
     creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='empleados_creados', verbose_name="Creado por")
+    usuario = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='empleado', verbose_name="Usuario de Acceso")
     
     # 1. IDENTIFICACIÓN Y DATOS PERSONALES
     num_empleado = models.CharField(max_length=20, default="", verbose_name="Número de Empleado")
@@ -1152,5 +1154,49 @@ class ContratistaRegistroPatronal(models.Model):
 
     def __str__(self):
         return f"{self.contratista.nombre_razon_social} - {self.registro_patronal}"
+
+
+def upload_to_asistencia_foto(instance, filename):
+    subdominio = instance.empresa.subdominio if instance.empresa else 'default'
+    fecha_str = timezone.localdate().strftime('%Y/%m')
+    return f'tenants/{subdominio}/asistencias/{fecha_str}/{filename}'
+
+
+class AsistenciaEmpleado(models.Model):
+    TIPO_REGISTRO_CHOICES = [
+        ('entrada_laboral', 'Entrada Laboral'),
+        ('salida_comer', 'Salida a Comer'),
+        ('regreso_comer', 'Regreso de Comer'),
+        ('salida_laboral', 'Salida Laboral'),
+    ]
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
+    empleado = models.ForeignKey(Empleado, on_delete=models.CASCADE, related_name='asistencias', verbose_name="Empleado")
+    sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
+
+    tipo = models.CharField(max_length=25, choices=TIPO_REGISTRO_CHOICES, verbose_name="Tipo de Registro")
+    fecha = models.DateField(default=timezone.localdate, db_index=True, verbose_name="Fecha")
+    fecha_hora = models.DateTimeField(default=timezone.now, verbose_name="Fecha y Hora")
+
+    latitud = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True, verbose_name="Latitud")
+    longitud = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True, verbose_name="Longitud")
+    precision_gps = models.FloatField(null=True, blank=True, verbose_name="Precisión GPS (m)")
+
+    foto = models.ImageField(upload_to=upload_to_asistencia_foto, null=True, blank=True, verbose_name="Fotografía")
+    ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name="Dirección IP")
+    user_agent = models.CharField(max_length=255, blank=True, null=True, verbose_name="Dispositivo / Navegador")
+    notas = models.TextField(blank=True, null=True, verbose_name="Notas")
+
+    class Meta:
+        verbose_name = "Asistencia de Empleado"
+        verbose_name_plural = "Asistencias de Empleados"
+        ordering = ['-fecha_hora']
+        indexes = [
+            models.Index(fields=['empresa', 'empleado', 'fecha']),
+        ]
+
+    def __str__(self):
+        return f"{self.empleado} - {self.get_tipo_display()} ({self.fecha_hora:%d/%m/%Y %H:%M})"
+
 
 

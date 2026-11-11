@@ -1,8 +1,10 @@
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
+from django.db import transaction
 from django.db.models import Q
 from decimal import Decimal
 
@@ -11,6 +13,75 @@ from preferencias.models import Sucursal
 from preferencias.permissions import require_hr_permission
 from .utils import get_empresa_actual
 from notificaciones.utils import crear_notificacion
+
+
+def _sincronizar_usuario_empleado(empresa_actual, data, empleado=None):
+    """Crea, actualiza o desvincula el User de portal de un Empleado según los datos del modal."""
+    usuario_portal = (data.get('usuario_portal') or '').strip()
+    password_portal = data.get('password_portal') or ''
+    confirmar_password = data.get('confirmar_password') or ''
+
+    if (password_portal or confirmar_password) and not usuario_portal:
+        return None, 'Debes indicar un nombre de usuario para asignar contraseña.'
+
+    if password_portal != confirmar_password:
+        return None, 'Las contraseñas no coinciden.'
+
+    user_obj = None
+    if empleado and empleado.usuario_id:
+        try:
+            user_obj = empleado.usuario
+        except User.DoesNotExist:
+            user_obj = None
+
+    if not usuario_portal:
+        if user_obj:
+            user_obj.delete()
+        return None, None
+
+    sufijo = f"@{empresa_actual.subdominio}"
+    if usuario_portal.lower().endswith(sufijo.lower()):
+        usuario_portal = usuario_portal[:-len(sufijo)].strip()
+    if not usuario_portal:
+        return None, 'El nombre de usuario no es válido.'
+
+    username_completo = f"{usuario_portal}{sufijo}"
+    dup_qs = User.objects.filter(username=username_completo)
+    if user_obj:
+        dup_qs = dup_qs.exclude(id=user_obj.id)
+    if dup_qs.exists():
+        return None, f'El usuario {username_completo} ya existe.'
+
+    email = (data.get('correo_personal') or '').strip()
+    first_name = (data.get('nombre') or '').strip()[:150]
+    last_name = f"{(data.get('apellido_paterno') or '').strip()} {(data.get('apellido_materno') or '').strip()}".strip()[:150]
+
+    if user_obj:
+        user_obj.username = username_completo
+        user_obj.email = email
+        user_obj.first_name = first_name
+        user_obj.last_name = last_name
+        user_obj.is_staff = False
+        user_obj.is_superuser = False
+        if password_portal:
+            user_obj.set_password(password_portal)
+        user_obj.save()
+        return user_obj, None
+
+    if not password_portal:
+        return None, 'La contraseña y su confirmación son obligatorias para crear el usuario.'
+
+    user_obj = User.objects.create_user(
+        username=username_completo,
+        email=email,
+        password=password_portal,
+        first_name=first_name,
+        last_name=last_name,
+    )
+    user_obj.is_staff = False
+    user_obj.is_superuser = False
+    user_obj.save(update_fields=['is_staff', 'is_superuser'])
+    return user_obj, None
 
 @login_required(login_url='/login/')
 @require_hr_permission('empleados', 'ver')
@@ -158,6 +229,11 @@ def obtener_empleado_json(request, id):
             'sucursal': emp.sucursal_id or '',
             'contratista_id': emp.contratista_id or '',
             'beneficiario_id': emp.beneficiario_id or '',
+            'usuario_portal': (
+                emp.usuario.username[:-len(f"@{empresa_actual.subdominio}")]
+                if emp.usuario and emp.usuario.username.lower().endswith(f"@{empresa_actual.subdominio}".lower())
+                else (emp.usuario.username.split('@')[0] if emp.usuario else '')
+            ),
         }
         return JsonResponse({'success': True, 'data': data})
     except Empleado.DoesNotExist:
@@ -176,19 +252,19 @@ def editar_empleado_ajax(request, id):
         if num_empleado != emp.num_empleado and Empleado.objects.filter(empresa=empresa_actual, num_empleado=num_empleado).exists():
             return JsonResponse({'success': False, 'error': f'El número de empleado {num_empleado} ya existe.'})
 
-        emp.curp = data.get('curp', '').upper()
-        emp.rfc = data.get('rfc', '').upper()
-        emp.nss = data.get('nss', '')
+        emp.curp = (data.get('curp') or '').upper()
+        emp.rfc = (data.get('rfc') or '').upper()
+        emp.nss = data.get('nss') or ''
         emp.id_oficial = data.get('id_oficial')
         emp.fecha_nacimiento = data.get('fecha_nacimiento') or None
-        emp.genero = data.get('genero')
-        emp.nacionalidad = data.get('nacionalidad', 'Mexicana')
-        emp.nombre = data.get('nombre')
-        emp.apellido_paterno = data.get('apellido_paterno')
-        emp.apellido_materno = data.get('apellido_materno')
-        emp.estado_civil = data.get('estado_civil')
-        emp.correo_personal = data.get('correo_personal')
-        emp.telefono_movil = data.get('telefono_movil')
+        emp.genero = data.get('genero') or emp.genero or 'H'
+        emp.nacionalidad = data.get('nacionalidad') or emp.nacionalidad or 'Mexicana'
+        emp.nombre = data.get('nombre') or ''
+        emp.apellido_paterno = data.get('apellido_paterno') or ''
+        emp.apellido_materno = data.get('apellido_materno') or ''
+        emp.estado_civil = data.get('estado_civil') or emp.estado_civil or 'soltero'
+        emp.correo_personal = data.get('correo_personal') or ''
+        emp.telefono_movil = data.get('telefono_movil') or ''
         emp.telefono_fijo = data.get('telefono_fijo')
         emp.calle = data.get('calle')
         emp.num_ext = data.get('num_ext')
@@ -198,38 +274,44 @@ def editar_empleado_ajax(request, id):
         emp.ciudad = data.get('ciudad')
         emp.estado_dir = data.get('estado_dir')
         emp.num_empleado = num_empleado
-        emp.estado = data.get('estado')
+        emp.estado = data.get('estado') or emp.estado or 'activo'
         emp.fecha_ingreso = data.get('fecha_ingreso') or None
         emp.fecha_antiguedad = data.get('fecha_antiguedad') or None
-        emp.tipo_contrato = data.get('tipo_contrato')
-        emp.jornada = data.get('jornada')
-        emp.puesto = data.get('puesto')
-        emp.departamento = data.get('departamento')
+        emp.tipo_contrato = data.get('tipo_contrato') or emp.tipo_contrato or '01'
+        emp.jornada = data.get('jornada') or emp.jornada or 'diurna'
+        emp.puesto = data.get('puesto') or ''
+        emp.departamento = data.get('departamento') or ''
         emp.supervisor = data.get('supervisor')
-        emp.riesgo_trabajo = data.get('riesgo_trabajo')
-        emp.tipo_trabajador = data.get('tipo_trabajador')
+        emp.riesgo_trabajo = data.get('riesgo_trabajo') or emp.riesgo_trabajo or 'I'
+        emp.tipo_trabajador = data.get('tipo_trabajador') or emp.tipo_trabajador or 'base'
         
         # Relaciones directas
         emp.contratista_id = data.get('contratista') or None
         emp.beneficiario_id = data.get('beneficiario') or None
         
-        emp.salario_diario_ordinario = Decimal(data.get('salario_diario_ordinario', '0'))
-        emp.sbc = Decimal(data.get('sbc', '0'))
-        emp.sdi = Decimal(data.get('sdi', '0'))
-        emp.forma_pago = data.get('forma_pago')
-        emp.clave_percepcion_sat = data.get('clave_percepcion_sat', '001')
-        emp.tipo_salario = data.get('tipo_salario')
+        emp.salario_diario_ordinario = Decimal(data.get('salario_diario_ordinario') or '0')
+        emp.sbc = Decimal(data.get('sbc') or '0')
+        emp.sdi = Decimal(data.get('sdi') or '0')
+        emp.forma_pago = data.get('forma_pago') or emp.forma_pago or 'quincenal'
+        emp.clave_percepcion_sat = data.get('clave_percepcion_sat') or emp.clave_percepcion_sat or '001'
+        emp.tipo_salario = data.get('tipo_salario') or emp.tipo_salario or 'fijo'
         emp.registro_patronal = data.get('registro_patronal')
         emp.num_infonavit = data.get('num_infonavit')
         emp.num_fonacot = data.get('num_fonacot')
         emp.fondo_ahorro = (data.get('fondo_ahorro') == 'on')
-        emp.porcentaje_fondo = Decimal(data.get('porcentaje_fondo', '0'))
+        emp.porcentaje_fondo = Decimal(data.get('porcentaje_fondo') or '0')
         emp.banco_nombre = data.get('banco_nombre')
         emp.clabe = data.get('clabe')
         emp.num_cuenta = data.get('num_cuenta')
-        emp.tipo_cuenta = data.get('tipo_cuenta')
-        
-        emp.save()
+        emp.tipo_cuenta = data.get('tipo_cuenta') or emp.tipo_cuenta or 'tarjeta'
+
+        with transaction.atomic():
+            user_obj, user_error = _sincronizar_usuario_empleado(empresa_actual, data, empleado=emp)
+            if user_error:
+                transaction.set_rollback(True)
+                return JsonResponse({'success': False, 'error': user_error})
+            emp.usuario = user_obj
+            emp.save()
 
         contrato_id = data.get('contrato_id')
         if contrato_id:
@@ -294,67 +376,74 @@ def crear_empleado_ajax(request):
 
         sucursal_id = request.session.get('sucursal_id')
 
-        nuevo_empleado = Empleado(
-            empresa=empresa_actual,
-            sucursal_id=sucursal_id,
-            curp=data.get('curp', '').upper(),
-            rfc=data.get('rfc', '').upper(),
-            nss=data.get('nss', ''),
-            id_oficial=data.get('id_oficial'),
-            fecha_nacimiento=data.get('fecha_nacimiento') or None,
-            genero=data.get('genero'),
-            nacionalidad=data.get('nacionalidad', 'Mexicana'),
-            nombre=data.get('nombre'),
-            apellido_paterno=data.get('apellido_paterno'),
-            apellido_materno=data.get('apellido_materno'),
-            estado_civil=data.get('estado_civil'),
-            correo_personal=data.get('correo_personal'),
-            telefono_movil=data.get('telefono_movil'),
-            telefono_fijo=data.get('telefono_fijo'),
-            calle=data.get('calle'),
-            num_ext=data.get('num_ext'),
-            num_int=data.get('num_int'),
-            colonia=data.get('colonia'),
-            cp=data.get('cp'),
-            ciudad=data.get('ciudad'),
-            estado_dir=data.get('estado_dir'),
-            num_empleado=num_empleado,
-            estado=data.get('estado'),
-            fecha_ingreso=data.get('fecha_ingreso') or None,
-            fecha_antiguedad=data.get('fecha_antiguedad') or data.get('fecha_ingreso') or None,
-            fecha_expiracion=data.get('fecha_expiracion') or None,
-            tipo_contrato=data.get('tipo_contrato'),
-            jornada=data.get('jornada'),
-            puesto=data.get('puesto'),
-            departamento=data.get('departamento'),
-            supervisor=data.get('supervisor'),
-            clave_ubicacion=data.get('clave_ubicacion'),
-            notas=data.get('notas'),
-            riesgo_trabajo=data.get('riesgo_trabajo'),
-            tipo_trabajador=data.get('tipo_trabajador'),
-            contratista_id=data.get('contratista') or None,
-            beneficiario_id=data.get('beneficiario') or None,
-            salario_diario_ordinario=Decimal(data.get('salario_diario_ordinario', '0')),
-            sbc=Decimal(data.get('sbc', '0')),
-            sdi=Decimal(data.get('sdi', '0')),
-            forma_pago=data.get('forma_pago'),
-            clave_percepcion_sat=data.get('clave_percepcion_sat', '001'),
-            tipo_salario=data.get('tipo_salario'),
-            registro_patronal=data.get('registro_patronal'),
-            num_infonavit=data.get('num_infonavit'),
-            num_fonacot=data.get('num_fonacot'),
-            fondo_ahorro=(data.get('fondo_ahorro') == 'on'),
-            porcentaje_fondo=Decimal(data.get('porcentaje_fondo', '0')),
-            caja_ahorro=(data.get('caja_ahorro') == 'on'),
-            banco_nombre=data.get('banco_nombre'),
-            clabe=data.get('clabe'),
-            num_cuenta=data.get('num_cuenta'),
-            tipo_cuenta=data.get('tipo_cuenta'),
-            tarjeta_nomina=(data.get('tarjeta_nomina') == 'on'),
-            num_tarjeta=data.get('num_tarjeta'),
-            creado_por=request.user,
-        )
-        nuevo_empleado.save()
+        with transaction.atomic():
+            user_obj, user_error = _sincronizar_usuario_empleado(empresa_actual, data)
+            if user_error:
+                transaction.set_rollback(True)
+                return JsonResponse({'success': False, 'error': user_error})
+
+            nuevo_empleado = Empleado(
+                empresa=empresa_actual,
+                sucursal_id=sucursal_id,
+                usuario=user_obj,
+                curp=(data.get('curp') or '').upper(),
+                rfc=(data.get('rfc') or '').upper(),
+                nss=data.get('nss') or '',
+                id_oficial=data.get('id_oficial'),
+                fecha_nacimiento=data.get('fecha_nacimiento') or None,
+                genero=data.get('genero') or 'H',
+                nacionalidad=data.get('nacionalidad') or 'Mexicana',
+                nombre=data.get('nombre') or '',
+                apellido_paterno=data.get('apellido_paterno') or '',
+                apellido_materno=data.get('apellido_materno') or '',
+                estado_civil=data.get('estado_civil') or 'soltero',
+                correo_personal=data.get('correo_personal') or '',
+                telefono_movil=data.get('telefono_movil') or '',
+                telefono_fijo=data.get('telefono_fijo'),
+                calle=data.get('calle'),
+                num_ext=data.get('num_ext'),
+                num_int=data.get('num_int'),
+                colonia=data.get('colonia'),
+                cp=data.get('cp'),
+                ciudad=data.get('ciudad'),
+                estado_dir=data.get('estado_dir'),
+                num_empleado=num_empleado,
+                estado=data.get('estado') or 'activo',
+                fecha_ingreso=data.get('fecha_ingreso') or None,
+                fecha_antiguedad=data.get('fecha_antiguedad') or data.get('fecha_ingreso') or None,
+                fecha_expiracion=data.get('fecha_expiracion') or None,
+                tipo_contrato=data.get('tipo_contrato') or '01',
+                jornada=data.get('jornada') or 'diurna',
+                puesto=data.get('puesto') or '',
+                departamento=data.get('departamento') or '',
+                supervisor=data.get('supervisor'),
+                clave_ubicacion=data.get('clave_ubicacion'),
+                notas=data.get('notas'),
+                riesgo_trabajo=data.get('riesgo_trabajo') or 'I',
+                tipo_trabajador=data.get('tipo_trabajador') or 'base',
+                contratista_id=data.get('contratista') or None,
+                beneficiario_id=data.get('beneficiario') or None,
+                salario_diario_ordinario=Decimal(data.get('salario_diario_ordinario') or '0'),
+                sbc=Decimal(data.get('sbc') or '0'),
+                sdi=Decimal(data.get('sdi') or '0'),
+                forma_pago=data.get('forma_pago') or 'quincenal',
+                clave_percepcion_sat=data.get('clave_percepcion_sat') or '001',
+                tipo_salario=data.get('tipo_salario') or 'fijo',
+                registro_patronal=data.get('registro_patronal'),
+                num_infonavit=data.get('num_infonavit'),
+                num_fonacot=data.get('num_fonacot'),
+                fondo_ahorro=(data.get('fondo_ahorro') == 'on'),
+                porcentaje_fondo=Decimal(data.get('porcentaje_fondo') or '0'),
+                caja_ahorro=(data.get('caja_ahorro') == 'on'),
+                banco_nombre=data.get('banco_nombre'),
+                clabe=data.get('clabe'),
+                num_cuenta=data.get('num_cuenta'),
+                tipo_cuenta=data.get('tipo_cuenta') or 'tarjeta',
+                tarjeta_nomina=(data.get('tarjeta_nomina') == 'on'),
+                num_tarjeta=data.get('num_tarjeta'),
+                creado_por=request.user,
+            )
+            nuevo_empleado.save()
 
         contrato_id = data.get('contrato_id')
         if contrato_id:

@@ -35,6 +35,8 @@ def dashboard_inicio(request):
         return redirect('portal_beneficiarios')
     if hasattr(request.user, 'proveedor_rh'):
         return redirect('portal_proveedores')
+    if hasattr(request.user, 'empleado'):
+        return redirect('portal_asistencias_empleado')
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)

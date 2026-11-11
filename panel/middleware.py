@@ -79,6 +79,14 @@ class TenantStatusMiddleware:
         if any(request.path.startswith(path) for path in exempt_paths):
             return self.get_response(request)
 
+        # 1.5 RESTRINGIR USUARIOS DE PORTAL DE EMPLEADO A SU PORTAL DE ASISTENCIAS
+        if request.user.is_authenticated and hasattr(request.user, 'empleado') and not request.user.is_superuser and not request.user.is_staff:
+            emp_allowed = ['/recursos-humanos/asistencias/portal/', '/login-redirect/', '/logout/', '/login/', '/static/', '/media/']
+            if not any(request.path.startswith(p) for p in emp_allowed):
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.content_type == 'application/json':
+                    return JsonResponse({'success': False, 'error': 'Acceso restringido al portal de asistencias.'}, status=403)
+                return redirect('portal_asistencias_empleado')
+
         if request.user.is_authenticated:
             username = request.user.username.lower()
             
@@ -124,8 +132,8 @@ class UserDefaultSucursalMiddleware:
 
     def __call__(self, request):
         if request.user.is_authenticated:
-            # Evitar madmin, beneficiarios y proveedores del portal
-            if request.user.username != 'madmin@crossoversuite' and not hasattr(request.user, 'beneficiario') and not hasattr(request.user, 'proveedor_rh'):
+            # Evitar madmin, beneficiarios, proveedores y empleados del portal
+            if request.user.username != 'madmin@crossoversuite' and not hasattr(request.user, 'beneficiario') and not hasattr(request.user, 'proveedor_rh') and not hasattr(request.user, 'empleado'):
                 username = request.user.username
                 if '@' in username:
                     subdominio = username.split('@')[1]

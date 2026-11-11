@@ -1,0 +1,490 @@
+{% extends "base.html" %}
+{% load l10n %}
+
+{% block title %}Asistencias de {{ empleado.nombre }} {{ empleado.apellido_paterno }} - Recursos Humanos{% endblock %}
+
+{% block content %}
+<style>
+    .icon-action {
+        color: #adb5bd;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        text-decoration: none !important;
+    }
+    .icon-action:hover {
+        color: #00b8b9;
+        transform: scale(1.15);
+        background-color: transparent !important;
+    }
+    .icon-action:active {
+        transform: scale(0.95);
+    }
+    .icon-action-danger:hover {
+        color: #dc3545 !important;
+    }
+    .form-label-custom {
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: #495057;
+        margin-bottom: 0.25rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .att-gps-link {
+        font-size: 0.92rem;
+        text-decoration: none !important;
+        color: #00b8b9;
+        display: inline-flex;
+        align-items: center;
+        line-height: 1;
+        transition: transform 0.15s ease, color 0.15s ease;
+    }
+    .att-gps-link:hover {
+        color: #009495;
+        transform: scale(1.15);
+    }
+    .table.table-pro tbody tr:hover td {
+        background-color: #f1f3f5 !important;
+    }
+    .att-foto-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        background: #ffffff;
+        padding: 1rem;
+        height: 100%;
+    }
+    .att-foto-preview {
+        width: 100%;
+        height: 280px;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+    }
+    #modalEditarAsistencia .modal-body {
+        overflow-y: auto;
+        max-height: calc(100vh - 210px);
+        scrollbar-width: thin;
+        scrollbar-color: #94a3b8 #f1f5f9;
+    }
+    #modalEditarAsistencia .modal-body::-webkit-scrollbar {
+        width: 8px;
+    }
+    #modalEditarAsistencia .modal-body::-webkit-scrollbar-track {
+        background: #f1f5f9;
+    }
+    #modalEditarAsistencia .modal-body::-webkit-scrollbar-thumb {
+        background-color: #94a3b8;
+        border-radius: 999px;
+        border: 2px solid #f1f5f9;
+    }
+    #modalEditarAsistencia .modal-body::-webkit-scrollbar-thumb:hover {
+        background-color: #64748b;
+    }
+</style>
+
+<div class="container-fluid py-2 px-4">
+    <!-- HEADER -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+        <div>
+            <h4 class="section-title mb-0">
+                Asistencias — {{ empleado.nombre }} {{ empleado.apellido_paterno }} {{ empleado.apellido_materno|default:"" }}
+            </h4>
+            <span class="section-subtitle">
+                No. Empleado: {{ empleado.num_empleado|default:"--" }}
+                {% if empleado.puesto %}• {{ empleado.puesto }}{% endif %}
+                {% if empleado.usuario %}• Usuario: {{ empleado.usuario.username }}{% endif %}
+            </span>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <a href="{% url 'lista_empleados' %}" class="btn btn-light border btn-sm px-3 text-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Volver a Empleados
+            </a>
+            <a href="{% url 'asistencias_empleado_detalle' empleado.id %}?fecha_inicio={{ fecha_inicio }}&fecha_fin={{ fecha_fin }}&export=excel"
+               class="btn btn-brand text-white btn-sm px-3 shadow-sm">
+                <i class="bi bi-file-earmark-excel me-1"></i> Exportar Excel
+            </a>
+        </div>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-2">
+            <form method="get" action="{% url 'asistencias_empleado_detalle' empleado.id %}" class="row gx-2 gy-2 align-items-end">
+                <div class="col-6 col-md-2">
+                    <label for="fecha_inicio" class="form-label-custom">Desde</label>
+                    <input type="date" id="fecha_inicio" name="fecha_inicio" value="{{ fecha_inicio }}" class="form-control form-control-sm" onchange="if (this.value) this.form.submit()">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label for="fecha_fin" class="form-label-custom">Hasta</label>
+                    <input type="date" id="fecha_fin" name="fecha_fin" value="{{ fecha_fin }}" class="form-control form-control-sm" onchange="if (this.value) this.form.submit()">
+                </div>
+                <div class="col text-md-end small text-muted pe-md-2">
+                    Días: <strong class="text-dark">{{ total_dias }}</strong>
+                    <span class="mx-2">|</span>
+                    Horas Netas: <strong class="text-dark">{{ total_horas_str }}</strong>
+                    <span class="mx-2">|</span>
+                    Registros: <strong class="text-dark">{{ total_registros }}</strong>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TABLA -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-pro mb-0">
+                    <thead>
+                        <tr>
+                            <th class="text-center" style="width: 115px;">Acciones</th>
+                            <th class="text-center">Entrada Laboral</th>
+                            <th class="text-center">Salida a Comer</th>
+                            <th class="text-center">Entrada a Comer</th>
+                            <th class="text-center">Salida Laboral</th>
+                            <th class="text-center">Horas Trabajadas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for dia in resumen_dias %}
+                        <tr>
+                            <!-- Acciones -->
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center align-items-center gap-1">
+                                    {% if granular_hr_perms.empleados.editar %}
+                                    <span class="icon-action"
+                                          title="Editar asistencia del {{ dia.fecha|date:'d/m/Y' }}"
+                                          onclick="abrirEditarAsistenciaDia('{{ dia.fecha|date:'Y-m-d' }}')">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </span>
+                                    {% endif %}
+                                    <span class="icon-action"
+                                          title="Ver fotos de entrada y salida"
+                                          onclick="abrirFotosDiaModal(
+                                              '{{ dia.fecha|date:"d/m/Y" }}',
+                                              '{% if dia.entrada_laboral and dia.entrada_laboral.foto %}{{ dia.entrada_laboral.foto.url|escapejs }}{% endif %}',
+                                              '{% if dia.entrada_laboral %}{{ dia.entrada_laboral.fecha_hora|date:"d/m/Y H:i:s" }}{% endif %}',
+                                              '{% if dia.entrada_laboral and dia.entrada_laboral.latitud != None %}{{ dia.entrada_laboral.latitud|unlocalize }}{% endif %}',
+                                              '{% if dia.entrada_laboral and dia.entrada_laboral.longitud != None %}{{ dia.entrada_laboral.longitud|unlocalize }}{% endif %}',
+                                              '{% if dia.salida_laboral and dia.salida_laboral.foto %}{{ dia.salida_laboral.foto.url|escapejs }}{% endif %}',
+                                              '{% if dia.salida_laboral %}{{ dia.salida_laboral.fecha_hora|date:"d/m/Y H:i:s" }}{% endif %}',
+                                              '{% if dia.salida_laboral and dia.salida_laboral.latitud != None %}{{ dia.salida_laboral.latitud|unlocalize }}{% endif %}',
+                                              '{% if dia.salida_laboral and dia.salida_laboral.longitud != None %}{{ dia.salida_laboral.longitud|unlocalize }}{% endif %}'
+                                          )">
+                                        <i class="bi bi-eye"></i>
+                                    </span>
+                                    {% if granular_hr_perms.empleados.eliminar %}
+                                    <span class="icon-action icon-action-danger"
+                                          title="Eliminar registro del {{ dia.fecha|date:'d/m/Y' }}"
+                                          onclick="eliminarAsistenciaDia('{{ dia.fecha|date:'Y-m-d' }}', '{{ dia.fecha|date:'d/m/Y' }}')">
+                                        <i class="bi bi-x-circle"></i>
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </td>
+
+                            <!-- Entrada Laboral, Salida a Comer, Entrada a Comer, Salida Laboral -->
+                            {% for reg in dia.columnas_checadas %}
+                            <td class="text-center text-nowrap">
+                                {% if reg %}
+                                <div class="d-inline-flex align-items-center justify-content-center gap-1">
+                                    {% if reg.latitud != None and reg.longitud != None %}
+                                    <a href="https://maps.google.com/?q={{ reg.latitud|unlocalize }},{{ reg.longitud|unlocalize }}"
+                                       target="_blank" rel="noopener" class="att-gps-link"
+                                       title="Ver ubicación ({{ reg.latitud|unlocalize|floatformat:5 }}, {{ reg.longitud|unlocalize|floatformat:5 }})">
+                                        <i class="bi bi-geo-alt-fill"></i>
+                                    </a>
+                                    {% endif %}
+                                    <span class="text-dark small">{{ reg.fecha_hora|date:"d/m/Y H:i:s" }}</span>
+                                </div>
+                                {% else %}
+                                <span class="text-muted small">--</span>
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+
+                            <!-- Horas Trabajadas (Netas y Brutas) -->
+                            <td class="text-center text-nowrap">
+                                {% if dia.segundos_brutos > 0 or dia.segundos_laborados > 0 %}
+                                <div class="text-dark small">Netas: {{ dia.tiempo_laborado }}</div>
+                                <div class="text-muted" style="font-size: 0.72rem;">Brutas: {{ dia.tiempo_bruto }}</div>
+                                {% else %}
+                                <span class="text-muted small">--</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5">
+                                <i class="bi bi-calendar-x display-6 text-muted mb-2 d-block"></i>
+                                <span class="text-muted fst-italic small">No hay registros de asistencia en el rango seleccionado</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Fotos de Entrada y Salida -->
+<div class="modal fade" id="modalFotosDia" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 14px; overflow: hidden;">
+            <div class="modal-header bg-white border-bottom py-3">
+                <h6 class="modal-title fw-bold text-dark" id="modalFotosDiaTitulo">
+                    <i class="bi bi-camera me-2 text-info"></i>Fotografías de Entrada y Salida
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body bg-light p-3 p-md-4">
+                <div class="row g-3">
+                    <!-- Entrada Laboral -->
+                    <div class="col-md-6">
+                        <div class="att-foto-card text-center">
+                            <div class="fw-bold text-dark small mb-2">Entrada Laboral</div>
+                            <div id="fotoEntradaContainer"></div>
+                            <div id="metaEntradaContainer" class="mt-2 small text-muted"></div>
+                        </div>
+                    </div>
+                    <!-- Salida Laboral -->
+                    <div class="col-md-6">
+                        <div class="att-foto-card text-center">
+                            <div class="fw-bold text-dark small mb-2">Salida Laboral</div>
+                            <div id="fotoSalidaContainer"></div>
+                            <div id="metaSalidaContainer" class="mt-2 small text-muted"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Editar Asistencia del Día -->
+<div class="modal fade" id="modalEditarAsistencia" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <form id="formEditarAsistencia" enctype="multipart/form-data" class="modal-content border-0 shadow-lg" style="border-radius: 14px; overflow: hidden;">
+            {% csrf_token %}
+            <input type="hidden" name="fecha_original" id="edit_fecha_original">
+            <div class="modal-header bg-white border-bottom py-3">
+                <div>
+                    <h6 class="modal-title fw-bold text-dark mb-0">
+                        <i class="bi bi-pencil-square me-2" style="color: #00b8b9;"></i>Editar Registro de Asistencia
+                    </h6>
+                    <small class="text-muted">Modifica fecha, horarios, ubicación GPS, notas o fotografías</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body bg-light p-3 p-md-4">
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body p-3">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label-custom" for="edit_fecha">Fecha</label>
+                                <input type="date" name="fecha" id="edit_fecha" class="form-control form-control-sm" required>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label-custom" for="edit_notas">Notas / Observaciones</label>
+                                <input type="text" name="notas" id="edit_notas" class="form-control form-control-sm" placeholder="Opcional...">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="contenedorMovimientosEditar" class="row g-3"></div>
+            </div>
+            <div class="modal-footer bg-white border-top py-3">
+                <button type="button" class="btn btn-light text-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-brand text-white btn-sm px-4 fw-bold shadow-sm" id="btnGuardarAsistencia" onclick="guardarEdicionAsistencia()">
+                    <i class="bi bi-save me-1"></i> Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function _renderBloqueFoto(containerId, metaId, fotoUrl, fechaHora, lat, lng) {
+    const fotoBox = document.getElementById(containerId);
+    const metaBox = document.getElementById(metaId);
+    fotoBox.innerHTML = '';
+    if (fotoUrl) {
+        const img = document.createElement('img');
+        img.src = fotoUrl;
+        img.alt = 'Evidencia fotográfica';
+        img.className = 'att-foto-preview';
+        fotoBox.appendChild(img);
+    } else {
+        fotoBox.innerHTML = `<div class="att-foto-preview d-flex flex-column align-items-center justify-content-center text-muted">
+            <i class="bi bi-camera-video-off fs-1 opacity-50 mb-1"></i>
+            <span class="small">Sin fotografía registrada</span>
+        </div>`;
+    }
+    metaBox.innerHTML = '';
+    const timeDiv = document.createElement('div');
+    timeDiv.className = fechaHora ? 'text-dark small mb-1' : 'text-muted small mb-1';
+    timeDiv.textContent = fechaHora || 'Sin registro';
+    metaBox.appendChild(timeDiv);
+    if (lat && lng) {
+        const link = document.createElement('a');
+        link.href = `https://maps.google.com/?q=${encodeURIComponent(lat)},${encodeURIComponent(lng)}`;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.className = 'att-gps-link mt-1';
+        link.innerHTML = '<i class="bi bi-geo-alt-fill"></i> Ver ubicación';
+        metaBox.appendChild(link);
+    }
+}
+
+function abrirFotosDiaModal(fechaStr, entFoto, entHora, entLat, entLng, salFoto, salHora, salLat, salLng) {
+    document.getElementById('modalFotosDiaTitulo').innerHTML = `<i class="bi bi-camera me-2" style="color: #00b8b9;"></i>Fotografías de Entrada y Salida — ${fechaStr}`;
+    _renderBloqueFoto('fotoEntradaContainer', 'metaEntradaContainer', entFoto, entHora, entLat, entLng);
+    _renderBloqueFoto('fotoSalidaContainer', 'metaSalidaContainer', salFoto, salHora, salLat, salLng);
+    const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalFotosDia'));
+    modal.show();
+}
+
+const MOVIMIENTOS_EDIT_CONFIG = [
+    { key: 'entrada_laboral', label: 'Entrada Laboral', conFoto: true },
+    { key: 'salida_comer', label: 'Salida a Comer', conFoto: false },
+    { key: 'regreso_comer', label: 'Entrada a Comer', conFoto: false },
+    { key: 'salida_laboral', label: 'Salida Laboral', conFoto: true },
+];
+
+function _renderFormularioMovimientos(movimientos) {
+    const cont = document.getElementById('contenedorMovimientosEditar');
+    cont.innerHTML = '';
+    for (const cfg of MOVIMIENTOS_EDIT_CONFIG) {
+        const mov = (movimientos && movimientos[cfg.key]) || { hora: '', latitud: '', longitud: '', foto_url: '' };
+        const col = document.createElement('div');
+        col.className = 'col-md-6';
+        col.innerHTML = `
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body p-3">
+                    <div class="fw-bold text-dark small mb-2">${cfg.label}</div>
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="form-label-custom">Hora (HH:MM:SS)</label>
+                            <input type="time" step="1" name="${cfg.key}_hora" class="form-control form-control-sm" value="${mov.hora || ''}">
+                            <div class="form-text" style="font-size: 0.7rem;">Déjalo vacío para quitar este movimiento.</div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label-custom">Latitud</label>
+                            <input type="text" name="${cfg.key}_latitud" class="form-control form-control-sm" placeholder="Ej. 19.432608" value="${mov.latitud || ''}">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label-custom">Longitud</label>
+                            <input type="text" name="${cfg.key}_longitud" class="form-control form-control-sm" placeholder="Ej. -99.133209" value="${mov.longitud || ''}">
+                        </div>
+                        ${cfg.conFoto ? `
+                        <div class="col-12 mt-2">
+                            <label class="form-label-custom">Fotografía</label>
+                            <input type="file" name="${cfg.key}_foto" accept="image/*" class="form-control form-control-sm">
+                            ${mov.foto_url ? `
+                            <div class="d-flex align-items-center justify-content-between mt-2 gap-2">
+                                <a href="${mov.foto_url}" target="_blank" rel="noopener" class="att-gps-link" style="font-size: 0.76rem;">
+                                    <i class="bi bi-image me-1"></i>Ver foto actual
+                                </a>
+                                <div class="form-check form-check-inline mb-0">
+                                    <input class="form-check-input" type="checkbox" name="${cfg.key}_eliminar_foto" id="chk_del_${cfg.key}" value="1">
+                                    <label class="form-check-label small text-danger" for="chk_del_${cfg.key}">Quitar foto</label>
+                                </div>
+                            </div>` : ''}
+                        </div>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+        cont.appendChild(col);
+    }
+}
+
+function abrirEditarAsistenciaDia(fechaIso) {
+    const url = "{% url 'obtener_asistencia_dia_json' empleado.id %}?fecha=" + encodeURIComponent(fechaIso);
+    fetch(url)
+    .then(r => r.json())
+    .then(res => {
+        if (!res.success) {
+            alert('Error: ' + (res.error || 'No se pudieron cargar los datos de asistencia.'));
+            return;
+        }
+        document.getElementById('edit_fecha_original').value = res.data.fecha;
+        document.getElementById('edit_fecha').value = res.data.fecha;
+        document.getElementById('edit_notas').value = res.data.notas || '';
+        _renderFormularioMovimientos(res.data.movimientos);
+        const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditarAsistencia'));
+        modal.show();
+    })
+    .catch(() => alert('Ocurrió un error al consultar los registros de asistencia.'));
+}
+
+function guardarEdicionAsistencia() {
+    const form = document.getElementById('formEditarAsistencia');
+    const btn = document.getElementById('btnGuardarAsistencia');
+    const formData = new FormData(form);
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
+
+    fetch("{% url 'editar_asistencia_dia_ajax' empleado.id %}", {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-save me-1"></i> Guardar Cambios';
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'No se pudieron guardar los cambios.'));
+        }
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-save me-1"></i> Guardar Cambios';
+        alert('Error de red al guardar los cambios.');
+    });
+}
+
+function eliminarAsistenciaDia(fechaIso, fechaMostrar) {
+    if (!confirm(`¿Seguro que deseas eliminar las asistencias del ${fechaMostrar}? El empleado podrá volver a registrar sus checadas de ese día.`)) {
+        return;
+    }
+    const formData = new FormData();
+    formData.append('fecha', fechaIso);
+    fetch("{% url 'eliminar_asistencia_dia_ajax' empleado.id %}", {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'No se pudo eliminar el registro.'));
+        }
+    })
+    .catch(() => alert('Ocurrió un error de red al intentar eliminar el registro.'));
+}
+</script>
+{% endblock %}

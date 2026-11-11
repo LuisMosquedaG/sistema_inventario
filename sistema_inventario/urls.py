@@ -67,6 +67,8 @@ def redirect_after_login(request):
         return redirect('portal_beneficiarios')
     if hasattr(request.user, 'proveedor_rh'):
         return redirect('portal_proveedores')
+    if hasattr(request.user, 'empleado'):
+        return redirect('portal_asistencias_empleado')
     return redirect('dashboard_inicio')
 
 def index_view(request):

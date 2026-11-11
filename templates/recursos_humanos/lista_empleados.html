@@ -238,7 +238,7 @@
                 <table class="table table-pro mb-0">
                     <thead>
                         <tr>
-                            <th class="text-center" style="width: 80px;">Acciones</th>
+                            <th class="text-center" style="width: 140px;">Acciones</th>
                             <th class="text-center" style="width: 120px;">NSS</th>
                             <th class="text-center" style="width: 150px;">Empleado / CURP</th>
                             <th class="text-center" style="width: 180px;">Contratista / Beneficiario</th>
@@ -250,7 +250,7 @@
                         {% for empleado in page_obj %}
                         <tr>
                             <td class="text-center">
-                                <div class="d-flex justify-content-center gap-1">
+                                <div class="d-flex justify-content-center align-items-center gap-1">
                                     {% if granular_hr_perms.empleados.editar %}
                                     <span class="icon-action" title="Editar Empleado" onclick="editarEmpleado({{ empleado.id }})">
                                         <i class="bi bi-pencil-square"></i>
@@ -259,6 +259,9 @@
                                     <span class="icon-action" title="Ver Expediente">
                                         <i class="bi bi-eye"></i>
                                     </span>
+                                    <a href="{% url 'asistencias_empleado_detalle' empleado.id %}" class="icon-action" title="Asistencias">
+                                        <i class="bi bi-clock"></i>
+                                    </a>
                                     {% if granular_hr_perms.empleados.eliminar %}
                                     <span class="icon-action icon-action-danger" title="Eliminar Empleado" onclick="eliminarEmpleado({{ empleado.id }})">
                                         <i class="bi bi-x-circle"></i>
@@ -383,6 +386,9 @@
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="bank-tab" data-bs-toggle="tab" data-bs-target="#bank" type="button" role="tab">4. Bancarios</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="user-tab" data-bs-toggle="tab" data-bs-target="#userAccess" type="button" role="tab">5. Usuario</button>
                 </li>
             </ul>
 
@@ -726,6 +732,44 @@
                             </div>
                         </div>
 
+                        <!-- TAB 5: USUARIO DE ACCESO (PORTAL DE ASISTENCIAS) -->
+                        <div class="tab-pane fade" id="userAccess" role="tabpanel">
+                            <div class="card card-section border-0 shadow-sm">
+                                <div class="card-body p-3 bg-white rounded-3">
+                                    <h6 class="text-uppercase text-muted fw-bold mb-2" style="font-size: 0.7rem; letter-spacing: 1px;">Acceso al Portal de Asistencias</h6>
+                                    <p class="text-muted small mb-3">
+                                        Define las credenciales con las que el empleado iniciará sesión desde su celular para registrar sus asistencias.
+                                    </p>
+                                    <div class="row g-3">
+                                        <div class="col-md-12">
+                                            <label class="form-label-custom" for="usuario_portal">Usuario</label>
+                                            <div class="input-group input-group-sm">
+                                                <input type="text" name="usuario_portal" id="usuario_portal" class="form-control" placeholder="Ej. jperez" autocomplete="off">
+                                                {% if empresa.subdominio %}
+                                                <span class="input-group-text bg-light text-muted">@{{ empresa.subdominio }}</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="form-text small">Déjalo vacío si el empleado aún no tendrá usuario de acceso.</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label-custom" for="password_portal">Contraseña</label>
+                                            <input type="password" name="password_portal" id="password_portal" class="form-control form-control-sm" autocomplete="new-password" placeholder="••••••••">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label-custom" for="confirmar_password">Confirmar Contraseña</label>
+                                            <input type="password" name="confirmar_password" id="confirmar_password" class="form-control form-control-sm" autocomplete="new-password" placeholder="••••••••">
+                                        </div>
+                                        <div class="col-12">
+                                            <div class="alert alert-light border small text-muted mb-0 py-2">
+                                                <i class="bi bi-info-circle me-1 text-info"></i>
+                                                Al editar un empleado que ya tiene usuario, deja ambos campos de contraseña vacíos para conservar su contraseña actual.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </form>
@@ -766,10 +810,16 @@
     function prepararNuevoEmpleado(sucursalId = '') {
         document.getElementById('formNuevoEmpleado').reset();
         document.getElementById('empleado_id').value = '';
+        document.getElementById('usuario_portal').value = '';
+        document.getElementById('password_portal').value = '';
+        document.getElementById('confirmar_password').value = '';
         
         // Limpiar info de contrato
         document.getElementById('infoContratista').value = '';
         document.getElementById('infoBeneficiario').value = '';
+
+        const firstTab = document.getElementById('personal-tab');
+        if (firstTab) bootstrap.Tab.getOrCreateInstance(firstTab).show();
 
         document.querySelector('#modalNuevoEmpleado .modal-title').textContent = 'Registro de Nuevo Empleado';
         document.querySelector('#modalNuevoEmpleado .btn-brand').innerHTML = '<i class="bi bi-save me-1"></i> Guardar Empleado';
@@ -784,9 +834,12 @@
             if (res.success) {
                 const data = res.data;
                 const form = document.getElementById('formNuevoEmpleado');
+                form.reset();
                 
                 // Llenar campos
                 document.getElementById('empleado_id').value = data.id;
+                document.getElementById('password_portal').value = '';
+                document.getElementById('confirmar_password').value = '';
                 
                 // Iterar sobre los datos y llenar el formulario
                 for (let key in data) {
@@ -811,6 +864,9 @@
                 // Asegurar que los selects de contratista y beneficiario tengan el valor correcto de la BD
                 if (data.contratista_id) document.getElementById('infoContratista').value = data.contratista_id;
                 if (data.beneficiario_id) document.getElementById('infoBeneficiario').value = data.beneficiario_id;
+
+                const firstTab = document.getElementById('personal-tab');
+                if (firstTab) bootstrap.Tab.getOrCreateInstance(firstTab).show();
 
                 // Cambiar títulos del modal
                 document.querySelector('#modalNuevoEmpleado .modal-title').textContent = 'Editar Empleado';
@@ -853,6 +909,14 @@
 
     function guardarEmpleado() {
         const form = document.getElementById('formNuevoEmpleado');
+        const pass = document.getElementById('password_portal').value;
+        const confirmPass = document.getElementById('confirmar_password').value;
+        if (pass !== confirmPass) {
+            const userTab = document.getElementById('user-tab');
+            if (userTab) bootstrap.Tab.getOrCreateInstance(userTab).show();
+            alert('Las contraseñas no coinciden.');
+            return;
+        }
         const formData = new FormData(form);
         const id = document.getElementById('empleado_id').value;
         

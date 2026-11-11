@@ -6,3 +6,4 @@ from .sua import *
 from .payroll import *
 from .sat import *
 from .utils import *
+from .attendance import *

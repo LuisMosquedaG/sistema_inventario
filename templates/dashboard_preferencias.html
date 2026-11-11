@@ -172,7 +172,7 @@
                     <div class="d-flex align-items-center gap-3">
                         {% if empresa.modulo_recursos_humanos %}
                         <div class="btn-group btn-group-sm" role="group">
-                            <a href="?section=usuarios&tipo=administrativos" class="btn btn-user-toggle {% if tipo_usuario != 'beneficiarios' and tipo_usuario != 'proveedores' %}active{% endif %}">
+                            <a href="?section=usuarios&tipo=administrativos" class="btn btn-user-toggle {% if tipo_usuario != 'beneficiarios' and tipo_usuario != 'proveedores' and tipo_usuario != 'empleados' %}active{% endif %}">
                                 <i class="bi bi-person-workspace me-1"></i> Administrativos
                             </a>
                             <a href="?section=usuarios&tipo=beneficiarios" class="btn btn-user-toggle {% if tipo_usuario == 'beneficiarios' %}active{% endif %}">
@@ -180,6 +180,9 @@
                             </a>
                             <a href="?section=usuarios&tipo=proveedores" class="btn btn-user-toggle {% if tipo_usuario == 'proveedores' %}active{% endif %}">
                                 <i class="bi bi-person-gear me-1"></i> Proveedores (Contratistas)
+                            </a>
+                            <a href="?section=usuarios&tipo=empleados" class="btn btn-user-toggle {% if tipo_usuario == 'empleados' %}active{% endif %}">
+                                <i class="bi bi-person-badge me-1"></i> Empleados
                             </a>
                         </div>
                         {% endif %}
@@ -219,13 +222,13 @@
                                             <div>
                                                 <div class="fw-bold text-dark">{{ u.username }}</div>
                                                 <div class="text-muted small">
-                                                    {% if u.beneficiario %}Portal Beneficiario{% elif u.proveedor_rh %}Portal Proveedor (Servicios){% elif u.is_superuser %}Superusuario{% else %}Staff / Usuario{% endif %}
+                                                    {% if u.beneficiario %}Portal Beneficiario{% elif u.proveedor_rh %}Portal Proveedor (Servicios){% elif u.empleado %}Portal Empleado ({{ u.empleado.nombre }} {{ u.empleado.apellido_paterno }}){% elif u.is_superuser %}Superusuario{% else %}Staff / Usuario{% endif %}
                                                 </div>
                                             </div>
                                         </div>
                                     </td>
                                     <td>{{ u.email|default:"--" }}</td>
-                                    <td>{% if u.beneficiario %}Beneficiario{% elif u.proveedor_rh %}Proveedor (Contratistas){% elif u.is_superuser %}Admin{% else %}Usuario{% endif %}</td>
+                                    <td>{% if u.beneficiario %}Beneficiario{% elif u.proveedor_rh %}Proveedor (Contratistas){% elif u.empleado %}Empleado{% elif u.is_superuser %}Admin{% else %}Usuario{% endif %}</td>
                                     <td class="text-center">{% if u.is_active %}<span class="badge bg-success bg-opacity-10 text-success">Activo</span>{% else %}<span class="badge bg-danger bg-opacity-10 text-danger">Inactivo</span>{% endif %}</td>
                                 </tr>
                                 {% endfor %}
@@ -619,6 +622,23 @@
                                 </div>
                             </div>
                             
+                            <!-- Fila Empleado (solo en pestaña Empleados) -->
+                            <div class="row d-none" id="rowEmpleadoVincular">
+                                <div class="col-md-12 mb-3">
+                                    <label class="form-label small fw-bold">Empleado Asociado <span class="text-danger">*</span></label>
+                                    <select name="empleado_id" id="inputEmpleadoId" class="form-select form-select-sm" onchange="autocompletarDatosEmpleado(this)">
+                                        <option value="">-- Selecciona un empleado --</option>
+                                        {% for emp in empleados_sin_usuario %}
+                                        <option value="{{ emp.id }}" data-num="{{ emp.num_empleado }}" data-nombre="{{ emp.nombre }} {{ emp.apellido_paterno }}" data-email="{{ emp.correo_personal }}">{{ emp.num_empleado|default:"S/N" }} - {{ emp.nombre }} {{ emp.apellido_paterno }} {{ emp.apellido_materno }} ({{ emp.puesto|default:"Sin puesto" }})</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div id="empleadoVinculadoBadge" class="alert alert-info py-2 px-3 small mb-0 d-none">
+                                        <i class="bi bi-person-badge me-1"></i> Vinculado a: <strong id="lblEmpleadoVinculado"></strong>
+                                    </div>
+                                    <small class="text-muted" style="font-size: 0.7rem;">Este usuario entrará directamente al Reloj Checador móvil de asistencias.</small>
+                                </div>
+                            </div>
+
                             <!-- Fila 2: Email (col-md-12) -->
                             <div class="row">
                                 <div class="col-md-12 mb-3">
@@ -628,7 +648,7 @@
                             </div>
                             
                             <!-- Fila 3: Rol / Puesto y Rol de Acceso (col-md-6 cada uno) -->
-                            <div class="row">
+                            <div class="row" id="rowRolesAdmin">
                                 <div class="col-md-6 mb-3">
                                     <label class="form-label small fw-bold">Rol / Puesto</label>
                                     <select name="rol" id="inputRol" class="form-select form-select-sm">
@@ -645,6 +665,18 @@
                                         {% endfor %}
                                     </select>
                                     <small class="text-muted" style="font-size: 0.7rem;">Define permisos por módulo para este usuario.</small>
+                                </div>
+                            </div>
+
+                            <!-- Fila Estado (Al editar) -->
+                            <div class="row d-none" id="rowEstadoUsuario">
+                                <div class="col-md-12">
+                                    <div class="form-check form-switch p-2 px-3 bg-white border rounded-3">
+                                        <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="inputUsuarioActivo" checked>
+                                        <label class="form-check-label small fw-bold text-dark" for="inputUsuarioActivo">
+                                            Usuario Activo (Permitir inicio de sesión)
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1436,14 +1468,66 @@
         }
     });
 
+    const TIPO_USUARIO_ACTUAL = "{{ tipo_usuario|default:'administrativos' }}";
+
+    function autocompletarDatosEmpleado(sel) {
+        const opt = sel.options[sel.selectedIndex];
+        if (!opt || !opt.value) return;
+        const inputUser = document.getElementById('inputUsername');
+        const inputEmail = document.getElementById('inputEmail');
+        const num = (opt.dataset.num || '').trim();
+        const nombre = (opt.dataset.nombre || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (!inputUser.value) {
+            inputUser.value = num ? `emp_${num.toLowerCase().replace(/[^a-z0-9]/g, '')}` : nombre.slice(0, 15);
+        }
+        if (!inputEmail.value && opt.dataset.email) {
+            inputEmail.value = opt.dataset.email;
+        }
+    }
+
+    function configurarModalModoEmpleado(esEmpleado, esEdicion, nombreEmpleado) {
+        const rowEmp = document.getElementById('rowEmpleadoVincular');
+        const selEmp = document.getElementById('inputEmpleadoId');
+        const badgeEmp = document.getElementById('empleadoVinculadoBadge');
+        const lblEmp = document.getElementById('lblEmpleadoVinculado');
+        const rowRoles = document.getElementById('rowRolesAdmin');
+        const tabCorreoLi = document.getElementById('tab-correo') ? document.getElementById('tab-correo').parentElement : null;
+
+        if (esEmpleado) {
+            rowEmp.classList.remove('d-none');
+            rowRoles.classList.add('d-none');
+            if (tabCorreoLi) tabCorreoLi.classList.add('d-none');
+            if (esEdicion) {
+                selEmp.classList.add('d-none');
+                selEmp.required = false;
+                badgeEmp.classList.remove('d-none');
+                lblEmp.innerText = nombreEmpleado || 'Empleado';
+            } else {
+                selEmp.classList.remove('d-none');
+                selEmp.required = true;
+                badgeEmp.classList.add('d-none');
+            }
+        } else {
+            rowEmp.classList.add('d-none');
+            selEmp.required = false;
+            badgeEmp.classList.add('d-none');
+            rowRoles.classList.remove('d-none');
+            if (tabCorreoLi) tabCorreoLi.classList.remove('d-none');
+        }
+    }
+
     function prepararNuevoUsuario() {
-        document.getElementById('modalUsuarioTitulo').innerText = "Registrar Nuevo Usuario";
+        const esTabEmpleados = (TIPO_USUARIO_ACTUAL === 'empleados');
+        document.getElementById('modalUsuarioTitulo').innerText = esTabEmpleados ? "Registrar Usuario de Empleado" : "Registrar Nuevo Usuario";
         document.getElementById('usuario_id_hidden').value = "";
         document.getElementById('formUsuario').reset();
         document.getElementById('inputUsername').disabled = false;
         document.getElementById('inputRol').disabled = false;
         document.getElementById('inputRolAcceso').disabled = false;
         document.getElementById('passHelp').classList.add('d-none');
+        document.getElementById('rowEstadoUsuario').classList.add('d-none');
+        document.getElementById('inputUsuarioActivo').checked = true;
+        configurarModalModoEmpleado(esTabEmpleados, false, '');
 
         // Resetear pestaña activa y estado de SMTP
         document.getElementById('tab-general').click();
@@ -1473,12 +1557,21 @@
                     document.getElementById('inputEmail').value = data.email;
                     document.getElementById('inputRol').value = data.rol;
                     document.getElementById('inputRolAcceso').value = data.rol_acceso_id || '';
-                    if (data.es_beneficiario) {
-                        document.getElementById('inputRol').disabled = true;
-                        document.getElementById('inputRolAcceso').disabled = true;
+                    document.getElementById('rowEstadoUsuario').classList.remove('d-none');
+                    document.getElementById('inputUsuarioActivo').checked = (data.is_active !== false);
+
+                    if (data.es_empleado) {
+                        configurarModalModoEmpleado(true, true, data.empleado_nombre);
+                        document.getElementById('modalUsuarioTitulo').innerText = "Editar Usuario de Empleado";
                     } else {
-                        document.getElementById('inputRol').disabled = false;
-                        document.getElementById('inputRolAcceso').disabled = false;
+                        configurarModalModoEmpleado(false, true, '');
+                        if (data.es_beneficiario || data.es_proveedor) {
+                            document.getElementById('inputRol').disabled = true;
+                            document.getElementById('inputRolAcceso').disabled = true;
+                        } else {
+                            document.getElementById('inputRol').disabled = false;
+                            document.getElementById('inputRolAcceso').disabled = false;
+                        }
                     }
 
                     // Cargar campos SMTP
@@ -1593,9 +1686,20 @@
         const id = document.getElementById('usuario_id_hidden').value;
         const form = document.getElementById('formUsuario');
         const formData = new FormData(form);
+
+        if (!id && TIPO_USUARIO_ACTUAL === 'empleados') {
+            const empId = document.getElementById('inputEmpleadoId').value;
+            if (!empId) {
+                alert("Debes seleccionar un empleado para vincularle su cuenta."); return;
+            }
+        }
         
         if (formData.get('password1') !== formData.get('password2')) {
             alert("Las contraseñas no coinciden"); return;
+        }
+
+        if (id) {
+            formData.set('is_active', document.getElementById('inputUsuarioActivo').checked ? 'true' : 'false');
         }
 
         const url = id ? `/preferencias/actualizar-usuario/${id}/` : "/preferencias/crear-usuario/";

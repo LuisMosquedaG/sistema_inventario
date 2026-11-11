@@ -89,12 +89,19 @@ def dashboard_preferencias(request):
             qs = qs.filter(beneficiario__isnull=False)
         elif tipo_usuario == 'proveedores':
             qs = qs.filter(proveedor_rh__isnull=False)
+        elif tipo_usuario == 'empleados':
+            qs = qs.filter(empleado__isnull=False)
         else:
-            qs = qs.filter(beneficiario__isnull=True, proveedor_rh__isnull=True)
+            qs = qs.filter(beneficiario__isnull=True, proveedor_rh__isnull=True, empleado__isnull=True)
             
-        contexto['usuarios'] = qs.order_by('-id')
+        contexto['usuarios'] = qs.select_related('empleado', 'beneficiario', 'proveedor_rh').order_by('-id')
         contexto['tipo_usuario'] = tipo_usuario
         contexto['roles'] = Rol.objects.filter(empresa=empresa_actual, activo=True).order_by('nombre')
+        if getattr(empresa_actual, 'modulo_recursos_humanos', False):
+            contexto['empleados_sin_usuario'] = Empleado.objects.filter(
+                empresa=empresa_actual,
+                usuario__isnull=True
+            ).order_by('nombre', 'apellido_paterno')
     
     elif seccion_activa == 'roles':
         if not request.user.is_staff and not is_master:
@@ -419,14 +426,23 @@ def crear_usuario_ajax(request):
         if not empresa_actual or not request.user.is_staff:
             return JsonResponse({'success': False, 'error': 'Acceso denegado.'}, status=403)
 
-        username_corto = request.POST.get('username')
-        email = request.POST.get('email')
+        username_corto = (request.POST.get('username') or '').strip()
+        email = (request.POST.get('email') or '').strip()
         password = request.POST.get('password1')
         rol = request.POST.get('rol')
         rol_acceso_id = request.POST.get('rol_acceso_id')
+        empleado_id = (request.POST.get('empleado_id') or '').strip()
 
         if not username_corto or not password:
             return JsonResponse({'success': False, 'error': 'El usuario y la contraseña son obligatorios.'})
+
+        empleado_obj = None
+        if empleado_id:
+            empleado_obj = Empleado.objects.filter(id=empleado_id, empresa=empresa_actual).first()
+            if not empleado_obj:
+                return JsonResponse({'success': False, 'error': 'El empleado seleccionado no es válido.'})
+            if empleado_obj.usuario_id:
+                return JsonResponse({'success': False, 'error': 'Este empleado ya tiene un usuario de acceso asignado.'})
 
         # --- REGLA 2: ASIGNAR PREFIJO AUTOMÁTICO ---
         # Si el usuario puso "juan", se guarda como "juan@demo"
@@ -452,7 +468,11 @@ def crear_usuario_ajax(request):
             with transaction.atomic():
                 user = User.objects.create_user(username=username_completo, email=email, password=password)
                 
-                if rol == 'admin':
+                if empleado_obj:
+                    # Usuario exclusivo para portal de empleado (Reloj Checador)
+                    user.is_staff = False
+                    user.is_superuser = False
+                elif rol == 'admin':
                     user.is_staff = True
                     user.is_superuser = True
                 else:
@@ -462,7 +482,10 @@ def crear_usuario_ajax(request):
 
                 user.save()
 
-                if rol_acceso_id:
+                if empleado_obj:
+                    empleado_obj.usuario = user
+                    empleado_obj.save(update_fields=['usuario'])
+                elif rol_acceso_id:
                     rol_acceso = Rol.objects.filter(id=rol_acceso_id, empresa=empresa_actual, activo=True).first()
                     if rol_acceso:
                         AsignacionRolUsuario.objects.update_or_create(
@@ -522,9 +545,14 @@ def api_detalle_usuario(request, user_id):
         'id': user.id,
         'username_corto': user.username.split('@')[0],
         'email': user.email,
+        'is_active': user.is_active,
         'rol': 'admin' if user.is_superuser else 'usuario',
         'rol_acceso_id': asignacion_rol.rol_id if asignacion_rol else '',
         'es_beneficiario': hasattr(user, 'beneficiario'),
+        'es_proveedor': hasattr(user, 'proveedor_rh'),
+        'es_empleado': hasattr(user, 'empleado'),
+        'empleado_id': user.empleado.id if hasattr(user, 'empleado') else '',
+        'empleado_nombre': f"{user.empleado.num_empleado} - {user.empleado.nombre} {user.empleado.apellido_paterno}".strip(' -') if hasattr(user, 'empleado') else '',
         'smtp': smtp_data
     })
 
@@ -563,9 +591,12 @@ def actualizar_usuario_ajax(request, user_id):
             smtp_port = int(smtp_port_raw) if smtp_port_raw.isdigit() else 587
 
             user.email = request.POST.get('email')
-            es_beneficiario = hasattr(user, 'beneficiario')
+            if 'is_active' in request.POST:
+                user.is_active = request.POST.get('is_active') in ['true', 'on', '1']
+
+            es_portal = hasattr(user, 'beneficiario') or hasattr(user, 'proveedor_rh') or hasattr(user, 'empleado')
             
-            if not es_beneficiario:
+            if not es_portal:
                 rol = request.POST.get('rol')
                 rol_acceso_id = request.POST.get('rol_acceso_id')
                 if rol == 'admin':
@@ -578,7 +609,7 @@ def actualizar_usuario_ajax(request, user_id):
             
             user.save()
 
-            if not es_beneficiario:
+            if not es_portal:
                 if rol_acceso_id:
                     rol_acceso = Rol.objects.filter(id=rol_acceso_id, empresa=empresa_actual, activo=True).first()
                     if rol_acceso:
