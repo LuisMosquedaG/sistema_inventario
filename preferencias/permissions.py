@@ -57,7 +57,11 @@ INVENTORY_PERMISSION_MATRIX = {
 }
 
 HR_PERMISSION_MATRIX = {
-    'empleados': ['ver', 'crear', 'editar', 'eliminar'],
+    'empleados': [
+        'ver', 'crear', 'editar', 'eliminar',
+        'ver_asistencias', 'editar_asistencias', 'ver_fotos',
+        'eliminar_asistencia', 'exportar_excel_asistencias',
+    ],
     'contratos': ['ver', 'crear', 'editar', 'eliminar', 'importador'],
     'contratistas': ['ver', 'crear', 'editar', 'eliminar', 'importador', 'reporte_contratos', 'reporte_informacion', 'reporte_trabajadores', 'reporte_carga_trabajadores'],
     'beneficiarios': ['ver', 'crear', 'editar', 'eliminar', 'documentacion', 'documentacion_subir', 'documentacion_eliminar', 'documentacion_descargar', 'documentacion_aprobar', 'documentacion_rechazar'],

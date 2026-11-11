@@ -10,6 +10,7 @@ import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
 from django.db import transaction
@@ -18,7 +19,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from preferencias.permissions import require_hr_permission
+from preferencias.permissions import require_hr_permission, user_has_hr_permission
 from ..models import AsistenciaEmpleado, Empleado
 from .utils import get_empresa_actual
 
@@ -374,7 +375,7 @@ def registrar_asistencia_ajax(request):
 
 
 @login_required(login_url='/login/')
-@require_hr_permission('empleados', 'ver')
+@require_hr_permission('empleados', 'ver_asistencias')
 def asistencias_empleado_detalle(request, id):
     """Vista administrativa de control de asistencias por empleado dentro de Obligaciones Patronales -> Empleados."""
     empresa_actual = get_empresa_actual(request)
@@ -415,6 +416,9 @@ def asistencias_empleado_detalle(request, id):
 
     # Exportación a Excel si se solicita
     if request.GET.get('export') == 'excel':
+        if not user_has_hr_permission(request, 'empleados', 'exportar_excel_asistencias'):
+            messages.error(request, 'No cuentas con permiso para exportar asistencias a Excel.')
+            return redirect(f"{request.path}?fecha_inicio={fecha_inicio:%Y-%m-%d}&fecha_fin={fecha_fin:%Y-%m-%d}")
         return _exportar_asistencias_excel(empleado, resumen_dias, fecha_inicio, fecha_fin, total_horas_str)
 
     return render(request, 'recursos_humanos/asistencias_empleado.html', {
@@ -516,7 +520,7 @@ def _exportar_asistencias_excel(empleado, resumen_dias, fecha_inicio, fecha_fin,
 
 @login_required(login_url='/login/')
 @require_POST
-@require_hr_permission('empleados', 'eliminar', json_response=True)
+@require_hr_permission('empleados', 'eliminar_asistencia', json_response=True)
 def eliminar_asistencia_dia_ajax(request, id):
     """Elimina los registros de asistencia de un día específico para que el empleado pueda volver a checar."""
     empresa_actual = get_empresa_actual(request)
@@ -581,7 +585,7 @@ def _parsear_coordenadas(lat_raw, lng_raw):
 
 
 @login_required(login_url='/login/')
-@require_hr_permission('empleados', 'editar', json_response=True)
+@require_hr_permission('empleados', 'editar_asistencias', json_response=True)
 def obtener_asistencia_dia_json(request, id):
     """Devuelve los registros editables de asistencia de un empleado para una fecha."""
     empresa_actual = get_empresa_actual(request)
@@ -602,6 +606,7 @@ def obtener_asistencia_dia_json(request, id):
     dias, _ = _agrupar_asistencias_por_dia(registros)
     dia = dias[0] if dias else None
 
+    puede_ver_fotos = user_has_hr_permission(request, 'empleados', 'ver_fotos')
     movimientos = {}
     notas = ''
     for tipo in _TIPOS_ORDEN:
@@ -613,7 +618,7 @@ def obtener_asistencia_dia_json(request, id):
                 'hora': timezone.localtime(reg.fecha_hora).strftime('%H:%M:%S'),
                 'latitud': str(reg.latitud) if reg.latitud is not None else '',
                 'longitud': str(reg.longitud) if reg.longitud is not None else '',
-                'foto_url': reg.foto.url if reg.foto else '',
+                'foto_url': (reg.foto.url if reg.foto else '') if puede_ver_fotos else '',
             }
         else:
             movimientos[tipo] = {'hora': '', 'latitud': '', 'longitud': '', 'foto_url': ''}
@@ -630,7 +635,7 @@ def obtener_asistencia_dia_json(request, id):
 
 @login_required(login_url='/login/')
 @require_POST
-@require_hr_permission('empleados', 'editar', json_response=True)
+@require_hr_permission('empleados', 'editar_asistencias', json_response=True)
 def editar_asistencia_dia_ajax(request, id):
     """Actualiza horarios, fecha, GPS, notas y fotografías de las checadas de un día."""
     empresa_actual = get_empresa_actual(request)

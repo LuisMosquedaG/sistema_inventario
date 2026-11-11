@@ -259,9 +259,11 @@
                                     <span class="icon-action" title="Ver Expediente">
                                         <i class="bi bi-eye"></i>
                                     </span>
+                                    {% if granular_hr_perms.empleados.ver_asistencias %}
                                     <a href="{% url 'asistencias_empleado_detalle' empleado.id %}" class="icon-action" title="Asistencias">
                                         <i class="bi bi-clock"></i>
                                     </a>
+                                    {% endif %}
                                     {% if granular_hr_perms.empleados.eliminar %}
                                     <span class="icon-action icon-action-danger" title="Eliminar Empleado" onclick="eliminarEmpleado({{ empleado.id }})">
                                         <i class="bi bi-x-circle"></i>

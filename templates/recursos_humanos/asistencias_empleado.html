@@ -106,10 +106,12 @@
             <a href="{% url 'lista_empleados' %}" class="btn btn-light border btn-sm px-3 text-secondary">
                 <i class="bi bi-arrow-left me-1"></i> Volver a Empleados
             </a>
+            {% if granular_hr_perms.empleados.exportar_excel_asistencias %}
             <a href="{% url 'asistencias_empleado_detalle' empleado.id %}?fecha_inicio={{ fecha_inicio }}&fecha_fin={{ fecha_fin }}&export=excel"
                class="btn btn-brand text-white btn-sm px-3 shadow-sm">
                 <i class="bi bi-file-earmark-excel me-1"></i> Exportar Excel
             </a>
+            {% endif %}
         </div>
     </div>
 
@@ -157,13 +159,14 @@
                             <!-- Acciones -->
                             <td class="text-center">
                                 <div class="d-flex justify-content-center align-items-center gap-1">
-                                    {% if granular_hr_perms.empleados.editar %}
+                                    {% if granular_hr_perms.empleados.editar_asistencias %}
                                     <span class="icon-action"
                                           title="Editar asistencia del {{ dia.fecha|date:'d/m/Y' }}"
                                           onclick="abrirEditarAsistenciaDia('{{ dia.fecha|date:'Y-m-d' }}')">
                                         <i class="bi bi-pencil-square"></i>
                                     </span>
                                     {% endif %}
+                                    {% if granular_hr_perms.empleados.ver_fotos %}
                                     <span class="icon-action"
                                           title="Ver fotos de entrada y salida"
                                           onclick="abrirFotosDiaModal(
@@ -179,7 +182,8 @@
                                           )">
                                         <i class="bi bi-eye"></i>
                                     </span>
-                                    {% if granular_hr_perms.empleados.eliminar %}
+                                    {% endif %}
+                                    {% if granular_hr_perms.empleados.eliminar_asistencia %}
                                     <span class="icon-action icon-action-danger"
                                           title="Eliminar registro del {{ dia.fecha|date:'d/m/Y' }}"
                                           onclick="eliminarAsistenciaDia('{{ dia.fecha|date:'Y-m-d' }}', '{{ dia.fecha|date:'d/m/Y' }}')">
