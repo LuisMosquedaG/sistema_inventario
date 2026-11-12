@@ -867,8 +867,8 @@
                 </div>
             </div>
             <div class="modal-body modal-body-gray p-3 p-md-4">
-                <div id="expDigitalLista" class="d-flex flex-column gap-2">
-                    <div class="text-center py-4 text-muted small">
+                <div id="expDigitalLista" class="card border-0 shadow-sm overflow-hidden">
+                    <div class="text-center py-4 text-muted small bg-white">
                         <div class="spinner-border spinner-border-sm text-brand me-2"></div> Cargando expediente...
                     </div>
                 </div>
@@ -903,6 +903,27 @@
                     <button type="submit" class="btn btn-danger btn-sm px-4 fw-bold">Confirmar Rechazo</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Vista Previa Documento Expediente Admin -->
+<div class="modal fade" id="modalPreviewExpAdmin" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-sheet">
+        <div class="modal-content border-0">
+            <div class="modal-header border-bottom bg-light py-2 px-3">
+                <h6 class="modal-title fw-bold mb-0 text-dark" id="previewExpAdminTitulo">Documento</h6>
+                <div class="d-flex align-items-center gap-2 ms-auto">
+                    <a href="#" id="previewExpAdminDescargar" class="btn btn-light border btn-sm text-secondary" download>
+                        <i class="bi bi-download me-1"></i> Descargar
+                    </a>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+            </div>
+            <div class="modal-body p-2 bg-dark bg-opacity-10 text-center" style="min-height: 420px; max-height: 75vh; overflow: auto;">
+                <img id="previewExpAdminImg" src="" alt="Vista previa" class="img-fluid rounded shadow-sm d-none" style="max-height: 70vh; object-fit: contain;">
+                <iframe id="previewExpAdminFrame" src="" class="w-100 border-0 rounded bg-white d-none" style="height: 70vh;"></iframe>
+            </div>
         </div>
     </div>
 </div>
@@ -1114,6 +1135,56 @@
     const EXP_CAN_DELETE = {% if granular_hr_perms.empleados.eliminar %}true{% else %}false{% endif %};
     let currentExpEmpId = null;
     let currentExpReqDocId = null;
+    let expItemsCache = {};
+    let reopenExpAfterPreview = false;
+
+    function verDocumentoExpAdmin(expId) {
+        const it = expItemsCache[expId];
+        if (!it || !it.ver_url) return;
+        const img = document.getElementById('previewExpAdminImg');
+        const frame = document.getElementById('previewExpAdminFrame');
+        document.getElementById('previewExpAdminTitulo').textContent = it.nombre || 'Documento';
+        document.getElementById('previewExpAdminDescargar').href = `${it.ver_url}?download=1`;
+
+        img.classList.add('d-none');
+        frame.classList.add('d-none');
+        img.src = '';
+        frame.src = '';
+
+        if (it.es_imagen) {
+            img.src = it.ver_url;
+            img.classList.remove('d-none');
+        } else {
+            frame.src = it.ver_url;
+            frame.classList.remove('d-none');
+        }
+
+        const modalExpEl = document.getElementById('modalExpedienteDigitalEmpleado');
+        const modalPreviewEl = document.getElementById('modalPreviewExpAdmin');
+        const expInst = bootstrap.Modal.getInstance(modalExpEl);
+        if (expInst && modalExpEl.classList.contains('show')) {
+            reopenExpAfterPreview = true;
+            modalExpEl.addEventListener('hidden.bs.modal', () => {
+                bootstrap.Modal.getOrCreateInstance(modalPreviewEl).show();
+            }, { once: true });
+            expInst.hide();
+        } else {
+            reopenExpAfterPreview = false;
+            bootstrap.Modal.getOrCreateInstance(modalPreviewEl).show();
+        }
+    }
+
+    const modalPreviewExpAdminEl = document.getElementById('modalPreviewExpAdmin');
+    if (modalPreviewExpAdminEl) {
+        modalPreviewExpAdminEl.addEventListener('hidden.bs.modal', () => {
+            document.getElementById('previewExpAdminImg').src = '';
+            document.getElementById('previewExpAdminFrame').src = '';
+            if (reopenExpAfterPreview) {
+                reopenExpAfterPreview = false;
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalExpedienteDigitalEmpleado')).show();
+            }
+        });
+    }
 
     function expEscapeHtml(text) {
         const div = document.createElement('div');
@@ -1130,13 +1201,13 @@
     function cargarExpedienteDigital() {
         if (!currentExpEmpId) return;
         const container = document.getElementById('expDigitalLista');
-        container.innerHTML = '<div class="text-center py-4 text-muted small"><div class="spinner-border spinner-border-sm text-brand me-2"></div> Cargando expediente...</div>';
+        container.innerHTML = '<div class="text-center py-4 text-muted small bg-white"><div class="spinner-border spinner-border-sm text-brand me-2"></div> Cargando expediente...</div>';
 
         fetch(`/recursos-humanos/empleados/${currentExpEmpId}/expediente/obtener/`)
             .then(r => r.json())
             .then(data => {
                 if (!data.success) {
-                    container.innerHTML = `<div class="alert alert-danger small mb-0">${expEscapeHtml(data.error || 'No se pudo cargar el expediente.')}</div>`;
+                    container.innerHTML = `<div class="alert alert-danger small m-3">${expEscapeHtml(data.error || 'No se pudo cargar el expediente.')}</div>`;
                     return;
                 }
                 const emp = data.empleado;
@@ -1146,72 +1217,93 @@
 
                 if (!data.items || data.items.length === 0) {
                     container.innerHTML = `
-                        <div class="bg-white border rounded-3 p-4 text-center text-muted small">
+                        <div class="bg-white p-4 text-center text-muted small">
                             <i class="bi bi-folder-x fs-2 d-block mb-2 opacity-50"></i>
                             No hay documentos configurados en <strong>Preferencias &gt; General &gt; Obligaciones Patronales &gt; Documentos de Empleados</strong>.
                         </div>`;
                     return;
                 }
 
-                const statusBadgeMap = {
-                    pendiente: 'bg-secondary bg-opacity-10 text-secondary border',
-                    revision: 'bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25',
-                    aprobado: 'bg-success bg-opacity-10 text-success border border-success border-opacity-25',
-                    rechazado: 'bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25',
+                const statusPillMap = {
+                    pendiente: 'status-inactivo',
+                    revision: 'status-suspendido',
+                    aprobado: 'status-activo',
+                    rechazado: 'status-baja',
                 };
 
-                container.innerHTML = data.items.map(it => {
-                    const reqPill = it.obligatorio
-                        ? '<span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25" style="font-size:0.65rem;">Obligatorio</span>'
-                        : '<span class="badge bg-light text-secondary border" style="font-size:0.65rem;">Opcional</span>';
-                    const estClass = statusBadgeMap[it.estatus] || statusBadgeMap.pendiente;
-                    const estPill = `<span class="badge ${estClass}" style="font-size:0.68rem;">${expEscapeHtml(it.estatus_display)}</span>`;
+                expItemsCache = {};
+                const rowsHtml = data.items.map(it => {
+                    if (it.exp_id) expItemsCache[it.exp_id] = it;
+                    const estClass = statusPillMap[it.estatus] || statusPillMap.pendiente;
+                    const estPill = `<span class="status-pill ${estClass}">${expEscapeHtml(it.estatus_display)}</span>`;
+                    const requisitoTxt = it.obligatorio ? 'Obligatorio' : 'Opcional';
 
                     const fileInfo = it.subido
-                        ? `<div class="text-muted small"><i class="bi bi-paperclip me-1"></i>${expEscapeHtml(it.nombre_archivo)} <span class="ms-2">(${expEscapeHtml(it.fecha_subida)})</span></div>`
-                        : '<div class="text-muted fst-italic small">Sin archivo cargado por el empleado</div>';
+                        ? `<div class="text-muted small" style="font-size: 0.7rem;">${expEscapeHtml(it.nombre_archivo)} · ${expEscapeHtml(it.fecha_subida)}</div>`
+                        : '<div class="text-muted small fst-italic" style="font-size: 0.7rem;">Sin archivo cargado</div>';
 
                     const rechazoBox = (it.estatus === 'rechazado' && it.comentario_rechazo)
-                        ? `<div class="mt-2 p-2 rounded bg-danger bg-opacity-10 border border-danger border-opacity-25 text-danger small"><i class="bi bi-exclamation-triangle-fill me-1"></i><strong>Motivo:</strong> ${expEscapeHtml(it.comentario_rechazo)}</div>`
+                        ? `<div class="text-danger small mt-1" style="font-size: 0.7rem;"><i class="bi bi-exclamation-triangle-fill me-1"></i><strong>Motivo:</strong> ${expEscapeHtml(it.comentario_rechazo)}</div>`
                         : '';
 
-                    let btns = '';
+                    const safeNombreJs = expEscapeHtml(it.nombre).replace(/'/g, "\\'");
+                    let actions = '';
+                    if (EXP_CAN_EDIT) {
+                        actions += `<span class="icon-action" title="Subir" onclick="seleccionarArchivoExpAdmin(${it.doc_req_id})"><i class="bi bi-upload"></i></span>`;
+                    }
                     if (it.subido) {
-                        btns += `<a href="${expEscapeHtml(it.ver_url)}" target="_blank" rel="noopener" class="btn btn-light border btn-sm text-secondary" title="Ver documento"><i class="bi bi-eye me-1"></i> Ver</a>`;
+                        actions += `<span class="icon-action" title="Ver" onclick="verDocumentoExpAdmin(${it.exp_id})"><i class="bi bi-eye"></i></span>`;
                         if (EXP_CAN_EDIT && it.estatus !== 'aprobado') {
-                            btns += `<button type="button" class="btn btn-light border btn-sm text-success" title="Aprobar" onclick="aprobarDocExpediente(${it.exp_id})"><i class="bi bi-check-lg"></i></button>`;
+                            actions += `<span class="icon-action" title="Aprobar" onclick="aprobarDocExpediente(${it.exp_id})"><i class="bi bi-check-circle"></i></span>`;
                         }
                         if (EXP_CAN_EDIT && it.estatus !== 'rechazado') {
-                            btns += `<button type="button" class="btn btn-light border btn-sm text-warning" title="Rechazar" onclick="abrirModalRechazoExpediente(${it.exp_id}, '${expEscapeHtml(it.nombre).replace(/'/g, "\\'")}')"><i class="bi bi-slash-circle me-1"></i> Rechazar</button>`;
+                            actions += `<span class="icon-action" title="Rechazar" onclick="abrirModalRechazoExpediente(${it.exp_id}, '${safeNombreJs}')"><i class="bi bi-slash-circle"></i></span>`;
                         }
                         if (EXP_CAN_DELETE) {
-                            btns += `<button type="button" class="btn btn-light border btn-sm text-danger" title="Eliminar" onclick="eliminarDocExpediente(${it.exp_id}, '${expEscapeHtml(it.nombre).replace(/'/g, "\\'")}')"><i class="bi bi-trash me-1"></i> Eliminar</button>`;
+                            actions += `<span class="icon-action icon-action-danger" title="Eliminar" onclick="eliminarDocExpediente(${it.exp_id}, '${safeNombreJs}')"><i class="bi bi-x-circle"></i></span>`;
                         }
-                    } else if (EXP_CAN_EDIT) {
-                        btns += `<button type="button" class="btn btn-brand text-white btn-sm" onclick="seleccionarArchivoExpAdmin(${it.doc_req_id})"><i class="bi bi-upload me-1"></i> Subir</button>`;
                     }
 
                     return `
-                        <div class="bg-white border rounded-3 p-3 shadow-sm">
-                            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
-                                <div class="flex-grow-1">
-                                    <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                                        <span class="fw-bold text-dark">${expEscapeHtml(it.nombre)}</span>
-                                        ${reqPill}
-                                        ${estPill}
-                                    </div>
-                                    ${fileInfo}
-                                    ${rechazoBox}
+                        <tr>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center align-items-center gap-1">
+                                    ${actions || '<span class="text-muted small">--</span>'}
                                 </div>
-                                <div class="d-flex flex-wrap align-items-center gap-1 flex-shrink-0">
-                                    ${btns}
-                                </div>
-                            </div>
-                        </div>`;
+                            </td>
+                            <td class="text-center">
+                                <div class="text-dark small fw-bold">${expEscapeHtml(it.nombre)}</div>
+                                ${fileInfo}
+                                ${rechazoBox}
+                            </td>
+                            <td class="text-center">
+                                <span class="text-muted small">${requisitoTxt}</span>
+                            </td>
+                            <td class="text-center">
+                                ${estPill}
+                            </td>
+                        </tr>`;
                 }).join('');
+
+                container.innerHTML = `
+                    <div class="card-body p-0 bg-white">
+                        <div class="table-responsive">
+                            <table class="table table-pro mb-0">
+                                <thead>
+                                    <tr>
+                                        <th class="text-center" style="width: 170px;">Acciones</th>
+                                        <th class="text-center">Nombre</th>
+                                        <th class="text-center" style="width: 120px;">Requisito</th>
+                                        <th class="text-center" style="width: 120px;">Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${rowsHtml}</tbody>
+                            </table>
+                        </div>
+                    </div>`;
             })
             .catch(() => {
-                container.innerHTML = '<div class="alert alert-danger small mb-0">Error de conexión al consultar el expediente.</div>';
+                container.innerHTML = '<div class="alert alert-danger small m-3">Error de conexión al consultar el expediente.</div>';
             });
     }
 

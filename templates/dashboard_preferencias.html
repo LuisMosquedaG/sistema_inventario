@@ -478,46 +478,38 @@
                         </div>
 
                         <div class="table-responsive">
-                            <table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.82rem;">
-                                <thead class="table-light text-secondary">
+                            <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                                <thead class="table-light">
                                     <tr>
+                                        <th class="text-center" style="width: 100px;">Acciones</th>
                                         <th style="width: 70px;" class="text-center">Orden</th>
                                         <th>Nombre del Documento</th>
                                         <th style="width: 120px;" class="text-center">Requisito</th>
                                         <th style="width: 110px;" class="text-center">Estado</th>
-                                        <th style="width: 110px;" class="text-center">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for doc in documentos_requeridos_empleado %}
                                     <tr>
+                                        <td class="text-center">
+                                            <div class="d-flex justify-content-center gap-1">
+                                                <span class="icon-action" title="Editar"
+                                                      onclick="abrirModalDocEmpleado({{ doc.id }}, '{{ doc.nombre|escapejs }}', {{ doc.orden }}, {{ doc.obligatorio|yesno:'true,false' }}, {{ doc.activo|yesno:'true,false' }})">
+                                                    <i class="bi bi-pencil-square"></i>
+                                                </span>
+                                                <span class="icon-action" title="Eliminar"
+                                                      onclick="eliminarDocRequeridoEmpleado({{ doc.id }}, '{{ doc.nombre|escapejs }}')">
+                                                    <i class="bi bi-x-circle"></i>
+                                                </span>
+                                            </div>
+                                        </td>
                                         <td class="text-center text-muted fw-semibold">{{ doc.orden }}</td>
                                         <td class="fw-semibold text-dark">{{ doc.nombre }}</td>
-                                        <td class="text-center">
-                                            {% if doc.obligatorio %}
-                                            <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25">Obligatorio</span>
-                                            {% else %}
-                                            <span class="badge bg-light text-secondary border">Opcional</span>
-                                            {% endif %}
+                                        <td class="text-center text-dark">
+                                            {% if doc.obligatorio %}Obligatorio{% else %}Opcional{% endif %}
                                         </td>
-                                        <td class="text-center">
-                                            {% if doc.activo %}
-                                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">Activo</span>
-                                            {% else %}
-                                            <span class="badge bg-secondary bg-opacity-10 text-secondary border">Inactivo</span>
-                                            {% endif %}
-                                        </td>
-                                        <td class="text-center">
-                                            <div class="d-inline-flex gap-1">
-                                                <button type="button" class="btn btn-sm btn-light border text-secondary" title="Editar"
-                                                        onclick="abrirModalDocEmpleado({{ doc.id }}, '{{ doc.nombre|escapejs }}', {{ doc.orden }}, {{ doc.obligatorio|yesno:'true,false' }}, {{ doc.activo|yesno:'true,false' }})">
-                                                    <i class="bi bi-pencil"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-light border text-danger" title="Eliminar"
-                                                        onclick="eliminarDocRequeridoEmpleado({{ doc.id }}, '{{ doc.nombre|escapejs }}')">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </div>
+                                        <td class="text-center text-dark">
+                                            {% if doc.activo %}Activo{% else %}Inactivo{% endif %}
                                         </td>
                                     </tr>
                                     {% empty %}

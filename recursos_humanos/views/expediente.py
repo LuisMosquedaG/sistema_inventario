@@ -7,6 +7,7 @@ from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
 
 from preferencias.permissions import require_hr_permission, user_has_hr_permission
@@ -20,6 +21,15 @@ from .utils import get_empresa_actual
 
 _ALLOWED_EXPEDIENTE_EXTS = {'.pdf', '.jpg', '.jpeg', '.png', '.webp'}
 _MAX_EXPEDIENTE_BYTES = 15 * 1024 * 1024  # 15 MB
+_MIME_BY_EXT = {
+    '.pdf': 'application/pdf',
+    '.webp': 'image/webp',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.bmp': 'image/bmp',
+}
 
 _STATUS_LABELS = {
     'pendiente': 'Sin subir',
@@ -49,10 +59,13 @@ def _construir_listado_expediente(empresa, empleado):
         nombre_archivo = ''
         ver_url = ''
         fecha_subida = ''
+        ext_actual = ''
         if exp:
             nombre_archivo = exp.nombre_archivo or (os.path.basename(exp.archivo.name) if exp.archivo else '')
             ver_url = reverse('ver_documento_expediente_empleado', args=[exp.id])
             fecha_subida = timezone.localtime(exp.fecha_subida).strftime('%d/%m/%Y %H:%M')
+            if exp.archivo and exp.archivo.name:
+                ext_actual = os.path.splitext(exp.archivo.name)[1].lower()
         return {
             'doc_req_id': req_doc.id,
             'nombre': req_doc.nombre,
@@ -67,6 +80,8 @@ def _construir_listado_expediente(empresa, empleado):
             'comentario_rechazo': (exp.comentario_rechazo or '') if exp else '',
             'fecha_subida': fecha_subida,
             'ver_url': ver_url,
+            'es_imagen': ext_actual in {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'},
+            'es_pdf': ext_actual == '.pdf',
         }
 
     for req_doc in requeridos:
@@ -180,6 +195,7 @@ def portal_subir_documento_expediente_ajax(request):
     return _procesar_subida_expediente(request, empresa_actual, empleado, es_empleado_portal=True)
 
 
+@xframe_options_sameorigin
 @login_required(login_url='/login/')
 def ver_documento_expediente_empleado(request, doc_id):
     """Sirve de forma segura un documento del expediente digital para visualización o descarga."""
@@ -198,13 +214,21 @@ def ver_documento_expediente_empleado(request, doc_id):
     if not doc.archivo or not os.path.isfile(doc.archivo.path):
         raise Http404('El archivo físico no fue encontrado en el servidor.')
 
-    mime_type, _ = mimetypes.guess_type(doc.archivo.path)
+    ext = os.path.splitext(doc.archivo.path)[1].lower()
+    mime_type = _MIME_BY_EXT.get(ext) or mimetypes.guess_type(doc.archivo.path)[0] or 'application/octet-stream'
     descargar = request.GET.get('download') == '1'
+    base_real = os.path.basename(doc.archivo.path)
+    if descargar:
+        nombre_base_orig = os.path.splitext(doc.nombre_archivo or base_real)[0]
+        filename = f"{nombre_base_orig}{ext}" if ext else (doc.nombre_archivo or base_real)
+    else:
+        filename = base_real
+
     response = FileResponse(
         open(doc.archivo.path, 'rb'),
-        content_type=mime_type or 'application/octet-stream',
+        content_type=mime_type,
         as_attachment=descargar,
-        filename=doc.nombre_archivo or os.path.basename(doc.archivo.path),
+        filename=filename,
     )
     return response
 
