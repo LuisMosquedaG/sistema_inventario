@@ -679,7 +679,7 @@ def _render_libro_asistencias_excel(titulo, subtitulo, headers, filas, filename,
         cell.alignment = Alignment(horizontal="center", vertical="center")
         cell.border = thin_border
 
-    wrap_cols = {idx for idx, h in enumerate(headers, start=1) if h in ("Dispositivo", "IP Registrada", "Nombre del Trabajador")}
+    wrap_cols = {idx for idx, h in enumerate(headers, start=1) if h in ("IP Registrada", "Nombre del Trabajador")}
     left_cols = {idx for idx, h in enumerate(headers, start=1) if h == "Nombre del Trabajador"}
 
     if filas:
@@ -700,11 +700,14 @@ def _render_libro_asistencias_excel(titulo, subtitulo, headers, filas, filename,
 
     for col_idx, header_name in enumerate(headers, start=1):
         col_letter = get_column_letter(col_idx)
-        if header_name == "Nombre del Trabajador":
+        if header_name == "Dispositivo":
+            max_len = max((len(str(row[col_idx - 1] or '')) for row in filas), default=len(header_name))
+            ws.column_dimensions[col_letter].width = max(32, min(65, max_len + 4))
+        elif header_name == "Nombre del Trabajador":
             ws.column_dimensions[col_letter].width = 30
         elif header_name in ("CURP", "RFC"):
             ws.column_dimensions[col_letter].width = 21
-        elif "Ubicación" in header_name or header_name in ("IP Registrada", "Dispositivo"):
+        elif "Ubicación" in header_name or header_name == "IP Registrada":
             ws.column_dimensions[col_letter].width = 24
         else:
             ws.column_dimensions[col_letter].width = 16

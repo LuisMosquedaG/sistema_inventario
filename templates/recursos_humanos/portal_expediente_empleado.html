@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .asistencia-wrapper {
+        max-width: 680px;
+        margin: 0 auto;
+        padding-bottom: 2.5rem;
+    }
+
+    .brand-accent-card {
+        border-left: 5px solid var(--brand-color) !important;
+    }
+
+    .exp-doc-item {
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 0.9rem 1rem;
+        background-color: #ffffff;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .exp-doc-item:hover {
+        border-color: #00b8b9;
+        box-shadow: 0 3px 10px rgba(0, 184, 185, 0.08);
+    }
+
+    .exp-status-pill {
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 0.25rem 0.65rem;
+        border-radius: 50px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .exp-status-pendiente { background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+    .exp-status-revision { background-color: #fff9db; color: #b45309; border: 1px solid #fde68a; }
+    .exp-status-aprobado { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
+    .exp-status-rechazado { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
+</style>
+
+<div class="container-fluid py-3 py-md-4 px-3">
+    <div class="asistencia-wrapper">
+        <!-- NAVEGACIÓN DE SUBMÓDULOS DEL PORTAL -->
+        <div class="d-flex gap-2 mb-3">
+            <a href="{% url 'portal_asistencias_empleado' %}" class="btn btn-light border text-secondary btn-sm flex-fill fw-bold rounded-3 py-2 shadow-sm">
+                <i class="bi bi-clock-history me-1"></i> Mi Asistencia
+            </a>
+            <a href="{% url 'portal_expediente_empleado' %}" class="btn btn-brand text-white btn-sm flex-fill fw-bold rounded-3 py-2 shadow-sm">
+                <i class="bi bi-folder-check me-1"></i> Expediente Digital
+            </a>
+        </div>
+
+        <!-- ENCABEZADO EXPEDIENTE -->
+        <div class="card border-0 shadow-sm rounded-4 mb-3 brand-accent-card bg-white">
+            <div class="card-body p-3 p-md-4">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                        <span class="text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.6px;">
+                            Mi Expediente Digital
+                        </span>
+                        <h5 class="fw-bold text-dark mb-0 mt-1">
+                            {{ empleado.nombre }} {{ empleado.apellido_paterno }} {{ empleado.apellido_materno }}
+                        </h5>
+                        <small class="text-muted">Sube o actualiza tus documentos requeridos en formato PDF o imagen.</small>
+                    </div>
+                    <span class="badge bg-light text-dark border px-3 py-2 rounded-pill">
+                        <strong class="text-brand">{{ resumen_expediente.subidos }}</strong> / {{ resumen_expediente.total }} subidos
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ALERTA DINÁMICA -->
+        <div id="alertaExpedientePortal" class="alert border-0 shadow-sm rounded-3 small d-none mb-3"></div>
+
+        <!-- LISTADO DE DOCUMENTOS -->
+        <div class="d-flex flex-column gap-2">
+            {% for item in items_expediente %}
+            <div class="exp-doc-item shadow-sm">
+                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
+                    <div class="flex-grow-1">
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                            <span class="fw-bold text-dark" style="font-size: 0.92rem;">{{ item.nombre }}</span>
+                            {% if item.obligatorio %}
+                            <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25" style="font-size: 0.65rem;">Obligatorio</span>
+                            {% else %}
+                            <span class="badge bg-light text-secondary border" style="font-size: 0.65rem;">Opcional</span>
+                            {% endif %}
+                            <span class="exp-status-pill exp-status-{{ item.estatus }}">{{ item.estatus_display }}</span>
+                        </div>
+
+                        {% if item.subido %}
+                        <div class="text-muted" style="font-size: 0.76rem;">
+                            <i class="bi bi-paperclip me-1"></i>{{ item.nombre_archivo }}
+                            <span class="ms-2 text-secondary">({{ item.fecha_subida }})</span>
+                        </div>
+                        {% else %}
+                        <div class="text-muted fst-italic" style="font-size: 0.76rem;">
+                            Pendiente por subir
+                        </div>
+                        {% endif %}
+
+                        {% if item.estatus == 'rechazado' and item.comentario_rechazo %}
+                        <div class="mt-2 p-2 rounded bg-danger bg-opacity-10 border border-danger border-opacity-25 text-danger" style="font-size: 0.76rem;">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                            <strong>Motivo de rechazo:</strong> {{ item.comentario_rechazo }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                        {% if item.subido %}
+                        <a href="{{ item.ver_url }}" target="_blank" rel="noopener" class="btn btn-light border btn-sm text-secondary fw-semibold">
+                            <i class="bi bi-eye me-1"></i> Ver
+                        </a>
+                        {% endif %}
+                        {% if item.estatus != 'aprobado' %}
+                        <button type="button" class="btn btn-brand text-white btn-sm fw-semibold px-3"
+                                onclick="seleccionarArchivoExpediente({{ item.doc_req_id }}, '{{ item.nombre|escapejs }}')">
+                            <i class="bi bi-upload me-1"></i> {% if item.subido %}Cambiar{% else %}Subir{% endif %}
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="card border-0 shadow-sm rounded-4 bg-white">
+                <div class="card-body text-center py-5 text-muted">
+                    <i class="bi bi-folder-x display-6 d-block mb-2 opacity-50"></i>
+                    <p class="mb-0 small">Aún no hay documentos configurados para tu expediente digital.<br>Solicita a Recursos Humanos que configure el listado en Parámetros.</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <input type="file" id="inputArchivoExpedientePortal" class="d-none" accept=".pdf,image/*">
+    </div>
+</div>
+
+<script>
+    let docRequeridoSeleccionado = null;
+    const inputArchivoExp = document.getElementById('inputArchivoExpedientePortal');
+
+    function mostrarAlertaExp(tipo, mensaje) {
+        const el = document.getElementById('alertaExpedientePortal');
+        el.className = `alert alert-${tipo} border-0 shadow-sm rounded-3 small mb-3`;
+        el.textContent = mensaje;
+        el.classList.remove('d-none');
+    }
+
+    function seleccionarArchivoExpediente(docReqId) {
+        docRequeridoSeleccionado = docReqId;
+        inputArchivoExp.value = '';
+        inputArchivoExp.click();
+    }
+
+    if (inputArchivoExp) {
+        inputArchivoExp.addEventListener('change', function() {
+            if (!this.files || !this.files[0] || !docRequeridoSeleccionado) return;
+            const fd = new FormData();
+            fd.append('documento_requerido_id', docRequeridoSeleccionado);
+            fd.append('archivo', this.files[0]);
+
+            mostrarAlertaExp('info', 'Subiendo documento, por favor espera...');
+            fetch('{% url "portal_subir_documento_expediente_ajax" %}', {
+                method: 'POST',
+                body: fd,
+                headers: { 'X-CSRFToken': '{{ csrf_token }}', 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    mostrarAlertaExp('danger', data.error || 'No se pudo subir el documento.');
+                }
+            })
+            .catch(() => {
+                mostrarAlertaExp('danger', 'Error de conexión al intentar subir el archivo.');
+            });
+        });
+    }
+</script>
+{% endblock %}

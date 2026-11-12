@@ -261,9 +261,11 @@
                                         <i class="bi bi-pencil-square"></i>
                                     </span>
                                     {% endif %}
-                                    <span class="icon-action" title="Ver Expediente">
-                                        <i class="bi bi-eye"></i>
+                                    {% if granular_hr_perms.empleados.ver %}
+                                    <span class="icon-action" title="Expediente Digital" onclick="abrirExpedienteDigital({{ empleado.id }})">
+                                        <i class="bi bi-folder-check"></i>
                                     </span>
+                                    {% endif %}
                                     {% if granular_hr_perms.empleados.ver_asistencias %}
                                     <a href="{% url 'asistencias_empleado_detalle' empleado.id %}" class="icon-action" title="Asistencias">
                                         <i class="bi bi-clock"></i>
@@ -845,6 +847,66 @@
     </div>
 </div>
 
+<!-- Modal: Expediente Digital del Empleado -->
+<div class="modal fade" id="modalExpedienteDigitalEmpleado" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-sheet modal-dialog-scrollable">
+        <div class="modal-content border-0">
+            <div class="modal-header border-bottom bg-light py-3">
+                <div class="d-flex align-items-center">
+                    <div class="bg-primary bg-opacity-10 p-2 rounded me-3 text-brand">
+                        <i class="bi bi-folder-check fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0">Expediente Digital</h5>
+                        <small class="text-muted" id="expEmpSubtitulo">Cargando...</small>
+                    </div>
+                </div>
+                <div class="ms-auto d-flex align-items-center gap-2">
+                    <span class="badge bg-white text-dark border px-3 py-2 rounded-pill" id="expEmpResumenBadge">0 / 0</span>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+            </div>
+            <div class="modal-body modal-body-gray p-3 p-md-4">
+                <div id="expDigitalLista" class="d-flex flex-column gap-2">
+                    <div class="text-center py-4 text-muted small">
+                        <div class="spinner-border spinner-border-sm text-brand me-2"></div> Cargando expediente...
+                    </div>
+                </div>
+                <input type="file" id="inputArchivoExpAdmin" class="d-none" accept=".pdf,image/*">
+            </div>
+            <div class="modal-footer border-top bg-white">
+                <button type="button" class="btn btn-light btn-sm text-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Rechazar Documento de Expediente -->
+<div class="modal fade" id="modalRechazarDocExpediente" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sheet">
+        <div class="modal-content border-0">
+            <div class="modal-header border-bottom bg-light">
+                <h6 class="modal-title fw-bold">
+                    <i class="bi bi-x-circle text-danger me-2"></i>Rechazar Documento
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="formRechazarDocExpediente">
+                <input type="hidden" id="rechazarDocExpId" value="">
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-2">Documento: <strong id="rechazarDocExpNombre">--</strong></p>
+                    <label for="rechazarDocExpMotivo" class="form-label-custom">Motivo del rechazo *</label>
+                    <textarea id="rechazarDocExpMotivo" class="form-control form-control-sm" rows="3" placeholder="Ej. Documento borroso, vencido o ilegible. Súbelo nuevamente." required></textarea>
+                </div>
+                <div class="modal-footer border-top-0 bg-white">
+                    <button type="button" class="btn btn-light btn-sm text-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger btn-sm px-4 fw-bold">Confirmar Rechazo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -1041,6 +1103,208 @@
             const modalInstance = bootstrap.Modal.getInstance(modalRepAsist);
             if (modalInstance) {
                 setTimeout(() => modalInstance.hide(), 300);
+            }
+        });
+    }
+
+    // ==========================
+    // EXPEDIENTE DIGITAL EMPLEADO
+    // ==========================
+    const EXP_CAN_EDIT = {% if granular_hr_perms.empleados.editar %}true{% else %}false{% endif %};
+    const EXP_CAN_DELETE = {% if granular_hr_perms.empleados.eliminar %}true{% else %}false{% endif %};
+    let currentExpEmpId = null;
+    let currentExpReqDocId = null;
+
+    function expEscapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text == null ? '' : String(text);
+        return div.innerHTML;
+    }
+
+    function abrirExpedienteDigital(empId) {
+        currentExpEmpId = empId;
+        cargarExpedienteDigital();
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalExpedienteDigitalEmpleado')).show();
+    }
+
+    function cargarExpedienteDigital() {
+        if (!currentExpEmpId) return;
+        const container = document.getElementById('expDigitalLista');
+        container.innerHTML = '<div class="text-center py-4 text-muted small"><div class="spinner-border spinner-border-sm text-brand me-2"></div> Cargando expediente...</div>';
+
+        fetch(`/recursos-humanos/empleados/${currentExpEmpId}/expediente/obtener/`)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) {
+                    container.innerHTML = `<div class="alert alert-danger small mb-0">${expEscapeHtml(data.error || 'No se pudo cargar el expediente.')}</div>`;
+                    return;
+                }
+                const emp = data.empleado;
+                const res = data.resumen;
+                document.getElementById('expEmpSubtitulo').textContent = `${emp.nombre} · No. ${emp.num_empleado}`;
+                document.getElementById('expEmpResumenBadge').innerHTML = `<strong class="text-brand">${res.subidos}</strong> / ${res.total} subidos`;
+
+                if (!data.items || data.items.length === 0) {
+                    container.innerHTML = `
+                        <div class="bg-white border rounded-3 p-4 text-center text-muted small">
+                            <i class="bi bi-folder-x fs-2 d-block mb-2 opacity-50"></i>
+                            No hay documentos configurados en <strong>Preferencias &gt; General &gt; Obligaciones Patronales &gt; Documentos de Empleados</strong>.
+                        </div>`;
+                    return;
+                }
+
+                const statusBadgeMap = {
+                    pendiente: 'bg-secondary bg-opacity-10 text-secondary border',
+                    revision: 'bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25',
+                    aprobado: 'bg-success bg-opacity-10 text-success border border-success border-opacity-25',
+                    rechazado: 'bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25',
+                };
+
+                container.innerHTML = data.items.map(it => {
+                    const reqPill = it.obligatorio
+                        ? '<span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25" style="font-size:0.65rem;">Obligatorio</span>'
+                        : '<span class="badge bg-light text-secondary border" style="font-size:0.65rem;">Opcional</span>';
+                    const estClass = statusBadgeMap[it.estatus] || statusBadgeMap.pendiente;
+                    const estPill = `<span class="badge ${estClass}" style="font-size:0.68rem;">${expEscapeHtml(it.estatus_display)}</span>`;
+
+                    const fileInfo = it.subido
+                        ? `<div class="text-muted small"><i class="bi bi-paperclip me-1"></i>${expEscapeHtml(it.nombre_archivo)} <span class="ms-2">(${expEscapeHtml(it.fecha_subida)})</span></div>`
+                        : '<div class="text-muted fst-italic small">Sin archivo cargado por el empleado</div>';
+
+                    const rechazoBox = (it.estatus === 'rechazado' && it.comentario_rechazo)
+                        ? `<div class="mt-2 p-2 rounded bg-danger bg-opacity-10 border border-danger border-opacity-25 text-danger small"><i class="bi bi-exclamation-triangle-fill me-1"></i><strong>Motivo:</strong> ${expEscapeHtml(it.comentario_rechazo)}</div>`
+                        : '';
+
+                    let btns = '';
+                    if (it.subido) {
+                        btns += `<a href="${expEscapeHtml(it.ver_url)}" target="_blank" rel="noopener" class="btn btn-light border btn-sm text-secondary" title="Ver documento"><i class="bi bi-eye me-1"></i> Ver</a>`;
+                        if (EXP_CAN_EDIT && it.estatus !== 'aprobado') {
+                            btns += `<button type="button" class="btn btn-light border btn-sm text-success" title="Aprobar" onclick="aprobarDocExpediente(${it.exp_id})"><i class="bi bi-check-lg"></i></button>`;
+                        }
+                        if (EXP_CAN_EDIT && it.estatus !== 'rechazado') {
+                            btns += `<button type="button" class="btn btn-light border btn-sm text-warning" title="Rechazar" onclick="abrirModalRechazoExpediente(${it.exp_id}, '${expEscapeHtml(it.nombre).replace(/'/g, "\\'")}')"><i class="bi bi-slash-circle me-1"></i> Rechazar</button>`;
+                        }
+                        if (EXP_CAN_DELETE) {
+                            btns += `<button type="button" class="btn btn-light border btn-sm text-danger" title="Eliminar" onclick="eliminarDocExpediente(${it.exp_id}, '${expEscapeHtml(it.nombre).replace(/'/g, "\\'")}')"><i class="bi bi-trash me-1"></i> Eliminar</button>`;
+                        }
+                    } else if (EXP_CAN_EDIT) {
+                        btns += `<button type="button" class="btn btn-brand text-white btn-sm" onclick="seleccionarArchivoExpAdmin(${it.doc_req_id})"><i class="bi bi-upload me-1"></i> Subir</button>`;
+                    }
+
+                    return `
+                        <div class="bg-white border rounded-3 p-3 shadow-sm">
+                            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+                                <div class="flex-grow-1">
+                                    <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                        <span class="fw-bold text-dark">${expEscapeHtml(it.nombre)}</span>
+                                        ${reqPill}
+                                        ${estPill}
+                                    </div>
+                                    ${fileInfo}
+                                    ${rechazoBox}
+                                </div>
+                                <div class="d-flex flex-wrap align-items-center gap-1 flex-shrink-0">
+                                    ${btns}
+                                </div>
+                            </div>
+                        </div>`;
+                }).join('');
+            })
+            .catch(() => {
+                container.innerHTML = '<div class="alert alert-danger small mb-0">Error de conexión al consultar el expediente.</div>';
+            });
+    }
+
+    function seleccionarArchivoExpAdmin(reqDocId) {
+        currentExpReqDocId = reqDocId;
+        const input = document.getElementById('inputArchivoExpAdmin');
+        input.value = '';
+        input.click();
+    }
+
+    const inputArchivoExpAdmin = document.getElementById('inputArchivoExpAdmin');
+    if (inputArchivoExpAdmin) {
+        inputArchivoExpAdmin.addEventListener('change', function() {
+            if (!this.files || !this.files[0] || !currentExpEmpId || !currentExpReqDocId) return;
+            const fd = new FormData();
+            fd.append('documento_requerido_id', currentExpReqDocId);
+            fd.append('archivo', this.files[0]);
+            fetch(`/recursos-humanos/empleados/${currentExpEmpId}/expediente/subir/`, {
+                method: 'POST',
+                body: fd,
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    cargarExpedienteDigital();
+                } else {
+                    alert('Error: ' + (data.error || 'No se pudo subir el archivo.'));
+                }
+            });
+        });
+    }
+
+    function abrirModalRechazoExpediente(expId, nombreDoc) {
+        document.getElementById('rechazarDocExpId').value = expId;
+        document.getElementById('rechazarDocExpNombre').textContent = nombreDoc;
+        document.getElementById('rechazarDocExpMotivo').value = '';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalRechazarDocExpediente')).show();
+    }
+
+    const formRechazarDocExp = document.getElementById('formRechazarDocExpediente');
+    if (formRechazarDocExp) {
+        formRechazarDocExp.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const expId = document.getElementById('rechazarDocExpId').value;
+            const motivo = document.getElementById('rechazarDocExpMotivo').value.trim();
+            if (!expId || !motivo) return;
+            const fd = new FormData();
+            fd.append('motivo', motivo);
+            fetch(`/recursos-humanos/empleados/expediente/rechazar/${expId}/`, {
+                method: 'POST',
+                body: fd,
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('modalRechazarDocExpediente')).hide();
+                    cargarExpedienteDigital();
+                } else {
+                    alert('Error: ' + (data.error || 'No se pudo rechazar el documento.'));
+                }
+            });
+        });
+    }
+
+    function aprobarDocExpediente(expId) {
+        fetch(`/recursos-humanos/empleados/expediente/aprobar/${expId}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                cargarExpedienteDigital();
+            } else {
+                alert('Error: ' + (data.error || 'No se pudo aprobar el documento.'));
+            }
+        });
+    }
+
+    function eliminarDocExpediente(expId, nombreDoc) {
+        if (!confirm(`¿Eliminar permanentemente "${nombreDoc}" del expediente de este empleado?`)) return;
+        fetch(`/recursos-humanos/empleados/expediente/eliminar/${expId}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                cargarExpedienteDigital();
+            } else {
+                alert('Error: ' + (data.error || 'No se pudo eliminar el documento.'));
             }
         });
     }

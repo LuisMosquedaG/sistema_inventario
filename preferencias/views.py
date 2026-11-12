@@ -130,6 +130,10 @@ def dashboard_preferencias(request):
     elif seccion_activa == 'obligaciones_patronales':
         if not getattr(empresa_actual, 'modulo_recursos_humanos', True):
             return redirect('dashboard_preferencias')
+        from recursos_humanos.models import DocumentoRequeridoEmpleado
+        contexto['documentos_requeridos_empleado'] = DocumentoRequeridoEmpleado.objects.filter(
+            empresa=empresa_actual
+        ).order_by('orden', 'id')
 
     elif seccion_activa == 'datos':
         # Solo admin/sadmin pueden entrar aquí
@@ -1060,6 +1064,133 @@ def actualizar_obligaciones_patronales_ajax(request):
         return JsonResponse({'success': True, 'message': 'Obligaciones Patronales actualizadas correctamente.'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+
+def _require_preferencias_rh_admin(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual or not request.user.is_staff or not getattr(empresa_actual, 'modulo_recursos_humanos', True):
+        return None
+    return empresa_actual
+
+
+def _parse_bool_flag(val, default=True):
+    if val is None:
+        return default
+    return str(val).strip().lower() in ('1', 'true', 'on', 'si', 'yes')
+
+
+@login_required
+@require_POST
+def guardar_doc_requerido_empleado_ajax(request):
+    from recursos_humanos.models import DocumentoRequeridoEmpleado
+    empresa_actual = _require_preferencias_rh_admin(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Acceso denegado'}, status=403)
+
+    doc_id = (request.POST.get('doc_id') or '').strip()
+    nombre = ' '.join((request.POST.get('nombre') or '').split())[:120]
+    if not nombre:
+        return JsonResponse({'success': False, 'error': 'El nombre del documento es obligatorio.'})
+
+    try:
+        orden = max(1, int(request.POST.get('orden') or 1))
+    except (ValueError, TypeError):
+        orden = 1
+
+    obligatorio = _parse_bool_flag(request.POST.get('obligatorio'), default=True)
+    activo = _parse_bool_flag(request.POST.get('activo'), default=True)
+
+    dup_qs = DocumentoRequeridoEmpleado.objects.filter(empresa=empresa_actual, nombre__iexact=nombre)
+    if doc_id:
+        dup_qs = dup_qs.exclude(id=doc_id)
+    if dup_qs.exists():
+        return JsonResponse({'success': False, 'error': f'Ya existe un documento llamado "{nombre}".'})
+
+    if doc_id:
+        doc = get_object_or_404(DocumentoRequeridoEmpleado, id=doc_id, empresa=empresa_actual)
+        doc.nombre = nombre
+        doc.obligatorio = obligatorio
+        doc.orden = orden
+        doc.activo = activo
+        doc.save()
+        msg = 'Documento actualizado correctamente.'
+    else:
+        doc = DocumentoRequeridoEmpleado.objects.create(
+            empresa=empresa_actual,
+            nombre=nombre,
+            obligatorio=obligatorio,
+            orden=orden,
+            activo=activo,
+        )
+        msg = 'Documento agregado al listado.'
+
+    return JsonResponse({
+        'success': True,
+        'message': msg,
+        'doc': {
+            'id': doc.id,
+            'nombre': doc.nombre,
+            'obligatorio': doc.obligatorio,
+            'orden': doc.orden,
+            'activo': doc.activo,
+        },
+    })
+
+
+@login_required
+@require_POST
+def eliminar_doc_requerido_empleado_ajax(request, doc_id):
+    from recursos_humanos.models import DocumentoRequeridoEmpleado
+    empresa_actual = _require_preferencias_rh_admin(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Acceso denegado'}, status=403)
+
+    doc = get_object_or_404(DocumentoRequeridoEmpleado, id=doc_id, empresa=empresa_actual)
+    doc.delete()
+    return JsonResponse({'success': True, 'message': 'Documento eliminado del listado.'})
+
+
+@login_required
+@require_POST
+def cargar_docs_sugeridos_empleado_ajax(request):
+    from recursos_humanos.models import DocumentoRequeridoEmpleado
+    empresa_actual = _require_preferencias_rh_admin(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Acceso denegado'}, status=403)
+
+    sugeridos = [
+        'INE / Identificación Oficial',
+        'Acta de Nacimiento',
+        'CURP',
+        'Comprobante de Domicilio',
+        'Constancia de Situación Fiscal',
+        'Número de Seguridad Social (NSS)',
+    ]
+    existentes_lower = {
+        n.lower()
+        for n in DocumentoRequeridoEmpleado.objects.filter(empresa=empresa_actual).values_list('nombre', flat=True)
+    }
+    siguiente_orden = (
+        DocumentoRequeridoEmpleado.objects.filter(empresa=empresa_actual).count() + 1
+    )
+    agregados = 0
+    for nombre in sugeridos:
+        if nombre.lower() in existentes_lower:
+            continue
+        DocumentoRequeridoEmpleado.objects.create(
+            empresa=empresa_actual,
+            nombre=nombre,
+            obligatorio=True,
+            orden=siguiente_orden,
+            activo=True,
+        )
+        siguiente_orden += 1
+        agregados += 1
+
+    return JsonResponse({
+        'success': True,
+        'message': f'Se agregaron {agregados} documentos sugeridos.' if agregados else 'Todos los documentos sugeridos ya están configurados.',
+    })
 
 
 @login_required

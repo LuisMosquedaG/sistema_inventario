@@ -414,10 +414,13 @@
                 </a>
             </div>
             {% elif request.user.empleado %}
-            <!-- PORTAL EMPLEADO: Solo ve Reloj Checador / Asistencias -->
-            <div class="mt-3">
-                <a href="/recursos-humanos/asistencias/portal/" class="sidebar-link {% if '/asistencias/portal/' in request.path %}sidebar-active{% endif %}">
+            <!-- PORTAL EMPLEADO: Reloj Checador y Expediente Digital -->
+            <div class="mt-3 d-flex flex-column gap-1">
+                <a href="/recursos-humanos/asistencias/portal/" class="sidebar-link {% if request.path == '/recursos-humanos/asistencias/portal/' %}sidebar-active{% endif %}">
                     <i class="bi bi-clock-history sidebar-icon"></i> Mi Asistencia
+                </a>
+                <a href="/recursos-humanos/asistencias/portal/expediente/" class="sidebar-link {% if '/asistencias/portal/expediente/' in request.path %}sidebar-active{% endif %}">
+                    <i class="bi bi-folder-check sidebar-icon"></i> Expediente Digital
                 </a>
             </div>
             {% else %}

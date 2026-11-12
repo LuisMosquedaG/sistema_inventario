@@ -36,6 +36,7 @@ from preferencias.views import (
     crear_rol_ajax, api_detalle_rol, actualizar_rol_ajax,
     crear_sucursal_ajax, api_detalle_sucursal, actualizar_sucursal_ajax, eliminar_sucursal_ajax,
     cambiar_sucursal_ajax, actualizar_obligaciones_patronales_ajax,
+    guardar_doc_requerido_empleado_ajax, eliminar_doc_requerido_empleado_ajax, cargar_docs_sugeridos_empleado_ajax,
     obtener_sucursales_usuario_json, guardar_sucursales_usuario_ajax,
     actualizar_config_ecommerce_ajax
 )
@@ -101,6 +102,9 @@ urlpatterns = [
     path('preferencias/eliminar-sucursal/<int:sucursal_id>/', eliminar_sucursal_ajax, name='eliminar_sucursal_ajax'),
     path('preferencias/cambiar-sucursal/', cambiar_sucursal_ajax, name='cambiar_sucursal_ajax'),
     path('preferencias/actualizar-obligaciones-patronales/', actualizar_obligaciones_patronales_ajax, name='actualizar_obligaciones_patronales_ajax'),
+    path('preferencias/documentos-empleados/guardar/', guardar_doc_requerido_empleado_ajax, name='guardar_doc_requerido_empleado_ajax'),
+    path('preferencias/documentos-empleados/eliminar/<int:doc_id>/', eliminar_doc_requerido_empleado_ajax, name='eliminar_doc_requerido_empleado_ajax'),
+    path('preferencias/documentos-empleados/cargar-sugeridos/', cargar_docs_sugeridos_empleado_ajax, name='cargar_docs_sugeridos_empleado_ajax'),
     path('preferencias/actualizar-config-ecommerce/', actualizar_config_ecommerce_ajax, name='actualizar_config_ecommerce_ajax'),
     
     # --- RUTAS PÚBLICAS PORTAL ECOMMERCE / PEDIDOS ---

@@ -1206,4 +1206,67 @@ class AsistenciaEmpleado(models.Model):
         return f"{self.empleado} - {self.get_tipo_display()} ({self.fecha_hora:%d/%m/%Y %H:%M})"
 
 
+def upload_to_empleado_expediente(instance, filename):
+    subdominio = instance.empresa.subdominio if instance.empresa else 'default'
+    return f'tenants/{subdominio}/empleados/{instance.empleado_id}/expediente/{filename}'
+
+
+class DocumentoRequeridoEmpleado(models.Model):
+    """Catálogo configurable por empresa de documentos requeridos para el expediente digital del empleado."""
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='documentos_requeridos_empleado', verbose_name="Empresa")
+    nombre = models.CharField(max_length=120, verbose_name="Nombre del Documento")
+    obligatorio = models.BooleanField(default=True, verbose_name="Obligatorio")
+    orden = models.PositiveIntegerField(default=1, verbose_name="Orden")
+    activo = models.BooleanField(default=True, verbose_name="Activo")
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Documento Requerido de Empleado"
+        verbose_name_plural = "Documentos Requeridos de Empleados"
+        ordering = ['orden', 'id']
+        unique_together = ('empresa', 'nombre')
+
+    def __str__(self):
+        return f"{self.nombre} ({self.empresa})"
+
+
+class ExpedienteDigitalEmpleado(models.Model):
+    """Documentos digitales subidos por el empleado o RH para integrar su expediente."""
+    STATUS_CHOICES = [
+        ('revision', 'En Revisión'),
+        ('aprobado', 'Aprobado'),
+        ('rechazado', 'Rechazado'),
+    ]
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
+    empleado = models.ForeignKey(Empleado, on_delete=models.CASCADE, related_name='expediente_documentos', verbose_name="Empleado")
+    documento_requerido = models.ForeignKey(DocumentoRequeridoEmpleado, on_delete=models.CASCADE, related_name='archivos_empleados', verbose_name="Documento Requerido")
+    archivo = models.FileField(storage=protected_storage, upload_to=upload_to_empleado_expediente, verbose_name="Archivo")
+    nombre_archivo = models.CharField(max_length=255, blank=True, verbose_name="Nombre del Archivo")
+    estatus = models.CharField(max_length=20, choices=STATUS_CHOICES, default='revision', verbose_name="Estatus")
+    comentario_rechazo = models.TextField(blank=True, null=True, verbose_name="Motivo de Rechazo")
+    subido_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Subido por")
+    fecha_subida = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Documento de Expediente de Empleado"
+        verbose_name_plural = "Documentos de Expedientes de Empleados"
+        unique_together = ('empleado', 'documento_requerido')
+        ordering = ['documento_requerido__orden', 'id']
+
+    def __str__(self):
+        return f"{self.empleado} - {self.documento_requerido.nombre} ({self.get_estatus_display()})"
+
+
+@receiver(post_delete, sender=ExpedienteDigitalEmpleado)
+def eliminar_archivo_fisico_expediente_empleado(sender, instance, **kwargs):
+    """Elimina el archivo físico del servidor al borrar el registro del expediente."""
+    if instance.archivo:
+        try:
+            if os.path.isfile(instance.archivo.path):
+                os.remove(instance.archivo.path)
+        except Exception:
+            pass
+
+
 

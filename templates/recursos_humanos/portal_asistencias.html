@@ -154,6 +154,16 @@
 
 <div class="container-fluid py-3 py-md-4 px-3">
     <div class="asistencia-wrapper">
+        <!-- NAVEGACIÓN DE SUBMÓDULOS DEL PORTAL -->
+        <div class="d-flex gap-2 mb-3">
+            <a href="{% url 'portal_asistencias_empleado' %}" class="btn btn-brand text-white btn-sm flex-fill fw-bold rounded-3 py-2 shadow-sm">
+                <i class="bi bi-clock-history me-1"></i> Mi Asistencia
+            </a>
+            <a href="{% url 'portal_expediente_empleado' %}" class="btn btn-light border text-secondary btn-sm flex-fill fw-bold rounded-3 py-2 shadow-sm">
+                <i class="bi bi-folder-check me-1"></i> Expediente Digital
+            </a>
+        </div>
+
         <!-- TARJETA BIENVENIDA EMPLEADO -->
         <div class="card border-0 shadow-sm rounded-4 mb-3 brand-accent-card bg-white">
             <div class="card-body p-3 p-md-4">
