@@ -1190,7 +1190,7 @@
                                                                    name="perm_recursos_humanos__{{ submodulo }}__{{ p_accion }}" id="perm_recursos_humanos__{{ submodulo }}__{{ p_accion }}">
                                                             <label class="form-check-label text-dark text-truncate w-100" style="font-size: 0.7rem;" for="perm_recursos_humanos__{{ submodulo }}__{{ p_accion }}"
                                                                    {% if p_accion == 'ver_asistencias' %}title="Ver asistencias (abre el panel de asistencias)"{% endif %}>
-                                                                {% if p_accion == 'ver_asistencias' %}Ver asistencias{% elif p_accion == 'editar_asistencias' %}Editar asistencias{% elif p_accion == 'ver_fotos' %}Ver fotos{% elif p_accion == 'eliminar_asistencia' %}Eliminar asistencia{% elif p_accion == 'exportar_excel_asistencias' %}Exportar Excel Asistencias{% else %}{{ p_accion|cut:"_"|title }}{% endif %}
+                                                                {% if p_accion == 'ver_asistencias' %}Ver asistencias{% elif p_accion == 'editar_asistencias' %}Editar asistencias{% elif p_accion == 'ver_fotos' %}Ver fotos{% elif p_accion == 'eliminar_asistencia' %}Eliminar asistencia{% elif p_accion == 'exportar_excel_asistencias' %}Exportador de asistencias{% else %}{{ p_accion|cut:"_"|title }}{% endif %}
                                                             </label>
                                                         </div>
                                                     </div>
