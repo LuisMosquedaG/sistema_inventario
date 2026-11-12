@@ -161,6 +161,11 @@
             <span class="section-subtitle">Módulo de Recursos Humanos</span>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
+            {% if granular_hr_perms.empleados.exportar_excel_asistencias %}
+            <button type="button" class="btn btn-light text-secondary btn-pro shadow-sm border" data-bs-toggle="modal" data-bs-target="#modalReporteAsistenciasContratista">
+                <i class="bi bi-file-earmark-excel me-1"></i> Asistencias
+            </button>
+            {% endif %}
             {% if granular_hr_perms.empleados.crear %}
             <button class="btn btn-brand text-white btn-sm px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoEmpleado" onclick="prepararNuevoEmpleado('{{ filtros.sucursal }}')">
                 <i class="bi bi-plus-lg me-1"></i> Nuevo Empleado
@@ -786,6 +791,60 @@
     </div>
 </div>
 
+<!-- Modal: Reporte de Asistencias por Contratista -->
+<div class="modal fade" id="modalReporteAsistenciasContratista" tabindex="-1" aria-labelledby="modalReporteAsistenciasContratistaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sheet">
+        <div class="modal-content border-0">
+            <div class="modal-header border-bottom bg-light">
+                <h5 class="modal-title fw-bold" id="modalReporteAsistenciasContratistaLabel">
+                    <i class="bi bi-file-earmark-excel text-brand me-2"></i>Reporte de Asistencias por Contratista
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formReporteAsistenciasContratista" method="get" action="{% url 'exportar_asistencias_contratista_excel' %}">
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-4">
+                        Selecciona el contratista y el rango de fechas para descargar en Excel el concentrado de asistencias de todos los trabajadores asignados a ese contratista.
+                    </p>
+                    <div class="mb-3">
+                        <label for="selectContratistaAsistencias" class="form-label-custom">Contratista *</label>
+                        <select name="contratista_id" id="selectContratistaAsistencias" class="form-select" required>
+                            <option value="">-- Selecciona un contratista --</option>
+                            {% for c in contratistas %}
+                            <option value="{{ c.id }}" {% if c.id|stringformat:'s' == filtros.contratista %}selected{% endif %}>
+                                {{ c.nombre_razon_social }}{% if c.rfc %} ({{ c.rfc }}){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% if not contratistas %}
+                        <small class="text-danger d-block mt-1">No hay contratistas registrados para esta empresa.</small>
+                        {% endif %}
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label for="rep_asist_fecha_inicio" class="form-label-custom">Desde *</label>
+                            <input type="date" name="fecha_inicio" id="rep_asist_fecha_inicio" class="form-control" required>
+                        </div>
+                        <div class="col-6">
+                            <label for="rep_asist_fecha_fin" class="form-label-custom">Hasta *</label>
+                            <input type="date" name="fecha_fin" id="rep_asist_fecha_fin" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="alert alert-info mt-3 mb-0 py-2" style="font-size: 0.7rem;">
+                        <i class="bi bi-info-circle me-1"></i> El Excel incluirá No. Empleado, Nombre, CURP, RFC y el detalle completo de checadas del periodo.
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 bg-white">
+                    <button type="button" class="btn btn-light btn-sm text-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-brand btn-sm text-white px-4 fw-bold shadow-sm" {% if not contratistas %}disabled{% endif %}>
+                        <i class="bi bi-download me-1"></i> Descargar Excel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -956,6 +1015,32 @@
             const sdiInput = document.querySelector('input[name="sdi"]');
             if (sdiInput) {
                 sdiInput.value = (sdo * factorIntegracion).toFixed(2);
+            }
+        });
+    }
+
+    const modalRepAsist = document.getElementById('modalReporteAsistenciasContratista');
+    const formRepAsist = document.getElementById('formReporteAsistenciasContratista');
+    const initFechasReporteAsistencias = () => {
+        const inicioInput = document.getElementById('rep_asist_fecha_inicio');
+        const finInput = document.getElementById('rep_asist_fecha_fin');
+        if (!inicioInput || !finInput) return;
+        const hoy = new Date();
+        const yyyy = hoy.getFullYear();
+        const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+        const dd = String(hoy.getDate()).padStart(2, '0');
+        if (!inicioInput.value) inicioInput.value = `${yyyy}-${mm}-01`;
+        if (!finInput.value) finInput.value = `${yyyy}-${mm}-${dd}`;
+    };
+    initFechasReporteAsistencias();
+    if (modalRepAsist) {
+        modalRepAsist.addEventListener('show.bs.modal', initFechasReporteAsistencias);
+    }
+    if (formRepAsist && modalRepAsist) {
+        formRepAsist.addEventListener('submit', () => {
+            const modalInstance = bootstrap.Modal.getInstance(modalRepAsist);
+            if (modalInstance) {
+                setTimeout(() => modalInstance.hide(), 300);
             }
         });
     }

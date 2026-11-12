@@ -1,5 +1,6 @@
 import base64
 import uuid
+from collections import defaultdict
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
@@ -21,7 +22,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from preferencias.permissions import require_hr_permission, user_has_hr_permission
-from ..models import AsistenciaEmpleado, Empleado
+from ..models import AsistenciaEmpleado, Contratista, Empleado
 from .utils import get_empresa_actual
 
 
@@ -38,7 +39,12 @@ def _formatear_duracion(td):
 def _agrupar_asistencias_por_dia(registros_qs):
     """Agrupa objetos AsistenciaEmpleado por fecha local y calcula tiempos por jornada."""
     dias_map = {}
-    for reg in registros_qs.order_by('fecha', 'fecha_hora'):
+    registros = (
+        registros_qs.order_by('fecha', 'fecha_hora')
+        if hasattr(registros_qs, 'order_by')
+        else sorted(registros_qs, key=lambda r: (r.fecha, r.fecha_hora))
+    )
+    for reg in registros:
         fecha_key = reg.fecha
         if fecha_key not in dias_map:
             dias_map[fecha_key] = {
@@ -522,17 +528,7 @@ def registrar_asistencia_ajax(request):
     return resp
 
 
-@login_required(login_url='/login/')
-@require_hr_permission('empleados', 'ver_asistencias')
-def asistencias_empleado_detalle(request, id):
-    """Vista administrativa de control de asistencias por empleado dentro de Obligaciones Patronales -> Empleados."""
-    empresa_actual = get_empresa_actual(request)
-    empleado = get_object_or_404(
-        Empleado.objects.select_related('sucursal', 'usuario', 'contratista', 'beneficiario'),
-        id=id,
-        empresa=empresa_actual
-    )
-
+def _parsear_rango_fechas(request):
     hoy = timezone.localdate()
     inicio_default = hoy.replace(day=1)
 
@@ -551,6 +547,21 @@ def asistencias_empleado_detalle(request, id):
 
     if fecha_inicio > fecha_fin:
         fecha_inicio, fecha_fin = fecha_fin, fecha_inicio
+    return fecha_inicio, fecha_fin
+
+
+@login_required(login_url='/login/')
+@require_hr_permission('empleados', 'ver_asistencias')
+def asistencias_empleado_detalle(request, id):
+    """Vista administrativa de control de asistencias por empleado dentro de Obligaciones Patronales -> Empleados."""
+    empresa_actual = get_empresa_actual(request)
+    empleado = get_object_or_404(
+        Empleado.objects.select_related('sucursal', 'usuario', 'contratista', 'beneficiario'),
+        id=id,
+        empresa=empresa_actual
+    )
+
+    fecha_inicio, fecha_fin = _parsear_rango_fechas(request)
 
     registros_qs = AsistenciaEmpleado.objects.filter(
         empresa=empresa_actual,
@@ -581,7 +592,62 @@ def asistencias_empleado_detalle(request, id):
     })
 
 
-def _exportar_asistencias_excel(empleado, resumen_dias, fecha_inicio, fecha_fin, total_horas_str):
+_ASISTENCIA_EXCEL_HEADERS_BASE = [
+    "Dispositivo",
+    "ID Dispositivo",
+    "IP Registrada",
+    "Fecha",
+    "Entrada Laboral",
+    "Ubicación Entrada",
+    "Salida a Comer",
+    "Ubicación Salida Comer",
+    "Regreso de Comer",
+    "Ubicación Regreso Comer",
+    "Salida Laboral",
+    "Ubicación Salida",
+    "Tiempo Comida",
+    "Horas Brutas",
+    "Horas Netas",
+]
+
+_ASISTENCIA_DARK_HEADERS = {
+    "Tiempo Comida",
+    "Horas Brutas",
+    "Horas Netas",
+}
+
+
+def _fmt_hora_excel(reg):
+    return timezone.localtime(reg.fecha_hora).strftime("%H:%M:%S") if reg else "--"
+
+
+def _fmt_gps_excel(reg):
+    if reg and reg.latitud is not None and reg.longitud is not None:
+        return f"{reg.latitud}, {reg.longitud}"
+    return "--"
+
+
+def _fila_dia_asistencia_excel(dia):
+    return [
+        dia.get('dispositivo_excel', '--'),
+        dia.get('dispositivo_token_corto') or '--',
+        dia.get('ips_excel', '--'),
+        dia['fecha'].strftime("%d/%m/%Y"),
+        _fmt_hora_excel(dia['entrada_laboral']),
+        _fmt_gps_excel(dia['entrada_laboral']),
+        _fmt_hora_excel(dia['salida_comer']),
+        _fmt_gps_excel(dia['salida_comer']),
+        _fmt_hora_excel(dia['regreso_comer']),
+        _fmt_gps_excel(dia['regreso_comer']),
+        _fmt_hora_excel(dia['salida_laboral']),
+        _fmt_gps_excel(dia['salida_laboral']),
+        dia['tiempo_comida'],
+        dia['tiempo_bruto'],
+        dia['tiempo_laborado'],
+    ]
+
+
+def _render_libro_asistencias_excel(titulo, subtitulo, headers, filas, filename, dark_headers=None, empty_message=None):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Asistencias"
@@ -596,88 +662,144 @@ def _exportar_asistencias_excel(empleado, resumen_dias, fecha_inicio, fecha_fin,
         top=Side(style='thin', color='CBD5E1'),
         bottom=Side(style='thin', color='CBD5E1'),
     )
+    dark_set = set(dark_headers if dark_headers is not None else _ASISTENCIA_DARK_HEADERS)
 
-    nombre_emp = f"{empleado.nombre} {empleado.apellido_paterno} {empleado.apellido_materno}".strip()
-    ws['A1'] = f"Control de Asistencias - {nombre_emp}"
+    ws['A1'] = titulo
     ws['A1'].font = font_title
-    ws['A2'] = f"No. Empleado: {empleado.num_empleado or 'S/N'} | Periodo: {fecha_inicio:%d/%m/%Y} al {fecha_fin:%d/%m/%Y} | Total Laborado: {total_horas_str}"
+    ws['A2'] = subtitulo
     ws['A2'].font = Font(size=10, color="475569")
 
-    headers = [
-        "Fecha",
-        "Entrada Laboral",
-        "Ubicación Entrada",
-        "Salida a Comer",
-        "Ubicación Salida Comer",
-        "Regreso de Comer",
-        "Ubicación Regreso Comer",
-        "Salida Laboral",
-        "Ubicación Salida",
-        "Tiempo Comida",
-        "Horas Brutas",
-        "Horas Netas",
-        "Dispositivo",
-        "ID Dispositivo",
-        "IP Registrada",
-    ]
     ws.append([])
     ws.append(headers)
     header_row = 4
-    for col_idx in range(1, len(headers) + 1):
+    for col_idx, header_name in enumerate(headers, start=1):
         cell = ws.cell(row=header_row, column=col_idx)
-        cell.fill = fill_brand if col_idx not in (10, 11, 12, 13, 14, 15) else fill_sub
+        cell.fill = fill_sub if header_name in dark_set else fill_brand
         cell.font = font_header
         cell.alignment = Alignment(horizontal="center", vertical="center")
         cell.border = thin_border
 
-    def _fmt_hora(reg):
-        return timezone.localtime(reg.fecha_hora).strftime("%H:%M:%S") if reg else "--"
+    wrap_cols = {idx for idx, h in enumerate(headers, start=1) if h in ("Dispositivo", "IP Registrada", "Nombre del Trabajador")}
+    left_cols = {idx for idx, h in enumerate(headers, start=1) if h == "Nombre del Trabajador"}
 
-    def _fmt_gps(reg):
-        if reg and reg.latitud is not None and reg.longitud is not None:
-            return f"{reg.latitud}, {reg.longitud}"
-        return "--"
+    if filas:
+        for row_idx, row_vals in enumerate(filas, start=header_row + 1):
+            for col_idx, val in enumerate(row_vals, start=1):
+                c = ws.cell(row=row_idx, column=col_idx, value=val)
+                c.border = thin_border
+                c.alignment = Alignment(
+                    horizontal="left" if col_idx in left_cols else "center",
+                    vertical="center",
+                    wrap_text=(col_idx in wrap_cols),
+                )
+    elif empty_message:
+        ws.merge_cells(start_row=header_row + 1, start_column=1, end_row=header_row + 1, end_column=len(headers))
+        c = ws.cell(row=header_row + 1, column=1, value=empty_message)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.font = Font(italic=True, color="64748B")
 
-    for idx, dia in enumerate(resumen_dias, start=header_row + 1):
-        row_vals = [
-            dia['fecha'].strftime("%d/%m/%Y"),
-            _fmt_hora(dia['entrada_laboral']),
-            _fmt_gps(dia['entrada_laboral']),
-            _fmt_hora(dia['salida_comer']),
-            _fmt_gps(dia['salida_comer']),
-            _fmt_hora(dia['regreso_comer']),
-            _fmt_gps(dia['regreso_comer']),
-            _fmt_hora(dia['salida_laboral']),
-            _fmt_gps(dia['salida_laboral']),
-            dia['tiempo_comida'],
-            dia['tiempo_bruto'],
-            dia['tiempo_laborado'],
-            dia.get('dispositivo_excel', '--'),
-            dia.get('dispositivo_token_corto') or '--',
-            dia.get('ips_excel', '--'),
-        ]
-        for col_idx, val in enumerate(row_vals, start=1):
-            c = ws.cell(row=idx, column=col_idx, value=val)
-            c.border = thin_border
-            c.alignment = Alignment(
-                horizontal="center",
-                vertical="center",
-                wrap_text=(col_idx in (13, 15)),
-            )
-
-    for col_idx in range(1, len(headers) + 1):
+    for col_idx, header_name in enumerate(headers, start=1):
         col_letter = get_column_letter(col_idx)
-        header_name = headers[col_idx - 1]
-        if "Ubicación" in header_name or header_name in ("IP Registrada", "Dispositivo"):
+        if header_name == "Nombre del Trabajador":
+            ws.column_dimensions[col_letter].width = 30
+        elif header_name in ("CURP", "RFC"):
+            ws.column_dimensions[col_letter].width = 21
+        elif "Ubicación" in header_name or header_name in ("IP Registrada", "Dispositivo"):
             ws.column_dimensions[col_letter].width = 24
         else:
             ws.column_dimensions[col_letter].width = 16
 
     resp = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    filename = f"Asistencias_{empleado.num_empleado or empleado.id}_{fecha_inicio:%Y%m%d}_{fecha_fin:%Y%m%d}.xlsx"
     resp['Content-Disposition'] = f'attachment; filename="{filename}"'
     wb.save(resp)
     return resp
+
+
+def _exportar_asistencias_excel(empleado, resumen_dias, fecha_inicio, fecha_fin, total_horas_str):
+    nombre_emp = f"{empleado.nombre} {empleado.apellido_paterno} {empleado.apellido_materno}".strip()
+    titulo = f"Control de Asistencias - {nombre_emp}"
+    subtitulo = f"No. Empleado: {empleado.num_empleado or 'S/N'} | Periodo: {fecha_inicio:%d/%m/%Y} al {fecha_fin:%d/%m/%Y} | Total Laborado: {total_horas_str}"
+    filas = [_fila_dia_asistencia_excel(dia) for dia in resumen_dias]
+    filename = f"Asistencias_{empleado.num_empleado or empleado.id}_{fecha_inicio:%Y%m%d}_{fecha_fin:%Y%m%d}.xlsx"
+    return _render_libro_asistencias_excel(titulo, subtitulo, _ASISTENCIA_EXCEL_HEADERS_BASE, filas, filename)
+
+
+def _exportar_asistencias_contratista_workbook(contratista, empleados_con_dias, fecha_inicio, fecha_fin, total_horas_str):
+    headers = ["No. Empleado", "Nombre del Trabajador", "CURP", "RFC"] + _ASISTENCIA_EXCEL_HEADERS_BASE
+    dark_headers = _ASISTENCIA_DARK_HEADERS | {"No. Empleado", "Nombre del Trabajador", "CURP", "RFC"}
+    filas = []
+    for emp, resumen_dias in empleados_con_dias:
+        nombre_emp = f"{emp.nombre} {emp.apellido_paterno} {emp.apellido_materno}".strip()
+        prefijo = [
+            emp.num_empleado or '--',
+            nombre_emp or '--',
+            emp.curp or '--',
+            emp.rfc or '--',
+        ]
+        for dia in resumen_dias:
+            filas.append(prefijo + _fila_dia_asistencia_excel(dia))
+
+    titulo = f"Reporte de Asistencias por Contratista - {contratista.nombre_razon_social}"
+    subtitulo = (
+        f"RFC: {contratista.rfc or 'S/N'} | Trabajadores asignados: {len(empleados_con_dias)} | "
+        f"Periodo: {fecha_inicio:%d/%m/%Y} al {fecha_fin:%d/%m/%Y} | Total Laborado: {total_horas_str}"
+    )
+    filename = f"Asistencias_Contratista_{contratista.id}_{fecha_inicio:%Y%m%d}_{fecha_fin:%Y%m%d}.xlsx"
+    return _render_libro_asistencias_excel(
+        titulo,
+        subtitulo,
+        headers,
+        filas,
+        filename,
+        dark_headers=dark_headers,
+        empty_message="No se encontraron registros de asistencia para los trabajadores de este contratista en el periodo seleccionado.",
+    )
+
+
+@login_required(login_url='/login/')
+@require_hr_permission('empleados', 'exportar_excel_asistencias')
+def exportar_asistencias_contratista_excel(request):
+    """Exporta a Excel las asistencias de todos los empleados asignados a un contratista."""
+    empresa_actual = get_empresa_actual(request)
+    contratista_id = (request.GET.get('contratista_id') or '').strip()
+    if not contratista_id:
+        messages.error(request, 'Debes seleccionar un contratista para generar el reporte.')
+        return redirect('lista_empleados')
+
+    contratista = get_object_or_404(Contratista, id=contratista_id, empresa=empresa_actual)
+    fecha_inicio, fecha_fin = _parsear_rango_fechas(request)
+
+    empleados = list(
+        Empleado.objects.filter(empresa=empresa_actual, contratista=contratista)
+        .order_by('apellido_paterno', 'apellido_materno', 'nombre')
+    )
+
+    registros_qs = AsistenciaEmpleado.objects.filter(
+        empresa=empresa_actual,
+        empleado__in=empleados,
+        fecha__gte=fecha_inicio,
+        fecha__lte=fecha_fin,
+    ).order_by('empleado_id', 'fecha', 'fecha_hora')
+
+    regs_por_empleado = defaultdict(list)
+    for reg in registros_qs:
+        regs_por_empleado[reg.empleado_id].append(reg)
+
+    empleados_con_dias = []
+    total_segundos_global = 0
+    for emp in empleados:
+        resumen_dias, total_seg_emp = _agrupar_asistencias_por_dia(regs_por_empleado.get(emp.id, []))
+        total_segundos_global += total_seg_emp
+        empleados_con_dias.append((emp, resumen_dias))
+
+    total_horas_str = _formatear_duracion(timedelta(seconds=total_segundos_global))
+    return _exportar_asistencias_contratista_workbook(
+        contratista,
+        empleados_con_dias,
+        fecha_inicio,
+        fecha_fin,
+        total_horas_str,
+    )
 
 
 @login_required(login_url='/login/')
