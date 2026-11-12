@@ -269,6 +269,32 @@ def _decodificar_foto_base64(data_url, filename_prefix):
     return ContentFile(decoded, name=f"{filename_prefix}_{uuid.uuid4().hex[:8]}.{ext}")
 
 
+_MAX_TURNO_ABIERTO_HORAS = 20
+
+
+def _obtener_jornada_activa(empleado, ahora=None):
+    """Retorna (fecha_jornada, registros_jornada) soportando turnos nocturnos iniciados el día anterior."""
+    ahora = ahora or timezone.now()
+    hoy = timezone.localdate(ahora)
+    registros_hoy = list(
+        AsistenciaEmpleado.objects.filter(empleado=empleado, fecha=hoy).order_by('fecha_hora')
+    )
+    if registros_hoy:
+        return hoy, registros_hoy
+
+    ayer = hoy - timedelta(days=1)
+    registros_ayer = list(
+        AsistenciaEmpleado.objects.filter(empleado=empleado, fecha=ayer).order_by('fecha_hora')
+    )
+    if registros_ayer:
+        ultimo_ayer = registros_ayer[-1]
+        inicio_ayer = registros_ayer[0].fecha_hora
+        if ultimo_ayer.tipo != 'salida_laboral' and (ahora - inicio_ayer) <= timedelta(hours=_MAX_TURNO_ABIERTO_HORAS):
+            return ayer, registros_ayer
+
+    return hoy, registros_hoy
+
+
 def _obtener_estado_jornada(registros_hoy):
     """Determina estado actual de la jornada, siguiente acción sugerida y acciones permitidas."""
     ultimo_registro = registros_hoy[-1] if registros_hoy else None
@@ -335,9 +361,7 @@ def portal_asistencias_empleado(request):
 
     empresa = empleado.empresa
     hoy = timezone.localdate()
-    registros_hoy = list(
-        AsistenciaEmpleado.objects.filter(empleado=empleado, fecha=hoy).order_by('fecha_hora')
-    )
+    fecha_jornada, registros_hoy = _obtener_jornada_activa(empleado)
     tipos_registrados = {r.tipo for r in registros_hoy}
     (
         estado_jornada,
@@ -358,6 +382,7 @@ def portal_asistencias_empleado(request):
         'empresa': empresa,
         'empleado': empleado,
         'hoy': hoy,
+        'fecha_jornada': fecha_jornada,
         'registros_hoy': registros_hoy,
         'tipos_registrados': tipos_registrados,
         'ultimo_registro': ultimo_registro,
@@ -386,11 +411,7 @@ def registrar_asistencia_ajax(request):
         return JsonResponse({'success': False, 'error': 'Tipo de registro de asistencia inválido.'}, status=400)
 
     ahora = timezone.now()
-    fecha_local = timezone.localdate(ahora)
-
-    registros_hoy = list(
-        AsistenciaEmpleado.objects.filter(empleado=empleado, fecha=fecha_local).order_by('fecha_hora')
-    )
+    fecha_local, registros_hoy = _obtener_jornada_activa(empleado, ahora)
     estado_jornada, _, _, acciones_permitidas, _ = _obtener_estado_jornada(registros_hoy)
     if tipo not in acciones_permitidas:
         return JsonResponse({
@@ -1021,7 +1042,11 @@ def editar_asistencia_dia_ajax(request, id):
                     continue
 
                 hora_obj, lat, lng = datos_mov
-                aware_dt = timezone.make_aware(datetime.combine(fecha_destino, hora_obj), tz_actual)
+                entrada_mov = parsed_movimientos.get('entrada_laboral')
+                fecha_dt_real = fecha_destino
+                if tipo != 'entrada_laboral' and entrada_mov and hora_obj < entrada_mov[0]:
+                    fecha_dt_real = fecha_destino + timedelta(days=1)
+                aware_dt = timezone.make_aware(datetime.combine(fecha_dt_real, hora_obj), tz_actual)
 
                 if reg_existente:
                     reg = reg_existente
