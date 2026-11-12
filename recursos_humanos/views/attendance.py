@@ -80,12 +80,30 @@ def _agrupar_asistencias_por_dia(registros_qs):
             td_laborado = td_bruto - td_comida if td_comida and td_bruto > td_comida else td_bruto
             total_segundos_laborados += int(td_laborado.total_seconds())
 
+        ips_orden = []
+        ips_detalle = []
+        for reg in dia['todos']:
+            ip_val = (getattr(reg, 'ip_address', None) or '').strip()
+            if ip_val:
+                if ip_val not in ips_orden:
+                    ips_orden.append(ip_val)
+                tipo_lbl = reg.get_tipo_display() if hasattr(reg, 'get_tipo_display') else reg.tipo
+                ips_detalle.append(f"{tipo_lbl}: {ip_val}")
+
+        ip_principal = (getattr(ent, 'ip_address', None) or '').strip() if ent else ''
+        if not ip_principal and ips_orden:
+            ip_principal = ips_orden[0]
+
         dia['tiempo_comida'] = _formatear_duracion(td_comida)
         dia['tiempo_bruto'] = _formatear_duracion(td_bruto)
         dia['tiempo_laborado'] = _formatear_duracion(td_laborado)
         dia['segundos_brutos'] = int(td_bruto.total_seconds()) if td_bruto else 0
         dia['segundos_laborados'] = int(td_laborado.total_seconds()) if td_laborado else 0
         dia['columnas_checadas'] = [ent, sal_com, reg_com, sal]
+        dia['ip_principal'] = ip_principal
+        dia['ips_extra_count'] = max(0, len(ips_orden) - 1)
+        dia['ips_tooltip'] = ' | '.join(ips_detalle) if ips_detalle else 'Sin IP registrada'
+        dia['ips_excel'] = ips_orden[0] if len(ips_orden) == 1 else (' | '.join(ips_detalle) if ips_detalle else '--')
         resumen_dias.append(dia)
 
     return resumen_dias, total_segundos_laborados
@@ -468,13 +486,14 @@ def _exportar_asistencias_excel(empleado, resumen_dias, fecha_inicio, fecha_fin,
         "Tiempo Comida",
         "Horas Brutas",
         "Horas Netas",
+        "IP Registrada",
     ]
     ws.append([])
     ws.append(headers)
     header_row = 4
     for col_idx in range(1, len(headers) + 1):
         cell = ws.cell(row=header_row, column=col_idx)
-        cell.fill = fill_brand if col_idx not in (10, 11, 12) else fill_sub
+        cell.fill = fill_brand if col_idx not in (10, 11, 12, 13) else fill_sub
         cell.font = font_header
         cell.alignment = Alignment(horizontal="center", vertical="center")
         cell.border = thin_border
@@ -501,15 +520,24 @@ def _exportar_asistencias_excel(empleado, resumen_dias, fecha_inicio, fecha_fin,
             dia['tiempo_comida'],
             dia['tiempo_bruto'],
             dia['tiempo_laborado'],
+            dia.get('ips_excel', '--'),
         ]
         for col_idx, val in enumerate(row_vals, start=1):
             c = ws.cell(row=idx, column=col_idx, value=val)
             c.border = thin_border
-            c.alignment = Alignment(horizontal="center", vertical="center")
+            c.alignment = Alignment(
+                horizontal="center",
+                vertical="center",
+                wrap_text=(col_idx == 13),
+            )
 
     for col_idx in range(1, len(headers) + 1):
         col_letter = get_column_letter(col_idx)
-        ws.column_dimensions[col_letter].width = 22 if "Ubicación" in headers[col_idx - 1] else 16
+        header_name = headers[col_idx - 1]
+        if "Ubicación" in header_name or header_name == "IP Registrada":
+            ws.column_dimensions[col_letter].width = 22
+        else:
+            ws.column_dimensions[col_letter].width = 16
 
     resp = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     filename = f"Asistencias_{empleado.num_empleado or empleado.id}_{fecha_inicio:%Y%m%d}_{fecha_fin:%Y%m%d}.xlsx"

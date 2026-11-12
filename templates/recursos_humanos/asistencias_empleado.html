@@ -151,6 +151,7 @@
                             <th class="text-center">Entrada a Comer</th>
                             <th class="text-center">Salida Laboral</th>
                             <th class="text-center">Horas Trabajadas</th>
+                            <th class="text-center">IP</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -222,10 +223,22 @@
                                 <span class="text-muted small">--</span>
                                 {% endif %}
                             </td>
+
+                            <!-- IP -->
+                            <td class="text-center text-nowrap" title="{{ dia.ips_tooltip }}">
+                                {% if dia.ip_principal %}
+                                <div class="text-dark small font-monospace">{{ dia.ip_principal }}</div>
+                                {% if dia.ips_extra_count > 0 %}
+                                <div class="text-muted" style="font-size: 0.7rem;">+{{ dia.ips_extra_count }} IP{% if dia.ips_extra_count > 1 %}s{% endif %}</div>
+                                {% endif %}
+                                {% else %}
+                                <span class="text-muted small">--</span>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="6" class="text-center py-5">
+                            <td colspan="7" class="text-center py-5">
                                 <i class="bi bi-calendar-x display-6 text-muted mb-2 d-block"></i>
                                 <span class="text-muted fst-italic small">No hay registros de asistencia en el rango seleccionado</span>
                             </td>
