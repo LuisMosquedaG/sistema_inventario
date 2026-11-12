@@ -22,7 +22,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from preferencias.permissions import require_hr_permission, user_has_hr_permission
-from ..models import AsistenciaEmpleado, Contratista, Empleado
+from ..models import AsistenciaEmpleado, ConfiguracionJornadaLaboral, Contratista, Empleado
 from .utils import get_empresa_actual
 
 
@@ -599,6 +599,8 @@ def asistencias_empleado_detalle(request, id):
         if not user_has_hr_permission(request, 'empleados', 'exportar_excel_asistencias'):
             messages.error(request, 'No cuentas con permiso para exportar asistencias a Excel.')
             return redirect(f"{request.path}?fecha_inicio={fecha_inicio:%Y-%m-%d}&fecha_fin={fecha_fin:%Y-%m-%d}")
+        config_jornada = ConfiguracionJornadaLaboral.para_empresa(empresa_actual)
+        _aplicar_calculo_jornada_dias(resumen_dias, config_jornada)
         return _exportar_asistencias_excel(empleado, resumen_dias, fecha_inicio, fecha_fin, total_horas_str)
 
     return render(request, 'recursos_humanos/asistencias_empleado.html', {
@@ -629,13 +631,123 @@ _ASISTENCIA_EXCEL_HEADERS_BASE = [
     "Tiempo Comida",
     "Horas Brutas",
     "Horas Netas",
+    "Horas Ordinarias",
+    "Horas Extras Dobles",
+    "Horas Extras Triples",
+    "Horas Excedentes",
 ]
 
 _ASISTENCIA_DARK_HEADERS = {
     "Tiempo Comida",
     "Horas Brutas",
     "Horas Netas",
+    "Horas Ordinarias",
+    "Horas Extras Dobles",
+    "Horas Extras Triples",
+    "Horas Excedentes",
 }
+
+
+def _fmt_horas_jornada(segundos):
+    if not segundos or segundos <= 0:
+        return '0h 00m'
+    return _formatear_duracion(timedelta(seconds=segundos))
+
+
+def _periodo_key_jornada(fecha_dia, periodo, dia_inicio):
+    if periodo == 'diario':
+        return fecha_dia
+    if periodo == 'quincenal':
+        return (fecha_dia.year, fecha_dia.month, 1 if fecha_dia.day <= 15 else 2)
+    if periodo == 'mensual':
+        return (fecha_dia.year, fecha_dia.month)
+    # Semanal anclado en dia_inicio_semana (0=Lunes .. 6=Domingo)
+    delta = (fecha_dia.weekday() - dia_inicio) % 7
+    return fecha_dia - timedelta(days=delta)
+
+
+def _aplicar_calculo_jornada_dias(resumen_dias, config_jornada):
+    """Clasifica las horas netas de cada día en ordinarias, extras dobles, extras triples y excedentes."""
+    if not resumen_dias or not config_jornada:
+        return resumen_dias
+
+    ord_semanal_sec = max(0, int(round(float(config_jornada.horas_ordinarias_semanales or 0) * 3600)))
+    dob_limit_sec = max(0, int(round(float(config_jornada.limite_horas_extras_dobles or 0) * 3600)))
+    tri_limit_sec = max(0, int(round(float(config_jornada.limite_horas_extras_triples or 0) * 3600)))
+    max_extra_dia_sec = max(0, int(round(float(config_jornada.maximo_horas_extras_dia or 0) * 3600)))
+    max_dias_extra = max(0, int(config_jornada.maximo_dias_horas_extras or 0))
+    tolerancia_sec = max(0, int(config_jornada.minutos_tolerancia or 0) * 60)
+    periodo = (config_jornada.periodo_acumulacion or 'semanal').lower()
+    dia_inicio = int(config_jornada.dia_inicio_semana or 0) % 7
+
+    if periodo == 'diario':
+        period_ord_limit = ord_semanal_sec if ord_semanal_sec <= 86400 else (ord_semanal_sec // 6)
+        period_factor = 1
+    elif periodo == 'quincenal':
+        period_ord_limit = ord_semanal_sec * 2
+        period_factor = 2
+    elif periodo == 'mensual':
+        period_ord_limit = ord_semanal_sec * 4
+        period_factor = 4
+    else:
+        period_ord_limit = ord_semanal_sec
+        period_factor = 1
+
+    period_dob_limit = dob_limit_sec * period_factor
+    period_tri_limit = tri_limit_sec * period_factor
+
+    estado_periodos = {}
+    for dia in sorted(resumen_dias, key=lambda d: d['fecha']):
+        key = _periodo_key_jornada(dia['fecha'], periodo, dia_inicio)
+        st = estado_periodos.setdefault(key, {
+            'ord_usado': 0,
+            'dob_usado': 0,
+            'tri_usado': 0,
+            'dias_con_extra': 0,
+        })
+
+        net_sec = max(0, int(dia.get('segundos_laborados') or 0))
+        ord_disp = max(0, period_ord_limit - st['ord_usado'])
+        ord_sec = min(net_sec, ord_disp)
+        st['ord_usado'] += ord_sec
+
+        rem_sec = net_sec - ord_sec
+        if 0 < rem_sec <= tolerancia_sec:
+            rem_sec = 0
+
+        dob_sec = 0
+        tri_sec = 0
+        exc_sec = 0
+
+        if rem_sec > 0:
+            if max_dias_extra > 0 and st['dias_con_extra'] >= max_dias_extra:
+                exc_sec = rem_sec
+            else:
+                st['dias_con_extra'] += 1
+                clasificable_sec = min(rem_sec, max_extra_dia_sec) if max_extra_dia_sec > 0 else rem_sec
+                exc_sec = rem_sec - clasificable_sec
+
+                dob_disp = max(0, period_dob_limit - st['dob_usado'])
+                dob_sec = min(clasificable_sec, dob_disp)
+                st['dob_usado'] += dob_sec
+
+                rem_clas = clasificable_sec - dob_sec
+                tri_disp = max(0, period_tri_limit - st['tri_usado'])
+                tri_sec = min(rem_clas, tri_disp)
+                st['tri_usado'] += tri_sec
+
+                exc_sec += (rem_clas - tri_sec)
+
+        dia['segundos_ordinarios'] = ord_sec
+        dia['segundos_extras_dobles'] = dob_sec
+        dia['segundos_extras_triples'] = tri_sec
+        dia['segundos_excedentes'] = exc_sec
+        dia['horas_ordinarias'] = _fmt_horas_jornada(ord_sec)
+        dia['horas_extras_dobles'] = _fmt_horas_jornada(dob_sec)
+        dia['horas_extras_triples'] = _fmt_horas_jornada(tri_sec)
+        dia['horas_excedentes'] = _fmt_horas_jornada(exc_sec)
+
+    return resumen_dias
 
 
 def _fmt_hora_excel(reg):
@@ -665,6 +777,10 @@ def _fila_dia_asistencia_excel(dia):
         dia['tiempo_comida'],
         dia['tiempo_bruto'],
         dia['tiempo_laborado'],
+        dia.get('horas_ordinarias', '0h 00m'),
+        dia.get('horas_extras_dobles', '0h 00m'),
+        dia.get('horas_extras_triples', '0h 00m'),
+        dia.get('horas_excedentes', '0h 00m'),
     ]
 
 
@@ -731,7 +847,7 @@ def _render_libro_asistencias_excel(titulo, subtitulo, headers, filas, filename,
         elif "Ubicación" in header_name or header_name == "IP Registrada":
             ws.column_dimensions[col_letter].width = 24
         else:
-            ws.column_dimensions[col_letter].width = 16
+            ws.column_dimensions[col_letter].width = max(16, len(header_name) + 3)
 
     resp = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     resp['Content-Disposition'] = f'attachment; filename="{filename}"'
@@ -809,10 +925,12 @@ def exportar_asistencias_contratista_excel(request):
     for reg in registros_qs:
         regs_por_empleado[reg.empleado_id].append(reg)
 
+    config_jornada = ConfiguracionJornadaLaboral.para_empresa(empresa_actual)
     empleados_con_dias = []
     total_segundos_global = 0
     for emp in empleados:
         resumen_dias, total_seg_emp = _agrupar_asistencias_por_dia(regs_por_empleado.get(emp.id, []))
+        _aplicar_calculo_jornada_dias(resumen_dias, config_jornada)
         total_segundos_global += total_seg_emp
         empleados_con_dias.append((emp, resumen_dias))
 

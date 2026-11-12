@@ -130,10 +130,13 @@ def dashboard_preferencias(request):
     elif seccion_activa == 'obligaciones_patronales':
         if not getattr(empresa_actual, 'modulo_recursos_humanos', True):
             return redirect('dashboard_preferencias')
-        from recursos_humanos.models import DocumentoRequeridoEmpleado
+        from recursos_humanos.models import ConfiguracionJornadaLaboral, DocumentoRequeridoEmpleado
         contexto['documentos_requeridos_empleado'] = DocumentoRequeridoEmpleado.objects.filter(
             empresa=empresa_actual
         ).order_by('orden', 'id')
+        contexto['config_jornada'] = ConfiguracionJornadaLaboral.para_empresa(empresa_actual)
+        contexto['periodos_acumulacion'] = ConfiguracionJornadaLaboral.PERIODO_ACUMULACION_CHOICES
+        contexto['dias_semana_jornada'] = ConfiguracionJornadaLaboral.DIA_INICIO_SEMANA_CHOICES
 
     elif seccion_activa == 'datos':
         # Solo admin/sadmin pueden entrar aquí
@@ -1190,6 +1193,65 @@ def cargar_docs_sugeridos_empleado_ajax(request):
     return JsonResponse({
         'success': True,
         'message': f'Se agregaron {agregados} documentos sugeridos.' if agregados else 'Todos los documentos sugeridos ya están configurados.',
+    })
+
+
+@login_required
+@require_POST
+def guardar_configuracion_jornada_ajax(request):
+    from decimal import InvalidOperation
+    from recursos_humanos.models import ConfiguracionJornadaLaboral
+    empresa_actual = _require_preferencias_rh_admin(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Acceso denegado'}, status=403)
+
+    def _parse_dec(field, default_val, min_val=Decimal('0')):
+        raw = (request.POST.get(field) or '').strip()
+        if raw == '':
+            return Decimal(str(default_val))
+        val = Decimal(raw)
+        if val < min_val:
+            raise ValueError(f'El campo {field} no puede ser menor a {min_val}.')
+        return val.quantize(Decimal('0.01'))
+
+    def _parse_int(field, default_val, min_val=0, max_val=None):
+        raw = (request.POST.get(field) or '').strip()
+        if raw == '':
+            return default_val
+        val = int(raw)
+        if val < min_val or (max_val is not None and val > max_val):
+            raise ValueError(f'Valor fuera de rango para {field}.')
+        return val
+
+    try:
+        periodo = (request.POST.get('periodo_acumulacion') or 'semanal').strip()
+        periodos_validos = {k for k, _ in ConfiguracionJornadaLaboral.PERIODO_ACUMULACION_CHOICES}
+        if periodo not in periodos_validos:
+            return JsonResponse({'success': False, 'error': 'Periodo de acumulación inválido.'}, status=400)
+
+        dia_inicio = _parse_int('dia_inicio_semana', 0, min_val=0, max_val=6)
+        defaults = {
+            'horas_ordinarias_semanales': _parse_dec('horas_ordinarias_semanales', '48.00'),
+            'limite_horas_extras_dobles': _parse_dec('limite_horas_extras_dobles', '9.00'),
+            'limite_horas_extras_triples': _parse_dec('limite_horas_extras_triples', '4.00'),
+            'multiplicador_horas_dobles': _parse_dec('multiplicador_horas_dobles', '2.00'),
+            'multiplicador_horas_triples': _parse_dec('multiplicador_horas_triples', '3.00'),
+            'maximo_horas_extras_dia': _parse_dec('maximo_horas_extras_dia', '5.00'),
+            'maximo_dias_horas_extras': _parse_int('maximo_dias_horas_extras', 5, min_val=0, max_val=31),
+            'periodo_acumulacion': periodo,
+            'dia_inicio_semana': dia_inicio,
+            'minutos_tolerancia': _parse_int('minutos_tolerancia', 10, min_val=0, max_val=180),
+        }
+    except (InvalidOperation, ValueError, TypeError) as exc:
+        return JsonResponse({'success': False, 'error': f'Verifica los valores capturados: {exc}'}, status=400)
+
+    ConfiguracionJornadaLaboral.objects.update_or_create(
+        empresa=empresa_actual,
+        defaults=defaults,
+    )
+    return JsonResponse({
+        'success': True,
+        'message': 'Configuración de jornadas laborales guardada correctamente.',
     })
 
 

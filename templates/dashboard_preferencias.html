@@ -61,6 +61,23 @@
 
     .card-settings { border: none; box-shadow: 0 2px 15px rgba(0,0,0,0.05); border-radius: 10px; }
 
+    /* Estilos para secciones colapsables en Preferencias */
+    .collapse-section-btn {
+        background-color: #ffffff;
+        transition: background-color 0.2s ease;
+        cursor: pointer;
+    }
+    .collapse-section-btn:hover {
+        background-color: #f8fafc;
+    }
+    .collapse-section-btn .chevron-icon {
+        transition: transform 0.25s ease;
+        transform: rotate(180deg);
+    }
+    .collapse-section-btn.collapsed .chevron-icon {
+        transform: rotate(0deg);
+    }
+
     /* Estilos del Modal Sheet */
     .modal-sheet .modal-content {
         border-radius: 12px;
@@ -426,101 +443,210 @@
                     <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-file-earmark-medical me-2 text-secondary"></i>Obligaciones Patronales</h5>
                 </div>
                 <div class="card-body p-4">
-                    <form id="formObligacionesPatronales">
-                        {% csrf_token %}
-                        <div class="border rounded-3 p-4 bg-white shadow-sm">
-                            <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">Configuración de Parámetros</h6>
-                            
-                            <div class="row align-items-center py-3 border-bottom">
-                                <div class="col-md-3">
-                                    <span class="fw-bold text-dark" style="font-size: 0.85rem;">Valor de la UMA</span>
-                                </div>
-                                <div class="col-md-5">
-                                    <span class="text-muted" style="font-size: 0.75rem;">
-                                        Las UMAs (Unidad de Medida y Actualización) son una referencia económica en pesos en México que sirve para calcular el pago de obligaciones, multas, impuestos, trámites gubernamentales y créditos como los del Infonavit.
-                                    </span>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="input-group input-group-sm" style="max-width: 180px; margin-left: auto;">
-                                        <span class="input-group-text bg-light border-end-0">$</span>
-                                        <input type="number" step="0.01" class="form-control form-control-sm border-start-0 text-end fw-bold" id="inputUMA" name="uma" value="{{ empresa.uma|default:'117.31' }}" required>
+                    <!-- SECCIÓN 1: CONFIGURACIÓN DE UMA -->
+                    <div class="border rounded-3 bg-white shadow-sm mb-4 overflow-hidden" id="seccionConfigUMA">
+                        <button class="btn w-100 d-flex justify-content-between align-items-center px-4 py-3 text-start bg-white border-0 collapse-section-btn collapsed"
+                                type="button" data-bs-toggle="collapse" data-bs-target="#collapseConfigUMA" aria-expanded="false" aria-controls="collapseConfigUMA">
+                            <span class="fw-bold text-dark mb-0 fs-6">
+                                <i class="bi bi-cash-coin me-2 text-brand"></i>Configuración de UMA
+                            </span>
+                            <i class="bi bi-chevron-down text-muted chevron-icon"></i>
+                        </button>
+                        <div class="collapse" id="collapseConfigUMA">
+                            <div class="p-4 border-top">
+                                <form id="formObligacionesPatronales">
+                                    {% csrf_token %}
+                                    <div class="row align-items-center py-2 border-bottom">
+                                        <div class="col-md-3">
+                                            <span class="fw-bold text-dark" style="font-size: 0.85rem;">Valor de la UMA</span>
+                                        </div>
+                                        <div class="col-md-5">
+                                            <span class="text-muted" style="font-size: 0.75rem;">
+                                                Las UMAs (Unidad de Medida y Actualización) son una referencia económica en pesos en México que sirve para calcular el pago de obligaciones, multas, impuestos, trámites gubernamentales y créditos como los del Infonavit.
+                                            </span>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="input-group input-group-sm" style="max-width: 180px; margin-left: auto;">
+                                                <span class="input-group-text bg-light border-end-0">$</span>
+                                                <input type="number" step="0.01" class="form-control form-control-sm border-start-0 text-end fw-bold" id="inputUMA" name="uma" value="{{ empresa.uma|default:'117.31' }}" required>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="d-flex justify-content-end mt-4">
+                                        <button type="submit" class="btn btn-brand text-white btn-sm px-4 fw-bold">
+                                            <i class="bi bi-save me-2"></i>Guardar Configuración
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 2: DOCUMENTOS DE EMPLEADOS -->
+                    <div class="border rounded-3 bg-white shadow-sm mb-4 overflow-hidden" id="seccionDocumentosEmpleados">
+                        <button class="btn w-100 d-flex justify-content-between align-items-center px-4 py-3 text-start bg-white border-0 collapse-section-btn collapsed"
+                                type="button" data-bs-toggle="collapse" data-bs-target="#collapseDocumentosEmpleados" aria-expanded="false" aria-controls="collapseDocumentosEmpleados">
+                            <span class="fw-bold text-dark mb-0 fs-6">
+                                <i class="bi bi-folder2-open me-2 text-brand"></i>Documentos de Empleados
+                            </span>
+                            <i class="bi bi-chevron-down text-muted chevron-icon"></i>
+                        </button>
+                        <div class="collapse" id="collapseDocumentosEmpleados">
+                            <div class="p-4 border-top">
+                                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 border-bottom pb-3 mb-3">
+                                    <div>
+                                        <p class="text-muted mb-0" style="font-size: 0.75rem;">
+                                            Configura el listado editable de documentos que cada empleado deberá subir desde su portal (INE, Acta de nacimiento, CURP, etc.) y que se revisarán en su Expediente Digital.
+                                        </p>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-2 flex-shrink-0">
+                                        <button type="button" class="btn btn-light border btn-sm text-secondary" onclick="cargarDocumentosSugeridosEmpleado()">
+                                            <i class="bi bi-magic me-1"></i> Cargar sugeridos
+                                        </button>
+                                        <button type="button" class="btn btn-brand text-white btn-sm px-3 fw-bold" onclick="abrirModalDocEmpleado()">
+                                            <i class="bi bi-plus-lg me-1"></i> Agregar documento
+                                        </button>
                                     </div>
                                 </div>
-                            </div>
-                            
-                            <div class="d-flex justify-content-end mt-4">
-                                <button type="submit" class="btn btn-brand text-white btn-sm px-4 fw-bold">
-                                    <i class="bi bi-save me-2"></i>Guardar Configuración
-                                </button>
+
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th class="text-center" style="width: 100px;">Acciones</th>
+                                                <th style="width: 70px;" class="text-center">Orden</th>
+                                                <th>Nombre del Documento</th>
+                                                <th style="width: 120px;" class="text-center">Requisito</th>
+                                                <th style="width: 110px;" class="text-center">Estado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for doc in documentos_requeridos_empleado %}
+                                            <tr>
+                                                <td class="text-center">
+                                                    <div class="d-flex justify-content-center gap-1">
+                                                        <span class="icon-action" title="Editar"
+                                                              onclick="abrirModalDocEmpleado({{ doc.id }}, '{{ doc.nombre|escapejs }}', {{ doc.orden }}, {{ doc.obligatorio|yesno:'true,false' }}, {{ doc.activo|yesno:'true,false' }})">
+                                                            <i class="bi bi-pencil-square"></i>
+                                                        </span>
+                                                        <span class="icon-action" title="Eliminar"
+                                                              onclick="eliminarDocRequeridoEmpleado({{ doc.id }}, '{{ doc.nombre|escapejs }}')">
+                                                            <i class="bi bi-x-circle"></i>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td class="text-center text-muted fw-semibold">{{ doc.orden }}</td>
+                                                <td class="fw-semibold text-dark">{{ doc.nombre }}</td>
+                                                <td class="text-center text-dark">
+                                                    {% if doc.obligatorio %}Obligatorio{% else %}Opcional{% endif %}
+                                                </td>
+                                                <td class="text-center text-dark">
+                                                    {% if doc.activo %}Activo{% else %}Inactivo{% endif %}
+                                                </td>
+                                            </tr>
+                                            {% empty %}
+                                            <tr>
+                                                <td colspan="5" class="text-center text-muted py-4 fst-italic">
+                                                    No hay documentos configurados para el expediente de empleados. Usa "Cargar sugeridos" o "Agregar documento".
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
-                    </form>
+                    </div>
 
-                    <!-- SECCIÓN CONFIGURABLE: DOCUMENTOS DE EMPLEADOS -->
-                    <div class="border rounded-3 p-4 bg-white shadow-sm mt-4" id="seccionDocumentosEmpleados">
-                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 border-bottom pb-3 mb-3">
-                            <div>
-                                <h6 class="fw-bold text-dark mb-1">
-                                    <i class="bi bi-folder2-open me-2 text-brand"></i>Documentos de Empleados
-                                </h6>
-                                <p class="text-muted mb-0" style="font-size: 0.75rem;">
-                                    Configura el listado editable de documentos que cada empleado deberá subir desde su portal (INE, Acta de nacimiento, CURP, etc.) y que se revisarán en su Expediente Digital.
+                    <!-- SECCIÓN 3: CONFIGURACIÓN DE JORNADAS LABORALES -->
+                    <div class="border rounded-3 bg-white shadow-sm mb-4 overflow-hidden" id="seccionConfigJornadaLaboral">
+                        <button class="btn w-100 d-flex justify-content-between align-items-center px-4 py-3 text-start bg-white border-0 collapse-section-btn collapsed"
+                                type="button" data-bs-toggle="collapse" data-bs-target="#collapseConfigJornadaLaboral" aria-expanded="false" aria-controls="collapseConfigJornadaLaboral">
+                            <span class="fw-bold text-dark mb-0 fs-6">
+                                <i class="bi bi-clock-history me-2 text-brand"></i>Configuración de Jornadas Laborales
+                            </span>
+                            <i class="bi bi-chevron-down text-muted chevron-icon"></i>
+                        </button>
+                        <div class="collapse" id="collapseConfigJornadaLaboral">
+                            <div class="p-4 border-top">
+                                <p class="text-muted border-bottom pb-2 mb-3" style="font-size: 0.75rem;">
+                                    Define los parámetros base para calcular horas ordinarias, extras dobles, extras triples y horas excedentes en los reportes exportadores de asistencias.
                                 </p>
-                            </div>
-                            <div class="d-flex flex-wrap gap-2 flex-shrink-0">
-                                <button type="button" class="btn btn-light border btn-sm text-secondary" onclick="cargarDocumentosSugeridosEmpleado()">
-                                    <i class="bi bi-magic me-1"></i> Cargar sugeridos
-                                </button>
-                                <button type="button" class="btn btn-brand text-white btn-sm px-3 fw-bold" onclick="abrirModalDocEmpleado()">
-                                    <i class="bi bi-plus-lg me-1"></i> Agregar documento
-                                </button>
-                            </div>
-                        </div>
 
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th class="text-center" style="width: 100px;">Acciones</th>
-                                        <th style="width: 70px;" class="text-center">Orden</th>
-                                        <th>Nombre del Documento</th>
-                                        <th style="width: 120px;" class="text-center">Requisito</th>
-                                        <th style="width: 110px;" class="text-center">Estado</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for doc in documentos_requeridos_empleado %}
-                                    <tr>
-                                        <td class="text-center">
-                                            <div class="d-flex justify-content-center gap-1">
-                                                <span class="icon-action" title="Editar"
-                                                      onclick="abrirModalDocEmpleado({{ doc.id }}, '{{ doc.nombre|escapejs }}', {{ doc.orden }}, {{ doc.obligatorio|yesno:'true,false' }}, {{ doc.activo|yesno:'true,false' }})">
-                                                    <i class="bi bi-pencil-square"></i>
-                                                </span>
-                                                <span class="icon-action" title="Eliminar"
-                                                      onclick="eliminarDocRequeridoEmpleado({{ doc.id }}, '{{ doc.nombre|escapejs }}')">
-                                                    <i class="bi bi-x-circle"></i>
-                                                </span>
+                                <form id="formConfiguracionJornadaLaboral">
+                                    {% csrf_token %}
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-bold text-dark mb-1">Horas ordinarias semanales</label>
+                                            <input type="number" step="0.01" min="0" name="horas_ordinarias_semanales" class="form-control form-control-sm" value="{{ config_jornada.horas_ordinarias_semanales|stringformat:'.2f' }}" required>
+                                            <small class="text-muted" style="font-size: 0.7rem;">Ejemplo: 48</small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-bold text-dark mb-1">Límite de horas extras dobles</label>
+                                            <input type="number" step="0.01" min="0" name="limite_horas_extras_dobles" class="form-control form-control-sm" value="{{ config_jornada.limite_horas_extras_dobles|stringformat:'.2f' }}" required>
+                                            <small class="text-muted" style="font-size: 0.7rem;">Ejemplo: 9</small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-bold text-dark mb-1">Límite de horas extras triples</label>
+                                            <input type="number" step="0.01" min="0" name="limite_horas_extras_triples" class="form-control form-control-sm" value="{{ config_jornada.limite_horas_extras_triples|stringformat:'.2f' }}" required>
+                                            <small class="text-muted" style="font-size: 0.7rem;">Ejemplo: 4</small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-bold text-dark mb-1">Multiplicador de horas dobles</label>
+                                            <input type="number" step="0.01" min="0" name="multiplicador_horas_dobles" class="form-control form-control-sm" value="{{ config_jornada.multiplicador_horas_dobles|stringformat:'.2f' }}" required>
+                                            <small class="text-muted" style="font-size: 0.7rem;">Ejemplo: 2.0</small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-bold text-dark mb-1">Multiplicador de horas triples</label>
+                                            <input type="number" step="0.01" min="0" name="multiplicador_horas_triples" class="form-control form-control-sm" value="{{ config_jornada.multiplicador_horas_triples|stringformat:'.2f' }}" required>
+                                            <small class="text-muted" style="font-size: 0.7rem;">Ejemplo: 3.0</small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-bold text-dark mb-1">Máximo de horas extras por día</label>
+                                            <input type="number" step="0.01" min="0" name="maximo_horas_extras_dia" class="form-control form-control-sm" value="{{ config_jornada.maximo_horas_extras_dia|stringformat:'.2f' }}" required>
+                                            <small class="text-muted" style="font-size: 0.7rem;">Ejemplo: 5</small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-bold text-dark mb-1">Máximo de días con horas extras</label>
+                                            <input type="number" step="1" min="0" max="31" name="maximo_dias_horas_extras" class="form-control form-control-sm" value="{{ config_jornada.maximo_dias_horas_extras }}" required>
+                                            <small class="text-muted" style="font-size: 0.7rem;">Ejemplo: 5</small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-bold text-dark mb-1">Periodo de acumulación</label>
+                                            <select name="periodo_acumulacion" class="form-select form-select-sm" required>
+                                                {% for val, label in periodos_acumulacion %}
+                                                <option value="{{ val }}" {% if config_jornada.periodo_acumulacion == val %}selected{% endif %}>{{ label }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            <small class="text-muted" style="font-size: 0.7rem;">Ejemplo: Semanal</small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-bold text-dark mb-1">Día de inicio de semana</label>
+                                            <select name="dia_inicio_semana" class="form-select form-select-sm" required>
+                                                {% for val, label in dias_semana_jornada %}
+                                                <option value="{{ val }}" {% if config_jornada.dia_inicio_semana == val %}selected{% endif %}>{{ label }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            <small class="text-muted" style="font-size: 0.7rem;">Ejemplo: Lunes</small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-bold text-dark mb-1">Minutos de tolerancia</label>
+                                            <div class="input-group input-group-sm">
+                                                <input type="number" step="1" min="0" max="180" name="minutos_tolerancia" class="form-control form-control-sm" value="{{ config_jornada.minutos_tolerancia }}" required>
+                                                <span class="input-group-text bg-light text-muted">min</span>
                                             </div>
-                                        </td>
-                                        <td class="text-center text-muted fw-semibold">{{ doc.orden }}</td>
-                                        <td class="fw-semibold text-dark">{{ doc.nombre }}</td>
-                                        <td class="text-center text-dark">
-                                            {% if doc.obligatorio %}Obligatorio{% else %}Opcional{% endif %}
-                                        </td>
-                                        <td class="text-center text-dark">
-                                            {% if doc.activo %}Activo{% else %}Inactivo{% endif %}
-                                        </td>
-                                    </tr>
-                                    {% empty %}
-                                    <tr>
-                                        <td colspan="5" class="text-center text-muted py-4 fst-italic">
-                                            No hay documentos configurados para el expediente de empleados. Usa "Cargar sugeridos" o "Agregar documento".
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+                                            <small class="text-muted" style="font-size: 0.7rem;">Ejemplo: 10 min</small>
+                                        </div>
+                                    </div>
+
+                                    <div class="d-flex justify-content-end mt-4">
+                                        <button type="submit" class="btn btn-brand text-white btn-sm px-4 fw-bold">
+                                            <i class="bi bi-save me-2"></i>Guardar Jornadas Laborales
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2328,6 +2454,29 @@
                         alert('Error: ' + data.error);
                     }
                 });
+            });
+        }
+
+        const formJornada = document.getElementById('formConfiguracionJornadaLaboral');
+        if (formJornada) {
+            formJornada.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(this);
+                fetch('/preferencias/obligaciones-patronales/jornada/guardar/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-CSRFToken': '{{ csrf_token }}', 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                })
+                .catch(() => alert('Error de conexión al guardar la configuración de jornadas laborales.'));
             });
         }
 

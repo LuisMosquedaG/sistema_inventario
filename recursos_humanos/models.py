@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -1267,6 +1268,91 @@ def eliminar_archivo_fisico_expediente_empleado(sender, instance, **kwargs):
                 os.remove(instance.archivo.path)
         except Exception:
             pass
+
+
+class ConfiguracionJornadaLaboral(models.Model):
+    """Parámetros por empresa para cálculo de horas ordinarias y extras en reportes de asistencia."""
+    PERIODO_ACUMULACION_CHOICES = [
+        ('semanal', 'Semanal'),
+        ('quincenal', 'Quincenal'),
+        ('mensual', 'Mensual'),
+        ('diario', 'Diario'),
+    ]
+    DIA_INICIO_SEMANA_CHOICES = [
+        (0, 'Lunes'),
+        (1, 'Martes'),
+        (2, 'Miércoles'),
+        (3, 'Jueves'),
+        (4, 'Viernes'),
+        (5, 'Sábado'),
+        (6, 'Domingo'),
+    ]
+
+    empresa = models.OneToOneField(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name='configuracion_jornada_laboral',
+        verbose_name="Empresa",
+    )
+    horas_ordinarias_semanales = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('48.00'),
+        verbose_name="Horas ordinarias semanales",
+    )
+    limite_horas_extras_dobles = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('9.00'),
+        verbose_name="Límite de horas extras dobles",
+    )
+    limite_horas_extras_triples = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('4.00'),
+        verbose_name="Límite de horas extras triples",
+    )
+    multiplicador_horas_dobles = models.DecimalField(
+        max_digits=4, decimal_places=2, default=Decimal('2.00'),
+        verbose_name="Multiplicador de horas dobles",
+    )
+    multiplicador_horas_triples = models.DecimalField(
+        max_digits=4, decimal_places=2, default=Decimal('3.00'),
+        verbose_name="Multiplicador de horas triples",
+    )
+    maximo_horas_extras_dia = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('5.00'),
+        verbose_name="Máximo de horas extras por día",
+    )
+    maximo_dias_horas_extras = models.PositiveIntegerField(
+        default=5,
+        verbose_name="Máximo de días con horas extras",
+    )
+    periodo_acumulacion = models.CharField(
+        max_length=20,
+        choices=PERIODO_ACUMULACION_CHOICES,
+        default='semanal',
+        verbose_name="Periodo de acumulación",
+    )
+    dia_inicio_semana = models.PositiveSmallIntegerField(
+        choices=DIA_INICIO_SEMANA_CHOICES,
+        default=0,
+        verbose_name="Día de inicio de semana",
+    )
+    minutos_tolerancia = models.PositiveIntegerField(
+        default=10,
+        verbose_name="Minutos de tolerancia",
+    )
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuración de Jornada Laboral"
+        verbose_name_plural = "Configuraciones de Jornadas Laborales"
+
+    def __str__(self):
+        return f"Jornada Laboral ({self.empresa})"
+
+    @classmethod
+    def para_empresa(cls, empresa):
+        """Retorna la configuración guardada o una instancia con valores predeterminados."""
+        if not empresa:
+            return cls()
+        obj = cls.objects.filter(empresa=empresa).first()
+        return obj if obj else cls(empresa=empresa)
 
 
 
