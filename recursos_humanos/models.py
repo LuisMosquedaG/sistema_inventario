@@ -161,6 +161,11 @@ class Empleado(models.Model):
     tarjeta_nomina = models.BooleanField(default=False, verbose_name="Tarjeta de Nómina")
     num_tarjeta = models.CharField(max_length=20, blank=True, null=True, verbose_name="Número de Tarjeta")
 
+    # 7. DISPOSITIVO VINCULADO (CHECADOR)
+    dispositivo_token = models.CharField(max_length=64, blank=True, null=True, verbose_name="Token de Dispositivo Vinculado")
+    dispositivo_nombre = models.CharField(max_length=150, blank=True, null=True, verbose_name="Dispositivo Vinculado")
+    dispositivo_vinculado_en = models.DateTimeField(blank=True, null=True, verbose_name="Fecha de Vinculación")
+
     def __str__(self):
         return f"{self.num_empleado} - {self.nombre} {self.apellido_paterno}"
 
@@ -1185,6 +1190,8 @@ class AsistenciaEmpleado(models.Model):
     foto = models.ImageField(upload_to=upload_to_asistencia_foto, null=True, blank=True, verbose_name="Fotografía")
     ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name="Dirección IP")
     user_agent = models.CharField(max_length=255, blank=True, null=True, verbose_name="Dispositivo / Navegador")
+    dispositivo_token = models.CharField(max_length=64, blank=True, null=True, verbose_name="Token de Dispositivo")
+    dispositivo_nombre = models.CharField(max_length=150, blank=True, null=True, verbose_name="Dispositivo")
     notas = models.TextField(blank=True, null=True, verbose_name="Notas")
 
     class Meta:

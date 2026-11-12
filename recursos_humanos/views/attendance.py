@@ -12,6 +12,7 @@ from openpyxl.utils import get_column_letter
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core import signing
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.http import HttpResponse, JsonResponse
@@ -82,6 +83,9 @@ def _agrupar_asistencias_por_dia(registros_qs):
 
         ips_orden = []
         ips_detalle = []
+        dispositivos_orden = []
+        dispositivos_detalle = []
+        tokens_orden = []
         for reg in dia['todos']:
             ip_val = (getattr(reg, 'ip_address', None) or '').strip()
             if ip_val:
@@ -90,9 +94,28 @@ def _agrupar_asistencias_por_dia(registros_qs):
                 tipo_lbl = reg.get_tipo_display() if hasattr(reg, 'get_tipo_display') else reg.tipo
                 ips_detalle.append(f"{tipo_lbl}: {ip_val}")
 
+            disp_val = (getattr(reg, 'dispositivo_nombre', None) or '').strip()
+            tok_val = (getattr(reg, 'dispositivo_token', None) or '').strip()
+            if disp_val:
+                if disp_val not in dispositivos_orden:
+                    dispositivos_orden.append(disp_val)
+                tipo_lbl = reg.get_tipo_display() if hasattr(reg, 'get_tipo_display') else reg.tipo
+                dispositivos_detalle.append(f"{tipo_lbl}: {disp_val}")
+            if tok_val and tok_val not in tokens_orden:
+                tokens_orden.append(tok_val)
+
         ip_principal = (getattr(ent, 'ip_address', None) or '').strip() if ent else ''
         if not ip_principal and ips_orden:
             ip_principal = ips_orden[0]
+
+        dispositivo_principal = (getattr(ent, 'dispositivo_nombre', None) or '').strip() if ent else ''
+        if not dispositivo_principal and dispositivos_orden:
+            dispositivo_principal = dispositivos_orden[0]
+
+        token_principal = (getattr(ent, 'dispositivo_token', None) or '').strip() if ent else ''
+        if not token_principal and tokens_orden:
+            token_principal = tokens_orden[0]
+        token_corto = token_principal[:8].upper() if token_principal else ''
 
         dia['tiempo_comida'] = _formatear_duracion(td_comida)
         dia['tiempo_bruto'] = _formatear_duracion(td_bruto)
@@ -104,9 +127,80 @@ def _agrupar_asistencias_por_dia(registros_qs):
         dia['ips_extra_count'] = max(0, len(ips_orden) - 1)
         dia['ips_tooltip'] = ' | '.join(ips_detalle) if ips_detalle else 'Sin IP registrada'
         dia['ips_excel'] = ips_orden[0] if len(ips_orden) == 1 else (' | '.join(ips_detalle) if ips_detalle else '--')
+        dia['dispositivo_principal'] = dispositivo_principal
+        dia['dispositivo_token_corto'] = token_corto
+        dia['dispositivos_tooltip'] = ' | '.join(dispositivos_detalle) if dispositivos_detalle else 'Sin dispositivo vinculado'
+        dia['dispositivo_excel'] = dispositivos_orden[0] if len(dispositivos_orden) == 1 else (' | '.join(dispositivos_detalle) if dispositivos_detalle else '--')
         resumen_dias.append(dia)
 
     return resumen_dias, total_segundos_laborados
+
+
+def _device_signer():
+    return signing.Signer(salt='asistencia-device-v1')
+
+
+def _cookie_dispositivo_name(empleado_id):
+    return f"att_dev_{empleado_id}"
+
+
+def _firmar_token_dispositivo(empleado_id, token_uuid):
+    return _device_signer().sign(f"{empleado_id}:{token_uuid}")
+
+
+def _leer_token_dispositivo_request(request, empleado):
+    candidatos = [
+        request.COOKIES.get(_cookie_dispositivo_name(empleado.id)),
+        (request.POST.get('device_token') or '').strip(),
+    ]
+    signer = _device_signer()
+    prefijo = f"{empleado.id}:"
+    for raw in candidatos:
+        if not raw:
+            continue
+        try:
+            valor = signer.unsign(raw)
+        except signing.BadSignature:
+            continue
+        if valor.startswith(prefijo):
+            token = valor[len(prefijo):].strip()
+            if token:
+                return token
+    return None
+
+
+def _resumir_dispositivo(dispositivo_nombre_raw, user_agent):
+    limpio = ' '.join((dispositivo_nombre_raw or '').split())[:150]
+    if limpio:
+        return limpio
+    ua = (user_agent or '').lower()
+    if 'iphone' in ua:
+        os_name = 'iPhone'
+    elif 'ipad' in ua:
+        os_name = 'iPad'
+    elif 'android' in ua:
+        os_name = 'Android'
+    elif 'windows' in ua:
+        os_name = 'Windows'
+    elif 'mac os' in ua or 'macintosh' in ua:
+        os_name = 'Mac'
+    else:
+        os_name = 'Navegador'
+
+    if 'edg' in ua:
+        browser = 'Edge'
+    elif 'opr/' in ua or 'opera' in ua:
+        browser = 'Opera'
+    elif 'crios' in ua or ('chrome' in ua and 'chromium' not in ua):
+        browser = 'Chrome'
+    elif 'fxios' in ua or 'firefox' in ua:
+        browser = 'Firefox'
+    elif 'safari' in ua:
+        browser = 'Safari'
+    else:
+        browser = ''
+
+    return f"{os_name} • {browser}" if browser else os_name
 
 
 def _obtener_ip_cliente(request):
@@ -359,6 +453,27 @@ def registrar_asistencia_ajax(request):
         nombre_base = f"asistencia_{empleado.id}_{tipo}_{timezone.localtime(ahora).strftime('%Y%m%d_%H%M%S')}.{ext}"
         foto_file = _optimizar_foto_asistencia(foto_file, nombre_base)
 
+    user_agent = (request.META.get('HTTP_USER_AGENT') or '')[:255]
+    dispositivo_nombre = _resumir_dispositivo(request.POST.get('dispositivo_nombre'), user_agent)
+    token_presentado = _leer_token_dispositivo_request(request, empleado)
+
+    if empleado.dispositivo_token:
+        if token_presentado != empleado.dispositivo_token:
+            return JsonResponse({
+                'success': False,
+                'error': 'Este teléfono no está vinculado a tu cuenta. Si cambiaste de celular o usas otro navegador, solicita a Recursos Humanos desvincular tu dispositivo anterior.'
+            }, status=403)
+        token_final = empleado.dispositivo_token
+        if dispositivo_nombre and dispositivo_nombre != empleado.dispositivo_nombre:
+            empleado.dispositivo_nombre = dispositivo_nombre
+            empleado.save(update_fields=['dispositivo_nombre'])
+    else:
+        token_final = uuid.uuid4().hex
+        empleado.dispositivo_token = token_final
+        empleado.dispositivo_nombre = dispositivo_nombre
+        empleado.dispositivo_vinculado_en = ahora
+        empleado.save(update_fields=['dispositivo_token', 'dispositivo_nombre', 'dispositivo_vinculado_en'])
+
     registro = AsistenciaEmpleado.objects.create(
         empresa=empleado.empresa,
         empleado=empleado,
@@ -371,13 +486,19 @@ def registrar_asistencia_ajax(request):
         precision_gps=precision_gps,
         foto=foto_file if requiere_foto else None,
         ip_address=_obtener_ip_cliente(request),
-        user_agent=(request.META.get('HTTP_USER_AGENT') or '')[:255],
+        user_agent=user_agent,
+        dispositivo_token=token_final,
+        dispositivo_nombre=dispositivo_nombre,
     )
 
+    signed_device_token = _firmar_token_dispositivo(empleado.id, token_final)
     hora_local = timezone.localtime(registro.fecha_hora)
-    return JsonResponse({
+    resp = JsonResponse({
         'success': True,
         'message': f'{registro.get_tipo_display()} registrada a las {hora_local.strftime("%H:%M:%S")}.',
+        'signed_device_token': signed_device_token,
+        'dispositivo_nombre': dispositivo_nombre,
+        'dispositivo_token_corto': token_final[:8].upper(),
         'registro': {
             'id': registro.id,
             'tipo': registro.tipo,
@@ -390,6 +511,15 @@ def registrar_asistencia_ajax(request):
             'foto_url': registro.foto.url if registro.foto else '',
         }
     })
+    resp.set_cookie(
+        _cookie_dispositivo_name(empleado.id),
+        signed_device_token,
+        max_age=60 * 60 * 24 * 365 * 5,
+        httponly=True,
+        samesite='Lax',
+        secure=request.is_secure(),
+    )
+    return resp
 
 
 @login_required(login_url='/login/')
@@ -486,6 +616,8 @@ def _exportar_asistencias_excel(empleado, resumen_dias, fecha_inicio, fecha_fin,
         "Tiempo Comida",
         "Horas Brutas",
         "Horas Netas",
+        "Dispositivo",
+        "ID Dispositivo",
         "IP Registrada",
     ]
     ws.append([])
@@ -493,7 +625,7 @@ def _exportar_asistencias_excel(empleado, resumen_dias, fecha_inicio, fecha_fin,
     header_row = 4
     for col_idx in range(1, len(headers) + 1):
         cell = ws.cell(row=header_row, column=col_idx)
-        cell.fill = fill_brand if col_idx not in (10, 11, 12, 13) else fill_sub
+        cell.fill = fill_brand if col_idx not in (10, 11, 12, 13, 14, 15) else fill_sub
         cell.font = font_header
         cell.alignment = Alignment(horizontal="center", vertical="center")
         cell.border = thin_border
@@ -520,6 +652,8 @@ def _exportar_asistencias_excel(empleado, resumen_dias, fecha_inicio, fecha_fin,
             dia['tiempo_comida'],
             dia['tiempo_bruto'],
             dia['tiempo_laborado'],
+            dia.get('dispositivo_excel', '--'),
+            dia.get('dispositivo_token_corto') or '--',
             dia.get('ips_excel', '--'),
         ]
         for col_idx, val in enumerate(row_vals, start=1):
@@ -528,14 +662,14 @@ def _exportar_asistencias_excel(empleado, resumen_dias, fecha_inicio, fecha_fin,
             c.alignment = Alignment(
                 horizontal="center",
                 vertical="center",
-                wrap_text=(col_idx == 13),
+                wrap_text=(col_idx in (13, 15)),
             )
 
     for col_idx in range(1, len(headers) + 1):
         col_letter = get_column_letter(col_idx)
         header_name = headers[col_idx - 1]
-        if "Ubicación" in header_name or header_name == "IP Registrada":
-            ws.column_dimensions[col_letter].width = 22
+        if "Ubicación" in header_name or header_name in ("IP Registrada", "Dispositivo"):
+            ws.column_dimensions[col_letter].width = 24
         else:
             ws.column_dimensions[col_letter].width = 16
 
@@ -580,6 +714,28 @@ def eliminar_asistencia_dia_ajax(request, id):
     return JsonResponse({
         'success': True,
         'message': f'Se eliminaron {eliminados} registro(s) del {fecha_obj.strftime("%d/%m/%Y")}. El empleado ya puede volver a registrar su asistencia.'
+    })
+
+
+@login_required(login_url='/login/')
+@require_POST
+@require_hr_permission('empleados', 'editar_asistencias', json_response=True)
+def desvincular_dispositivo_empleado_ajax(request, id):
+    """Desvincula el token de teléfono autorizado del empleado para permitirle vincular uno nuevo."""
+    empresa_actual = get_empresa_actual(request)
+    empleado = get_object_or_404(Empleado, id=id, empresa=empresa_actual)
+
+    if not empleado.dispositivo_token:
+        return JsonResponse({'success': False, 'error': 'Este empleado no tiene ningún teléfono vinculado actualmente.'}, status=400)
+
+    empleado.dispositivo_token = None
+    empleado.dispositivo_nombre = None
+    empleado.dispositivo_vinculado_en = None
+    empleado.save(update_fields=['dispositivo_token', 'dispositivo_nombre', 'dispositivo_vinculado_en'])
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Teléfono desvinculado correctamente. El próximo registro de asistencia vinculará el nuevo equipo.'
     })
 
 

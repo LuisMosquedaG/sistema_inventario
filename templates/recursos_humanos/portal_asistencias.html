@@ -186,6 +186,17 @@
                         <span id="badgeGpsStatus" class="sensor-badge bg-light text-secondary border">
                             <i class="bi bi-geo-alt-fill flex-shrink-0"></i> <span id="txtGpsStatus">Localizando GPS...</span>
                         </span>
+                        <span id="badgeDeviceStatus" class="sensor-badge bg-light text-secondary border"
+                              title="{% if empleado.dispositivo_token %}ID: {{ empleado.dispositivo_token|slice:':8'|upper }}{% else %}Pendiente de vinculación{% endif %}">
+                            <i class="bi bi-phone flex-shrink-0 text-brand"></i>
+                            <span id="txtDeviceStatus">
+                                {% if empleado.dispositivo_token %}
+                                Teléfono: {{ empleado.dispositivo_nombre|default:"Vinculado" }}
+                                {% else %}
+                                Se vinculará este teléfono
+                                {% endif %}
+                            </span>
+                        </span>
                     </div>
                 </div>
             </div>
@@ -690,6 +701,57 @@
         }
     }
 
+    const DEVICE_STORAGE_KEY = 'att_device_token_{{ empleado.id }}';
+    let cachedDeviceName = null;
+
+    async function obtenerInfoDispositivo() {
+        if (cachedDeviceName) return cachedDeviceName;
+        const ua = navigator.userAgent || '';
+        const res = (window.screen && screen.width && screen.height)
+            ? `${Math.min(screen.width, screen.height)}x${Math.max(screen.width, screen.height)}`
+            : '';
+        let modelo = '';
+        let osName = '';
+
+        if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+            try {
+                const hints = await navigator.userAgentData.getHighEntropyValues(['model', 'platform']);
+                modelo = (hints.model || '').trim();
+                osName = (hints.platform || '').trim();
+            } catch (e) {}
+        }
+
+        if (!osName) {
+            if (/iPhone/i.test(ua)) osName = 'iPhone';
+            else if (/iPad/i.test(ua)) osName = 'iPad';
+            else if (/Android/i.test(ua)) osName = 'Android';
+            else if (/Windows/i.test(ua)) osName = 'Windows';
+            else if (/Mac OS/i.test(ua)) osName = 'Mac';
+            else osName = 'Móvil';
+        }
+
+        let browser = '';
+        if (/Edg/i.test(ua)) browser = 'Edge';
+        else if (/CriOS|Chrome/i.test(ua)) browser = 'Chrome';
+        else if (/FxiOS|Firefox/i.test(ua)) browser = 'Firefox';
+        else if (/Safari/i.test(ua)) browser = 'Safari';
+
+        const partes = [];
+        if (modelo) {
+            partes.push(modelo);
+        } else {
+            partes.push(osName);
+        }
+        if (browser && !partes[0].includes(browser)) {
+            partes.push(browser);
+        }
+        if (res) {
+            partes.push(res);
+        }
+        cachedDeviceName = partes.join(' • ').slice(0, 150);
+        return cachedDeviceName;
+    }
+
     async function enviarRegistroChecada(tipo, coords, fotoBlob) {
         const formData = new FormData();
         formData.append('tipo', tipo);
@@ -703,6 +765,16 @@
         }
 
         try {
+            const devName = await obtenerInfoDispositivo();
+            if (devName) formData.append('dispositivo_nombre', devName);
+        } catch (e) {}
+
+        try {
+            const storedToken = localStorage.getItem(DEVICE_STORAGE_KEY);
+            if (storedToken) formData.append('device_token', storedToken);
+        } catch (e) {}
+
+        try {
             const resp = await fetch("{% url 'registrar_asistencia_ajax' %}", {
                 method: 'POST',
                 headers: {
@@ -713,6 +785,11 @@
             });
             const data = await resp.json();
             if (data.success) {
+                if (data.signed_device_token) {
+                    try {
+                        localStorage.setItem(DEVICE_STORAGE_KEY, data.signed_device_token);
+                    } catch (e) {}
+                }
                 mostrarAlerta('ok', data.message);
                 setTimeout(() => location.reload(), 1200);
                 return true;
