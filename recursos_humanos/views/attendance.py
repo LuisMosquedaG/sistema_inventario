@@ -67,6 +67,34 @@ def _agrupar_asistencias_por_dia(registros_qs):
         elif reg.tipo == 'salida_laboral':
             dia['salida_laboral'] = reg
 
+    # Emparejar turnos nocturnos guardados con fechas distintas (ej. entrada noche día N y salida mañana día N+1)
+    fechas_ordenadas = sorted(dias_map.keys())
+    for fecha_k in fechas_ordenadas:
+        dia_actual = dias_map.get(fecha_k)
+        if not dia_actual:
+            continue
+        ent = dia_actual['entrada_laboral']
+        if ent and dia_actual['salida_laboral'] is None and timezone.localtime(ent.fecha_hora).hour >= 18:
+            next_day = fecha_k + timedelta(days=1)
+            dia_siguiente = dias_map.get(next_day)
+            if dia_siguiente and dia_siguiente['salida_laboral']:
+                sal_candidata = dia_siguiente['salida_laboral']
+                if ent.fecha_hora < sal_candidata.fecha_hora <= ent.fecha_hora + timedelta(hours=18):
+                    dia_actual['salida_laboral'] = sal_candidata
+                    dia_actual['todos'].append(sal_candidata)
+                    if dia_siguiente['regreso_comer'] and not dia_actual['regreso_comer']:
+                        dia_actual['regreso_comer'] = dia_siguiente['regreso_comer']
+                        dia_actual['todos'].append(dia_siguiente['regreso_comer'])
+                    if dia_siguiente['salida_comer'] and not dia_actual['salida_comer']:
+                        dia_actual['salida_comer'] = dia_siguiente['salida_comer']
+                        dia_actual['todos'].append(dia_siguiente['salida_comer'])
+
+                    dia_siguiente['salida_laboral'] = None
+                    if sal_candidata in dia_siguiente['todos']:
+                        dia_siguiente['todos'].remove(sal_candidata)
+                    if not dia_siguiente['entrada_laboral'] and not dia_siguiente['todos']:
+                        del dias_map[next_day]
+
     resumen_dias = []
     total_segundos_laborados = 0
     for fecha_key in sorted(dias_map.keys(), reverse=True):
@@ -123,6 +151,13 @@ def _agrupar_asistencias_por_dia(registros_qs):
             token_principal = tokens_orden[0]
         token_corto = token_principal[:8].upper() if token_principal else ''
 
+        es_turno_nocturno = False
+        if ent and sal and timezone.localtime(sal.fecha_hora).date() > timezone.localtime(ent.fecha_hora).date():
+            es_turno_nocturno = True
+        elif ent and timezone.localtime(ent.fecha_hora).hour >= 18:
+            es_turno_nocturno = True
+
+        dia['es_turno_nocturno'] = es_turno_nocturno
         dia['tiempo_comida'] = _formatear_duracion(td_comida)
         dia['tiempo_bruto'] = _formatear_duracion(td_bruto)
         dia['tiempo_laborado'] = _formatear_duracion(td_laborado)
@@ -269,29 +304,61 @@ def _decodificar_foto_base64(data_url, filename_prefix):
     return ContentFile(decoded, name=f"{filename_prefix}_{uuid.uuid4().hex[:8]}.{ext}")
 
 
-_MAX_TURNO_ABIERTO_HORAS = 20
+_MAX_TURNO_ABIERTO_HORAS = 24
 
 
 def _obtener_jornada_activa(empleado, ahora=None):
-    """Retorna (fecha_jornada, registros_jornada) soportando turnos nocturnos iniciados el día anterior."""
+    """Retorna (fecha_jornada, registros_jornada) soportando turnos diurnos y turnos nocturnos
+    que inician en la tarde/noche y concluyen a la mañana siguiente.
+    """
     ahora = ahora or timezone.now()
     hoy = timezone.localdate(ahora)
+
+    # 1. Buscar la última entrada laboral registrada dentro del umbral de apertura (máx 24h)
+    limite_apertura = ahora - timedelta(hours=_MAX_TURNO_ABIERTO_HORAS)
+    ultima_entrada = AsistenciaEmpleado.objects.filter(
+        empleado=empleado,
+        tipo='entrada_laboral',
+        fecha_hora__gte=limite_apertura
+    ).order_by('-fecha_hora').first()
+
+    if ultima_entrada:
+        # Verificar si esta entrada ya tuvo su salida laboral posterior
+        salida_cierre = AsistenciaEmpleado.objects.filter(
+            empleado=empleado,
+            tipo='salida_laboral',
+            fecha_hora__gt=ultima_entrada.fecha_hora
+        ).order_by('fecha_hora').first()
+
+        if not salida_cierre:
+            # JORNADA ACTIVA EN CURSO (nocturna o diurna sin cerrar)
+            registros_abiertos = list(
+                AsistenciaEmpleado.objects.filter(
+                    empleado=empleado,
+                    fecha_hora__gte=ultima_entrada.fecha_hora
+                ).order_by('fecha_hora')
+            )
+            fecha_jornada = timezone.localdate(ultima_entrada.fecha_hora)
+            return fecha_jornada, registros_abiertos
+        else:
+            # La jornada ya fue cerrada con salida_laboral.
+            # Si se cerró hace menos de 2 horas (ej. al marcar salida matutina),
+            # mostramos el resumen de la jornada recién finalizada.
+            if (ahora - salida_cierre.fecha_hora) <= timedelta(hours=2):
+                registros_cerrados = list(
+                    AsistenciaEmpleado.objects.filter(
+                        empleado=empleado,
+                        fecha_hora__gte=ultima_entrada.fecha_hora,
+                        fecha_hora__lte=salida_cierre.fecha_hora
+                    ).order_by('fecha_hora')
+                )
+                fecha_jornada = timezone.localdate(ultima_entrada.fecha_hora)
+                return fecha_jornada, registros_cerrados
+
+    # 2. Si no hay jornada abierta ni recién finalizada, retornar registros del día de hoy
     registros_hoy = list(
         AsistenciaEmpleado.objects.filter(empleado=empleado, fecha=hoy).order_by('fecha_hora')
     )
-    if registros_hoy:
-        return hoy, registros_hoy
-
-    ayer = hoy - timedelta(days=1)
-    registros_ayer = list(
-        AsistenciaEmpleado.objects.filter(empleado=empleado, fecha=ayer).order_by('fecha_hora')
-    )
-    if registros_ayer:
-        ultimo_ayer = registros_ayer[-1]
-        inicio_ayer = registros_ayer[0].fecha_hora
-        if ultimo_ayer.tipo != 'salida_laboral' and (ahora - inicio_ayer) <= timedelta(hours=_MAX_TURNO_ABIERTO_HORAS):
-            return ayer, registros_ayer
-
     return hoy, registros_hoy
 
 
@@ -311,7 +378,7 @@ def _obtener_estado_jornada(registros_hoy):
         return (
             'en_jornada',
             'En jornada laboral',
-            'salida_comer',
+            'salida_laboral',
             {'salida_comer', 'salida_laboral'},
             ultimo_registro,
         )
@@ -331,11 +398,14 @@ def _obtener_estado_jornada(registros_hoy):
             {'salida_laboral'},
             ultimo_registro,
         )
+    # salida_laboral:
+    # La jornada finalizó, pero permitimos 'entrada_laboral' para iniciar el siguiente turno (ej. noche siguiente)
+    hora_cierre = timezone.localtime(ultimo_registro.fecha_hora).strftime('%H:%M')
     return (
         'finalizada',
-        'Jornada finalizada',
-        None,
-        set(),
+        f'Jornada finalizada ({hora_cierre})',
+        'entrada_laboral',
+        {'entrada_laboral'},
         ultimo_registro,
     )
 
@@ -345,10 +415,10 @@ def _mensaje_movimiento_no_permitido(estado_jornada, tipo):
         return 'Primero debes registrar tu Entrada Laboral antes de marcar comida o salida.'
     if estado_jornada == 'en_comida':
         return 'Estás en horario de comida. Primero debes registrar "Entrar de Comer".'
-    if estado_jornada == 'finalizada':
-        return 'Tu jornada laboral del día de hoy ya fue finalizada.'
-    if tipo == 'entrada_laboral':
-        return 'Ya registraste tu Entrada Laboral el día de hoy.'
+    if estado_jornada == 'finalizada' and tipo != 'entrada_laboral':
+        return 'Tu jornada anterior ya fue finalizada. Registra Entrada Laboral para comenzar un nuevo turno.'
+    if tipo == 'entrada_laboral' and estado_jornada in ('en_jornada', 'en_comida'):
+        return 'Ya te encuentras dentro de una jornada laboral activa. Marca tu salida para concluirla.'
     return 'Este movimiento no corresponde al estado actual de tu jornada.'
 
 
@@ -972,26 +1042,40 @@ def eliminar_asistencia_dia_ajax(request, id):
     except ValueError:
         return JsonResponse({'success': False, 'error': 'Fecha inválida.'}, status=400)
 
-    registros = AsistenciaEmpleado.objects.filter(
+    # Buscamos la jornada con _agrupar_asistencias_por_dia por si abarca registros del día siguiente (turno nocturno)
+    registros_qs = AsistenciaEmpleado.objects.filter(
         empresa=empresa_actual,
         empleado=empleado,
-        fecha=fecha_obj
-    )
-    if not registros.exists():
-        return JsonResponse({'success': False, 'error': 'No se encontraron registros para la fecha indicada.'}, status=404)
+        fecha__in=[fecha_obj, fecha_obj + timedelta(days=1)]
+    ).order_by('fecha', 'fecha_hora')
 
-    for reg in registros:
+    dias, _ = _agrupar_asistencias_por_dia(registros_qs)
+    dia = next((d for d in dias if d['fecha'] == fecha_obj), None)
+
+    if not dia or not dia.get('todos'):
+        registros_directos = AsistenciaEmpleado.objects.filter(
+            empresa=empresa_actual,
+            empleado=empleado,
+            fecha=fecha_obj
+        )
+        if not registros_directos.exists():
+            return JsonResponse({'success': False, 'error': 'No se encontraron registros para la fecha indicada.'}, status=404)
+        registros_a_eliminar = list(registros_directos)
+    else:
+        registros_a_eliminar = dia['todos']
+
+    eliminados = len(registros_a_eliminar)
+    for reg in registros_a_eliminar:
         if reg.foto:
             try:
                 reg.foto.delete(save=False)
             except Exception:
                 pass
+        reg.delete()
 
-    eliminados = registros.count()
-    registros.delete()
     return JsonResponse({
         'success': True,
-        'message': f'Se eliminaron {eliminados} registro(s) del {fecha_obj.strftime("%d/%m/%Y")}. El empleado ya puede volver a registrar su asistencia.'
+        'message': f'Se eliminaron {eliminados} registro(s) de la jornada del {fecha_obj.strftime("%d/%m/%Y")}. El empleado ya puede volver a registrar su asistencia.'
     })
 
 
@@ -1059,14 +1143,17 @@ def obtener_asistencia_dia_json(request, id):
     except ValueError:
         return JsonResponse({'success': False, 'error': 'Fecha inválida.'}, status=400)
 
+    # Buscamos registros de la fecha indicada y del día siguiente para capturar turnos nocturnos
     registros = AsistenciaEmpleado.objects.filter(
         empresa=empresa_actual,
         empleado=empleado,
-        fecha=fecha_obj
-    ).order_by('fecha_hora')
+        fecha__in=[fecha_obj, fecha_obj + timedelta(days=1)]
+    ).order_by('fecha', 'fecha_hora')
 
     dias, _ = _agrupar_asistencias_por_dia(registros)
-    dia = dias[0] if dias else None
+    dia = next((d for d in dias if d['fecha'] == fecha_obj), None)
+    if not dia and dias:
+        dia = dias[0]
 
     puede_ver_fotos = user_has_hr_permission(request, 'empleados', 'ver_fotos')
     movimientos = {}
@@ -1076,19 +1163,31 @@ def obtener_asistencia_dia_json(request, id):
         if reg:
             if not notas and reg.notas:
                 notas = reg.notas
+            loc_dt = timezone.localtime(reg.fecha_hora)
+            es_dia_sig = loc_dt.date() > fecha_obj
             movimientos[tipo] = {
-                'hora': timezone.localtime(reg.fecha_hora).strftime('%H:%M:%S'),
+                'fecha': loc_dt.strftime('%Y-%m-%d'),
+                'hora': loc_dt.strftime('%H:%M:%S'),
+                'es_dia_siguiente': es_dia_sig,
                 'latitud': str(reg.latitud) if reg.latitud is not None else '',
                 'longitud': str(reg.longitud) if reg.longitud is not None else '',
                 'foto_url': (reg.foto.url if reg.foto else '') if puede_ver_fotos else '',
             }
         else:
-            movimientos[tipo] = {'hora': '', 'latitud': '', 'longitud': '', 'foto_url': ''}
+            movimientos[tipo] = {
+                'fecha': fecha_obj.strftime('%Y-%m-%d'),
+                'hora': '',
+                'es_dia_siguiente': False,
+                'latitud': '',
+                'longitud': '',
+                'foto_url': '',
+            }
 
     return JsonResponse({
         'success': True,
         'data': {
             'fecha': fecha_obj.strftime('%Y-%m-%d'),
+            'es_turno_nocturno': dia.get('es_turno_nocturno', False) if dia else False,
             'notas': notas,
             'movimientos': movimientos,
         }
@@ -1122,18 +1221,19 @@ def editar_asistencia_dia_ajax(request, id):
     notas = (request.POST.get('notas') or '').strip()
     tz_actual = timezone.get_current_timezone()
 
-    registros_orig = AsistenciaEmpleado.objects.filter(
+    registros_orig_qs = AsistenciaEmpleado.objects.filter(
         empresa=empresa_actual,
         empleado=empleado,
-        fecha=fecha_original
-    ).order_by('fecha_hora')
-    dias, _ = _agrupar_asistencias_por_dia(registros_orig)
-    dia_orig = dias[0] if dias else {}
+        fecha__in=[fecha_original, fecha_original + timedelta(days=1)]
+    ).order_by('fecha', 'fecha_hora')
+    dias, _ = _agrupar_asistencias_por_dia(registros_orig_qs)
+    dia_orig = next((d for d in dias if d['fecha'] == fecha_original), {})
 
     al_menos_uno = False
     parsed_movimientos = {}
     for tipo in _TIPOS_ORDEN:
         hora_raw = (request.POST.get(f'{tipo}_hora') or '').strip()
+        fecha_raw = (request.POST.get(f'{tipo}_fecha') or '').strip()
         if not hora_raw:
             parsed_movimientos[tipo] = None
             continue
@@ -1143,6 +1243,13 @@ def editar_asistencia_dia_ajax(request, id):
         if not hora_obj:
             return JsonResponse({'success': False, 'error': f'Hora inválida en {tipo.replace("_", " ")}.'}, status=400)
 
+        fecha_mov = None
+        if fecha_raw:
+            try:
+                fecha_mov = datetime.strptime(fecha_raw, '%Y-%m-%d').date()
+            except ValueError:
+                return JsonResponse({'success': False, 'error': f'Fecha inválida en {tipo.replace("_", " ")}.'}, status=400)
+
         lat, lng, gps_err = _parsear_coordenadas(
             request.POST.get(f'{tipo}_latitud'),
             request.POST.get(f'{tipo}_longitud'),
@@ -1150,7 +1257,12 @@ def editar_asistencia_dia_ajax(request, id):
         if gps_err:
             return JsonResponse({'success': False, 'error': gps_err}, status=400)
 
-        parsed_movimientos[tipo] = (hora_obj, lat, lng)
+        parsed_movimientos[tipo] = {
+            'hora': hora_obj,
+            'fecha': fecha_mov,
+            'lat': lat,
+            'lng': lng,
+        }
 
     if not al_menos_uno:
         return JsonResponse({
@@ -1165,19 +1277,31 @@ def editar_asistencia_dia_ajax(request, id):
                 reg_existente = dia_orig.get(tipo)
 
                 if datos_mov is None:
-                    # Eliminar todas las ocurrencias de este tipo en la fecha original si se dejó vacío
-                    extras = registros_orig.filter(tipo=tipo)
-                    for r in extras:
-                        if r.foto:
-                            r.foto.delete(save=False)
-                    extras.delete()
+                    if reg_existente:
+                        if reg_existente.foto:
+                            reg_existente.foto.delete(save=False)
+                        reg_existente.delete()
+                    AsistenciaEmpleado.objects.filter(
+                        empresa=empresa_actual,
+                        empleado=empleado,
+                        fecha=fecha_original,
+                        tipo=tipo
+                    ).delete()
                     continue
 
-                hora_obj, lat, lng = datos_mov
-                entrada_mov = parsed_movimientos.get('entrada_laboral')
-                fecha_dt_real = fecha_destino
-                if tipo != 'entrada_laboral' and entrada_mov and hora_obj < entrada_mov[0]:
-                    fecha_dt_real = fecha_destino + timedelta(days=1)
+                hora_obj = datos_mov['hora']
+                fecha_mov = datos_mov['fecha']
+                lat = datos_mov['lat']
+                lng = datos_mov['lng']
+
+                if fecha_mov:
+                    fecha_dt_real = fecha_mov
+                else:
+                    entrada_mov = parsed_movimientos.get('entrada_laboral')
+                    fecha_dt_real = fecha_destino
+                    if tipo != 'entrada_laboral' and entrada_mov and hora_obj < entrada_mov['hora']:
+                        fecha_dt_real = fecha_destino + timedelta(days=1)
+
                 aware_dt = timezone.make_aware(datetime.combine(fecha_dt_real, hora_obj), tz_actual)
 
                 if reg_existente:
@@ -1215,13 +1339,12 @@ def editar_asistencia_dia_ajax(request, id):
 
                 reg.save()
 
-                # Si movemos de fecha, aseguramos actualizar notas/fecha en otros duplicados de ese tipo o mantener limpio
                 if reg_existente:
-                    registros_orig.filter(tipo=tipo).exclude(id=reg.id).delete()
+                    registros_orig_qs.filter(tipo=tipo).exclude(id=reg.id).delete()
 
         return JsonResponse({
             'success': True,
             'message': f'Asistencia del {fecha_destino.strftime("%d/%m/%Y")} actualizada correctamente.'
         })
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+        return JsonResponse({'success': False, 'error': f'Error al guardar la asistencia: {str(e)}'}, status=500)
