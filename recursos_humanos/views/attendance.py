@@ -685,19 +685,30 @@ def asistencias_empleado_detalle(request, id):
     })
 
 
-_ASISTENCIA_EXCEL_HEADERS_BASE = [
+_ASISTENCIA_EXCEL_HEADERS_EMPRESA = [
+    # 1. Datos del empleado (Negrito / Charcoal)
+    "No. Empleado",
+    "Nombre del Trabajador",
+    "CURP",
+    "RFC",
+    "Puesto",
+    "Departamento",
+    # 2. Datos de registro y checadas (Azulito / Teal)
     "Dispositivo",
     "ID Dispositivo",
     "IP Registrada",
-    "Fecha",
+    "Fecha de Entrada",
     "Entrada Laboral",
     "Ubicación Entrada",
     "Salida a Comer",
     "Ubicación Salida Comer",
     "Regreso de Comer",
     "Ubicación Regreso Comer",
+    "Fecha de Salida",
     "Salida Laboral",
     "Ubicación Salida",
+    "Tipo de Turno",
+    # 3. Horas y estatus (Negrito / Charcoal)
     "Tiempo Comida",
     "Horas Brutas",
     "Horas Netas",
@@ -705,9 +716,20 @@ _ASISTENCIA_EXCEL_HEADERS_BASE = [
     "Horas Extras Dobles",
     "Horas Extras Triples",
     "Horas Excedentes",
+    "Diferencia",
+    "Cumplimiento",
+    "Estatus",
 ]
 
+_ASISTENCIA_EXCEL_HEADERS_BASE = _ASISTENCIA_EXCEL_HEADERS_EMPRESA[6:]
+
 _ASISTENCIA_DARK_HEADERS = {
+    "No. Empleado",
+    "Nombre del Trabajador",
+    "CURP",
+    "RFC",
+    "Puesto",
+    "Departamento",
     "Tiempo Comida",
     "Horas Brutas",
     "Horas Netas",
@@ -715,6 +737,9 @@ _ASISTENCIA_DARK_HEADERS = {
     "Horas Extras Dobles",
     "Horas Extras Triples",
     "Horas Excedentes",
+    "Diferencia",
+    "Cumplimiento",
+    "Estatus",
 }
 
 
@@ -737,15 +762,17 @@ def _periodo_key_jornada(fecha_dia, periodo, dia_inicio):
 
 
 def _aplicar_calculo_jornada_dias(resumen_dias, config_jornada, tipo_turno=None):
-    """Clasifica las horas netas de cada día en ordinarias, extras dobles, extras triples y excedentes.
+    """Clasifica las horas netas de cada día en ordinarias, extras dobles, extras triples y excedentes,
+    calculando además la diferencia contra horario programado, cumplimiento porcentual y estatus de la jornada.
     Si el empleado tiene un tipo_turno asignado, se usan sus parámetros específicos; de lo contrario,
     se toman los globales de config_jornada.
     """
-    if not resumen_dias or (not config_jornada and not tipo_turno):
+    if not resumen_dias:
         return resumen_dias
 
     if tipo_turno:
         ord_semanal_sec = max(0, int(round(float(tipo_turno.jornada_semanal_horas or 48) * 3600)))
+        jornada_diaria_sec = max(0, int(round(float(tipo_turno.jornada_diaria_horas or 8) * 3600)))
         dob_limit_sec = max(0, int(round(float(tipo_turno.horas_dobles or 9) * 3600)))
         tri_limit_sec = max(0, int(round(float(tipo_turno.horas_triples_adicionales or 4) * 3600)))
         max_extra_dia_sec = max(0, int(round(float(tipo_turno.maximo_horas_extras_diario or 1) * 3600)))
@@ -753,15 +780,18 @@ def _aplicar_calculo_jornada_dias(resumen_dias, config_jornada, tipo_turno=None)
         tolerancia_sec = max(0, int(tipo_turno.tolerancia_entrada_minutos or 0) * 60)
         periodo = 'semanal'
         dia_inicio = int(tipo_turno.inicio_semana or 0) % 7
+        turno_nombre = tipo_turno.nombre
     else:
-        ord_semanal_sec = max(0, int(round(float(config_jornada.horas_ordinarias_semanales or 0) * 3600)))
-        dob_limit_sec = max(0, int(round(float(config_jornada.limite_horas_extras_dobles or 0) * 3600)))
-        tri_limit_sec = max(0, int(round(float(config_jornada.limite_horas_extras_triples or 0) * 3600)))
-        max_extra_dia_sec = max(0, int(round(float(config_jornada.maximo_horas_extras_dia or 0) * 3600)))
-        max_dias_extra = max(0, int(config_jornada.maximo_dias_horas_extras or 0))
-        tolerancia_sec = max(0, int(config_jornada.minutos_tolerancia or 0) * 60)
-        periodo = (config_jornada.periodo_acumulacion or 'semanal').lower()
-        dia_inicio = int(config_jornada.dia_inicio_semana or 0) % 7
+        ord_semanal_sec = max(0, int(round(float(config_jornada.horas_ordinarias_semanales or 48) * 3600))) if config_jornada else 48 * 3600
+        jornada_diaria_sec = int(round(ord_semanal_sec / 6)) if ord_semanal_sec > 0 else 8 * 3600
+        dob_limit_sec = max(0, int(round(float(config_jornada.limite_horas_extras_dobles or 9) * 3600))) if config_jornada else 9 * 3600
+        tri_limit_sec = max(0, int(round(float(config_jornada.limite_horas_extras_triples or 4) * 3600))) if config_jornada else 4 * 3600
+        max_extra_dia_sec = max(0, int(round(float(config_jornada.maximo_horas_extras_dia or 5) * 3600))) if config_jornada else 5 * 3600
+        max_dias_extra = max(0, int(config_jornada.maximo_dias_horas_extras or 5)) if config_jornada else 5
+        tolerancia_sec = max(0, int(config_jornada.minutos_tolerancia or 10) * 60) if config_jornada else 10 * 60
+        periodo = (config_jornada.periodo_acumulacion or 'semanal').lower() if config_jornada else 'semanal'
+        dia_inicio = int(config_jornada.dia_inicio_semana or 0) % 7 if config_jornada else 0
+        turno_nombre = 'General'
 
     if periodo == 'diario':
         period_ord_limit = ord_semanal_sec if ord_semanal_sec <= 86400 else (ord_semanal_sec // 6)
@@ -830,6 +860,51 @@ def _aplicar_calculo_jornada_dias(resumen_dias, config_jornada, tipo_turno=None)
         dia['horas_extras_triples'] = _fmt_horas_jornada(tri_sec)
         dia['horas_excedentes'] = _fmt_horas_jornada(exc_sec)
 
+        # Nombre del turno
+        if dia.get('es_turno_nocturno') and 'nocturno' not in turno_nombre.lower():
+            dia['tipo_turno_nombre'] = f"{turno_nombre} (Nocturno)"
+        else:
+            dia['tipo_turno_nombre'] = turno_nombre
+
+        # 1. Diferencia "Tiempo trabajado contra programado"
+        programado_sec = jornada_diaria_sec
+        diff_sec = net_sec - programado_sec
+        if net_sec == 0:
+            if programado_sec > 0:
+                dia['diferencia_tiempo'] = f"-{_formatear_duracion(timedelta(seconds=programado_sec))}"
+            else:
+                dia['diferencia_tiempo'] = "0h 00m"
+        elif abs(diff_sec) < 60:
+            dia['diferencia_tiempo'] = "0h 00m"
+        elif diff_sec > 0:
+            dia['diferencia_tiempo'] = f"+{_formatear_duracion(timedelta(seconds=diff_sec))}"
+        else:
+            dia['diferencia_tiempo'] = f"-{_formatear_duracion(timedelta(seconds=abs(diff_sec)))}"
+
+        # 2. Cumplimiento "porcentaje de jornada"
+        if programado_sec > 0:
+            porc = round((net_sec / programado_sec) * 100, 1)
+            dia['cumplimiento_porcentaje'] = f"{porc:.1f}%"
+        else:
+            dia['cumplimiento_porcentaje'] = "100.0%" if net_sec > 0 else "0.0%"
+
+        # 3. Estatus "normal, excedida o incompleta"
+        tiene_entrada = bool(dia.get('entrada_laboral'))
+        tiene_salida = bool(dia.get('salida_laboral'))
+
+        if tiene_entrada and not tiene_salida:
+            dia['estatus_jornada'] = "Incompleta"
+        elif net_sec == 0:
+            dia['estatus_jornada'] = "Incompleta"
+        elif net_sec > (programado_sec + tolerancia_sec) or (dob_sec + tri_sec + exc_sec > 0):
+            dia['estatus_jornada'] = "Excedida"
+        elif net_sec < (programado_sec - tolerancia_sec):
+            dia['estatus_jornada'] = "Incompleta"
+        else:
+            dia['estatus_jornada'] = "Normal"
+
+    return resumen_dias
+
     return resumen_dias
 
 
@@ -843,27 +918,45 @@ def _fmt_gps_excel(reg):
     return "--"
 
 
-def _fila_dia_asistencia_excel(dia):
+def _fila_dia_asistencia_excel(dia, emp=None):
+    fecha_salida = "--"
+    if dia.get('salida_laboral'):
+        fecha_salida = timezone.localtime(dia['salida_laboral'].fecha_hora).strftime("%d/%m/%Y")
+
+    turno_nombre = dia.get('tipo_turno_nombre')
+    if not turno_nombre:
+        if emp and getattr(emp, 'tipo_turno', None):
+            turno_nombre = emp.tipo_turno.nombre
+        else:
+            turno_nombre = "General"
+    if dia.get('es_turno_nocturno') and 'nocturno' not in turno_nombre.lower():
+        turno_nombre = f"{turno_nombre} (Nocturno)"
+
     return [
         dia.get('dispositivo_excel', '--'),
         dia.get('dispositivo_token_corto') or '--',
         dia.get('ips_excel', '--'),
         dia['fecha'].strftime("%d/%m/%Y"),
-        _fmt_hora_excel(dia['entrada_laboral']),
-        _fmt_gps_excel(dia['entrada_laboral']),
-        _fmt_hora_excel(dia['salida_comer']),
-        _fmt_gps_excel(dia['salida_comer']),
-        _fmt_hora_excel(dia['regreso_comer']),
-        _fmt_gps_excel(dia['regreso_comer']),
-        _fmt_hora_excel(dia['salida_laboral']),
-        _fmt_gps_excel(dia['salida_laboral']),
-        dia['tiempo_comida'],
-        dia['tiempo_bruto'],
-        dia['tiempo_laborado'],
+        _fmt_hora_excel(dia.get('entrada_laboral')),
+        _fmt_gps_excel(dia.get('entrada_laboral')),
+        _fmt_hora_excel(dia.get('salida_comer')),
+        _fmt_gps_excel(dia.get('salida_comer')),
+        _fmt_hora_excel(dia.get('regreso_comer')),
+        _fmt_gps_excel(dia.get('regreso_comer')),
+        fecha_salida,
+        _fmt_hora_excel(dia.get('salida_laboral')),
+        _fmt_gps_excel(dia.get('salida_laboral')),
+        turno_nombre,
+        dia.get('tiempo_comida', '--'),
+        dia.get('tiempo_bruto', '--'),
+        dia.get('tiempo_laborado', '--'),
         dia.get('horas_ordinarias', '0h 00m'),
         dia.get('horas_extras_dobles', '0h 00m'),
         dia.get('horas_extras_triples', '0h 00m'),
         dia.get('horas_excedentes', '0h 00m'),
+        dia.get('diferencia_tiempo', '0h 00m'),
+        dia.get('cumplimiento_porcentaje', '0.0%'),
+        dia.get('estatus_jornada', 'Normal'),
     ]
 
 
@@ -900,7 +993,7 @@ def _render_libro_asistencias_excel(titulo, subtitulo, headers, filas, filename,
         cell.border = thin_border
 
     wrap_cols = {idx for idx, h in enumerate(headers, start=1) if h in ("IP Registrada", "Nombre del Trabajador")}
-    left_cols = {idx for idx, h in enumerate(headers, start=1) if h == "Nombre del Trabajador"}
+    left_cols = {idx for idx, h in enumerate(headers, start=1) if h in ("Nombre del Trabajador", "Puesto", "Departamento")}
 
     if filas:
         for row_idx, row_vals in enumerate(filas, start=header_row + 1):
@@ -922,13 +1015,19 @@ def _render_libro_asistencias_excel(titulo, subtitulo, headers, filas, filename,
         col_letter = get_column_letter(col_idx)
         if header_name == "Dispositivo":
             max_len = max((len(str(row[col_idx - 1] or '')) for row in filas), default=len(header_name))
-            ws.column_dimensions[col_letter].width = max(32, min(65, max_len + 4))
+            ws.column_dimensions[col_letter].width = max(35, min(80, max_len + 4))
         elif header_name == "Nombre del Trabajador":
             ws.column_dimensions[col_letter].width = 30
         elif header_name in ("CURP", "RFC"):
-            ws.column_dimensions[col_letter].width = 21
+            ws.column_dimensions[col_letter].width = 20
+        elif header_name in ("Puesto", "Departamento", "Tipo de Turno"):
+            ws.column_dimensions[col_letter].width = 22
         elif "Ubicación" in header_name or header_name == "IP Registrada":
             ws.column_dimensions[col_letter].width = 24
+        elif header_name in ("Fecha de Entrada", "Fecha de Salida", "Entrada Laboral", "Salida Laboral", "Salida a Comer", "Regreso de Comer"):
+            ws.column_dimensions[col_letter].width = 18
+        elif header_name in ("Horas Extras Dobles", "Horas Extras Triples"):
+            ws.column_dimensions[col_letter].width = 20
         else:
             ws.column_dimensions[col_letter].width = max(16, len(header_name) + 3)
 
@@ -941,15 +1040,33 @@ def _render_libro_asistencias_excel(titulo, subtitulo, headers, filas, filename,
 def _exportar_asistencias_excel(empleado, resumen_dias, fecha_inicio, fecha_fin, total_horas_str):
     nombre_emp = f"{empleado.nombre} {empleado.apellido_paterno} {empleado.apellido_materno}".strip()
     titulo = f"Control de Asistencias - {nombre_emp}"
-    subtitulo = f"No. Empleado: {empleado.num_empleado or 'S/N'} | Periodo: {fecha_inicio:%d/%m/%Y} al {fecha_fin:%d/%m/%Y} | Total Laborado: {total_horas_str}"
-    filas = [_fila_dia_asistencia_excel(dia) for dia in resumen_dias]
+    subtitulo = (
+        f"No. Empleado: {empleado.num_empleado or 'S/N'} | Puesto: {empleado.puesto or '--'} | "
+        f"Depto: {empleado.departamento or '--'} | Periodo: {fecha_inicio:%d/%m/%Y} al {fecha_fin:%d/%m/%Y} | "
+        f"Total Laborado: {total_horas_str}"
+    )
+    prefijo = [
+        empleado.num_empleado or '--',
+        nombre_emp or '--',
+        empleado.curp or '--',
+        empleado.rfc or '--',
+        empleado.puesto or '--',
+        empleado.departamento or '--',
+    ]
+    filas = [prefijo + _fila_dia_asistencia_excel(dia, emp=empleado) for dia in resumen_dias]
     filename = f"Asistencias_{empleado.num_empleado or empleado.id}_{fecha_inicio:%Y%m%d}_{fecha_fin:%Y%m%d}.xlsx"
-    return _render_libro_asistencias_excel(titulo, subtitulo, _ASISTENCIA_EXCEL_HEADERS_BASE, filas, filename)
+    return _render_libro_asistencias_excel(
+        titulo,
+        subtitulo,
+        _ASISTENCIA_EXCEL_HEADERS_EMPRESA,
+        filas,
+        filename,
+        dark_headers=_ASISTENCIA_DARK_HEADERS,
+        empty_message="No se encontraron registros de asistencia para este empleado en el periodo seleccionado."
+    )
 
 
-def _exportar_asistencias_contratista_workbook(contratista, empleados_con_dias, fecha_inicio, fecha_fin, total_horas_str):
-    headers = ["No. Empleado", "Nombre del Trabajador", "CURP", "RFC"] + _ASISTENCIA_EXCEL_HEADERS_BASE
-    dark_headers = _ASISTENCIA_DARK_HEADERS | {"No. Empleado", "Nombre del Trabajador", "CURP", "RFC"}
+def _exportar_asistencias_contratista_workbook(titulo, subtitulo, filename, empleados_con_dias):
     filas = []
     for emp, resumen_dias in empleados_con_dias:
         nombre_emp = f"{emp.nombre} {emp.apellido_paterno} {emp.apellido_materno}".strip()
@@ -958,45 +1075,58 @@ def _exportar_asistencias_contratista_workbook(contratista, empleados_con_dias, 
             nombre_emp or '--',
             emp.curp or '--',
             emp.rfc or '--',
+            emp.puesto or '--',
+            emp.departamento or '--',
         ]
         for dia in resumen_dias:
-            filas.append(prefijo + _fila_dia_asistencia_excel(dia))
+            filas.append(prefijo + _fila_dia_asistencia_excel(dia, emp=emp))
 
-    titulo = f"Reporte de Asistencias por Contratista - {contratista.nombre_razon_social}"
-    subtitulo = (
-        f"RFC: {contratista.rfc or 'S/N'} | Trabajadores asignados: {len(empleados_con_dias)} | "
-        f"Periodo: {fecha_inicio:%d/%m/%Y} al {fecha_fin:%d/%m/%Y} | Total Laborado: {total_horas_str}"
-    )
-    filename = f"Asistencias_Contratista_{contratista.id}_{fecha_inicio:%Y%m%d}_{fecha_fin:%Y%m%d}.xlsx"
     return _render_libro_asistencias_excel(
         titulo,
         subtitulo,
-        headers,
+        _ASISTENCIA_EXCEL_HEADERS_EMPRESA,
         filas,
         filename,
-        dark_headers=dark_headers,
-        empty_message="No se encontraron registros de asistencia para los trabajadores de este contratista en el periodo seleccionado.",
+        dark_headers=_ASISTENCIA_DARK_HEADERS,
+        empty_message="No se encontraron registros de asistencia para los trabajadores en el periodo seleccionado.",
     )
 
 
 @login_required(login_url='/login/')
 @require_hr_permission('empleados', 'exportar_excel_asistencias')
 def exportar_asistencias_contratista_excel(request):
-    """Exporta a Excel las asistencias de todos los empleados asignados a un contratista."""
+    """Exporta a Excel las asistencias por contratista, por empleado o de toda la empresa."""
     empresa_actual = get_empresa_actual(request)
     contratista_id = (request.GET.get('contratista_id') or '').strip()
-    if not contratista_id:
-        messages.error(request, 'Debes seleccionar un contratista para generar el reporte.')
-        return redirect('lista_empleados')
-
-    contratista = get_object_or_404(Contratista, id=contratista_id, empresa=empresa_actual)
+    empleado_id = (request.GET.get('empleado_id') or '').strip()
     fecha_inicio, fecha_fin = _parsear_rango_fechas(request)
 
-    empleados = list(
-        Empleado.objects.filter(empresa=empresa_actual, contratista=contratista)
-        .select_related('tipo_turno')
-        .order_by('apellido_paterno', 'apellido_materno', 'nombre')
-    )
+    contratista = None
+    empleado_unico = None
+
+    if empleado_id:
+        empleados = list(
+            Empleado.objects.filter(empresa=empresa_actual, id=empleado_id)
+            .select_related('tipo_turno', 'contratista')
+        )
+        if not empleados:
+            messages.error(request, 'No se encontró el empleado seleccionado.')
+            return redirect('lista_empleados')
+        empleado_unico = empleados[0]
+    elif contratista_id and contratista_id != 'todos':
+        contratista = get_object_or_404(Contratista, id=contratista_id, empresa=empresa_actual)
+        empleados = list(
+            Empleado.objects.filter(empresa=empresa_actual, contratista=contratista)
+            .select_related('tipo_turno', 'contratista')
+            .order_by('apellido_paterno', 'apellido_materno', 'nombre')
+        )
+    else:
+        # Toda la empresa
+        empleados = list(
+            Empleado.objects.filter(empresa=empresa_actual)
+            .select_related('tipo_turno', 'contratista')
+            .order_by('apellido_paterno', 'apellido_materno', 'nombre')
+        )
 
     registros_qs = AsistenciaEmpleado.objects.filter(
         empresa=empresa_actual,
@@ -1019,12 +1149,36 @@ def exportar_asistencias_contratista_excel(request):
         empleados_con_dias.append((emp, resumen_dias))
 
     total_horas_str = _formatear_duracion(timedelta(seconds=total_segundos_global))
+
+    if empleado_unico:
+        nombre_emp = f"{empleado_unico.nombre} {empleado_unico.apellido_paterno} {empleado_unico.apellido_materno}".strip()
+        titulo = f"Reporte de Asistencias - {nombre_emp}"
+        subtitulo = (
+            f"No. Empleado: {empleado_unico.num_empleado or 'S/N'} | Puesto: {empleado_unico.puesto or '--'} | "
+            f"Depto: {empleado_unico.departamento or '--'} | Periodo: {fecha_inicio:%d/%m/%Y} al {fecha_fin:%d/%m/%Y} | "
+            f"Total Laborado: {total_horas_str}"
+        )
+        filename = f"Asistencias_Empleado_{empleado_unico.num_empleado or empleado_unico.id}_{fecha_inicio:%Y%m%d}_{fecha_fin:%Y%m%d}.xlsx"
+    elif contratista:
+        titulo = f"Reporte de Asistencias por Contratista - {contratista.nombre_razon_social}"
+        subtitulo = (
+            f"RFC: {contratista.rfc or 'S/N'} | Trabajadores asignados: {len(empleados_con_dias)} | "
+            f"Periodo: {fecha_inicio:%d/%m/%Y} al {fecha_fin:%d/%m/%Y} | Total Laborado: {total_horas_str}"
+        )
+        filename = f"Asistencias_Contratista_{contratista.id}_{fecha_inicio:%Y%m%d}_{fecha_fin:%Y%m%d}.xlsx"
+    else:
+        titulo = f"Reporte General de Asistencias - {empresa_actual.nombre}"
+        subtitulo = (
+            f"Empresa: {empresa_actual.nombre} | Total Trabajadores: {len(empleados_con_dias)} | "
+            f"Periodo: {fecha_inicio:%d/%m/%Y} al {fecha_fin:%d/%m/%Y} | Total Laborado: {total_horas_str}"
+        )
+        filename = f"Asistencias_Empresa_{empresa_actual.id}_{fecha_inicio:%Y%m%d}_{fecha_fin:%Y%m%d}.xlsx"
+
     return _exportar_asistencias_contratista_workbook(
-        contratista,
+        titulo,
+        subtitulo,
+        filename,
         empleados_con_dias,
-        fecha_inicio,
-        fecha_fin,
-        total_horas_str,
     )
 
 

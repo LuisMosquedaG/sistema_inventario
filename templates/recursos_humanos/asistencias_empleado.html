@@ -112,7 +112,7 @@
             {% if granular_hr_perms.empleados.exportar_excel_asistencias %}
             <a href="{% url 'asistencias_empleado_detalle' empleado.id %}?fecha_inicio={{ fecha_inicio }}&fecha_fin={{ fecha_fin }}&export=excel"
                class="btn btn-brand text-white btn-sm px-3 shadow-sm">
-                <i class="bi bi-upload me-1"></i> Importador
+                <i class="bi bi-file-earmark-excel me-1"></i> Exportar Excel
             </a>
             {% endif %}
         </div>
@@ -249,10 +249,9 @@
                             <!-- Dispositivo -->
                             <td class="text-center text-nowrap" title="{{ dia.dispositivos_tooltip }}">
                                 {% if dia.dispositivo_principal or dia.dispositivo_token_corto %}
-                                <div class="text-dark small">{{ dia.dispositivo_principal|default:"Vinculado" }}</div>
-                                {% if dia.dispositivo_token_corto %}
-                                <div class="text-muted font-monospace" style="font-size: 0.7rem;">ID: {{ dia.dispositivo_token_corto }}</div>
-                                {% endif %}
+                                <div class="text-dark small text-nowrap">
+                                    {{ dia.dispositivo_principal|default:"Vinculado" }}{% if dia.dispositivo_token_corto %} <span class="text-muted font-monospace" style="font-size: 0.7rem;">(ID: {{ dia.dispositivo_token_corto }})</span>{% endif %}
+                                </div>
                                 {% else %}
                                 <span class="text-muted small">--</span>
                                 {% endif %}

@@ -1152,28 +1152,25 @@
         <div class="modal-content border-0">
             <div class="modal-header border-bottom bg-light">
                 <h5 class="modal-title fw-bold" id="modalReporteAsistenciasContratistaLabel">
-                    <i class="bi bi-file-earmark-excel text-brand me-2"></i>Reporte de Asistencias por Contratista
+                    <i class="bi bi-file-earmark-excel text-brand me-2"></i>Reporte de Asistencias
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="formReporteAsistenciasContratista" method="get" action="{% url 'exportar_asistencias_contratista_excel' %}">
                 <div class="modal-body p-4">
                     <p class="text-muted small mb-4">
-                        Selecciona el contratista y el rango de fechas para descargar en Excel el concentrado de asistencias de todos los trabajadores asignados a ese contratista.
+                        Descarga en Excel el concentrado de asistencias de la empresa, filtrado por contratista o para toda la empresa.
                     </p>
                     <div class="mb-3">
-                        <label for="selectContratistaAsistencias" class="form-label-custom">Contratista *</label>
-                        <select name="contratista_id" id="selectContratistaAsistencias" class="form-select" required>
-                            <option value="">-- Selecciona un contratista --</option>
+                        <label for="selectContratistaAsistencias" class="form-label-custom">Filtro de Contratista / Empresa</label>
+                        <select name="contratista_id" id="selectContratistaAsistencias" class="form-select">
+                            <option value="">-- Toda la Empresa (Todos los Trabajadores) --</option>
                             {% for c in contratistas %}
                             <option value="{{ c.id }}" {% if c.id|stringformat:'s' == filtros.contratista %}selected{% endif %}>
                                 {{ c.nombre_razon_social }}{% if c.rfc %} ({{ c.rfc }}){% endif %}
                             </option>
                             {% endfor %}
                         </select>
-                        {% if not contratistas %}
-                        <small class="text-danger d-block mt-1">No hay contratistas registrados para esta empresa.</small>
-                        {% endif %}
                     </div>
                     <div class="row g-3">
                         <div class="col-6">
@@ -1185,13 +1182,13 @@
                             <input type="date" name="fecha_fin" id="rep_asist_fecha_fin" class="form-control" required>
                         </div>
                     </div>
-                    <div class="alert alert-info mt-3 mb-0 py-2" style="font-size: 0.7rem;">
-                        <i class="bi bi-info-circle me-1"></i> El Excel incluirá No. Empleado, Nombre, CURP, RFC y el detalle completo de checadas del periodo.
+                    <div class="alert alert-info mt-3 mb-0 py-2" style="font-size: 0.72rem;">
+                        <i class="bi bi-info-circle me-1"></i> El Excel incluye: No. Empleado, Nombre, CURP, RFC, Puesto, Departamento, Detalle de Checadas, Tipo de Turno, Horas Extras, Diferencia, Cumplimiento y Estatus.
                     </div>
                 </div>
                 <div class="modal-footer border-top-0 bg-white">
                     <button type="button" class="btn btn-light btn-sm text-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-brand btn-sm text-white px-4 fw-bold shadow-sm" {% if not contratistas %}disabled{% endif %}>
+                    <button type="submit" class="btn btn-brand btn-sm text-white px-4 fw-bold shadow-sm">
                         <i class="bi bi-download me-1"></i> Descargar Excel
                     </button>
                 </div>

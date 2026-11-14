@@ -18,6 +18,7 @@ urlpatterns = [
     path('empleados/<int:id>/asistencias/eliminar/', views.eliminar_asistencia_dia_ajax, name='eliminar_asistencia_dia_ajax'),
     path('empleados/<int:id>/asistencias/desvincular-dispositivo/', views.desvincular_dispositivo_empleado_ajax, name='desvincular_dispositivo_empleado_ajax'),
     path('asistencias/exportar-contratista/', views.exportar_asistencias_contratista_excel, name='exportar_asistencias_contratista_excel'),
+    path('asistencias/exportar-empresa/', views.exportar_asistencias_contratista_excel, name='exportar_asistencias_empresa_excel'),
     path('asistencias/portal/', views.portal_asistencias_empleado, name='portal_asistencias_empleado'),
     path('asistencias/portal/registrar/', views.registrar_asistencia_ajax, name='registrar_asistencia_ajax'),
     path('asistencias/portal/expediente/', views.portal_expediente_empleado, name='portal_expediente_empleado'),
