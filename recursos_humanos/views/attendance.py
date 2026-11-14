@@ -22,7 +22,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from preferencias.permissions import require_hr_permission, user_has_hr_permission
-from ..models import AsistenciaEmpleado, ConfiguracionJornadaLaboral, Contratista, Empleado
+from ..models import AsistenciaEmpleado, ConfiguracionJornadaLaboral, Contratista, Empleado, TipoTurno
 from .utils import get_empresa_actual
 
 
@@ -647,7 +647,7 @@ def asistencias_empleado_detalle(request, id):
     """Vista administrativa de control de asistencias por empleado dentro de Obligaciones Patronales -> Empleados."""
     empresa_actual = get_empresa_actual(request)
     empleado = get_object_or_404(
-        Empleado.objects.select_related('sucursal', 'usuario', 'contratista', 'beneficiario'),
+        Empleado.objects.select_related('sucursal', 'usuario', 'contratista', 'beneficiario', 'tipo_turno'),
         id=id,
         empresa=empresa_actual
     )
@@ -663,14 +663,15 @@ def asistencias_empleado_detalle(request, id):
 
     resumen_dias, total_segundos = _agrupar_asistencias_por_dia(registros_qs)
     total_horas_str = _formatear_duracion(timedelta(seconds=total_segundos))
+    config_jornada = ConfiguracionJornadaLaboral.para_empresa(empresa_actual)
+    turno_emp = _resolver_tipo_turno_empleado(empleado, empresa_actual)
+    _aplicar_calculo_jornada_dias(resumen_dias, config_jornada, tipo_turno=turno_emp)
 
     # Exportación a Excel si se solicita
     if request.GET.get('export') == 'excel':
         if not user_has_hr_permission(request, 'empleados', 'exportar_excel_asistencias'):
             messages.error(request, 'No cuentas con permiso para exportar asistencias a Excel.')
             return redirect(f"{request.path}?fecha_inicio={fecha_inicio:%Y-%m-%d}&fecha_fin={fecha_fin:%Y-%m-%d}")
-        config_jornada = ConfiguracionJornadaLaboral.para_empresa(empresa_actual)
-        _aplicar_calculo_jornada_dias(resumen_dias, config_jornada, tipo_turno=empleado.tipo_turno)
         return _exportar_asistencias_excel(empleado, resumen_dias, fecha_inicio, fecha_fin, total_horas_str, config_jornada=config_jornada)
 
     return render(request, 'recursos_humanos/asistencias_empleado.html', {
@@ -737,6 +738,7 @@ _ASISTENCIA_EXCEL_HEADERS_HORAS_EXTRAS = [
     "Salida Laboral",
     "Ubicación Salida",
     "Tipo de Turno",
+    "Inicio de Semana",
     # 3. Horas extras semanales (Negrito / Charcoal)
     "Horas Ordinarias",
     "Horas Extras al Día",
@@ -765,6 +767,7 @@ _DARK_HEADERS_HORAS_EXTRAS = {
     "RFC",
     "Puesto",
     "Departamento",
+    "Inicio de Semana",
     "Horas Ordinarias",
     "Horas Extras al Día",
     "Horas Dobles",
@@ -792,22 +795,42 @@ def _periodo_key_jornada(fecha_dia, periodo, dia_inicio):
     return fecha_dia - timedelta(days=delta)
 
 
+def _resolver_tipo_turno_empleado(emp, empresa=None):
+    """
+    Resuelve el tipo de turno aplicable con prioridad:
+      1. Si el empleado tiene un tipo_turno asignado específicamente, se usa ese.
+      2. Si el empleado no tiene tipo_turno asignado, se toma el turno activo de la empresa (prioridad Tipo de Turno).
+      3. Si la empresa no tiene ningún tipo de turno activo, retorna None (para usar Configuración Jornada Laboral secundaria).
+    """
+    if emp and getattr(emp, 'tipo_turno', None):
+        return emp.tipo_turno
+    empresa_obj = empresa or (getattr(emp, 'empresa', None))
+    if empresa_obj:
+        return TipoTurno.objects.filter(empresa=empresa_obj, activo=True).order_by('id').first()
+    return None
+
+
 def _aplicar_calculo_jornada_dias(resumen_dias, config_jornada, tipo_turno=None):
     """Clasifica las horas netas de cada día en ordinarias, extras dobles, extras triples y excedentes,
     calculando además la diferencia contra horario programado, cumplimiento porcentual y estatus de la jornada.
-    Si el empleado tiene un tipo_turno asignado, se usan sus parámetros específicos; de lo contrario,
-    se toman los globales de config_jornada.
+    PRIORIDAD:
+      1. tipo_turno (específico o activo de la empresa).
+      2. config_jornada (parámetros secundarios de jornadas laborales).
     """
     if not resumen_dias:
         return resumen_dias
+
+    if not tipo_turno and config_jornada and getattr(config_jornada, 'empresa', None):
+        tipo_turno = TipoTurno.objects.filter(empresa=config_jornada.empresa, activo=True).order_by('id').first()
 
     if tipo_turno:
         ord_semanal_sec = max(0, int(round(float(tipo_turno.jornada_semanal_horas or 48) * 3600)))
         jornada_diaria_sec = max(0, int(round(float(tipo_turno.jornada_diaria_horas or 8) * 3600)))
         dob_limit_sec = max(0, int(round(float(tipo_turno.horas_dobles or 9) * 3600)))
         tri_limit_sec = max(0, int(round(float(tipo_turno.horas_triples_adicionales or 4) * 3600)))
-        max_extra_dia_sec = max(0, int(round(float(tipo_turno.maximo_horas_extras_diario or 1) * 3600)))
-        max_dias_extra = max(0, int(tipo_turno.maximo_dias_horas_extras or 1))
+        val_max_extra = tipo_turno.maximo_horas_extras_diario if tipo_turno.maximo_horas_extras_diario is not None else 4
+        max_extra_dia_sec = max(0, int(round(float(val_max_extra) * 3600)))
+        max_dias_extra = max(0, int(tipo_turno.maximo_dias_horas_extras if tipo_turno.maximo_dias_horas_extras is not None else 4))
         tolerancia_sec = max(0, int(tipo_turno.tolerancia_entrada_minutos or 0) * 60)
         periodo = 'semanal'
         dia_inicio = int(tipo_turno.inicio_semana or 0) % 7
@@ -820,7 +843,8 @@ def _aplicar_calculo_jornada_dias(resumen_dias, config_jornada, tipo_turno=None)
             jornada_diaria_sec = int(round(ord_semanal_sec / 6)) if ord_semanal_sec > 0 else 8 * 3600
         dob_limit_sec = max(0, int(round(float(config_jornada.limite_horas_extras_dobles or 9) * 3600))) if config_jornada else 9 * 3600
         tri_limit_sec = max(0, int(round(float(config_jornada.limite_horas_extras_triples or 4) * 3600))) if config_jornada else 4 * 3600
-        max_extra_dia_sec = max(0, int(round(float(config_jornada.maximo_horas_extras_dia or 5) * 3600))) if config_jornada else 5 * 3600
+        val_max_extra = config_jornada.maximo_horas_extras_dia if (config_jornada and config_jornada.maximo_horas_extras_dia is not None) else 5
+        max_extra_dia_sec = max(0, int(round(float(val_max_extra) * 3600)))
         max_dias_extra = max(0, int(config_jornada.maximo_dias_horas_extras or 5)) if config_jornada else 5
         tolerancia_sec = max(0, int(config_jornada.minutos_tolerancia or 10) * 60) if config_jornada else 10 * 60
         periodo = (config_jornada.periodo_acumulacion or 'semanal').lower() if config_jornada else 'semanal'
@@ -958,16 +982,17 @@ def _fmt_gps_excel(reg):
     return "--"
 
 
-def _fila_dia_asistencia_excel(dia, emp=None):
+def _fila_dia_asistencia_excel(dia, emp=None, tipo_turno=None):
     """Retorna los datos del día correspondientes a la hoja 1 'Asistencias' (hasta Horas Netas)."""
     fecha_salida = "--"
     if dia.get('salida_laboral'):
         fecha_salida = timezone.localtime(dia['salida_laboral'].fecha_hora).strftime("%d/%m/%Y")
 
     turno_nombre = dia.get('tipo_turno_nombre')
-    if not turno_nombre:
-        if emp and getattr(emp, 'tipo_turno', None):
-            turno_nombre = emp.tipo_turno.nombre
+    if not turno_nombre or turno_nombre == 'General':
+        turno = tipo_turno or _resolver_tipo_turno_empleado(emp)
+        if turno:
+            turno_nombre = turno.nombre
         else:
             turno_nombre = "General"
     if dia.get('es_turno_nocturno') and 'nocturno' not in turno_nombre.lower():
@@ -998,15 +1023,15 @@ def _calcular_semanas_horas_extras(resumen_dias, config_jornada, tipo_turno=None
     """
     Agrupa los días de asistencia por semana según el día de inicio de semana
     y calcula acumulativamente para la hoja 'Horas Extras':
-      - Horas ordinarias: hasta la jornada diaria (ej. 8h) y límite semanal (ej. 48h)
-      - Horas extras al día: exceso sobre la jornada diaria ordinaria, topado al máximo diario de horas extras
-      - Horas dobles: horas extras de la semana hasta el límite de dobles (ej. 9h)
-      - Horas triples: horas extras de la semana por encima de dobles hasta el límite de triples (ej. 4h)
-      - Total extras: Dobles + Triples
-      - Horas excedentes: exceso sobre el máximo diario de extras más cualquier extra semanal que supere el límite de triples
+    PRIORIDAD:
+      1. tipo_turno (específico del empleado o turno activo de la empresa).
+      2. config_jornada (parámetros secundarios de jornadas laborales).
     """
     if not resumen_dias:
         return []
+
+    if not tipo_turno and config_jornada and getattr(config_jornada, 'empresa', None):
+        tipo_turno = TipoTurno.objects.filter(empresa=config_jornada.empresa, activo=True).order_by('id').first()
 
     if tipo_turno:
         ord_semanal_sec = max(0, int(round(float(tipo_turno.jornada_semanal_horas or 48) * 3600)))
@@ -1015,6 +1040,7 @@ def _calcular_semanas_horas_extras(resumen_dias, config_jornada, tipo_turno=None
         tri_limit_sec = max(0, int(round(float(tipo_turno.horas_triples_adicionales or 4) * 3600)))
         val_max_extra = tipo_turno.maximo_horas_extras_diario if tipo_turno.maximo_horas_extras_diario is not None else 4
         max_extra_dia_sec = max(0, int(round(float(val_max_extra) * 3600)))
+        max_dias_extra = max(0, int(tipo_turno.maximo_dias_horas_extras if tipo_turno.maximo_dias_horas_extras is not None else 4))
         dia_inicio = int(tipo_turno.inicio_semana or 0) % 7
     else:
         ord_semanal_sec = max(0, int(round(float(config_jornada.horas_ordinarias_semanales or 48) * 3600))) if config_jornada else 48 * 3600
@@ -1024,9 +1050,22 @@ def _calcular_semanas_horas_extras(resumen_dias, config_jornada, tipo_turno=None
             jornada_diaria_sec = int(round(ord_semanal_sec / 6)) if ord_semanal_sec > 0 else 8 * 3600
         dob_limit_sec = max(0, int(round(float(config_jornada.limite_horas_extras_dobles or 9) * 3600))) if config_jornada else 9 * 3600
         tri_limit_sec = max(0, int(round(float(config_jornada.limite_horas_extras_triples or 4) * 3600))) if config_jornada else 4 * 3600
-        val_max_extra = config_jornada.maximo_horas_extras_dia if (config_jornada and config_jornada.maximo_horas_extras_dia is not None) else 4
+        val_max_extra = config_jornada.maximo_horas_extras_dia if (config_jornada and config_jornada.maximo_horas_extras_dia is not None) else 5
         max_extra_dia_sec = max(0, int(round(float(val_max_extra) * 3600)))
+        max_dias_extra = max(0, int(config_jornada.maximo_dias_horas_extras or 5)) if config_jornada else 5
         dia_inicio = int(config_jornada.dia_inicio_semana or 0) % 7 if config_jornada else 0
+
+    dias_semana_nombres = {
+        0: 'Lunes',
+        1: 'Martes',
+        2: 'Miércoles',
+        3: 'Jueves',
+        4: 'Viernes',
+        5: 'Sábado',
+        6: 'Domingo',
+    }
+    dia_inicio_nombre = dias_semana_nombres.get(dia_inicio, 'Lunes')
+    dia_fin_nombre = dias_semana_nombres.get((dia_inicio + 6) % 7, 'Domingo')
 
     semanas_dict = defaultdict(list)
     for dia in sorted(resumen_dias, key=lambda d: d['fecha']):
@@ -1045,6 +1084,7 @@ def _calcular_semanas_horas_extras(resumen_dias, config_jornada, tipo_turno=None
         sem_tri_sec = 0
         sem_tot_extras_sec = 0
         sem_exc_sec = 0
+        dias_con_extra = 0
 
         dias_procesados = []
         for dia in sorted(dias_sem, key=lambda d: d['fecha']):
@@ -1059,12 +1099,22 @@ def _calcular_semanas_horas_extras(resumen_dias, config_jornada, tipo_turno=None
             # 2. Exceso del día sobre horas ordinarias
             rem_sec = net_sec - ord_sec
 
-            # 3. Horas extras del día y excedentes del día según máximo diario
-            if max_extra_dia_sec > 0:
-                extra_dia_sec = min(rem_sec, max_extra_dia_sec)
-                exc_dia_sec = rem_sec - extra_dia_sec
+            # 3. Horas extras del día y excedentes según máximo diario y máximo de días
+            if rem_sec > 0:
+                if max_dias_extra > 0 and dias_con_extra >= max_dias_extra:
+                    # Ya superó el máximo de días con horas extras en la semana
+                    extra_dia_sec = 0
+                    exc_dia_sec = rem_sec
+                else:
+                    dias_con_extra += 1
+                    if max_extra_dia_sec > 0:
+                        extra_dia_sec = min(rem_sec, max_extra_dia_sec)
+                        exc_dia_sec = rem_sec - extra_dia_sec
+                    else:
+                        extra_dia_sec = rem_sec
+                        exc_dia_sec = 0
             else:
-                extra_dia_sec = rem_sec
+                extra_dia_sec = 0
                 exc_dia_sec = 0
             sem_extra_dia_sec += extra_dia_sec
 
@@ -1087,6 +1137,7 @@ def _calcular_semanas_horas_extras(resumen_dias, config_jornada, tipo_turno=None
             sem_tot_extras_sec += tot_extras_sec
 
             dia_info = dict(dia)
+            dia_info['he_dia_inicio_nombre'] = dia_inicio_nombre
             dia_info['he_ordinarias_str'] = _fmt_horas_jornada(ord_sec)
             dia_info['he_extra_dia_str'] = _fmt_horas_jornada(extra_dia_sec)
             dia_info['he_dobles_str'] = _fmt_horas_jornada(dob_sec)
@@ -1098,6 +1149,8 @@ def _calcular_semanas_horas_extras(resumen_dias, config_jornada, tipo_turno=None
         corte = {
             'semana_inicio': sem_inicio,
             'semana_fin': sem_fin,
+            'dia_inicio_nombre': dia_inicio_nombre,
+            'dia_fin_nombre': dia_fin_nombre,
             'total_net_str': _fmt_horas_jornada(sem_net_sec),
             'ordinarias_str': _fmt_horas_jornada(sem_ord_sec),
             'extra_dia_str': _fmt_horas_jornada(sem_extra_dia_sec),
@@ -1179,6 +1232,7 @@ def _render_libro_completo_asistencias(titulo, subtitulo, empleados_con_dias, co
     filas_sheet2 = []  # Tuplas: (is_corte, row_values)
 
     for emp, resumen_dias in empleados_con_dias:
+        turno_emp = _resolver_tipo_turno_empleado(emp, getattr(config_jornada, 'empresa', None) or getattr(emp, 'empresa', None))
         nombre_emp = f"{emp.nombre} {emp.apellido_paterno} {emp.apellido_materno}".strip()
         prefijo = [
             emp.num_empleado or '--',
@@ -1191,13 +1245,14 @@ def _render_libro_completo_asistencias(titulo, subtitulo, empleados_con_dias, co
 
         # Llenar datos Hoja 1 (Asistencias hasta Horas Netas)
         for dia in resumen_dias:
-            filas_sheet1.append(prefijo + _fila_dia_asistencia_excel(dia, emp=emp))
+            filas_sheet1.append(prefijo + _fila_dia_asistencia_excel(dia, emp=emp, tipo_turno=turno_emp))
 
         # Calcular y agrupar por semanas para Hoja 2 (Horas Extras)
-        semanas = _calcular_semanas_horas_extras(resumen_dias, config_jornada, tipo_turno=emp.tipo_turno)
+        semanas = _calcular_semanas_horas_extras(resumen_dias, config_jornada, tipo_turno=turno_emp)
         for sem in semanas:
             for dia in sem['dias']:
-                fila_dia_he = prefijo + _fila_dia_asistencia_excel(dia, emp=emp)[:14] + [
+                fila_dia_he = prefijo + _fila_dia_asistencia_excel(dia, emp=emp, tipo_turno=turno_emp)[:14] + [
+                    dia['he_dia_inicio_nombre'],
                     dia['he_ordinarias_str'],
                     dia['he_extra_dia_str'],
                     dia['he_dobles_str'],
@@ -1211,17 +1266,18 @@ def _render_libro_completo_asistencias(titulo, subtitulo, empleados_con_dias, co
             corte = sem['corte']
             fila_corte = [
                 emp.num_empleado or '--',
-                f"CORTE SEMANAL ({corte['semana_inicio']:%d/%m/%Y} al {corte['semana_fin']:%d/%m/%Y})",
+                f"CORTE SEMANAL ({corte['dia_inicio_nombre']} {corte['semana_inicio']:%d/%m/%Y} al {corte['dia_fin_nombre']} {corte['semana_fin']:%d/%m/%Y})",
                 emp.curp or '--',
                 emp.rfc or '--',
                 emp.puesto or '--',
                 emp.departamento or '--',
                 "--", "--", "--",
-                f"{corte['semana_inicio']:%d/%m/%Y}",
+                f"{corte['dia_inicio_nombre']} {corte['semana_inicio']:%d/%m/%Y}",
                 "--", "--", "--", "--", "--", "--",
-                f"{corte['semana_fin']:%d/%m/%Y}",
+                f"{corte['dia_fin_nombre']} {corte['semana_fin']:%d/%m/%Y}",
                 "--", "--",
                 f"Total Semana: {corte['total_net_str']}",
+                corte['dia_inicio_nombre'],
                 corte['ordinarias_str'],
                 corte['extra_dia_str'],
                 corte['dobles_str'],
@@ -1306,7 +1362,7 @@ def _render_libro_completo_asistencias(titulo, subtitulo, empleados_con_dias, co
             ws2.column_dimensions[col_letter].width = 38
         elif header_name in ("CURP", "RFC"):
             ws2.column_dimensions[col_letter].width = 20
-        elif header_name in ("Puesto", "Departamento", "Tipo de Turno"):
+        elif header_name in ("Puesto", "Departamento", "Tipo de Turno", "Inicio de Semana"):
             ws2.column_dimensions[col_letter].width = 22
         elif "Ubicación" in header_name or header_name == "IP Registrada":
             ws2.column_dimensions[col_letter].width = 24
@@ -1406,8 +1462,9 @@ def exportar_asistencias_contratista_excel(request):
     empleados_con_dias = []
     total_segundos_global = 0
     for emp in empleados:
+        turno_emp = _resolver_tipo_turno_empleado(emp, empresa_actual)
         resumen_dias, total_seg_emp = _agrupar_asistencias_por_dia(regs_por_empleado.get(emp.id, []))
-        _aplicar_calculo_jornada_dias(resumen_dias, config_jornada, tipo_turno=emp.tipo_turno)
+        _aplicar_calculo_jornada_dias(resumen_dias, config_jornada, tipo_turno=turno_emp)
         total_segundos_global += total_seg_emp
         empleados_con_dias.append((emp, resumen_dias))
 
