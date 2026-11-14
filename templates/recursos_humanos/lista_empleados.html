@@ -196,17 +196,6 @@
     {% if vista == 'turnos' %}
     <!-- VISTA: TABLA TIPOS DE TURNO (Mismo diseño que el módulo de empleados) -->
     <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
-            <div>
-                <h6 class="fw-bold text-dark mb-0">Catálogo de Turnos de la Empresa</h6>
-                <p class="text-muted small mb-0" style="font-size: 0.75rem;">
-                    Configuración de horarios, tolerancias y jornadas específicas por empresa. Si un trabajador no tiene turno asignado, toma los parámetros globales del SAT.
-                </p>
-            </div>
-            <span class="badge bg-light text-dark border px-3 py-2">
-                {{ tipos_turno|length }} Turno{{ tipos_turno|length|pluralize }} Registrado{{ tipos_turno|length|pluralize }}
-            </span>
-        </div>
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-pro mb-0">
