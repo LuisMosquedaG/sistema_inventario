@@ -157,23 +157,150 @@
     <!-- HEADER -->
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
         <div>
+            {% if vista == 'turnos' %}
+            <h4 class="section-title mb-0"><i class="bi bi-clock-history me-2 text-brand"></i>Tipos de Turno</h4>
+            <span class="section-subtitle">Módulo de Recursos Humanos / Gestión de Jornadas Laborales</span>
+            {% else %}
             <h4 class="section-title mb-0">Empleados</h4>
             <span class="section-subtitle">Módulo de Recursos Humanos</span>
+            {% endif %}
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
+            {% if vista == 'turnos' %}
+            <a href="{% url 'lista_empleados' %}" class="btn btn-light text-secondary btn-pro shadow-sm border">
+                <i class="bi bi-people me-1"></i> Ver Empleados
+            </a>
+            {% if granular_hr_perms.empleados.crear %}
+            <button class="btn btn-brand text-white btn-sm px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalTipoTurno" onclick="prepararNuevoTurno()">
+                <i class="bi bi-plus-lg me-1"></i> Nuevo Turno
+            </button>
+            {% endif %}
+            {% else %}
             {% if granular_hr_perms.empleados.exportar_excel_asistencias %}
             <button type="button" class="btn btn-light text-secondary btn-pro shadow-sm border" data-bs-toggle="modal" data-bs-target="#modalReporteAsistenciasContratista">
                 <i class="bi bi-file-earmark-excel me-1"></i> Asistencias
             </button>
             {% endif %}
+            <a href="?vista=turnos" class="btn btn-light text-secondary btn-pro shadow-sm border" title="Configurar Tipos de Turno por Empresa">
+                <i class="bi bi-clock-history me-1"></i> Tipos de Turno
+            </a>
             {% if granular_hr_perms.empleados.crear %}
             <button class="btn btn-brand text-white btn-sm px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoEmpleado" onclick="prepararNuevoEmpleado('{{ filtros.sucursal }}')">
                 <i class="bi bi-plus-lg me-1"></i> Nuevo Empleado
             </button>
             {% endif %}
+            {% endif %}
         </div>
     </div>
 
+    {% if vista == 'turnos' %}
+    <!-- VISTA: TABLA TIPOS DE TURNO (Mismo diseño que el módulo de empleados) -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+            <div>
+                <h6 class="fw-bold text-dark mb-0">Catálogo de Turnos de la Empresa</h6>
+                <p class="text-muted small mb-0" style="font-size: 0.75rem;">
+                    Configuración de horarios, tolerancias y jornadas específicas por empresa. Si un trabajador no tiene turno asignado, toma los parámetros globales del SAT.
+                </p>
+            </div>
+            <span class="badge bg-light text-dark border px-3 py-2">
+                {{ tipos_turno|length }} Turno{{ tipos_turno|length|pluralize }} Registrado{{ tipos_turno|length|pluralize }}
+            </span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-pro mb-0">
+                    <thead>
+                        <tr>
+                            <th class="text-center" style="width: 110px;">Acciones</th>
+                            <th style="min-width: 180px;">Nombre del Turno</th>
+                            <th class="text-center" style="min-width: 170px;">Horario</th>
+                            <th class="text-center" style="min-width: 160px;">Jornada</th>
+                            <th class="text-center" style="min-width: 190px;">Horas Extras</th>
+                            <th class="text-center" style="min-width: 140px;">Tolerancia</th>
+                            <th class="text-center" style="min-width: 150px;">Empleados</th>
+                            <th class="text-center" style="width: 100px;">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for turno in tipos_turno %}
+                        <tr>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center align-items-center gap-1">
+                                    <span class="icon-action" title="Editar Turno" onclick="abrirEditarTurno({{ turno.id }})">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </span>
+                                    <span class="icon-action icon-action-danger" title="Eliminar Turno" onclick="eliminarTurno({{ turno.id }}, '{{ turno.nombre|escapejs }}')">
+                                        <i class="bi bi-x-circle"></i>
+                                    </span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="text-dark small fw-bold">{{ turno.nombre }}</div>
+                                <div class="text-muted small" style="font-size: 0.7rem;">{{ turno.descripcion|default:"Sin descripción adicional" }}</div>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-light text-dark border">
+                                    <i class="bi bi-clock me-1 text-brand"></i>{{ turno.hora_entrada|time:"H:i" }} - {{ turno.hora_salida|time:"H:i" }}
+                                </span>
+                                {% if turno.hora_salida_comida %}
+                                <div class="text-muted small mt-1" style="font-size: 0.7rem;">
+                                    Comida: {{ turno.hora_salida_comida|time:"H:i" }} a {{ turno.hora_regreso_comida|time:"H:i" }} ({{ turno.tiempo_comida_minutos }} min{% if turno.comida_computable %}, computable{% endif %})
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="text-dark small fw-bold">{{ turno.jornada_diaria_horas }}h diarias / {{ turno.jornada_semanal_horas }}h sem.</div>
+                                <div class="text-muted small" style="font-size: 0.7rem;">Corte: {{ turno.get_inicio_semana_display }}</div>
+                            </td>
+                            <td class="text-center">
+                                <div class="text-dark small">Dobles: <strong>{{ turno.horas_dobles }}h</strong> | Triples: <strong>{{ turno.horas_triples_adicionales }}h</strong></div>
+                                <div class="text-muted small" style="font-size: 0.7rem;">Máx: {{ turno.maximo_horas_extras_diario }}h/día &bull; {{ turno.maximo_dias_horas_extras }} día{{ turno.maximo_dias_horas_extras|pluralize }}/sem</div>
+                            </td>
+                            <td class="text-center">
+                                <div class="text-dark small">Entrada: <strong>{{ turno.tolerancia_entrada_minutos }} min</strong></div>
+                                <div class="text-muted small" style="font-size: 0.7rem;">Salida: <strong>{{ turno.tolerancia_salida_minutos }} min</strong></div>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-primary bg-opacity-10 text-brand fw-bold px-3 py-2" style="font-size: 0.8rem;">
+                                    <i class="bi bi-people me-1"></i>{{ turno.num_empleados }} empleado{{ turno.num_empleados|pluralize }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                {% if turno.activo %}
+                                    <span class="status-pill status-activo">Activo</span>
+                                {% else %}
+                                    <span class="status-pill status-inactivo">Inactivo</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5">
+                                <i class="bi bi-clock-history display-6 text-muted mb-2 d-block"></i>
+                                <span class="text-muted fst-italic small">No hay tipos de turno configurados aún.</span>
+                                <div class="mt-3">
+                                    <button class="btn btn-brand text-white btn-sm px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalTipoTurno" onclick="prepararNuevoTurno()">
+                                        <i class="bi bi-plus-lg me-1"></i> Crear Primer Turno
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+            <span class="text-muted small" style="font-size: 0.75rem;">
+                Total: <strong>{{ tipos_turno|length }}</strong> tipo{{ tipos_turno|length|pluralize }} de turno registrado{{ tipos_turno|length|pluralize }}
+            </span>
+            <small class="text-muted" style="font-size: 0.75rem;">
+                * Los empleados sin turno asignado se regirán automáticamente por la <a href="{% url 'dashboard_preferencias' %}?section=obligaciones_patronales" class="text-brand fw-bold text-decoration-none">Configuración de Jornadas Laborales global</a>.
+            </small>
+        </div>
+    </div>
+    {% else %}
     <!-- FILTROS -->
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body p-2">
@@ -362,6 +489,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 </div>
 
 <!-- EL MODAL SE MUEVE FUERA DEL DIV DE LA TABLA PARA EVITAR CONFLICTOS DE CAPAS -->
@@ -609,6 +737,15 @@
                                                 <option value="mixta">Mixta</option>
                                             </select>
                                         </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label-custom">Tipo de Turno</label>
+                                            <select name="tipo_turno_id" id="empleadoTipoTurno" class="form-select form-select-sm">
+                                                <option value="">-- Por defecto (Jornada SAT / Empresa) --</option>
+                                                {% for tt in tipos_turno %}
+                                                <option value="{{ tt.id }}">{{ tt.nombre }} ({{ tt.hora_entrada|time:"H:i" }} - {{ tt.hora_salida|time:"H:i" }})</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -793,6 +930,201 @@
     </div>
 </div>
 
+<!-- Modal: Nuevo / Editar Tipo de Turno -->
+<div class="modal fade" id="modalTipoTurno" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-sheet modal-dialog-scrollable">
+        <div class="modal-content border-0">
+            <div class="modal-header bg-white border-bottom py-3">
+                <div class="d-flex align-items-center">
+                    <div class="bg-primary bg-opacity-10 p-2 rounded me-3" style="color: #00b8b9;">
+                        <i class="bi bi-clock-history fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0" id="tituloModalTurno">Configurar Tipo de Turno</h5>
+                        <p class="text-muted small mb-0" style="font-size: 0.75rem;">Define los parámetros de horario, jornada y horas extras del turno</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body modal-body-gray p-4">
+                <form id="formTipoTurno">
+                    {% csrf_token %}
+                    <input type="hidden" name="turno_id" id="turnoId">
+
+                    <!-- DATOS GENERALES -->
+                    <div class="card card-section border-0 shadow-sm mb-3">
+                        <div class="card-body p-3 bg-white rounded-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">Identificación del Turno</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label-custom">Nombre del Turno <span class="text-danger">*</span></label>
+                                    <input type="text" name="nombre" id="turnoNombre" class="form-control form-control-sm" placeholder="Ej. Turno Matutino, Turno Mixto, etc." required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label-custom">Descripción (Opcional)</label>
+                                    <input type="text" name="descripcion" id="turnoDescripcion" class="form-control form-control-sm" placeholder="Breve nota descriptiva">
+                                </div>
+                                <div class="col-md-2 d-flex align-items-center mt-4">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" name="activo" id="turnoActivo" checked>
+                                        <label class="form-check-label small fw-bold text-dark" for="turnoActivo">Activo</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 1. HORARIO -->
+                    <div class="card card-section border-0 shadow-sm mb-3">
+                        <div class="card-body p-3 bg-white rounded-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">
+                                <i class="bi bi-clock me-1 text-brand"></i>1. Horario
+                            </h6>
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <label class="form-label-custom">Entrada <span class="text-danger">*</span></label>
+                                    <input type="time" name="hora_entrada" id="turnoHoraEntrada" class="form-control form-control-sm" value="08:00" required>
+                                    <small class="text-muted" style="font-size: 0.65rem;">Ej. 08:00</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label-custom">Salida a comida</label>
+                                    <input type="time" name="hora_salida_comida" id="turnoHoraSalidaComida" class="form-control form-control-sm" value="14:00">
+                                    <small class="text-muted" style="font-size: 0.65rem;">Ej. 14:00</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label-custom">Regreso de comida</label>
+                                    <input type="time" name="hora_regreso_comida" id="turnoHoraRegresoComida" class="form-control form-control-sm" value="15:00">
+                                    <small class="text-muted" style="font-size: 0.65rem;">Ej. 15:00</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label-custom">Salida <span class="text-danger">*</span></label>
+                                    <input type="time" name="hora_salida" id="turnoHoraSalida" class="form-control form-control-sm" value="17:00" required>
+                                    <small class="text-muted" style="font-size: 0.65rem;">Ej. 17:00</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. CONFIGURACIÓN DE JORNADA -->
+                    <div class="card card-section border-0 shadow-sm mb-3">
+                        <div class="card-body p-3 bg-white rounded-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">
+                                <i class="bi bi-calendar-check me-1 text-brand"></i>2. Configuración de Jornada
+                            </h6>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label-custom">Jornada diaria (Horas) <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.01" min="0" max="24" name="jornada_diaria_horas" id="turnoJornadaDiaria" class="form-control form-control-sm" value="8.00" required>
+                                    <small class="text-muted" style="font-size: 0.65rem;">Ej. 8 horas</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label-custom">Jornada semanal (Horas) <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.01" min="0" max="168" name="jornada_semanal_horas" id="turnoJornadaSemanal" class="form-control form-control-sm" value="48.00" required>
+                                    <small class="text-muted" style="font-size: 0.65rem;">Ej. 48 horas</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label-custom">Inicio de semana</label>
+                                    <select name="inicio_semana" id="turnoInicioSemana" class="form-select form-select-sm">
+                                        <option value="0" selected>Lunes</option>
+                                        <option value="1">Martes</option>
+                                        <option value="2">Miércoles</option>
+                                        <option value="3">Jueves</option>
+                                        <option value="4">Viernes</option>
+                                        <option value="5">Sábado</option>
+                                        <option value="6">Domingo</option>
+                                    </select>
+                                    <small class="text-muted" style="font-size: 0.65rem;">Ej. Lunes</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label-custom">Tiempo de comida (Minutos)</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" min="0" max="240" name="tiempo_comida_minutos" id="turnoTiempoComida" class="form-control form-control-sm" value="60" required>
+                                        <span class="input-group-text bg-light text-muted">min</span>
+                                    </div>
+                                    <small class="text-muted" style="font-size: 0.65rem;">Ej. 60 minutos</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label-custom">Comida computable</label>
+                                    <select name="comida_computable" id="turnoComidaComputable" class="form-select form-select-sm">
+                                        <option value="false" selected>No (Se descuenta del tiempo laborado)</option>
+                                        <option value="true">Sí (Cuenta como tiempo efectivo laborado)</option>
+                                    </select>
+                                    <small class="text-muted" style="font-size: 0.65rem;">Ej. No</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. HORAS EXTRAORDINARIAS -->
+                    <div class="card card-section border-0 shadow-sm mb-3">
+                        <div class="card-body p-3 bg-white rounded-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">
+                                <i class="bi bi-plus-slash-minus me-1 text-brand"></i>3. Horas Extraordinarias
+                            </h6>
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <label class="form-label-custom">Horas dobles</label>
+                                    <input type="number" step="0.01" min="0" name="horas_dobles" id="turnoHorasDobles" class="form-control form-control-sm" value="9.00" required>
+                                    <small class="text-muted" style="font-size: 0.65rem;">Ej. 9</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label-custom">Horas triples adicionales</label>
+                                    <input type="number" step="0.01" min="0" name="horas_triples_adicionales" id="turnoHorasTriples" class="form-control form-control-sm" value="4.00" required>
+                                    <small class="text-muted" style="font-size: 0.65rem;">Ej. 4</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label-custom">Máximo diario (Horas)</label>
+                                    <input type="number" step="0.01" min="0" name="maximo_horas_extras_diario" id="turnoMaximoDiario" class="form-control form-control-sm" value="1.00" required>
+                                    <small class="text-muted" style="font-size: 0.65rem;">Ej. 1</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label-custom">Máximo de días</label>
+                                    <input type="number" min="0" max="7" name="maximo_dias_horas_extras" id="turnoMaximoDias" class="form-control form-control-sm" value="1" required>
+                                    <small class="text-muted" style="font-size: 0.65rem;">Ej. 1</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. CONTROL DE ASISTENCIA -->
+                    <div class="card card-section border-0 shadow-sm mb-3">
+                        <div class="card-body p-3 bg-white rounded-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.7rem; letter-spacing: 1px;">
+                                <i class="bi bi-shield-check me-1 text-brand"></i>4. Control de Asistencia
+                            </h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label-custom">Tolerancia entrada</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" min="0" max="180" name="tolerancia_entrada_minutos" id="turnoToleranciaEntrada" class="form-control form-control-sm" value="10" required>
+                                        <span class="input-group-text bg-light text-muted">minutos</span>
+                                    </div>
+                                    <small class="text-muted" style="font-size: 0.65rem;">Ej. 10 minutos</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label-custom">Tolerancia salida</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" min="0" max="180" name="tolerancia_salida_minutos" id="turnoToleranciaSalida" class="form-control form-control-sm" value="0" required>
+                                        <span class="input-group-text bg-light text-muted">minutos</span>
+                                    </div>
+                                    <small class="text-muted" style="font-size: 0.65rem;">Ej. 0 minutos</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <button type="button" class="btn btn-light btn-sm px-3" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-brand text-white btn-sm px-4 fw-bold shadow-sm" id="btnGuardarTurno">
+                            <i class="bi bi-save me-1"></i> Guardar Turno
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal: Reporte de Asistencias por Contratista -->
 <div class="modal fade" id="modalReporteAsistenciasContratista" tabindex="-1" aria-labelledby="modalReporteAsistenciasContratistaLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sheet">
@@ -962,6 +1294,9 @@
         document.getElementById('infoContratista').value = '';
         document.getElementById('infoBeneficiario').value = '';
 
+        const selectTurno = document.getElementById('empleadoTipoTurno');
+        if (selectTurno) selectTurno.value = '';
+
         const firstTab = document.getElementById('personal-tab');
         if (firstTab) bootstrap.Tab.getOrCreateInstance(firstTab).show();
 
@@ -1086,6 +1421,147 @@
         .catch(error => {
             console.error('Error:', error);
             alert('Hubo un error al procesar la solicitud.');
+        });
+    }
+
+    // ===================================
+    // GESTIÓN DE TIPOS DE TURNO
+    // ===================================
+    function prepararNuevoTurno() {
+        const form = document.getElementById('formTipoTurno');
+        if (!form) return;
+        form.reset();
+        document.getElementById('turnoId').value = '';
+        document.getElementById('tituloModalTurno').textContent = 'Configurar Tipo de Turno';
+        document.getElementById('btnGuardarTurno').innerHTML = '<i class="bi bi-save me-1"></i> Guardar Turno';
+
+        // Valores por defecto
+        document.getElementById('turnoNombre').value = '';
+        document.getElementById('turnoDescripcion').value = '';
+        document.getElementById('turnoActivo').checked = true;
+
+        // 1. Horario
+        document.getElementById('turnoHoraEntrada').value = '08:00';
+        document.getElementById('turnoHoraSalidaComida').value = '14:00';
+        document.getElementById('turnoHoraRegresoComida').value = '15:00';
+        document.getElementById('turnoHoraSalida').value = '17:00';
+
+        // 2. Configuración de jornada
+        document.getElementById('turnoJornadaDiaria').value = '8.00';
+        document.getElementById('turnoJornadaSemanal').value = '48.00';
+        document.getElementById('turnoInicioSemana').value = '0';
+        document.getElementById('turnoTiempoComida').value = '60';
+        document.getElementById('turnoComidaComputable').value = 'false';
+
+        // 3. Horas extraordinarias
+        document.getElementById('turnoHorasDobles').value = '9.00';
+        document.getElementById('turnoHorasTriples').value = '4.00';
+        document.getElementById('turnoMaximoDiario').value = '1.00';
+        document.getElementById('turnoMaximoDias').value = '1';
+
+        // 4. Control de asistencia
+        document.getElementById('turnoToleranciaEntrada').value = '10';
+        document.getElementById('turnoToleranciaSalida').value = '0';
+    }
+
+    function abrirEditarTurno(id) {
+        fetch(`/recursos-humanos/empleados/turnos/obtener/${id}/`)
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    document.getElementById('turnoId').value = res.id;
+                    document.getElementById('tituloModalTurno').textContent = 'Editar Tipo de Turno';
+                    document.getElementById('btnGuardarTurno').innerHTML = '<i class="bi bi-pencil-square me-1"></i> Actualizar Turno';
+
+                    document.getElementById('turnoNombre').value = res.nombre || '';
+                    document.getElementById('turnoDescripcion').value = res.descripcion || '';
+                    document.getElementById('turnoActivo').checked = !!res.activo;
+
+                    document.getElementById('turnoHoraEntrada').value = res.hora_entrada || '08:00';
+                    document.getElementById('turnoHoraSalidaComida').value = res.hora_salida_comida || '';
+                    document.getElementById('turnoHoraRegresoComida').value = res.hora_regreso_comida || '';
+                    document.getElementById('turnoHoraSalida').value = res.hora_salida || '17:00';
+
+                    document.getElementById('turnoJornadaDiaria').value = res.jornada_diaria_horas || '8.00';
+                    document.getElementById('turnoJornadaSemanal').value = res.jornada_semanal_horas || '48.00';
+                    document.getElementById('turnoInicioSemana').value = (res.inicio_semana !== undefined && res.inicio_semana !== null) ? res.inicio_semana : '0';
+                    document.getElementById('turnoTiempoComida').value = (res.tiempo_comida_minutos !== undefined && res.tiempo_comida_minutos !== null) ? res.tiempo_comida_minutos : '60';
+                    document.getElementById('turnoComidaComputable').value = res.comida_computable ? 'true' : 'false';
+
+                    document.getElementById('turnoHorasDobles').value = res.horas_dobles || '9.00';
+                    document.getElementById('turnoHorasTriples').value = res.horas_triples_adicionales || '4.00';
+                    document.getElementById('turnoMaximoDiario').value = res.maximo_horas_extras_diario || '1.00';
+                    document.getElementById('turnoMaximoDias').value = (res.maximo_dias_horas_extras !== undefined && res.maximo_dias_horas_extras !== null) ? res.maximo_dias_horas_extras : '1';
+
+                    document.getElementById('turnoToleranciaEntrada').value = (res.tolerancia_entrada_minutos !== undefined && res.tolerancia_entrada_minutos !== null) ? res.tolerancia_entrada_minutos : '10';
+                    document.getElementById('turnoToleranciaSalida').value = (res.tolerancia_salida_minutos !== undefined && res.tolerancia_salida_minutos !== null) ? res.tolerancia_salida_minutos : '0';
+
+                    const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTipoTurno'));
+                    modal.show();
+                } else {
+                    alert('Error al obtener datos del turno: ' + (res.error || 'Desconocido'));
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Error de conexión al cargar el turno.');
+            });
+    }
+
+    function eliminarTurno(id, nombre) {
+        if (!confirm(`¿Está seguro de eliminar el tipo de turno "${nombre}"? Los empleados asignados volverán a regirse por la jornada global de la empresa.`)) {
+            return;
+        }
+        fetch(`/recursos-humanos/empleados/turnos/eliminar/${id}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Error al eliminar: ' + (data.error || 'Desconocido'));
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error de conexión al intentar eliminar el turno.');
+        });
+    }
+
+    const formTipoTurno = document.getElementById('formTipoTurno');
+    if (formTipoTurno) {
+        formTipoTurno.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            if (!document.getElementById('turnoActivo').checked) {
+                formData.set('activo', 'false');
+            }
+
+            fetch("{% url 'guardar_tipo_turno_ajax' %}", {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert('Error al guardar turno: ' + (data.error || 'Revise los campos.'));
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Error de conexión al guardar el turno.');
+            });
         });
     }
 

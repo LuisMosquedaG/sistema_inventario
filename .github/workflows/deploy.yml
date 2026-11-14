@@ -23,5 +23,9 @@ jobs:
             /var/www/django/sistema_inventario/venv/bin/pip install -r requirements.txt
             /var/www/django/sistema_inventario/venv/bin/python manage.py migrate --noinput
             /var/www/django/sistema_inventario/venv/bin/python manage.py collectstatic --clear --noinput
-            sudo supervisorctl restart sistema_inventario || sudo systemctl restart gunicorn-sistema
+            sudo supervisorctl stop sistema_inventario || true
+            pkill -9 -f "gunicorn.*sistema_inventario.wsgi" || true
+            sudo supervisorctl start sistema_inventario
+            sleep 2
+            sudo supervisorctl status sistema_inventario
             sudo systemctl reload nginx

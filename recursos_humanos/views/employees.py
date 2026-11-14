@@ -5,10 +5,10 @@ from django.http import JsonResponse
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Count
 from decimal import Decimal
 
-from ..models import Empleado, Contrato, Contratista, Beneficiario
+from ..models import Empleado, Contrato, Contratista, Beneficiario, TipoTurno
 from preferencias.models import Sucursal
 from preferencias.permissions import require_hr_permission
 from .utils import get_empresa_actual
@@ -141,6 +141,8 @@ def lista_empleados(request):
     contratistas = Contratista.objects.filter(empresa=empresa_actual).order_by('nombre_razon_social')
     beneficiarios = Beneficiario.objects.filter(empresa=empresa_actual).order_by('nombre_razon_social')
     contratos_disponibles = Contrato.objects.filter(empresa=empresa_actual).select_related('contratista', 'beneficiario')
+    tipos_turno = TipoTurno.objects.filter(empresa=empresa_actual).annotate(num_empleados=Count('empleados')).order_by('nombre')
+    vista = request.GET.get('vista', 'empleados')
 
     # PAGINACIÓN
     paginator = Paginator(empleados, 20)
@@ -153,6 +155,8 @@ def lista_empleados(request):
         'contratistas': contratistas,
         'beneficiarios': beneficiarios,
         'contratos_disponibles': contratos_disponibles,
+        'tipos_turno': tipos_turno,
+        'vista': vista,
         'empresa': empresa_actual,
         'filtros': {
             'q': q,
@@ -204,6 +208,8 @@ def obtener_empleado_json(request, id):
             'fecha_expiracion': emp.fecha_expiracion.isoformat() if emp.fecha_expiracion else '',
             'tipo_contrato': emp.tipo_contrato,
             'jornada': emp.jornada,
+            'tipo_turno_id': emp.tipo_turno_id or '',
+            'tipo_turno_nombre': str(emp.tipo_turno) if emp.tipo_turno else '',
             'puesto': emp.puesto,
             'departamento': emp.departamento,
             'supervisor': emp.supervisor,
@@ -279,6 +285,8 @@ def editar_empleado_ajax(request, id):
         emp.fecha_antiguedad = data.get('fecha_antiguedad') or None
         emp.tipo_contrato = data.get('tipo_contrato') or emp.tipo_contrato or '01'
         emp.jornada = data.get('jornada') or emp.jornada or 'diurna'
+        tipo_turno_raw = data.get('tipo_turno_id')
+        emp.tipo_turno_id = int(tipo_turno_raw) if tipo_turno_raw and str(tipo_turno_raw).isdigit() else None
         emp.puesto = data.get('puesto') or ''
         emp.departamento = data.get('departamento') or ''
         emp.supervisor = data.get('supervisor')
@@ -414,6 +422,7 @@ def crear_empleado_ajax(request):
                 fecha_expiracion=data.get('fecha_expiracion') or None,
                 tipo_contrato=data.get('tipo_contrato') or '01',
                 jornada=data.get('jornada') or 'diurna',
+                tipo_turno_id=int(data.get('tipo_turno_id')) if data.get('tipo_turno_id') and str(data.get('tipo_turno_id')).isdigit() else None,
                 puesto=data.get('puesto') or '',
                 departamento=data.get('departamento') or '',
                 supervisor=data.get('supervisor'),

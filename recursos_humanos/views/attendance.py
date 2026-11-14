@@ -600,7 +600,7 @@ def asistencias_empleado_detalle(request, id):
             messages.error(request, 'No cuentas con permiso para exportar asistencias a Excel.')
             return redirect(f"{request.path}?fecha_inicio={fecha_inicio:%Y-%m-%d}&fecha_fin={fecha_fin:%Y-%m-%d}")
         config_jornada = ConfiguracionJornadaLaboral.para_empresa(empresa_actual)
-        _aplicar_calculo_jornada_dias(resumen_dias, config_jornada)
+        _aplicar_calculo_jornada_dias(resumen_dias, config_jornada, tipo_turno=empleado.tipo_turno)
         return _exportar_asistencias_excel(empleado, resumen_dias, fecha_inicio, fecha_fin, total_horas_str)
 
     return render(request, 'recursos_humanos/asistencias_empleado.html', {
@@ -666,19 +666,32 @@ def _periodo_key_jornada(fecha_dia, periodo, dia_inicio):
     return fecha_dia - timedelta(days=delta)
 
 
-def _aplicar_calculo_jornada_dias(resumen_dias, config_jornada):
-    """Clasifica las horas netas de cada día en ordinarias, extras dobles, extras triples y excedentes."""
-    if not resumen_dias or not config_jornada:
+def _aplicar_calculo_jornada_dias(resumen_dias, config_jornada, tipo_turno=None):
+    """Clasifica las horas netas de cada día en ordinarias, extras dobles, extras triples y excedentes.
+    Si el empleado tiene un tipo_turno asignado, se usan sus parámetros específicos; de lo contrario,
+    se toman los globales de config_jornada.
+    """
+    if not resumen_dias or (not config_jornada and not tipo_turno):
         return resumen_dias
 
-    ord_semanal_sec = max(0, int(round(float(config_jornada.horas_ordinarias_semanales or 0) * 3600)))
-    dob_limit_sec = max(0, int(round(float(config_jornada.limite_horas_extras_dobles or 0) * 3600)))
-    tri_limit_sec = max(0, int(round(float(config_jornada.limite_horas_extras_triples or 0) * 3600)))
-    max_extra_dia_sec = max(0, int(round(float(config_jornada.maximo_horas_extras_dia or 0) * 3600)))
-    max_dias_extra = max(0, int(config_jornada.maximo_dias_horas_extras or 0))
-    tolerancia_sec = max(0, int(config_jornada.minutos_tolerancia or 0) * 60)
-    periodo = (config_jornada.periodo_acumulacion or 'semanal').lower()
-    dia_inicio = int(config_jornada.dia_inicio_semana or 0) % 7
+    if tipo_turno:
+        ord_semanal_sec = max(0, int(round(float(tipo_turno.jornada_semanal_horas or 48) * 3600)))
+        dob_limit_sec = max(0, int(round(float(tipo_turno.horas_dobles or 9) * 3600)))
+        tri_limit_sec = max(0, int(round(float(tipo_turno.horas_triples_adicionales or 4) * 3600)))
+        max_extra_dia_sec = max(0, int(round(float(tipo_turno.maximo_horas_extras_diario or 1) * 3600)))
+        max_dias_extra = max(0, int(tipo_turno.maximo_dias_horas_extras or 1))
+        tolerancia_sec = max(0, int(tipo_turno.tolerancia_entrada_minutos or 0) * 60)
+        periodo = 'semanal'
+        dia_inicio = int(tipo_turno.inicio_semana or 0) % 7
+    else:
+        ord_semanal_sec = max(0, int(round(float(config_jornada.horas_ordinarias_semanales or 0) * 3600)))
+        dob_limit_sec = max(0, int(round(float(config_jornada.limite_horas_extras_dobles or 0) * 3600)))
+        tri_limit_sec = max(0, int(round(float(config_jornada.limite_horas_extras_triples or 0) * 3600)))
+        max_extra_dia_sec = max(0, int(round(float(config_jornada.maximo_horas_extras_dia or 0) * 3600)))
+        max_dias_extra = max(0, int(config_jornada.maximo_dias_horas_extras or 0))
+        tolerancia_sec = max(0, int(config_jornada.minutos_tolerancia or 0) * 60)
+        periodo = (config_jornada.periodo_acumulacion or 'semanal').lower()
+        dia_inicio = int(config_jornada.dia_inicio_semana or 0) % 7
 
     if periodo == 'diario':
         period_ord_limit = ord_semanal_sec if ord_semanal_sec <= 86400 else (ord_semanal_sec // 6)
@@ -911,6 +924,7 @@ def exportar_asistencias_contratista_excel(request):
 
     empleados = list(
         Empleado.objects.filter(empresa=empresa_actual, contratista=contratista)
+        .select_related('tipo_turno')
         .order_by('apellido_paterno', 'apellido_materno', 'nombre')
     )
 
@@ -930,7 +944,7 @@ def exportar_asistencias_contratista_excel(request):
     total_segundos_global = 0
     for emp in empleados:
         resumen_dias, total_seg_emp = _agrupar_asistencias_por_dia(regs_por_empleado.get(emp.id, []))
-        _aplicar_calculo_jornada_dias(resumen_dias, config_jornada)
+        _aplicar_calculo_jornada_dias(resumen_dias, config_jornada, tipo_turno=emp.tipo_turno)
         total_segundos_global += total_seg_emp
         empleados_con_dias.append((emp, resumen_dias))
 

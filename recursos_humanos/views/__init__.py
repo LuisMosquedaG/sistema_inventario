@@ -8,3 +8,4 @@ from .sat import *
 from .utils import *
 from .attendance import *
 from .expediente import *
+from .turnos import *

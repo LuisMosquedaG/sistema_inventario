@@ -125,6 +125,7 @@ class Empleado(models.Model):
     fecha_expiracion = models.DateField(null=True, blank=True, verbose_name="Fecha de Expiración Contrato")
     tipo_contrato = models.CharField(max_length=20, choices=TIPO_CONTRATO_CHOICES, default='01', verbose_name="Tipo de Contrato")
     jornada = models.CharField(max_length=20, choices=JORNADA_CHOICES, default='diurna', verbose_name="Jornada")
+    tipo_turno = models.ForeignKey('TipoTurno', on_delete=models.SET_NULL, null=True, blank=True, related_name='empleados', verbose_name="Tipo de Turno")
     tipo_regimen_sat = models.CharField(max_length=50, blank=True, null=True, verbose_name="Tipo Régimen (SAT)")
     jornada_sat = models.CharField(max_length=50, blank=True, null=True, verbose_name="Tipo Jornada (SAT)")
     antiguedad_sat = models.CharField(max_length=50, blank=True, null=True, verbose_name="Antigüedad (Texto/SAT)")
@@ -1353,6 +1354,60 @@ class ConfiguracionJornadaLaboral(models.Model):
             return cls()
         obj = cls.objects.filter(empresa=empresa).first()
         return obj if obj else cls(empresa=empresa)
+
+
+class TipoTurno(models.Model):
+    """Configuración de turnos específicos por empresa para empleados."""
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name='tipos_turno',
+        verbose_name="Empresa"
+    )
+    nombre = models.CharField(max_length=100, verbose_name="Nombre del Turno")
+    descripcion = models.CharField(max_length=255, blank=True, null=True, verbose_name="Descripción")
+    activo = models.BooleanField(default=True, verbose_name="Activo")
+
+    # 1. Horario
+    hora_entrada = models.TimeField(default='08:00', verbose_name="Entrada")
+    hora_salida_comida = models.TimeField(null=True, blank=True, default='14:00', verbose_name="Salida a comida")
+    hora_regreso_comida = models.TimeField(null=True, blank=True, default='15:00', verbose_name="Regreso de comida")
+    hora_salida = models.TimeField(default='17:00', verbose_name="Salida")
+
+    # 2. Configuración de jornada
+    jornada_diaria_horas = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('8.00'), verbose_name="Jornada diaria (Horas)")
+    jornada_semanal_horas = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('48.00'), verbose_name="Jornada semanal (Horas)")
+    inicio_semana = models.PositiveSmallIntegerField(
+        choices=ConfiguracionJornadaLaboral.DIA_INICIO_SEMANA_CHOICES,
+        default=0,
+        verbose_name="Inicio de semana"
+    )
+    tiempo_comida_minutos = models.PositiveIntegerField(default=60, verbose_name="Tiempo de comida (Minutos)")
+    comida_computable = models.BooleanField(default=False, verbose_name="Comida computable")
+
+    # 3. Horas extraordinarias
+    horas_dobles = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('9.00'), verbose_name="Horas dobles")
+    horas_triples_adicionales = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('4.00'), verbose_name="Horas triples adicionales")
+    maximo_horas_extras_diario = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('1.00'), verbose_name="Máximo diario de horas extras")
+    maximo_dias_horas_extras = models.PositiveIntegerField(default=1, verbose_name="Máximo de días con horas extras")
+
+    # 4. Control de asistencia
+    tolerancia_entrada_minutos = models.PositiveIntegerField(default=10, verbose_name="Tolerancia entrada (Minutos)")
+    tolerancia_salida_minutos = models.PositiveIntegerField(default=0, verbose_name="Tolerancia salida (Minutos)")
+
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Tipo de Turno"
+        verbose_name_plural = "Tipos de Turno"
+        ordering = ['nombre']
+
+    def __str__(self):
+        ent = self.hora_entrada.strftime('%H:%M') if hasattr(self.hora_entrada, 'strftime') else str(self.hora_entrada)
+        sal = self.hora_salida.strftime('%H:%M') if hasattr(self.hora_salida, 'strftime') else str(self.hora_salida)
+        return f"{self.nombre} ({ent} - {sal})"
+
 
 
 
