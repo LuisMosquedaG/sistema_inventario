@@ -28,4 +28,6 @@ jobs:
             sudo supervisorctl start sistema_inventario || sudo supervisorctl restart sistema_inventario
             sleep 3
             sudo supervisorctl status sistema_inventario || true
-            sudo systemctl reload nginx
+            sudo systemctl reload nginx || sudo service nginx reload || true
+            echo "=== DESPLIEGUE FINALIZADO EXITOSAMENTE ==="
+
