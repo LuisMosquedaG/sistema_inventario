@@ -145,12 +145,17 @@ def lista_empleados(request):
     vista = request.GET.get('vista', 'empleados')
 
     # PAGINACIÓN
+    turnos_paginator = Paginator(tipos_turno, 20)
+    turnos_page_number = request.GET.get('page') if vista == 'turnos' else 1
+    turnos_page_obj = turnos_paginator.get_page(turnos_page_number)
+
     paginator = Paginator(empleados, 20)
-    page_number = request.GET.get('page')
+    page_number = request.GET.get('page') if vista != 'turnos' else 1
     page_obj = paginator.get_page(page_number)
 
     return render(request, 'recursos_humanos/lista_empleados.html', {
         'page_obj': page_obj,
+        'turnos_page_obj': turnos_page_obj,
         'sucursales': sucursales,
         'contratistas': contratistas,
         'beneficiarios': beneficiarios,

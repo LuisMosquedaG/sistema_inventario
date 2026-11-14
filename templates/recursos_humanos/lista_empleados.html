@@ -212,7 +212,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for turno in tipos_turno %}
+                        {% for turno in turnos_page_obj %}
                         <tr>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center align-items-center gap-1">
@@ -251,9 +251,7 @@
                                 <div class="text-muted small" style="font-size: 0.7rem;">Salida: <strong>{{ turno.tolerancia_salida_minutos }} min</strong></div>
                             </td>
                             <td class="text-center">
-                                <span class="badge bg-primary bg-opacity-10 text-brand fw-bold px-3 py-2" style="font-size: 0.8rem;">
-                                    <i class="bi bi-people me-1"></i>{{ turno.num_empleados }} empleado{{ turno.num_empleados|pluralize }}
-                                </span>
+                                <span class="text-dark small">{{ turno.num_empleados }} empleado{{ turno.num_empleados|pluralize }}</span>
                             </td>
                             <td class="text-center">
                                 {% if turno.activo %}
@@ -280,13 +278,47 @@
                 </table>
             </div>
         </div>
-        <div class="card-footer bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+        <!-- Footer Unificado con Paginación -->
+        <div class="card-footer bg-white border-0 py-2 px-4 d-flex justify-content-between align-items-center">
             <span class="text-muted small" style="font-size: 0.75rem;">
-                Total: <strong>{{ tipos_turno|length }}</strong> tipo{{ tipos_turno|length|pluralize }} de turno registrado{{ tipos_turno|length|pluralize }}
+                Mostrando {{ turnos_page_obj.start_index }} - {{ turnos_page_obj.end_index }} de {{ turnos_page_obj.paginator.count }}
             </span>
-            <small class="text-muted" style="font-size: 0.75rem;">
-                * Los empleados sin turno asignado se regirán automáticamente por la <a href="{% url 'dashboard_preferencias' %}?section=obligaciones_patronales" class="text-brand fw-bold text-decoration-none">Configuración de Jornadas Laborales global</a>.
-            </small>
+            
+            <div class="d-flex gap-1">
+                {% if turnos_page_obj.has_previous %}
+                    <!-- Primero -->
+                    <a href="?vista=turnos&page=1" class="btn btn-sm btn-light border-0 text-muted" title="Primera página">&laquo;&laquo;</a>
+                    
+                    <!-- Anterior -->
+                    <a href="?vista=turnos&page={{ turnos_page_obj.previous_page_number }}" class="btn btn-sm btn-light border-0 text-muted" title="Anterior">&laquo;</a>
+                {% else %}
+                    <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;&laquo;</button>
+                    <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;</button>
+                {% endif %}
+                
+                <!-- Números de Página (Rango de 5) -->
+                {% for i in turnos_page_obj.paginator.page_range %}
+                    {% if i >= turnos_page_obj.number|add:"-2" and i <= turnos_page_obj.number|add:"2" %}
+                        {% if turnos_page_obj.number == i %}
+                            <button class="btn btn-sm btn-brand text-white fw-bold shadow-sm" style="min-width: 32px; background-color: #00b8b9; border: none;">{{ i }}</button>
+                        {% else %}
+                            <a href="?vista=turnos&page={{ i }}" 
+                               class="btn btn-sm btn-light border-0 text-dark" style="min-width: 32px;">{{ i }}</a>
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
+                
+                {% if turnos_page_obj.has_next %}
+                    <!-- Siguiente -->
+                    <a href="?vista=turnos&page={{ turnos_page_obj.next_page_number }}" class="btn btn-sm btn-light border-0 text-muted" title="Siguiente">&raquo;</a>
+                    
+                    <!-- Último -->
+                    <a href="?vista=turnos&page={{ turnos_page_obj.paginator.num_pages }}" class="btn btn-sm btn-light border-0 text-muted" title="Última página">&raquo;&raquo;</a>
+                {% else %}
+                    <button class="btn btn-sm btn-light border-0 text-muted" disabled>&raquo;</button>
+                    <button class="btn btn-sm btn-light border-0 text-muted" disabled>&raquo;&raquo;</button>
+                {% endif %}
+            </div>
         </div>
     </div>
     {% else %}
