@@ -1224,21 +1224,20 @@ def guardar_configuracion_jornada_ajax(request):
         return val
 
     try:
-        periodo = (request.POST.get('periodo_acumulacion') or 'semanal').strip()
-        periodos_validos = {k for k, _ in ConfiguracionJornadaLaboral.PERIODO_ACUMULACION_CHOICES}
-        if periodo not in periodos_validos:
-            return JsonResponse({'success': False, 'error': 'Periodo de acumulación inválido.'}, status=400)
-
         dia_inicio = _parse_int('dia_inicio_semana', 0, min_val=0, max_val=6)
+        jornada_diaria = _parse_dec('jornada_total_diaria', '8.00')
+        horas_semanales = (jornada_diaria * Decimal('6.00')).quantize(Decimal('0.01'))
+
         defaults = {
-            'horas_ordinarias_semanales': _parse_dec('horas_ordinarias_semanales', '48.00'),
+            'horas_ordinarias_semanales': horas_semanales,
+            'jornada_total_diaria': jornada_diaria,
             'limite_horas_extras_dobles': _parse_dec('limite_horas_extras_dobles', '9.00'),
             'limite_horas_extras_triples': _parse_dec('limite_horas_extras_triples', '4.00'),
             'multiplicador_horas_dobles': _parse_dec('multiplicador_horas_dobles', '2.00'),
             'multiplicador_horas_triples': _parse_dec('multiplicador_horas_triples', '3.00'),
             'maximo_horas_extras_dia': _parse_dec('maximo_horas_extras_dia', '5.00'),
             'maximo_dias_horas_extras': _parse_int('maximo_dias_horas_extras', 5, min_val=0, max_val=31),
-            'periodo_acumulacion': periodo,
+            'periodo_acumulacion': 'semanal',
             'dia_inicio_semana': dia_inicio,
             'minutos_tolerancia': _parse_int('minutos_tolerancia', 10, min_val=0, max_val=180),
         }

@@ -955,22 +955,22 @@
 <div class="modal fade" id="modalTipoTurno" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-sheet modal-dialog-scrollable">
         <div class="modal-content border-0">
-            <div class="modal-header bg-white border-bottom py-3">
-                <div class="d-flex align-items-center">
-                    <div class="bg-primary bg-opacity-10 p-2 rounded me-3" style="color: #00b8b9;">
-                        <i class="bi bi-clock-history fs-4"></i>
+            <form id="formTipoTurno" class="d-flex flex-column h-100 mb-0">
+                {% csrf_token %}
+                <input type="hidden" name="turno_id" id="turnoId">
+                <div class="modal-header bg-white border-bottom py-3 flex-shrink-0">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-primary bg-opacity-10 p-2 rounded me-3" style="color: #00b8b9;">
+                            <i class="bi bi-clock-history fs-4"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold mb-0" id="tituloModalTurno">Configurar Tipo de Turno</h5>
+                            <p class="text-muted small mb-0" style="font-size: 0.75rem;">Define los parámetros de horario, jornada y horas extras del turno</p>
+                        </div>
                     </div>
-                    <div>
-                        <h5 class="modal-title fw-bold mb-0" id="tituloModalTurno">Configurar Tipo de Turno</h5>
-                        <p class="text-muted small mb-0" style="font-size: 0.75rem;">Define los parámetros de horario, jornada y horas extras del turno</p>
-                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body modal-body-gray p-4">
-                <form id="formTipoTurno">
-                    {% csrf_token %}
-                    <input type="hidden" name="turno_id" id="turnoId">
+                <div class="modal-body modal-body-gray p-4">
 
                     <!-- DATOS GENERALES -->
                     <div class="card card-section border-0 shadow-sm mb-3">
@@ -1040,8 +1040,8 @@
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label-custom">Jornada semanal (Horas) <span class="text-danger">*</span></label>
-                                    <input type="number" step="0.01" min="0" max="168" name="jornada_semanal_horas" id="turnoJornadaSemanal" class="form-control form-control-sm" value="48.00" required>
-                                    <small class="text-muted" style="font-size: 0.65rem;">Ej. 48 horas</small>
+                                    <input type="number" step="0.01" min="0" max="168" name="jornada_semanal_horas" id="turnoJornadaSemanal" class="form-control form-control-sm bg-light" value="48.00" readonly required>
+                                    <small class="text-muted" style="font-size: 0.65rem;">Calculado (Jornada diaria × 6)</small>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label-custom">Inicio de semana</label>
@@ -1089,7 +1089,7 @@
                                     <small class="text-muted" style="font-size: 0.65rem;">Ej. 9</small>
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="form-label-custom">Horas triples adicionales</label>
+                                    <label class="form-label-custom">Horas triples</label>
                                     <input type="number" step="0.01" min="0" name="horas_triples_adicionales" id="turnoHorasTriples" class="form-control form-control-sm" value="4.00" required>
                                     <small class="text-muted" style="font-size: 0.65rem;">Ej. 4</small>
                                 </div>
@@ -1133,15 +1133,14 @@
                             </div>
                         </div>
                     </div>
-
-                    <div class="d-flex justify-content-end gap-2 mt-4">
-                        <button type="button" class="btn btn-light btn-sm px-3" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-brand text-white btn-sm px-4 fw-bold shadow-sm" id="btnGuardarTurno">
-                            <i class="bi bi-save me-1"></i> Guardar Turno
-                        </button>
-                    </div>
-                </form>
-            </div>
+                </div>
+                <div class="modal-footer bg-white border-top py-3 px-4 d-flex justify-content-end gap-2 flex-shrink-0">
+                    <button type="button" class="btn btn-light btn-sm px-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-brand text-white btn-sm px-4 fw-bold shadow-sm" id="btnGuardarTurno">
+                        <i class="bi bi-save me-1"></i> Guardar Turno
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -1581,6 +1580,19 @@
                 alert('Error de conexión al guardar el turno.');
             });
         });
+    }
+
+    const inpTurnoJornadaDiaria = document.getElementById('turnoJornadaDiaria');
+    const inpTurnoJornadaSemanal = document.getElementById('turnoJornadaSemanal');
+    if (inpTurnoJornadaDiaria && inpTurnoJornadaSemanal) {
+        const recalcularTurnoSemanal = () => {
+            const val = parseFloat(inpTurnoJornadaDiaria.value);
+            if (!isNaN(val) && val >= 0) {
+                inpTurnoJornadaSemanal.value = (val * 6).toFixed(2);
+            }
+        };
+        inpTurnoJornadaDiaria.addEventListener('input', recalcularTurnoSemanal);
+        inpTurnoJornadaDiaria.addEventListener('change', recalcularTurnoSemanal);
     }
 
     // Lógica básica para cálculo de SDI (Ejemplo simplificado)

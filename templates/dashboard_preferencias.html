@@ -578,48 +578,45 @@
                                     {% csrf_token %}
                                     <div class="row g-3">
                                         <div class="col-md-6">
+                                            <label class="form-label small fw-bold text-dark mb-1">Horas ordinarias diarias</label>
+                                            <input type="number" step="0.01" min="0" name="jornada_total_diaria" id="inputHorasOrdinariasDiarias" class="form-control form-control-sm" value="{{ config_jornada.jornada_total_diaria|default:'8.00'|stringformat:'.2f' }}" required>
+                                        </div>
+                                        <div class="col-md-6">
                                             <label class="form-label small fw-bold text-dark mb-1">Horas ordinarias semanales</label>
-                                            <input type="number" step="0.01" min="0" name="horas_ordinarias_semanales" class="form-control form-control-sm" value="{{ config_jornada.horas_ordinarias_semanales|stringformat:'.2f' }}" required>
-                                            <small class="text-muted" style="font-size: 0.7rem;">Ejemplo: 48</small>
+                                            <input type="number" step="0.01" min="0" name="horas_ordinarias_semanales" id="inputHorasOrdinariasSemanales" class="form-control form-control-sm bg-light" value="{{ config_jornada.horas_ordinarias_semanales|stringformat:'.2f' }}" readonly required>
+                                            <small class="text-muted" style="font-size: 0.7rem;">Calculado automáticamente (Horas diarias × 6)</small>
                                         </div>
                                         <div class="col-md-6">
-                                            <label class="form-label small fw-bold text-dark mb-1">Límite de horas extras dobles</label>
+                                            <label class="form-label small fw-bold text-dark mb-1">Límite semanal de horas dobles</label>
                                             <input type="number" step="0.01" min="0" name="limite_horas_extras_dobles" class="form-control form-control-sm" value="{{ config_jornada.limite_horas_extras_dobles|stringformat:'.2f' }}" required>
-                                            <small class="text-muted" style="font-size: 0.7rem;">Ejemplo: 9</small>
                                         </div>
                                         <div class="col-md-6">
-                                            <label class="form-label small fw-bold text-dark mb-1">Límite de horas extras triples</label>
+                                            <label class="form-label small fw-bold text-dark mb-1">Límite semanal de horas triples</label>
                                             <input type="number" step="0.01" min="0" name="limite_horas_extras_triples" class="form-control form-control-sm" value="{{ config_jornada.limite_horas_extras_triples|stringformat:'.2f' }}" required>
-                                            <small class="text-muted" style="font-size: 0.7rem;">Ejemplo: 4</small>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label small fw-bold text-dark mb-1">Multiplicador de horas dobles</label>
                                             <input type="number" step="0.01" min="0" name="multiplicador_horas_dobles" class="form-control form-control-sm" value="{{ config_jornada.multiplicador_horas_dobles|stringformat:'.2f' }}" required>
-                                            <small class="text-muted" style="font-size: 0.7rem;">Ejemplo: 2.0</small>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label small fw-bold text-dark mb-1">Multiplicador de horas triples</label>
                                             <input type="number" step="0.01" min="0" name="multiplicador_horas_triples" class="form-control form-control-sm" value="{{ config_jornada.multiplicador_horas_triples|stringformat:'.2f' }}" required>
-                                            <small class="text-muted" style="font-size: 0.7rem;">Ejemplo: 3.0</small>
                                         </div>
                                         <div class="col-md-6">
-                                            <label class="form-label small fw-bold text-dark mb-1">Máximo de horas extras por día</label>
+                                            <label class="form-label small fw-bold text-dark mb-1">Máximo diario de horas extras</label>
                                             <input type="number" step="0.01" min="0" name="maximo_horas_extras_dia" class="form-control form-control-sm" value="{{ config_jornada.maximo_horas_extras_dia|stringformat:'.2f' }}" required>
-                                            <small class="text-muted" style="font-size: 0.7rem;">Ejemplo: 5</small>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label small fw-bold text-dark mb-1">Máximo de días con horas extras</label>
                                             <input type="number" step="1" min="0" max="31" name="maximo_dias_horas_extras" class="form-control form-control-sm" value="{{ config_jornada.maximo_dias_horas_extras }}" required>
-                                            <small class="text-muted" style="font-size: 0.7rem;">Ejemplo: 5</small>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label small fw-bold text-dark mb-1">Periodo de acumulación</label>
-                                            <select name="periodo_acumulacion" class="form-select form-select-sm" required>
-                                                {% for val, label in periodos_acumulacion %}
-                                                <option value="{{ val }}" {% if config_jornada.periodo_acumulacion == val %}selected{% endif %}>{{ label }}</option>
-                                                {% endfor %}
+                                            <select class="form-select form-select-sm bg-light" disabled>
+                                                <option value="semanal" selected>Semanal</option>
                                             </select>
-                                            <small class="text-muted" style="font-size: 0.7rem;">Ejemplo: Semanal</small>
+                                            <input type="hidden" name="periodo_acumulacion" value="semanal">
+                                            <small class="text-muted" style="font-size: 0.7rem;">Bloqueado a semanal</small>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label small fw-bold text-dark mb-1">Día de inicio de semana</label>
@@ -628,7 +625,6 @@
                                                 <option value="{{ val }}" {% if config_jornada.dia_inicio_semana == val %}selected{% endif %}>{{ label }}</option>
                                                 {% endfor %}
                                             </select>
-                                            <small class="text-muted" style="font-size: 0.7rem;">Ejemplo: Lunes</small>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label small fw-bold text-dark mb-1">Minutos de tolerancia</label>
@@ -636,7 +632,6 @@
                                                 <input type="number" step="1" min="0" max="180" name="minutos_tolerancia" class="form-control form-control-sm" value="{{ config_jornada.minutos_tolerancia }}" required>
                                                 <span class="input-group-text bg-light text-muted">min</span>
                                             </div>
-                                            <small class="text-muted" style="font-size: 0.7rem;">Ejemplo: 10 min</small>
                                         </div>
                                     </div>
 
@@ -2458,6 +2453,23 @@
         }
 
         const formJornada = document.getElementById('formConfiguracionJornadaLaboral');
+        const inpDiarias = document.getElementById('inputHorasOrdinariasDiarias');
+        const inpSemanales = document.getElementById('inputHorasOrdinariasSemanales');
+
+        if (inpDiarias && inpSemanales) {
+            const recalcularSemanales = () => {
+                const val = parseFloat(inpDiarias.value);
+                if (!isNaN(val) && val >= 0) {
+                    inpSemanales.value = (val * 6).toFixed(2);
+                }
+            };
+            inpDiarias.addEventListener('input', recalcularSemanales);
+            inpDiarias.addEventListener('change', recalcularSemanales);
+            if (!inpSemanales.value || inpSemanales.value === '0.00' || inpSemanales.value === '0') {
+                recalcularSemanales();
+            }
+        }
+
         if (formJornada) {
             formJornada.addEventListener('submit', function(e) {
                 e.preventDefault();

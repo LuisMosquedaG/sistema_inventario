@@ -1299,13 +1299,17 @@ class ConfiguracionJornadaLaboral(models.Model):
         max_digits=5, decimal_places=2, default=Decimal('48.00'),
         verbose_name="Horas ordinarias semanales",
     )
+    jornada_total_diaria = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('8.00'),
+        verbose_name="Horas ordinarias diarias",
+    )
     limite_horas_extras_dobles = models.DecimalField(
         max_digits=5, decimal_places=2, default=Decimal('9.00'),
-        verbose_name="Límite de horas extras dobles",
+        verbose_name="Límite semanal de horas dobles",
     )
     limite_horas_extras_triples = models.DecimalField(
         max_digits=5, decimal_places=2, default=Decimal('4.00'),
-        verbose_name="Límite de horas extras triples",
+        verbose_name="Límite semanal de horas triples",
     )
     multiplicador_horas_dobles = models.DecimalField(
         max_digits=4, decimal_places=2, default=Decimal('2.00'),
@@ -1317,7 +1321,7 @@ class ConfiguracionJornadaLaboral(models.Model):
     )
     maximo_horas_extras_dia = models.DecimalField(
         max_digits=5, decimal_places=2, default=Decimal('5.00'),
-        verbose_name="Máximo de horas extras por día",
+        verbose_name="Máximo diario de horas extras",
     )
     maximo_dias_horas_extras = models.PositiveIntegerField(
         default=5,
@@ -1343,6 +1347,12 @@ class ConfiguracionJornadaLaboral(models.Model):
     class Meta:
         verbose_name = "Configuración de Jornada Laboral"
         verbose_name_plural = "Configuraciones de Jornadas Laborales"
+
+    def save(self, *args, **kwargs):
+        if self.jornada_total_diaria is not None:
+            self.horas_ordinarias_semanales = (self.jornada_total_diaria * Decimal('6.00')).quantize(Decimal('0.01'))
+        self.periodo_acumulacion = 'semanal'
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Jornada Laboral ({self.empresa})"
@@ -1387,7 +1397,7 @@ class TipoTurno(models.Model):
 
     # 3. Horas extraordinarias
     horas_dobles = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('9.00'), verbose_name="Horas dobles")
-    horas_triples_adicionales = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('4.00'), verbose_name="Horas triples adicionales")
+    horas_triples_adicionales = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('4.00'), verbose_name="Horas triples")
     maximo_horas_extras_diario = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('1.00'), verbose_name="Máximo diario de horas extras")
     maximo_dias_horas_extras = models.PositiveIntegerField(default=1, verbose_name="Máximo de días con horas extras")
 
@@ -1402,6 +1412,11 @@ class TipoTurno(models.Model):
         verbose_name = "Tipo de Turno"
         verbose_name_plural = "Tipos de Turno"
         ordering = ['nombre']
+
+    def save(self, *args, **kwargs):
+        if self.jornada_diaria_horas is not None:
+            self.jornada_semanal_horas = (self.jornada_diaria_horas * Decimal('6.00')).quantize(Decimal('0.01'))
+        super().save(*args, **kwargs)
 
     def __str__(self):
         ent = self.hora_entrada.strftime('%H:%M') if hasattr(self.hora_entrada, 'strftime') else str(self.hora_entrada)

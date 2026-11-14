@@ -671,7 +671,7 @@ def asistencias_empleado_detalle(request, id):
             return redirect(f"{request.path}?fecha_inicio={fecha_inicio:%Y-%m-%d}&fecha_fin={fecha_fin:%Y-%m-%d}")
         config_jornada = ConfiguracionJornadaLaboral.para_empresa(empresa_actual)
         _aplicar_calculo_jornada_dias(resumen_dias, config_jornada, tipo_turno=empleado.tipo_turno)
-        return _exportar_asistencias_excel(empleado, resumen_dias, fecha_inicio, fecha_fin, total_horas_str)
+        return _exportar_asistencias_excel(empleado, resumen_dias, fecha_inicio, fecha_fin, total_horas_str, config_jornada=config_jornada)
 
     return render(request, 'recursos_humanos/asistencias_empleado.html', {
         'empresa': empresa_actual,
@@ -685,7 +685,7 @@ def asistencias_empleado_detalle(request, id):
     })
 
 
-_ASISTENCIA_EXCEL_HEADERS_EMPRESA = [
+_ASISTENCIA_EXCEL_HEADERS_ASISTENCIAS = [
     # 1. Datos del empleado (Negrito / Charcoal)
     "No. Empleado",
     "Nombre del Trabajador",
@@ -708,22 +708,45 @@ _ASISTENCIA_EXCEL_HEADERS_EMPRESA = [
     "Salida Laboral",
     "Ubicación Salida",
     "Tipo de Turno",
-    # 3. Horas y estatus (Negrito / Charcoal)
+    # 3. Horas brutas y netas (Negrito / Charcoal)
     "Tiempo Comida",
     "Horas Brutas",
     "Horas Netas",
-    "Horas Ordinarias",
-    "Horas Extras Dobles",
-    "Horas Extras Triples",
-    "Horas Excedentes",
-    "Diferencia",
-    "Cumplimiento",
-    "Estatus",
 ]
 
-_ASISTENCIA_EXCEL_HEADERS_BASE = _ASISTENCIA_EXCEL_HEADERS_EMPRESA[6:]
+_ASISTENCIA_EXCEL_HEADERS_HORAS_EXTRAS = [
+    # 1. Datos del empleado (Negrito / Charcoal)
+    "No. Empleado",
+    "Nombre del Trabajador",
+    "CURP",
+    "RFC",
+    "Puesto",
+    "Departamento",
+    # 2. Datos de registro y checadas hasta Tipo de Turno (Azulito / Teal)
+    "Dispositivo",
+    "ID Dispositivo",
+    "IP Registrada",
+    "Fecha de Entrada",
+    "Entrada Laboral",
+    "Ubicación Entrada",
+    "Salida a Comer",
+    "Ubicación Salida Comer",
+    "Regreso de Comer",
+    "Ubicación Regreso Comer",
+    "Fecha de Salida",
+    "Salida Laboral",
+    "Ubicación Salida",
+    "Tipo de Turno",
+    # 3. Horas extras semanales (Negrito / Charcoal)
+    "Horas Ordinarias",
+    "Horas Extras al Día",
+    "Horas Dobles",
+    "Horas Triples",
+    "Total Extras",
+    "Horas Excedentes",
+]
 
-_ASISTENCIA_DARK_HEADERS = {
+_DARK_HEADERS_ASISTENCIAS = {
     "No. Empleado",
     "Nombre del Trabajador",
     "CURP",
@@ -733,13 +756,21 @@ _ASISTENCIA_DARK_HEADERS = {
     "Tiempo Comida",
     "Horas Brutas",
     "Horas Netas",
+}
+
+_DARK_HEADERS_HORAS_EXTRAS = {
+    "No. Empleado",
+    "Nombre del Trabajador",
+    "CURP",
+    "RFC",
+    "Puesto",
+    "Departamento",
     "Horas Ordinarias",
-    "Horas Extras Dobles",
-    "Horas Extras Triples",
+    "Horas Extras al Día",
+    "Horas Dobles",
+    "Horas Triples",
+    "Total Extras",
     "Horas Excedentes",
-    "Diferencia",
-    "Cumplimiento",
-    "Estatus",
 }
 
 
@@ -783,7 +814,10 @@ def _aplicar_calculo_jornada_dias(resumen_dias, config_jornada, tipo_turno=None)
         turno_nombre = tipo_turno.nombre
     else:
         ord_semanal_sec = max(0, int(round(float(config_jornada.horas_ordinarias_semanales or 48) * 3600))) if config_jornada else 48 * 3600
-        jornada_diaria_sec = int(round(ord_semanal_sec / 6)) if ord_semanal_sec > 0 else 8 * 3600
+        if config_jornada and getattr(config_jornada, 'jornada_total_diaria', None) is not None:
+            jornada_diaria_sec = max(0, int(round(float(config_jornada.jornada_total_diaria) * 3600)))
+        else:
+            jornada_diaria_sec = int(round(ord_semanal_sec / 6)) if ord_semanal_sec > 0 else 8 * 3600
         dob_limit_sec = max(0, int(round(float(config_jornada.limite_horas_extras_dobles or 9) * 3600))) if config_jornada else 9 * 3600
         tri_limit_sec = max(0, int(round(float(config_jornada.limite_horas_extras_triples or 4) * 3600))) if config_jornada else 4 * 3600
         max_extra_dia_sec = max(0, int(round(float(config_jornada.maximo_horas_extras_dia or 5) * 3600))) if config_jornada else 5 * 3600
@@ -821,7 +855,7 @@ def _aplicar_calculo_jornada_dias(resumen_dias, config_jornada, tipo_turno=None)
 
         net_sec = max(0, int(dia.get('segundos_laborados') or 0))
         ord_disp = max(0, period_ord_limit - st['ord_usado'])
-        ord_sec = min(net_sec, ord_disp)
+        ord_sec = min(net_sec, jornada_diaria_sec, ord_disp)
         st['ord_usado'] += ord_sec
 
         rem_sec = net_sec - ord_sec
@@ -831,6 +865,7 @@ def _aplicar_calculo_jornada_dias(resumen_dias, config_jornada, tipo_turno=None)
         dob_sec = 0
         tri_sec = 0
         exc_sec = 0
+        extra_dia_sec = 0
 
         if rem_sec > 0:
             if max_dias_extra > 0 and st['dias_con_extra'] >= max_dias_extra:
@@ -838,6 +873,7 @@ def _aplicar_calculo_jornada_dias(resumen_dias, config_jornada, tipo_turno=None)
             else:
                 st['dias_con_extra'] += 1
                 clasificable_sec = min(rem_sec, max_extra_dia_sec) if max_extra_dia_sec > 0 else rem_sec
+                extra_dia_sec = clasificable_sec
                 exc_sec = rem_sec - clasificable_sec
 
                 dob_disp = max(0, period_dob_limit - st['dob_usado'])
@@ -852,12 +888,16 @@ def _aplicar_calculo_jornada_dias(resumen_dias, config_jornada, tipo_turno=None)
                 exc_sec += (rem_clas - tri_sec)
 
         dia['segundos_ordinarios'] = ord_sec
+        dia['segundos_extras_dia'] = extra_dia_sec
         dia['segundos_extras_dobles'] = dob_sec
         dia['segundos_extras_triples'] = tri_sec
+        dia['segundos_total_extras'] = dob_sec + tri_sec
         dia['segundos_excedentes'] = exc_sec
         dia['horas_ordinarias'] = _fmt_horas_jornada(ord_sec)
+        dia['horas_extras_dia'] = _fmt_horas_jornada(extra_dia_sec)
         dia['horas_extras_dobles'] = _fmt_horas_jornada(dob_sec)
         dia['horas_extras_triples'] = _fmt_horas_jornada(tri_sec)
+        dia['horas_total_extras'] = _fmt_horas_jornada(dob_sec + tri_sec)
         dia['horas_excedentes'] = _fmt_horas_jornada(exc_sec)
 
         # Nombre del turno
@@ -919,6 +959,7 @@ def _fmt_gps_excel(reg):
 
 
 def _fila_dia_asistencia_excel(dia, emp=None):
+    """Retorna los datos del día correspondientes a la hoja 1 'Asistencias' (hasta Horas Netas)."""
     fecha_salida = "--"
     if dia.get('salida_laboral'):
         fecha_salida = timezone.localtime(dia['salida_laboral'].fecha_hora).strftime("%d/%m/%Y")
@@ -950,124 +991,193 @@ def _fila_dia_asistencia_excel(dia, emp=None):
         dia.get('tiempo_comida', '--'),
         dia.get('tiempo_bruto', '--'),
         dia.get('tiempo_laborado', '--'),
-        dia.get('horas_ordinarias', '0h 00m'),
-        dia.get('horas_extras_dobles', '0h 00m'),
-        dia.get('horas_extras_triples', '0h 00m'),
-        dia.get('horas_excedentes', '0h 00m'),
-        dia.get('diferencia_tiempo', '0h 00m'),
-        dia.get('cumplimiento_porcentaje', '0.0%'),
-        dia.get('estatus_jornada', 'Normal'),
     ]
 
 
-def _render_libro_asistencias_excel(titulo, subtitulo, headers, filas, filename, dark_headers=None, empty_message=None):
+def _calcular_semanas_horas_extras(resumen_dias, config_jornada, tipo_turno=None):
+    """
+    Agrupa los días de asistencia por semana según el día de inicio de semana
+    y calcula acumulativamente para la hoja 'Horas Extras':
+      - Horas ordinarias: hasta la jornada diaria (ej. 8h) y límite semanal (ej. 48h)
+      - Horas extras al día: exceso sobre la jornada diaria ordinaria, topado al máximo diario de horas extras
+      - Horas dobles: horas extras de la semana hasta el límite de dobles (ej. 9h)
+      - Horas triples: horas extras de la semana por encima de dobles hasta el límite de triples (ej. 4h)
+      - Total extras: Dobles + Triples
+      - Horas excedentes: exceso sobre el máximo diario de extras más cualquier extra semanal que supere el límite de triples
+    """
+    if not resumen_dias:
+        return []
+
+    if tipo_turno:
+        ord_semanal_sec = max(0, int(round(float(tipo_turno.jornada_semanal_horas or 48) * 3600)))
+        jornada_diaria_sec = max(0, int(round(float(tipo_turno.jornada_diaria_horas or 8) * 3600)))
+        dob_limit_sec = max(0, int(round(float(tipo_turno.horas_dobles or 9) * 3600)))
+        tri_limit_sec = max(0, int(round(float(tipo_turno.horas_triples_adicionales or 4) * 3600)))
+        val_max_extra = tipo_turno.maximo_horas_extras_diario if tipo_turno.maximo_horas_extras_diario is not None else 4
+        max_extra_dia_sec = max(0, int(round(float(val_max_extra) * 3600)))
+        dia_inicio = int(tipo_turno.inicio_semana or 0) % 7
+    else:
+        ord_semanal_sec = max(0, int(round(float(config_jornada.horas_ordinarias_semanales or 48) * 3600))) if config_jornada else 48 * 3600
+        if config_jornada and getattr(config_jornada, 'jornada_total_diaria', None) is not None:
+            jornada_diaria_sec = max(0, int(round(float(config_jornada.jornada_total_diaria) * 3600)))
+        else:
+            jornada_diaria_sec = int(round(ord_semanal_sec / 6)) if ord_semanal_sec > 0 else 8 * 3600
+        dob_limit_sec = max(0, int(round(float(config_jornada.limite_horas_extras_dobles or 9) * 3600))) if config_jornada else 9 * 3600
+        tri_limit_sec = max(0, int(round(float(config_jornada.limite_horas_extras_triples or 4) * 3600))) if config_jornada else 4 * 3600
+        val_max_extra = config_jornada.maximo_horas_extras_dia if (config_jornada and config_jornada.maximo_horas_extras_dia is not None) else 4
+        max_extra_dia_sec = max(0, int(round(float(val_max_extra) * 3600)))
+        dia_inicio = int(config_jornada.dia_inicio_semana or 0) % 7 if config_jornada else 0
+
+    semanas_dict = defaultdict(list)
+    for dia in sorted(resumen_dias, key=lambda d: d['fecha']):
+        delta = (dia['fecha'].weekday() - dia_inicio) % 7
+        sem_inicio = dia['fecha'] - timedelta(days=delta)
+        sem_fin = sem_inicio + timedelta(days=6)
+        semanas_dict[(sem_inicio, sem_fin)].append(dia)
+
+    resultado_semanas = []
+
+    for (sem_inicio, sem_fin), dias_sem in sorted(semanas_dict.items(), key=lambda x: x[0][0]):
+        sem_net_sec = 0
+        sem_ord_sec = 0
+        sem_extra_dia_sec = 0
+        sem_dob_sec = 0
+        sem_tri_sec = 0
+        sem_tot_extras_sec = 0
+        sem_exc_sec = 0
+
+        dias_procesados = []
+        for dia in sorted(dias_sem, key=lambda d: d['fecha']):
+            net_sec = max(0, int(dia.get('segundos_laborados') or 0))
+            sem_net_sec += net_sec
+
+            # 1. Horas ordinarias del día: limitadas a la jornada diaria y al saldo semanal ordinario
+            ord_disp_sem = max(0, ord_semanal_sec - sem_ord_sec)
+            ord_sec = min(net_sec, jornada_diaria_sec, ord_disp_sem)
+            sem_ord_sec += ord_sec
+
+            # 2. Exceso del día sobre horas ordinarias
+            rem_sec = net_sec - ord_sec
+
+            # 3. Horas extras del día y excedentes del día según máximo diario
+            if max_extra_dia_sec > 0:
+                extra_dia_sec = min(rem_sec, max_extra_dia_sec)
+                exc_dia_sec = rem_sec - extra_dia_sec
+            else:
+                extra_dia_sec = rem_sec
+                exc_dia_sec = 0
+            sem_extra_dia_sec += extra_dia_sec
+
+            # 4. Clasificación acumulada semanal en Dobles y Triples
+            dob_disp = max(0, dob_limit_sec - sem_dob_sec)
+            dob_sec = min(extra_dia_sec, dob_disp)
+            sem_dob_sec += dob_sec
+
+            rem_extra = extra_dia_sec - dob_sec
+            tri_disp = max(0, tri_limit_sec - sem_tri_sec)
+            tri_sec = min(rem_extra, tri_disp)
+            sem_tri_sec += tri_sec
+
+            # Excedentes semanales (lo que supere el límite de triples) + excedentes diarios
+            exc_extra_sec = rem_extra - tri_sec
+            exc_sec = exc_dia_sec + exc_extra_sec
+            sem_exc_sec += exc_sec
+
+            tot_extras_sec = dob_sec + tri_sec
+            sem_tot_extras_sec += tot_extras_sec
+
+            dia_info = dict(dia)
+            dia_info['he_ordinarias_str'] = _fmt_horas_jornada(ord_sec)
+            dia_info['he_extra_dia_str'] = _fmt_horas_jornada(extra_dia_sec)
+            dia_info['he_dobles_str'] = _fmt_horas_jornada(dob_sec)
+            dia_info['he_triples_str'] = _fmt_horas_jornada(tri_sec)
+            dia_info['he_total_extras_str'] = _fmt_horas_jornada(tot_extras_sec)
+            dia_info['he_excedentes_str'] = _fmt_horas_jornada(exc_sec)
+            dias_procesados.append(dia_info)
+
+        corte = {
+            'semana_inicio': sem_inicio,
+            'semana_fin': sem_fin,
+            'total_net_str': _fmt_horas_jornada(sem_net_sec),
+            'ordinarias_str': _fmt_horas_jornada(sem_ord_sec),
+            'extra_dia_str': _fmt_horas_jornada(sem_extra_dia_sec),
+            'dobles_str': _fmt_horas_jornada(sem_dob_sec),
+            'triples_str': _fmt_horas_jornada(sem_tri_sec),
+            'total_extras_str': _fmt_horas_jornada(sem_tot_extras_sec),
+            'excedentes_str': _fmt_horas_jornada(sem_exc_sec),
+        }
+        resultado_semanas.append({
+            'dias': dias_procesados,
+            'corte': corte,
+        })
+
+    return resultado_semanas
+
+
+def _render_libro_completo_asistencias(titulo, subtitulo, empleados_con_dias, config_jornada, filename, empty_message=None):
+    """
+    Genera el libro Excel con 2 hojas:
+      1. 'Asistencias': datos diarios hasta Horas Netas (sin columnas posteriores).
+      2. 'Horas Extras': datos diarios hasta Tipo de Turno + horas ordinarias y acumulado semanal de horas extras con cortes por semana.
+    """
     wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Asistencias"
+
+    # Hoja 1: Asistencias
+    ws1 = wb.active
+    ws1.title = "Asistencias"
+
+    # Hoja 2: Horas Extras
+    ws2 = wb.create_sheet(title="Horas Extras")
 
     fill_brand = PatternFill(start_color="00B8B9", end_color="00B8B9", fill_type="solid")
     fill_sub = PatternFill(start_color="1A252F", end_color="1A252F", fill_type="solid")
+    fill_corte = PatternFill(start_color="E2E8F0", end_color="E2E8F0", fill_type="solid")
     font_header = Font(bold=True, color="FFFFFF", size=10)
     font_title = Font(bold=True, size=13, color="1A252F")
+    font_sub = Font(size=10, color="475569")
+    font_cell = Font(size=10, color="1E293B")
+    font_corte = Font(bold=True, size=10, color="0F172A")
     thin_border = Border(
         left=Side(style='thin', color='CBD5E1'),
         right=Side(style='thin', color='CBD5E1'),
         top=Side(style='thin', color='CBD5E1'),
         bottom=Side(style='thin', color='CBD5E1'),
     )
-    dark_set = set(dark_headers if dark_headers is not None else _ASISTENCIA_DARK_HEADERS)
 
-    ws['A1'] = titulo
-    ws['A1'].font = font_title
-    ws['A2'] = subtitulo
-    ws['A2'].font = Font(size=10, color="475569")
+    # --- ENCABEZADOS HOJA 1: ASISTENCIAS ---
+    ws1['A1'] = titulo
+    ws1['A1'].font = font_title
+    ws1['A2'] = subtitulo
+    ws1['A2'].font = font_sub
 
-    ws.append([])
-    ws.append(headers)
+    ws1.append([])
+    ws1.append(_ASISTENCIA_EXCEL_HEADERS_ASISTENCIAS)
     header_row = 4
-    for col_idx, header_name in enumerate(headers, start=1):
-        cell = ws.cell(row=header_row, column=col_idx)
-        cell.fill = fill_sub if header_name in dark_set else fill_brand
+    for col_idx, header_name in enumerate(_ASISTENCIA_EXCEL_HEADERS_ASISTENCIAS, start=1):
+        cell = ws1.cell(row=header_row, column=col_idx)
+        cell.fill = fill_sub if header_name in _DARK_HEADERS_ASISTENCIAS else fill_brand
         cell.font = font_header
         cell.alignment = Alignment(horizontal="center", vertical="center")
         cell.border = thin_border
 
-    wrap_cols = {idx for idx, h in enumerate(headers, start=1) if h in ("IP Registrada", "Nombre del Trabajador")}
-    left_cols = {idx for idx, h in enumerate(headers, start=1) if h in ("Nombre del Trabajador", "Puesto", "Departamento")}
+    # --- ENCABEZADOS HOJA 2: HORAS EXTRAS ---
+    ws2['A1'] = f"{titulo} - Horas Extras"
+    ws2['A1'].font = font_title
+    ws2['A2'] = f"{subtitulo} | Cortes Semanales de Horas Extras"
+    ws2['A2'].font = font_sub
 
-    if filas:
-        for row_idx, row_vals in enumerate(filas, start=header_row + 1):
-            for col_idx, val in enumerate(row_vals, start=1):
-                c = ws.cell(row=row_idx, column=col_idx, value=val)
-                c.border = thin_border
-                c.alignment = Alignment(
-                    horizontal="left" if col_idx in left_cols else "center",
-                    vertical="center",
-                    wrap_text=(col_idx in wrap_cols),
-                )
-    elif empty_message:
-        ws.merge_cells(start_row=header_row + 1, start_column=1, end_row=header_row + 1, end_column=len(headers))
-        c = ws.cell(row=header_row + 1, column=1, value=empty_message)
-        c.alignment = Alignment(horizontal="center", vertical="center")
-        c.font = Font(italic=True, color="64748B")
+    ws2.append([])
+    ws2.append(_ASISTENCIA_EXCEL_HEADERS_HORAS_EXTRAS)
+    for col_idx, header_name in enumerate(_ASISTENCIA_EXCEL_HEADERS_HORAS_EXTRAS, start=1):
+        cell = ws2.cell(row=header_row, column=col_idx)
+        cell.fill = fill_sub if header_name in _DARK_HEADERS_HORAS_EXTRAS else fill_brand
+        cell.font = font_header
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = thin_border
 
-    for col_idx, header_name in enumerate(headers, start=1):
-        col_letter = get_column_letter(col_idx)
-        if header_name == "Dispositivo":
-            max_len = max((len(str(row[col_idx - 1] or '')) for row in filas), default=len(header_name))
-            ws.column_dimensions[col_letter].width = max(35, min(80, max_len + 4))
-        elif header_name == "Nombre del Trabajador":
-            ws.column_dimensions[col_letter].width = 30
-        elif header_name in ("CURP", "RFC"):
-            ws.column_dimensions[col_letter].width = 20
-        elif header_name in ("Puesto", "Departamento", "Tipo de Turno"):
-            ws.column_dimensions[col_letter].width = 22
-        elif "Ubicación" in header_name or header_name == "IP Registrada":
-            ws.column_dimensions[col_letter].width = 24
-        elif header_name in ("Fecha de Entrada", "Fecha de Salida", "Entrada Laboral", "Salida Laboral", "Salida a Comer", "Regreso de Comer"):
-            ws.column_dimensions[col_letter].width = 18
-        elif header_name in ("Horas Extras Dobles", "Horas Extras Triples"):
-            ws.column_dimensions[col_letter].width = 20
-        else:
-            ws.column_dimensions[col_letter].width = max(16, len(header_name) + 3)
+    filas_sheet1 = []
+    filas_sheet2 = []  # Tuplas: (is_corte, row_values)
 
-    resp = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    resp['Content-Disposition'] = f'attachment; filename="{filename}"'
-    wb.save(resp)
-    return resp
-
-
-def _exportar_asistencias_excel(empleado, resumen_dias, fecha_inicio, fecha_fin, total_horas_str):
-    nombre_emp = f"{empleado.nombre} {empleado.apellido_paterno} {empleado.apellido_materno}".strip()
-    titulo = f"Control de Asistencias - {nombre_emp}"
-    subtitulo = (
-        f"No. Empleado: {empleado.num_empleado or 'S/N'} | Puesto: {empleado.puesto or '--'} | "
-        f"Depto: {empleado.departamento or '--'} | Periodo: {fecha_inicio:%d/%m/%Y} al {fecha_fin:%d/%m/%Y} | "
-        f"Total Laborado: {total_horas_str}"
-    )
-    prefijo = [
-        empleado.num_empleado or '--',
-        nombre_emp or '--',
-        empleado.curp or '--',
-        empleado.rfc or '--',
-        empleado.puesto or '--',
-        empleado.departamento or '--',
-    ]
-    filas = [prefijo + _fila_dia_asistencia_excel(dia, emp=empleado) for dia in resumen_dias]
-    filename = f"Asistencias_{empleado.num_empleado or empleado.id}_{fecha_inicio:%Y%m%d}_{fecha_fin:%Y%m%d}.xlsx"
-    return _render_libro_asistencias_excel(
-        titulo,
-        subtitulo,
-        _ASISTENCIA_EXCEL_HEADERS_EMPRESA,
-        filas,
-        filename,
-        dark_headers=_ASISTENCIA_DARK_HEADERS,
-        empty_message="No se encontraron registros de asistencia para este empleado en el periodo seleccionado."
-    )
-
-
-def _exportar_asistencias_contratista_workbook(titulo, subtitulo, filename, empleados_con_dias):
-    filas = []
     for emp, resumen_dias in empleados_con_dias:
         nombre_emp = f"{emp.nombre} {emp.apellido_paterno} {emp.apellido_materno}".strip()
         prefijo = [
@@ -1078,16 +1188,169 @@ def _exportar_asistencias_contratista_workbook(titulo, subtitulo, filename, empl
             emp.puesto or '--',
             emp.departamento or '--',
         ]
-        for dia in resumen_dias:
-            filas.append(prefijo + _fila_dia_asistencia_excel(dia, emp=emp))
 
-    return _render_libro_asistencias_excel(
+        # Llenar datos Hoja 1 (Asistencias hasta Horas Netas)
+        for dia in resumen_dias:
+            filas_sheet1.append(prefijo + _fila_dia_asistencia_excel(dia, emp=emp))
+
+        # Calcular y agrupar por semanas para Hoja 2 (Horas Extras)
+        semanas = _calcular_semanas_horas_extras(resumen_dias, config_jornada, tipo_turno=emp.tipo_turno)
+        for sem in semanas:
+            for dia in sem['dias']:
+                fila_dia_he = prefijo + _fila_dia_asistencia_excel(dia, emp=emp)[:14] + [
+                    dia['he_ordinarias_str'],
+                    dia['he_extra_dia_str'],
+                    dia['he_dobles_str'],
+                    dia['he_triples_str'],
+                    dia['he_total_extras_str'],
+                    dia['he_excedentes_str'],
+                ]
+                filas_sheet2.append((False, fila_dia_he))
+
+            # Fila de Corte Semanal
+            corte = sem['corte']
+            fila_corte = [
+                emp.num_empleado or '--',
+                f"CORTE SEMANAL ({corte['semana_inicio']:%d/%m/%Y} al {corte['semana_fin']:%d/%m/%Y})",
+                emp.curp or '--',
+                emp.rfc or '--',
+                emp.puesto or '--',
+                emp.departamento or '--',
+                "--", "--", "--",
+                f"{corte['semana_inicio']:%d/%m/%Y}",
+                "--", "--", "--", "--", "--", "--",
+                f"{corte['semana_fin']:%d/%m/%Y}",
+                "--", "--",
+                f"Total Semana: {corte['total_net_str']}",
+                corte['ordinarias_str'],
+                corte['extra_dia_str'],
+                corte['dobles_str'],
+                corte['triples_str'],
+                corte['total_extras_str'],
+                corte['excedentes_str'],
+            ]
+            filas_sheet2.append((True, fila_corte))
+
+    # --- ESCRIBIR FILAS HOJA 1 ---
+    wrap_cols1 = {idx for idx, h in enumerate(_ASISTENCIA_EXCEL_HEADERS_ASISTENCIAS, start=1) if h in ("IP Registrada", "Nombre del Trabajador")}
+    left_cols1 = {idx for idx, h in enumerate(_ASISTENCIA_EXCEL_HEADERS_ASISTENCIAS, start=1) if h in ("Nombre del Trabajador", "Puesto", "Departamento")}
+    if filas_sheet1:
+        for r_idx, vals in enumerate(filas_sheet1, start=header_row + 1):
+            for c_idx, val in enumerate(vals, start=1):
+                c = ws1.cell(row=r_idx, column=c_idx, value=val)
+                c.border = thin_border
+                c.font = font_cell
+                c.alignment = Alignment(
+                    horizontal="left" if c_idx in left_cols1 else "center",
+                    vertical="center",
+                    wrap_text=(c_idx in wrap_cols1),
+                )
+    elif empty_message:
+        ws1.merge_cells(start_row=header_row + 1, start_column=1, end_row=header_row + 1, end_column=len(_ASISTENCIA_EXCEL_HEADERS_ASISTENCIAS))
+        c = ws1.cell(row=header_row + 1, column=1, value=empty_message)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.font = Font(italic=True, color="64748B")
+
+    # --- ESCRIBIR FILAS HOJA 2 ---
+    wrap_cols2 = {idx for idx, h in enumerate(_ASISTENCIA_EXCEL_HEADERS_HORAS_EXTRAS, start=1) if h in ("IP Registrada", "Nombre del Trabajador")}
+    left_cols2 = {idx for idx, h in enumerate(_ASISTENCIA_EXCEL_HEADERS_HORAS_EXTRAS, start=1) if h in ("Nombre del Trabajador", "Puesto", "Departamento")}
+    if filas_sheet2:
+        for r_idx, (is_corte, vals) in enumerate(filas_sheet2, start=header_row + 1):
+            for c_idx, val in enumerate(vals, start=1):
+                c = ws2.cell(row=r_idx, column=c_idx, value=val)
+                c.border = thin_border
+                if is_corte:
+                    c.fill = fill_corte
+                    c.font = font_corte
+                else:
+                    c.font = font_cell
+                c.alignment = Alignment(
+                    horizontal="left" if c_idx in left_cols2 else "center",
+                    vertical="center",
+                    wrap_text=(c_idx in wrap_cols2),
+                )
+    elif empty_message:
+        ws2.merge_cells(start_row=header_row + 1, start_column=1, end_row=header_row + 1, end_column=len(_ASISTENCIA_EXCEL_HEADERS_HORAS_EXTRAS))
+        c = ws2.cell(row=header_row + 1, column=1, value=empty_message)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.font = Font(italic=True, color="64748B")
+
+    # --- AJUSTAR ANCHOS DE COLUMNAS HOJA 1 ---
+    for col_idx, header_name in enumerate(_ASISTENCIA_EXCEL_HEADERS_ASISTENCIAS, start=1):
+        col_letter = get_column_letter(col_idx)
+        if header_name == "Dispositivo":
+            max_len = max((len(str(r[col_idx - 1] or '')) for r in filas_sheet1), default=len(header_name))
+            ws1.column_dimensions[col_letter].width = max(35, min(80, max_len + 4))
+        elif header_name == "Nombre del Trabajador":
+            ws1.column_dimensions[col_letter].width = 30
+        elif header_name in ("CURP", "RFC"):
+            ws1.column_dimensions[col_letter].width = 20
+        elif header_name in ("Puesto", "Departamento", "Tipo de Turno"):
+            ws1.column_dimensions[col_letter].width = 22
+        elif "Ubicación" in header_name or header_name == "IP Registrada":
+            ws1.column_dimensions[col_letter].width = 24
+        elif header_name in ("Fecha de Entrada", "Fecha de Salida", "Entrada Laboral", "Salida Laboral", "Salida a Comer", "Regreso de Comer"):
+            ws1.column_dimensions[col_letter].width = 18
+        elif header_name in ("Tiempo Comida", "Horas Brutas", "Horas Netas"):
+            ws1.column_dimensions[col_letter].width = 16
+        else:
+            ws1.column_dimensions[col_letter].width = max(16, len(header_name) + 3)
+
+    # --- AJUSTAR ANCHOS DE COLUMNAS HOJA 2 ---
+    for col_idx, header_name in enumerate(_ASISTENCIA_EXCEL_HEADERS_HORAS_EXTRAS, start=1):
+        col_letter = get_column_letter(col_idx)
+        if header_name == "Dispositivo":
+            max_len = max((len(str(r[1][col_idx - 1] or '')) for r in filas_sheet2), default=len(header_name))
+            ws2.column_dimensions[col_letter].width = max(35, min(80, max_len + 4))
+        elif header_name == "Nombre del Trabajador":
+            ws2.column_dimensions[col_letter].width = 38
+        elif header_name in ("CURP", "RFC"):
+            ws2.column_dimensions[col_letter].width = 20
+        elif header_name in ("Puesto", "Departamento", "Tipo de Turno"):
+            ws2.column_dimensions[col_letter].width = 22
+        elif "Ubicación" in header_name or header_name == "IP Registrada":
+            ws2.column_dimensions[col_letter].width = 24
+        elif header_name in ("Fecha de Entrada", "Fecha de Salida", "Entrada Laboral", "Salida Laboral", "Salida a Comer", "Regreso de Comer"):
+            ws2.column_dimensions[col_letter].width = 18
+        elif header_name in ("Horas Ordinarias", "Horas Extras al Día", "Horas Dobles", "Horas Triples", "Total Extras", "Horas Excedentes"):
+            ws2.column_dimensions[col_letter].width = 20
+        else:
+            ws2.column_dimensions[col_letter].width = max(16, len(header_name) + 3)
+
+    resp = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    resp['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(resp)
+    return resp
+
+
+def _exportar_asistencias_excel(empleado, resumen_dias, fecha_inicio, fecha_fin, total_horas_str, config_jornada=None):
+    nombre_emp = f"{empleado.nombre} {empleado.apellido_paterno} {empleado.apellido_materno}".strip()
+    titulo = f"Control de Asistencias - {nombre_emp}"
+    subtitulo = (
+        f"No. Empleado: {empleado.num_empleado or 'S/N'} | Puesto: {empleado.puesto or '--'} | "
+        f"Depto: {empleado.departamento or '--'} | Periodo: {fecha_inicio:%d/%m/%Y} al {fecha_fin:%d/%m/%Y} | "
+        f"Total Laborado: {total_horas_str}"
+    )
+    filename = f"Asistencias_{empleado.num_empleado or empleado.id}_{fecha_inicio:%Y%m%d}_{fecha_fin:%Y%m%d}.xlsx"
+    if not config_jornada:
+        config_jornada = ConfiguracionJornadaLaboral.para_empresa(empleado.empresa)
+    return _render_libro_completo_asistencias(
         titulo,
         subtitulo,
-        _ASISTENCIA_EXCEL_HEADERS_EMPRESA,
-        filas,
+        [(empleado, resumen_dias)],
+        config_jornada,
         filename,
-        dark_headers=_ASISTENCIA_DARK_HEADERS,
+        empty_message="No se encontraron registros de asistencia para este empleado en el periodo seleccionado."
+    )
+
+
+def _exportar_asistencias_contratista_workbook(titulo, subtitulo, filename, empleados_con_dias, config_jornada=None):
+    return _render_libro_completo_asistencias(
+        titulo,
+        subtitulo,
+        empleados_con_dias,
+        config_jornada,
+        filename,
         empty_message="No se encontraron registros de asistencia para los trabajadores en el periodo seleccionado.",
     )
 
@@ -1179,6 +1442,7 @@ def exportar_asistencias_contratista_excel(request):
         subtitulo,
         filename,
         empleados_con_dias,
+        config_jornada=config_jornada,
     )
 
 

@@ -42,7 +42,7 @@ def guardar_tipo_turno_ajax(request):
 
         # 2. Configuración de jornada
         turno.jornada_diaria_horas = Decimal(str(data.get('jornada_diaria_horas') or '8.00'))
-        turno.jornada_semanal_horas = Decimal(str(data.get('jornada_semanal_horas') or '48.00'))
+        turno.jornada_semanal_horas = (turno.jornada_diaria_horas * Decimal('6.00')).quantize(Decimal('0.01'))
         turno.inicio_semana = int(data.get('inicio_semana') or 0)
         turno.tiempo_comida_minutos = int(data.get('tiempo_comida_minutos') or 60)
         turno.comida_computable = data.get('comida_computable') in ('true', '1', 'on', True)
