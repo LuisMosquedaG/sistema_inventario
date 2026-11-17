@@ -130,7 +130,7 @@ class DetalleCompra(models.Model):
     """ Ítems de la Orden de Compra """
     orden_compra = models.ForeignKey(OrdenCompra, on_delete=models.CASCADE, related_name='detalles')
     producto = models.ForeignKey(Producto, on_delete=models.PROTECT)
-    cantidad = models.PositiveIntegerField(default=1)
+    cantidad = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('1.00'))
     precio_costo = models.DecimalField(max_digits=10, decimal_places=2)
     
     # NUEVO: Vínculo directo para no perder el hilo con el pedido

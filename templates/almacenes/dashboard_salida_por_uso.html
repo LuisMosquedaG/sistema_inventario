@@ -1,0 +1,1134 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block content %}
+<style>
+    /* ESTILOS GENERALES (Base - Idénticos a Órdenes de Compra) */
+    .icon-action {
+        color: #adb5bd;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        text-decoration: none !important;
+        border: none;
+        background: transparent;
+    }
+    .icon-action:hover {
+        color: #00b8b9;
+        transform: scale(1.15);
+    }
+    .icon-action.state-cancelled:hover {
+        color: #e03131;
+        transform: scale(1.15);
+    }
+
+    .table-pro tbody tr { transition: background-color 0.2s; }
+    .table-pro tbody tr:hover td { background-color: #f8f9fa; }
+    .table-pro tbody tr:last-child td { border-bottom: none; }
+    .table-pro thead th { font-weight: normal !important; border-bottom: 2px solid #dee2e6; }
+
+    /* ESTILOS DE ESTADOS (Pills - Idénticos a Órdenes de Compra) */
+    .status-pill {
+        display: inline-flex; align-items: center; font-size: 0.7rem; line-height: 1; padding: 0.25em 0.6em;
+        font-weight: 600; text-align: center; white-space: nowrap; border-radius: 50px; text-transform: capitalize;
+    }
+    .status-borrador { background-color: #f1f3f5; color: #495057; border: 1px solid #dee2e6; }
+    .status-aprobada { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
+    .status-cancelada { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
+
+    .btn-brand { background-color: #00b8b9; border-color: #00b8b9; color: white; }
+    .btn-brand:hover { background-color: #008f90; border-color: #008f90; color: white; }
+    .text-brand { color: #00b8b9 !important; }
+
+    /* Modal Sheet Styling */
+    .modal-sheet .modal-content {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        overflow: hidden;
+    }
+    .modal-sheet .modal-body {
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    .modal-sheet .modal-body::-webkit-scrollbar { width: 6px; }
+    .modal-sheet .modal-body::-webkit-scrollbar-thumb { background-color: #dee2e6; border-radius: 4px; }
+
+    /* Extra items selection */
+    .extra-badge-item {
+        background: #fff;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        padding: 5px 10px;
+        margin-bottom: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+    .extra-badge-item.selected {
+        border-color: #00b8b9;
+        background-color: rgba(0, 184, 185, 0.06);
+    }
+</style>
+
+<div class="container-fluid py-2 px-4">
+    <!-- HEADER -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+        <div>
+            <h4 class="section-title mb-0">Salida por Uso</h4>
+            <span class="section-subtitle text-muted small">Control, desgaste de existencias y registro histórico de salidas internas</span>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <button class="btn btn-brand btn-sm text-white shadow-sm px-3" onclick="abrirModalNuevaSalida()">
+                <i class="bi bi-plus-lg me-1"></i> Nueva Salida
+            </button>
+        </div>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+            <form method="get" id="formFiltrosSalida" class="row g-2 align-items-end">
+                <div class="col-12 col-md-3">
+                    <label class="form-label small fw-bold text-secondary mb-1">Búsqueda</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                        <input type="text" name="q" class="form-control border-start-0" placeholder="Folio, almacén, usuario..." value="{{ filtros.q }}">
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <label class="form-label small fw-bold text-secondary mb-1">Sucursal</label>
+                    <select name="sucursal" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todas las sucursales...</option>
+                        {% for s in sucursales %}
+                        <option value="{{ s.id }}" {% if filtros.sucursal == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <label class="form-label small fw-bold text-secondary mb-1">Almacén</label>
+                    <select name="almacen" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todos los almacenes...</option>
+                        {% for a in almacenes %}
+                        <option value="{{ a.id }}" {% if filtros.almacen == a.id|stringformat:"s" %}selected{% endif %}>{{ a.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <label class="form-label small fw-bold text-secondary mb-1">Estado</label>
+                    <select name="estado" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todos...</option>
+                        <option value="borrador" {% if filtros.estado == 'borrador' %}selected{% endif %}>Borrador</option>
+                        <option value="aprobada" {% if filtros.estado == 'aprobada' %}selected{% endif %}>Aprobada</option>
+                        <option value="cancelada" {% if filtros.estado == 'cancelada' %}selected{% endif %}>Cancelada</option>
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <label class="form-label small fw-bold text-secondary mb-1">Fecha Salida</label>
+                    <input type="date" name="fecha_inicio" class="form-control form-control-sm" value="{{ filtros.fecha_inicio }}" onchange="this.form.submit()">
+                </div>
+
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-brand btn-sm" title="Filtrar">
+                        <i class="bi bi-funnel"></i>
+                    </button>
+                    <a href="{% url 'dashboard_salida_por_uso' %}" class="btn btn-light border btn-sm text-secondary" title="Limpiar Filtros">
+                        <i class="bi bi-arrow-counterclockwise"></i> Limpiar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TABLA DE SALIDAS POR USO -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-pro mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th class="text-center" style="width: 120px;">Acciones</th>
+                            <th class="text-center" style="width: 110px;">Sucursal</th>
+                            <th class="text-center" style="width: 110px;">Folio</th>
+                            <th class="text-center" style="width: 130px;">Almacén</th>
+                            <th class="text-center" style="width: 120px;">Creador</th>
+                            <th class="text-center" style="width: 120px;">Recibe</th>
+                            <th class="text-center" style="width: 110px;">Fecha</th>
+                            <th class="text-center" style="width: 100px;">Piezas</th>
+                            <th class="text-center" style="width: 120px;">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in page_obj %}
+                        <tr id="filaSalida{{ s.id }}">
+                            <td class="text-center" id="colAcciones{{ s.id }}">
+                                <div class="d-flex justify-content-center gap-1">
+                                    <span onclick="verDetalleSalida({{ s.id }})" class="icon-action" title="Ver"><i class="bi bi-eye"></i></span>
+
+                                    {% if s.estado == 'borrador' %}
+                                        <span id="btnEditar{{ s.id }}" onclick="editarSalida({{ s.id }})" class="icon-action" title="Editar"><i class="bi bi-pencil-square"></i></span>
+                                        <span id="btnAprobar{{ s.id }}" onclick="aprobarSalida({{ s.id }}, '{{ s.folio }}')" class="icon-action" title="Aprobar"><i class="bi bi-check2-circle"></i></span>
+                                        <span id="btnCancelar{{ s.id }}" onclick="cancelarSalida({{ s.id }}, '{{ s.folio }}', 'borrador')" class="icon-action state-cancelled" title="Eliminar Borrador"><i class="bi bi-x-circle"></i></span>
+                                    {% elif s.estado == 'aprobada' %}
+                                        <span id="btnCancelar{{ s.id }}" onclick="cancelarSalida({{ s.id }}, '{{ s.folio }}', 'aprobada')" class="icon-action state-cancelled" title="Cancelar Salida"><i class="bi bi-x-circle"></i></span>
+                                    {% endif %}
+                                </div>
+                            </td>
+
+                            <!-- SUCURSAL -->
+                            <td class="text-center small">
+                                <span class="badge bg-light text-secondary border">{{ s.sucursal.nombre|default:"Principal" }}</span>
+                            </td>
+
+                            <!-- FOLIO -->
+                            <td class="text-center font-monospace small"><span class="text-dark">{{ s.folio }}</span></td>
+
+                            <!-- ALMACÉN -->
+                            <td class="text-center small"><span class="text-dark">{{ s.almacen.nombre }}</span></td>
+
+                            <!-- CREADOR -->
+                            <td class="text-center small"><span class="text-dark">{{ s.creador_corto }}</span></td>
+
+                            <!-- RECIBE -->
+                            <td class="text-center small"><span class="text-dark">{{ s.recibe_corto }}</span></td>
+
+                            <!-- FECHA -->
+                            <td class="text-center small"><div class="text-dark">{{ s.fecha_salida|date:"d M Y" }}</div></td>
+
+                            <!-- TOTAL PIEZAS -->
+                            <td class="text-center small">
+                                <span class="text-dark" style="font-weight: 400;">{{ s.total_piezas|floatformat:2 }}</span>
+                            </td>
+
+                            <!-- ESTADO -->
+                            <td class="text-center" id="colEstado{{ s.id }}">
+                                {% if s.estado == 'borrador' %}<span class="status-pill status-borrador">Borrador</span>
+                                {% elif s.estado == 'aprobada' %}<span class="status-pill status-aprobada">Aprobada</span>
+                                {% elif s.estado == 'cancelada' %}<span class="status-pill status-cancelada">Cancelada</span>{% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="9" class="text-center py-5"><i class="bi bi-receipt display-6 text-muted mb-2 d-block"></i><span class="text-muted fst-italic small">No hay salidas registradas aún</span></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- PAGINADOR EXACTO AL DE ÓRDENES DE COMPRA -->
+            <div class="card-footer bg-white border-0 py-2 px-4 d-flex justify-content-between align-items-center">
+                <span class="text-muted small" style="font-size: 0.75rem;">
+                    Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }}
+                </span>
+                
+                <div class="d-flex gap-1">
+                    {% if page_obj.has_previous %}
+                        <!-- Primero -->
+                        <a href="?page=1{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.fecha_inicio %}&fecha_inicio={{ filtros.fecha_inicio }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Primera página">&laquo;&laquo;</a>
+                        
+                        <!-- Anterior -->
+                        <a href="?page={{ page_obj.previous_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.fecha_inicio %}&fecha_inicio={{ filtros.fecha_inicio }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Anterior">&laquo;</a>
+                    {% else %}
+                        <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;&laquo;</button>
+                        <button class="btn btn-sm btn-light border-0 text-muted" disabled>&laquo;</button>
+                    {% endif %}
+                    
+                    <!-- Números de Página (Rango de 5) -->
+                    {% for i in page_obj.paginator.page_range %}
+                        {% if i >= page_obj.number|add:"-2" and i <= page_obj.number|add:"2" %}
+                            {% if page_obj.number == i %}
+                                <button class="btn btn-sm btn-brand text-white fw-bold shadow-sm" style="min-width: 32px;">{{ i }}</button>
+                            {% else %}
+                                <a href="?page={{ i }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.fecha_inicio %}&fecha_inicio={{ filtros.fecha_inicio }}{% endif %}" 
+                                   class="btn btn-sm btn-light border-0 text-dark" style="min-width: 32px;">{{ i }}</a>
+                            {% endif %}
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                        <!-- Siguiente -->
+                        <a href="?page={{ page_obj.next_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.fecha_inicio %}&fecha_inicio={{ filtros.fecha_inicio }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Siguiente">&raquo;</a>
+                        
+                        <!-- Último -->
+                        <a href="?page={{ page_obj.paginator.num_pages }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}{% if filtros.almacen %}&almacen={{ filtros.almacen }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.fecha_inicio %}&fecha_inicio={{ filtros.fecha_inicio }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted" title="Última página">&raquo;&raquo;</a>
+                    {% else %}
+                        <button class="btn btn-sm btn-light border-0 text-muted" disabled>&raquo;</button>
+                        <button class="btn btn-sm btn-light border-0 text-muted" disabled>&raquo;&raquo;</button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODALES -->
+{% include "almacenes/modals/modal_nueva_salida_por_uso.html" %}
+{% include "almacenes/modals/modal_detalle_salida_por_uso.html" %}
+
+<script>
+    // Variables de estado del modal de creación / edición
+    let articulosSalida = [];
+    let productosAlmacenDisponibles = [];
+    let productoActual = null;
+    let extrasProductoActual = [];
+    let indiceEdicionArticulo = -1;
+    let isSubmittingSalida = false;
+    let modalSalidaModificado = false;
+    let salidaEdicionId = null;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const modalNS = document.getElementById('modalNuevaSalidaPorUso');
+        if (modalNS) {
+            // Rastrear si el usuario seleccionó o editó campos en el modal
+            modalNS.addEventListener('input', function() {
+                modalSalidaModificado = true;
+            });
+            modalNS.addEventListener('change', function() {
+                modalSalidaModificado = true;
+            });
+
+            // Candado: confirmar al cerrar si hay partidas o campos modificados (igual a Órdenes de Compra)
+            modalNS.addEventListener('hide.bs.modal', function (e) {
+                if (isSubmittingSalida) return;
+
+                const tableRows = articulosSalida.length;
+                const usuarioRecibe = document.getElementById('salida_usuario_recibe')?.value;
+                const notas = document.getElementById('salida_notas')?.value;
+                const prodSeleccionado = document.getElementById('add_articulo_producto')?.value;
+
+                if (tableRows > 0 || modalSalidaModificado || (usuarioRecibe && usuarioRecibe !== "") || (notas && notas.trim() !== "") || (prodSeleccionado && prodSeleccionado !== "")) {
+                    if (!confirm("¿Estás seguro de cerrar la ventana? Perderás los cambios que no hayas guardado.")) {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                        return false;
+                    }
+                }
+            });
+
+            modalNS.addEventListener('hidden.bs.modal', function() {
+                isSubmittingSalida = false;
+                modalSalidaModificado = false;
+                cancelarEdicionArticulo();
+            });
+        }
+
+        const inputCant = document.getElementById('add_articulo_cantidad');
+        if (inputCant) {
+            inputCant.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    agregarArticuloSalida();
+                }
+            });
+        }
+    });
+
+    // Helper CSRF
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    const csrftoken = getCookie('csrftoken');
+
+    // 1. ABRIR MODAL NUEVA SALIDA
+    function abrirModalNuevaSalida() {
+        salidaEdicionId = null;
+        modalSalidaModificado = false;
+        isSubmittingSalida = false;
+        articulosSalida = [];
+        productoActual = null;
+        extrasProductoActual = [];
+        cancelarEdicionArticulo();
+        renderizarTablaArticulosSalida();
+
+        const modalTitle = document.querySelector('#modalNuevaSalidaPorUso .modal-title');
+        if (modalTitle) {
+            modalTitle.innerHTML = '<i class="bi bi-box-arrow-up-right me-2 text-brand"></i>Salida por uso';
+        }
+        const btnGuardar = document.getElementById('btnGuardarSalida');
+        if (btnGuardar) {
+            btnGuardar.innerHTML = '<i class="bi bi-save me-1"></i> Guardar';
+        }
+
+        document.getElementById('salida_notas').value = '';
+        document.getElementById('salida_usuario_recibe').value = '';
+        document.getElementById('add_articulo_unidad').value = '--';
+        document.getElementById('add_articulo_disponible').value = '0';
+        document.getElementById('add_articulo_cantidad').value = '1';
+        document.getElementById('seccion_trazabilidad').style.display = 'none';
+
+        const modalEl = document.getElementById('modalNuevaSalidaPorUso');
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+        // Si ya hay un almacén seleccionado, cargar sus artículos
+        const almSelect = document.getElementById('salida_almacen');
+        if (almSelect.value) {
+            cargarProductosAlmacen(almSelect.value);
+        } else {
+            document.getElementById('add_articulo_producto').innerHTML = '<option value="">Primero seleccione un almacén...</option>';
+        }
+
+        modal.show();
+    }
+
+    // 1.1 CARGAR SALIDA PARA EDICIÓN
+    function editarSalida(id) {
+        fetch(`/inventario/salida-por-uso/api/detalle/${id}/`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success || !data.salida) {
+                    alert('Error al obtener datos de la salida: ' + (data.error || 'No encontrada'));
+                    return;
+                }
+
+                const salida = data.salida;
+                if (salida.estado !== 'borrador') {
+                    alert('Solo se pueden editar salidas en estado Borrador.');
+                    return;
+                }
+
+                salidaEdicionId = id;
+                modalSalidaModificado = false;
+                isSubmittingSalida = false;
+                productoActual = null;
+                extrasProductoActual = [];
+                cancelarEdicionArticulo();
+
+                const modalTitle = document.querySelector('#modalNuevaSalidaPorUso .modal-title');
+                if (modalTitle) {
+                    modalTitle.innerHTML = `<i class="bi bi-pencil-square me-2 text-brand"></i>Editar Salida por Uso ${salida.folio}`;
+                }
+                const btnGuardar = document.getElementById('btnGuardarSalida');
+                if (btnGuardar) {
+                    btnGuardar.innerHTML = '<i class="bi bi-save me-1"></i> Guardar';
+                }
+
+                // Cargar valores de cabecera
+                if (salida.sucursal_id) {
+                    document.getElementById('salida_sucursal').value = salida.sucursal_id;
+                }
+                document.getElementById('salida_almacen').value = salida.almacen_id;
+                if (salida.fecha_salida_iso) {
+                    document.getElementById('salida_fecha').value = salida.fecha_salida_iso;
+                }
+                document.getElementById('salida_usuario_recibe').value = salida.usuario_recibe_id || '';
+                document.getElementById('salida_notas').value = salida.notas || '';
+
+                // Cargar partidas existentes
+                articulosSalida = (salida.detalles || []).map(d => ({
+                    producto_id: d.producto_id,
+                    nombre: d.producto_nombre,
+                    unidad_medida: d.unidad_medida,
+                    cantidad: parseFloat(d.cantidad),
+                    costo_unitario: parseFloat(d.costo_unitario),
+                    extras: d.extras || [],
+                    extras_str: d.extras_str || '--'
+                }));
+                renderizarTablaArticulosSalida();
+
+                // Cargar catálogo de productos del almacén
+                cargarProductosAlmacen(salida.almacen_id);
+
+                const modalEl = document.getElementById('modalNuevaSalidaPorUso');
+                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                modal.show();
+            })
+            .catch(err => {
+                alert('Error al consultar detalle para edición: ' + err.message);
+            });
+    }
+
+    // 2. CASCADA: SUCURSAL -> ALMACENES
+    function onCambioSucursalModal(sucursalId) {
+        const almacenSelect = document.getElementById('salida_almacen');
+        almacenSelect.innerHTML = '<option value="">Cargando almacenes...</option>';
+
+        fetch(`/inventario/salida-por-uso/api/almacenes-sucursal/${sucursalId || 0}/`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.almacenes) {
+                    almacenSelect.innerHTML = '<option value="">Seleccionar Almacén...</option>';
+                    data.almacenes.forEach(a => {
+                        almacenSelect.insertAdjacentHTML('beforeend', `<option value="${a.id}">${a.nombre}</option>`);
+                    });
+                } else {
+                    almacenSelect.innerHTML = '<option value="">Sin almacenes disponibles</option>';
+                }
+                onCambioAlmacenModal('');
+            })
+            .catch(err => {
+                console.error(err);
+                almacenSelect.innerHTML = '<option value="">Error al cargar almacenes</option>';
+            });
+    }
+
+    // 3. CAMBIO DE ALMACÉN -> CARGAR PRODUCTOS CON STOCK
+    function onCambioAlmacenModal(almacenId) {
+        if (!almacenId) {
+            document.getElementById('add_articulo_producto').innerHTML = '<option value="">Primero seleccione un almacén...</option>';
+            document.getElementById('badgeStockDisp').innerText = 'Seleccione almacén y producto';
+            productoActual = null;
+            return;
+        }
+
+        // Si se cambia el almacén y ya habían artículos agregados, avisar o limpiar
+        if (articulosSalida.length > 0) {
+            if (!confirm("¿Cambiar de almacén? Al cambiar el almacén se reiniciará la lista de artículos seleccionados.")) {
+                return;
+            }
+            articulosSalida = [];
+            renderizarTablaArticulosSalida();
+            cargarProductosAlmacen(almacenId);
+            return;
+        }
+
+        cargarProductosAlmacen(almacenId);
+    }
+
+    function cargarProductosAlmacen(almacenId) {
+        const selectProd = document.getElementById('add_articulo_producto');
+        selectProd.innerHTML = '<option value="">Cargando productos con stock...</option>';
+
+        fetch(`/inventario/salida-por-uso/api/articulos-almacen/${almacenId}/`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.productos) {
+                    productosAlmacenDisponibles = data.productos;
+                    if (data.productos.length === 0) {
+                        selectProd.innerHTML = '<option value="">No hay productos con existencias en este almacén</option>';
+                        document.getElementById('badgeStockDisp').innerText = 'Sin existencias';
+                    } else {
+                        selectProd.innerHTML = '<option value="">Seleccionar Producto...</option>';
+                        data.productos.forEach(p => {
+                            selectProd.insertAdjacentHTML('beforeend', `
+                                <option value="${p.id}">${p.nombre} (Disp: ${p.disponible} ${p.unidad_medida})</option>
+                            `);
+                        });
+                        document.getElementById('badgeStockDisp').innerText = `${data.productos.length} producto(s) disponible(s)`;
+                    }
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                selectProd.innerHTML = '<option value="">Error al cargar productos</option>';
+            });
+    }
+
+    // 4. SELECCIÓN DE PRODUCTO -> CONFIGURAR CAMPOS Y TRAZABILIDAD
+    function onSeleccionarProductoSalida(prodId) {
+        const unidadInput = document.getElementById('add_articulo_unidad');
+        const dispInput = document.getElementById('add_articulo_disponible');
+        const cantInput = document.getElementById('add_articulo_cantidad');
+        const seccionTrazabilidad = document.getElementById('seccion_trazabilidad');
+
+        if (!prodId) {
+            productoActual = null;
+            unidadInput.value = '--';
+            dispInput.value = '0';
+            seccionTrazabilidad.style.display = 'none';
+            return;
+        }
+
+        productoActual = productosAlmacenDisponibles.find(p => p.id == prodId);
+        if (!productoActual) return;
+
+        unidadInput.value = productoActual.unidad_medida;
+        dispInput.value = productoActual.disponible;
+        cantInput.max = productoActual.disponible;
+        cantInput.value = '1';
+
+        // Verificar si maneja lote, serie o caducidad
+        if (productoActual.maneja_lote || productoActual.maneja_serie || productoActual.maneja_caducidad) {
+            cargarTrazabilidadProducto(prodId);
+        } else {
+            seccionTrazabilidad.style.display = 'none';
+            extrasProductoActual = [];
+        }
+    }
+
+    // 5. CARGAR TRAZABILIDAD (LOTES / SERIES / CADUCIDADES)
+    function cargarTrazabilidadProducto(prodId, preselectedExtras = null) {
+        const almacenId = document.getElementById('salida_almacen').value;
+        const seccion = document.getElementById('seccion_trazabilidad');
+        const cont = document.getElementById('contenedor_items_trazabilidad');
+        const titulo = document.getElementById('titulo_trazabilidad');
+
+        if (productoActual.maneja_serie) {
+            titulo.innerHTML = '<i class="bi bi-upc-scan me-1 text-brand"></i> Seleccione Números de Serie';
+        } else {
+            titulo.innerHTML = '<i class="bi bi-box-seam me-1 text-brand"></i> Seleccione Lotes o Caducidades';
+        }
+
+        cont.innerHTML = '<div class="text-center py-2 text-muted small"><span class="spinner-border spinner-border-sm me-1"></span> Cargando existencias de lotes/series...</div>';
+        seccion.style.display = 'block';
+
+        fetch(`/inventario/salida-por-uso/api/extras-articulo/${almacenId}/${prodId}/`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.extras && data.extras.length > 0) {
+                    extrasProductoActual = data.extras;
+                    let html = '';
+
+                    if (productoActual.maneja_serie) {
+                        html += '<div class="row g-2">';
+                        data.extras.forEach(ex => {
+                            const isChecked = preselectedExtras && preselectedExtras.some(pe => pe.id == ex.id);
+                            html += `
+                                <div class="col-md-4">
+                                    <div class="form-check extra-badge-item ${isChecked ? 'selected' : ''}" id="boxExtra${ex.id}">
+                                        <input class="form-check-input check-serie" type="checkbox" value="${ex.id}" id="checkExtra${ex.id}" ${isChecked ? 'checked' : ''} onchange="recalcularSeleccionSeries()">
+                                        <label class="form-check-label small fw-semibold text-dark text-truncate" for="checkExtra${ex.id}" title="${ex.serie}">
+                                            ${ex.serie}
+                                        </label>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                    } else {
+                        // Lotes / Caducidades
+                        html += `
+                            <table class="table table-sm table-bordered bg-white small mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Lote / Identificador</th>
+                                        <th class="text-center">Caducidad</th>
+                                        <th class="text-center">Disponible</th>
+                                        <th class="text-center" style="width: 120px;">Cant. a Retirar</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                        `;
+                        data.extras.forEach(ex => {
+                            const cad = ex.fecha_caducidad || '--';
+                            const loteNom = ex.lote || (ex.fecha_caducidad ? `Cad: ${ex.fecha_caducidad}` : `Lote #${ex.id}`);
+                            let preVal = 0;
+                            if (preselectedExtras) {
+                                const found = preselectedExtras.find(pe => pe.id == ex.id);
+                                if (found) preVal = found.qty || 0;
+                            }
+                            html += `
+                                <tr>
+                                    <td class="fw-semibold text-dark">${loteNom}</td>
+                                    <td class="text-center text-muted">${cad}</td>
+                                    <td class="text-center fw-bold text-success">${ex.disponible}</td>
+                                    <td class="text-center">
+                                        <input type="number" class="form-control form-control-sm text-center input-lote-qty" 
+                                               id="qtyExtra${ex.id}" data-id="${ex.id}" data-max="${ex.disponible}" 
+                                               data-lote="${loteNom}" data-cad="${cad}" data-tipo="${ex.tipo}"
+                                               value="${preVal}" min="0" max="${ex.disponible}" step="any"
+                                               oninput="recalcularSeleccionLotes()">
+                                    </td>
+                                </tr>
+                            `;
+                        });
+                        html += '</tbody></table>';
+                    }
+
+                    cont.innerHTML = html;
+                    actualizarResumenTrazabilidad();
+                } else {
+                    cont.innerHTML = '<div class="text-danger small py-2 fst-italic">No se encontraron lotes ni series disponibles para este producto en el almacén.</div>';
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                cont.innerHTML = '<div class="text-danger small py-2">Error al consultar lotes y series.</div>';
+            });
+    }
+
+    function recalcularSeleccionSeries() {
+        const checks = document.querySelectorAll('.check-serie:checked');
+        const cantInput = document.getElementById('add_articulo_cantidad');
+        cantInput.value = checks.length || 1;
+        actualizarResumenTrazabilidad();
+    }
+
+    function recalcularSeleccionLotes() {
+        let total = 0;
+        document.querySelectorAll('.input-lote-qty').forEach(inp => {
+            const val = parseFloat(inp.value) || 0;
+            total += val;
+        });
+        const cantInput = document.getElementById('add_articulo_cantidad');
+        if (total > 0) {
+            cantInput.value = total;
+        }
+        actualizarResumenTrazabilidad();
+    }
+
+    function actualizarResumenTrazabilidad() {
+        const cantReq = parseFloat(document.getElementById('add_articulo_cantidad').value) || 0;
+        document.getElementById('cant_trazabilidad_requerida').innerText = cantReq;
+
+        let asignado = 0;
+        if (productoActual && productoActual.maneja_serie) {
+            asignado = document.querySelectorAll('.check-serie:checked').length;
+        } else {
+            document.querySelectorAll('.input-lote-qty').forEach(inp => {
+                asignado += parseFloat(inp.value) || 0;
+            });
+        }
+        document.getElementById('cant_trazabilidad_asignada').innerText = asignado;
+    }
+
+    // 6. AGREGAR ARTÍCULO AL LISTADO
+    function agregarArticuloSalida() {
+        if (!productoActual) {
+            alert('Por favor seleccione un producto.');
+            return;
+        }
+
+        const cantidad = parseFloat(document.getElementById('add_articulo_cantidad').value);
+        if (isNaN(cantidad) || cantidad <= 0) {
+            alert('Ingrese una cantidad mayor a 0.');
+            return;
+        }
+
+        if (cantidad > productoActual.disponible) {
+            alert(`Solo hay ${productoActual.disponible} ${productoActual.unidad_medida} disponibles en este almacén.`);
+            return;
+        }
+
+        // Validar trazabilidad si aplica
+        let extrasData = [];
+        let extrasDesc = [];
+
+        if (productoActual.maneja_serie) {
+            const checks = document.querySelectorAll('.check-serie:checked');
+            if (checks.length !== cantidad) {
+                alert(`Ha ingresado cantidad ${cantidad}, pero seleccionó ${checks.length} número(s) de serie.`);
+                return;
+            }
+            checks.forEach(chk => {
+                const ex = extrasProductoActual.find(e => e.id == chk.value);
+                if (ex) {
+                    extrasData.push({ id: ex.id, tipo: 'serie', qty: 1, serie: ex.serie });
+                    extrasDesc.push(`Serie: ${ex.serie}`);
+                }
+            });
+        } else if (productoActual.maneja_lote || productoActual.maneja_caducidad) {
+            let sumaLotes = 0;
+            document.querySelectorAll('.input-lote-qty').forEach(inp => {
+                const val = parseFloat(inp.value) || 0;
+                if (val > 0) {
+                    sumaLotes += val;
+                    const eid = inp.dataset.id;
+                    const lote = inp.dataset.lote;
+                    const cad = inp.dataset.cad;
+                    const tipo = inp.dataset.tipo;
+                    extrasData.push({ id: parseInt(eid), tipo: tipo, qty: val, lote: lote, fecha_caducidad: cad });
+                    extrasDesc.push(`${lote} (${val})`);
+                }
+            });
+
+            if (sumaLotes !== cantidad) {
+                alert(`La suma de las cantidades por lote (${sumaLotes}) no coincide con la cantidad total (${cantidad}).`);
+                return;
+            }
+        }
+
+        if (indiceEdicionArticulo >= 0) {
+            articulosSalida[indiceEdicionArticulo] = {
+                producto_id: productoActual.id,
+                producto_nombre: productoActual.nombre,
+                unidad_medida: productoActual.unidad_medida,
+                cantidad: cantidad,
+                costo_unitario: productoActual.costo_unitario || 0,
+                extras: extrasData,
+                trazabilidad_str: extrasDesc.length > 0 ? extrasDesc.join(', ') : 'N/A'
+            };
+            cancelarEdicionArticulo();
+            return;
+        }
+
+        // Revisar si ya existe en la lista para actualizar o agregar
+        const indexExistente = articulosSalida.findIndex(a => a.producto_id === productoActual.id && !productoActual.maneja_serie);
+        if (indexExistente !== -1 && !productoActual.maneja_serie && !productoActual.maneja_lote) {
+            const nuevaCant = articulosSalida[indexExistente].cantidad + cantidad;
+            if (nuevaCant > productoActual.disponible) {
+                alert('La cantidad total agregada excede el stock disponible.');
+                return;
+            }
+            articulosSalida[indexExistente].cantidad = nuevaCant;
+        } else {
+            articulosSalida.push({
+                producto_id: productoActual.id,
+                producto_nombre: productoActual.nombre,
+                unidad_medida: productoActual.unidad_medida,
+                cantidad: cantidad,
+                costo_unitario: productoActual.costo_unitario || 0,
+                extras: extrasData,
+                trazabilidad_str: extrasDesc.length > 0 ? extrasDesc.join(', ') : 'N/A'
+            });
+        }
+
+        renderizarTablaArticulosSalida();
+
+        // Limpiar sección de artículo
+        document.getElementById('add_articulo_producto').value = '';
+        document.getElementById('add_articulo_unidad').value = '--';
+        document.getElementById('add_articulo_disponible').value = '0';
+        document.getElementById('add_articulo_cantidad').value = '1';
+        document.getElementById('seccion_trazabilidad').style.display = 'none';
+        productoActual = null;
+        extrasProductoActual = [];
+    }
+
+    // 7. RENDERIZAR TABLA DE ARTÍCULOS EN EL MODAL
+    function renderizarTablaArticulosSalida() {
+        const tbody = document.getElementById('cuerpoTablaSalida');
+        const emptyMsg = document.getElementById('mensajeVacioSalida');
+        const lblPartidas = document.getElementById('lblTotalPartidas');
+        const lblPiezas = document.getElementById('lblTotalPiezas');
+
+        tbody.innerHTML = '';
+
+        if (articulosSalida.length === 0) {
+            emptyMsg.style.display = 'block';
+            lblPartidas.innerText = '0';
+            lblPiezas.innerText = '0.00';
+            return;
+        }
+
+        emptyMsg.style.display = 'none';
+        let totalPzas = 0;
+
+        articulosSalida.forEach((art, idx) => {
+            totalPzas += art.cantidad;
+            const tr = document.createElement('tr');
+            if (idx === indiceEdicionArticulo) {
+                tr.classList.add('table-warning');
+            }
+            tr.innerHTML = `
+                <td class="text-center small text-muted">${idx + 1}</td>
+                <td class="fw-semibold text-dark small">${art.producto_nombre}</td>
+                <td class="text-center small text-muted">${art.unidad_medida}</td>
+                <td class="text-center fw-bold text-dark small">${art.cantidad.toFixed(2)}</td>
+                <td class="small text-secondary">${art.trazabilidad_str}</td>
+                <td class="text-center">
+                    <div class="d-flex justify-content-center align-items-center gap-1">
+                        <span onclick="editarArticuloSalida(${idx})" class="icon-action text-secondary" title="Editar partida">
+                            <i class="bi bi-pencil-square"></i>
+                        </span>
+                        <span onclick="eliminarArticuloSalida(${idx})" class="icon-action hover-red" title="Eliminar partida">
+                            <i class="bi bi-x-circle"></i>
+                        </span>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        lblPartidas.innerText = articulosSalida.length;
+        lblPiezas.innerText = totalPzas.toFixed(2);
+    }
+
+    function editarArticuloSalida(idx) {
+        if (idx < 0 || idx >= articulosSalida.length) return;
+        indiceEdicionArticulo = idx;
+        const art = articulosSalida[idx];
+
+        // Llenar datos en sección 2
+        document.getElementById('add_articulo_producto').value = art.producto_id;
+        document.getElementById('add_articulo_unidad').value = art.unidad_medida;
+        document.getElementById('add_articulo_cantidad').value = art.cantidad;
+
+        productoActual = productosAlmacenDisponibles.find(p => p.id == art.producto_id);
+        if (productoActual) {
+            document.getElementById('add_articulo_disponible').value = productoActual.disponible;
+            document.getElementById('add_articulo_cantidad').max = productoActual.disponible;
+        }
+
+        if (productoActual && (productoActual.maneja_lote || productoActual.maneja_serie || productoActual.maneja_caducidad)) {
+            cargarTrazabilidadProducto(art.producto_id, art.extras);
+        } else {
+            document.getElementById('seccion_trazabilidad').style.display = 'none';
+            extrasProductoActual = [];
+        }
+
+        // Cambiar botón a modo edición (manteniendo el color azulito/brand)
+        const btnAdd = document.getElementById('btnAgregarItemSalida');
+        btnAdd.innerHTML = '<i class="bi bi-check-lg"></i>';
+        btnAdd.title = 'Actualizar Partida';
+        btnAdd.classList.add('btn-brand');
+
+        const btnCanc = document.getElementById('btnCancelarEdicionItem');
+        if (btnCanc) btnCanc.style.display = 'inline-block';
+
+        renderizarTablaArticulosSalida();
+    }
+
+    function cancelarEdicionArticulo() {
+        indiceEdicionArticulo = -1;
+
+        // Resetear campos
+        document.getElementById('add_articulo_producto').value = '';
+        document.getElementById('add_articulo_unidad').value = '--';
+        document.getElementById('add_articulo_disponible').value = '0';
+        document.getElementById('add_articulo_cantidad').value = '1';
+        document.getElementById('seccion_trazabilidad').style.display = 'none';
+        productoActual = null;
+        extrasProductoActual = [];
+
+        // Resetear botón
+        const btnAdd = document.getElementById('btnAgregarItemSalida');
+        if (btnAdd) {
+            btnAdd.innerHTML = '<i class="bi bi-plus-lg"></i>';
+            btnAdd.title = 'Agregar Artículo';
+            btnAdd.classList.add('btn-brand');
+        }
+
+        const btnCanc = document.getElementById('btnCancelarEdicionItem');
+        if (btnCanc) btnCanc.style.display = 'none';
+
+        renderizarTablaArticulosSalida();
+    }
+
+    function eliminarArticuloSalida(idx) {
+        if (indiceEdicionArticulo === idx) {
+            cancelarEdicionArticulo();
+        } else if (indiceEdicionArticulo > idx) {
+            indiceEdicionArticulo--;
+        }
+        articulosSalida.splice(idx, 1);
+        renderizarTablaArticulosSalida();
+    }
+
+    // 8. GUARDAR SALIDA POR USO (ESTADO BORRADOR)
+    function guardarSalidaPorUso() {
+        const sucursalId = document.getElementById('salida_sucursal').value;
+        const almacenId = document.getElementById('salida_almacen').value;
+        const fechaSalida = document.getElementById('salida_fecha').value;
+        const usuarioRecibeId = document.getElementById('salida_usuario_recibe').value;
+        const notas = document.getElementById('salida_notas').value;
+
+        if (!almacenId) {
+            alert('Por favor seleccione un almacén.');
+            return;
+        }
+
+        if (!usuarioRecibeId) {
+            alert('Por favor seleccione el usuario que recibe.');
+            return;
+        }
+
+        if (!fechaSalida) {
+            alert('Por favor indique la fecha de la salida.');
+            return;
+        }
+
+        if (articulosSalida.length === 0) {
+            alert('Debe agregar al menos un artículo a la salida.');
+            return;
+        }
+
+        isSubmittingSalida = true;
+        const btnGuardar = document.getElementById('btnGuardarSalida');
+        btnGuardar.disabled = true;
+        btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
+
+        const payload = {
+            sucursal_id: sucursalId,
+            almacen_id: almacenId,
+            fecha_salida: fechaSalida,
+            usuario_recibe_id: usuarioRecibeId,
+            notas: notas,
+            articulos: articulosSalida
+        };
+
+        const url = salidaEdicionId 
+            ? `/inventario/salida-por-uso/api/actualizar/${salidaEdicionId}/` 
+            : '/inventario/salida-por-uso/api/crear/';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const modalEl = document.getElementById('modalNuevaSalidaPorUso');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+                window.location.reload();
+            } else {
+                isSubmittingSalida = false;
+                btnGuardar.disabled = false;
+                btnGuardar.innerHTML = '<i class="bi bi-save me-1"></i> Guardar';
+                alert('Error: ' + (data.error || 'No se pudo guardar la salida.'));
+            }
+        })
+        .catch(err => {
+            isSubmittingSalida = false;
+            btnGuardar.disabled = false;
+            btnGuardar.innerHTML = '<i class="bi bi-save me-1"></i> Guardar';
+            alert('Error de red: ' + err.message);
+        });
+    }
+
+    // 9. APROBAR SALIDA POR USO
+    function aprobarSalida(id, folio) {
+        if (!confirm(`¿Aprobar salida ${folio}?`)) {
+            return;
+        }
+
+        fetch(`/inventario/salida-por-uso/api/aprobar/${id}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrftoken }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const btnEd = document.getElementById(`btnEditar${id}`);
+                if (btnEd) btnEd.remove();
+                const btnAp = document.getElementById(`btnAprobar${id}`);
+                if (btnAp) btnAp.remove();
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(err => alert('Error de red: ' + err.message));
+    }
+
+    // 10. CANCELAR SALIDA POR USO (BORRADOR -> ELIMINA, APROBADA -> REVIERTE INVENTARIO)
+    function cancelarSalida(id, folio, estado) {
+        const msg = estado === 'borrador'
+            ? `¿Eliminar borrador ${folio}?`
+            : `¿Cancelar salida ${folio}?`;
+
+        if (!confirm(msg)) return;
+
+        let motivo = '';
+        if (estado === 'aprobada') {
+            motivo = prompt('Motivo de cancelación (opcional):') || '';
+        }
+
+        const formData = new FormData();
+        formData.append('motivo', motivo);
+
+        fetch(`/inventario/salida-por-uso/api/cancelar/${id}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrftoken },
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(err => alert('Error de red: ' + err.message));
+    }
+
+    // 11. VER DETALLE DE SALIDA
+    function verDetalleSalida(id) {
+        fetch(`/inventario/salida-por-uso/api/detalle/${id}/`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) {
+                    alert('Error: ' + (data.error || 'No se pudo cargar el detalle.'));
+                    return;
+                }
+
+                const s = data.salida;
+                document.getElementById('detFolio').innerText = s.folio;
+                document.getElementById('detFechaSalida').innerText = s.fecha_salida;
+                document.getElementById('detFechaCreacion').innerText = s.fecha_creacion;
+                document.getElementById('detGenera').innerText = s.usuario_creador;
+                document.getElementById('detRecibe').innerText = s.usuario_recibe;
+                document.getElementById('detSucursal').innerText = s.sucursal;
+                document.getElementById('detAlmacen').innerText = s.almacen;
+                document.getElementById('detNotas').innerText = s.notas;
+                document.getElementById('detTotalArts').innerText = s.total_articulos;
+                document.getElementById('detTotalPzas').innerText = s.total_piezas.toFixed(2);
+
+                // Estado Pill
+                let pillHtml = '';
+                if (s.estado === 'borrador') {
+                    pillHtml = '<span class="status-pill status-borrador">Borrador</span>';
+                } else if (s.estado === 'aprobada') {
+                    pillHtml = '<span class="status-pill status-aprobada">Aprobada</span>';
+                } else {
+                    pillHtml = '<span class="status-pill status-cancelada">Cancelada</span>';
+                }
+                document.getElementById('detEstadoPill').innerHTML = pillHtml;
+
+                // Auditoría
+                const rowAuditoria = document.getElementById('rowAuditoriaExtra');
+                const secApr = document.getElementById('detAuditoriaAprobacion');
+                const secCanc = document.getElementById('detAuditoriaCancelacion');
+
+                let hayAuditoria = false;
+                if (s.usuario_aprueba) {
+                    secApr.style.display = 'block';
+                    document.getElementById('detAprobadoPor').innerText = s.usuario_aprueba;
+                    document.getElementById('detFechaAprobacion').innerText = s.fecha_aprobacion || '';
+                    hayAuditoria = true;
+                } else {
+                    secApr.style.display = 'none';
+                }
+
+                if (s.usuario_cancela) {
+                    secCanc.style.display = 'block';
+                    document.getElementById('detCanceladoPor').innerText = s.usuario_cancela;
+                    document.getElementById('detFechaCancelacion').innerText = s.fecha_cancelacion || '';
+                    document.getElementById('detMotivoCancelacion').innerText = s.motivo_cancelacion ? `Motivo: ${s.motivo_cancelacion}` : '';
+                    hayAuditoria = true;
+                } else {
+                    secCanc.style.display = 'none';
+                }
+                rowAuditoria.style.display = hayAuditoria ? 'block' : 'none';
+
+                // Llenar tabla de artículos
+                const tbody = document.getElementById('detCuerpoTablaArticulos');
+                tbody.innerHTML = '';
+                s.detalles.forEach((det, i) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="text-center small text-muted">${i + 1}</td>
+                        <td class="small fw-semibold text-dark">${det.producto_nombre}</td>
+                        <td class="text-center small text-muted">${det.unidad_medida || '--'}</td>
+                        <td class="text-center fw-bold text-dark small">${det.cantidad.toFixed(2)}</td>
+                        <td class="small text-secondary">${det.extras_str}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                const modalEl = document.getElementById('modalDetalleSalidaPorUso');
+                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                modal.show();
+            })
+            .catch(err => {
+                alert('Error de red: ' + err.message);
+            });
+    }
+</script>
+{% endblock %}

@@ -144,7 +144,7 @@ class OrdenVenta(models.Model):
 class DetalleOrdenVenta(models.Model):
     orden_venta = models.ForeignKey('OrdenVenta', related_name='detalles', on_delete=models.CASCADE)
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, verbose_name="Producto")
-    cantidad = models.PositiveIntegerField(default=1, verbose_name="Cantidad")
+    cantidad = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('1.00'), verbose_name="Cantidad")
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Precio Unitario")
     modificadores_json = models.TextField(blank=True, null=True, verbose_name="Modificadores Seleccionados")
 

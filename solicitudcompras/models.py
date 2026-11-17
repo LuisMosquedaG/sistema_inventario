@@ -83,7 +83,7 @@ class SolicitudCompra(models.Model):
 class DetalleSolicitudCompra(models.Model):
     solicitud = models.ForeignKey(SolicitudCompra, related_name='detalles', on_delete=models.CASCADE)
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, verbose_name="Producto")
-    cantidad_solicitada = models.PositiveIntegerField(verbose_name="Cant. Solicitada")
+    cantidad_solicitada = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('1.00'), verbose_name="Cant. Solicitada")
     
     proveedor = models.ForeignKey('proveedores.Proveedor', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Proveedor Sugerido")
     sucursal = models.ForeignKey('proveedores.SucursalProveedor', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")

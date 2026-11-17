@@ -151,13 +151,13 @@
                             </td>
                             <td class="text-center small text-muted">{{ m.referencia|default:"--" }}</td>
                             
-                            <td class="text-center text-muted small">{{ m.stock_anterior|floatformat:0 }}</td>
+                            <td class="text-center text-muted small">{{ m.stock_anterior|floatformat:"-2" }}</td>
                             
                             <td class="text-center fw-bold {% if m.tipo_movimiento == 'entrada' %}text-success{% else %}text-danger{% endif %}">
-                                {% if m.tipo_movimiento == 'entrada' %}+{% else %}-{% endif %}{{ m.cantidad|floatformat:0 }}
+                                {% if m.tipo_movimiento == 'entrada' %}+{% else %}-{% endif %}{{ m.cantidad|floatformat:"-2" }}
                             </td>
                             
-                            <td class="text-center pe-3 fw-bold text-dark">{{ m.stock_nuevo|floatformat:0 }}</td>
+                            <td class="text-center pe-3 fw-bold text-dark">{{ m.stock_nuevo|floatformat:"-2" }}</td>
                         </tr>
                         {% empty %}
                         <tr>

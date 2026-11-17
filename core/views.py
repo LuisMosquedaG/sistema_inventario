@@ -689,11 +689,26 @@ def exportar_existencias_excel(request):
     costo_prom_subquery = costo_prom_qs.values('producto').annotate(avg=Avg('costo_promedio')).values('avg')[:1]
 
     productos = productos_qs.annotate(
-        stock_fisico_anotado=Coalesce(Subquery(get_stock_sub('cantidad')), 0),
-        stock_res_anotado=Coalesce(Subquery(get_stock_sub('reservado')), 0),
-        costo_prom_anotado=Coalesce(Subquery(costo_prom_subquery), F('precio_costo'))
+        stock_fisico_anotado=Coalesce(
+            Subquery(get_stock_sub('cantidad'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+            Value(Decimal('0.00')),
+            output_field=DecimalField(max_digits=12, decimal_places=2)
+        ),
+        stock_res_anotado=Coalesce(
+            Subquery(get_stock_sub('reservado'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+            Value(Decimal('0.00')),
+            output_field=DecimalField(max_digits=12, decimal_places=2)
+        ),
+        costo_prom_anotado=Coalesce(
+            Subquery(costo_prom_subquery, output_field=DecimalField(max_digits=12, decimal_places=2)),
+            F('precio_costo'),
+            output_field=DecimalField(max_digits=12, decimal_places=2)
+        )
     ).annotate(
-        stock_disponible_anotado=F('stock_fisico_anotado') - F('stock_res_anotado')
+        stock_disponible_anotado=ExpressionWrapper(
+            F('stock_fisico_anotado') - F('stock_res_anotado'),
+            output_field=DecimalField(max_digits=12, decimal_places=2)
+        )
     )
 
     vista = request.GET.get('vista', 'existencias')
@@ -1263,12 +1278,20 @@ def dashboard_inventario(request):
             ),
             costo_promedio_anotado=costo_promedio_expr,
             costo_inventario_anotado=Coalesce(Subquery(costo_inventario_subquery), 0.0, output_field=FloatField()),
-            stock_fisico=Coalesce(Subquery(get_stock_sub('cantidad')), 0),
-            stock_res=Coalesce(Subquery(get_stock_sub('reservado')), 0)
+            stock_fisico=Coalesce(
+                Subquery(get_stock_sub('cantidad'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+                Value(Decimal('0.00')),
+                output_field=DecimalField(max_digits=12, decimal_places=2)
+            ),
+            stock_res=Coalesce(
+                Subquery(get_stock_sub('reservado'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+                Value(Decimal('0.00')),
+                output_field=DecimalField(max_digits=12, decimal_places=2)
+            )
         ).annotate(
             stock_disponible_anotado=ExpressionWrapper(
                 F('stock_fisico') - F('stock_res'),
-                output_field=IntegerField()
+                output_field=DecimalField(max_digits=12, decimal_places=2)
             )
         ).annotate(
             nivel_riesgo=Case(
@@ -1399,16 +1422,24 @@ def dashboard_inventario(request):
         empresa=empresa_actual,
         stock_minimo__gt=0
     ).annotate(
-        stock_fisico_calc=Coalesce(Subquery(get_stock_min_sub('cantidad')), 0),
-        stock_res_calc=Coalesce(Subquery(get_stock_min_sub('reservado')), 0)
+        stock_fisico_calc=Coalesce(
+            Subquery(get_stock_min_sub('cantidad'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+            Value(Decimal('0.00')),
+            output_field=DecimalField(max_digits=12, decimal_places=2)
+        ),
+        stock_res_calc=Coalesce(
+            Subquery(get_stock_min_sub('reservado'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+            Value(Decimal('0.00')),
+            output_field=DecimalField(max_digits=12, decimal_places=2)
+        )
     ).annotate(
         stock_disp_calc=ExpressionWrapper(
             F('stock_fisico_calc') - F('stock_res_calc'),
-            output_field=IntegerField()
+            output_field=DecimalField(max_digits=12, decimal_places=2)
         ),
         diferencia_minimo=ExpressionWrapper(
             F('stock_minimo') - (F('stock_fisico_calc') - F('stock_res_calc')),
-            output_field=IntegerField()
+            output_field=DecimalField(max_digits=12, decimal_places=2)
         )
     ).annotate(
         es_critico=Case(
@@ -2235,16 +2266,24 @@ def api_articulos_stock_minimo(request):
         stock_minimo__gt=0,
         estado='activo'
     ).annotate(
-        stock_fisico_calc=Coalesce(Subquery(get_stock_min_sub('cantidad')), 0),
-        stock_res_calc=Coalesce(Subquery(get_stock_min_sub('reservado')), 0)
+        stock_fisico_calc=Coalesce(
+            Subquery(get_stock_min_sub('cantidad'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+            Value(Decimal('0.00')),
+            output_field=DecimalField(max_digits=12, decimal_places=2)
+        ),
+        stock_res_calc=Coalesce(
+            Subquery(get_stock_min_sub('reservado'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+            Value(Decimal('0.00')),
+            output_field=DecimalField(max_digits=12, decimal_places=2)
+        )
     ).annotate(
         stock_disp_calc=ExpressionWrapper(
             F('stock_fisico_calc') - F('stock_res_calc'),
-            output_field=IntegerField()
+            output_field=DecimalField(max_digits=12, decimal_places=2)
         ),
         diferencia_minimo=ExpressionWrapper(
             F('stock_minimo') - (F('stock_fisico_calc') - F('stock_res_calc')),
-            output_field=IntegerField()
+            output_field=DecimalField(max_digits=12, decimal_places=2)
         )
     ).annotate(
         nivel_riesgo=Case(

@@ -141,7 +141,7 @@ function abrirModalSurtido(ovId, forceAlmacenId = null) {
                         <input type="number" name="cantidad_entregar_${det.id}" 
                                class="form-control form-control-sm text-center mx-auto input-entregar" 
                                style="max-width: 80px;"
-                               value="${det.cantidad}" min="0" max="${det.cantidad}"
+                               value="${det.cantidad}" min="0" max="${det.cantidad}" step="any"
                                oninput="recalcularSurtido()">
                     </td>
                     <td class="text-center">$${det.precio.toFixed(2)}</td>
@@ -171,7 +171,7 @@ function recalcularSurtido() {
         const input = tr.querySelector('.input-entregar');
         if (!input) return;
         
-        const cant = parseInt(input.value) || 0;
+        const cant = parseFloat(input.value) || 0;
         const precio = parseFloat(tr.dataset.precio) || 0;
         const subtotal = cant * precio;
         

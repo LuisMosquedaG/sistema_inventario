@@ -101,7 +101,7 @@ class DetalleCotizacion(models.Model):
     """Tabla para guardar los productos de cada cotización"""
     cotizacion = models.ForeignKey(Cotizacion, related_name='detalles', on_delete=models.CASCADE)
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, verbose_name="Producto")
-    cantidad = models.PositiveIntegerField(default=1)
+    cantidad = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('1.00'))
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
     
     @property

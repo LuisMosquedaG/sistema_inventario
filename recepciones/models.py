@@ -75,7 +75,7 @@ class DetalleRecepcion(models.Model):
     )
     
     producto = models.ForeignKey('core.Producto', on_delete=models.PROTECT)
-    cantidad_recibida = models.PositiveIntegerField(default=0)
+    cantidad_recibida = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
     costo_unitario = models.DecimalField(max_digits=10, decimal_places=2)
 
     # CONVERSIONES DE UNIDADES
@@ -185,7 +185,7 @@ class DetalleRecepcionExtra(models.Model):
     producto = models.ForeignKey('core.Producto', on_delete=models.CASCADE, related_name='extras_trazabilidad', null=True, blank=True)
     tipo = models.CharField(max_length=15, choices=[('lote', 'Lote'), ('serie', 'Serie'), ('caducidad', 'Caducidad')])
     lote = models.CharField(max_length=50, blank=True, null=True)
-    cantidad_lote = models.PositiveIntegerField(default=0)
+    cantidad_lote = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Cantidad Lote")
     serie = models.CharField(max_length=100, blank=True, null=True)
     fecha_caducidad = models.DateField(blank=True, null=True, verbose_name="Fecha de Caducidad")
     

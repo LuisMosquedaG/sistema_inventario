@@ -1,0 +1,181 @@
+<!-- Modal Nueva Salida por Uso -->
+<div class="modal fade" id="modalNuevaSalidaPorUso" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-sheet modal-dialog-scrollable">
+        <div class="modal-content">
+            <!-- HEADER -->
+            <div class="modal-header border-bottom bg-light py-2">
+                <h5 class="modal-title fw-bold text-dark d-flex align-items-center mb-0" style="font-size: 1.05rem;">
+                    <i class="bi bi-box-arrow-right me-2" style="color: #00b8b9; font-size: 1.25rem;"></i>
+                    <span>Nueva Salida por Uso</span>
+                    <span class="badge bg-white text-secondary border ms-2 fw-semibold" id="dispSiguienteFolio">{{ siguiente_folio }}</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <!-- BODY -->
+            <div class="modal-body p-3 bg-light">
+                <form id="formNuevaSalidaPorUso" onsubmit="event.preventDefault();">
+                    <!-- SECCIÓN 1: INFORMACIÓN GENERAL -->
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body p-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 0.5px;">
+                                1. Información General
+                            </h6>
+                            <div class="row g-2">
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Fecha de Salida <span class="text-danger">*</span></label>
+                                    <input type="date" id="salida_fecha" class="form-control form-control-sm" value="{{ fecha_hoy }}" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Fecha Creación (Fijo)</label>
+                                    <input type="text" id="salida_fecha_creacion" class="form-control form-control-sm bg-light" value="{{ fecha_hoy_display }}" readonly>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Generó (Fijo)</label>
+                                    <input type="text" id="salida_usuario_creador" class="form-control form-control-sm bg-light" value="{{ creador_display }}" readonly>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Recibe <span class="text-danger">*</span></label>
+                                    <select id="salida_usuario_recibe" class="form-select form-select-sm" required>
+                                        <option value="">Seleccionar Usuario...</option>
+                                        {% for u in usuarios %}
+                                        <option value="{{ u.id }}">{{ u.display_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="col-md-6 mt-2">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Sucursal <span class="text-danger">*</span></label>
+                                    <select id="salida_sucursal" class="form-select form-select-sm" onchange="onCambioSucursalModal(this.value)" required>
+                                        {% for s in sucursales %}
+                                        <option value="{{ s.id }}" {% if sucursal_actual and sucursal_actual.id == s.id %}selected{% endif %}>{{ s.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mt-2">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Almacén de Salida <span class="text-danger">*</span></label>
+                                    <select id="salida_almacen" class="form-select form-select-sm" onchange="onCambioAlmacenModal(this.value)" required>
+                                        <option value="">Seleccionar Almacén...</option>
+                                        {% for a in almacenes_sucursal_actual %}
+                                        <option value="{{ a.id }}">{{ a.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="col-12 mt-2">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Notas / Justificación</label>
+                                    <textarea id="salida_notas" class="form-control form-control-sm" rows="2" placeholder="Escriba aquí el motivo de la salida o detalles de entrega interna..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 2: AGREGAR ARTÍCULO -->
+                    <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #00b8b9 !important;">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.75rem; letter-spacing: 0.5px;">
+                                    2. Agregar Artículo
+                                </h6>
+                                <span class="badge bg-light text-muted border small" id="badgeStockDisp">Seleccione almacén y producto</span>
+                            </div>
+
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-5">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Producto</label>
+                                    <select id="add_articulo_producto" class="form-select form-select-sm" onchange="onSeleccionarProductoSalida(this.value)">
+                                        <option value="">Primero seleccione un almacén...</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Unidad</label>
+                                    <input type="text" id="add_articulo_unidad" class="form-control form-control-sm bg-light text-center" readonly value="--">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Disponible</label>
+                                    <input type="text" id="add_articulo_disponible" class="form-control form-control-sm bg-light text-center fw-bold text-dark" readonly value="0">
+                                </div>
+                                <div class="col-md-1">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Cant. <span class="text-danger">*</span></label>
+                                    <input type="number" id="add_articulo_cantidad" class="form-control form-control-sm text-center fw-bold" value="1" min="0.01" step="any" oninput="actualizarResumenTrazabilidad()">
+                                </div>
+                                <div class="col-md-2 d-flex gap-1">
+                                    <button type="button" id="btnAgregarItemSalida" class="btn btn-brand btn-sm flex-grow-1 fw-bold" onclick="agregarArticuloSalida()" title="Agregar Artículo">
+                                        <i class="bi bi-plus-lg"></i>
+                                    </button>
+                                    <button type="button" id="btnCancelarEdicionItem" class="btn btn-light border btn-sm text-secondary" style="display: none;" onclick="cancelarEdicionArticulo()" title="Cancelar edición">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- CONTENEDOR DINÁMICO DE TRAZABILIDAD (LOTES / SERIES / CADUCIDADES) -->
+                            <div id="seccion_trazabilidad" class="mt-3 p-3 bg-light rounded border border-dashed" style="display: none;">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div class="small fw-bold text-dark d-flex align-items-center">
+                                        <i class="bi bi-tag-fill me-1 text-brand"></i>
+                                        <span id="titulo_trazabilidad">Selección de Lote / Serie</span>
+                                    </div>
+                                    <div class="small text-muted" id="resumen_seleccion_trazabilidad">
+                                        Asignado: <strong class="text-brand" id="cant_trazabilidad_asignada">0</strong> / <span id="cant_trazabilidad_requerida">0</span>
+                                    </div>
+                                </div>
+                                <div id="contenedor_items_trazabilidad" style="max-height: 180px; overflow-y: auto;">
+                                    <!-- Cargado dinámicamente con JS -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 3: LISTADO DE ARTÍCULOS -->
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0" id="tablaDetallesSalida">
+                                    <thead class="table-light">
+                                        <tr style="font-size: 0.72rem;" class="text-uppercase text-muted">
+                                            <th class="text-center" style="width: 45px;">#</th>
+                                            <th style="min-width: 220px;">Artículo</th>
+                                            <th class="text-center" style="width: 110px;">Unidad</th>
+                                            <th class="text-center" style="width: 100px;">Cantidad</th>
+                                            <th style="min-width: 240px;">Trazabilidad (Lote / Serie / Caducidad)</th>
+                                            <th class="text-center" style="width: 85px;">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cuerpoTablaSalida">
+                                        <!-- Filas dinámicas -->
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div id="mensajeVacioSalida" class="text-center py-4 text-muted small fst-italic bg-white border border-dashed rounded m-3">
+                                <i class="bi bi-inbox d-block mb-1" style="font-size: 1.5rem; opacity: 0.5;"></i>
+                                No hay artículos agregados a la salida por uso.
+                            </div>
+                        </div>
+                        <div class="card-footer bg-white border-0 py-2 px-3 border-top">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="small text-muted">
+                                    Partidas: <strong class="text-dark" id="lblTotalPartidas">0</strong>
+                                </div>
+                                <div class="small text-muted">
+                                    Total de Piezas: <strong class="text-brand fs-6" id="lblTotalPiezas">0.00</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- FOOTER CON LOS 2 BOTONES EXACTOS REQUERIDOS: CANCELAR Y GUARDAR -->
+            <div class="modal-footer border-top bg-white py-2">
+                <button type="button" class="btn btn-light text-secondary btn-sm px-3" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-brand btn-sm px-4 text-white shadow-sm" id="btnGuardarSalida" onclick="guardarSalidaPorUso()">
+                    <i class="bi bi-save me-1"></i> Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

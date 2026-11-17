@@ -10,6 +10,7 @@ from almacenes.models import Inventario, Almacen
 from django.contrib.auth.decorators import login_required
 from panel.models import Empresa
 from django.utils import timezone
+from decimal import Decimal
 import json
 import openpyxl
 from django.db.models import F, Sum, Q
@@ -325,8 +326,8 @@ def crear_pedido_manual(request):
                     DetallePedido.objects.create(
                         pedido=nuevo_pedido,
                         producto=producto_obj,
-                        cantidad_solicitada=cant,
-                        precio_unitario=prec,
+                        cantidad_solicitada=Decimal(str(cant)),
+                        precio_unitario=Decimal(str(prec)),
                         estado_linea='pendiente'
                     )
                     count += 1
@@ -335,7 +336,6 @@ def crear_pedido_manual(request):
                 # Si no hay productos, cancelamos la transacción (por el atomic)
                 raise Exception("Debes agregar al menos un producto al pedido.")
 
-            messages.success(request, f'Pedido #{nuevo_pedido.id} creado correctamente.')
             crear_notificacion(
                 empresa=empresa_actual,
                 actor=request.user,
@@ -1233,8 +1233,8 @@ def editar_pedido_ajax(request, pedido_id):
                     DetallePedido.objects.create(
                         pedido=pedido,
                         producto=producto_obj,
-                        cantidad_solicitada=cant,
-                        precio_unitario=prec,
+                        cantidad_solicitada=Decimal(str(cant)),
+                        precio_unitario=Decimal(str(prec)),
                         estado_linea='pendiente'
                     )
                     count += 1
@@ -1242,7 +1242,6 @@ def editar_pedido_ajax(request, pedido_id):
             if count == 0:
                 raise Exception("Debes agregar al menos un producto al pedido.")
 
-            messages.success(request, f'Pedido #{pedido.id} actualizado correctamente.')
             crear_notificacion(
                 empresa=empresa_actual,
                 actor=request.user,
@@ -1610,7 +1609,7 @@ def crear_pedido_ecommerce_ajax(request, slug_empresa):
 
         for item in items:
             prod_id = item.get('id')
-            cant = int(item.get('cantidad', 1))
+            cant = Decimal(str(item.get('cantidad', 1)))
             if cant <= 0:
                 continue
 

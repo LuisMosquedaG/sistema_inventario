@@ -213,8 +213,8 @@ class DetallePedido(models.Model):
 
     pedido = models.ForeignKey('Pedido', related_name='detalles', on_delete=models.CASCADE)
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, verbose_name="Producto")
-    cantidad_solicitada = models.PositiveIntegerField(default=1, verbose_name="Cant. Solicitada")
-    cantidad_entregada = models.PositiveIntegerField(default=0, verbose_name="Cant. Entregada")
+    cantidad_solicitada = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('1.00'), verbose_name="Cant. Solicitada")
+    cantidad_entregada = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Cant. Entregada")
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Precio Unitario")
     estado_linea = models.CharField(max_length=20, choices=ESTADO_LINEA_CHOICES, default='pendiente')
     modificadores_json = models.TextField(blank=True, null=True, verbose_name="Modificadores Seleccionados")

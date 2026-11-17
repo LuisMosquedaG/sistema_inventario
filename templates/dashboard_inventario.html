@@ -621,13 +621,13 @@
                                     {% if p.fecha_caducidad %}{{ p.fecha_caducidad|date:"Y-m-d" }}{% else %}--{% endif %}
                                 </td>
                                 <td class="text-center small text-muted">
-                                    {{ p.cantidad_lote }}
+                                    {{ p.cantidad_lote|floatformat:"-2" }}
                                 </td>
                                 <td class="text-center small text-muted">
                                     0
                                 </td>
                                 <td class="text-center small text-muted">
-                                    {{ p.cantidad_lote }}
+                                    {{ p.cantidad_lote|floatformat:"-2" }}
                                 </td>
                                 <td class="text-center">
                                     {% if p.estado_caducidad %}
@@ -690,9 +690,9 @@
                                 </td>
                                 {% if filtros.vista == 'existencias' %}
                                     <td class="text-center small text-muted">
-                                        <div>Exist: <span class="{% if p.stock_fisico < p.stock_minimo %}text-danger{% else %}text-success{% endif %}">{{ p.stock_fisico|default:0 }}</span></div>
-                                        <div>Reser: <span class="text-warning">{{ p.stock_res|default:0 }}</span></div>
-                                        <div>Dispo: <span class="text-success">{{ p.stock_disponible_anotado|default:0 }}</span></div>
+                                        <div>Exist: <span class="{% if p.stock_fisico < p.stock_minimo %}text-danger{% else %}text-success{% endif %}">{{ p.stock_fisico|floatformat:"-2"|default:0 }}</span></div>
+                                        <div>Reser: <span class="text-warning">{{ p.stock_res|floatformat:"-2"|default:0 }}</span></div>
+                                        <div>Dispo: <span class="text-success">{{ p.stock_disponible_anotado|floatformat:"-2"|default:0 }}</span></div>
                                     </td>
                                     <td class="text-center small text-muted">
                                         <div>Último: {% if p.ultimo_costo_anotado and p.ultimo_costo_anotado > 0 %}${{ p.ultimo_costo_anotado|floatformat:2|intcomma }}{% elif p.ultimo_costo and p.ultimo_costo > 0 %}${{ p.ultimo_costo|floatformat:2|intcomma }}{% else %}-${% endif %}</div>
@@ -715,7 +715,7 @@
                                         <div class="small text-uppercase fw-semibold text-secondary">{{ p.stock_maximo|default:0 }}</div>
                                     </td>
                                     <td class="text-center">
-                                        <div class="small text-uppercase fw-semibold text-secondary">{{ p.stock_fisico|default:0 }}</div>
+                                        <div class="small text-uppercase fw-semibold text-secondary">{{ p.stock_fisico|floatformat:"-2"|default:0 }}</div>
                                     </td>
                                 {% elif filtros.vista == 'productos' %}
                                     <td class="text-center">

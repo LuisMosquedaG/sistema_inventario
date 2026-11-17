@@ -574,7 +574,7 @@
             {% endif %}
 
             <!-- MÓDULO: ALMACENES -->
-            {% if inventory_ui_permissions.inventario or inventory_ui_permissions.kardex or inventory_ui_permissions.toma_inventario or inventory_ui_permissions.almacenes or inventory_ui_permissions.categorias %}
+            {% if inventory_ui_permissions.inventario or inventory_ui_permissions.salida_por_uso or inventory_ui_permissions.kardex or inventory_ui_permissions.toma_inventario or inventory_ui_permissions.almacenes or inventory_ui_permissions.categorias %}
             <div>
                 <a href="#submenu-inventario" data-bs-toggle="collapse" class="sidebar-link {% if '/inventario/' in request.path %}sidebar-active{% endif %}">
                     <i class="bi bi-box-seam sidebar-icon"></i> Almacenes
@@ -584,6 +584,10 @@
                     <ul class="list-unstyled mb-0">
                         {% if inventory_ui_permissions.inventario %}
                         <li><a href="/inventario/" class="sidebar-link sidebar-level-2 {% if request.path == '/inventario/' %}sidebar-sub-active{% endif %}"><i class="bi bi-box-seam me-2 small"></i> Existencias</a></li>
+                        {% endif %}
+
+                        {% if inventory_ui_permissions.salida_por_uso %}
+                        <li><a href="/inventario/salida-por-uso/" class="sidebar-link sidebar-level-2 {% if '/salida-por-uso/' in request.path %}sidebar-sub-active{% endif %}"><i class="bi bi-box-arrow-right me-2 small"></i> Salida por uso</a></li>
                         {% endif %}
 
                         {% if inventory_ui_permissions.kardex %}

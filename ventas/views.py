@@ -422,7 +422,7 @@ def crear_salida_directa(request):
             DetalleOrdenVenta.objects.create(
                 orden_venta=ov,
                 producto=producto,
-                cantidad=int(cantidades[i]),
+                cantidad=Decimal(str(cantidades[i])),
                 precio_unitario=Decimal(precios[i])
             )
 
@@ -617,7 +617,7 @@ def entregar_pedido_directo(request, pedido_id):
                         inv.cantidad = Decimal(str(cant))
                         inv.save(update_fields=['cantidad'])
 
-                    reserva_a_quitar = min(int(inv.reservado), cant) if linea.estado_linea == 'reservado' else 0
+                    reserva_a_quitar = min(Decimal(str(inv.reservado)), Decimal(str(cant))) if linea.estado_linea == 'reservado' else 0
 
                     Transaccion.objects.create(
                         producto=linea.producto,
@@ -863,7 +863,7 @@ def ejecutar_surtido(request, ov_id):
             for det in detalles_actuales:
                 producto = det.producto
                 cant_solicitada = det.cantidad
-                cant_a_entregar = int(request.POST.get(f'cantidad_entregar_{det.id}', cant_solicitada))
+                cant_a_entregar = Decimal(str(request.POST.get(f'cantidad_entregar_{det.id}', cant_solicitada)))
 
                 if cant_a_entregar < 0: raise ValueError(f"Cantidad inválida para {producto.nombre}")
                 if cant_a_entregar > cant_solicitada: raise ValueError(f"No puedes entregar más de lo solicitado ({cant_solicitada}) para {producto.nombre}")

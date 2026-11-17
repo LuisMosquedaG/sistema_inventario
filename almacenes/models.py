@@ -38,8 +38,8 @@ class Inventario(models.Model):
     # Usamos 'core.Producto' para evitar errores de importación circular
     producto = models.ForeignKey('core.Producto', on_delete=models.CASCADE, related_name='inventarios')
     almacen = models.ForeignKey('Almacen', on_delete=models.CASCADE, related_name='inventarios')
-    cantidad = models.IntegerField(default=0, verbose_name="Cantidad Física")
-    reservado = models.PositiveIntegerField(default=0, verbose_name="Cantidad Reservada en Pedidos")
+    cantidad = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Cantidad Física")
+    reservado = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Cantidad Reservada en Pedidos")
     costo_promedio = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="Costo Promedio")
 
     fecha_actualizacion = models.DateTimeField(auto_now=True)
@@ -207,12 +207,12 @@ class Inventario(models.Model):
                     # FEFO (PCPS): Primero que caduca, primero que sale (caducidades más antiguas primero)
                     extras_qs = extras_qs.order_by(F('fecha_caducidad').asc(nulls_last=True), 'detalle_recepcion__recepcion__fecha', 'fecha_creacion', 'id')
 
-                pendiente_descontar = int(cantidad_a_restar)
+                pendiente_descontar = Decimal(str(cantidad_a_restar))
                 auto_extras = []
                 for extra_item in extras_qs:
                     if pendiente_descontar <= 0:
                         break
-                    disponible_lote = int(extra_item.cantidad_lote or 0)
+                    disponible_lote = Decimal(str(extra_item.cantidad_lote or 0))
                     if disponible_lote <= 0:
                         continue
                     tomar = min(pendiente_descontar, disponible_lote)
@@ -397,4 +397,100 @@ class DetalleTomaInventario(models.Model):
     @property
     def subtotal_fisico(self):
         return self.cantidad_fisica * self.costo_unitario
+
+
+# --- MODELO: SALIDA POR USO DE INVENTARIO ---
+class SalidaPorUso(models.Model):
+    ESTADOS = [
+        ('borrador', 'Borrador'),
+        ('aprobada', 'Aprobada'),
+        ('cancelada', 'Cancelada'),
+    ]
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name="Empresa")
+    folio = models.CharField(max_length=50, verbose_name="Folio")
+    sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
+    almacen = models.ForeignKey(Almacen, on_delete=models.CASCADE, related_name='salidas_por_uso', verbose_name="Almacén")
+    fecha_salida = models.DateField(verbose_name="Fecha de Salida")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
+    usuario_creador = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='salidas_uso_creadas', verbose_name="Usuario Creador")
+    usuario_recibe = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='salidas_uso_recibidas', verbose_name="Usuario que Recibe")
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='borrador', verbose_name="Estado")
+    notas = models.TextField(blank=True, null=True, verbose_name="Notas / Justificación")
+
+    # Auditoría
+    fecha_aprobacion = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de Aprobación")
+    usuario_aprueba = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='salidas_uso_aprobadas', verbose_name="Usuario que Aprueba")
+    fecha_cancelacion = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de Cancelación")
+    usuario_cancela = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='salidas_uso_canceladas', verbose_name="Usuario que Cancela")
+    motivo_cancelacion = models.TextField(blank=True, null=True, verbose_name="Motivo de Cancelación")
+
+    class Meta:
+        verbose_name = "Salida por Uso"
+        verbose_name_plural = "Salidas por Uso"
+        ordering = ['-fecha_creacion']
+
+    def __str__(self):
+        return f"{self.folio} - {self.almacen.nombre} ({self.get_estado_display()})"
+
+    @classmethod
+    def generar_siguiente_folio(cls, empresa):
+        ultimo = cls.objects.filter(empresa=empresa).order_by('-id').first()
+        if not ultimo or not ultimo.folio:
+            return "SPU-00001"
+        try:
+            partes = str(ultimo.folio).split('-')
+            if len(partes) == 2 and partes[1].isdigit():
+                num = int(partes[1]) + 1
+                return f"SPU-{num:05d}"
+            else:
+                return f"SPU-{(ultimo.id or 0) + 1:05d}"
+        except Exception:
+            return f"SPU-{(ultimo.id or 0) + 1:05d}"
+
+    @property
+    def total_articulos(self):
+        return self.detalles.count()
+
+    @property
+    def total_piezas(self):
+        from django.db.models import Sum
+        res = self.detalles.aggregate(total=Sum('cantidad'))['total']
+        return res or Decimal('0.00')
+
+    @property
+    def total_costo(self):
+        from django.db.models import Sum
+        res = self.detalles.aggregate(total=Sum('subtotal'))['total']
+        return res or Decimal('0.00')
+
+    @property
+    def creador_corto(self):
+        if self.usuario_creador:
+            return str(self.usuario_creador.username).split('@')[0]
+        return "Sistema"
+
+    @property
+    def recibe_corto(self):
+        if self.usuario_recibe:
+            return str(self.usuario_recibe.username).split('@')[0]
+        return "--"
+
+
+class DetalleSalidaPorUso(models.Model):
+    salida = models.ForeignKey(SalidaPorUso, on_delete=models.CASCADE, related_name='detalles')
+    producto = models.ForeignKey('core.Producto', on_delete=models.CASCADE, related_name='detalles_salida_uso')
+    unidad_medida = models.CharField(max_length=50, blank=True, null=True, verbose_name="Unidad de Medida")
+    cantidad = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Cantidad")
+    costo_unitario = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Costo Unitario")
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Subtotal")
+    extras_data = models.JSONField(default=list, blank=True, verbose_name="Datos de Lotes/Series/Caducidades")
+
+    class Meta:
+        verbose_name = "Detalle de Salida por Uso"
+        verbose_name_plural = "Detalles de Salida por Uso"
+
+    def __str__(self):
+        return f"{self.producto.nombre} ({self.cantidad}) - {self.salida.folio}"
+
 

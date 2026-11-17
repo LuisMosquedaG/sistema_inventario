@@ -26,4 +26,15 @@ urlpatterns = [
     path('toma-inventario/api/cambiar-estado/<int:toma_id>/', views.api_cambiar_estado_toma, name='api_cambiar_estado_toma'),
     path('toma-inventario/api/cerrar/<int:toma_id>/', views.api_cerrar_toma_inventario, name='api_cerrar_toma_inventario'),
     path('toma-inventario/api/eliminar/<int:toma_id>/', views.api_eliminar_toma_inventario, name='api_eliminar_toma_inventario'),
+
+    # Salida por Uso
+    path('salida-por-uso/', views.dashboard_salida_por_uso, name='dashboard_salida_por_uso'),
+    path('salida-por-uso/api/crear/', views.api_crear_salida_por_uso, name='api_crear_salida_por_uso'),
+    path('salida-por-uso/api/actualizar/<int:salida_id>/', views.api_actualizar_salida_por_uso, name='api_actualizar_salida_por_uso'),
+    path('salida-por-uso/api/detalle/<int:salida_id>/', views.api_detalle_salida_por_uso, name='api_detalle_salida_por_uso'),
+    path('salida-por-uso/api/aprobar/<int:salida_id>/', views.api_aprobar_salida_por_uso, name='api_aprobar_salida_por_uso'),
+    path('salida-por-uso/api/cancelar/<int:salida_id>/', views.api_cancelar_salida_por_uso, name='api_cancelar_salida_por_uso'),
+    path('salida-por-uso/api/almacenes-sucursal/<int:sucursal_id>/', views.api_almacenes_sucursal, name='api_salida_almacenes_sucursal'),
+    path('salida-por-uso/api/articulos-almacen/<int:almacen_id>/', views.api_articulos_salida_almacen, name='api_articulos_salida_almacen'),
+    path('salida-por-uso/api/extras-articulo/<int:almacen_id>/<int:producto_id>/', views.api_extras_salida_almacen, name='api_extras_salida_almacen'),
 ]
