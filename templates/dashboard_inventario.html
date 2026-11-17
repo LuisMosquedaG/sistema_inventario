@@ -695,8 +695,8 @@
                                         <div>Dispo: <span class="text-success">{{ p.stock_disponible_anotado|floatformat:"-2"|default:0 }}</span></div>
                                     </td>
                                     <td class="text-center small text-muted">
-                                        <div>Último: {% if p.ultimo_costo_anotado and p.ultimo_costo_anotado > 0 %}${{ p.ultimo_costo_anotado|floatformat:2|intcomma }}{% elif p.ultimo_costo and p.ultimo_costo > 0 %}${{ p.ultimo_costo|floatformat:2|intcomma }}{% else %}-${% endif %}</div>
-                                        <div>Prom: {% if p.costo_promedio_anotado and p.costo_promedio_anotado > 0 %}${{ p.costo_promedio_anotado|floatformat:2|intcomma }}{% else %}-${% endif %}</div>
+                                        <div>Último: {% if p.ultimo_costo_anotado and p.ultimo_costo_anotado > 0 %}${{ p.ultimo_costo_anotado|floatformat:2|intcomma }}{% elif p.ultimo_costo and p.ultimo_costo > 0 %}${{ p.ultimo_costo|floatformat:2|intcomma }}{% else %}$-{% endif %}</div>
+                                        <div>Prom: {% if p.costo_promedio_anotado and p.costo_promedio_anotado > 0 %}${{ p.costo_promedio_anotado|floatformat:2|intcomma }}{% else %}$-{% endif %}</div>
                                         <div>Base: ${{ p.precio_costo|floatformat:2|intcomma|default:"-" }}</div>
                                     </td>
                                     <td class="text-center small text-muted">

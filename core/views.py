@@ -1233,7 +1233,7 @@ def dashboard_inventario(request):
             Subquery(inv_cost_sub, output_field=DecimalField(max_digits=10, decimal_places=2)),
             Case(
                 When(costo_promedio__gt=0, then=F('costo_promedio')),
-                default=F('precio_costo'),
+                default=None,
                 output_field=DecimalField(max_digits=10, decimal_places=2)
             ),
             output_field=DecimalField(max_digits=10, decimal_places=2)
@@ -1271,7 +1271,7 @@ def dashboard_inventario(request):
                 Subquery(ultimo_costo_subquery),
                 Case(
                     When(ultimo_costo__gt=0, then=F('ultimo_costo')),
-                    default=F('precio_costo'),
+                    default=None,
                     output_field=DecimalField(max_digits=10, decimal_places=2)
                 ),
                 output_field=DecimalField(max_digits=10, decimal_places=2)
@@ -1633,8 +1633,8 @@ def obtener_producto_json(request, producto_id):
             'marca': producto.marca or '', 'modelo': producto.modelo or '', 'linea': producto.linea or '',
             'unidad_medida': producto.unidad_medida, 'iva': str(producto.iva), 'ieps': str(producto.ieps),
             'precio_costo': str(producto.precio_costo), 'precio_venta': str(producto.precio_venta),
-            'ultimo_costo': str(producto.ultimo_costo if producto.ultimo_costo is not None else producto.precio_costo),
-            'costo_promedio': str(producto.costo_promedio if producto.costo_promedio is not None else producto.precio_costo),
+            'ultimo_costo': str(producto.ultimo_costo if producto.ultimo_costo and producto.ultimo_costo > 0 else ''),
+            'costo_promedio': str(producto.costo_promedio if producto.costo_promedio and producto.costo_promedio > 0 else ''),
             'precios_lista': producto.precios_lista, 'costos_lista': producto.costos_lista,
             'listas_maestras': list(listas_maestras),
             'stock_minimo': producto.stock_minimo, 'stock_maximo': producto.stock_maximo,
