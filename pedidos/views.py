@@ -354,6 +354,7 @@ from django.db.models import Q
 @login_required(login_url='/login/')
 @require_sales_permission('pedidos', 'ver')
 def dashboard_pedidos(request):
+    list(messages.get_messages(request))
     empresa_actual = get_empresa_actual(request)
     if not empresa_actual:
         return render(request, 'error_sin_empresa.html', status=403)
@@ -519,7 +520,6 @@ def crear_pedido_desde_cotizacion(request, cotizacion_id):
         cotizacion.resultado = 'ganada'
         cotizacion.save()
 
-        messages.success(request, f'Pedido #{nuevo_pedido.id} creado exitosamente. Por favor confírmalo para validar stock.')
         crear_notificacion(
             empresa=empresa_actual,
             actor=request.user,
@@ -619,7 +619,6 @@ def validar_pedido(request, pedido_id):
     pedido.estado = 'revision'
     pedido.save()
     
-    messages.success(request, 'Validación completada. Revise las partidas faltantes.')
     return redirect('dashboard_pedidos')
 
 @login_required(login_url='/login/')
@@ -709,12 +708,9 @@ def completar_linea_pedido(request, detalle_id):
         detalle.estado_linea = 'completo'
         detalle.cantidad_entregada = detalle.cantidad_solicitada
         detalle.save()
-        messages.success(request, f'Línea marcada como completa.')
         
         # Verificar si todo el pedido está completo
         verificar_completitud_pedido(pedido)
-    else:
-        messages.info(request, 'Esta línea no requiere acción o ya está completa.')
 
     return redirect('dashboard_pedidos')
 
@@ -1022,7 +1018,6 @@ def generar_solicitud_global(request, pedido_id):
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return JsonResponse({'success': True, 'message': msg})
     
-    messages.success(request, msg)
     return redirect('dashboard_solicitudcompras')
 
 @login_required(login_url='/login/')

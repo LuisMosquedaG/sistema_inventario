@@ -156,17 +156,6 @@
             </div>
         </div>
 
-        {% if messages %}
-        <div class="mb-3">
-            {% for message in messages %}
-                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
-                    <i class="bi bi-info-circle me-2"></i>{{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            {% endfor %}
-        </div>
-        {% endif %}
-
         <!-- FILTROS DE PEDIDOS -->
         <div class="card border-0 shadow-sm mb-3">
             <div class="card-body p-3">
