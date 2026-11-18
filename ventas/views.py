@@ -514,33 +514,164 @@ def crear_orden_venta(request, pedido_id):
     return redirect('dashboard_ventas')
 
 @login_required(login_url='/login/')
+@require_sales_permission('salidas', 'crear', json_response=True)
+def api_preparar_entrega_pedido(request, pedido_id):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return JsonResponse({'success': False, 'error': 'Empresa no encontrada'}, status=400)
+
+    pedido = get_object_or_404(Pedido, id=pedido_id, empresa=empresa_actual)
+
+    almacenes_qs = Almacen.objects.filter(empresa=empresa_actual)
+    almacen_defecto = None
+    if pedido.sucursal:
+        almacen_defecto = almacenes_qs.filter(sucursal=pedido.sucursal).first()
+    if not almacen_defecto:
+        almacen_defecto = almacenes_qs.first()
+
+    almacen_id_param = request.GET.get('almacen_id')
+    if almacen_id_param:
+        almacen_seleccionado = almacenes_qs.filter(id=almacen_id_param).first() or almacen_defecto
+    else:
+        almacen_seleccionado = almacen_defecto
+
+    almacenes_list = [{'id': a.id, 'nombre': a.nombre} for a in almacenes_qs]
+
+    lineas_pedido = pedido.detalles.filter(parent_line__isnull=True).select_related('producto')
+
+    articulos = []
+    tiene_trazabilidad = False
+
+    for linea in lineas_pedido:
+        cant_pendiente = float(linea.cantidad_solicitada - linea.cantidad_entregada)
+        if cant_pendiente <= 0:
+            continue
+
+        prod = linea.producto
+        req_traz = (prod.maneja_lote or prod.maneja_serie or prod.maneja_caducidad) and prod.tipo != 'servicio'
+        if req_traz:
+            tiene_trazabilidad = True
+
+        inv = Inventario.objects.filter(producto=prod, almacen=almacen_seleccionado).first()
+        disponible = float(inv.cantidad if inv else 0)
+
+        extras = []
+        if req_traz and almacen_seleccionado:
+            extras_qs = DetalleRecepcionExtra.objects.filter(
+                almacen=almacen_seleccionado,
+                almacen__empresa=empresa_actual
+            ).filter(
+                Q(detalle_recepcion__producto=prod, detalle_recepcion__recepcion__empresa=empresa_actual) |
+                Q(producto=prod, producto__empresa=empresa_actual)
+            ).order_by('id')
+
+            if getattr(prod, 'maneja_fifo', False):
+                extras_qs = extras_qs.order_by('detalle_recepcion__recepcion__fecha', 'fecha_creacion', 'id')
+            elif getattr(prod, 'maneja_lifo', False):
+                extras_qs = extras_qs.order_by('-detalle_recepcion__recepcion__fecha', '-fecha_creacion', '-id')
+            elif getattr(prod, 'maneja_fefo', False):
+                extras_qs = extras_qs.order_by(F('fecha_caducidad').asc(nulls_last=True), 'detalle_recepcion__recepcion__fecha', 'fecha_creacion', 'id')
+
+            for e in extras_qs:
+                if e.tipo in ['lote', 'caducidad'] and (e.cantidad_lote or 0) <= 0:
+                    continue
+                extras.append({
+                    'id': e.id,
+                    'tipo': e.tipo,
+                    'lote': e.lote or '',
+                    'serie': e.serie or '',
+                    'fecha_caducidad': e.fecha_caducidad.strftime('%d/%m/%Y') if e.fecha_caducidad else '',
+                    'disponible': float(e.cantidad_lote) if e.tipo in ['lote', 'caducidad'] else 1
+                })
+
+        articulos.append({
+            'detalle_id': linea.id,
+            'producto_id': prod.id,
+            'nombre': prod.nombre,
+            'clave': prod.clave or '',
+            'unidad_medida': prod.get_unidad_medida_display() or prod.unidad_medida or 'Pieza',
+            'cantidad': cant_pendiente,
+            'disponible': disponible,
+            'tipo': prod.tipo,
+            'maneja_lote': prod.maneja_lote,
+            'maneja_serie': prod.maneja_serie,
+            'maneja_caducidad': prod.maneja_caducidad,
+            'requiere_trazabilidad': req_traz,
+            'extras_disponibles': extras
+        })
+
+    return JsonResponse({
+        'success': True,
+        'pedido_id': pedido.id,
+        'folio': f"PED-{pedido.id:04d}",
+        'cliente': pedido.cliente.nombre_completo,
+        'sucursal': pedido.sucursal.nombre if pedido.sucursal else 'Principal',
+        'almacen_id': almacen_seleccionado.id if almacen_seleccionado else None,
+        'almacenes': almacenes_list,
+        'tiene_trazabilidad': tiene_trazabilidad,
+        'articulos': articulos
+    })
+
+
+@login_required(login_url='/login/')
 def entregar_pedido_directo(request, pedido_id):
     """
     Crea la Orden de Salida para un pedido y en automático la procesa como 'entregado',
     descontando stock y actualizando el estado de entrega a 'Entregado'.
+    Permite asociar la trazabilidad (lotes / series / caducidades) enviadas por el modal.
     """
     empresa_actual = get_empresa_actual(request)
+    is_ajax = (request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 
+               request.content_type == 'application/json' or 
+               request.GET.get('format') == 'json')
+
     if not empresa_actual:
+        if is_ajax:
+            return JsonResponse({'success': False, 'error': "Empresa no detectada"}, status=400)
         messages.error(request, "Empresa no detectada")
         return redirect('dashboard_pedidos')
 
     pedido = get_object_or_404(Pedido, id=pedido_id, empresa=empresa_actual)
     if pedido.estado not in ['confirmado', 'completo']:
-        messages.error(request, 'Solo se pueden entregar pedidos confirmados o completos.')
+        err_msg = 'Solo se pueden entregar pedidos confirmados o completos.'
+        if is_ajax:
+            return JsonResponse({'success': False, 'error': err_msg}, status=400)
+        messages.error(request, err_msg)
         return redirect('dashboard_pedidos')
 
     orden_entregada = OrdenVenta.objects.filter(pedido_origen=pedido, estado_entrega='entregado').exists()
     if orden_entregada:
-        messages.warning(request, 'Este pedido ya tiene una Orden de Salida entregada.')
+        err_msg = 'Este pedido ya tiene una Orden de Salida entregada.'
+        if is_ajax:
+            return JsonResponse({'success': False, 'error': err_msg}, status=400)
+        messages.warning(request, err_msg)
         return redirect('dashboard_pedidos')
 
-    almacen_defecto = Almacen.objects.filter(empresa=empresa_actual, sucursal=pedido.sucursal).first()
+    almacen_id_post = None
+    extras_data_post = {}
+    if request.method == 'POST':
+        try:
+            if request.content_type == 'application/json' and request.body:
+                payload = json.loads(request.body)
+            elif 'payload' in request.POST:
+                payload = json.loads(request.POST.get('payload', '{}'))
+            else:
+                payload = request.POST
+            almacen_id_post = payload.get('almacen_id')
+            extras_data_post = payload.get('extras_data', {})
+        except Exception:
+            pass
+
+    almacen_defecto = None
+    if almacen_id_post:
+        almacen_defecto = Almacen.objects.filter(id=almacen_id_post, empresa=empresa_actual).first()
+    if not almacen_defecto and pedido.sucursal:
+        almacen_defecto = Almacen.objects.filter(empresa=empresa_actual, sucursal=pedido.sucursal).first()
     if not almacen_defecto:
         almacen_defecto = Almacen.objects.filter(empresa=empresa_actual).first()
 
-    # Si ya tiene una orden abierta (borrador o aprobado), reutilizarla; sino, crear una nueva
     ov = OrdenVenta.objects.filter(pedido_origen=pedido, estado__in=['borrador', 'aprobado']).first()
-    lineas_pedido = pedido.detalles.filter(parent_line__isnull=True)
+    lineas_pedido = pedido.detalles.filter(parent_line__isnull=True).select_related('producto')
 
     try:
         with transaction.atomic():
@@ -577,42 +708,52 @@ def entregar_pedido_directo(request, pedido_id):
             for linea in lineas_pedido:
                 cant = linea.cantidad_solicitada - linea.cantidad_entregada
                 if cant > 0 and linea.producto.tipo != 'servicio':
-                    # Determinar el almacén correcto para este producto:
-                    # 1. Donde esté la reserva del producto
-                    inv = Inventario.objects.filter(
-                        producto=linea.producto,
-                        almacen__empresa=empresa_actual,
-                        reservado__gt=0
-                    ).first()
-
-                    # 2. O en la sucursal del pedido con stock
-                    if not inv and pedido.sucursal:
-                        inv = Inventario.objects.filter(
+                    almacen_target = almacen_defecto
+                    if not almacen_id_post:
+                        inv_res = Inventario.objects.filter(
                             producto=linea.producto,
                             almacen__empresa=empresa_actual,
-                            almacen__sucursal=pedido.sucursal,
-                            cantidad__gt=0
+                            reservado__gt=0
                         ).first()
+                        if inv_res:
+                            almacen_target = inv_res.almacen
+                        elif pedido.sucursal:
+                            inv_suc = Inventario.objects.filter(
+                                producto=linea.producto,
+                                almacen__empresa=empresa_actual,
+                                almacen__sucursal=pedido.sucursal,
+                                cantidad__gt=0
+                            ).first()
+                            if inv_suc:
+                                almacen_target = inv_suc.almacen
 
-                    # 3. O cualquier almacén de la empresa con stock
-                    if not inv:
-                        inv = Inventario.objects.filter(
-                            producto=linea.producto,
-                            almacen__empresa=empresa_actual
-                        ).order_by('-cantidad').first()
+                    # Obtener los extras para esta línea
+                    raw_extras = extras_data_post.get(str(linea.id)) or extras_data_post.get(str(linea.producto_id)) or []
+                    linea_extras = []
+                    for it in raw_extras:
+                        try:
+                            linea_extras.append({
+                                'id': int(it.get('id')),
+                                'qty': float(it.get('qty', 1)),
+                                'tipo': it.get('tipo', ''),
+                                'lote': it.get('lote', ''),
+                                'serie': it.get('serie', '')
+                            })
+                        except Exception:
+                            pass
 
-                    # 4. Fallback si no existía registro de inventario
-                    if not inv:
-                        almacen_target = almacen_defecto
-                        inv, _ = Inventario.objects.get_or_create(
-                            producto=linea.producto,
-                            almacen=almacen_target,
-                            defaults={'cantidad': Decimal('0'), 'reservado': Decimal('0')}
-                        )
-                    else:
-                        almacen_target = inv.almacen
+                    # Validación de trazabilidad
+                    req_traz = (linea.producto.maneja_lote or linea.producto.maneja_serie or linea.producto.maneja_caducidad)
+                    if req_traz and not linea_extras:
+                        if not (getattr(linea.producto, 'maneja_fifo', False) or getattr(linea.producto, 'maneja_lifo', False) or getattr(linea.producto, 'maneja_fefo', False)):
+                            raise ValueError(f"El artículo '{linea.producto.nombre}' requiere selección de lote o serie para su entrega.")
 
-                    # Si el almacén tiene menos stock del solicitado, nivelar para permitir la entrega física
+                    inv, _ = Inventario.objects.get_or_create(
+                        producto=linea.producto,
+                        almacen=almacen_target,
+                        defaults={'cantidad': Decimal('0'), 'reservado': Decimal('0')}
+                    )
+
                     if inv.cantidad < Decimal(str(cant)):
                         inv.cantidad = Decimal(str(cant))
                         inv.save(update_fields=['cantidad'])
@@ -628,6 +769,7 @@ def entregar_pedido_directo(request, pedido_id):
                         empresa=empresa_actual,
                         usuario=request.user,
                         referencia=ov.folio_display,
+                        extras_data=linea_extras,
                         quitar_reserva=reserva_a_quitar,
                         estado='recibida'
                     )
@@ -650,8 +792,11 @@ def entregar_pedido_directo(request, pedido_id):
                 propietario=pedido.vendedor
             )
 
-        messages.success(request, f'Pedido #{pedido.id} entregado con éxito. Se generó la salida {ov.folio_display} como Entregado.')
+        if is_ajax:
+            return JsonResponse({'success': True, 'message': f'Pedido #{pedido.id} entregado con éxito.'})
     except Exception as e:
+        if is_ajax:
+            return JsonResponse({'success': False, 'error': f'Error al entregar pedido: {str(e)}'}, status=400)
         messages.error(request, f'Error al entregar pedido: {str(e)}')
 
     return redirect('dashboard_pedidos')
