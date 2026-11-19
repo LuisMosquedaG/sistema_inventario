@@ -176,11 +176,13 @@
                 Gestión presupuestal, clasificación financiera y trazabilidad de gastos ({{ mes_nombre }} {{ anio_actual }})
             </span>
         </div>
+        {% if granular_centros_costos_perms.centros_costos.crear %}
         <div class="d-flex gap-2">
             <button type="button" class="btn btn-brand btn-sm px-3 shadow-sm d-flex align-items-center" onclick="abrirModalCrearCentro()">
                 <i class="bi bi-plus-lg me-1"></i> Nuevo Centro de Costo
             </button>
         </div>
+        {% endif %}
     </div>
 
     <!-- BARRA DE FILTROS -->
@@ -275,15 +277,21 @@
                             <!-- ACCIONES -->
                             <td class="text-center align-middle">
                                 <div class="d-flex justify-content-center gap-1">
+                                    {% if granular_centros_costos_perms.centros_costos.ver_movimientos %}
                                     <button type="button" class="icon-action icon-action-view" onclick="verMovimientosCentro({{ c.id }}, '{{ c.codigo }} - {{ c.nombre|escapejs }}')" title="Ver Movimientos y Desglose">
                                         <i class="bi bi-bar-chart-line"></i>
                                     </button>
+                                    {% endif %}
+                                    {% if granular_centros_costos_perms.centros_costos.editar %}
                                     <button type="button" class="icon-action icon-action-edit" onclick="abrirModalEditarCentro({{ c.id }})" title="Editar Centro">
                                         <i class="bi bi-pencil-square"></i>
                                     </button>
+                                    {% endif %}
+                                    {% if granular_centros_costos_perms.centros_costos.eliminar %}
                                     <button type="button" class="icon-action icon-action-delete" onclick="eliminarCentro({{ c.id }}, '{{ c.codigo }} - {{ c.nombre|escapejs }}')" title="Eliminar Centro">
                                         <i class="bi bi-x-circle"></i>
                                     </button>
+                                    {% endif %}
                                 </div>
                             </td>
 

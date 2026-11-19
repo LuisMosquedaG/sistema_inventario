@@ -154,6 +154,10 @@ function prepararNuevaSolicitud() {
     // Ocultar sección de datos de pedido
     document.getElementById('seccion_datos_pedido').style.display = 'none';
     
+    // Ocultar alerta de rechazo si existía
+    const alertaRechazo = document.getElementById('alerta_edicion_rechazo');
+    if (alertaRechazo) alertaRechazo.classList.add('d-none');
+    
     // Resetear sucursales general
     const genSuc = document.getElementById('gen_sucursal');
     if (genSuc) {
@@ -1037,6 +1041,79 @@ async function verSolicitud(id) {
         document.getElementById('ver_solicitud_iva_total').innerText = `$${parseFloat(data.iva_total || 0).toLocaleString('en-US', {minimumFractionDigits:2})}`;
         document.getElementById('ver_total_solicitud').innerText = `$${parseFloat(data.gran_total || 0).toLocaleString('en-US', {minimumFractionDigits:2})}`;
         
+        // Alerta de Rechazo (si la solicitud está rechazada)
+        const alertRechazo = document.getElementById('ver_alerta_rechazo');
+        const txtMotivo = document.getElementById('ver_motivo_rechazo_texto');
+        if (alertRechazo && txtMotivo) {
+            if (data.estado === 'rechazada' && data.motivo_rechazo) {
+                txtMotivo.innerText = data.motivo_rechazo;
+                alertRechazo.style.display = 'block';
+            } else {
+                alertRechazo.style.display = 'none';
+            }
+        }
+
+        // Historial / Movimientos (Lado derecho a lo largo)
+        const histContainer = document.getElementById('ver_contenedor_historial');
+        const histCount = document.getElementById('ver_historial_count');
+        if (histContainer) {
+            histContainer.innerHTML = '';
+            if (data.historial && data.historial.length > 0) {
+                if (histCount) histCount.innerText = data.historial.length;
+                data.historial.forEach(h => {
+                    const dotClass = `dot-${h.accion}`;
+                    let iconHtml = '<i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i>';
+                    const statusClassMap = {
+                        'creacion': 'borrador',
+                        'aprobacion': 'aprobada',
+                        'rechazo': 'rechazada',
+                        'autorizacion': 'atendida',
+                        'edicion': 'enviada',
+                        'cancelacion': 'cancelada'
+                    };
+                    const statusClass = statusClassMap[h.accion] || h.accion;
+                    
+                    if (h.accion === 'creacion') {
+                        iconHtml = '<i class="bi bi-plus-lg"></i>';
+                    } else if (h.accion === 'aprobacion') {
+                        iconHtml = '<i class="bi bi-check2"></i>';
+                    } else if (h.accion === 'rechazo') {
+                        iconHtml = '<i class="bi bi-x-octagon"></i>';
+                    } else if (h.accion === 'autorizacion') {
+                        iconHtml = '<i class="bi bi-check-all"></i>';
+                    } else if (h.accion === 'edicion') {
+                        iconHtml = '<i class="bi bi-pencil-fill"></i>';
+                    } else if (h.accion === 'cancelacion') {
+                        iconHtml = '<i class="bi bi-slash-circle"></i>';
+                    }
+
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'timeline-item';
+                    itemDiv.innerHTML = `
+                        <div class="timeline-dot ${dotClass}">
+                            ${iconHtml}
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between gap-1 mb-1">
+                            <div class="d-flex align-items-center gap-2 text-truncate" style="min-width: 0;">
+                                <span class="status-pill status-${statusClass}">${h.accion_display}</span>
+                                <span class="small fw-semibold text-dark text-truncate" style="font-size: 0.76rem;" title="${h.usuario}">
+                                    <i class="bi bi-person-fill text-muted me-1"></i>${h.usuario}
+                                </span>
+                            </div>
+                            <span class="text-muted font-monospace flex-shrink-0" style="font-size: 0.68rem;">
+                                ${h.fecha}
+                            </span>
+                        </div>
+                        ${(h.accion === 'rechazo' && h.comentario) ? `<div class="mt-1 timeline-comment-box comment-rechazo text-start">${h.comentario.trim()}</div>` : ''}
+                    `;
+                    histContainer.appendChild(itemDiv);
+                });
+            } else {
+                if (histCount) histCount.innerText = '0';
+                histContainer.innerHTML = '<div class="text-center py-4 text-muted small fst-italic">Sin movimientos registrados.</div>';
+            }
+        }
+
         const modal = new bootstrap.Modal(document.getElementById('modalVerSolicitud'));
         modal.show();
 
@@ -1058,6 +1135,18 @@ async function cargarParaEdicion(id) {
 
         prepararNuevaSolicitud(); 
         
+        // Alerta de Rechazo previa si aplica
+        const alertaRechazo = document.getElementById('alerta_edicion_rechazo');
+        const txtMotivo = document.getElementById('texto_edicion_motivo_rechazo');
+        if (alertaRechazo) {
+            if (data.estado === 'rechazada' && data.motivo_rechazo) {
+                if (txtMotivo) txtMotivo.innerText = data.motivo_rechazo;
+                alertaRechazo.classList.remove('d-none');
+            } else {
+                alertaRechazo.classList.add('d-none');
+            }
+        }
+
         document.getElementById('solicitud_id_edit').value = id;
         document.getElementById('tituloModalSolicitud').innerText = `Editar Solicitud SOL-${String(id).padStart(4, '0')}`;
         document.getElementById('notas_solicitud').value = data.notas || '';
@@ -1131,8 +1220,35 @@ async function cargarParaEdicion(id) {
 }
 
 
+async function aprobarSolicitud(id) {
+    if (!confirm(`¿Está seguro de aprobar la Solicitud SOL-${String(id).padStart(4, '0')}?\n\nSe validará que todas las partidas cuenten con proveedor, almacén, costo y moneda asignados.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/solicitudes-compras/aprobar/${id}/`, {
+            method: 'POST',
+            headers: { 
+                'X-CSRFToken': csrftoken,
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            location.reload();
+        } else {
+            alert("Error al aprobar: " + (result.error || result.message));
+        }
+    } catch (error) {
+        console.error("Error:", error);
+        alert("Ocurrió un error en el servidor.");
+    }
+}
+
 async function previsualizarAutorizacion(id) {
-    if (!confirm(`¿Está seguro de autorizar la Solicitud SOL-${String(id).padStart(4, '0')}?\n\nSe generarán las órdenes de compra correspondientes agrupadas por proveedor.`)) {
+    if (!confirm(`¿Está seguro de autorizar la Solicitud SOL-${String(id).padStart(4, '0')}?\n\nSe generarán las órdenes de compra correspondientes agrupadas por proveedor y pasará a estado Autorizada.`)) {
         return;
     }
 
@@ -1155,6 +1271,66 @@ async function previsualizarAutorizacion(id) {
     } catch (error) {
         console.error("Error:", error);
         alert("Ocurrió un error en el servidor.");
+    }
+}
+
+function abrirModalRechazar(id) {
+    document.getElementById('rechazo_solicitud_id').value = id;
+    const folioEl = document.getElementById('rechazo_solicitud_folio');
+    if (folioEl) folioEl.innerText = `SOL-${String(id).padStart(4, '0')}`;
+    const txtMotivo = document.getElementById('rechazo_motivo');
+    if (txtMotivo) txtMotivo.value = '';
+    
+    const modalEl = document.getElementById('modalRechazarSolicitud');
+    if (modalEl) {
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+    }
+}
+
+async function enviarRechazoSolicitud(e) {
+    e.preventDefault();
+    const id = document.getElementById('rechazo_solicitud_id').value;
+    const motivo = (document.getElementById('rechazo_motivo').value || '').trim();
+    if (!motivo) {
+        alert("Por favor indique el motivo o comentarios del rechazo.");
+        return;
+    }
+    
+    const btn = document.getElementById('btnConfirmarRechazo');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Rechazando...';
+    }
+    
+    try {
+        const formData = new FormData();
+        formData.append('motivo', motivo);
+        
+        const response = await fetch(`/solicitudes-compras/rechazar/${id}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            location.reload();
+        } else {
+            alert("Error al rechazar: " + (result.error || result.message));
+        }
+    } catch (error) {
+        console.error("Error al rechazar:", error);
+        alert("Ocurrió un error al procesar el rechazo.");
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-x-octagon me-1"></i> Confirmar Rechazo';
+        }
     }
 }
 

@@ -92,6 +92,7 @@ def crear_empresa(request):
                 modulo_recursos_humanos=(request.POST.get('modulo_recursos_humanos') == 'on') if 'modulo_recursos_humanos' in request.POST else True,
                 modulo_costeos=(request.POST.get('modulo_costeos') == 'on') if 'modulo_costeos' in request.POST else True,
                 modulo_pos=(request.POST.get('modulo_pos') == 'on') if 'modulo_pos' in request.POST else True,
+                modulo_centros_costos=(request.POST.get('modulo_centros_costos') == 'on') if 'modulo_centros_costos' in request.POST else True,
                 fecha_inicio_licencia=request.POST.get('fecha_inicio_licencia') or None,
                 fecha_vencimiento_licencia=request.POST.get('fecha_vencimiento_licencia') or None,
             )
@@ -205,6 +206,8 @@ def obtener_empresa_json(request, empresa_id):
         'modulo_inventarios': empresa.modulo_inventarios,
         'modulo_recursos_humanos': empresa.modulo_recursos_humanos,
         'modulo_costeos': empresa.modulo_costeos,
+        'modulo_pos': empresa.modulo_pos,
+        'modulo_centros_costos': empresa.modulo_centros_costos,
         'fecha_inicio_licencia': empresa.fecha_inicio_licencia.isoformat() if empresa.fecha_inicio_licencia else '',
         'fecha_vencimiento_licencia': empresa.fecha_vencimiento_licencia.isoformat() if empresa.fecha_vencimiento_licencia else '',
     }
@@ -259,6 +262,8 @@ def actualizar_empresa(request, empresa_id):
                 empresa.modulo_costeos = (request.POST.get('modulo_costeos') == 'on')
             if 'modulo_pos' in request.POST:
                 empresa.modulo_pos = (request.POST.get('modulo_pos') == 'on')
+            if 'modulo_centros_costos' in request.POST:
+                empresa.modulo_centros_costos = (request.POST.get('modulo_centros_costos') == 'on')
 
             # Actualizar licenciamiento
             empresa.fecha_inicio_licencia = request.POST.get('fecha_inicio_licencia') or None
@@ -342,7 +347,7 @@ def gestion_empresa(request, empresa_id):
         'uso_actual_mb': uso_actual_mb,
         'porcentaje_uso': porcentaje_uso,
         'limite_gb': round(empresa.limite_espacio_disco / 1024, 2),
-        'modulos_lista': ['ventas', 'compras', 'recursos_humanos', 'inventarios', 'produccion', 'tesoreria', 'costeos', 'pos']
+        'modulos_lista': ['ventas', 'compras', 'recursos_humanos', 'inventarios', 'produccion', 'tesoreria', 'costeos', 'pos', 'centros_costos']
     })
 
 @login_required(login_url='/login/')
@@ -360,6 +365,7 @@ def actualizar_limites_ajax(request, empresa_id):
         empresa.modulo_tesoreria = (request.POST.get('modulo_tesoreria') == 'on')
         empresa.modulo_costeos = (request.POST.get('modulo_costeos') == 'on')
         empresa.modulo_pos = (request.POST.get('modulo_pos') == 'on')
+        empresa.modulo_centros_costos = (request.POST.get('modulo_centros_costos') == 'on')
 
         # Límites
         empresa.limite_sucursales = int(request.POST.get('limite_sucursales', 5))

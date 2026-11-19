@@ -1,6 +1,6 @@
 from django.db import transaction
 from decimal import Decimal
-from .models import OrdenCompra, DetalleCompra
+from .models import OrdenCompra, DetalleCompra, HistorialOrdenCompra
 from core.models import Producto
 
 @transaction.atomic
@@ -151,5 +151,12 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
     if items_creados == 0:
         orden.delete() # Si no hay items, borramos la orden vacía
         raise ValueError("Debes agregar al menos un producto válido.")
+
+    HistorialOrdenCompra.objects.create(
+        orden_compra=orden,
+        usuario=usuario,
+        accion='creacion',
+        comentario='Orden de compra registrada.'
+    )
 
     return orden

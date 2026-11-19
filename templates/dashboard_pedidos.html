@@ -794,6 +794,7 @@
                                     </div>
 
                                     <!-- CENTRO DE COSTOS -->
+                                    {% if empresa.modulo_centros_costos %}
                                     <div class="col-md-3">
                                         <label class="form-label small fw-bold text-secondary">
                                             <i class="bi bi-diagram-3 me-1" style="color: #00b8b9;"></i>Centro de Costos
@@ -805,6 +806,7 @@
                                             {% endfor %}
                                         </select>
                                     </div>
+                                    {% endif %}
 
                                     <!-- NOTAS -->
                                     <div class="col-md-12 mt-2">

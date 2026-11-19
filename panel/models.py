@@ -50,6 +50,7 @@ class Empresa(models.Model):
     modulo_recursos_humanos = models.BooleanField(default=True, verbose_name="Módulo Recursos Humanos")
     modulo_costeos = models.BooleanField(default=True, verbose_name="Módulo Costeos")
     modulo_pos = models.BooleanField(default=True, verbose_name="Módulo POS")
+    modulo_centros_costos = models.BooleanField(default=True, verbose_name="Módulo Centros de Costos")
 
     uma = models.DecimalField(max_digits=10, decimal_places=2, default=117.31, verbose_name="UMA")
 

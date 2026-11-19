@@ -10,6 +10,7 @@ from django.core.paginator import Paginator
 
 from panel.models import Empresa
 from preferencias.models import Sucursal
+from preferencias.permissions import require_centros_costos_permission
 from .models import CentroCosto
 from almacenes.models import DetalleSalidaPorUso, SalidaPorUso, Almacen
 from tesoreria.models import Egreso, Ingreso
@@ -29,10 +30,14 @@ def get_empresa_actual(request):
     return None
 
 @login_required(login_url='/login/')
+@require_centros_costos_permission('centros_costos', 'ver')
 def dashboard_centros_costos(request):
     empresa = get_empresa_actual(request)
     if not empresa:
         return render(request, 'error_empresa.html')
+
+    if not getattr(empresa, 'modulo_centros_costos', True):
+        return redirect('dashboard_inicio')
 
     now = timezone.now()
     anio_actual = now.year
@@ -154,6 +159,7 @@ def dashboard_centros_costos(request):
 
 
 @login_required(login_url='/login/')
+@require_centros_costos_permission('centros_costos', 'crear', json_response=True)
 def crear_centro_costo_ajax(request):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
@@ -234,6 +240,7 @@ def crear_centro_costo_ajax(request):
 
 
 @login_required(login_url='/login/')
+@require_centros_costos_permission('centros_costos', 'editar', json_response=True)
 def obtener_centro_costo_json(request, centro_id):
     empresa = get_empresa_actual(request)
     if not empresa:
@@ -262,6 +269,7 @@ def obtener_centro_costo_json(request, centro_id):
 
 
 @login_required(login_url='/login/')
+@require_centros_costos_permission('centros_costos', 'editar', json_response=True)
 def actualizar_centro_costo_ajax(request, centro_id):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
@@ -343,6 +351,7 @@ def actualizar_centro_costo_ajax(request, centro_id):
 
 
 @login_required(login_url='/login/')
+@require_centros_costos_permission('centros_costos', 'editar', json_response=True)
 def toggle_estado_centro_costo_ajax(request, centro_id):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
@@ -364,6 +373,7 @@ def toggle_estado_centro_costo_ajax(request, centro_id):
 
 
 @login_required(login_url='/login/')
+@require_centros_costos_permission('centros_costos', 'eliminar', json_response=True)
 def eliminar_centro_costo_ajax(request, centro_id):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
@@ -395,6 +405,7 @@ def eliminar_centro_costo_ajax(request, centro_id):
 
 
 @login_required(login_url='/login/')
+@require_centros_costos_permission('centros_costos', 'ver_movimientos', json_response=True)
 def api_movimientos_centro_costo(request, centro_id):
     empresa = get_empresa_actual(request)
     if not empresa:

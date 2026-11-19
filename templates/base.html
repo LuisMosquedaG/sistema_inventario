@@ -445,11 +445,13 @@
             {% endif %}
 
             <!-- MÓDULO: CENTROS DE COSTOS -->
+            {% if empresa.modulo_centros_costos and centros_costos_ui_permissions.centros_costos %}
             <div>
                 <a href="/centros-costos/" class="sidebar-link {% if '/centros-costos/' in request.path %}sidebar-active{% endif %}">
                     <i class="bi bi-pie-chart sidebar-icon"></i> Centros de Costos
                 </a>
             </div>
+            {% endif %}
 
             <!-- MÓDULO: VENTAS -->
             {% if sales_ui_permissions.clientes or sales_ui_permissions.actividades or sales_ui_permissions.cotizaciones or sales_ui_permissions.pedidos or sales_ui_permissions.salidas or sales_ui_permissions.punto_de_venta or sales_ui_permissions.cortes_de_caja or sales_ui_permissions.reportes %}

@@ -9,7 +9,7 @@ from almacenes.models import Inventario, Almacen
 from core.models import Producto, Transaccion
 
 
-def recalcular_estado_orden_compra(orden_compra):
+def recalcular_estado_orden_compra(orden_compra, usuario=None):
     """
     Recalcula y guarda el estado de una OrdenCompra ('recibida', 'parcial' o 'aprobada')
     tomando en cuenta las recepciones activas menos las devoluciones completadas.
@@ -39,6 +39,7 @@ def recalcular_estado_orden_compra(orden_compra):
         if neto < det.cantidad:
             orden_completa = False
 
+    estado_anterior = orden_compra.estado
     if orden_completa:
         orden_compra.estado = 'recibida'
     elif hay_alguno_recibido:
@@ -47,6 +48,19 @@ def recalcular_estado_orden_compra(orden_compra):
         orden_compra.estado = 'aprobada'
 
     orden_compra.save()
+
+    if estado_anterior != orden_compra.estado:
+        try:
+            from compras.models import HistorialOrdenCompra
+            HistorialOrdenCompra.objects.create(
+                orden_compra=orden_compra,
+                usuario=usuario,
+                accion=orden_compra.estado,
+                comentario=f'Recepción de mercancía. Estado actualizado a {orden_compra.get_estado_display()}.'
+            )
+        except Exception:
+            pass
+
     return orden_compra.estado
 
 @transaction.atomic
@@ -247,6 +261,6 @@ def procesar_recepcion_servicio(data_post, empresa_actual, usuario=None):
             producto.save(update_fields=['ultimo_costo', 'precio_costo', 'costo_promedio'])
 
     # 7. ACTUALIZAR ESTADO DE LA OC
-    recalcular_estado_orden_compra(orden_compra)
+    recalcular_estado_orden_compra(orden_compra, usuario=usuario)
 
     return recepcion

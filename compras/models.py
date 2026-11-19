@@ -179,3 +179,28 @@ class DetalleCompra(models.Model):
     @property
     def total(self):
         return self.subtotal + self.iva_monto
+
+
+class HistorialOrdenCompra(models.Model):
+    ACCION_CHOICES = (
+        ('creacion', 'Creada'),
+        ('aprobacion', 'Aprobada'),
+        ('recibida', 'Recibida'),
+        ('parcial', 'Recepción Parcial'),
+        ('edicion', 'Editada'),
+        ('cancelacion', 'Cancelada'),
+    )
+
+    orden_compra = models.ForeignKey(OrdenCompra, related_name='historial', on_delete=models.CASCADE)
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Usuario")
+    accion = models.CharField(max_length=30, choices=ACCION_CHOICES, verbose_name="Acción")
+    comentario = models.TextField(blank=True, default='', verbose_name="Comentarios / Motivo")
+    fecha = models.DateTimeField(auto_now_add=True, verbose_name="Fecha y Hora")
+
+    class Meta:
+        verbose_name = "Historial de Orden de Compra"
+        verbose_name_plural = "Historiales de Órdenes de Compra"
+        ordering = ['fecha']
+
+    def __str__(self):
+        return f"{self.orden_compra} - {self.get_accion_display()} ({self.fecha.strftime('%d/%m/%Y %H:%M')})"

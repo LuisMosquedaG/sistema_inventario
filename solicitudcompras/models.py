@@ -10,8 +10,9 @@ class SolicitudCompra(models.Model):
     ESTADO_CHOICES = (
         ('borrador', 'Borrador'),
         ('aprobada', 'Aprobada'),
+        ('rechazada', 'Rechazada'),
         ('enviada', 'Enviada a Compras'),
-        ('atendida', 'Atendida (OC Generada)'),
+        ('atendida', 'Autorizada'),
         ('cancelada', 'Cancelada'),
     )
 
@@ -34,6 +35,7 @@ class SolicitudCompra(models.Model):
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='borrador')
     aplica_iva = models.BooleanField(default=True, verbose_name="Aplica IVA")
     notas = models.TextField(blank=True, verbose_name="Notas / Urgencia")
+    motivo_rechazo = models.TextField(blank=True, default='', verbose_name="Motivo de Rechazo")
 
     def __str__(self):
         return f"Solicitud #{self.id} - {self.get_estado_display()}"
@@ -142,3 +144,28 @@ class DetalleSolicitudCompra(models.Model):
     @property
     def total(self):
         return self.subtotal + self.iva_monto
+
+
+class HistorialSolicitudCompra(models.Model):
+    ACCION_CHOICES = (
+        ('creacion', 'Creada'),
+        ('aprobacion', 'Aprobada'),
+        ('rechazo', 'Rechazada'),
+        ('autorizacion', 'Autorizada'),
+        ('edicion', 'Editada'),
+        ('cancelacion', 'Cancelada'),
+    )
+
+    solicitud = models.ForeignKey(SolicitudCompra, related_name='historial', on_delete=models.CASCADE)
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Usuario")
+    accion = models.CharField(max_length=30, choices=ACCION_CHOICES, verbose_name="Acción")
+    comentario = models.TextField(blank=True, default='', verbose_name="Comentarios / Motivo")
+    fecha = models.DateTimeField(auto_now_add=True, verbose_name="Fecha y Hora")
+
+    class Meta:
+        verbose_name = "Historial de Solicitud de Compra"
+        verbose_name_plural = "Historiales de Solicitudes de Compra"
+        ordering = ['fecha']
+
+    def __str__(self):
+        return f"SOL-{self.solicitud_id} - {self.get_accion_display()} por {self.usuario} ({self.fecha})"

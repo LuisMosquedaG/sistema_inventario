@@ -79,6 +79,7 @@
                         {% endfor %}
                     </select>
                 </div>
+                {% if empresa.modulo_centros_costos %}
                 <div class="col-12 col-md-4">
                     <label class="form-label small fw-bold text-secondary">Filtrar por Centro de Costos</label>
                     <select name="centro_costo" class="form-select form-select-sm" onchange="this.form.submit()">
@@ -88,6 +89,7 @@
                         {% endfor %}
                     </select>
                 </div>
+                {% endif %}
             </form>
         </div>
     </div>
@@ -102,7 +104,7 @@
                             <th class="text-center" style="width: 60px;">Acciones</th>
                             <th class="text-center">Nombre</th>
                             <th class="text-center">Sucursal</th>
-                            <th class="text-center">Centro de Costos</th>
+                            {% if empresa.modulo_centros_costos %}<th class="text-center">Centro de Costos</th>{% endif %}
                             <th class="text-center">Dirección Completa</th>
                             <th class="text-center">Ubicación</th>
                             <th class="text-center">Contacto</th>
@@ -132,6 +134,7 @@
                             </td>
 
                             <!-- CENTRO DE COSTOS -->
+                            {% if empresa.modulo_centros_costos %}
                             <td class="text-center">
                                 {% if a.centro_costo %}
                                 <span class="badge bg-light text-dark border" title="{{ a.centro_costo.nombre }}">
@@ -141,6 +144,7 @@
                                 <span class="text-muted small">--</span>
                                 {% endif %}
                             </td>
+                            {% endif %}
                             
                             <!-- DIRECCIÓN -->
                             <td class="text-center">
@@ -225,6 +229,7 @@
                                         {% endfor %}
                                     </select>
                                 </div>
+                                {% if empresa.modulo_centros_costos %}
                                 <div class="col-md-6">
                                     <label class="form-label small fw-bold text-secondary mb-1">Centro de Costos Asociado</label>
                                     <select name="centro_costo" id="selectCentroCostoAlmacen" class="form-select form-select-sm">
@@ -235,6 +240,7 @@
                                     </select>
                                     <div class="form-text text-muted" style="font-size: 0.7rem;">Si se asigna, los consumos y salidas sugerirán este centro de costo.</div>
                                 </div>
+                                {% endif %}
                                 <div class="col-md-6">
                                     <label class="form-label small fw-bold text-secondary mb-1">Responsable</label>
                                     <input type="text" name="responsable" class="form-control form-control-sm" placeholder="Ej. Juan Pérez">
@@ -355,7 +361,8 @@
                 document.querySelector('[name="cp"]').value = data.cp;
                 document.querySelector('[name="telefono"]').value = data.telefono;
                 document.getElementById('selectSucursalModal').value = data.sucursal;
-                document.getElementById('selectCentroCostoAlmacen').value = data.centro_costo || '';
+                const elCCAlm = document.getElementById('selectCentroCostoAlmacen');
+                if (elCCAlm) elCCAlm.value = data.centro_costo || '';
 
                 const myModal = new bootstrap.Modal(document.getElementById('modalCrearAlmacen'));
                 myModal.show();

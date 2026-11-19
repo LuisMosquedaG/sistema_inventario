@@ -1,0 +1,30 @@
+<!-- Modal Rechazar Solicitud -->
+<div class="modal fade" id="modalRechazarSolicitud" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+        <form id="formRechazarSolicitud" onsubmit="enviarRechazoSolicitud(event)" class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
+            {% csrf_token %}
+            <div class="modal-header border-bottom bg-white py-2 px-3">
+                <h6 class="modal-title fw-bold text-danger d-flex align-items-center mb-0" style="font-size: 0.95rem;">
+                    <i class="bi bi-exclamation-octagon-fill me-2 fs-5"></i> Rechazar Solicitud <span id="rechazo_solicitud_folio" class="ms-1 font-monospace text-dark"></span>
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3">
+                <input type="hidden" id="rechazo_solicitud_id" name="solicitud_id">
+                <p class="text-muted small mb-2">
+                    Indica el motivo o los comentarios de rechazo para que la persona que creó la solicitud pueda realizar los cambios necesarios.
+                </p>
+                <div class="mb-2">
+                    <label class="form-label small fw-bold text-dark mb-1">Motivo / Comentarios <span class="text-danger">*</span></label>
+                    <textarea class="form-control form-control-sm" id="rechazo_motivo" name="motivo" rows="4" placeholder="Ej: Corregir el almacén de destino, actualizar el costo unitario según la cotización vigente..." required></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-top bg-light py-2 px-3">
+                <button type="button" class="btn btn-sm btn-light border px-3" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-sm btn-danger px-3 fw-bold" id="btnConfirmarRechazo">
+                    <i class="bi bi-x-octagon me-1"></i> Confirmar Rechazo
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

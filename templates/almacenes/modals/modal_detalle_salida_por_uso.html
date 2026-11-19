@@ -42,10 +42,12 @@
                                 <span class="text-muted d-block fw-semibold">Almacén:</span>
                                 <span class="text-dark" id="detAlmacen">--</span>
                             </div>
+                            {% if empresa.modulo_centros_costos %}
                             <div class="col-md-4 mt-2 pt-2 border-top">
                                 <span class="text-muted d-block fw-semibold">Centro de Costo:</span>
                                 <span class="text-dark" id="detCentroCosto">--</span>
                             </div>
+                            {% endif %}
 
                             <div class="col-12 mt-2" id="rowAuditoriaExtra" style="display: none;">
                                 <div class="p-2 bg-light rounded border small">

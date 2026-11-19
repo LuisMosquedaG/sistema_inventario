@@ -61,6 +61,7 @@
                                         {% endfor %}
                                     </select>
                                 </div>
+                                {% if empresa.modulo_centros_costos %}
                                 <div class="col-md-4 mt-2">
                                     <label class="form-label small fw-bold text-secondary mb-1">Centro de Costo</label>
                                     <select id="salida_centro_costo" class="form-select form-select-sm">
@@ -70,6 +71,7 @@
                                         {% endfor %}
                                     </select>
                                 </div>
+                                {% endif %}
 
                                 <div class="col-12 mt-2">
                                     <label class="form-label small fw-bold text-secondary mb-1">Notas / Justificación</label>

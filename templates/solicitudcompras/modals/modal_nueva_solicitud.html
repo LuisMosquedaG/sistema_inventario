@@ -16,7 +16,19 @@
                 <input type="hidden" id="solicitud_id_edit" name="solicitud_id">
                 <input type="hidden" id="item_indice_edicion" value="-1">
                 <input type="hidden" id="edit_item_pedido_det_id" value="">
-                    <!-- SECCIÓN 0: DATOS DEL PEDIDO (Solo visible al editar si existe pedido_origen) -->
+                
+                <!-- ALERTA DE RECHAZO (Visible si la solicitud fue rechazada) -->
+                <div id="alerta_edicion_rechazo" class="alert alert-danger d-none border-0 shadow-sm mb-3" style="background-color: #fff5f5; border-left: 4px solid #dc3545 !important;">
+                    <div class="d-flex align-items-start">
+                        <i class="bi bi-exclamation-octagon-fill text-danger fs-5 me-2 mt-1"></i>
+                        <div>
+                            <span class="fw-bold text-danger d-block">Solicitud Rechazada para corrección</span>
+                            <span id="texto_edicion_motivo_rechazo" class="small text-dark"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 0: DATOS DEL PEDIDO (Solo visible al editar si existe pedido_origen) -->
                     <div id="seccion_datos_pedido" class="card border-0 mb-3" style="display: none;">
                         <div class="card-body p-3 pt-0">
                             <div class="row g-3">
@@ -79,6 +91,7 @@
                                         {% endfor %}
                                     </select>
                                 </div>
+                                {% if empresa.modulo_centros_costos %}
                                 <div class="col-md-4 mt-2">
                                     <label class="form-label small fw-bold text-secondary">Centro de Costos</label>
                                     <select name="centro_costo_id" id="solicitud_centro_costo" class="form-select form-select-sm">
@@ -89,6 +102,9 @@
                                     </select>
                                 </div>
                                 <div class="col-md-8 mt-2">
+                                {% else %}
+                                <div class="col-md-12 mt-2">
+                                {% endif %}
                                     <label class="form-label small fw-bold text-secondary">Notas / Justificación</label>
                                     <textarea name="notas" id="notas_solicitud" class="form-control form-control-sm" rows="1" placeholder="Escriba aquí el motivo de la solicitud o detalles urgentes..."></textarea>
                                 </div>

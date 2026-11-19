@@ -7,7 +7,7 @@ from decimal import Decimal
 import openpyxl
 from datetime import datetime
 from proveedores.models import Proveedor
-from .models import OrdenCompra, DetalleCompra
+from .models import OrdenCompra, DetalleCompra, HistorialOrdenCompra
 from core.models import Producto
 from almacenes.models import Almacen
 from preferencias.models import Moneda
@@ -561,6 +561,22 @@ def cambiar_estado_compra(request, compra_id):
         if nuevo_estado in ['borrador', 'aprobada', 'recibida', 'cancelada', 'parcial']:
             compra.estado = nuevo_estado
             compra.save()
+
+            accion_map = {
+                'borrador': 'creacion',
+                'aprobada': 'aprobacion',
+                'cancelada': 'cancelacion',
+                'recibida': 'recibida',
+                'parcial': 'parcial',
+            }
+            accion = accion_map.get(nuevo_estado, nuevo_estado)
+            HistorialOrdenCompra.objects.create(
+                orden_compra=compra,
+                usuario=request.user,
+                accion=accion,
+                comentario=f'Estado cambiado a {compra.get_estado_display()}.'
+            )
+
             crear_notificacion(
                 empresa=empresa_actual,
                 actor=request.user,
@@ -598,6 +614,44 @@ def obtener_compra_json(request, compra_id):
                 'total': float(d.total),
             })
 
+        historial_data = [
+            {
+                'id': h.id,
+                'accion': h.accion,
+                'accion_display': h.get_accion_display(),
+                'usuario': h.usuario.get_full_name() or h.usuario.username if h.usuario else 'Sistema',
+                'comentario': h.comentario,
+                'fecha': h.fecha.strftime("%d/%m/%Y %H:%M"),
+            }
+            for h in orden.historial.all()
+        ]
+
+        if not historial_data:
+            creador = orden.usuario.get_full_name() or orden.usuario.username if orden.usuario else 'Sistema'
+            historial_data.append({
+                'id': 0,
+                'accion': 'creacion',
+                'accion_display': 'Creada',
+                'usuario': creador,
+                'comentario': 'Orden de compra registrada.',
+                'fecha': orden.fecha.strftime("%d/%m/%Y %H:%M"),
+            })
+            if orden.estado in ['aprobada', 'recibida', 'parcial', 'cancelada']:
+                display_map = {
+                    'aprobada': 'Aprobada',
+                    'recibida': 'Recibida',
+                    'parcial': 'Recepción Parcial',
+                    'cancelada': 'Cancelada',
+                }
+                historial_data.append({
+                    'id': 0,
+                    'accion': orden.estado,
+                    'accion_display': display_map.get(orden.estado, orden.get_estado_display()),
+                    'usuario': creador,
+                    'comentario': f'Estado: {orden.get_estado_display()}.',
+                    'fecha': orden.fecha.strftime("%d/%m/%Y %H:%M"),
+                })
+
         data = {
             'id': orden.id,
             'folio': f"OC-{orden.id:04d}",
@@ -618,8 +672,10 @@ def obtener_compra_json(request, compra_id):
             'fecha_formateada': orden.fecha.strftime('%d/%m/%Y'),
             'notas': orden.notas or '',
             'estado': orden.estado,
+            'estado_display': orden.get_estado_display(),
             'aplica_iva': orden.aplica_iva,
             'detalles': detalles_list,
+            'historial': historial_data,
             'subtotal_total': float(orden.calcular_subtotal),
             'iva_total': float(orden.calcular_iva),
             'gran_total': float(orden.calcular_total)
@@ -743,6 +799,14 @@ def actualizar_compra(request, compra_id):
                         factor_conversion=f_conv,
                         cantidad_inventario=c_inv
                     )
+
+            HistorialOrdenCompra.objects.create(
+                orden_compra=orden,
+                usuario=request.user,
+                accion='edicion',
+                comentario='Orden de compra modificada.'
+            )
+
             return JsonResponse({'success': True, 'message': 'Orden actualizada correctamente.'})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})

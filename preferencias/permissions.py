@@ -30,7 +30,7 @@ COSTING_PERMISSION_MATRIX = {
 
 PURCHASES_PERMISSION_MATRIX = {
     'proveedores': ['ver', 'crear', 'editar', 'eliminar'],
-    'solicitudes': ['ver', 'crear', 'editar', 'imprimir', 'autorizar', 'cancelar'],
+    'solicitudes': ['ver', 'crear', 'editar', 'imprimir', 'aprobar', 'rechazar', 'autorizar', 'cancelar'],
     'ordenes_compra': ['ver', 'crear', 'editar', 'imprimir', 'registrar_pago', 'consolidar', 'aprobar', 'cancelar', 'CargasXML'],
     'recepciones': ['ver', 'crear', 'imprimir', 'cancelar'],
     'devoluciones': ['ver', 'crear', 'imprimir', 'cancelar'],
@@ -69,6 +69,10 @@ HR_PERMISSION_MATRIX = {
     'proveedores_contratistas': ['ver', 'crear', 'editar', 'eliminar', 'documentacion', 'documentacion_aprobar', 'documentacion_rechazar', 'documentacion_descargar'],
     'sua': ['ver', 'importar', 'eliminar', 'alta_empleados', 'exportar_excel'],
     'nomina': ['ver', 'crear', 'editar', 'eliminar', 'importador', 'exportador', 'xml_sat'],
+}
+
+CENTROS_COSTOS_PERMISSION_MATRIX = {
+    'centros_costos': ['ver', 'crear', 'editar', 'eliminar', 'ver_movimientos'],
 }
 
 
@@ -257,6 +261,18 @@ def user_has_purchase_permission(request, submodulo, accion):
     ).first()
     if permiso_accion is not None:
         return bool(permiso_accion.permitido)
+
+    # Compatibilidad con roles existentes: si es 'aprobar' o 'rechazar' en solicitudes y aún no se guardó explícitamente,
+    # hereda el valor que tenga 'autorizar'
+    if submodulo == 'solicitudes' and accion in ['aprobar', 'rechazar']:
+        permiso_aut = PermisoRolAccion.objects.filter(
+            rol=asignacion.rol,
+            area='compras',
+            submodulo='solicitudes',
+            accion='autorizar'
+        ).first()
+        if permiso_aut is not None:
+            return bool(permiso_aut.permitido)
 
     if submodulo == 'devoluciones':
         permiso_rec = PermisoRolAccion.objects.filter(
@@ -620,6 +636,67 @@ def get_granular_inicio_permissions(request):
     return perms
 
 
+def user_has_centros_costos_permission(request, submodulo, accion):
+    user = request.user
+    if not user.is_authenticated:
+        return False
+
+    empresa = get_empresa_actual(request)
+    if not empresa:
+        return is_admin_or_superuser(user)
+
+    # Verificar si el módulo está habilitado para la empresa
+    if not getattr(empresa, 'modulo_centros_costos', True):
+        return False
+
+    if is_admin_or_superuser(user):
+        return True
+
+    asignacion = AsignacionRolUsuario.objects.select_related('rol').filter(
+        usuario=user,
+        empresa=empresa
+    ).first()
+
+    if not asignacion:
+        return False
+
+    permiso_accion = PermisoRolAccion.objects.filter(
+        rol=asignacion.rol,
+        area='centros_costos',
+        submodulo=submodulo,
+        accion=accion
+    ).first()
+    if permiso_accion is not None:
+        return bool(permiso_accion.permitido)
+
+    return False
+
+
+def require_centros_costos_permission(submodulo, accion, json_response=False):
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapped(request, *args, **kwargs):
+            if user_has_centros_costos_permission(request, submodulo, accion):
+                return view_func(request, *args, **kwargs)
+
+            if json_response:
+                return JsonResponse({'success': False, 'error': 'No cuentas con permiso para esta acción.'}, status=403)
+
+            messages.error(request, 'No cuentas con permiso para acceder a Centros de Costos.')
+            return redirect('dashboard_inicio')
+
+        return wrapped
+
+    return decorator
+
+
+def get_granular_centros_costos_permissions(request):
+    perms = {}
+    for submodulo, acciones in CENTROS_COSTOS_PERMISSION_MATRIX.items():
+        perms[submodulo] = {accion: user_has_centros_costos_permission(request, submodulo, accion) for accion in acciones}
+    return perms
+
+
 def obtener_url_redireccion_segun_permisos(request):
     # 1. Ventas
     if user_has_sales_permission(request, 'clientes', 'ver'):
@@ -690,5 +767,9 @@ def obtener_url_redireccion_segun_permisos(request):
     # 7. Costeos
     if user_has_module_permission(request, 'costeos', 'ver'):
         return '/costeos/'
+
+    # 8. Centros de Costos
+    if user_has_centros_costos_permission(request, 'centros_costos', 'ver'):
+        return '/centros-costos/'
 
     return None

@@ -17,6 +17,9 @@
         .icon-action { color: #adb5bd; font-size: 1.1rem; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; text-decoration: none !important; border: none; background: transparent; }
         .icon-action:hover { color: #00b8b9; transform: scale(1.15); }
         .icon-action-danger:hover { color: #dc3545 !important; }
+        .icon-action-success:hover { color: #2f9e44 !important; }
+        .icon-action-warning:hover { color: #f08c00 !important; }
+        .icon-action-autorizar:hover { color: #00b8b9 !important; }
         
         .status-pill {
             display: inline-flex; align-items: center; font-size: 0.7rem; line-height: 1; padding: 0.25em 0.6em;
@@ -24,6 +27,7 @@
         }
         .status-borrador { background-color: #f1f3f5; color: #495057; border: 1px solid #dee2e6; }
         .status-aprobada { background-color: #e7f5ff; color: #1971c2; border: 1px solid #d0ebff; }
+        .status-rechazada { background-color: #fff9db; color: #f08c00; border: 1px solid #ffe066; }
         .status-enviada { background-color: #fff4e6; color: #d9480f; border: 1px solid #ffe8cc; }
         .status-atendida { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
         .status-cancelada { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
@@ -212,8 +216,9 @@
                             <option value="">Todos...</option>
                             <option value="borrador" {% if filtros.estado == 'borrador' %}selected{% endif %}>Borrador</option>
                             <option value="aprobada" {% if filtros.estado == 'aprobada' %}selected{% endif %}>Aprobada</option>
+                            <option value="rechazada" {% if filtros.estado == 'rechazada' %}selected{% endif %}>Rechazada</option>
                             <option value="enviada" {% if filtros.estado == 'enviada' %}selected{% endif %}>Enviada</option>
-                            <option value="atendida" {% if filtros.estado == 'atendida' %}selected{% endif %}>Atendida</option>
+                            <option value="atendida" {% if filtros.estado == 'atendida' %}selected{% endif %}>Autorizada</option>
                             <option value="cancelada" {% if filtros.estado == 'cancelada' %}selected{% endif %}>Cancelada</option>
                         </select>
                     </div>
@@ -263,8 +268,40 @@
                                         </span>
                                         {% endif %}
                                         {% if s.estado == 'borrador' %}
+                                            {% if granular_purchase_perms.solicitudes.aprobar %}
+                                            <span onclick="aprobarSolicitud({{ s.id }})" class="icon-action icon-action-success" title="Aprobar Solicitud">
+                                                <i class="bi bi-check2"></i>
+                                            </span>
+                                            {% endif %}
+                                            {% if granular_purchase_perms.solicitudes.rechazar %}
+                                            <span onclick="abrirModalRechazar({{ s.id }})" class="icon-action icon-action-warning" title="Rechazar Solicitud">
+                                                <i class="bi bi-x-octagon"></i>
+                                            </span>
+                                            {% endif %}
+                                            {% if granular_purchase_perms.solicitudes.editar %}
+                                            <span onclick="cargarParaEdicion({{ s.id }})" class="icon-action" title="Editar">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </span>
+                                            {% endif %}
+                                            {% if granular_purchase_perms.solicitudes.cancelar %}
+                                            <span onclick="cancelarSolicitud({{ s.id }})" class="icon-action icon-action-danger" title="Cancelar Solicitud">
+                                                <i class="bi bi-x-circle"></i>
+                                            </span>
+                                            {% endif %}
+                                        {% elif s.estado == 'rechazada' %}
+                                            {% if granular_purchase_perms.solicitudes.editar %}
+                                            <span onclick="cargarParaEdicion({{ s.id }})" class="icon-action" title="Editar y corregir cambios">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </span>
+                                            {% endif %}
+                                            {% if granular_purchase_perms.solicitudes.cancelar %}
+                                            <span onclick="cancelarSolicitud({{ s.id }})" class="icon-action icon-action-danger" title="Cancelar Solicitud">
+                                                <i class="bi bi-x-circle"></i>
+                                            </span>
+                                            {% endif %}
+                                        {% elif s.estado == 'aprobada' %}
                                             {% if granular_purchase_perms.solicitudes.autorizar %}
-                                            <span onclick="previsualizarAutorizacion({{ s.id }})" class="icon-action" title="Autorizar Solicitud">
+                                            <span onclick="previsualizarAutorizacion({{ s.id }})" class="icon-action icon-action-autorizar" title="Autorizar Solicitud (Generar OC)">
                                                 <i class="bi bi-check-circle"></i>
                                             </span>
                                             {% endif %}
@@ -393,6 +430,7 @@
 
     <!-- MODALES -->
     {% include "solicitudcompras/modals/modal_nueva_solicitud.html" %}
+    {% include "solicitudcompras/modals/modal_rechazar_solicitud.html" %}
     {% include "cotizaciones/modals/modal_crear_producto_rapido.html" %}
     {% include "solicitudcompras/modals/modal_ver_solicitud.html" %}
     {% include "pedidos/modals/modal_ver_pedido.html" %}

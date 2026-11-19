@@ -12,7 +12,7 @@ from datetime import datetime
 from collections import defaultdict
 from panel.models import Empresa
 from pedidos.models import Pedido, DetallePedido
-from .models import SolicitudCompra, DetalleSolicitudCompra
+from .models import SolicitudCompra, DetalleSolicitudCompra, HistorialSolicitudCompra
 from core.models import Producto, DetalleReceta
 from categorias.models import ListaPrecioCosto, Categoria as CategoriaCatalogo
 from produccion.models import OrdenProduccion
@@ -21,7 +21,7 @@ from almacenes.models import Almacen
 from preferencias.models import Moneda
 from centros_costos.models import CentroCosto
 from notificaciones.utils import crear_notificacion
-from preferencias.permissions import require_sales_permission
+from preferencias.permissions import require_sales_permission, user_has_purchase_permission
 
 def _clean_id(val):
     if not val or str(val).strip().lower() in ('', 'null', 'none', 'undefined', '0'):
@@ -405,6 +405,12 @@ def crear_solicitud_desde_pedido(request, detalle_id):
             estado='borrador',
             aplica_iva=pedido.aplica_iva
         )
+        HistorialSolicitudCompra.objects.create(
+            solicitud=target_solicitud,
+            usuario=request.user,
+            accion='creacion',
+            comentario=f'Solicitud creada en Borrador desde Pedido #{pedido.id}.'
+        )
 
     # --- INTELIGENCIA: ¿ES PRODUCCIÓN? ---
     if producto.tipo_abastecimiento == 'produccion':
@@ -615,6 +621,15 @@ def obtener_solicitud_json(request, solicitud_id):
         data['solicitante_nombre'] = solicitud.solicitante.username.split('@')[0] if solicitud.solicitante else 'Sistema'
         data['fecha_creacion'] = solicitud.fecha_creacion.strftime('%d/%m/%Y %H:%M')
         data['estado_display'] = solicitud.get_estado_display()
+        data['motivo_rechazo'] = solicitud.motivo_rechazo or ''
+        data['historial'] = [{
+            'id': h.id,
+            'accion': h.accion,
+            'accion_display': h.get_accion_display(),
+            'usuario': f"{h.usuario.first_name} {h.usuario.last_name}".strip() if (h.usuario and (h.usuario.first_name or h.usuario.last_name)) else (h.usuario.username.split('@')[0] if h.usuario else 'Sistema'),
+            'comentario': h.comentario or '',
+            'fecha': h.fecha.strftime('%d/%m/%Y %H:%M'),
+        } for h in solicitud.historial.all().select_related('usuario').order_by('-fecha')]
 
         return JsonResponse(data)
     
@@ -628,9 +643,14 @@ def actualizar_solicitud(request, solicitud_id):
             empresa_actual = get_empresa_actual(request)
             solicitud = get_object_or_404(SolicitudCompra, id=solicitud_id, empresa=empresa_actual)
 
-            # SEGURIDAD: Solo editar si está en borrador
-            if solicitud.estado != 'borrador':
-                return JsonResponse({'success': False, 'error': 'Solo se pueden editar solicitudes en Borrador.'})
+            # SEGURIDAD: Solo editar si está en borrador, aprobada o rechazada
+            if solicitud.estado not in ['borrador', 'aprobada', 'rechazada']:
+                return JsonResponse({'success': False, 'error': 'Solo se pueden editar solicitudes en Borrador, Aprobada o Rechazada.'})
+
+            # Si estaba aprobada o rechazada y se edita, regresa a borrador para nueva aprobación
+            est_previo = solicitud.estado
+            if solicitud.estado in ['aprobada', 'rechazada']:
+                solicitud.estado = 'borrador'
 
             solicitud.aplica_iva = request.POST.get('aplica_iva') == 'on'
             solicitud.notas = request.POST.get('notas', '')
@@ -693,6 +713,19 @@ def actualizar_solicitud(request, solicitud_id):
                         detalle_pedido_origen_id=_clean_id(p_det_id)
                     )
             
+            coment_edicion = 'Solicitud editada por el usuario.'
+            if est_previo == 'rechazada':
+                coment_edicion = 'Solicitud corregida tras rechazo y devuelta a Borrador.'
+            elif est_previo == 'aprobada':
+                coment_edicion = 'Solicitud modificada tras aprobación y devuelta a Borrador.'
+
+            HistorialSolicitudCompra.objects.create(
+                solicitud=solicitud,
+                usuario=request.user,
+                accion='edicion',
+                comentario=coment_edicion
+            )
+
             messages.success(request, f'Solicitud #{solicitud.id} actualizada.')
             return JsonResponse({'success': True})
 
@@ -734,6 +767,13 @@ def crear_solicitud_manual(request):
                 estado='borrador',
                 notas=notas,
                 aplica_iva=aplica_iva
+            )
+
+            HistorialSolicitudCompra.objects.create(
+                solicitud=solicitud,
+                usuario=request.user,
+                accion='creacion',
+                comentario='Solicitud creada manualmente en estado Borrador.'
             )
 
             productos_ids = request.POST.getlist('producto_id[]')
@@ -798,15 +838,145 @@ def crear_solicitud_manual(request):
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
 @login_required(login_url='/login/')
+@transaction.atomic
+def aprobar_solicitud(request, solicitud_id):
+    empresa_actual = get_empresa_actual(request)
+    solicitud = get_object_or_404(SolicitudCompra, id=solicitud_id, empresa=empresa_actual)
+
+    if not user_has_purchase_permission(request, 'solicitudes', 'aprobar'):
+        msg = 'No cuentas con permiso para aprobar solicitudes de compra.'
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': msg}, status=403)
+        messages.error(request, msg)
+        return redirect('dashboard_solicitudcompras')
+
+    if solicitud.estado != 'borrador':
+        msg = 'Solo se pueden aprobar solicitudes en estado Borrador.'
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': msg})
+        messages.warning(request, msg)
+        return redirect('dashboard_solicitudcompras')
+
+    if not solicitud.detalles.exists():
+        msg = 'La solicitud no contiene ninguna partida.'
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': msg})
+        messages.error(request, msg)
+        return redirect('dashboard_solicitudcompras')
+
+    # Validar que cada partida tenga proveedor, almacén, costo y moneda
+    for det in solicitud.detalles.select_related('producto', 'proveedor', 'almacen', 'moneda'):
+        faltantes = []
+        if not det.proveedor:
+            faltantes.append('Proveedor')
+        if not det.almacen:
+            faltantes.append('Almacén')
+        if not det.moneda:
+            faltantes.append('Moneda')
+        if det.costo_unitario is None or det.costo_unitario <= 0:
+            faltantes.append('Costo unitario mayor a 0')
+
+        if faltantes:
+            error_msg = f"En el producto '{det.producto.nombre}' faltan datos requeridos: {', '.join(faltantes)}."
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': error_msg})
+            messages.error(request, error_msg)
+            return redirect('dashboard_solicitudcompras')
+
+    solicitud.estado = 'aprobada'
+    solicitud.save()
+
+    HistorialSolicitudCompra.objects.create(
+        solicitud=solicitud,
+        usuario=request.user,
+        accion='aprobacion',
+        comentario='Solicitud aprobada con partidas validadas.'
+    )
+
+    crear_notificacion(
+        empresa=empresa_actual,
+        mensaje=f"La Solicitud #{solicitud.id} ha sido aprobada.",
+        actor=request.user,
+        propietario=solicitud.solicitante
+    )
+
+    msg = f'Solicitud SOL-{solicitud.id:04d} aprobada correctamente.'
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'success': True, 'message': msg})
+
+    messages.success(request, msg)
+    return redirect('dashboard_solicitudcompras')
+
+@login_required(login_url='/login/')
+@transaction.atomic
+def rechazar_solicitud(request, solicitud_id):
+    empresa_actual = get_empresa_actual(request)
+    solicitud = get_object_or_404(SolicitudCompra, id=solicitud_id, empresa=empresa_actual)
+
+    if not user_has_purchase_permission(request, 'solicitudes', 'rechazar'):
+        msg = 'No cuentas con permiso para rechazar solicitudes de compra.'
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': msg}, status=403)
+        messages.error(request, msg)
+        return redirect('dashboard_solicitudcompras')
+
+    if solicitud.estado != 'borrador':
+        msg = 'Solo se pueden rechazar solicitudes en estado Borrador.'
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': msg})
+        messages.warning(request, msg)
+        return redirect('dashboard_solicitudcompras')
+
+    motivo = request.POST.get('motivo', '').strip()
+    if not motivo:
+        msg = 'Debes ingresar un motivo o comentario para rechazar la solicitud.'
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': msg})
+        messages.error(request, msg)
+        return redirect('dashboard_solicitudcompras')
+
+    solicitud.estado = 'rechazada'
+    solicitud.motivo_rechazo = motivo
+    solicitud.save()
+
+    HistorialSolicitudCompra.objects.create(
+        solicitud=solicitud,
+        usuario=request.user,
+        accion='rechazo',
+        comentario=motivo
+    )
+
+    crear_notificacion(
+        empresa=empresa_actual,
+        mensaje=f"La Solicitud #{solicitud.id} ha sido rechazada: {motivo}",
+        actor=request.user,
+        propietario=solicitud.solicitante
+    )
+
+    msg = f'Solicitud SOL-{solicitud.id:04d} rechazada con éxito.'
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'success': True, 'message': msg})
+
+    messages.success(request, msg)
+    return redirect('dashboard_solicitudcompras')
+
+@login_required(login_url='/login/')
 @transaction.atomic 
 def autorizar_solicitud(request, solicitud_id):
     empresa_actual = get_empresa_actual(request)
     solicitud = get_object_or_404(SolicitudCompra, id=solicitud_id, empresa=empresa_actual)
 
-    if solicitud.estado != 'borrador':
+    if not user_has_purchase_permission(request, 'solicitudes', 'autorizar'):
+        msg = 'No cuentas con permiso para autorizar solicitudes de compra.'
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse({'success': False, 'error': 'Solo se pueden autorizar solicitudes en estado Borrador.'})
-        messages.warning(request, 'Solo se pueden autorizar solicitudes en estado Borrador.')
+            return JsonResponse({'success': False, 'error': msg}, status=403)
+        messages.error(request, msg)
+        return redirect('dashboard_solicitudcompras')
+
+    if solicitud.estado != 'aprobada':
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Solo se pueden autorizar solicitudes en estado Aprobada.'})
+        messages.warning(request, 'Solo se pueden autorizar solicitudes en estado Aprobada.')
         return redirect('dashboard_solicitudcompras')
 
     # 1. Validar que todas las partidas tengan proveedor, almacén y moneda
@@ -846,7 +1016,7 @@ def autorizar_solicitud(request, solicitud_id):
 
     # 4. Procesar creación física (POST)
     if request.method == 'POST':
-        from compras.models import OrdenCompra, DetalleCompra
+        from compras.models import OrdenCompra, DetalleCompra, HistorialOrdenCompra
 
         ordenes_creadas_count = 0
         for (proveedor, sucursal, moneda, almacen), lista_detalles in items_agrupados.items():
@@ -883,8 +1053,22 @@ def autorizar_solicitud(request, solicitud_id):
 
             ordenes_creadas_count += 1
 
+            HistorialOrdenCompra.objects.create(
+                orden_compra=nueva_oc,
+                usuario=request.user,
+                accion='creacion',
+                comentario=f'Generada desde Solicitud SOL-{solicitud.id:04d}.'
+            )
+
         solicitud.estado = 'atendida'
         solicitud.save()
+
+        HistorialSolicitudCompra.objects.create(
+            solicitud=solicitud,
+            usuario=request.user,
+            accion='autorizacion',
+            comentario=f'Se generaron {ordenes_creadas_count} órdenes de compra.'
+        )
 
         # NOTIFICACIÓN
         crear_notificacion(
@@ -914,7 +1098,7 @@ def cancelar_solicitud(request, solicitud_id):
     solicitud = get_object_or_404(SolicitudCompra, id=solicitud_id, empresa=empresa_actual)
 
     if solicitud.estado == 'atendida':
-        msg = "No se puede cancelar una solicitud que ya ha sido atendida (OC generada)."
+        msg = "No se puede cancelar una solicitud que ya ha sido autorizada (OC generada)."
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'success': False, 'error': msg})
         messages.error(request, msg)
@@ -976,6 +1160,13 @@ def cancelar_solicitud(request, solicitud_id):
     # 3. Marcar solicitud como cancelada
     solicitud.estado = 'cancelada'
     solicitud.save()
+
+    HistorialSolicitudCompra.objects.create(
+        solicitud=solicitud,
+        usuario=request.user,
+        accion='cancelacion',
+        comentario='Solicitud cancelada y partidas liberadas.'
+    )
 
     # NOTIFICACIÓN
     crear_notificacion(
