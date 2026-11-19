@@ -608,7 +608,16 @@
                                         <label class="form-label small fw-bold text-secondary">TC</label>
                                         <input type="number" step="0.0001" name="tipo_cambio" id="inputTipoCambio" class="form-control form-control-sm text-end" value="1.0000" required>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold text-secondary">Centro de Costos</label>
+                                        <select name="centro_costo" id="selectCentroCostoOC" class="form-select form-select-sm">
+                                            <option value="">(Opcional) Sin centro asignado</option>
+                                            {% for cc in centros_costos %}
+                                            <option value="{{ cc.id }}">[{{ cc.codigo }}] {{ cc.nombre }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
                                         <label class="form-label small fw-bold text-secondary">Notas</label>
                                         <input type="text" name="notas" id="inputNotasOC" class="form-control form-control-sm" placeholder="Opcional">
                                     </div>
@@ -1566,6 +1575,8 @@
             productoCompraActualOC = null;
             
             document.getElementById('selectSucursalOC').innerHTML = '<option value="">-- Sin sucursal --</option>';
+            const selCCOC = document.getElementById('selectCentroCostoOC');
+            if (selCCOC) selCCOC.value = '';
 
             // Reset Sucursal Empresa y Almacenes
             const selSucEmp = document.getElementById('selectSucursalEmpresaOC');
@@ -2079,6 +2090,8 @@
                 form.querySelector('[name="descuento"]').value = data.descuento || '0.00';
                 form.querySelector('[name="fecha"]').value = data.fecha;
                 form.querySelector('[name="notas"]').value = data.notas || '';
+                const selCCOC = document.getElementById('selectCentroCostoOC');
+                if (selCCOC) selCCOC.value = data.centro_costo_id || '';
 
                 const aplicaIvaSwitch = document.getElementById('aplica_iva_switch');
                 if (aplicaIvaSwitch) {

@@ -372,6 +372,9 @@
 
         document.getElementById('salida_notas').value = '';
         document.getElementById('salida_usuario_recibe').value = '';
+        if (document.getElementById('salida_centro_costo')) {
+            document.getElementById('salida_centro_costo').value = '';
+        }
         document.getElementById('add_articulo_unidad').value = '--';
         document.getElementById('add_articulo_disponible').value = '0';
         document.getElementById('add_articulo_cantidad').value = '1';
@@ -432,6 +435,9 @@
                     document.getElementById('salida_fecha').value = salida.fecha_salida_iso;
                 }
                 document.getElementById('salida_usuario_recibe').value = salida.usuario_recibe_id || '';
+                if (document.getElementById('salida_centro_costo')) {
+                    document.getElementById('salida_centro_costo').value = salida.centro_costo_id || '';
+                }
                 document.getElementById('salida_notas').value = salida.notas || '';
 
                 // Cargar partidas existentes
@@ -469,7 +475,7 @@
                 if (data.success && data.almacenes) {
                     almacenSelect.innerHTML = '<option value="">Seleccionar Almacén...</option>';
                     data.almacenes.forEach(a => {
-                        almacenSelect.insertAdjacentHTML('beforeend', `<option value="${a.id}">${a.nombre}</option>`);
+                        almacenSelect.insertAdjacentHTML('beforeend', `<option value="${a.id}" data-centro-costo="${a.centro_costo_id || ''}">${a.nombre}</option>`);
                     });
                 } else {
                     almacenSelect.innerHTML = '<option value="">Sin almacenes disponibles</option>';
@@ -489,6 +495,16 @@
             document.getElementById('badgeStockDisp').innerText = 'Seleccione almacén y producto';
             productoActual = null;
             return;
+        }
+
+        // Auto-seleccionar el centro de costo del almacén si está preconfigurado
+        const almSelect = document.getElementById('salida_almacen');
+        const selectedOpt = almSelect ? almSelect.options[almSelect.selectedIndex] : null;
+        if (selectedOpt && selectedOpt.dataset.centroCosto) {
+            const ccSelect = document.getElementById('salida_centro_costo');
+            if (ccSelect && selectedOpt.dataset.centroCosto) {
+                ccSelect.value = selectedOpt.dataset.centroCosto;
+            }
         }
 
         // Si se cambia el almacén y ya habían artículos agregados, avisar o limpiar
@@ -919,6 +935,7 @@
     function guardarSalidaPorUso() {
         const sucursalId = document.getElementById('salida_sucursal').value;
         const almacenId = document.getElementById('salida_almacen').value;
+        const centroCostoId = document.getElementById('salida_centro_costo') ? document.getElementById('salida_centro_costo').value : null;
         const fechaSalida = document.getElementById('salida_fecha').value;
         const usuarioRecibeId = document.getElementById('salida_usuario_recibe').value;
         const notas = document.getElementById('salida_notas').value;
@@ -951,6 +968,7 @@
         const payload = {
             sucursal_id: sucursalId,
             almacen_id: almacenId,
+            centro_costo_id: centroCostoId || null,
             fecha_salida: fechaSalida,
             usuario_recibe_id: usuarioRecibeId,
             notas: notas,
@@ -1066,6 +1084,9 @@
                 document.getElementById('detRecibe').innerText = s.usuario_recibe;
                 document.getElementById('detSucursal').innerText = s.sucursal;
                 document.getElementById('detAlmacen').innerText = s.almacen;
+                if (document.getElementById('detCentroCosto')) {
+                    document.getElementById('detCentroCosto').innerText = s.centro_costo || 'Sin asignar';
+                }
                 document.getElementById('detNotas').innerText = s.notas;
                 document.getElementById('detTotalArts').innerText = s.total_articulos;
                 document.getElementById('detTotalPzas').innerText = s.total_piezas.toFixed(2);

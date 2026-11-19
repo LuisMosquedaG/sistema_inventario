@@ -11,6 +11,7 @@ from .models import OrdenCompra, DetalleCompra
 from core.models import Producto
 from almacenes.models import Almacen
 from preferencias.models import Moneda
+from centros_costos.models import CentroCosto
 from django.utils import timezone
 from .services import crear_orden_compra_servicio
 from panel.models import Empresa
@@ -497,6 +498,7 @@ def dashboard_compras(request):
 
     from categorias.models import ListaPrecioCosto
     listas_costos = ListaPrecioCosto.objects.filter(empresa=empresa_actual, tipo='costo')
+    centros_costos = CentroCosto.para_usuario(empresa_actual, request.user)
 
     context = {
         'page_obj': page_obj,
@@ -508,6 +510,7 @@ def dashboard_compras(request):
         'listas_costos': listas_costos,
         'cajas_y_bancos': cajas_y_bancos,
         'sucursales': sucursales_lista,
+        'centros_costos': centros_costos,
         'section': 'compras',
         'filtros': filtros
     }
@@ -605,6 +608,8 @@ def obtener_compra_json(request, compra_id):
             'sucursal_nombre': orden.sucursal.nombre if orden.sucursal else 'Matriz / Principal',
             'almacen_id': orden.almacen_destino.id if orden.almacen_destino else '',
             'almacen_nombre': orden.almacen_destino.nombre if orden.almacen_destino else 'No asignado',
+            'centro_costo_id': orden.centro_costo.id if orden.centro_costo else '',
+            'centro_costo_nombre': f"[{orden.centro_costo.codigo}] {orden.centro_costo.nombre}" if orden.centro_costo else '',
             'moneda_id': orden.moneda.id if orden.moneda else '',
             'moneda_nombre': orden.moneda.siglas if orden.moneda else 'MXN',
             'tipo_cambio': str(orden.tipo_cambio),
@@ -680,6 +685,12 @@ def actualizar_compra(request, compra_id):
             orden.moneda = mon_obj
             orden.tipo_cambio = request.POST.get('tipo_cambio', '1.0000')
             orden.descuento = request.POST.get('descuento', '0.00')
+
+            cc_id = request.POST.get('centro_costo') or request.POST.get('centro_costo_id')
+            if cc_id and str(cc_id).strip().isdigit():
+                orden.centro_costo = CentroCosto.objects.filter(id=int(cc_id), empresa=empresa_actual).first()
+            else:
+                orden.centro_costo = None
 
             nueva_fecha_str = request.POST.get('fecha')
             if nueva_fecha_str:

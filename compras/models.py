@@ -22,6 +22,7 @@ class OrdenCompra(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Empresa")
     sucursal_empresa = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal Empresa")
     almacen_destino = models.ForeignKey('almacenes.Almacen', on_delete=models.SET_NULL, null=True, blank=True, related_name='ordenes_compra')
+    centro_costo = models.ForeignKey('centros_costos.CentroCosto', on_delete=models.SET_NULL, null=True, blank=True, related_name='ordenes_compra', verbose_name="Centro de Costos")
     
     # NUEVOS CAMPOS: MONEDA Y TIPO DE CAMBIO
     moneda = models.ForeignKey('preferencias.Moneda', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Moneda")

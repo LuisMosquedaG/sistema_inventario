@@ -79,6 +79,15 @@
                         {% endfor %}
                     </select>
                 </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label small fw-bold text-secondary">Filtrar por Centro de Costos</label>
+                    <select name="centro_costo" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todos los centros de costo...</option>
+                        {% for cc in centros_costos %}
+                        <option value="{{ cc.id }}" {% if filtros.centro_costo == cc.id|stringformat:"s" %}selected{% endif %}>[{{ cc.codigo }}] {{ cc.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
             </form>
         </div>
     </div>
@@ -93,6 +102,7 @@
                             <th class="text-center" style="width: 60px;">Acciones</th>
                             <th class="text-center">Nombre</th>
                             <th class="text-center">Sucursal</th>
+                            <th class="text-center">Centro de Costos</th>
                             <th class="text-center">Dirección Completa</th>
                             <th class="text-center">Ubicación</th>
                             <th class="text-center">Contacto</th>
@@ -119,6 +129,17 @@
                             <!-- SUCURSAL -->
                             <td class="text-center">
                                 <div class="small text-brand fw-bold">{{ a.sucursal.nombre|default:"Sin Sucursal" }}</div>
+                            </td>
+
+                            <!-- CENTRO DE COSTOS -->
+                            <td class="text-center">
+                                {% if a.centro_costo %}
+                                <span class="badge bg-light text-dark border" title="{{ a.centro_costo.nombre }}">
+                                    <i class="bi bi-diagram-3 me-1" style="color: #00B8B9;"></i>[{{ a.centro_costo.codigo }}] {{ a.centro_costo.nombre }}
+                                </span>
+                                {% else %}
+                                <span class="text-muted small">--</span>
+                                {% endif %}
                             </td>
                             
                             <!-- DIRECCIÓN -->
@@ -147,7 +168,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="6" class="text-center py-5">
+                            <td colspan="8" class="text-center py-5">
                                 <i class="bi bi-house-slash display-6 text-muted mb-2 d-block opacity-50"></i>
                                 <span class="text-muted fst-italic small">No hay almacenes registrados</span>
                             </td>
@@ -204,7 +225,17 @@
                                         {% endfor %}
                                     </select>
                                 </div>
-                                <div class="col-md-12">
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-secondary mb-1">Centro de Costos Asociado</label>
+                                    <select name="centro_costo" id="selectCentroCostoAlmacen" class="form-select form-select-sm">
+                                        <option value="">Sin Centro de Costos...</option>
+                                        {% for cc in centros_costos %}
+                                        <option value="{{ cc.id }}">[{{ cc.codigo }}] {{ cc.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text text-muted" style="font-size: 0.7rem;">Si se asigna, los consumos y salidas sugerirán este centro de costo.</div>
+                                </div>
+                                <div class="col-md-6">
                                     <label class="form-label small fw-bold text-secondary mb-1">Responsable</label>
                                     <input type="text" name="responsable" class="form-control form-control-sm" placeholder="Ej. Juan Pérez">
                                 </div>
@@ -294,6 +325,8 @@
         if(form) form.reset();
         const idField = document.getElementById('almacenId');
         if(idField) idField.value = "";
+        const ccField = document.getElementById('selectCentroCostoAlmacen');
+        if(ccField) ccField.value = "";
     }
 
     // --- CARGAR PARA EDICIÓN ---
@@ -322,6 +355,7 @@
                 document.querySelector('[name="cp"]').value = data.cp;
                 document.querySelector('[name="telefono"]').value = data.telefono;
                 document.getElementById('selectSucursalModal').value = data.sucursal;
+                document.getElementById('selectCentroCostoAlmacen').value = data.centro_costo || '';
 
                 const myModal = new bootstrap.Modal(document.getElementById('modalCrearAlmacen'));
                 myModal.show();

@@ -10,6 +10,7 @@ from decimal import Decimal
 from django.utils import timezone
 from django.db import IntegrityError
 from .models import Almacen, Inventario, Kardex, SalidaPorUso, DetalleSalidaPorUso
+from centros_costos.models import CentroCosto
 from preferencias.models import Sucursal
 from core.models import Producto
 from pedidos.models import DetallePedido
@@ -39,19 +40,26 @@ def lista_almacenes(request):
         return render(request, 'error_sin_empresa.html', status=403)
     
     sucursal_id = request.GET.get('sucursal')
-    almacenes = Almacen.objects.filter(empresa=empresa_actual).select_related('sucursal').order_by('nombre')
+    centro_costo_id = request.GET.get('centro_costo')
+    almacenes = Almacen.objects.filter(empresa=empresa_actual).select_related('sucursal', 'centro_costo').order_by('nombre')
     
     if sucursal_id:
         almacenes = almacenes.filter(sucursal_id=sucursal_id)
+    if centro_costo_id:
+        almacenes = almacenes.filter(centro_costo_id=centro_costo_id)
         
     from preferencias.models import Sucursal
+    from centros_costos.models import CentroCosto
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
+    centros_costos = CentroCosto.objects.filter(empresa=empresa_actual, activo=True).order_by('codigo', 'nombre')
     
     contexto = {
         'almacenes': almacenes,
         'sucursales': sucursales,
+        'centros_costos': centros_costos,
         'filtros': {
-            'sucursal': sucursal_id or ''
+            'sucursal': sucursal_id or '',
+            'centro_costo': centro_costo_id or '',
         }
     }
     return render(request, 'dashboard_almacenes.html', contexto)
@@ -146,6 +154,8 @@ def api_crear_almacen(request):
     if request.method == 'POST':
         try:
             empresa_actual = get_empresa_actual(request)
+            sucursal_id = request.POST.get('sucursal') or None
+            centro_costo_id = request.POST.get('centro_costo') or None
             Almacen.objects.create(
                 nombre=request.POST.get('nombre'),
                 responsable=request.POST.get('responsable'),
@@ -157,7 +167,8 @@ def api_crear_almacen(request):
                 cp=request.POST.get('cp'),
                 telefono=request.POST.get('telefono'),
                 empresa=empresa_actual,
-                sucursal_id=request.POST.get('sucursal')
+                sucursal_id=sucursal_id,
+                centro_costo_id=centro_costo_id
             )
             return JsonResponse({'success': True, 'message': 'Almacén creado correctamente.'})
         except Exception as e:
@@ -180,7 +191,8 @@ def api_detalle_almacen(request, id):
         'estado': almacen.estado,
         'cp': almacen.cp,
         'telefono': almacen.telefono,
-        'sucursal': almacen.sucursal.id if almacen.sucursal else ''
+        'sucursal': almacen.sucursal.id if almacen.sucursal else '',
+        'centro_costo': almacen.centro_costo.id if almacen.centro_costo else ''
     })
 
 @login_required
@@ -199,7 +211,8 @@ def api_actualizar_almacen(request, id):
             almacen.estado = request.POST.get('estado')
             almacen.cp = request.POST.get('cp')
             almacen.telefono = request.POST.get('telefono')
-            almacen.sucursal_id = request.POST.get('sucursal')
+            almacen.sucursal_id = request.POST.get('sucursal') or None
+            almacen.centro_costo_id = request.POST.get('centro_costo') or None
             almacen.save()
             return JsonResponse({'success': True, 'message': 'Almacén actualizado correctamente.'})
         except Exception as e:
@@ -913,7 +926,7 @@ def dashboard_salida_por_uso(request):
     fecha_fin = request.GET.get('fecha_fin', '').strip()
 
     salidas_qs = SalidaPorUso.objects.filter(empresa=empresa_actual).select_related(
-        'sucursal', 'almacen', 'usuario_creador', 'usuario_recibe', 'usuario_aprueba', 'usuario_cancela'
+        'sucursal', 'almacen', 'usuario_creador', 'usuario_recibe', 'usuario_aprueba', 'usuario_cancela', 'centro_costo'
     ).prefetch_related('detalles__producto').order_by('-fecha_creacion')
 
     if q:
@@ -946,6 +959,7 @@ def dashboard_salida_por_uso(request):
     # Catálogos para filtros y modal
     sucursales = Sucursal.objects.filter(empresa=empresa_actual).order_by('nombre')
     almacenes = Almacen.objects.filter(empresa=empresa_actual).order_by('nombre')
+    centros_costos = CentroCosto.para_usuario(empresa_actual, request.user)
 
     # Sucursal actual del usuario (por sesión o primera disponible)
     sesion_sucursal_id = request.session.get('sucursal_id')
@@ -993,6 +1007,7 @@ def dashboard_salida_por_uso(request):
         'salidas': page_obj,
         'sucursales': sucursales,
         'almacenes': almacenes,
+        'centros_costos': centros_costos,
         'sucursal_actual': sucursal_actual,
         'almacenes_sucursal_actual': almacenes_sucursal_actual,
         'usuarios': usuarios_list,
@@ -1022,7 +1037,7 @@ def api_almacenes_sucursal(request, sucursal_id):
     if sucursal_id and int(sucursal_id) > 0:
         almacenes = almacenes.filter(sucursal_id=sucursal_id)
 
-    data = [{'id': a.id, 'nombre': a.nombre} for a in almacenes.order_by('nombre')]
+    data = [{'id': a.id, 'nombre': a.nombre, 'centro_costo_id': a.centro_costo_id or ''} for a in almacenes.order_by('nombre')]
     return JsonResponse({'success': True, 'almacenes': data})
 
 
@@ -1113,6 +1128,7 @@ def api_crear_salida_por_uso(request):
 
     sucursal_id = data.get('sucursal_id')
     almacen_id = data.get('almacen_id')
+    centro_costo_id = data.get('centro_costo_id')
     fecha_salida = data.get('fecha_salida')
     usuario_recibe_id = data.get('usuario_recibe_id')
     notas = data.get('notas', '').strip()
@@ -1134,6 +1150,10 @@ def api_crear_salida_por_uso(request):
     if not sucursal and almacen.sucursal:
         sucursal = almacen.sucursal
 
+    centro_costo = None
+    if centro_costo_id:
+        centro_costo = CentroCosto.objects.filter(id=centro_costo_id, empresa=empresa_actual).first()
+
     usuario_recibe = get_object_or_404(User, id=usuario_recibe_id)
     # Validar estrictamente que el usuario pertenezca a la empresa del cliente
     is_client_user = (
@@ -1151,6 +1171,7 @@ def api_crear_salida_por_uso(request):
                 folio=folio,
                 sucursal=sucursal,
                 almacen=almacen,
+                centro_costo=centro_costo,
                 fecha_salida=fecha_salida,
                 usuario_creador=request.user,
                 usuario_recibe=usuario_recibe,
@@ -1172,6 +1193,7 @@ def api_crear_salida_por_uso(request):
                 DetalleSalidaPorUso.objects.create(
                     salida=salida,
                     producto=prod,
+                    centro_costo=centro_costo,
                     unidad_medida=um,
                     cantidad=cant,
                     costo_unitario=costo,
@@ -1214,6 +1236,7 @@ def api_actualizar_salida_por_uso(request, salida_id):
 
     sucursal_id = data.get('sucursal_id')
     almacen_id = data.get('almacen_id')
+    centro_costo_id = data.get('centro_costo_id')
     fecha_salida = data.get('fecha_salida')
     usuario_recibe_id = data.get('usuario_recibe_id')
     notas = data.get('notas', '').strip()
@@ -1235,6 +1258,10 @@ def api_actualizar_salida_por_uso(request, salida_id):
     if not sucursal and almacen.sucursal:
         sucursal = almacen.sucursal
 
+    centro_costo = None
+    if centro_costo_id:
+        centro_costo = CentroCosto.objects.filter(id=centro_costo_id, empresa=empresa_actual).first()
+
     usuario_recibe = get_object_or_404(User, id=usuario_recibe_id)
     is_client_user = (
         usuario_recibe.username.lower().endswith(f"@{empresa_actual.subdominio.lower()}") or
@@ -1247,6 +1274,7 @@ def api_actualizar_salida_por_uso(request, salida_id):
         with transaction.atomic():
             salida.sucursal = sucursal
             salida.almacen = almacen
+            salida.centro_costo = centro_costo
             salida.fecha_salida = fecha_salida
             salida.usuario_recibe = usuario_recibe
             salida.notas = notas
@@ -1268,6 +1296,7 @@ def api_actualizar_salida_por_uso(request, salida_id):
                 DetalleSalidaPorUso.objects.create(
                     salida=salida,
                     producto=prod,
+                    centro_costo=centro_costo,
                     unidad_medida=um,
                     cantidad=cant,
                     costo_unitario=costo,
@@ -1456,7 +1485,7 @@ def api_detalle_salida_por_uso(request, salida_id):
 
     salida = get_object_or_404(
         SalidaPorUso.objects.select_related(
-            'sucursal', 'almacen', 'usuario_creador', 'usuario_recibe', 'usuario_aprueba', 'usuario_cancela'
+            'sucursal', 'almacen', 'usuario_creador', 'usuario_recibe', 'usuario_aprueba', 'usuario_cancela', 'centro_costo'
         ).prefetch_related('detalles__producto'),
         id=salida_id,
         empresa=empresa_actual
@@ -1501,6 +1530,8 @@ def api_detalle_salida_por_uso(request, salida_id):
         'sucursal': salida.sucursal.nombre if salida.sucursal else 'Sin Sucursal',
         'almacen_id': salida.almacen_id,
         'almacen': salida.almacen.nombre,
+        'centro_costo_id': salida.centro_costo_id,
+        'centro_costo': f"[{salida.centro_costo.codigo}] {salida.centro_costo.nombre}" if salida.centro_costo else None,
         'fecha_salida': salida.fecha_salida.strftime('%d/%m/%Y') if salida.fecha_salida else '--',
         'fecha_salida_iso': salida.fecha_salida.strftime('%Y-%m-%d') if salida.fecha_salida else '',
         'fecha_creacion': salida.fecha_creacion.strftime('%d/%m/%Y %H:%M') if salida.fecha_creacion else '--',

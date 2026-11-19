@@ -170,6 +170,7 @@ urlpatterns = [
     path('produccion/', include('produccion.urls')),
     path('recursos-humanos/', include('recursos_humanos.urls')),
     path('costeos/', include('costeos.urls')),
+    path('centros-costos/', include('centros_costos.urls')),
     path('notificaciones/', include('notificaciones.urls')),
     
     path('inventario/', include('almacenes.urls')), 

@@ -5,7 +5,8 @@ from django.http import JsonResponse, HttpResponse
 from django.db import transaction
 from django.utils import timezone
 from django.core.paginator import Paginator
-from django.db.models import F, Q, Sum, Avg
+from django.db.models import F, Q, Sum, Avg, DecimalField, Value
+from django.db.models.functions import Coalesce
 from decimal import Decimal
 import openpyxl
 from datetime import datetime
@@ -383,9 +384,15 @@ def dashboard_produccion(request):
                     inv_qs = inv_qs.filter(empresa=empresa_actual)
                 
                 # Sumar existencias disponibles
-                from django.db.models.functions import Coalesce
                 stock_data = inv_qs.aggregate(
-                    total_disp=Coalesce(Sum(F('cantidad') - Coalesce(F('reservado'), 0)), 0)
+                    total_disp=Coalesce(
+                        Sum(
+                            F('cantidad') - Coalesce(F('reservado'), Value(Decimal('0.00')), output_field=DecimalField()),
+                            output_field=DecimalField()
+                        ),
+                        Value(Decimal('0.00')),
+                        output_field=DecimalField()
+                    )
                 )
                 disponible = stock_data['total_disp']
                 
@@ -949,9 +956,15 @@ def avanzar_estado_produccion(request, orden_id):
                         inv_qs = inv_qs.filter(empresa=empresa_actual)
 
                     # 2. Calcular disponibilidad
-                    from django.db.models.functions import Coalesce
                     stock_data = inv_qs.aggregate(
-                        total_disp=Coalesce(Sum(F('cantidad') - Coalesce(F('reservado'), 0)), 0)
+                        total_disp=Coalesce(
+                            Sum(
+                                F('cantidad') - Coalesce(F('reservado'), Value(Decimal('0.00')), output_field=DecimalField()),
+                                output_field=DecimalField()
+                            ),
+                            Value(Decimal('0.00')),
+                            output_field=DecimalField()
+                        )
                     )
                     disponible = stock_data['total_disp']
                     

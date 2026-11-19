@@ -22,6 +22,14 @@ class Almacen(models.Model):
     # --- RELACIÓN CON EMPRESA ---
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Empresa")
     sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
+    centro_costo = models.ForeignKey(
+        'centros_costos.CentroCosto',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='almacenes',
+        verbose_name="Centro de Costos"
+    )
     
     fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
 
@@ -415,6 +423,7 @@ class SalidaPorUso(models.Model):
     fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
     usuario_creador = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='salidas_uso_creadas', verbose_name="Usuario Creador")
     usuario_recibe = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='salidas_uso_recibidas', verbose_name="Usuario que Recibe")
+    centro_costo = models.ForeignKey('centros_costos.CentroCosto', on_delete=models.SET_NULL, null=True, blank=True, related_name='salidas_por_uso', verbose_name="Centro de Costos")
     estado = models.CharField(max_length=20, choices=ESTADOS, default='borrador', verbose_name="Estado")
     notas = models.TextField(blank=True, null=True, verbose_name="Notas / Justificación")
 
@@ -484,6 +493,7 @@ class DetalleSalidaPorUso(models.Model):
     cantidad = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Cantidad")
     costo_unitario = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Costo Unitario")
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Subtotal")
+    centro_costo = models.ForeignKey('centros_costos.CentroCosto', on_delete=models.SET_NULL, null=True, blank=True, related_name='detalles_salida_uso', verbose_name="Centro de Costos")
     extras_data = models.JSONField(default=list, blank=True, verbose_name="Datos de Lotes/Series/Caducidades")
 
     class Meta:

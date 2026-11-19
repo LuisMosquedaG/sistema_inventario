@@ -299,12 +299,19 @@ def crear_pedido_manual(request):
 
             aplica_iva = request.POST.get('aplica_iva') == 'on'
 
+            centro_costo_id = request.POST.get('centro_costo')
+            centro_costo = None
+            if centro_costo_id:
+                from centros_costos.models import CentroCosto
+                centro_costo = CentroCosto.objects.filter(id=centro_costo_id, empresa=empresa_actual, activo=True).first()
+
             create_kwargs = {
                 'cliente': cliente,
                 'contacto': contacto,
                 'vendedor': request.user,
                 'empresa': empresa_actual,
                 'sucursal': sucursal_obj,
+                'centro_costo': centro_costo,
                 'estado': 'borrador',
                 'notas': notas,
                 'aplica_iva': aplica_iva
@@ -452,6 +459,9 @@ def dashboard_pedidos(request):
     monedas = Moneda.objects.filter(empresa=empresa_actual)
     listas_precios = ListaPrecioCosto.objects.filter(empresa=empresa_actual, tipo='precio').order_by('nombre')
 
+    from centros_costos.models import CentroCosto
+    centros_costos = CentroCosto.para_usuario(empresa_actual, request.user)
+
     contexto = {
         'page_obj': page_obj,
         'clientes': clientes,
@@ -460,6 +470,7 @@ def dashboard_pedidos(request):
         'cajas': cajas,
         'monedas': monedas,
         'sucursales': sucursales,
+        'centros_costos': centros_costos,
         'contactos_filtro': contactos_del_cliente,
         'filtros': filtros,
         'hoy': timezone.now().date()
@@ -500,6 +511,7 @@ def crear_pedido_desde_cotizacion(request, cotizacion_id):
             vendedor=request.user,
             empresa=empresa_actual,
             sucursal=sucursal_obj,
+            centro_costo=getattr(cotizacion, 'centro_costo', None),
             cotizacion_origen_id=cotizacion.id,
             estado='borrador', # Inicia en borrador para que el usuario revise antes de confirmar
             aplica_iva=cotizacion.aplica_iva
@@ -1156,6 +1168,7 @@ def api_detalle_pedido_edicion(request, pedido_id):
         'fecha': pedido.fecha_creacion.strftime('%Y-%m-%d') if pedido.fecha_creacion else '',
         'notas': pedido.notas or '',
         'aplica_iva': pedido.aplica_iva,
+        'centro_costo_id': pedido.centro_costo_id or '',
         'detalles': detalles,
         'subtotal_total': float(pedido.calcular_subtotal),
         'iva_total': float(pedido.calcular_iva),
@@ -1210,6 +1223,14 @@ def editar_pedido_ajax(request, pedido_id):
                     pedido.fecha_creacion = timezone.make_aware(combined, timezone.get_current_timezone())
 
             pedido.aplica_iva = request.POST.get('aplica_iva') == 'on'
+
+            centro_costo_id = request.POST.get('centro_costo')
+            if centro_costo_id:
+                from centros_costos.models import CentroCosto
+                pedido.centro_costo = CentroCosto.objects.filter(id=centro_costo_id, empresa=empresa_actual, activo=True).first()
+            elif 'centro_costo' in request.POST:
+                pedido.centro_costo = None
+
             pedido.save()
 
             # 2. Actualizar Detalles (Sustituir por los nuevos)

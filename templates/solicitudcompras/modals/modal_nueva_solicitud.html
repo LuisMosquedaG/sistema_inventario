@@ -79,9 +79,18 @@
                                         {% endfor %}
                                     </select>
                                 </div>
-                                <div class="col-md-12 mt-2">
+                                <div class="col-md-4 mt-2">
+                                    <label class="form-label small fw-bold text-secondary">Centro de Costos</label>
+                                    <select name="centro_costo_id" id="solicitud_centro_costo" class="form-select form-select-sm">
+                                        <option value="">(Opcional) Sin centro asignado</option>
+                                        {% for cc in centros_costos %}
+                                        <option value="{{ cc.id }}">[{{ cc.codigo }}] {{ cc.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-8 mt-2">
                                     <label class="form-label small fw-bold text-secondary">Notas / Justificación</label>
-                                    <textarea name="notas" id="notas_solicitud" class="form-control form-control-sm" rows="2" placeholder="Escriba aquí el motivo de la solicitud o detalles urgentes..."></textarea>
+                                    <textarea name="notas" id="notas_solicitud" class="form-control form-control-sm" rows="1" placeholder="Escriba aquí el motivo de la solicitud o detalles urgentes..."></textarea>
                                 </div>
                             </div>
                         </div>

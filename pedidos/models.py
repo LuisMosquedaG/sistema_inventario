@@ -37,6 +37,14 @@ class Pedido(models.Model):
     vendedor = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Vendedor")
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Empresa (Tenant)")
     sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
+    centro_costo = models.ForeignKey(
+        'centros_costos.CentroCosto',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pedidos',
+        verbose_name="Centro de Costos"
+    )
     
     # Referencia a la cotización origen (opcional)
     cotizacion_origen_id = models.PositiveIntegerField(null=True, blank=True, verbose_name="ID Cotización")

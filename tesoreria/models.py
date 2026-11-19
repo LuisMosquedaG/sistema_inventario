@@ -78,6 +78,8 @@ class Ingreso(models.Model):
     
     # Vínculos opcionales
     pago_pedido = models.OneToOneField(PagoPedido, on_delete=models.SET_NULL, null=True, blank=True, related_name='ingreso_vinc')
+    cliente = models.ForeignKey('clientes.Cliente', on_delete=models.SET_NULL, null=True, blank=True, related_name='ingresos_directos', verbose_name="Cliente")
+    centro_costo = models.ForeignKey('centros_costos.CentroCosto', on_delete=models.SET_NULL, null=True, blank=True, related_name='ingresos', verbose_name="Centro de Costos")
     
     fecha_registro = models.DateTimeField(auto_now_add=True)
     estado = models.CharField(max_length=20, choices=[('aplicado', 'Aplicado'), ('cancelado', 'Cancelado')], default='aplicado', verbose_name="Estado")
@@ -135,6 +137,7 @@ class Egreso(models.Model):
     pago_compra = models.OneToOneField(PagoCompra, on_delete=models.SET_NULL, null=True, blank=True, related_name='egreso_vinc')
     sesion_caja = models.ForeignKey('ventas.SesionCajaPOS', on_delete=models.SET_NULL, null=True, blank=True, related_name='retiros_caja', verbose_name="Sesión de Caja POS")
     proveedor = models.ForeignKey('proveedores.Proveedor', on_delete=models.SET_NULL, null=True, blank=True, related_name='egresos_directos', verbose_name="Proveedor")
+    centro_costo = models.ForeignKey('centros_costos.CentroCosto', on_delete=models.SET_NULL, null=True, blank=True, related_name='egresos', verbose_name="Centro de Costos")
     
     fecha_registro = models.DateTimeField(auto_now_add=True)
     estado = models.CharField(max_length=20, choices=[('aplicado', 'Aplicado'), ('cancelado', 'Cancelado')], default='aplicado', verbose_name="Estado")

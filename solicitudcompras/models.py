@@ -19,6 +19,14 @@ class SolicitudCompra(models.Model):
     solicitante = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Solicitante")
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Empresa")
     sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
+    centro_costo = models.ForeignKey(
+        'centros_costos.CentroCosto',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='solicitudes_compra',
+        verbose_name="Centro de Costos"
+    )
     
     fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha Solicitud")
     fecha_envio = models.DateTimeField(null=True, blank=True, verbose_name="Enviada el")

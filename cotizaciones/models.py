@@ -37,6 +37,14 @@ class Cotizacion(models.Model):
     # --- NUEVO CAMPO: MULTI-TENANCY ---
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Empresa (Tenant)")
     sucursal = models.ForeignKey('preferencias.Sucursal', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sucursal")
+    centro_costo = models.ForeignKey(
+        'centros_costos.CentroCosto',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cotizaciones',
+        verbose_name="Centro de Costos"
+    )
     
     fecha_inicio = models.DateField(verbose_name="Vigencia Inicio")
     fecha_fin = models.DateField(verbose_name="Vigencia Fin")

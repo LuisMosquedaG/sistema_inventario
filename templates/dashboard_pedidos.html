@@ -755,7 +755,7 @@
                                 <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">Datos del Cliente</h6>
                                 <div class="row g-2">
                                     <!-- CLIENTE -->
-                                    <div class="col-md-5">
+                                    <div class="col-md-4">
                                         <label class="form-label small fw-bold text-secondary">Cliente</label>
                                         <div class="custom-select-wrapper" id="wrapperClienteNuevo">
                                             <div class="custom-select">
@@ -780,7 +780,7 @@
                                     </div>
 
                                     <!-- CONTACTO -->
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <label class="form-label small fw-bold text-secondary">Contacto</label>
                                         <select name="contacto" id="selectContactoNuevo" class="form-select form-select-sm" disabled>
                                             <option value="">Selecciona cliente primero...</option>
@@ -788,9 +788,22 @@
                                     </div>
 
                                     <!-- FECHA -->
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <label class="form-label small fw-bold text-secondary">Fecha</label>
                                         <input type="date" name="fecha" id="inputFechaPedido" class="form-control form-control-sm" value="{% now 'Y-m-d' %}">
+                                    </div>
+
+                                    <!-- CENTRO DE COSTOS -->
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold text-secondary">
+                                            <i class="bi bi-diagram-3 me-1" style="color: #00b8b9;"></i>Centro de Costos
+                                        </label>
+                                        <select name="centro_costo" id="selectCentroCostoPedido" class="form-select form-select-sm">
+                                            <option value="">-- Sin Asignar --</option>
+                                            {% for cc in centros_costos %}
+                                            <option value="{{ cc.id }}">{{ cc.codigo }} - {{ cc.nombre }}</option>
+                                            {% endfor %}
+                                        </select>
                                     </div>
 
                                     <!-- NOTAS -->
@@ -1432,6 +1445,9 @@
         const selectLista = document.getElementById('selectListaPrecioPedido');
         if (selectLista) selectLista.value = "";
 
+        const selectCC = document.getElementById('selectCentroCostoPedido');
+        if (selectCC) selectCC.value = "";
+
         const inputFecha = document.getElementById('inputFechaPedido');
         if (inputFecha) {
             const _n = new Date();
@@ -1487,6 +1503,12 @@
                 const inputFecha = document.getElementById('inputFechaPedido');
                 if (inputFecha && data.fecha) {
                     inputFecha.value = data.fecha;
+                }
+
+                // 3.6 Cargar Centro de Costos
+                const selectCC = document.getElementById('selectCentroCostoPedido');
+                if (selectCC) {
+                    selectCC.value = data.centro_costo_id || "";
                 }
 
                 // 4. Cargar Artículos

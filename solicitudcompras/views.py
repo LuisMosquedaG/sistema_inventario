@@ -19,8 +19,17 @@ from produccion.models import OrdenProduccion
 from proveedores.models import Proveedor
 from almacenes.models import Almacen
 from preferencias.models import Moneda
+from centros_costos.models import CentroCosto
 from notificaciones.utils import crear_notificacion
 from preferencias.permissions import require_sales_permission
+
+def _clean_id(val):
+    if not val or str(val).strip().lower() in ('', 'null', 'none', 'undefined', '0'):
+        return None
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return None
 
 @login_required(login_url='/login/')
 def descargar_plantilla_solicitudes(request):
@@ -337,6 +346,7 @@ def dashboard_solicitudcompras(request):
 
     listas_costos = ListaPrecioCosto.objects.filter(empresa=empresa_actual, tipo='costo')
     todas_categorias = CategoriaCatalogo.objects.filter(empresa=empresa_actual)
+    centros_costos = CentroCosto.para_usuario(empresa_actual, request.user)
     
     contexto = {
         'page_obj': page_obj,
@@ -347,13 +357,12 @@ def dashboard_solicitudcompras(request):
         'productos': list(lista_productos),
         'categorias_catalogo': todas_categorias,
         'listas_costos': listas_costos,
+        'centros_costos': centros_costos,
         'sucursales': sucursales_lista,
         'filtros': filtros,
         'section': 'solicitudcompras'
     }
     return render(request, 'dashboard_solicitudcompras.html', contexto)
-
-from preferencias.permissions import require_sales_permission
 
 @login_required(login_url='/login/')
 @require_sales_permission('pedidos', 'solicitar')
@@ -392,6 +401,7 @@ def crear_solicitud_desde_pedido(request, detalle_id):
             solicitante=request.user, 
             empresa=empresa_actual, 
             sucursal=pedido.sucursal, # Hereda la sucursal del pedido
+            centro_costo=getattr(pedido, 'centro_costo', None),
             estado='borrador',
             aplica_iva=pedido.aplica_iva
         )
@@ -600,6 +610,8 @@ def obtener_solicitud_json(request, solicitud_id):
         data['subtotal_total'] = str(solicitud.calcular_subtotal)
         data['iva_total'] = str(solicitud.calcular_iva)
         data['gran_total'] = str(solicitud.calcular_total)
+        data['centro_costo_id'] = solicitud.centro_costo_id
+        data['centro_costo_nombre'] = f"[{solicitud.centro_costo.codigo}] {solicitud.centro_costo.nombre}" if solicitud.centro_costo else None
         data['solicitante_nombre'] = solicitud.solicitante.username.split('@')[0] if solicitud.solicitante else 'Sistema'
         data['fecha_creacion'] = solicitud.fecha_creacion.strftime('%d/%m/%Y %H:%M')
         data['estado_display'] = solicitud.get_estado_display()
@@ -622,6 +634,8 @@ def actualizar_solicitud(request, solicitud_id):
 
             solicitud.aplica_iva = request.POST.get('aplica_iva') == 'on'
             solicitud.notas = request.POST.get('notas', '')
+            cc_id = _clean_id(request.POST.get('centro_costo_id') or request.POST.get('centro_costo'))
+            solicitud.centro_costo = CentroCosto.objects.filter(id=cc_id, empresa=empresa_actual).first() if cc_id else None
             solicitud.save()
 
             # Borrar y recrear detalles (simplificación para este ejemplo)
@@ -642,14 +656,6 @@ def actualizar_solicitud(request, solicitud_id):
 
             from preferencias.models import Moneda
             from almacenes.models import Almacen
-
-            def _clean_id(val):
-                if not val or str(val).strip().lower() in ('', 'null', 'none', 'undefined', '0'):
-                    return None
-                try:
-                    return int(val)
-                except (ValueError, TypeError):
-                    return None
 
             moneda_default = Moneda.objects.filter(empresa=empresa_actual, siglas='MXN').first() or Moneda.objects.filter(empresa=empresa_actual).first()
             almacen_default = Almacen.objects.filter(empresa=empresa_actual).first()
@@ -715,10 +721,16 @@ def crear_solicitud_manual(request):
 
             aplica_iva = request.POST.get('aplica_iva') == 'on'
             notas = request.POST.get('notas', '')
+            raw_cc_id = request.POST.get('centro_costo_id') or request.POST.get('centro_costo')
+            cc_obj = None
+            if raw_cc_id and str(raw_cc_id).strip().isdigit():
+                cc_obj = CentroCosto.objects.filter(id=int(raw_cc_id), empresa=empresa_actual).first()
+
             solicitud = SolicitudCompra.objects.create(
                 solicitante=request.user,
                 empresa=empresa_actual,
                 sucursal=sucursal_obj,
+                centro_costo=cc_obj,
                 estado='borrador',
                 notas=notas,
                 aplica_iva=aplica_iva
@@ -738,14 +750,6 @@ def crear_solicitud_manual(request):
 
             from preferencias.models import Moneda
             from almacenes.models import Almacen
-
-            def _clean_id(val):
-                if not val or str(val).strip().lower() in ('', 'null', 'none', 'undefined', '0'):
-                    return None
-                try:
-                    return int(val)
-                except (ValueError, TypeError):
-                    return None
 
             moneda_default = Moneda.objects.filter(empresa=empresa_actual, siglas='MXN').first() or Moneda.objects.filter(empresa=empresa_actual).first()
             almacen_default = Almacen.objects.filter(empresa=empresa_actual).first()
@@ -852,6 +856,7 @@ def autorizar_solicitud(request, solicitud_id):
                 usuario=request.user,
                 empresa=empresa_actual,
                 sucursal_empresa=solicitud.sucursal, # Hereda la sucursal de la empresa de la solicitud
+                centro_costo=solicitud.centro_costo, # Hereda el centro de costo de la solicitud
                 estado='borrador',
                 almacen_destino=almacen,
                 moneda=moneda,

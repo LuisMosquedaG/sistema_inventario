@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     'notificaciones',
     'recursos_humanos',
     'costeos.apps.CosteosConfig',
+    'centros_costos',
 ]
 
 MIDDLEWARE = [

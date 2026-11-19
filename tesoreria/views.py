@@ -139,7 +139,8 @@ def api_registrar_pago_compra(request):
                 caja_banco=caja_banco,
                 referencia=referencia,
                 pago_compra=pago,
-                sucursal=sucursal_obj
+                sucursal=sucursal_obj,
+                centro_costo=compra.centro_costo
             )
 
             # --- NOTIFICACIÓN ---
@@ -438,7 +439,9 @@ def api_registrar_pago_pedido(request):
                     caja_banco=caja_banco,
                     referencia=referencia,
                     pago_pedido=pago,
-                    sucursal=sucursal_obj
+                    sucursal=sucursal_obj,
+                    cliente=pedido.cliente,
+                    centro_costo=pedido.centro_costo
                 )
 
             # --- CRÉDITO: crear o actualizar registro ---

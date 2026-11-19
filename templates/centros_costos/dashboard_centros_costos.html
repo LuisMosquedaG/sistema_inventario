@@ -1,0 +1,1386 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Centros de Costo - CrossoverSuite{% endblock %}
+
+{% block content %}
+<style>
+    /* VARIABLES Y ESTILOS ESPECÍFICOS DE CENTROS DE COSTOS */
+    :root {
+        --cc-brand: #00B8B9;
+        --cc-dark: #1A252F;
+        --cc-light-bg: #F8FAFC;
+        --cc-border: #E2E8F0;
+    }
+
+
+    .table-pro {
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    .table-pro thead th {
+        background-color: #F8FAFC;
+        color: #64748B;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid var(--cc-border);
+        padding: 0.75rem 1rem;
+        vertical-align: middle;
+        text-align: center !important;
+    }
+    .table-pro tbody td {
+        border-bottom: 1px solid #F1F5F9;
+        padding: 0.75rem 1rem;
+        vertical-align: middle;
+        font-size: 0.85rem;
+        color: #334155;
+        text-align: center !important;
+    }
+    .table-pro tbody tr:hover td {
+        background-color: #F8FAFC;
+    }
+
+    .icon-action {
+        color: #94A3B8;
+        font-size: 1.05rem;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
+        text-decoration: none !important;
+        background: transparent;
+        border: none;
+    }
+    .icon-action:hover {
+        transform: scale(1.15);
+        color: #1E293B;
+    }
+    .icon-action-view:hover { color: var(--cc-brand) !important; background-color: rgba(0, 184, 185, 0.1); }
+    .icon-action-edit:hover { color: var(--cc-brand) !important; background-color: rgba(0, 184, 185, 0.1); }
+    .icon-action-toggle:hover { color: #F59E0B !important; background-color: rgba(245, 158, 11, 0.1); }
+    .icon-action-delete:hover { color: #EF4444 !important; background-color: rgba(239, 68, 68, 0.1); }
+
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.7rem;
+        line-height: 1;
+        padding: 0.25em 0.6em;
+        font-weight: 600;
+        text-align: center;
+        white-space: nowrap;
+        border-radius: 50px;
+        text-transform: capitalize;
+    }
+    .status-borrador { background-color: #f1f3f5; color: #495057; border: 1px solid #dee2e6; }
+    .status-aprobada { background-color: #e7f5ff; color: #1971c2; border: 1px solid #d0ebff; }
+    .status-recibida { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
+    .status-parcial { background-color: #fff4e6; color: #d9480f; border: 1px solid #ffe8cc; }
+    .status-cancelada { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
+    .status-activo { background-color: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; }
+    .status-inactivo { background-color: #F1F5F9; color: #64748B; border: 1px solid #CBD5E1; }
+
+    .badge-tipo {
+        font-size: 0.68rem;
+        font-weight: 600;
+        padding: 0.18rem 0.5rem;
+        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .tipo-departamento { background-color: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; }
+    .tipo-proyecto { background-color: #F5F3FF; color: #7C3AED; border: 1px solid #DDD6FE; }
+    .tipo-sucursal { background-color: #F0FDF4; color: #16A34A; border: 1px solid #BBF7D0; }
+    .tipo-linea_negocio { background-color: #FFFBEB; color: #D97706; border: 1px solid #FDE68A; }
+    .tipo-administrativo { background-color: #F8FAFC; color: #475569; border: 1px solid #CBD5E1; }
+    .tipo-operacion { background-color: #ECFEFF; color: #0891B2; border: 1px solid #A5F3FC; }
+    .tipo-otro { background-color: #F8FAFC; color: #64748B; border: 1px solid #E2E8F0; }
+
+    /* BARRAS DE AVANCE SÚPER DELGADAS (ESTILO PRODUCCIÓN) */
+    .progress-slim { 
+        display: flex;
+        height: 5px; 
+        border-radius: 10px; 
+        background-color: #f1f3f5; 
+        overflow: hidden; 
+        margin-top: 2px; 
+    }
+    .bg-brand-avance { background-color: #00b8b9 !important; }
+    .bg-info-avance { background-color: #00b8b9 !important; opacity: 0.7; }
+    .progress-label { font-size: 0.6rem; color: #868e96; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* Modales Limpios */
+    .modal-sheet .modal-content {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+        overflow: hidden;
+    }
+    .modal-sheet .modal-header {
+        background-color: #FFFFFF;
+        border-bottom: 1px solid var(--cc-border);
+        padding: 0.9rem 1.25rem;
+    }
+    .modal-sheet .modal-footer {
+        background-color: #F8FAFC;
+        border-top: 1px solid var(--cc-border);
+        padding: 0.75rem 1.25rem;
+    }
+    .form-clean label {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #475569;
+        margin-bottom: 0.25rem;
+    }
+    .form-clean .form-control, .form-clean .form-select {
+        font-size: 0.84rem;
+        border-color: #CBD5E1;
+        border-radius: 6px;
+    }
+    .form-clean .form-control:focus, .form-clean .form-select:focus {
+        border-color: var(--cc-brand);
+        box-shadow: 0 0 0 2px rgba(0, 184, 185, 0.15);
+    }
+
+    /* Tabs para modal de movimientos */
+    .nav-tabs-clean .nav-link {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #64748B;
+        border: none;
+        border-bottom: 2px solid transparent;
+        padding: 0.6rem 1rem;
+        border-radius: 0;
+    }
+    .nav-tabs-clean .nav-link.active {
+        color: var(--cc-brand);
+        border-bottom: 2px solid var(--cc-brand);
+        background: transparent;
+    }
+</style>
+
+<div class="container-fluid py-3 px-4">
+    <!-- ENCABEZADO PRINCIPAL -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h4 class="section-title mb-1 fw-bold text-dark">
+                Centros de Costo
+            </h4>
+            <span class="section-subtitle text-muted small">
+                Gestión presupuestal, clasificación financiera y trazabilidad de gastos ({{ mes_nombre }} {{ anio_actual }})
+            </span>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-brand btn-sm px-3 shadow-sm d-flex align-items-center" onclick="abrirModalCrearCentro()">
+                <i class="bi bi-plus-lg me-1"></i> Nuevo Centro de Costo
+            </button>
+        </div>
+    </div>
+
+    <!-- BARRA DE FILTROS -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-3">
+            <form method="get" class="row g-2 align-items-end" id="formFiltrosCentros">
+                <div class="col-12 col-md-3">
+                    <label class="form-label small fw-bold text-secondary mb-1">Buscar</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                        <input type="text" name="q" class="form-control border-start-0" placeholder="Código, nombre, descripción..." value="{{ filtros.q }}">
+                    </div>
+                </div>
+
+                <div class="col-6 col-md-2">
+                    <label class="form-label small fw-bold text-secondary mb-1">Tipo</label>
+                    <select name="tipo" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todos los tipos</option>
+                        <option value="departamento" {% if filtros.tipo == 'departamento' %}selected{% endif %}>Departamento</option>
+                        <option value="proyecto" {% if filtros.tipo == 'proyecto' %}selected{% endif %}>Proyecto</option>
+                        <option value="sucursal" {% if filtros.tipo == 'sucursal' %}selected{% endif %}>Sucursal</option>
+                        <option value="linea_negocio" {% if filtros.tipo == 'linea_negocio' %}selected{% endif %}>Línea de Negocio</option>
+                        <option value="administrativo" {% if filtros.tipo == 'administrativo' %}selected{% endif %}>Administrativo</option>
+                        <option value="operacion" {% if filtros.tipo == 'operacion' %}selected{% endif %}>Operación</option>
+                        <option value="otro" {% if filtros.tipo == 'otro' %}selected{% endif %}>Otro</option>
+                    </select>
+                </div>
+
+                <div class="col-6 col-md-2">
+                    <label class="form-label small fw-bold text-secondary mb-1">Almacén</label>
+                    <select name="almacen" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todos los almacenes</option>
+                        {% for alm in almacenes %}
+                        <option value="{{ alm.id }}" {% if filtros.almacen == alm.id|stringformat:"s" %}selected{% endif %}>{{ alm.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-6 col-md-2">
+                    <label class="form-label small fw-bold text-secondary mb-1">Estado</label>
+                    <select name="estado" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todos</option>
+                        <option value="activos" {% if filtros.estado == 'activos' %}selected{% endif %}>Activos</option>
+                        <option value="inactivos" {% if filtros.estado == 'inactivos' %}selected{% endif %}>Inactivos</option>
+                    </select>
+                </div>
+
+                <div class="col-6 col-md-2">
+                    <label class="form-label small fw-bold text-secondary mb-1">Sucursal</label>
+                    <select name="sucursal" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todas las sucursales</option>
+                        {% for s in sucursales %}
+                        <option value="{{ s.id }}" {% if filtros.sucursal == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                {% if filtros.q or filtros.tipo or filtros.estado or filtros.sucursal or filtros.almacen %}
+                <div class="col-12 col-md-1">
+                    <label class="form-label small fw-bold text-secondary mb-1 d-none d-md-block">&nbsp;</label>
+                    <a href="{% url 'centros_costos:dashboard' %}" class="btn btn-sm btn-outline-secondary w-100" title="Limpiar Filtros">
+                        <i class="bi bi-x-lg me-1"></i>Limpiar
+                    </a>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <!-- TABLA PRINCIPAL DE CENTROS DE COSTOS -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-pro mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th class="text-center" style="width: 100px;">Acciones</th>
+                            <th class="text-center" style="width: 120px;">Sucursal</th>
+                            <th class="text-center" style="width: 110px;">Código</th>
+                            <th class="text-center" style="width: 180px;">Centro de Costo</th>
+                            <th class="text-center" style="width: 130px;">Tipo</th>
+                            <th class="text-center" style="width: 130px;">Responsable</th>
+                            <th class="text-center" style="width: 130px;">Presupuesto</th>
+                            <th class="text-center" style="width: 190px;">Consumo</th>
+                            <th class="text-center" style="width: 100px;">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in page_obj %}
+                        {% with c=item.obj gastado=item.gastado_mes pct=item.pct_presupuesto %}
+                        <tr id="filaCentro{{ c.id }}">
+                            <!-- ACCIONES -->
+                            <td class="text-center align-middle">
+                                <div class="d-flex justify-content-center gap-1">
+                                    <button type="button" class="icon-action icon-action-view" onclick="verMovimientosCentro({{ c.id }}, '{{ c.codigo }} - {{ c.nombre|escapejs }}')" title="Ver Movimientos y Desglose">
+                                        <i class="bi bi-bar-chart-line"></i>
+                                    </button>
+                                    <button type="button" class="icon-action icon-action-edit" onclick="abrirModalEditarCentro({{ c.id }})" title="Editar Centro">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </button>
+                                    <button type="button" class="icon-action icon-action-delete" onclick="eliminarCentro({{ c.id }}, '{{ c.codigo }} - {{ c.nombre|escapejs }}')" title="Eliminar Centro">
+                                        <i class="bi bi-x-circle"></i>
+                                    </button>
+                                </div>
+                            </td>
+
+                            <!-- SUCURSAL -->
+                            <td class="text-center align-middle small">
+                                <span class="badge bg-light text-secondary border">{{ c.sucursal.nombre|default:"Todas" }}</span>
+                            </td>
+
+                            <!-- CÓDIGO -->
+                            <td class="text-center align-middle font-monospace small text-nowrap"><span class="text-dark">{{ c.codigo }}</span></td>
+
+                            <!-- CENTRO DE COSTO -->
+                            <td class="text-center align-middle small"><span class="text-dark">{{ c.nombre }}</span></td>
+
+                            <!-- TIPO -->
+                            <td class="text-center align-middle small text-nowrap"><span class="text-dark">{% if c.tipo == 'departamento' %}Departamento{% else %}{{ c.get_tipo_display }}{% endif %}</span></td>
+
+                            <!-- RESPONSABLE -->
+                            <td class="text-center align-middle small"><span class="text-dark">{% if c.responsable %}{{ c.responsable.first_name|default:c.responsable.username }}{% else %}--{% endif %}</span></td>
+
+                            <!-- PRESUPUESTO -->
+                            <td class="text-center align-middle small"><span class="text-dark">${{ c.presupuesto_mensual|floatformat:2|intcomma }}</span></td>
+
+                            <!-- CONSUMO (ESTILO MODAL / PRODUCCIÓN) -->
+                            <td class="text-center align-middle">
+                                <div class="mx-auto" style="max-width: 170px;" {% if item.ingresos_mes > 0 %}title="Egresos: ${{ item.egresos_mes|floatformat:2|intcomma }} | Ingresos: -${{ item.ingresos_mes|floatformat:2|intcomma }} | Gasto Neto: ${{ gastado|floatformat:2|intcomma }}"{% endif %}>
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="progress-label">Gasto</span>
+                                        <span class="progress-label text-dark fw-bold">${{ gastado|floatformat:2|intcomma }}</span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="progress-slim flex-grow-1 m-0">
+                                            <div class="progress-bar {% if pct >= 100 %}bg-danger{% elif pct >= 80 %}bg-warning{% else %}bg-brand-avance{% endif %}" style="width: {% if pct > 100 %}100{% elif pct < 0 %}0{% else %}{{ pct }}{% endif %}%;"></div>
+                                        </div>
+                                        <span class="progress-label text-dark fw-bold text-nowrap" style="font-size: 0.68rem;">{% if pct < 0 %}0.0{% else %}{{ pct|floatformat:1 }}{% endif %}%</span>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- ESTADO -->
+                            <td class="text-center align-middle">
+                                {% if c.activo %}
+                                <span class="status-pill status-recibida">Activo</span>
+                                {% else %}
+                                <span class="status-pill status-cancelada">Inactivo</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endwith %}
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-5">
+                                <div class="text-muted">
+                                    <i class="bi bi-pie-chart display-5 mb-2 d-block text-secondary opacity-50"></i>
+                                    <p class="mb-1 fw-semibold">No se encontraron centros de costo</p>
+                                    <small class="text-muted">Presiona "+ Nuevo Centro de Costo" para crear el primero.</small>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- PAGINADOR -->
+            {% if page_obj.paginator.num_pages > 1 %}
+            <div class="card-footer bg-white border-0 py-2 px-4 d-flex justify-content-between align-items-center">
+                <span class="text-muted small" style="font-size: 0.75rem;">
+                    Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }} centros
+                </span>
+                <div class="d-flex gap-1">
+                    {% if page_obj.has_previous %}
+                    <a href="?page=1{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.tipo %}&tipo={{ filtros.tipo }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted">&laquo;&laquo;</a>
+                    <a href="?page={{ page_obj.previous_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.tipo %}&tipo={{ filtros.tipo }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted">&laquo;</a>
+                    {% endif %}
+
+                    {% for i in page_obj.paginator.page_range %}
+                        {% if i >= page_obj.number|add:"-2" and i <= page_obj.number|add:"2" %}
+                            {% if page_obj.number == i %}
+                                <button class="btn btn-sm btn-brand text-white fw-bold shadow-sm" style="min-width: 32px;">{{ i }}</button>
+                            {% else %}
+                                <a href="?page={{ i }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.tipo %}&tipo={{ filtros.tipo }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}" class="btn btn-sm btn-light border-0 text-dark" style="min-width: 32px;">{{ i }}</a>
+                            {% endif %}
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.tipo %}&tipo={{ filtros.tipo }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted">&raquo;</a>
+                    <a href="?page={{ page_obj.paginator.num_pages }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.tipo %}&tipo={{ filtros.tipo }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.sucursal %}&sucursal={{ filtros.sucursal }}{% endif %}" class="btn btn-sm btn-light border-0 text-muted">&raquo;&raquo;</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL 1: CREAR / EDITAR CENTRO DE COSTO    -->
+<!-- ========================================== -->
+<div class="modal fade modal-sheet" id="modalCentroCosto" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <form id="formCentroCosto" class="modal-content form-clean" onsubmit="event.preventDefault(); guardarCentroCosto();">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold text-dark d-flex align-items-center mb-0" id="tituloModalCentro" style="font-size: 1.05rem;">
+                    <i class="bi bi-pie-chart me-2" style="color: var(--cc-brand); font-size: 1.2rem;"></i>
+                    <span>Nuevo Centro de Costo</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <input type="hidden" id="centro_id" value="">
+            
+            <div class="modal-body p-4 bg-light">
+                    <!-- DATOS BÁSICOS -->
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body p-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                                1. Identificación y Clasificación
+                            </h6>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label>Código <span class="text-danger">*</span></label>
+                                    <input type="text" id="cc_codigo" class="form-control form-control-sm text-uppercase fw-bold" placeholder="Ej: CC-ADM01" required>
+                                </div>
+                                <div class="col-md-8">
+                                    <label>Nombre del Centro de Costo <span class="text-danger">*</span></label>
+                                    <input type="text" id="cc_nombre" class="form-control form-control-sm" placeholder="Ej: Administración General, Proyecto Nave 3..." required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label>Tipo <span class="text-danger">*</span></label>
+                                    <select id="cc_tipo" class="form-select form-select-sm" required>
+                                        <option value="departamento">Departamento</option>
+                                        <option value="proyecto">Proyecto</option>
+                                        <option value="sucursal">Sucursal</option>
+                                        <option value="linea_negocio">Línea de Negocio</option>
+                                        <option value="administrativo">Administrativo</option>
+                                        <option value="operacion">Operación</option>
+                                        <option value="otro">Otro</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label>Depende de (Centro Padre)</label>
+                                    <select id="cc_parent" class="form-select form-select-sm">
+                                        <option value="">(Ninguno - Nivel Principal)</option>
+                                        {% for cp in centros_padres %}
+                                        <option value="{{ cp.id }}">[{{ cp.codigo }}] {{ cp.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label>Sucursal Asignada</label>
+                                    <select id="cc_sucursal" class="form-select form-select-sm">
+                                        <option value="">(Todas las sucursales)</option>
+                                        {% for s in sucursales %}
+                                        <option value="{{ s.id }}">{{ s.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label>Almacén Asociado</label>
+                                    <select id="cc_almacen" class="form-select form-select-sm">
+                                        <option value="">(Sin almacén asignado)</option>
+                                        {% for alm in almacenes %}
+                                        <option value="{{ alm.id }}">{{ alm.nombre }}{% if alm.sucursal %} ({{ alm.sucursal.nombre }}){% endif %}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <small class="text-muted" style="font-size: 0.7rem;">Vincule este centro a un almacén físico específico.</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PRESUPUESTO Y RESPONSABILIDAD -->
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body p-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                                2. Presupuesto y Asignación
+                            </h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label>Presupuesto Mensual Estimado (MXN)</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-white text-muted">$</span>
+                                        <input type="number" id="cc_presupuesto" class="form-control text-end fw-bold" step="0.01" min="0" value="0.00">
+                                    </div>
+                                    <small class="text-muted" style="font-size: 0.7rem;">Límite mensual para alertas y control de consumo.</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label>Responsable</label>
+                                    <select id="cc_responsable" class="form-select form-select-sm">
+                                        <option value="">(Sin responsable asignado)</option>
+                                        {% for u in usuarios %}
+                                        <option value="{{ u.id }}">{{ u.display_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label>Fecha de Inicio (Opcional)</label>
+                                    <input type="date" id="cc_fecha_inicio" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-6">
+                                    <label>Fecha de Cierre / Fin (Opcional)</label>
+                                    <input type="date" id="cc_fecha_fin" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-12">
+                                    <label>Descripción / Objetivo</label>
+                                    <textarea id="cc_descripcion" class="form-control form-control-sm" rows="2" placeholder="Detalles del alcance o propósito del centro de costo..."></textarea>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-check form-switch mt-1">
+                                        <input class="form-check-input" type="checkbox" id="cc_activo" checked>
+                                        <label class="form-check-label small fw-semibold text-dark" for="cc_activo">Centro de Costo Activo para operaciones</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 3: PERMISOS DE IMPUTACIÓN -->
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                                    3. Usuarios Autorizados para Imputar Gastos
+                                </h6>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none text-muted" style="font-size: 0.72rem;" onclick="toggleTodosUsuariosCC(true)">Seleccionar todos</button>
+                                    <span class="text-muted" style="font-size: 0.72rem;">|</span>
+                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none text-muted" style="font-size: 0.72rem;" onclick="toggleTodosUsuariosCC(false)">Limpiar selección</button>
+                                </div>
+                            </div>
+                            <p class="text-muted small mb-2" style="font-size: 0.72rem;">
+                                Selecciona qué usuarios podrán registrar solicitudes de compra, órdenes de compra y salidas de almacén con este centro de costo.
+                                <br><span class="fw-semibold text-secondary">Nota:</span> Si no seleccionas a ninguno, estará disponible para <strong>todos los usuarios</strong> de la empresa.
+                            </p>
+                            <div class="p-2 border rounded bg-white" style="max-height: 160px; overflow-y: auto;">
+                                <div class="row g-1">
+                                    {% for u in usuarios %}
+                                    <div class="col-6 col-md-3">
+                                        <div class="form-check form-check-sm mb-1">
+                                            <input class="form-check-input check-usuario-cc" type="checkbox" value="{{ u.id }}" id="chk_u_{{ u.id }}">
+                                            <label class="form-check-label small text-truncate d-block" for="chk_u_{{ u.id }}" style="font-size: 0.78rem;" title="{{ u.display_name }}">
+                                                {{ u.display_name }}
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-light border px-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" id="btnGuardarCentro" class="btn btn-sm btn-brand px-4 fw-semibold">
+                        <i class="bi bi-save me-1"></i> Guardar Centro
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+<!-- ========================================== -->
+<!-- MODAL 2: DETALLE DE MOVIMIENTOS Y GASTOS   -->
+<!-- ========================================== -->
+<div class="modal fade modal-sheet" id="modalMovimientosCentro" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header d-flex align-items-center justify-content-between">
+                <div>
+                    <h5 class="modal-title fw-bold text-dark d-flex align-items-center mb-0" style="font-size: 1.05rem;">
+                        <i class="bi bi-journal-check me-2" style="color: var(--cc-brand); font-size: 1.25rem;"></i>
+                        <span id="detMovCentroNombre">Movimientos del Centro de Costo</span>
+                        <span id="badgeConsolidado" class="badge bg-light text-secondary border ms-2 d-none" style="font-size: 0.72rem; font-weight: 600;">
+                            <i class="bi bi-diagram-3-fill me-1" style="color: var(--cc-brand);"></i> Consolidado (+ Subcentros)
+                        </span>
+                    </h5>
+                    <span class="text-muted small" id="detMovPeriodoDisplay">Cargando periodo...</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body p-3 bg-light">
+                <!-- RESUMEN FINANCIERO Y DISPONIBLE -->
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body p-3">
+                        <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom">
+                            <span class="text-uppercase text-muted fw-bold" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                                <i class="bi bi-calculator me-1"></i> Resumen Financiero y Disponible
+                            </span>
+                            <!-- Switch para Centros Padre -->
+                            <div id="wrapperSwitchConsolidar" class="form-check form-switch d-none align-items-center m-0 p-0">
+                                <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="switchConsolidarHijos" style="cursor: pointer;" onchange="toggleConsolidarMovimientos(this.checked)">
+                                <label class="form-check-label small fw-semibold text-dark user-select-none mb-0" for="switchConsolidarHijos" style="cursor: pointer;">
+                                    Consolidar subcentros
+                                </label>
+                            </div>
+                        </div>
+                        <div class="row g-2 text-center align-items-stretch">
+                            <!-- BLOQUE 1: EGRESOS -->
+                            <div class="col-12 col-md-4 border-end">
+                                <div class="p-2 h-100 d-flex flex-column justify-content-center bg-white rounded border">
+                                    <span class="text-muted text-uppercase fw-bold d-block mb-3 text-center" style="font-size: 0.72rem; letter-spacing: 0.5px;">Egresos</span>
+                                    <div class="d-flex justify-content-between align-items-center small mb-2 px-2">
+                                        <span class="text-muted">Órdenes de Compra:</span>
+                                        <span class="fw-semibold text-dark" id="detResumenOC">$0.00</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center small px-2">
+                                        <span class="text-muted">Egresos:</span>
+                                        <span class="fw-semibold text-dark" id="detResumenEgresos">$0.00</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- BLOQUE 2: INGRESOS -->
+                            <div class="col-12 col-md-4 border-end">
+                                <div class="p-2 h-100 d-flex flex-column justify-content-center bg-white rounded border">
+                                    <span class="text-muted text-uppercase fw-bold d-block mb-3 text-center" style="font-size: 0.72rem; letter-spacing: 0.5px;">Ingresos</span>
+                                    <div class="d-flex justify-content-between align-items-center small mb-2 px-2">
+                                        <span class="text-muted">Pedidos de Venta:</span>
+                                        <span class="fw-semibold text-dark" id="detResumenPedidos">$0.00</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center small px-2">
+                                        <span class="text-muted">Ingresos:</span>
+                                        <span class="fw-semibold text-dark" id="detResumenIngresos">$0.00</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- BLOQUE 3: BALANCE PRESUPUESTAL -->
+                            <div class="col-12 col-md-4">
+                                <div class="p-2 h-100 d-flex flex-column justify-content-between bg-white rounded border">
+                                    <div>
+                                        <span class="text-muted text-uppercase fw-bold d-block mb-2 text-center" style="font-size: 0.72rem; letter-spacing: 0.5px;">Balance Presupuestal</span>
+                                        <div class="d-flex justify-content-between align-items-center small mb-1 px-2">
+                                            <span class="text-muted">Presupuesto Total:</span>
+                                            <span class="fw-semibold text-dark" id="detResumenPresupuesto">$0.00</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center small mb-1 px-2">
+                                            <span class="text-muted">Gasto:</span>
+                                            <span class="fw-semibold text-dark" id="detResumenGasto">$0.00</span>
+                                        </div>
+                                        <!-- BARRA DE CONSUMO (ESTILO PRODUCCIÓN) -->
+                                        <div class="px-2 mt-2 d-flex align-items-center gap-2">
+                                            <div class="progress-slim flex-grow-1 m-0">
+                                                <div id="detBarraGasto" class="progress-bar bg-brand-avance" style="width: 0%;"></div>
+                                            </div>
+                                            <span class="progress-label text-dark fw-bold text-nowrap" id="detResumenPctGasto" style="font-size: 0.7rem;">0.0%</span>
+                                        </div>
+                                    </div>
+                                    <div class="border-top pt-2 mt-2">
+                                        <div class="d-flex justify-content-between align-items-center px-2">
+                                            <span class="text-muted small fw-bold text-uppercase">Disponible:</span>
+                                            <h5 class="mb-0 fw-bold text-dark" id="detResumenDisponible">$0.00</h5>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TABS DE DESGLOSE POR MÓDULOS -->
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-bottom p-0">
+                        <ul class="nav nav-tabs nav-tabs-clean px-3" id="tabMovimientos" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="tab-compras" data-bs-toggle="tab" data-bs-target="#panel-compras" type="button" role="tab">
+                                    <i class="bi bi-cart-check me-1"></i> 1. Órdenes de Compra (<span id="countCompras">0</span>)
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="tab-egresos" data-bs-toggle="tab" data-bs-target="#panel-egresos" type="button" role="tab">
+                                    <i class="bi bi-wallet2 me-1"></i> 2. Egresos (<span id="countEgresos">0</span>)
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="tab-pedidos" data-bs-toggle="tab" data-bs-target="#panel-pedidos" type="button" role="tab">
+                                    <i class="bi bi-bag-check me-1"></i> 3. Pedidos de Venta (<span id="countPedidos">0</span>)
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="tab-ingresos" data-bs-toggle="tab" data-bs-target="#panel-ingresos" type="button" role="tab">
+                                    <i class="bi bi-cash-coin me-1"></i> 4. Ingresos (<span id="countIngresos">0</span>)
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="tab-almacen" data-bs-toggle="tab" data-bs-target="#panel-almacen" type="button" role="tab">
+                                    <i class="bi bi-box-seam me-1"></i> 5. Productos y Servicios (<span id="countSalidasAlmacen">0</span>)
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="card-body p-0">
+                        <div class="tab-content" id="tabMovimientosContent">
+                            <!-- TAB 1: ÓRDENES DE COMPRA -->
+                            <div class="tab-pane fade show active" id="panel-compras" role="tabpanel">
+                                <div class="table-responsive">
+                                    <table class="table table-pro mb-0 align-middle">
+                                        <thead>
+                                            <tr>
+                                                <th class="text-center" style="width: 110px;">Folio CC</th>
+                                                <th class="text-center" style="width: 110px;">Folio</th>
+                                                <th class="text-center" style="width: 100px;">Fecha</th>
+                                                <th class="text-center">Proveedor</th>
+                                                <th class="text-center" style="width: 120px;">Total</th>
+                                                <th class="text-center" style="width: 120px;">Saldo</th>
+                                                <th class="text-center" style="width: 100px;">Pago</th>
+                                                <th class="text-center" style="width: 110px;">Estado OC</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tbodyOrdenesCompra">
+                                            <tr><td colspan="8" class="text-center py-4 text-muted fst-italic">Cargando compras...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- TAB 2: EGRESOS -->
+                            <div class="tab-pane fade" id="panel-egresos" role="tabpanel">
+                                <div class="table-responsive">
+                                    <table class="table table-pro mb-0 align-middle">
+                                        <thead>
+                                            <tr>
+                                                <th class="text-center" style="width: 110px;">Folio CC</th>
+                                                <th class="text-center" style="width: 110px;">Folio</th>
+                                                <th class="text-center" style="width: 100px;">Fecha</th>
+                                                <th class="text-center" style="width: 100px;">OC</th>
+                                                <th class="text-center">Proveedor</th>
+                                                <th class="text-center text-nowrap" style="min-width: 130px;">Caja / Banco</th>
+                                                <th class="text-center" style="width: 120px;">Forma Pago</th>
+                                                <th class="text-center" style="width: 120px;">Monto MXN</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tbodyEgresosTesoreria">
+                                            <tr><td colspan="8" class="text-center py-4 text-muted fst-italic">Cargando egresos...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- TAB 3: PEDIDOS DE VENTA -->
+                            <div class="tab-pane fade" id="panel-pedidos" role="tabpanel">
+                                <div class="table-responsive">
+                                    <table class="table table-pro mb-0 align-middle">
+                                        <thead>
+                                            <tr>
+                                                <th class="text-center" style="width: 110px;">Folio CC</th>
+                                                <th class="text-center" style="width: 110px;">Folio</th>
+                                                <th class="text-center" style="width: 100px;">Fecha</th>
+                                                <th class="text-center">Cliente</th>
+                                                <th class="text-center" style="width: 120px;">Vendedor</th>
+                                                <th class="text-center" style="width: 120px;">Total</th>
+                                                <th class="text-center" style="width: 120px;">Saldo</th>
+                                                <th class="text-center" style="width: 110px;">Estado</th>
+                                                <th class="text-center" style="width: 100px;">Pago</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tbodyPedidos">
+                                            <tr><td colspan="9" class="text-center py-4 text-muted fst-italic">Cargando pedidos...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- TAB 4: INGRESOS -->
+                            <div class="tab-pane fade" id="panel-ingresos" role="tabpanel">
+                                <div class="table-responsive">
+                                    <table class="table table-pro mb-0 align-middle">
+                                        <thead>
+                                            <tr>
+                                                <th class="text-center" style="width: 110px;">Folio CC</th>
+                                                <th class="text-center" style="width: 110px;">Folio</th>
+                                                <th class="text-center" style="width: 100px;">Fecha</th>
+                                                <th class="text-center" style="width: 100px;">PV</th>
+                                                <th class="text-center">Cliente</th>
+                                                <th class="text-center text-nowrap" style="min-width: 130px;">Caja / Banco</th>
+                                                <th class="text-center" style="width: 120px;">Forma Pago</th>
+                                                <th class="text-center" style="width: 120px;">Monto MXN</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tbodyIngresosTesoreria">
+                                            <tr><td colspan="8" class="text-center py-4 text-muted fst-italic">Cargando ingresos...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- TAB 5: PRODUCTOS Y SERVICIOS -->
+                            <div class="tab-pane fade" id="panel-almacen" role="tabpanel">
+                                <div class="table-responsive">
+                                    <table class="table table-pro mb-0 align-middle">
+                                        <thead>
+                                            <tr>
+                                                <th class="text-center" style="width: 110px;">Folio CC</th>
+                                                <th class="text-center" style="width: 100px;">Movimiento</th>
+                                                <th class="text-center" style="width: 100px;">Folio</th>
+                                                <th class="text-center" style="width: 100px;">Documento</th>
+                                                <th class="text-center" style="width: 90px;">Fecha</th>
+                                                <th class="text-center" style="width: 120px;">Almacén</th>
+                                                <th class="text-center">Producto / Insumo</th>
+                                                <th class="text-center" style="width: 80px;">Piezas</th>
+                                                <th class="text-center text-nowrap" style="min-width: 110px;">Costo Ref.</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tbodySalidasAlmacen">
+                                            <tr><td colspan="9" class="text-center py-4 text-muted fst-italic">Cargando productos y servicios...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- JAVASCRIPT DE CENTROS DE COSTOS            -->
+<!-- ========================================== -->
+<script>
+    // Variables de control
+    let centroSeleccionadoId = null;
+
+    // Helper para seleccionar / desmarcar usuarios autorizados
+    function toggleTodosUsuariosCC(marcar) {
+        document.querySelectorAll('.check-usuario-cc').forEach(chk => {
+            chk.checked = marcar;
+        });
+    }
+
+    // 1. ABRIR MODAL PARA CREAR
+    function abrirModalCrearCentro() {
+        document.getElementById('centro_id').value = '';
+        document.getElementById('tituloModalCentro').innerHTML = '<i class="bi bi-pie-chart me-2" style="color: var(--cc-brand); font-size: 1.2rem;"></i><span>Nuevo Centro de Costo</span>';
+        document.getElementById('formCentroCosto').reset();
+        document.getElementById('cc_activo').checked = true;
+        document.getElementById('cc_presupuesto').value = '0.00';
+        if (document.getElementById('cc_almacen')) document.getElementById('cc_almacen').value = '';
+        toggleTodosUsuariosCC(false);
+
+        const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCentroCosto'));
+        modal.show();
+    }
+
+    // 2. ABRIR MODAL PARA EDITAR
+    function abrirModalEditarCentro(id) {
+        fetch(`/centros-costos/${id}/json/`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) {
+                    alert('Error al obtener datos: ' + (data.error || 'No encontrado'));
+                    return;
+                }
+                const c = data.centro;
+                document.getElementById('centro_id').value = c.id;
+                document.getElementById('tituloModalCentro').innerHTML = `<i class="bi bi-pencil-square me-2" style="color: #3B82F6; font-size: 1.2rem;"></i><span>Editar Centro: ${c.codigo}</span>`;
+                
+                document.getElementById('cc_codigo').value = c.codigo || '';
+                document.getElementById('cc_nombre').value = c.nombre || '';
+                document.getElementById('cc_tipo').value = c.tipo || 'departamento';
+                document.getElementById('cc_parent').value = c.parent_id || '';
+                document.getElementById('cc_sucursal').value = c.sucursal_id || '';
+                if (document.getElementById('cc_almacen')) document.getElementById('cc_almacen').value = c.almacen_id || '';
+                document.getElementById('cc_responsable').value = c.responsable_id || '';
+                document.getElementById('cc_presupuesto').value = parseFloat(c.presupuesto_mensual || 0).toFixed(2);
+                document.getElementById('cc_fecha_inicio').value = c.fecha_inicio || '';
+                document.getElementById('cc_fecha_fin').value = c.fecha_fin || '';
+                document.getElementById('cc_descripcion').value = c.descripcion || '';
+                document.getElementById('cc_activo').checked = c.activo;
+
+                // Marcar usuarios autorizados
+                const autorizados = c.usuarios_autorizados || [];
+                document.querySelectorAll('.check-usuario-cc').forEach(chk => {
+                    chk.checked = autorizados.includes(parseInt(chk.value));
+                });
+
+                const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCentroCosto'));
+                modal.show();
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Error al comunicarse con el servidor.');
+            });
+    }
+
+    // 3. GUARDAR CENTRO (CREAR O ACTUALIZAR)
+    function guardarCentroCosto() {
+        const id = document.getElementById('centro_id').value;
+        const codigo = document.getElementById('cc_codigo').value.trim();
+        const nombre = document.getElementById('cc_nombre').value.trim();
+        const tipo = document.getElementById('cc_tipo').value;
+        const parentId = document.getElementById('cc_parent').value;
+        const sucursalId = document.getElementById('cc_sucursal').value;
+        const almacenId = document.getElementById('cc_almacen') ? document.getElementById('cc_almacen').value : '';
+        const responsableId = document.getElementById('cc_responsable').value;
+        const presupuesto = document.getElementById('cc_presupuesto').value;
+        const fechaInicio = document.getElementById('cc_fecha_inicio').value;
+        const fechaFin = document.getElementById('cc_fecha_fin').value;
+        const descripcion = document.getElementById('cc_descripcion').value.trim();
+        const activo = document.getElementById('cc_activo').checked;
+
+        if (!codigo || !nombre) {
+            alert('Por favor complete los campos obligatorios: Código y Nombre.');
+            return;
+        }
+
+        const usuariosAutorizados = [];
+        document.querySelectorAll('.check-usuario-cc:checked').forEach(chk => {
+            usuariosAutorizados.push(parseInt(chk.value));
+        });
+
+        const btn = document.getElementById('btnGuardarCentro');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
+
+        const payload = {
+            codigo: codigo,
+            nombre: nombre,
+            tipo: tipo,
+            parent_id: parentId ? parseInt(parentId) : null,
+            sucursal_id: sucursalId ? parseInt(sucursalId) : null,
+            almacen_id: almacenId ? parseInt(almacenId) : null,
+            responsable_id: responsableId ? parseInt(responsableId) : null,
+            presupuesto_mensual: parseFloat(presupuesto || 0),
+            fecha_inicio: fechaInicio || null,
+            fecha_fin: fechaFin || null,
+            descripcion: descripcion,
+            activo: activo,
+            usuarios_autorizados: usuariosAutorizados
+        };
+
+        const url = id ? `/centros-costos/${id}/actualizar/` : '/centros-costos/crear/';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-save me-1"></i> Guardar Centro';
+
+            if (data.success) {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalCentroCosto'));
+                if (modal) modal.hide();
+                window.location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'No se pudo guardar el centro.'));
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-save me-1"></i> Guardar Centro';
+            console.error(err);
+            alert('Error al comunicarse con el servidor.');
+        });
+    }
+
+    // 4. TOGGLE ESTADO (ACTIVAR / DESACTIVAR)
+    function toggleEstadoCentro(id, nombre) {
+        if (!confirm(`¿Desea cambiar el estado del centro "${nombre}"?`)) return;
+
+        fetch(`/centros-costos/${id}/toggle/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'No se pudo cambiar el estado.'));
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error al comunicarse con el servidor.');
+        });
+    }
+
+    // 5. ELIMINAR CENTRO DE COSTO
+    function eliminarCentro(id, nombre) {
+        if (!confirm(`¿Está seguro de eliminar el centro de costo "${nombre}"?\n\nEsta acción no se puede deshacer.`)) return;
+
+        fetch(`/centros-costos/${id}/eliminar/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert('No se puede eliminar: ' + (data.error || 'Hubo un error.'));
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error al comunicarse con el servidor.');
+        });
+    }
+
+    // 6. VER MOVIMIENTOS Y DESGLOSE EN MODAL
+    let centroSeleccionadoNombre = '';
+
+    function toggleConsolidarMovimientos(checked) {
+        if (!centroSeleccionadoId) return;
+        cargarMovimientosModal(centroSeleccionadoId, checked);
+    }
+
+    function verMovimientosCentro(id, nombreCompleto) {
+        centroSeleccionadoId = id;
+        centroSeleccionadoNombre = nombreCompleto;
+        document.getElementById('detMovCentroNombre').textContent = nombreCompleto;
+        document.getElementById('detMovPeriodoDisplay').textContent = 'Consultando movimientos...';
+
+        // Reset inicial del switch
+        const switchConsolidar = document.getElementById('switchConsolidarHijos');
+        if (switchConsolidar) switchConsolidar.checked = false;
+        const wrapperSwitch = document.getElementById('wrapperSwitchConsolidar');
+        if (wrapperSwitch) wrapperSwitch.classList.add('d-none');
+        const badgeConsolidado = document.getElementById('badgeConsolidado');
+        if (badgeConsolidado) badgeConsolidado.classList.add('d-none');
+
+        const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalMovimientosCentro'));
+        modal.show();
+
+        cargarMovimientosModal(id, false);
+    }
+
+    function cargarMovimientosModal(id, consolidar) {
+        document.getElementById('detMovPeriodoDisplay').textContent = 'Consultando movimientos...';
+        const url = `/centros-costos/${id}/movimientos/?consolidar=${consolidar ? '1' : '0'}`;
+
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) {
+                    alert('Error al consultar movimientos: ' + (data.error || 'Desconocido'));
+                    return;
+                }
+
+                // Controlar visibilidad del switch y badge para centros padre
+                const wrapperSwitch = document.getElementById('wrapperSwitchConsolidar');
+                const switchConsolidar = document.getElementById('switchConsolidarHijos');
+                const badgeConsolidado = document.getElementById('badgeConsolidado');
+
+                if (data.es_padre) {
+                    if (wrapperSwitch) {
+                        wrapperSwitch.classList.remove('d-none');
+                        wrapperSwitch.classList.add('d-flex');
+                    }
+                    if (switchConsolidar) {
+                        switchConsolidar.checked = !!data.consolidado;
+                    }
+                    if (badgeConsolidado) {
+                        if (data.consolidado) {
+                            badgeConsolidado.classList.remove('d-none');
+                        } else {
+                            badgeConsolidado.classList.add('d-none');
+                        }
+                    }
+                } else {
+                    if (wrapperSwitch) {
+                        wrapperSwitch.classList.remove('d-flex');
+                        wrapperSwitch.classList.add('d-none');
+                    }
+                    if (badgeConsolidado) {
+                        badgeConsolidado.classList.add('d-none');
+                    }
+                }
+
+                // Helper formato moneda
+                const fmtMoney = (val) => '$' + Number(val || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+                // Resumen Financiero y Disponible
+                const cInfo = data.centro || {};
+                const r = data.resumen || {};
+                const totOC = Number(r.total_oc || 0);
+                const totEgresos = Number(r.total_egresos || 0);
+
+                const totPedidos = Number(r.total_pedidos || 0);
+                const totIngresos = Number(r.total_ingresos || 0);
+
+                // Gasto real = Total Egresos menos Total Ingresos (SIN sumar OC ni Pedidos)
+                const gasto = totEgresos - totIngresos;
+                const presupuesto = Number(r.presupuesto || cInfo.presupuesto_mensual || 0);
+                const disponible = presupuesto - gasto;
+
+                if (document.getElementById('detResumenOC')) document.getElementById('detResumenOC').textContent = fmtMoney(totOC);
+                if (document.getElementById('detResumenEgresos')) document.getElementById('detResumenEgresos').textContent = fmtMoney(totEgresos);
+
+                if (document.getElementById('detResumenPedidos')) document.getElementById('detResumenPedidos').textContent = fmtMoney(totPedidos);
+                if (document.getElementById('detResumenIngresos')) document.getElementById('detResumenIngresos').textContent = fmtMoney(totIngresos);
+
+                if (document.getElementById('detResumenPresupuesto')) document.getElementById('detResumenPresupuesto').textContent = fmtMoney(presupuesto);
+                if (document.getElementById('detResumenGasto')) document.getElementById('detResumenGasto').textContent = fmtMoney(gasto);
+                if (document.getElementById('detResumenDisponible')) document.getElementById('detResumenDisponible').textContent = fmtMoney(disponible);
+
+                // Barra de consumo (Estilo producción)
+                let pctGasto = 0;
+                if (presupuesto > 0) {
+                    pctGasto = (gasto / presupuesto) * 100;
+                }
+                const pctGastoDisplay = Math.max(0, pctGasto).toFixed(1) + '%';
+                const pctGastoWidth = Math.min(100, Math.max(0, pctGasto));
+
+                if (document.getElementById('detResumenPctGasto')) {
+                    document.getElementById('detResumenPctGasto').textContent = pctGastoDisplay;
+                }
+                const detBarra = document.getElementById('detBarraGasto');
+                if (detBarra) {
+                    detBarra.style.width = pctGastoWidth + '%';
+                    detBarra.className = 'progress-bar';
+                    if (pctGasto >= 100) {
+                        detBarra.classList.add('bg-danger');
+                    } else if (pctGasto >= 80) {
+                        detBarra.classList.add('bg-warning');
+                    } else {
+                        detBarra.classList.add('bg-brand-avance');
+                    }
+                }
+
+                document.getElementById('detMovPeriodoDisplay').textContent = `Periodo: ${data.periodo.mes_nombre || ''} ${data.periodo.anio}`;
+
+                const esConsolidado = !!data.consolidado;
+
+                // 1. Llenar Órdenes de Compra
+                const comprasList = data.ordenes_compra || [];
+                document.getElementById('countCompras').textContent = comprasList.length;
+                const tbodyCompras = document.getElementById('tbodyOrdenesCompra');
+                if (comprasList.length === 0) {
+                    tbodyCompras.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted fst-italic">No hay órdenes de compra asociadas en este periodo.</td></tr>';
+                } else {
+                    let htmlCompras = '';
+                    comprasList.forEach(oc => {
+                        let pillEstOCClass = 'status-borrador';
+                        const estOCLower = (oc.estado || '').toLowerCase();
+                        if (estOCLower.includes('aprob')) {
+                            pillEstOCClass = 'status-aprobada';
+                        } else if (estOCLower.includes('recib')) {
+                            pillEstOCClass = 'status-recibida';
+                        } else if (estOCLower.includes('parcial')) {
+                            pillEstOCClass = 'status-parcial';
+                        } else if (estOCLower.includes('canc')) {
+                            pillEstOCClass = 'status-cancelada';
+                        }
+                        const badgeEstadoOC = oc.estado
+                            ? `<span class="status-pill ${pillEstOCClass}">${oc.estado}</span>`
+                            : '<span class="text-muted small">--</span>';
+
+                        let badgePago = '';
+                        if (oc.pago_estado === 'pagado') {
+                            badgePago = '<span class="status-pill status-recibida">Pagado</span>';
+                        } else if (oc.pago_estado === 'parcial') {
+                            badgePago = '<span class="status-pill status-parcial">Parcial</span>';
+                        } else {
+                            badgePago = '<span class="status-pill status-cancelada">Pendiente</span>';
+                        }
+
+                        const totalOC = (oc.total || 0);
+                        const saldoOC = (oc.saldo_pendiente || 0);
+
+                        htmlCompras += `
+                            <tr>
+                                <td class="text-center font-monospace small"><span class="badge bg-light text-secondary border font-monospace">${oc.centro_costo || '--'}</span></td>
+                                <td class="text-center font-monospace small"><span class="text-dark">${oc.folio || ('OC-' + oc.id)}</span></td>
+                                <td class="text-center small"><div class="text-dark">${oc.fecha || '--'}</div></td>
+                                <td class="text-center small"><span class="text-dark fw-semibold">${oc.proveedor || '--'}</span></td>
+                                <td class="text-center small"><span class="text-dark fw-semibold">$${totalOC.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></td>
+                                <td class="text-center small"><span class="text-dark">$${saldoOC.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></td>
+                                <td class="text-center">${badgePago}</td>
+                                <td class="text-center">${badgeEstadoOC}</td>
+                            </tr>
+                        `;
+                    });
+                    tbodyCompras.innerHTML = htmlCompras;
+                }
+
+                // 2. Llenar Egresos de Tesorería
+                const egresosList = data.egresos_tesoreria || data.egresos || [];
+                document.getElementById('countEgresos').textContent = egresosList.length;
+                const tbodyEgresos = document.getElementById('tbodyEgresosTesoreria');
+                if (egresosList.length === 0) {
+                    tbodyEgresos.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted fst-italic">No hay egresos registrados en este periodo.</td></tr>';
+                } else {
+                    let htmlEgresos = '';
+                    egresosList.forEach(e => {
+                        const folio = e.folio || ('EGR-' + e.id);
+                        const monto = (e.monto_mxn !== undefined ? e.monto_mxn : (e.monto || 0));
+                        htmlEgresos += `
+                            <tr>
+                                <td class="text-center font-monospace small"><span class="badge bg-light text-secondary border font-monospace">${e.centro_costo || '--'}</span></td>
+                                <td class="text-center font-monospace small"><span class="text-dark">${folio}</span></td>
+                                <td class="text-center small"><div class="text-dark">${e.fecha || '--'}</div></td>
+                                <td class="text-center small"><span class="text-dark fw-semibold">${e.concepto || '--'}</span></td>
+                                <td class="text-center small"><span class="text-dark">${e.proveedor && e.proveedor !== '--' ? e.proveedor : '--'}</span></td>
+                                <td class="text-center small text-nowrap"><span class="text-dark">${e.caja_banco || '--'}</span></td>
+                                <td class="text-center small"><span class="text-dark">${e.forma_pago || '--'}</span></td>
+                                <td class="text-center small"><span class="text-dark fw-semibold">$${monto.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></td>
+                            </tr>
+                        `;
+                    });
+                    tbodyEgresos.innerHTML = htmlEgresos;
+                }
+
+                // 3. Llenar Pedidos de Venta
+                const pedidosList = data.pedidos || [];
+                if (document.getElementById('countPedidos')) {
+                    document.getElementById('countPedidos').textContent = pedidosList.length;
+                }
+                const tbodyPedidos = document.getElementById('tbodyPedidos');
+                if (tbodyPedidos) {
+                    if (pedidosList.length === 0) {
+                        tbodyPedidos.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted fst-italic">No hay pedidos registrados en este periodo.</td></tr>';
+                    } else {
+                        let htmlPedidos = '';
+                        pedidosList.forEach(p => {
+                            let pillEstPedClass = 'status-borrador';
+                            const estPedLower = (p.estado || '').toLowerCase();
+                            if (estPedLower.includes('aprob') || estPedLower.includes('confir') || estPedLower.includes('autor')) {
+                                pillEstPedClass = 'status-aprobada';
+                            } else if (estPedLower.includes('entreg') || estPedLower.includes('complet') || estPedLower.includes('recib')) {
+                                pillEstPedClass = 'status-recibida';
+                            } else if (estPedLower.includes('proc') || estPedLower.includes('surt') || estPedLower.includes('parcial')) {
+                                pillEstPedClass = 'status-parcial';
+                            } else if (estPedLower.includes('canc')) {
+                                pillEstPedClass = 'status-cancelada';
+                            }
+                            const badgeEstadoPed = p.estado
+                                ? `<span class="status-pill ${pillEstPedClass}">${p.estado}</span>`
+                                : '<span class="text-muted small">--</span>';
+
+                            let badgePago = '';
+                            if (p.pago_estado === 'pagado') {
+                                badgePago = '<span class="status-pill status-recibida">Pagado</span>';
+                            } else if (p.pago_estado === 'parcial') {
+                                badgePago = '<span class="status-pill status-parcial">Parcial</span>';
+                            } else if (p.pago_estado === 'credito') {
+                                badgePago = '<span class="status-pill status-aprobada">Crédito</span>';
+                            } else {
+                                badgePago = '<span class="status-pill status-cancelada">Pendiente</span>';
+                            }
+
+                            const totalPed = (p.total || 0);
+                            const saldoPed = (p.saldo_pendiente || 0);
+
+                            htmlPedidos += `
+                                <tr>
+                                    <td class="text-center font-monospace small"><span class="badge bg-light text-secondary border font-monospace">${p.centro_costo || '--'}</span></td>
+                                    <td class="text-center font-monospace small"><span class="text-dark">${p.folio || ('PED-' + p.id)}</span></td>
+                                    <td class="text-center small"><div class="text-dark">${p.fecha || '--'}</div></td>
+                                    <td class="text-center small"><span class="text-dark fw-semibold">${p.cliente || '--'}</span></td>
+                                    <td class="text-center small"><span class="text-dark">${p.vendedor || '--'}</span></td>
+                                    <td class="text-center small"><span class="text-dark fw-semibold">$${totalPed.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></td>
+                                    <td class="text-center small"><span class="text-dark">$${saldoPed.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></td>
+                                    <td class="text-center">${badgeEstadoPed}</td>
+                                    <td class="text-center">${badgePago}</td>
+                                </tr>
+                            `;
+                        });
+                        tbodyPedidos.innerHTML = htmlPedidos;
+                    }
+                }
+
+                // 4. Llenar Ingresos de Tesorería
+                const ingresosList = data.ingresos_tesoreria || data.ingresos || [];
+                if (document.getElementById('countIngresos')) {
+                    document.getElementById('countIngresos').textContent = ingresosList.length;
+                }
+                const tbodyIngresos = document.getElementById('tbodyIngresosTesoreria');
+                if (tbodyIngresos) {
+                    if (ingresosList.length === 0) {
+                        tbodyIngresos.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted fst-italic">No hay ingresos registrados en este periodo.</td></tr>';
+                    } else {
+                        let htmlIngresos = '';
+                        ingresosList.forEach(ing => {
+                            const folio = ing.folio || ('ING-' + ing.id);
+                            const monto = (ing.monto_mxn !== undefined ? ing.monto_mxn : (ing.monto || 0));
+                            htmlIngresos += `
+                                <tr>
+                                    <td class="text-center font-monospace small"><span class="badge bg-light text-secondary border font-monospace">${ing.centro_costo || '--'}</span></td>
+                                    <td class="text-center font-monospace small"><span class="text-dark">${folio}</span></td>
+                                    <td class="text-center small"><div class="text-dark">${ing.fecha || '--'}</div></td>
+                                    <td class="text-center small"><span class="text-dark fw-semibold">${ing.concepto || '--'}</span></td>
+                                    <td class="text-center small"><span class="text-dark">${ing.cliente && ing.cliente !== '--' ? ing.cliente : '--'}</span></td>
+                                    <td class="text-center small text-nowrap"><span class="text-dark">${ing.caja_banco || '--'}</span></td>
+                                    <td class="text-center small"><span class="text-dark">${ing.forma_pago || '--'}</span></td>
+                                    <td class="text-center small"><span class="text-dark fw-semibold">$${monto.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></td>
+                                </tr>
+                            `;
+                        });
+                        tbodyIngresos.innerHTML = htmlIngresos;
+                    }
+                }
+
+                // 5. Llenar Mercancía y Almacén (Kárdex Físico)
+                mercanciaGlobalLista = data.mercancia_almacen || data.salidas_almacen || [];
+                const countAlmacen = document.getElementById('countSalidasAlmacen');
+                if (countAlmacen) countAlmacen.textContent = mercanciaGlobalLista.length;
+
+                renderizarTablaMercancia(mercanciaGlobalLista, esConsolidado);
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Error al cargar movimientos del centro.');
+            });
+    }
+
+    // Lista global de mercancía
+    let mercanciaGlobalLista = [];
+
+    function renderizarTablaMercancia(lista, esConsolidado) {
+        const tbodySalidas = document.getElementById('tbodySalidasAlmacen');
+        if (!tbodySalidas) return;
+
+        if (!lista || lista.length === 0) {
+            tbodySalidas.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted fst-italic">No hay movimientos de productos o servicios registrados.</td></tr>';
+            return;
+        }
+
+        let htmlMercancia = '';
+        lista.forEach(m => {
+            const esEntrada = m.movimiento === 'entrada' || m.tipo === 'recepcion_compra';
+            const badgeMovimiento = esEntrada
+                ? '<span class="status-pill status-recibida">Entrada</span>'
+                : '<span class="status-pill status-cancelada">Salida</span>';
+
+            const cantNum = typeof m.cantidad === 'number' ? m.cantidad : parseFloat(m.cantidad || 0);
+            const subtotalNum = typeof m.subtotal === 'number' ? m.subtotal : parseFloat(m.subtotal || 0);
+
+            htmlMercancia += `
+                <tr>
+                    <td class="text-center font-monospace small"><span class="badge bg-light text-secondary border font-monospace">${m.centro_costo || '--'}</span></td>
+                    <td class="text-center">${badgeMovimiento}</td>
+                    <td class="text-center font-monospace small"><span class="text-dark">${m.folio || '--'}</span></td>
+                    <td class="text-center small"><span class="text-dark">${m.doc_origen || '--'}</span></td>
+                    <td class="text-center small"><div class="text-dark">${m.fecha || '--'}</div></td>
+                    <td class="text-center small"><span class="text-dark">${m.almacen || '--'}</span></td>
+                    <td class="text-center small"><span class="text-dark fw-semibold">${m.producto || '--'}</span></td>
+                    <td class="text-center small"><span class="text-dark">${cantNum.toFixed(2)}</span></td>
+                    <td class="text-center small text-nowrap"><span class="text-dark">$${subtotalNum.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></td>
+                </tr>
+            `;
+        });
+        tbodySalidas.innerHTML = htmlMercancia;
+    }
+
+    // Función auxiliar CSRF
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    // Búsqueda automática con debounce
+    const inputBuscarCentros = document.querySelector('input[name="q"]');
+    if (inputBuscarCentros) {
+        let timerBusqueda;
+        inputBuscarCentros.addEventListener('input', function() {
+            clearTimeout(timerBusqueda);
+            timerBusqueda = setTimeout(function() {
+                inputBuscarCentros.form.submit();
+            }, 500);
+        });
+        if (inputBuscarCentros.value) {
+            inputBuscarCentros.focus();
+            inputBuscarCentros.setSelectionRange(inputBuscarCentros.value.length, inputBuscarCentros.value.length);
+        }
+    }
+</script>
+{% endblock %}

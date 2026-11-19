@@ -71,11 +71,18 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
             pass
 
     # 2. Crear la Cabecera (OrdenCompra)
+    centro_costo_id = data_post.get('centro_costo') or data_post.get('centro_costo_id')
+    centro_costo_obj = None
+    if centro_costo_id and str(centro_costo_id).strip().isdigit():
+        from centros_costos.models import CentroCosto
+        centro_costo_obj = CentroCosto.objects.filter(id=int(centro_costo_id), empresa=empresa_actual).first()
+
     create_kwargs = {
         'proveedor': prov_obj,
         'sucursal': suc_prov_obj, 
         'almacen_destino': alm_obj,
         'moneda': moneda_obj,
+        'centro_costo': centro_costo_obj,
         'tipo_cambio': tipo_cambio,
         'descuento': descuento,
         'notas': notas,

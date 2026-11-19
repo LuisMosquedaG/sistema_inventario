@@ -115,6 +115,9 @@ function prepararNuevaSolicitud() {
     
     document.getElementById('solicitud_id_edit').value = '';
     document.getElementById('item_indice_edicion').value = '-1';
+    if (document.getElementById('solicitud_centro_costo')) {
+        document.getElementById('solicitud_centro_costo').value = '';
+    }
     document.getElementById('tituloModalSolicitud').innerText = 'Nueva Solicitud de Compra';
     document.getElementById('cuerpoTablaSolicitud').innerHTML = '';
     document.getElementById('mensajeVacioSolicitud').style.display = 'block';
@@ -970,6 +973,11 @@ async function verSolicitud(id) {
             elPed.innerText = 'Manual';
         }
 
+        const elCC = document.getElementById('ver_centro_costo_solicitud');
+        if (elCC) {
+            elCC.innerText = data.centro_costo_nombre || 'Sin centro asignado';
+        }
+
         const tbody = document.getElementById('cuerpoVerSolicitud');
         tbody.innerHTML = '';
 
@@ -1053,6 +1061,9 @@ async function cargarParaEdicion(id) {
         document.getElementById('solicitud_id_edit').value = id;
         document.getElementById('tituloModalSolicitud').innerText = `Editar Solicitud SOL-${String(id).padStart(4, '0')}`;
         document.getElementById('notas_solicitud').value = data.notas || '';
+        if (document.getElementById('solicitud_centro_costo')) {
+            document.getElementById('solicitud_centro_costo').value = data.centro_costo_id || '';
+        }
         
         const aplicaIvaSwitch = document.getElementById('aplica_iva_switch');
         if (aplicaIvaSwitch) {
