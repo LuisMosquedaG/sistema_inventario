@@ -482,6 +482,9 @@
 {% endblock %}
 
 {% block extra_js %}
+    <script>
+        const PUEDE_VER_MONTOS_SOLICITUD = {% if granular_purchase_perms.solicitudes.montos %}true{% else %}false{% endif %};
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="{% static 'js/solicitudcompras.js' %}?v={% now 'U' %}"></script>
     <script>

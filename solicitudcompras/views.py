@@ -613,9 +613,11 @@ def obtener_solicitud_json(request, solicitud_id):
                 'items': detalles_agrupados[g_nom]
             })
 
-        data['subtotal_total'] = str(solicitud.calcular_subtotal)
-        data['iva_total'] = str(solicitud.calcular_iva)
-        data['gran_total'] = str(solicitud.calcular_total)
+        puede_ver_montos = user_has_purchase_permission(request, 'solicitudes', 'montos')
+        data['puede_ver_montos'] = puede_ver_montos
+        data['subtotal_total'] = str(solicitud.calcular_subtotal) if puede_ver_montos else '0.00'
+        data['iva_total'] = str(solicitud.calcular_iva) if puede_ver_montos else '0.00'
+        data['gran_total'] = str(solicitud.calcular_total) if puede_ver_montos else '0.00'
         data['centro_costo_id'] = solicitud.centro_costo_id
         data['centro_costo_nombre'] = f"[{solicitud.centro_costo.codigo}] {solicitud.centro_costo.nombre}" if solicitud.centro_costo else None
         data['solicitante_nombre'] = solicitud.solicitante.username.split('@')[0] if solicitud.solicitante else 'Sistema'
@@ -1232,5 +1234,6 @@ def imprimir_solicitud(request, pk):
         'empresa': empresa_actual,
         'solicitante_nombre': solicitante_nombre,
         'grupos': grupos_final,
+        'puede_ver_montos': user_has_purchase_permission(request, 'solicitudes', 'montos'),
     }
     return render(request, 'solicitudcompras/imprimir_solicitud.html', context)

@@ -96,9 +96,11 @@
                                                 <th class="text-center align-middle" style="min-width: 100px;">Entrada Inv.</th>
                                                 <th class="text-center align-middle">Proveedor</th>
                                                 <th class="text-center align-middle">Almacén</th>
+                                                {% if granular_purchase_perms.solicitudes.montos %}
                                                 <th class="text-center align-middle">Costo</th>
                                                 <th class="text-center align-middle">T.C.</th>
                                                 <th class="text-center align-middle">Subtotal</th>
+                                                {% endif %}
                                             </tr>
                                         </thead>
                                         <tbody id="cuerpoVerSolicitud">
@@ -107,6 +109,7 @@
                                     </table>
                                 </div>
                             </div>
+                            {% if granular_purchase_perms.solicitudes.montos %}
                             <div class="card-footer bg-white border-0 py-3">
                                 <div class="row justify-content-end">
                                     <div class="col-12 col-md-6 col-lg-5">
@@ -125,6 +128,13 @@
                                     </div>
                                 </div>
                             </div>
+                            {% else %}
+                            <div style="display: none;">
+                                <span id="ver_solicitud_subtotal">$0.00</span>
+                                <span id="ver_solicitud_iva_total">$0.00</span>
+                                <span id="ver_total_solicitud">$0.00</span>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
 

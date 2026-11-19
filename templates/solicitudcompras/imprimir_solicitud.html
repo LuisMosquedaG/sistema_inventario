@@ -95,18 +95,20 @@
                     <th style="width: 40px;" class="text-center">Cant.</th>
                     <th>Producto / Insumo</th>
                     <th>Proveedor / Almacén</th>
+                    {% if puede_ver_montos %}
                     <th style="width: 70px;" class="text-right">Costo</th>
                     <th style="width: 40px;" class="text-center">T.C.</th>
                     <th style="width: 80px;" class="text-right">Subtotal</th>
                     <th style="width: 60px;" class="text-right">IVA</th>
                     <th style="width: 85px;" class="text-right">Importe</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
                 {% for grupo in grupos %}
                 <!-- Fila de Encabezado de Grupo -->
                 <tr>
-                    <td colspan="8" style="padding: 6px 10px; border-bottom: 1px solid #00b8b9;">
+                    <td colspan="{% if puede_ver_montos %}8{% else %}3{% endif %}" style="padding: 6px 10px; border-bottom: 1px solid #00b8b9;">
                         <span style="font-weight: bold; color: #333; font-size: 0.75rem; text-transform: uppercase;">
                             {% if grupo.es_directo %}🛒{% else %}⚙️{% endif %} {{ grupo.nombre }}
                         </span>
@@ -119,24 +121,27 @@
                     <td style="padding-left: 20px;">
                         <div class="prod-name"><span style="color: #666; margin-right: 5px;">↳</span>{{ det.producto.nombre }}</div>
                         <div class="prod-desc">
-                            {% if det.moneda %}Moneda: {{ det.moneda.siglas }}{% endif %}
+                            {% if det.moneda and puede_ver_montos %}Moneda: {{ det.moneda.siglas }}{% endif %}
                         </div>
                     </td>
                     <td>
                         <div class="prod-name" style="font-size: 0.75rem;">Prov: {{ det.proveedor.razon_social|default:"No asignado" }}</div>
                         <div class="prod-desc">Destino: {{ det.almacen.nombre|default:"No asignado" }}</div>
                     </td>
+                    {% if puede_ver_montos %}
                     <td class="text-right">${{ det.costo_unitario|floatformat:2 }}</td>
                     <td class="text-center" style="font-size: 0.7rem; color: #777;">{{ det.moneda.factor|default:"1.00" }}</td>
                     <td class="text-right">${{ det.subtotal|floatformat:2 }}</td>
                     <td class="text-right">${{ det.iva_monto|floatformat:2 }}</td>
                     <td class="text-right" style="font-weight: bold;">${{ det.total|floatformat:2 }}</td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
                 {% endfor %}
             </tbody>
         </table>
 
+        {% if puede_ver_montos %}
         <div class="totals-wrapper">
             <table class="totals-table">
                 <tr>
@@ -153,6 +158,7 @@
                 </tr>
             </table>
         </div>
+        {% endif %}
 
         {% if solicitud.notas %}
         <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px;">

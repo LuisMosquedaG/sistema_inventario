@@ -568,6 +568,32 @@ function actualizarFilaHtml(row, datos) {
         return val;
     }
 
+    const puedeVerMontos = typeof PUEDE_VER_MONTOS_SOLICITUD !== 'undefined' ? PUEDE_VER_MONTOS_SOLICITUD : true;
+
+    let celdasCostosHtml = '';
+    if (puedeVerMontos) {
+        celdasCostosHtml = `
+            <td class="text-center align-middle text-muted" style="font-size: 0.85rem;">
+                <span class="text-muted" style="font-size: 0.85rem;">$${parseFloat(datos.costo_unitario).toFixed(2)}</span>
+                <input type="hidden" name="costo_unitario[]" value="${datos.costo_unitario}">
+            </td>
+            <td class="text-center align-middle cell-subtotal text-muted" style="font-size: 0.85rem;">
+                <span class="text-muted fw-semibold" style="font-size: 0.85rem;">$${parseFloat(datos.subtotal).toFixed(2)}</span>
+                <input type="hidden" name="iva_porcentaje[]" value="${datos.iva_porcentaje || 0}">
+            </td>
+        `;
+    } else {
+        celdasCostosHtml = `
+            <td style="display: none;">
+                <input type="hidden" name="costo_unitario[]" value="${datos.costo_unitario}">
+            </td>
+            <td style="display: none;" class="cell-subtotal">
+                <span style="display: none;">$${parseFloat(datos.subtotal).toFixed(2)}</span>
+                <input type="hidden" name="iva_porcentaje[]" value="${datos.iva_porcentaje || 0}">
+            </td>
+        `;
+    }
+
     row.innerHTML = `
         <td class="text-center align-middle">
             <div class="fw-bold text-dark text-truncate mx-auto" style="max-width: 200px; font-size: 0.85rem;" title="${datos.producto_nombre}">${datos.producto_nombre}</div>
@@ -604,14 +630,7 @@ function actualizarFilaHtml(row, datos) {
             <span class="text-muted d-block" style="font-size: 0.85rem;">${uBaseDisplay}</span>
             <input type="hidden" name="cantidad_inventario[]" value="${cantInv}">
         </td>
-        <td class="text-center align-middle text-muted" style="font-size: 0.85rem;">
-            <span class="text-muted" style="font-size: 0.85rem;">$${parseFloat(datos.costo_unitario).toFixed(2)}</span>
-            <input type="hidden" name="costo_unitario[]" value="${datos.costo_unitario}">
-        </td>
-        <td class="text-center align-middle cell-subtotal text-muted" style="font-size: 0.85rem;">
-            <span class="text-muted fw-semibold" style="font-size: 0.85rem;">$${parseFloat(datos.subtotal).toFixed(2)}</span>
-            <input type="hidden" name="iva_porcentaje[]" value="${datos.iva_porcentaje || 0}">
-        </td>
+        ${celdasCostosHtml}
         <td class="text-center align-middle">
             <div class="d-flex justify-content-center gap-1">
                 <button type="button" class="icon-action" onclick="cargarItemParaEdicion(this)" title="Editar Partida">
@@ -985,6 +1004,9 @@ async function verSolicitud(id) {
         const tbody = document.getElementById('cuerpoVerSolicitud');
         tbody.innerHTML = '';
 
+        const puedeVerMontos = data.hasOwnProperty('puede_ver_montos') ? data.puede_ver_montos : (typeof PUEDE_VER_MONTOS_SOLICITUD !== 'undefined' ? PUEDE_VER_MONTOS_SOLICITUD : true);
+        const colspanVal = puedeVerMontos ? 8 : 5;
+
         if (data.grupos && data.grupos.length > 0) {
             data.grupos.forEach(grupo => {
                 // Fila de Encabezado de Grupo (Estilo Árbol)
@@ -992,7 +1014,7 @@ async function verSolicitud(id) {
                 const trGrupo = document.createElement('tr');
                 trGrupo.style.backgroundColor = '#f8f9fa';
                 trGrupo.innerHTML = `
-                    <td colspan="8" class="text-start ps-3 py-2">
+                    <td colspan="${colspanVal}" class="text-start ps-3 py-2">
                         <div class="d-flex align-items-center">
                             <i class="bi ${isDirect ? 'bi-cart-fill' : 'bi-gear-wide-connected'} me-2 text-brand" style="font-size: 1rem;"></i>
                             <span class="fw-bold text-dark uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">
@@ -1007,6 +1029,15 @@ async function verSolicitud(id) {
                 grupo.items.forEach(d => {
                     const uCompraLimpia = limpiarNombreUnidad(d.unidad_compra_display || d.unidad_compra || '');
                     const uBaseLimpia = limpiarNombreUnidad(d.unidad_base || '');
+
+                    let celdasMontosHtml = '';
+                    if (puedeVerMontos) {
+                        celdasMontosHtml = `
+                            <td class="text-center align-middle text-muted" style="font-size: 0.85rem;">$${parseFloat(d.costo_unitario).toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+                            <td class="text-center align-middle text-muted" style="font-size: 0.85rem;">${d.tipo_cambio}</td>
+                            <td class="text-center align-middle text-muted fw-semibold" style="font-size: 0.85rem;">$${parseFloat(d.subtotal).toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+                        `;
+                    }
 
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
@@ -1026,20 +1057,21 @@ async function verSolicitud(id) {
                         </td>
                         <td class="text-center align-middle text-muted text-truncate" style="max-width: 150px; font-size: 0.85rem;" title="${d.proveedor_nombre}">${d.proveedor_nombre}</td>
                         <td class="text-center align-middle text-muted text-truncate" style="max-width: 120px; font-size: 0.85rem;" title="${d.almacen_nombre}">${d.almacen_nombre}</td>
-                        <td class="text-center align-middle text-muted" style="font-size: 0.85rem;">$${parseFloat(d.costo_unitario).toLocaleString('en-US', {minimumFractionDigits:2})}</td>
-                        <td class="text-center align-middle text-muted" style="font-size: 0.85rem;">${d.tipo_cambio}</td>
-                        <td class="text-center align-middle text-muted fw-semibold" style="font-size: 0.85rem;">$${parseFloat(d.subtotal).toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+                        ${celdasMontosHtml}
                     `;
                     tbody.appendChild(tr);
                 });
             });
         } else {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-3 text-muted fst-italic">No hay artículos en esta solicitud.</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="${colspanVal}" class="text-center py-3 text-muted fst-italic">No hay artículos en esta solicitud.</td></tr>`;
         }
 
-        document.getElementById('ver_solicitud_subtotal').innerText = `$${parseFloat(data.subtotal_total || 0).toLocaleString('en-US', {minimumFractionDigits:2})}`;
-        document.getElementById('ver_solicitud_iva_total').innerText = `$${parseFloat(data.iva_total || 0).toLocaleString('en-US', {minimumFractionDigits:2})}`;
-        document.getElementById('ver_total_solicitud').innerText = `$${parseFloat(data.gran_total || 0).toLocaleString('en-US', {minimumFractionDigits:2})}`;
+        const elSubtotal = document.getElementById('ver_solicitud_subtotal');
+        if (elSubtotal) elSubtotal.innerText = `$${parseFloat(data.subtotal_total || 0).toLocaleString('en-US', {minimumFractionDigits:2})}`;
+        const elIva = document.getElementById('ver_solicitud_iva_total');
+        if (elIva) elIva.innerText = `$${parseFloat(data.iva_total || 0).toLocaleString('en-US', {minimumFractionDigits:2})}`;
+        const elTotal = document.getElementById('ver_total_solicitud');
+        if (elTotal) elTotal.innerText = `$${parseFloat(data.gran_total || 0).toLocaleString('en-US', {minimumFractionDigits:2})}`;
         
         // Alerta de Rechazo (si la solicitud está rechazada)
         const alertRechazo = document.getElementById('ver_alerta_rechazo');
