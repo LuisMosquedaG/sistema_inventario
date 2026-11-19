@@ -14,6 +14,7 @@ from .permissions import (
     HR_PERMISSION_MATRIX,
     INICIO_PERMISSION_MATRIX,
     CENTROS_COSTOS_PERMISSION_MATRIX,
+    get_sales_permission_matrix,
 )
 from panel.models import Empresa
 import csv
@@ -70,13 +71,14 @@ def dashboard_preferencias(request):
     contexto = {
         'seccion': seccion_activa,
         'empresa': empresa_actual,
-        'sales_permission_matrix': SALES_PERMISSION_MATRIX,
+        'sales_permission_matrix': get_sales_permission_matrix(empresa_actual),
         'purchases_permission_matrix': PURCHASES_PERMISSION_MATRIX,
         'production_permission_matrix': PRODUCTION_PERMISSION_MATRIX,
         'inventory_permission_matrix': INVENTORY_PERMISSION_MATRIX,
         'treasury_permission_matrix': TREASURY_PERMISSION_MATRIX,
         'hr_permission_matrix': HR_PERMISSION_MATRIX,
         'inicio_permission_matrix': INICIO_PERMISSION_MATRIX,
+        'centros_costos_permission_matrix': CENTROS_COSTOS_PERMISSION_MATRIX,
     }
 
     if seccion_activa == 'usuarios':

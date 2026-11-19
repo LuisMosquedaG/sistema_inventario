@@ -1139,12 +1139,12 @@
                             </div>
                         </div>
 
-                        <!-- MÓDULO VENTAS -->
-                        {% if empresa.modulo_ventas %}
+                        <!-- MÓDULO VENTAS / POS -->
+                        {% if empresa.modulo_ventas or empresa.modulo_pos %}
                         <div class="card border-0 shadow-sm mb-3 rounded-3 overflow-hidden">
                             <button class="btn btn-sm btn-light border-0 w-100 d-flex justify-content-between align-items-center px-3 py-3 collapsed" 
                                     type="button" data-bs-toggle="collapse" data-bs-target="#collapseModuloVentas">
-                                <span class="fw-bold text-dark"><i class="bi bi-cart-check me-2" style="color: #00b8b9;"></i> MÓDULO VENTAS</span>
+                                <span class="fw-bold text-dark"><i class="bi bi-cart-check me-2" style="color: #00b8b9;"></i> MÓDULO VENTAS{% if empresa.modulo_pos and not empresa.modulo_ventas %} / POS{% endif %}</span>
                                 <i class="bi bi-chevron-down small text-muted"></i>
                             </button>
                             <div id="collapseModuloVentas" class="collapse border-top bg-white">
@@ -2322,7 +2322,7 @@
     }
 
     function marcarTodosPermisosVentas(valor) {
-        document.querySelectorAll('.permiso-submodulo-clientes, .permiso-submodulo-actividades, .permiso-submodulo-cotizaciones, .permiso-submodulo-pedidos, .permiso-submodulo-salidas, .permiso-submodulo-punto_de_venta').forEach(el => { el.checked = valor; });
+        document.querySelectorAll('.permiso-submodulo-clientes, .permiso-submodulo-actividades, .permiso-submodulo-cotizaciones, .permiso-submodulo-pedidos, .permiso-submodulo-salidas, .permiso-submodulo-punto_de_venta, .permiso-submodulo-cortes_de_caja, .permiso-submodulo-reportes').forEach(el => { el.checked = valor; });
     }
 
     function marcarTodosPermisosCompras(valor) {

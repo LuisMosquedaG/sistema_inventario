@@ -57,12 +57,10 @@ def app_permissions(request):
             'centros_costos_permission_matrix': CENTROS_COSTOS_PERMISSION_MATRIX,
         }
 
-    from .permissions import get_empresa_actual
+    from .permissions import get_empresa_actual, get_sales_permission_matrix
     empresa_actual = get_empresa_actual(request)
 
-    sales_matrix = SALES_PERMISSION_MATRIX
-    if empresa_actual and not getattr(empresa_actual, 'modulo_pos', True):
-        sales_matrix = {k: v for k, v in SALES_PERMISSION_MATRIX.items() if k not in ['punto_de_venta', 'cortes_de_caja']}
+    sales_matrix = get_sales_permission_matrix(empresa_actual)
     
     # Permisos de Producción (Compatibilidad o legacy perms_produccion si se usa aún)
     p_produccion_legacy = {

@@ -145,6 +145,21 @@ def user_has_module_permission(request, modulo, accion):
     return bool(getattr(permiso, f'puede_{accion}', False))
 
 
+def get_sales_permission_matrix(empresa=None):
+    if not empresa:
+        return SALES_PERMISSION_MATRIX
+    has_ventas = getattr(empresa, 'modulo_ventas', True)
+    has_pos = getattr(empresa, 'modulo_pos', True)
+    if has_ventas and has_pos:
+        return SALES_PERMISSION_MATRIX
+    elif has_ventas and not has_pos:
+        return {k: v for k, v in SALES_PERMISSION_MATRIX.items() if k not in ['punto_de_venta', 'cortes_de_caja']}
+    elif not has_ventas and has_pos:
+        return {k: v for k, v in SALES_PERMISSION_MATRIX.items() if k in ['punto_de_venta', 'cortes_de_caja']}
+    else:
+        return {}
+
+
 def user_has_sales_permission(request, submodulo, accion):
     user = request.user
     if not user.is_authenticated:
@@ -154,12 +169,13 @@ def user_has_sales_permission(request, submodulo, accion):
     if not empresa:
         return is_admin_or_superuser(user)
 
-    # Verificar si el módulo está habilitado para la empresa
-    if not empresa.modulo_ventas:
-        return False
-
-    if submodulo in ['punto_de_venta', 'cortes_de_caja'] and not getattr(empresa, 'modulo_pos', True):
-        return False
+    # Verificar si el módulo correspondiente está habilitado para la empresa
+    if submodulo in ['punto_de_venta', 'cortes_de_caja']:
+        if not getattr(empresa, 'modulo_pos', True):
+            return False
+    else:
+        if not getattr(empresa, 'modulo_ventas', True):
+            return False
 
     if is_admin_or_superuser(user):
         return True
