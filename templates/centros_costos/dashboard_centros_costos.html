@@ -738,7 +738,7 @@
                             </li>
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="tab-distribucion" data-bs-toggle="tab" data-bs-target="#panel-distribucion" type="button" role="tab">
-                                    <i class="bi bi-diagram-3 me-1 text-primary"></i> 6. Prorrateos / Distribuciones (<span id="countDistribuciones">0</span>)
+                                    <i class="bi bi-diagram-3 me-1"></i> 6. Prorrateos (<span id="countDistribuciones">0</span>)
                                 </button>
                             </li>
                         </ul>
@@ -871,18 +871,19 @@
                                     <table class="table table-pro mb-0 align-middle">
                                         <thead>
                                             <tr>
-                                                <th class="text-center" style="width: 130px;">Tipo Reparto</th>
+                                                <th class="text-center" style="width: 100px;">Folio CC</th>
+                                                <th class="text-center" style="width: 120px;">Tipo Reparto</th>
                                                 <th class="text-center" style="width: 110px;">Ciclo</th>
-                                                <th class="text-center" style="width: 110px;">Fecha</th>
+                                                <th class="text-center" style="width: 95px;">Fecha</th>
                                                 <th class="text-center" style="width: 130px;">Centro Origen</th>
                                                 <th class="text-center">Destino(s) / Receptores</th>
-                                                <th class="text-center" style="width: 120px;">Clase Secundaria</th>
-                                                <th class="text-center" style="width: 110px;">Monto MXN</th>
-                                                <th class="text-center" style="width: 110px;">Usuario</th>
+                                                <th class="text-center" style="width: 130px;">Clase Secundaria</th>
+                                                <th class="text-center" style="width: 110px;">Total MXN</th>
+                                                <th class="text-center" style="width: 100px;">Usuario</th>
                                             </tr>
                                         </thead>
                                         <tbody id="tbodyDistribuciones">
-                                            <tr><td colspan="8" class="text-center py-4 text-muted fst-italic">Cargando prorrateos...</td></tr>
+                                            <tr><td colspan="9" class="text-center py-4 text-muted fst-italic">Cargando prorrateos...</td></tr>
                                         </tbody>
                                     </table>
                                 </div>
@@ -1692,10 +1693,10 @@
                 const totPedidos = Number(r.total_pedidos || 0);
                 const totIngresos = Number(r.total_ingresos || 0);
 
-                // Gasto real = Total Egresos menos Total Ingresos (SIN sumar OC ni Pedidos)
-                const gasto = totEgresos - totIngresos;
+                // Gasto real = Gasto neto considerando prorrateos recibidos (+) y emitidos (-)
+                const gasto = Number(r.gasto_neto !== undefined ? r.gasto_neto : (totEgresos - totIngresos));
                 const presupuesto = Number(r.presupuesto || cInfo.presupuesto_mensual || 0);
-                const disponible = presupuesto - gasto;
+                const disponible = Number(r.disponible_calculado !== undefined ? r.disponible_calculado : (presupuesto - gasto));
 
                 if (document.getElementById('detResumenOC')) document.getElementById('detResumenOC').textContent = fmtMoney(totOC);
                 if (document.getElementById('detResumenEgresos')) document.getElementById('detResumenEgresos').textContent = fmtMoney(totEgresos);
@@ -1921,29 +1922,31 @@
                 const tbodyDist = document.getElementById('tbodyDistribuciones');
                 if (tbodyDist) {
                     if (distribucionesList.length === 0) {
-                        tbodyDist.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted fst-italic">No hay distribuciones o prorrateos registrados en este periodo.</td></tr>';
+                        tbodyDist.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted fst-italic">No hay prorrateos registrados en este periodo.</td></tr>';
                     } else {
                         let htmlDist = '';
                         distribucionesList.forEach(d => {
                             const esRecibida = d.tipo === 'recibida';
                             const badgeTipo = esRecibida
-                                ? '<span class="status-pill status-cancelada"><i class="bi bi-arrow-down-left me-1"></i>Cargo +</span>'
-                                : '<span class="status-pill status-recibida"><i class="bi bi-arrow-up-right me-1"></i>Crédito -</span>';
+                                ? '<span class="status-pill status-cancelada">Cargo +</span>'
+                                : '<span class="status-pill status-recibida">Crédito -</span>';
 
                             const destinosDisplay = esRecibida
-                                ? `<span class="fw-semibold text-dark">${d.centro_destino || '--'}</span> <span class="badge bg-light text-secondary border">(${d.porcentaje}%)</span>`
+                                ? `<span class="fw-semibold text-dark">${d.centro_destino || '--'}</span> <span class="badge bg-light text-secondary border font-monospace">(${d.porcentaje}%)</span>`
                                 : `<span class="small text-dark">${d.receptores || '--'}</span>`;
 
                             const montoNum = d.monto || 0;
+                            const centroMostrar = esRecibida ? (d.centro_destino || '--') : (d.centro_origen || '--');
 
                             htmlDist += `
                                 <tr>
+                                    <td class="text-center font-monospace small"><span class="badge bg-light text-secondary border font-monospace">${centroMostrar}</span></td>
                                     <td class="text-center">${badgeTipo}</td>
-                                    <td class="text-center font-monospace small"><span class="badge bg-light text-secondary border font-monospace">${d.ciclo_codigo || '--'}</span></td>
-                                    <td class="text-center small"><div class="text-dark">${d.fecha || '--'}</div></td>
+                                    <td class="text-center font-monospace small"><span class="text-dark">${d.ciclo_codigo || '--'}</span></td>
+                                    <td class="text-center small"><div class="text-dark">${(d.fecha || '--').split(' ')[0]}</div></td>
                                     <td class="text-center small"><span class="text-dark fw-semibold">${d.centro_origen || '--'}</span></td>
-                                    <td class="small">${destinosDisplay}</td>
-                                    <td class="text-center small font-monospace"><span class="badge bg-light text-dark border font-monospace">${d.clase_costo || '--'}</span></td>
+                                    <td class="text-center small">${destinosDisplay}</td>
+                                    <td class="text-center small"><div class="text-dark font-monospace">${d.clase_costo || '--'}</div></td>
                                     <td class="text-center small"><span class="text-dark fw-semibold">$${montoNum.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></td>
                                     <td class="text-center small"><span class="text-dark">${d.usuario || '--'}</span></td>
                                 </tr>

@@ -88,18 +88,24 @@ def dashboard_centros_costos(request):
     centros_alerta_count = 0
 
     for c in centros_qs:
+        gastado = c.calcular_gastos_mes(anio_actual, mes_actual)
         egresos_mes = c.calcular_egresos_mes(anio_actual, mes_actual)
         ingresos_mes = c.calcular_ingresos_mes(anio_actual, mes_actual)
-        gastado = egresos_mes - ingresos_mes
         comprometido = c.calcular_comprometido_mes(anio_actual, mes_actual)
-        pct = c.porcentaje_presupuesto(anio_actual, mes_actual)
-        pct_total = c.porcentaje_total_comprometido(anio_actual, mes_actual)
-        gasto_global_mes += gastado
+        
+        # Porcentaje sobre presupuesto mensual
+        pres = c.presupuesto_mensual or Decimal('0.00')
+        pct = Decimal('0.0')
+        pct_total = Decimal('0.0')
+        if pres > 0:
+            pct = (gastado / pres) * Decimal('100.0')
+            pct_total = ((gastado + comprometido) / pres) * Decimal('100.0')
 
-        remanente = (c.presupuesto_mensual or Decimal('0.00')) - gastado
+        gasto_global_mes += gastado
+        remanente = pres - gastado
 
         # Alerta si supera 80% o está excedido
-        if c.presupuesto_mensual > 0 and (pct >= 80 or pct_total >= 80):
+        if pres > 0 and (pct >= 80 or pct_total >= 80):
             centros_alerta_count += 1
 
         centros_con_metricas.append({
