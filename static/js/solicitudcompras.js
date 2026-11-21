@@ -118,6 +118,10 @@ function prepararNuevaSolicitud() {
     if (document.getElementById('solicitud_centro_costo')) {
         document.getElementById('solicitud_centro_costo').value = '';
     }
+    if (document.getElementById('alertaPresupuestoSolicitud')) {
+        document.getElementById('alertaPresupuestoSolicitud').className = 'mt-1 d-none';
+        document.getElementById('alertaPresupuestoSolicitud').innerHTML = '';
+    }
     document.getElementById('tituloModalSolicitud').innerText = 'Nueva Solicitud de Compra';
     document.getElementById('cuerpoTablaSolicitud').innerHTML = '';
     document.getElementById('mensajeVacioSolicitud').style.display = 'block';
@@ -690,7 +694,82 @@ function calcularTotalSolicitud() {
     if (ivaEl) ivaEl.innerText = '$' + ivaTotal.toLocaleString('en-US', {minimumFractionDigits: 2});
     const totEl = document.getElementById('granTotalSolicitud');
     if (totEl) totEl.innerText = '$' + granTotal.toLocaleString('en-US', {minimumFractionDigits: 2});
+
+    // Control Activo de Disponibilidad Presupuestal (SAP AVC)
+    verificarDisponibilidadPresupuestoSolicitud();
 }
+
+let debouncePresupuestoSolTimer = null;
+function verificarDisponibilidadPresupuestoSolicitud() {
+    clearTimeout(debouncePresupuestoSolTimer);
+    debouncePresupuestoSolTimer = setTimeout(() => {
+        const selCC = document.getElementById('solicitud_centro_costo');
+        const alertaDiv = document.getElementById('alertaPresupuestoSolicitud');
+        if (!selCC || !alertaDiv) return;
+
+        const ccId = selCC.value;
+        if (!ccId) {
+            alertaDiv.className = 'mt-1 d-none';
+            alertaDiv.innerHTML = '';
+            return;
+        }
+
+        const totalFinal = parseFloat((document.getElementById('granTotalSolicitud')?.innerText || '0').replace('$', '').replace(/,/g, '')) || 0;
+
+        fetch(`/centros-costos/${ccId}/disponibilidad/?monto=${totalFinal}`)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) return;
+                const val = data.validacion;
+                if (!val || val.tipo_control === 'desactivado' || val.presupuesto <= 0) {
+                    alertaDiv.className = 'mt-1 text-muted d-block';
+                    alertaDiv.innerHTML = `<span class="badge bg-light text-secondary border"><i class="bi bi-info-circle me-1"></i>Presupuesto: $${val.presupuesto.toLocaleString('en-US', {minimumFractionDigits: 2})} | Disp: $${val.disponible_actual.toLocaleString('en-US', {minimumFractionDigits: 2})}</span>`;
+                    return;
+                }
+
+                if (val.bloquea) {
+                    alertaDiv.className = 'mt-1 p-2 rounded bg-danger-subtle border border-danger text-danger d-block';
+                    alertaDiv.innerHTML = `
+                        <div class="d-flex align-items-center justify-content-between">
+                            <span class="fw-bold"><i class="bi bi-shield-slash-fill me-1"></i>Bloqueo de Presupuesto</span>
+                            <span class="badge bg-danger text-white">Excedido</span>
+                        </div>
+                        <div class="mt-1" style="font-size: 0.7rem; line-height: 1.2;">
+                            Disponible: <strong>$${val.disponible_actual.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong> | Exceso: <strong>$${val.exceso_monto.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong> (Consumo: ${val.pct_proyectado.toFixed(1)}%).
+                            ${data.puede_sobregirar ? '<br><span class="text-success fw-bold"><i class="bi bi-unlock-fill me-1"></i>Tu usuario tiene permiso para autorizar sobregiros.</span>' : '<br><span class="text-danger fw-bold"><i class="bi bi-x-octagon-fill me-1"></i>No se podrá autorizar la compra por falta de presupuesto.</span>'}
+                        </div>
+                    `;
+                } else if (val.excede && val.tipo_control === 'advertencia') {
+                    alertaDiv.className = 'mt-1 p-2 rounded bg-warning-subtle border border-warning text-warning-emphasis d-block';
+                    alertaDiv.innerHTML = `
+                        <div class="d-flex align-items-center justify-content-between">
+                            <span class="fw-bold"><i class="bi bi-exclamation-triangle-fill me-1"></i>Aviso Presupuestal</span>
+                            <span class="badge bg-warning text-dark">Alerta</span>
+                        </div>
+                        <div class="mt-1" style="font-size: 0.7rem; line-height: 1.2;">
+                            Disponible: <strong>$${val.disponible_actual.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong>. Consumo proyectado: <strong>${val.pct_proyectado.toFixed(1)}%</strong>.
+                        </div>
+                    `;
+                } else {
+                    alertaDiv.className = 'mt-1 p-1 rounded bg-success-subtle border border-success-subtle text-success d-block';
+                    alertaDiv.innerHTML = `
+                        <div class="d-flex align-items-center gap-1" style="font-size: 0.72rem;">
+                            <i class="bi bi-check-circle-fill"></i>
+                            <span>Presupuesto: $${val.presupuesto.toLocaleString('en-US', {minimumFractionDigits: 2})} | Disp: <strong>$${val.disponible_actual.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong></span>
+                        </div>
+                    `;
+                }
+            })
+            .catch(err => console.error(err));
+    }, 300);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const selCCSol = document.getElementById('solicitud_centro_costo');
+    if (selCCSol) {
+        selCCSol.addEventListener('change', verificarDisponibilidadPresupuestoSolicitud);
+    }
+});
 
 async function cargarItemParaEdicion(btn) {
     const row = btn.closest('tr');

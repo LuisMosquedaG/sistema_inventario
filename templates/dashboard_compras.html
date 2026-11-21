@@ -617,6 +617,7 @@
                                             <option value="{{ cc.id }}">[{{ cc.codigo }}] {{ cc.nombre }}</option>
                                             {% endfor %}
                                         </select>
+                                        <div id="alertaPresupuestoOC" class="mt-1 d-none" style="font-size: 0.72rem;"></div>
                                     </div>
                                     <div class="col-md-3">
                                     {% else %}
@@ -1639,6 +1640,8 @@
             document.getElementById('selectSucursalOC').innerHTML = '<option value="">-- Sin sucursal --</option>';
             const selCCOC = document.getElementById('selectCentroCostoOC');
             if (selCCOC) selCCOC.value = '';
+            const alertaOC = document.getElementById('alertaPresupuestoOC');
+            if (alertaOC) { alertaOC.className = 'mt-1 d-none'; alertaOC.innerHTML = ''; }
 
             // Reset Sucursal Empresa y Almacenes
             const selSucEmp = document.getElementById('selectSucursalEmpresaOC');
@@ -2122,10 +2125,93 @@
             if (document.querySelectorAll('#tablaCuerpo tr').length === 0) {
                 document.getElementById('mensajeVacio').style.display = 'block';
             }
+
+            // Verificación activa de presupuesto (SAP Availability Control)
+            verificarDisponibilidadPresupuestoOC();
         }
 
         // Vincular cambio de TC al recalcular totales
         document.getElementById('inputTipoCambio').addEventListener('input', calcularGranTotalLista);
+
+        // Verificación de disponibilidad presupuestal (SAP AVC)
+        let debouncePresupuestoTimer = null;
+        function verificarDisponibilidadPresupuestoOC() {
+            clearTimeout(debouncePresupuestoTimer);
+            debouncePresupuestoTimer = setTimeout(() => {
+                const selCC = document.getElementById('selectCentroCostoOC');
+                const alertaDiv = document.getElementById('alertaPresupuestoOC');
+                if (!selCC || !alertaDiv) return;
+
+                const ccId = selCC.value;
+                if (!ccId) {
+                    alertaDiv.className = 'mt-1 d-none';
+                    alertaDiv.innerHTML = '';
+                    return;
+                }
+
+                const tc = parseFloat(document.getElementById('inputTipoCambio').value) || 1;
+                const totalFinal = parseFloat((document.getElementById('granTotalModal').innerText || '0').replace('$', '').replace(/,/g, '')) || 0;
+                const montoMXN = totalFinal * tc;
+
+                let ordenId = null;
+                const formCompra = document.getElementById('formCompra');
+                if (formCompra && formCompra.action && formCompra.action.includes('/actualizar/')) {
+                    const match = formCompra.action.match(/\/actualizar\/(\d+)\//);
+                    if (match) ordenId = match[1];
+                }
+
+                fetch(`/centros-costos/${ccId}/disponibilidad/?monto=${montoMXN}${ordenId ? '&orden_id=' + ordenId : ''}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (!data.success) return;
+                        const val = data.validacion;
+                        if (!val || val.tipo_control === 'desactivado' || val.presupuesto <= 0) {
+                            alertaDiv.className = 'mt-1 text-muted d-block';
+                            alertaDiv.innerHTML = `<span class="badge bg-light text-secondary border"><i class="bi bi-info-circle me-1"></i>Presupuesto: $${val.presupuesto.toLocaleString('en-US', {minimumFractionDigits: 2})} | Disp: $${val.disponible_actual.toLocaleString('en-US', {minimumFractionDigits: 2})}</span>`;
+                            return;
+                        }
+
+                        if (val.bloquea) {
+                            alertaDiv.className = 'mt-1 p-2 rounded bg-danger-subtle border border-danger text-danger d-block';
+                            alertaDiv.innerHTML = `
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <span class="fw-bold"><i class="bi bi-shield-slash-fill me-1"></i>Bloqueo de Presupuesto</span>
+                                    <span class="badge bg-danger text-white">Excedido</span>
+                                </div>
+                                <div class="mt-1" style="font-size: 0.7rem; line-height: 1.2;">
+                                    Disponible: <strong>$${val.disponible_actual.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong> | Exceso: <strong>$${val.exceso_monto.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong> (Consumo: ${val.pct_proyectado.toFixed(1)}%).
+                                    ${data.puede_sobregirar ? '<br><span class="text-success fw-bold"><i class="bi bi-unlock-fill me-1"></i>Tu usuario tiene permiso para autorizar sobregiros.</span>' : '<br><span class="text-danger fw-bold"><i class="bi bi-x-octagon-fill me-1"></i>Se impedirá registrar la compra por falta de presupuesto.</span>'}
+                                </div>
+                            `;
+                        } else if (val.excede && val.tipo_control === 'advertencia') {
+                            alertaDiv.className = 'mt-1 p-2 rounded bg-warning-subtle border border-warning text-warning-emphasis d-block';
+                            alertaDiv.innerHTML = `
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <span class="fw-bold"><i class="bi bi-exclamation-triangle-fill me-1"></i>Aviso Presupuestal</span>
+                                    <span class="badge bg-warning text-dark">Alerta</span>
+                                </div>
+                                <div class="mt-1" style="font-size: 0.7rem; line-height: 1.2;">
+                                    Disponible: <strong>$${val.disponible_actual.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong>. Consumo proyectado: <strong>${val.pct_proyectado.toFixed(1)}%</strong>.
+                                </div>
+                            `;
+                        } else {
+                            alertaDiv.className = 'mt-1 p-1 rounded bg-success-subtle border border-success-subtle text-success d-block';
+                            alertaDiv.innerHTML = `
+                                <div class="d-flex align-items-center gap-1" style="font-size: 0.72rem;">
+                                    <i class="bi bi-check-circle-fill"></i>
+                                    <span>Presupuesto: $${val.presupuesto.toLocaleString('en-US', {minimumFractionDigits: 2})} | Disp: <strong>$${val.disponible_actual.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong></span>
+                                </div>
+                            `;
+                        }
+                    })
+                    .catch(err => console.error(err));
+            }, 300);
+        }
+
+        const selCCOC = document.getElementById('selectCentroCostoOC');
+        if (selCCOC) {
+            selCCOC.addEventListener('change', verificarDisponibilidadPresupuestoOC);
+        }
 
 
         function cargarParaEdicionCompra(id) {

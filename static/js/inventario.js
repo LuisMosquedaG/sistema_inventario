@@ -109,6 +109,9 @@ window.abrirNuevoArticulo = function(sucursalId = '') {
     const imgPlc = document.getElementById('previewImagenArticuloPlaceholder');
     if (imgPlc) imgPlc.classList.remove('d-none');
 
+    const selectClaseCosto = document.getElementById('selectClaseCostoArticulo');
+    if (selectClaseCosto) selectClaseCosto.value = '';
+
     actualizarCalculosPrecios();
     mostrarModal('modalCrearArticulo');
 }
@@ -190,6 +193,11 @@ window.cargarProductoEdicion = function(id) {
                     selTest.value = "";
                     selTest.classList.add('bg-light');
                 }
+            }
+
+            const selClaseCosto = document.getElementById('selectClaseCostoArticulo');
+            if (selClaseCosto) {
+                selClaseCosto.value = data.clase_costo_predeterminada_id || '';
             }
 
             // Cargar imagen existente si la hay

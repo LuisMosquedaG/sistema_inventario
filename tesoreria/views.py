@@ -126,6 +126,14 @@ def api_registrar_pago_compra(request):
                 sucursal=sucursal_obj
             )
             
+            # --- BUSCAR CLASE DE COSTO DE LA COMPRA ---
+            cc_compra = None
+            for d in compra.detalles.all():
+                cc_obj = d.clase_costo or getattr(d.producto, 'clase_costo_predeterminada', None)
+                if cc_obj:
+                    cc_compra = cc_obj
+                    break
+
             # --- REGISTRO EN EGRESOS ---
             Egreso.objects.create(
                 empresa=empresa_actual,
@@ -140,7 +148,8 @@ def api_registrar_pago_compra(request):
                 referencia=referencia,
                 pago_compra=pago,
                 sucursal=sucursal_obj,
-                centro_costo=compra.centro_costo
+                centro_costo=compra.centro_costo,
+                clase_costo=cc_compra
             )
 
             # --- NOTIFICACIÓN ---

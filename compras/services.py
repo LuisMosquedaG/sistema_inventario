@@ -16,8 +16,16 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
     sucursal_empresa_id = data_post.get('sucursal_empresa') # Sucursal de la EMPRESA
     almacen_id = data_post.get('almacen')
     moneda_id = data_post.get('moneda')
-    tipo_cambio = data_post.get('tipo_cambio', '1.0000')
-    descuento = data_post.get('descuento', '0.00')
+    try:
+        tipo_cambio = Decimal(str(data_post.get('tipo_cambio') or '1.0000'))
+    except Exception:
+        tipo_cambio = Decimal('1.0000')
+
+    try:
+        descuento = Decimal(str(data_post.get('descuento') or '0.00'))
+    except Exception:
+        descuento = Decimal('0.00')
+
     fecha_str = data_post.get('fecha')
     notas = data_post.get('notas')
 
@@ -104,6 +112,7 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
     unidades_compra = data_post.getlist('unidad_compra[]')
     factores_conv = data_post.getlist('factor_conversion[]')
     cantidades_inv = data_post.getlist('cantidad_inventario[]')
+    clases_costo_ids = data_post.getlist('clase_costo_id[]')
 
     items_creados = 0
 
@@ -137,6 +146,13 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
             prod_obj = Producto.objects.filter(id=prod_id, empresa=empresa_actual).first()
             if not prod_obj:
                 continue
+
+            clase_id_val = None
+            if i < len(clases_costo_ids) and clases_costo_ids[i] and str(clases_costo_ids[i]).strip().isdigit():
+                clase_id_val = int(clases_costo_ids[i])
+            elif prod_obj.clase_costo_predeterminada_id:
+                clase_id_val = prod_obj.clase_costo_predeterminada_id
+
             DetalleCompra.objects.create(
                 orden_compra=orden,
                 producto=prod_obj,
@@ -144,7 +160,8 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
                 precio_costo=precio,
                 unidad_compra=u_compra or None,
                 factor_conversion=f_conv,
-                cantidad_inventario=c_inv
+                cantidad_inventario=c_inv,
+                clase_costo_id=clase_id_val
             )
             items_creados += 1
     
@@ -152,11 +169,32 @@ def crear_orden_compra_servicio(usuario, data_post, empresa_actual, session_sucu
         orden.delete() # Si no hay items, borramos la orden vacía
         raise ValueError("Debes agregar al menos un producto válido.")
 
+    # 4. Control Activo de Disponibilidad Presupuestal (SAP Availability Control)
+    comentario_historial = 'Orden de compra registrada.'
+    if orden.centro_costo:
+        monto_oc_mxn = Decimal(str(orden.calcular_total or 0)) * Decimal(str(orden.tipo_cambio or 1))
+        val_pres = orden.centro_costo.validar_disponibilidad(monto_nuevo=monto_oc_mxn)
+        if val_pres.get('bloquea'):
+            from preferencias.permissions import is_admin_or_superuser
+            from preferencias.models import AsignacionRolUsuario, PermisoRolAccion
+            puede_sobregirar = is_admin_or_superuser(usuario)
+            if not puede_sobregirar and empresa_actual:
+                asig = AsignacionRolUsuario.objects.select_related('rol').filter(usuario=usuario, empresa=empresa_actual).first()
+                if asig:
+                    perm = PermisoRolAccion.objects.filter(rol=asig.rol, area='centros_costos', submodulo='centros_costos', accion='autorizar_sobregiro').first()
+                    if perm and perm.permitido:
+                        puede_sobregirar = True
+            if not puede_sobregirar:
+                orden.delete()
+                raise ValueError(val_pres.get('mensaje'))
+            else:
+                comentario_historial = 'Orden registrada con autorización de sobregiro presupuestal.'
+
     HistorialOrdenCompra.objects.create(
         orden_compra=orden,
         usuario=usuario,
         accion='creacion',
-        comentario='Orden de compra registrada.'
+        comentario=comentario_historial
     )
 
     return orden

@@ -117,6 +117,16 @@ class Producto(models.Model):
     
     # NUEVO: Vínculo al Test de Calidad (Módulo Producción)
     test_calidad = models.ForeignKey('produccion.Test', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Test de Calidad")
+    
+    # Clase de Costo predeterminada (Estilo SAP CO-OM / CO-CCA)
+    clase_costo_predeterminada = models.ForeignKey(
+        'centros_costos.ClaseCosto',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='productos',
+        verbose_name="Clase de Costo Predeterminada"
+    )
 
     precios_lista = models.JSONField(default=list, blank=True, verbose_name="Lista de Precios Extra")
     costos_lista = models.JSONField(default=list, blank=True, verbose_name="Lista de Costos Extra")

@@ -111,6 +111,16 @@ class DetalleSolicitudCompra(models.Model):
     factor_conversion = models.DecimalField(max_digits=12, decimal_places=4, default=1.0000, verbose_name="Factor de Conversión")
     cantidad_inventario = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Cant. Entrada Inventario")
 
+    # CLASE DE COSTO POR PARTIDA (Estilo SAP CO - Primary Cost Element)
+    clase_costo = models.ForeignKey(
+        'centros_costos.ClaseCosto',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='detalles_solicitudes',
+        verbose_name="Clase de Costo"
+    )
+
     detalle_pedido_origen = models.ForeignKey(DetallePedido, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):

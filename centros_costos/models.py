@@ -79,12 +79,33 @@ class CentroCosto(models.Model):
         verbose_name="Usuarios Autorizados a Imputar"
     )
 
+    CONTROL_PRESUPUESTO_CHOICES = [
+        ('desactivado', 'Desactivado (Solo informativo)'),
+        ('advertencia', 'Advertencia (Permitir con aviso de sobregiro)'),
+        ('bloqueo', 'Bloqueo duro (Impedir compras si excede presupuesto)'),
+    ]
+
     # Presupuesto mensual asignado
     presupuesto_mensual = models.DecimalField(
         max_digits=14, 
         decimal_places=2, 
         default=Decimal('0.00'), 
         verbose_name="Presupuesto Mensual"
+    )
+
+    # Control Activo de Disponibilidad Presupuestal (SAP Availability Control)
+    control_presupuesto = models.CharField(
+        max_length=20,
+        choices=CONTROL_PRESUPUESTO_CHOICES,
+        default='desactivado',
+        verbose_name="Control de Presupuesto (Disponibilidad)"
+    )
+    tolerancia_presupuesto = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name="Tolerancia de Sobregiro (%)",
+        help_text="Porcentaje adicional sobre el presupuesto antes de activar la advertencia o bloqueo"
     )
 
     # Para proyectos / temporales
@@ -140,6 +161,48 @@ class CentroCosto(models.Model):
 
         return total_egresos
 
+    def calcular_distribuciones_emitidas_mes(self, anio=None, mes=None):
+        """
+        Total de costos transferidos/prorrateados hacia otros centros
+        donde este centro actuó como emisor (disminuye su saldo de gasto).
+        """
+        now = timezone.now()
+        if not anio:
+            anio = now.year
+        if not mes:
+            mes = now.month
+
+        total = Decimal('0.00')
+        ejecuciones = self.ciclos_como_emisor.filter(
+            ejecuciones__anio=anio,
+            ejecuciones__mes=mes,
+            ejecuciones__estado='aplicado'
+        ).values_list('ejecuciones__monto_total_distribuido', flat=True)
+        for m in ejecuciones:
+            total += Decimal(str(m or 0))
+        return total
+
+    def calcular_distribuciones_recibidas_mes(self, anio=None, mes=None):
+        """
+        Total de costos recibidos por distribución/prorrateo de centros emisores
+        (incrementa el gasto real absorbido por este centro).
+        """
+        now = timezone.now()
+        if not anio:
+            anio = now.year
+        if not mes:
+            mes = now.month
+
+        total = Decimal('0.00')
+        detalles = self.distribuciones_recibidas.filter(
+            ejecucion__anio=anio,
+            ejecucion__mes=mes,
+            ejecucion__estado='aplicado'
+        )
+        for d in detalles:
+            total += Decimal(str(d.monto_cargado or 0))
+        return total
+
     def calcular_ingresos_mes(self, anio=None, mes=None):
         """
         Calcula el total de Ingresos de tesorería cobrados
@@ -168,12 +231,19 @@ class CentroCosto(models.Model):
 
     def calcular_gastos_mes(self, anio=None, mes=None):
         """
-        Calcula el gasto neto financiero en el mes:
-        Total Egresos menos Total Ingresos (igual que en el modal de movimientos).
+        Calcula el gasto neto financiero en el mes considerando prorrateos internos:
+        Total Egresos Directos 
+        - Total Ingresos 
+        + Prorrateos Recibidos (absorbidos)
+        - Prorrateos Emitidos (distribuidos hacia otros)
         """
-        return self.calcular_egresos_mes(anio, mes) - self.calcular_ingresos_mes(anio, mes)
+        egresos = self.calcular_egresos_mes(anio, mes)
+        ingresos = self.calcular_ingresos_mes(anio, mes)
+        dist_recibidas = self.calcular_distribuciones_recibidas_mes(anio, mes)
+        dist_emitidas = self.calcular_distribuciones_emitidas_mes(anio, mes)
+        return (egresos - ingresos) + dist_recibidas - dist_emitidas
 
-    def calcular_comprometido_mes(self, anio=None, mes=None):
+    def calcular_comprometido_mes(self, anio=None, mes=None, exclude_orden_id=None):
         """
         Calcula el monto comprometido en Órdenes de Compra vigentes
         que aún tienen saldo pendiente de pago en tesorería.
@@ -191,6 +261,9 @@ class CentroCosto(models.Model):
             fecha__year=anio,
             fecha__month=mes
         )
+        if exclude_orden_id:
+            ocs = ocs.exclude(id=exclude_orden_id)
+
         total_comprometido = Decimal('0.00')
         for oc in ocs:
             saldo = oc.saldo_pendiente
@@ -198,6 +271,143 @@ class CentroCosto(models.Model):
                 total_comprometido += Decimal(str(saldo * (oc.tipo_cambio or Decimal('1.0000'))))
 
         return total_comprometido
+
+    def validar_disponibilidad(self, monto_nuevo=Decimal('0.00'), anio=None, mes=None, exclude_orden_id=None):
+        """
+        Control Activo de Disponibilidad (SAP Availability Control / AVC).
+        Evalúa si un monto proyectado excede el presupuesto disponible del centro de costos
+        aplicando la regla configurada (desactivado, advertencia, bloqueo duro) y tolerancia.
+        """
+        now = timezone.now()
+        if not anio:
+            anio = now.year
+        if not mes:
+            mes = now.month
+
+        presupuesto = self.presupuesto_mensual or Decimal('0.00')
+        tolerancia_pct = self.tolerancia_presupuesto or Decimal('0.00')
+        limite_maximo = presupuesto * (Decimal('1.00') + (tolerancia_pct / Decimal('100.00')))
+
+        gastos_reales = self.calcular_gastos_mes(anio, mes)
+        comprometido = self.calcular_comprometido_mes(anio, mes, exclude_orden_id=exclude_orden_id)
+        consumo_actual = gastos_reales + comprometido
+
+        disponible_actual = max(Decimal('0.00'), presupuesto - consumo_actual)
+        disponible_con_tolerancia = max(Decimal('0.00'), limite_maximo - consumo_actual)
+
+        monto_compra = Decimal(str(monto_nuevo or 0))
+        proyeccion = consumo_actual + monto_compra
+
+        excede_tolerancia = (proyeccion > limite_maximo) if presupuesto > 0 else False
+        exceso_monto = max(Decimal('0.00'), proyeccion - limite_maximo) if presupuesto > 0 else Decimal('0.00')
+        pct_consumo_proyectado = ((proyeccion / presupuesto) * Decimal('100.0')) if presupuesto > 0 else Decimal('0.0')
+
+        control = self.control_presupuesto or 'desactivado'
+
+        if control == 'desactivado' or presupuesto <= 0:
+            return {
+                'permitido': True,
+                'tipo_control': 'desactivado',
+                'bloquea': False,
+                'excede': False,
+                'presupuesto': float(presupuesto),
+                'tolerancia_pct': float(tolerancia_pct),
+                'limite_maximo': float(limite_maximo),
+                'consumo_actual': float(consumo_actual),
+                'disponible_actual': float(disponible_actual),
+                'disponible_con_tolerancia': float(disponible_con_tolerancia),
+                'monto_nuevo': float(monto_compra),
+                'proyeccion': float(proyeccion),
+                'exceso_monto': 0.0,
+                'pct_proyectado': float(pct_consumo_proyectado),
+                'mensaje': 'Sin control presupuestal activo.'
+            }
+
+        if control == 'advertencia':
+            if excede_tolerancia:
+                mensaje = (
+                    f"Aviso Presupuestal: El centro de costos '{self.codigo} - {self.nombre}' "
+                    f"tiene disponible ${disponible_actual:,.2f} MXN (presupuesto: ${presupuesto:,.2f} MXN). "
+                    f"Esta compra de ${monto_compra:,.2f} MXN proyecta un consumo del {pct_consumo_proyectado:.1f}% "
+                    f"(excediendo el límite autorizado con tolerancia en ${exceso_monto:,.2f} MXN)."
+                )
+                return {
+                    'permitido': True,
+                    'tipo_control': 'advertencia',
+                    'bloquea': False,
+                    'excede': True,
+                    'presupuesto': float(presupuesto),
+                    'tolerancia_pct': float(tolerancia_pct),
+                    'limite_maximo': float(limite_maximo),
+                    'consumo_actual': float(consumo_actual),
+                    'disponible_actual': float(disponible_actual),
+                    'disponible_con_tolerancia': float(disponible_con_tolerancia),
+                    'monto_nuevo': float(monto_compra),
+                    'proyeccion': float(proyeccion),
+                    'exceso_monto': float(exceso_monto),
+                    'pct_proyectado': float(pct_consumo_proyectado),
+                    'mensaje': mensaje
+                }
+            return {
+                'permitido': True,
+                'tipo_control': 'advertencia',
+                'bloquea': False,
+                'excede': False,
+                'presupuesto': float(presupuesto),
+                'tolerancia_pct': float(tolerancia_pct),
+                'limite_maximo': float(limite_maximo),
+                'consumo_actual': float(consumo_actual),
+                'disponible_actual': float(disponible_actual),
+                'disponible_con_tolerancia': float(disponible_con_tolerancia),
+                'monto_nuevo': float(monto_compra),
+                'proyeccion': float(proyeccion),
+                'exceso_monto': 0.0,
+                'pct_proyectado': float(pct_consumo_proyectado),
+                'mensaje': 'Presupuesto dentro del límite autorizado.'
+            }
+
+        if control == 'bloqueo':
+            if excede_tolerancia:
+                mensaje = (
+                    f"Bloqueo Presupuestal: El centro de costos '{self.codigo} - {self.nombre}' "
+                    f"cuenta con un saldo disponible de ${disponible_actual:,.2f} MXN (presupuesto mensual: ${presupuesto:,.2f} MXN). "
+                    f"La compra (${monto_compra:,.2f} MXN) excede el límite máximo disponible "
+                    f"por ${exceso_monto:,.2f} MXN (Consumo proyectado: {pct_consumo_proyectado:.1f}%)."
+                )
+                return {
+                    'permitido': False,
+                    'tipo_control': 'bloqueo',
+                    'bloquea': True,
+                    'excede': True,
+                    'presupuesto': float(presupuesto),
+                    'tolerancia_pct': float(tolerancia_pct),
+                    'limite_maximo': float(limite_maximo),
+                    'consumo_actual': float(consumo_actual),
+                    'disponible_actual': float(disponible_actual),
+                    'disponible_con_tolerancia': float(disponible_con_tolerancia),
+                    'monto_nuevo': float(monto_compra),
+                    'proyeccion': float(proyeccion),
+                    'exceso_monto': float(exceso_monto),
+                    'pct_proyectado': float(pct_consumo_proyectado),
+                    'mensaje': mensaje
+                }
+            return {
+                'permitido': True,
+                'tipo_control': 'bloqueo',
+                'bloquea': False,
+                'excede': False,
+                'presupuesto': float(presupuesto),
+                'tolerancia_pct': float(tolerancia_pct),
+                'limite_maximo': float(limite_maximo),
+                'consumo_actual': float(consumo_actual),
+                'disponible_actual': float(disponible_actual),
+                'disponible_con_tolerancia': float(disponible_con_tolerancia),
+                'monto_nuevo': float(monto_compra),
+                'proyeccion': float(proyeccion),
+                'exceso_monto': 0.0,
+                'pct_proyectado': float(pct_consumo_proyectado),
+                'mensaje': 'Presupuesto disponible verificado.'
+            }
 
     def porcentaje_presupuesto(self, anio=None, mes=None):
         if self.presupuesto_mensual and self.presupuesto_mensual > 0:
@@ -239,3 +449,331 @@ class CentroCosto(models.Model):
             Q(usuarios_autorizados=usuario) |
             Q(responsable=usuario)
         ).distinct().order_by('codigo')
+
+
+class ClaseCosto(models.Model):
+    """
+    Catálogo de Clases de Costo (Cost Elements - Estilo SAP CO).
+    - Primarias: Gastos directos derivados de facturas de proveedores, insumos, compras externas y egresos de caja.
+    - Secundarias: Costos generados internamente por distribución, sub-reparto de centros de soporte o tarifas de absorción.
+    """
+    TIPO_CHOICES = [
+        ('primaria', 'Primaria (Gasto externo)'),
+        ('secundaria', 'Secundaria (Gasto interno)'),
+    ]
+
+    CATEGORIA_CHOICES = [
+        ('materiales', 'Materiales y Suministros'),
+        ('servicios', 'Servicios Externos / Contratistas'),
+        ('personal', 'Mano de Obra / Personal'),
+        ('mantenimiento', 'Mantenimiento y Reparación'),
+        ('instalaciones', 'Instalaciones / Rentas / Servicios Básicos'),
+        ('transporte', 'Logística, Combustibles y Fletes'),
+        ('administrativo', 'Gastos Administrativos / Oficina'),
+        ('distribucion_interna', 'Distribución / Sub-reparto Interno'),
+        ('otros', 'Otros Gastos Operativos'),
+    ]
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name='clases_costos',
+        verbose_name="Empresa"
+    )
+    codigo = models.CharField(max_length=30, verbose_name="Código / Cuenta Contable")
+    nombre = models.CharField(max_length=150, verbose_name="Nombre de la Clase de Costo")
+    descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción")
+    
+    tipo = models.CharField(
+        max_length=20,
+        choices=TIPO_CHOICES,
+        default='primaria',
+        verbose_name="Tipo de Clase de Costo"
+    )
+    categoria = models.CharField(
+        max_length=30,
+        choices=CATEGORIA_CHOICES,
+        default='materiales',
+        verbose_name="Categoría Analítica"
+    )
+
+    activo = models.BooleanField(default=True, verbose_name="Activo")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
+    fecha_actualizacion = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
+
+    class Meta:
+        verbose_name = "Clase de Costo"
+        verbose_name_plural = "Clases de Costos"
+        ordering = ['codigo', 'nombre']
+        unique_together = ('empresa', 'codigo')
+
+    def __str__(self):
+        return f"{self.codigo} - {self.nombre} ({self.get_tipo_display().split()[0]})"
+
+    @classmethod
+    def sembrar_catalogo_estandar(cls, empresa):
+        """
+        Crea un catálogo estándar sugerido para la empresa si no tiene ninguna clase configurada.
+        """
+        if cls.objects.filter(empresa=empresa).exists():
+            return 0
+
+        catalogo_base = [
+            # Primarias
+            ('5101', 'Materia Prima e Insumos Directos', 'primaria', 'materiales', 'Consumo directo de insumos para la operación o producción'),
+            ('5102', 'Refacciones y Repuestos', 'primaria', 'mantenimiento', 'Piezas de recambio y componentes para maquinaria y vehículos'),
+            ('5103', 'Combustibles y Lubricantes', 'primaria', 'transporte', 'Gasolina, diésel, aceites y grasas automotrices/industriales'),
+            ('5104', 'Fletes y Envíos', 'primaria', 'transporte', 'Transporte de mercancía y envíos por paquetería externa'),
+            ('5105', 'Mantenimiento y Reparaciones Externas', 'primaria', 'mantenimiento', 'Servicios de reparación y mantenimiento contratados a terceros'),
+            ('5106', 'Servicios Básicos (Luz, Agua, Gas)', 'primaria', 'instalaciones', 'Servicios públicos directos de las instalaciones'),
+            ('5107', 'Comunicaciones e Internet', 'primaria', 'servicios', 'Telefonía, conectividad a internet y servicios de datos'),
+            ('5108', 'Honorarios y Asesorías Profesionales', 'primaria', 'servicios', 'Consultoría legal, contable o técnica externa'),
+            ('5109', 'Papelería y Artículos de Oficina', 'primaria', 'administrativo', 'Consumibles, impresiones y artículos administrativos'),
+            ('5110', 'Viáticos y Gastos de Viaje', 'primaria', 'administrativo', 'Hospedaje, alimentos de viaje y traslados de personal'),
+            ('5111', 'Herramientas Menores y Seguridad', 'primaria', 'materiales', 'EPP, uniformes y herramientas no capitalizables'),
+            # Secundarias
+            ('9101', 'Reparto Interno Servicios TI / Sistemas', 'secundaria', 'distribucion_interna', 'Liquidación mensual de costos de infraestructura y soporte TI'),
+            ('9102', 'Absorción Mano de Obra Taller / Producción', 'secundaria', 'personal', 'Tarifas horarias aplicadas a órdenes de trabajo u operaciones'),
+            ('9103', 'Sub-reparto Mantenimiento General', 'secundaria', 'distribucion_interna', 'Prorrateo de gastos del taller de mantenimiento a centros operativos'),
+            ('9104', 'Distribución Gastos Corporativos y Renta', 'secundaria', 'distribucion_interna', 'Prorrateo de renta y gastos administrativos corporativos'),
+        ]
+
+        creados = 0
+        for codigo, nombre, tipo, cat, desc in catalogo_base:
+            cls.objects.create(
+                empresa=empresa,
+                codigo=codigo,
+                nombre=nombre,
+                tipo=tipo,
+                categoria=cat,
+                descripcion=desc,
+                activo=True
+            )
+            creados += 1
+        return creados
+
+
+# =========================================================================
+# CICLOS DE DISTRIBUCIÓN Y PRORRATEO DE GASTOS (SAP ALLOCATION / ASSESSMENT)
+# =========================================================================
+
+class CicloDistribucion(models.Model):
+    """
+    Define una regla o ciclo recurrente para prorratear gastos acumulados de un
+    Centro de Costo emisor (ej. Administración Central, TI, Mantenimiento General)
+    hacia uno o más Centros de Costo receptores (ej. Sucursales, Obras, Proyectos).
+    """
+    METODO_CHOICES = [
+        ('porcentaje_fijo', 'Porcentajes Fijos (%)'),
+        ('monto_fijo', 'Monto Fijo Absoluto ($)'),
+    ]
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name='ciclos_distribucion',
+        verbose_name="Empresa"
+    )
+    codigo = models.CharField(max_length=30, verbose_name="Código del Ciclo")
+    nombre = models.CharField(max_length=150, verbose_name="Nombre del Ciclo")
+    descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción")
+
+    centro_emisor = models.ForeignKey(
+        CentroCosto,
+        on_delete=models.CASCADE,
+        related_name='ciclos_como_emisor',
+        verbose_name="Centro Emisor (Origen)"
+    )
+
+    clase_costo_secundaria = models.ForeignKey(
+        ClaseCosto,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ciclos_distribucion',
+        verbose_name="Clase de Costo Secundaria (Imputación)",
+        help_text="Clase de costo tipo secundaria bajo la cual se registrará el reparto interno"
+    )
+
+    metodo = models.CharField(
+        max_length=30,
+        choices=METODO_CHOICES,
+        default='porcentaje_fijo',
+        verbose_name="Método de Distribución"
+    )
+
+    activo = models.BooleanField(default=True, verbose_name="Activo")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
+    fecha_actualizacion = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
+
+    class Meta:
+        verbose_name = "Ciclo de Distribución"
+        verbose_name_plural = "Ciclos de Distribución"
+        ordering = ['codigo', 'nombre']
+        unique_together = ('empresa', 'codigo')
+
+    def __str__(self):
+        return f"{self.codigo} - {self.nombre} (Emisor: {self.centro_emisor.codigo})"
+
+    @property
+    def total_porcentaje(self):
+        """Suma de los porcentajes asignados a receptores."""
+        return sum([s.porcentaje for s in self.segmentos.filter(activo=True)], Decimal('0.00'))
+
+
+class SegmentoCicloDistribucion(models.Model):
+    """
+    Especifica la regla de reparto para cada Centro de Costo receptor dentro de un ciclo.
+    """
+    ciclo = models.ForeignKey(
+        CicloDistribucion,
+        on_delete=models.CASCADE,
+        related_name='segmentos',
+        verbose_name="Ciclo de Distribución"
+    )
+    centro_receptor = models.ForeignKey(
+        CentroCosto,
+        on_delete=models.CASCADE,
+        related_name='segmentos_como_receptor',
+        verbose_name="Centro Receptor (Destino)"
+    )
+    porcentaje = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name="Porcentaje Asignado (%)",
+        help_text="Participación porcentual en el prorrateo (ej. 25.00)"
+    )
+    monto_fijo = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name="Monto Fijo Mensual ($)",
+        help_text="Monto nominal a transferir mensualmente si el método es monto fijo"
+    )
+    activo = models.BooleanField(default=True, verbose_name="Activo")
+
+    class Meta:
+        verbose_name = "Segmento de Distribución"
+        verbose_name_plural = "Segmentos de Distribución"
+        unique_together = ('ciclo', 'centro_receptor')
+
+    def __str__(self):
+        return f"{self.ciclo.codigo} -> {self.centro_receptor.codigo} ({self.porcentaje}%)"
+
+
+class EjecucionCicloDistribucion(models.Model):
+    """
+    Registro histórico de la ejecución de un ciclo en un periodo (año y mes) específico.
+    Permite trazabilidad total y reversión controlada.
+    """
+    ESTADO_CHOICES = [
+        ('aplicado', 'Aplicado'),
+        ('revertido', 'Revertido'),
+    ]
+
+    ciclo = models.ForeignKey(
+        CicloDistribucion,
+        on_delete=models.CASCADE,
+        related_name='ejecuciones',
+        verbose_name="Ciclo Ejecutado"
+    )
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name='ejecuciones_ciclos_distribucion',
+        verbose_name="Empresa"
+    )
+    anio = models.PositiveIntegerField(verbose_name="Año del Periodo")
+    mes = models.PositiveIntegerField(verbose_name="Mes del Periodo (1-12)")
+    
+    fecha_ejecucion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Ejecución")
+    usuario = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ejecuciones_ciclos_distribucion',
+        verbose_name="Usuario que Ejecutó"
+    )
+
+    monto_base_emisor = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name="Monto Gastado en Emisor ($)"
+    )
+    monto_total_distribuido = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name="Monto Total Prorrateado ($)"
+    )
+
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default='aplicado',
+        verbose_name="Estado de la Ejecución"
+    )
+    notas = models.TextField(blank=True, null=True, verbose_name="Notas / Observaciones")
+
+    # Auditoría de reversión
+    fecha_reversion = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de Reversión")
+    usuario_reversion = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reversiones_ciclos_distribucion',
+        verbose_name="Usuario que Revirtió"
+    )
+    motivo_reversion = models.TextField(blank=True, null=True, verbose_name="Motivo de Reversión")
+
+    class Meta:
+        verbose_name = "Ejecución de Ciclo de Distribución"
+        verbose_name_plural = "Ejecuciones de Ciclos de Distribución"
+        ordering = ['-fecha_ejecucion']
+
+    def __str__(self):
+        return f"{self.ciclo.codigo} - Periodo {self.mes:02d}/{self.anio} ({self.get_estado_display()})"
+
+
+class DetalleEjecucionCiclo(models.Model):
+    """
+    Desglose por receptor del prorrateo aplicado en una ejecución.
+    """
+    ejecucion = models.ForeignKey(
+        EjecucionCicloDistribucion,
+        on_delete=models.CASCADE,
+        related_name='detalles',
+        verbose_name="Ejecución"
+    )
+    centro_receptor = models.ForeignKey(
+        CentroCosto,
+        on_delete=models.CASCADE,
+        related_name='distribuciones_recibidas',
+        verbose_name="Centro Receptor"
+    )
+    porcentaje_aplicado = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name="Porcentaje Aplicado (%)"
+    )
+    monto_cargado = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name="Monto Cargado al Receptor ($)"
+    )
+
+    class Meta:
+        verbose_name = "Detalle de Ejecución de Ciclo"
+        verbose_name_plural = "Detalles de Ejecución de Ciclos"
+        ordering = ['id']
+
+    def __str__(self):
+        return f"{self.ejecucion.ciclo.codigo} -> {self.centro_receptor.codigo}: ${self.monto_cargado}"
+
+

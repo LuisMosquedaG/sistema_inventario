@@ -64,7 +64,8 @@ class OrdenCompra(models.Model):
             iva_original += detalle.iva_monto
             
         # Proporción tras el descuento
-        nuevo_subtotal = subtotal_original - self.descuento
+        desc = Decimal(str(self.descuento or 0))
+        nuevo_subtotal = max(Decimal('0'), subtotal_original - desc)
         factor = nuevo_subtotal / subtotal_original
         
         return (iva_original * factor).quantize(Decimal('0.01'))
@@ -72,7 +73,8 @@ class OrdenCompra(models.Model):
     @property
     def calcular_total(self):
         """Total = (Subtotal - Descuento) + IVA Ajustado"""
-        nuevo_subtotal = self.calcular_subtotal - self.descuento
+        desc = Decimal(str(self.descuento or 0))
+        nuevo_subtotal = max(Decimal('0'), self.calcular_subtotal - desc)
         return nuevo_subtotal + self.calcular_iva
 
     @property
@@ -147,6 +149,16 @@ class DetalleCompra(models.Model):
     unidad_compra = models.CharField(max_length=50, blank=True, null=True, verbose_name="Unidad de Compra")
     factor_conversion = models.DecimalField(max_digits=12, decimal_places=4, default=1.0000, verbose_name="Factor de Conversión")
     cantidad_inventario = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Cant. Entrada Inventario")
+
+    # CLASE DE COSTO POR PARTIDA (Estilo SAP CO - Primary Cost Element)
+    clase_costo = models.ForeignKey(
+        'centros_costos.ClaseCosto',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='detalles_compras',
+        verbose_name="Clase de Costo"
+    )
 
     def __str__(self):
         return f"{self.cantidad} x {self.producto.nombre}"

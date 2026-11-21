@@ -66,6 +66,20 @@
     .icon-action-toggle:hover { color: #F59E0B !important; background-color: rgba(245, 158, 11, 0.1); }
     .icon-action-delete:hover { color: #EF4444 !important; background-color: rgba(239, 68, 68, 0.1); }
 
+    /* Switch estilo Brand (Azulito) para tablas y modales con tamaño estándar Bootstrap */
+    .switch-brand-sm {
+        cursor: pointer;
+        margin: 0 !important;
+    }
+    .switch-brand-sm:checked {
+        background-color: var(--cc-brand) !important;
+        border-color: var(--cc-brand) !important;
+    }
+    .switch-brand-sm:focus {
+        border-color: var(--cc-brand) !important;
+        box-shadow: 0 0 0 0.2rem rgba(0, 184, 185, 0.25) !important;
+    }
+
     .status-pill {
         display: inline-flex;
         align-items: center;
@@ -176,13 +190,19 @@
                 Gestión presupuestal, clasificación financiera y trazabilidad de gastos ({{ mes_nombre }} {{ anio_actual }})
             </span>
         </div>
-        {% if granular_centros_costos_perms.centros_costos.crear %}
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
+            <button type="button" class="btn btn-light border text-secondary btn-pro shadow-sm" onclick="abrirModalDistribucion()">
+                <i class="bi bi-diagram-3 me-1 text-primary"></i> Prorrateos y Distribución
+            </button>
+            <button type="button" class="btn btn-light border text-secondary btn-pro shadow-sm" onclick="abrirModalClasesCostos()">
+                <i class="bi bi-tags me-1"></i> Clases de Costo
+            </button>
+            {% if granular_centros_costos_perms.centros_costos.crear %}
             <button type="button" class="btn btn-brand btn-sm px-3 shadow-sm d-flex align-items-center" onclick="abrirModalCrearCentro()">
                 <i class="bi bi-plus-lg me-1"></i> Nuevo Centro de Costo
             </button>
+            {% endif %}
         </div>
-        {% endif %}
     </div>
 
     <!-- BARRA DE FILTROS -->
@@ -313,7 +333,18 @@
                             <td class="text-center align-middle small"><span class="text-dark">{% if c.responsable %}{{ c.responsable.first_name|default:c.responsable.username }}{% else %}--{% endif %}</span></td>
 
                             <!-- PRESUPUESTO -->
-                            <td class="text-center align-middle small"><span class="text-dark">${{ c.presupuesto_mensual|floatformat:2|intcomma }}</span></td>
+                            <td class="text-center align-middle small">
+                                <div class="fw-semibold text-dark">${{ c.presupuesto_mensual|floatformat:2|intcomma }}</div>
+                                {% if c.control_presupuesto == 'bloqueo' %}
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle" style="font-size: 0.65rem;" title="Bloqueo duro activo en compras si excede presupuesto (Tolerancia: {{ c.tolerancia_presupuesto|floatformat:1 }}%)">
+                                    <i class="bi bi-shield-lock-fill me-1"></i>Bloqueo{% if c.tolerancia_presupuesto > 0 %} +{{ c.tolerancia_presupuesto|floatformat:0 }}%{% endif %}
+                                </span>
+                                {% elif c.control_presupuesto == 'advertencia' %}
+                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.65rem;" title="Aviso activo en compras si excede presupuesto (Tolerancia: {{ c.tolerancia_presupuesto|floatformat:1 }}%)">
+                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>Aviso{% if c.tolerancia_presupuesto > 0 %} +{{ c.tolerancia_presupuesto|floatformat:0 }}%{% endif %}
+                                </span>
+                                {% endif %}
+                            </td>
 
                             <!-- CONSUMO (ESTILO MODAL / PRODUCCIÓN) -->
                             <td class="text-center align-middle">
@@ -409,13 +440,23 @@
                     <!-- DATOS BÁSICOS -->
                     <div class="card border-0 shadow-sm mb-3">
                         <div class="card-body p-3">
-                            <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.72rem; letter-spacing: 0.5px;">
-                                1. Identificación y Clasificación
-                            </h6>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                                    1. Identificación y Clasificación
+                                </h6>
+                                <div class="form-check form-switch mb-0 text-nowrap">
+                                    <input class="form-check-input" type="checkbox" id="cc_activo" checked>
+                                    <label class="form-check-label small text-dark" for="cc_activo">Activo para operaciones</label>
+                                </div>
+                            </div>
                             <div class="row g-3">
                                 <div class="col-md-4">
                                     <label>Código <span class="text-danger">*</span></label>
-                                    <input type="text" id="cc_codigo" class="form-control form-control-sm text-uppercase fw-bold" placeholder="Ej: CC-ADM01" required>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-light text-muted d-none" id="cc_codigo_prefijo"></span>
+                                        <input type="text" id="cc_codigo" class="form-control form-control-sm text-uppercase" placeholder="Ej: CC-ADM01" required>
+                                    </div>
+                                    <small class="text-muted d-none" id="cc_codigo_help" style="font-size: 0.68rem;"></small>
                                 </div>
                                 <div class="col-md-8">
                                     <label>Nombre del Centro de Costo <span class="text-danger">*</span></label>
@@ -435,14 +476,14 @@
                                 </div>
                                 <div class="col-md-4">
                                     <label>Depende de (Centro Padre)</label>
-                                    <select id="cc_parent" class="form-select form-select-sm">
-                                        <option value="">(Ninguno - Nivel Principal)</option>
+                                    <select id="cc_parent" class="form-select form-select-sm" onchange="onCambioCentroPadre()">
+                                        <option value="" data-codigo="">(Ninguno - Nivel Principal)</option>
                                         {% for cp in centros_padres %}
-                                        <option value="{{ cp.id }}">[{{ cp.codigo }}] {{ cp.nombre }}</option>
+                                        <option value="{{ cp.id }}" data-codigo="{{ cp.codigo }}">[{{ cp.codigo }}] {{ cp.nombre }}</option>
                                         {% endfor %}
                                     </select>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <label>Sucursal Asignada</label>
                                     <select id="cc_sucursal" class="form-select form-select-sm">
                                         <option value="">(Todas las sucursales)</option>
@@ -451,7 +492,7 @@
                                         {% endfor %}
                                     </select>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <label>Almacén Asociado</label>
                                     <select id="cc_almacen" class="form-select form-select-sm">
                                         <option value="">(Sin almacén asignado)</option>
@@ -459,7 +500,18 @@
                                         <option value="{{ alm.id }}">{{ alm.nombre }}{% if alm.sucursal %} ({{ alm.sucursal.nombre }}){% endif %}</option>
                                         {% endfor %}
                                     </select>
-                                    <small class="text-muted" style="font-size: 0.7rem;">Vincule este centro a un almacén físico específico.</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label>Fecha de Inicio (Opcional)</label>
+                                    <input type="date" id="cc_fecha_inicio" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-4">
+                                    <label>Fecha de Cierre / Fin (Opcional)</label>
+                                    <input type="date" id="cc_fecha_fin" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-12">
+                                    <label>Descripción / Objetivo</label>
+                                    <textarea id="cc_descripcion" class="form-control form-control-sm" rows="2" placeholder="Detalles del alcance o propósito del centro de costo..."></textarea>
                                 </div>
                             </div>
                         </div>
@@ -476,7 +528,7 @@
                                     <label>Presupuesto Mensual Estimado (MXN)</label>
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text bg-white text-muted">$</span>
-                                        <input type="number" id="cc_presupuesto" class="form-control text-end fw-bold" step="0.01" min="0" value="0.00">
+                                        <input type="number" id="cc_presupuesto" class="form-control text-end" step="0.01" min="0" value="0.00">
                                     </div>
                                     <small class="text-muted" style="font-size: 0.7rem;">Límite mensual para alertas y control de consumo.</small>
                                 </div>
@@ -490,22 +542,21 @@
                                     </select>
                                 </div>
                                 <div class="col-md-6">
-                                    <label>Fecha de Inicio (Opcional)</label>
-                                    <input type="date" id="cc_fecha_inicio" class="form-control form-control-sm">
+                                    <label>Control de Disponibilidad</label>
+                                    <select id="cc_control_presupuesto" class="form-select form-select-sm">
+                                        <option value="desactivado">Desactivado (Solo informativo)</option>
+                                        <option value="advertencia">Advertencia (Alerta al comprador sin bloquear)</option>
+                                        <option value="bloqueo">Bloqueo Duro (Impedir compras si excede disponible)</option>
+                                    </select>
+                                    <small class="text-muted" style="font-size: 0.7rem;">Acción automática al comprometer presupuesto en Compras.</small>
                                 </div>
                                 <div class="col-md-6">
-                                    <label>Fecha de Cierre / Fin (Opcional)</label>
-                                    <input type="date" id="cc_fecha_fin" class="form-control form-control-sm">
-                                </div>
-                                <div class="col-12">
-                                    <label>Descripción / Objetivo</label>
-                                    <textarea id="cc_descripcion" class="form-control form-control-sm" rows="2" placeholder="Detalles del alcance o propósito del centro de costo..."></textarea>
-                                </div>
-                                <div class="col-12">
-                                    <div class="form-check form-switch mt-1">
-                                        <input class="form-check-input" type="checkbox" id="cc_activo" checked>
-                                        <label class="form-check-label small fw-semibold text-dark" for="cc_activo">Centro de Costo Activo para operaciones</label>
+                                    <label>Tolerancia de Sobregiro (%)</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" id="cc_tolerancia_presupuesto" class="form-control text-end" step="0.5" min="0" max="100" value="0.0">
+                                        <span class="input-group-text bg-white text-muted">%</span>
                                     </div>
+                                    <small class="text-muted" style="font-size: 0.7rem;">Margen admisible adicional antes de disparar el aviso o bloqueo.</small>
                                 </div>
                             </div>
                         </div>
@@ -685,6 +736,11 @@
                                     <i class="bi bi-box-seam me-1"></i> 5. Productos y Servicios (<span id="countSalidasAlmacen">0</span>)
                                 </button>
                             </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="tab-distribucion" data-bs-toggle="tab" data-bs-target="#panel-distribucion" type="button" role="tab">
+                                    <i class="bi bi-diagram-3 me-1 text-primary"></i> 6. Prorrateos / Distribuciones (<span id="countDistribuciones">0</span>)
+                                </button>
+                            </li>
                         </ul>
                     </div>
 
@@ -696,18 +752,19 @@
                                     <table class="table table-pro mb-0 align-middle">
                                         <thead>
                                             <tr>
-                                                <th class="text-center" style="width: 110px;">Folio CC</th>
-                                                <th class="text-center" style="width: 110px;">Folio</th>
-                                                <th class="text-center" style="width: 100px;">Fecha</th>
+                                                <th class="text-center" style="width: 100px;">Folio CC</th>
+                                                <th class="text-center" style="width: 100px;">Folio</th>
+                                                <th class="text-center" style="width: 95px;">Fecha</th>
                                                 <th class="text-center">Proveedor</th>
-                                                <th class="text-center" style="width: 120px;">Total</th>
-                                                <th class="text-center" style="width: 120px;">Saldo</th>
-                                                <th class="text-center" style="width: 100px;">Pago</th>
-                                                <th class="text-center" style="width: 110px;">Estado OC</th>
+                                                <th class="text-center" style="width: 140px;">Clase de Costo</th>
+                                                <th class="text-center" style="width: 110px;">Total</th>
+                                                <th class="text-center" style="width: 110px;">Saldo</th>
+                                                <th class="text-center" style="width: 90px;">Pago</th>
+                                                <th class="text-center" style="width: 100px;">Estado OC</th>
                                             </tr>
                                         </thead>
                                         <tbody id="tbodyOrdenesCompra">
-                                            <tr><td colspan="8" class="text-center py-4 text-muted fst-italic">Cargando compras...</td></tr>
+                                            <tr><td colspan="9" class="text-center py-4 text-muted fst-italic">Cargando compras...</td></tr>
                                         </tbody>
                                     </table>
                                 </div>
@@ -719,18 +776,19 @@
                                     <table class="table table-pro mb-0 align-middle">
                                         <thead>
                                             <tr>
-                                                <th class="text-center" style="width: 110px;">Folio CC</th>
-                                                <th class="text-center" style="width: 110px;">Folio</th>
-                                                <th class="text-center" style="width: 100px;">Fecha</th>
-                                                <th class="text-center" style="width: 100px;">OC</th>
+                                                <th class="text-center" style="width: 100px;">Folio CC</th>
+                                                <th class="text-center" style="width: 100px;">Folio</th>
+                                                <th class="text-center" style="width: 95px;">Fecha</th>
+                                                <th class="text-center" style="width: 90px;">OC</th>
                                                 <th class="text-center">Proveedor</th>
-                                                <th class="text-center text-nowrap" style="min-width: 130px;">Caja / Banco</th>
-                                                <th class="text-center" style="width: 120px;">Forma Pago</th>
-                                                <th class="text-center" style="width: 120px;">Monto MXN</th>
+                                                <th class="text-center" style="width: 140px;">Clase de Costo</th>
+                                                <th class="text-center text-nowrap" style="min-width: 120px;">Caja / Banco</th>
+                                                <th class="text-center" style="width: 110px;">Forma Pago</th>
+                                                <th class="text-center" style="width: 110px;">Monto MXN</th>
                                             </tr>
                                         </thead>
                                         <tbody id="tbodyEgresosTesoreria">
-                                            <tr><td colspan="8" class="text-center py-4 text-muted fst-italic">Cargando egresos...</td></tr>
+                                            <tr><td colspan="9" class="text-center py-4 text-muted fst-italic">Cargando egresos...</td></tr>
                                         </tbody>
                                     </table>
                                 </div>
@@ -806,6 +864,29 @@
                                     </table>
                                 </div>
                             </div>
+
+                            <!-- TAB 6: DISTRIBUCIONES Y PRORRATEOS -->
+                            <div class="tab-pane fade" id="panel-distribucion" role="tabpanel">
+                                <div class="table-responsive">
+                                    <table class="table table-pro mb-0 align-middle">
+                                        <thead>
+                                            <tr>
+                                                <th class="text-center" style="width: 130px;">Tipo Reparto</th>
+                                                <th class="text-center" style="width: 110px;">Ciclo</th>
+                                                <th class="text-center" style="width: 110px;">Fecha</th>
+                                                <th class="text-center" style="width: 130px;">Centro Origen</th>
+                                                <th class="text-center">Destino(s) / Receptores</th>
+                                                <th class="text-center" style="width: 120px;">Clase Secundaria</th>
+                                                <th class="text-center" style="width: 110px;">Monto MXN</th>
+                                                <th class="text-center" style="width: 110px;">Usuario</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tbodyDistribuciones">
+                                            <tr><td colspan="8" class="text-center py-4 text-muted fst-italic">Cargando prorrateos...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -813,6 +894,429 @@
 
             <div class="modal-footer">
                 <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================= -->
+<!-- MODAL DE GESTIÓN DE CLASES DE COSTO (COST ELEMENTS - SAP CO) -->
+<!-- ============================================================= -->
+<div class="modal fade" id="modalGestionClasesCostos" tabindex="-1" aria-labelledby="modalGestionClasesCostosLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered" style="max-width: 1200px;">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-bottom py-3" style="background-color: #F8FAFC;">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle p-2 d-flex align-items-center justify-content-center" style="background: rgba(0, 184, 185, 0.15); width: 38px; height: 38px;">
+                        <i class="bi bi-tags-fill text-brand" style="color: var(--cc-brand); font-size: 1.1rem;"></i>
+                    </div>
+                    <div>
+                        <h6 class="modal-title fw-bold text-dark mb-0" id="modalGestionClasesCostosLabel">Catálogo de Clases de Costo</h6>
+                        <small class="text-muted" style="font-size: 0.75rem;">Elementos de costo primarios (facturas/compras) y secundarios (distribución interna / absorción)</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="small text-muted">Clasifique sus gastos por naturaleza contable y operativa.</span>
+                    <button type="button" class="btn btn-sm btn-brand text-white px-3" onclick="abrirModalNuevaClase()">
+                        <i class="bi bi-plus-lg me-1"></i> Nueva Clase
+                    </button>
+                </div>
+
+                <div class="table-responsive border rounded" style="max-height: 480px; overflow-y: auto;">
+                    <table class="table table-pro mb-0 align-middle text-nowrap">
+                        <thead class="sticky-top bg-light">
+                            <tr>
+                                <th class="text-center text-nowrap" style="width: 110px;">Acciones</th>
+                                <th class="text-center text-nowrap" style="width: 110px;">Código</th>
+                                <th class="text-center text-nowrap" style="min-width: 300px;">Nombre / Cuenta</th>
+                                <th class="text-center text-nowrap" style="width: 190px;">Tipo</th>
+                                <th class="text-center text-nowrap" style="min-width: 240px;">Categoría</th>
+                                <th class="text-center text-nowrap" style="width: 110px;">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyClasesCostos">
+                            <tr><td colspan="6" class="text-center py-4 text-muted fst-italic">Cargando catálogo...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-light border px-3" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL CREAR / EDITAR CLASE DE COSTO        -->
+<!-- ========================================== -->
+<div class="modal fade" id="modalEditarClaseCosto" tabindex="-1" aria-hidden="true" style="z-index: 1065;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-bottom py-3">
+                <h6 class="modal-title fw-bold text-dark mb-0" id="modalClaseCostoTitulo">Nueva Clase de Costo</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3">
+                <form id="formClaseCosto">
+                    <input type="hidden" id="clase_id">
+                    <div class="row g-3">
+                        <div class="col-md-5">
+                            <label class="form-label small fw-bold text-secondary mb-1">Código / Clave <span class="text-danger">*</span></label>
+                            <input type="text" id="clase_codigo" class="form-control form-control-sm font-monospace text-uppercase" placeholder="ej. 5101" required>
+                        </div>
+                        <div class="col-md-7">
+                            <label class="form-label small fw-bold text-secondary mb-1">Tipo de Clase <span class="text-danger">*</span></label>
+                            <select id="clase_tipo" class="form-select form-select-sm">
+                                <option value="primaria">Primaria (Gasto externo)</option>
+                                <option value="secundaria">Secundaria (Gasto interno)</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-secondary mb-1">Nombre / Denominación <span class="text-danger">*</span></label>
+                            <input type="text" id="clase_nombre" class="form-control form-control-sm" placeholder="ej. Combustibles y Lubricantes" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-secondary mb-1">Categoría Analítica</label>
+                            <select id="clase_categoria" class="form-select form-select-sm">
+                                <option value="materiales">Materiales y Suministros</option>
+                                <option value="servicios">Servicios Externos / Contratistas</option>
+                                <option value="personal">Mano de Obra / Personal</option>
+                                <option value="mantenimiento">Mantenimiento y Reparación</option>
+                                <option value="instalaciones">Instalaciones / Rentas / Servicios Básicos</option>
+                                <option value="transporte">Logística, Combustibles y Fletes</option>
+                                <option value="administrativo">Gastos Administrativos / Oficina</option>
+                                <option value="distribucion_interna">Distribución / Sub-reparto Interno</option>
+                                <option value="otros">Otros Gastos Operativos</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-secondary mb-1">Descripción / Notas</label>
+                            <textarea id="clase_descripcion" class="form-control form-control-sm" rows="2" placeholder="Propósito u observaciones contables..."></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-light border px-3" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-brand text-white px-4 fw-semibold" onclick="guardarClaseCosto()">
+                    <i class="bi bi-save me-1"></i> Guardar Clase
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =================================================================================== -->
+<!-- MODAL DE PRORRATEOS Y CICLOS DE DISTRIBUCIÓN (ALLOCATION / ASSESSMENT - SAP CO)     -->
+<!-- =================================================================================== -->
+<div class="modal fade" id="modalGestionDistribucion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered" style="max-width: 1250px;">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-bottom py-3" style="background-color: #F8FAFC;">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle p-2 d-flex align-items-center justify-content-center" style="background: rgba(13, 110, 253, 0.12); width: 38px; height: 38px;">
+                        <i class="bi bi-diagram-3-fill text-primary" style="font-size: 1.1rem;"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" style="font-size: 1.05rem;">Ciclos de Distribución y Prorrateos</h5>
+                        <p class="text-muted small mb-0" style="font-size: 0.72rem;">Distribución y reparto mensual de gastos indirectos y costos corporativos a centros operativos</p>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="abrirModalCrearCiclo()">
+                        <i class="bi bi-plus-lg me-1"></i> Nuevo Ciclo
+                    </button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+            </div>
+
+            <div class="modal-body p-3">
+                <ul class="nav nav-pills mb-3" id="pillsDistribucionTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active py-1 px-3 small fw-semibold" id="pills-ciclos-tab" data-bs-toggle="pill" data-bs-target="#pills-ciclos" type="button" role="tab">
+                            <i class="bi bi-gear-wide-connected me-1"></i> Ciclos Configurados
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link py-1 px-3 small fw-semibold" id="pills-historial-dist-tab" data-bs-toggle="pill" data-bs-target="#pills-historial-dist" type="button" role="tab" onclick="cargarHistorialDistribucion()">
+                            <i class="bi bi-clock-history me-1"></i> Historial de Ejecuciones
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="pillsDistribucionTabContent">
+                    <!-- TAB 1: CICLOS CONFIGURADOS -->
+                    <div class="tab-pane fade show active" id="pills-ciclos" role="tabpanel">
+                        <div class="table-responsive border rounded bg-white">
+                            <table class="table table-hover align-middle mb-0" style="font-size: 0.82rem;">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 100px;">Código</th>
+                                        <th>Nombre del Ciclo</th>
+                                        <th style="width: 170px;">Centro Emisor (Origen)</th>
+                                        <th style="width: 170px;">Clase Secundaria</th>
+                                        <th style="width: 110px;">Método</th>
+                                        <th>Receptores</th>
+                                        <th class="text-center" style="width: 80px;">Estado</th>
+                                        <th class="text-center" style="width: 160px;">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyCiclosDistribucion">
+                                    <tr><td colspan="8" class="text-center py-4 text-muted fst-italic">Cargando ciclos de distribución...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: HISTORIAL DE EJECUCIONES -->
+                    <div class="tab-pane fade" id="pills-historial-dist" role="tabpanel">
+                        <div class="table-responsive border rounded bg-white">
+                            <table class="table table-hover align-middle mb-0" style="font-size: 0.82rem;">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 90px;">Periodo</th>
+                                        <th style="width: 110px;">Ciclo</th>
+                                        <th style="width: 160px;">Centro Origen</th>
+                                        <th style="width: 130px;">Fecha Ejecución</th>
+                                        <th>Detalle del Reparto</th>
+                                        <th class="text-end" style="width: 120px;">Monto Total</th>
+                                        <th class="text-center" style="width: 95px;">Estado</th>
+                                        <th class="text-center" style="width: 110px;">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyHistorialDistribucion">
+                                    <tr><td colspan="8" class="text-center py-4 text-muted fst-italic">Cargando historial...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer bg-light py-2">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =================================================================================== -->
+<!-- MODAL SECUNDARIO: CREAR / EDITAR CICLO DE DISTRIBUCIÓN                              -->
+<!-- =================================================================================== -->
+<div class="modal fade" id="modalFormCicloDistribucion" tabindex="-1" aria-hidden="true" style="z-index: 1065;">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-bottom py-2 bg-light">
+                <h6 class="modal-title fw-bold text-dark mb-0" id="tituloModalCiclo">
+                    <i class="bi bi-gear-wide-connected text-primary me-2"></i> Configurar Ciclo de Distribución
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3">
+                <input type="hidden" id="ciclo_id" value="">
+                <div class="row g-2 mb-3">
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold text-secondary mb-1">Código del Ciclo <span class="text-danger">*</span></label>
+                        <input type="text" id="ciclo_codigo" class="form-control form-control-sm font-monospace text-uppercase" placeholder="ej. DIST-RENTA" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold text-secondary mb-1">Nombre Descriptivo <span class="text-danger">*</span></label>
+                        <input type="text" id="ciclo_nombre" class="form-control form-control-sm" placeholder="ej. Reparto de Renta Corporativa" required>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end pb-1">
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="ciclo_activo" checked>
+                            <label class="form-check-label small text-dark" for="ciclo_activo">Ciclo Activo</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold text-secondary mb-1">Centro Emisor (Origen del Gasto) <span class="text-danger">*</span></label>
+                        <select id="ciclo_centro_emisor" class="form-select form-select-sm" required>
+                            <option value="">Seleccione el centro que transfiere el costo...</option>
+                            {% for cp in centros_padres %}
+                            <option value="{{ cp.id }}">[{{ cp.codigo }}] {{ cp.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold text-secondary mb-1">Clase de Costo Secundaria (Imputación)</label>
+                        <select id="ciclo_clase_secundaria" class="form-select form-select-sm">
+                            <option value="">(Automática o estándar)</option>
+                            {% for cc_item in clases_costos %}
+                            {% if cc_item.tipo == 'secundaria' %}
+                            <option value="{{ cc_item.id }}">[{{ cc_item.codigo }}] {{ cc_item.nombre }}</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold text-secondary mb-1">Descripción / Regla de negocio</label>
+                        <input type="text" id="ciclo_descripcion" class="form-control form-control-sm" placeholder="ej. Se prorratea el 100% de la renta entre sucursales operativas">
+                    </div>
+                </div>
+
+                <!-- REGLAS DE REPARTO (CENTROS RECEPTORES) -->
+                <div class="card border rounded bg-light mb-2">
+                    <div class="card-body p-2">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small fw-bold text-uppercase text-secondary" style="font-size: 0.72rem;">
+                                Centros Receptores y Porcentajes de Absorción
+                            </span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-white text-dark border font-monospace" id="badgeSumaPctCiclo" style="font-size: 0.75rem;">Suma: 0.00%</span>
+                                <button type="button" class="btn btn-xs btn-outline-primary py-0 px-2" style="font-size: 0.72rem;" onclick="agregarFilaReceptorCiclo()">
+                                    <i class="bi bi-plus-lg me-1"></i> Agregar Receptor
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive bg-white rounded border">
+                            <table class="table table-sm align-middle mb-0" style="font-size: 0.8rem;">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Centro Receptor (Destino)</th>
+                                        <th style="width: 140px;" class="text-end">Porcentaje (%)</th>
+                                        <th style="width: 50px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyReceptoresCiclo">
+                                    <!-- Filas dinámicas -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2">
+                <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-primary px-3 fw-semibold" onclick="guardarCicloDistribucion()">
+                    <i class="bi bi-save me-1"></i> Guardar Ciclo
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =================================================================================== -->
+<!-- MODAL DE EJECUCIÓN / SIMULACIÓN DE PRORRATEO (ASISTENTE MENSUAL)                    -->
+<!-- =================================================================================== -->
+<div class="modal fade" id="modalEjecutarProrrateo" tabindex="-1" aria-hidden="true" style="z-index: 1070;">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-bottom py-2" style="background-color: #0D6EFD; color: white;">
+                <h6 class="modal-title fw-bold mb-0">
+                    <i class="bi bi-play-circle-fill me-2"></i> Ejecutar Ciclo de Prorrateo
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3">
+                <input type="hidden" id="ejec_ciclo_id" value="">
+                
+                <div class="alert alert-info py-2 px-3 small d-flex align-items-center gap-2 mb-3">
+                    <i class="bi bi-info-circle-fill fs-5"></i>
+                    <div>
+                        Se calculará el gasto acumulado en el centro emisor y se prorrateará entre los centros receptores según las reglas aprobadas.
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold text-secondary mb-1">Ciclo Seleccionado</label>
+                        <div class="p-2 border rounded bg-light fw-bold text-dark font-monospace" id="ejec_ciclo_titulo">--</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold text-secondary mb-1">Año</label>
+                        <input type="number" id="ejec_anio" class="form-control form-control-sm text-center font-monospace" value="{{ anio_actual }}" min="2020" max="2050" onchange="actualizarSimulacionProrrateo()">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold text-secondary mb-1">Mes</label>
+                        <select id="ejec_mes" class="form-select form-select-sm" onchange="actualizarSimulacionProrrateo()">
+                            <option value="1">Enero</option>
+                            <option value="2">Febrero</option>
+                            <option value="3">Marzo</option>
+                            <option value="4">Abril</option>
+                            <option value="5">Mayo</option>
+                            <option value="6">Junio</option>
+                            <option value="7">Julio</option>
+                            <option value="8">Agosto</option>
+                            <option value="9">Septiembre</option>
+                            <option value="10">Octubre</option>
+                            <option value="11" selected>Noviembre</option>
+                            <option value="12">Diciembre</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- RESUMEN FINANCIERO -->
+                <div class="card border rounded bg-light mb-3">
+                    <div class="card-body p-3">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-md-6">
+                                <span class="text-muted small d-block">Gasto Real Acumulado en Emisor:</span>
+                                <h4 class="mb-0 fw-bold text-dark font-monospace" id="ejec_monto_base_display">$0.00</h4>
+                                <small class="text-muted" style="font-size: 0.7rem;">Suma neta de egresos del centro emisor en este mes</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-secondary mb-1">Monto a Prorratear ($ MXN)</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-white">$</span>
+                                    <input type="number" id="ejec_monto_distribuir" class="form-control text-end font-monospace fw-bold" step="0.01" min="0" oninput="actualizarSimulacionProrrateo(false)">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="usarGastoBaseEmisor()" title="Restablecer al gasto real del emisor">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TABLA DE VISTA PREVIA DEL REPARTO -->
+                <h6 class="small fw-bold text-uppercase text-secondary mb-2" style="font-size: 0.72rem;">
+                    Vista Previa de Distribución a Receptores
+                </h6>
+                <div class="table-responsive border rounded bg-white mb-2">
+                    <table class="table table-sm align-middle mb-0" style="font-size: 0.8rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Centro Receptor</th>
+                                <th class="text-center" style="width: 110px;">% Asignado</th>
+                                <th class="text-end" style="width: 140px;">Monto Cargado ($)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodySimulacionReceptores">
+                            <!-- Filas calculadas -->
+                        </tbody>
+                        <tfoot class="table-light fw-bold">
+                            <tr>
+                                <td>Total a transferir:</td>
+                                <td class="text-center font-monospace" id="totalPctSimulacion">100.00%</td>
+                                <td class="text-end font-monospace" id="totalMontoSimulacion">$0.00</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label small fw-bold text-secondary mb-1">Notas / Observaciones del Reparto</label>
+                    <input type="text" id="ejec_notas" class="form-control form-control-sm" placeholder="ej. Prorrateo mensual de cierre según matriz de gastos">
+                </div>
+                
+                <div id="alertaYaEjecutado" class="alert alert-warning py-2 px-3 small d-none mb-0">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                    <strong>Atención:</strong> Ya existe un prorrateo activo para este ciclo en este periodo. Si desea volver a aplicarlo, primero revierta la ejecución anterior en el historial.
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2">
+                <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btnConfirmarProrrateo" class="btn btn-sm btn-primary px-4 fw-semibold" onclick="confirmarEjecucionProrrateo()">
+                    <i class="bi bi-check-circle me-1"></i> Aplicar Prorrateo Ahora
+                </button>
             </div>
         </div>
     </div>
@@ -832,6 +1336,78 @@
         });
     }
 
+    // Manejo de prefijo de código heredado del padre
+    function onCambioCentroPadre() {
+        const selectPadre = document.getElementById('cc_parent');
+        const selectedOption = selectPadre.options[selectPadre.selectedIndex];
+        const codigoPadre = selectedOption ? (selectedOption.getAttribute('data-codigo') || '').trim() : '';
+        const prefijoSpan = document.getElementById('cc_codigo_prefijo');
+        const helpSpan = document.getElementById('cc_codigo_help');
+        const inputCodigo = document.getElementById('cc_codigo');
+
+        if (codigoPadre) {
+            const prefijo = codigoPadre + '-';
+            prefijoSpan.textContent = prefijo;
+            prefijoSpan.classList.remove('d-none');
+            inputCodigo.placeholder = "Ej: CON, ADM02";
+            
+            // Si el valor actual ya comenzaba con el prefijo anterior o está vacío
+            let val = inputCodigo.value.trim().toUpperCase();
+            if (val.startsWith(prefijo)) {
+                inputCodigo.value = val.substring(prefijo.length);
+            }
+            helpSpan.textContent = `Código final: ${prefijo}${inputCodigo.value.trim().toUpperCase() || '...'}`;
+            helpSpan.classList.remove('d-none');
+        } else {
+            prefijoSpan.textContent = '';
+            prefijoSpan.classList.add('d-none');
+            inputCodigo.placeholder = "Ej: CC-ADM01";
+            helpSpan.textContent = '';
+            helpSpan.classList.add('d-none');
+        }
+    }
+
+    // Actualizar vista previa del código final al escribir
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputCod = document.getElementById('cc_codigo');
+        if (inputCod) {
+            inputCod.addEventListener('input', function() {
+                const selectPadre = document.getElementById('cc_parent');
+                const selectedOption = selectPadre.options[selectPadre.selectedIndex];
+                const codigoPadre = selectedOption ? (selectedOption.getAttribute('data-codigo') || '').trim() : '';
+                const helpSpan = document.getElementById('cc_codigo_help');
+                if (codigoPadre && helpSpan) {
+                    const prefijo = codigoPadre + '-';
+                    helpSpan.textContent = `Código final: ${prefijo}${inputCod.value.trim().toUpperCase() || '...'}`;
+                }
+            });
+        }
+    });
+
+    // Obtener el código final completo combinando el prefijo si tiene padre
+    function obtenerCodigoCompleto() {
+        const inputCodigo = document.getElementById('cc_codigo');
+        let val = inputCodigo.value.trim().toUpperCase();
+        const selectPadre = document.getElementById('cc_parent');
+        const selectedOption = selectPadre ? selectPadre.options[selectPadre.selectedIndex] : null;
+        const codigoPadre = selectedOption ? (selectedOption.getAttribute('data-codigo') || '').trim() : '';
+
+        if (codigoPadre) {
+            const prefijo = codigoPadre + '-';
+            // Si el usuario ya escribió manualmente el prefijo, evitar duplicarlo
+            if (val.startsWith(prefijo)) {
+                return val;
+            } else if (val.startsWith(codigoPadre)) {
+                // Si escribió ej "CCCON" o "CC-CON"
+                const resto = val.substring(codigoPadre.length).replace(/^-+/, '');
+                return `${codigoPadre}-${resto}`;
+            } else {
+                return `${prefijo}${val}`;
+            }
+        }
+        return val;
+    }
+
     // 1. ABRIR MODAL PARA CREAR
     function abrirModalCrearCentro() {
         document.getElementById('centro_id').value = '';
@@ -839,8 +1415,11 @@
         document.getElementById('formCentroCosto').reset();
         document.getElementById('cc_activo').checked = true;
         document.getElementById('cc_presupuesto').value = '0.00';
+        document.getElementById('cc_control_presupuesto').value = 'desactivado';
+        document.getElementById('cc_tolerancia_presupuesto').value = '0.0';
         if (document.getElementById('cc_almacen')) document.getElementById('cc_almacen').value = '';
         toggleTodosUsuariosCC(false);
+        onCambioCentroPadre();
 
         const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCentroCosto'));
         modal.show();
@@ -859,14 +1438,27 @@
                 document.getElementById('centro_id').value = c.id;
                 document.getElementById('tituloModalCentro').innerHTML = `<i class="bi bi-pencil-square me-2" style="color: #3B82F6; font-size: 1.2rem;"></i><span>Editar Centro: ${c.codigo}</span>`;
                 
-                document.getElementById('cc_codigo').value = c.codigo || '';
+                document.getElementById('cc_parent').value = c.parent_id || '';
+                onCambioCentroPadre();
+
+                // Si tiene padre, remover el prefijo visual del input para que edite solo su clave relativa
+                const selectPadre = document.getElementById('cc_parent');
+                const selectedOption = selectPadre.options[selectPadre.selectedIndex];
+                const codigoPadre = selectedOption ? (selectedOption.getAttribute('data-codigo') || '').trim() : '';
+                let codigoLocal = c.codigo || '';
+                if (codigoPadre && codigoLocal.startsWith(codigoPadre + '-')) {
+                    codigoLocal = codigoLocal.substring((codigoPadre + '-').length);
+                }
+                document.getElementById('cc_codigo').value = codigoLocal;
+
                 document.getElementById('cc_nombre').value = c.nombre || '';
                 document.getElementById('cc_tipo').value = c.tipo || 'departamento';
-                document.getElementById('cc_parent').value = c.parent_id || '';
                 document.getElementById('cc_sucursal').value = c.sucursal_id || '';
                 if (document.getElementById('cc_almacen')) document.getElementById('cc_almacen').value = c.almacen_id || '';
                 document.getElementById('cc_responsable').value = c.responsable_id || '';
                 document.getElementById('cc_presupuesto').value = parseFloat(c.presupuesto_mensual || 0).toFixed(2);
+                document.getElementById('cc_control_presupuesto').value = c.control_presupuesto || 'desactivado';
+                document.getElementById('cc_tolerancia_presupuesto').value = parseFloat(c.tolerancia_presupuesto || 0).toFixed(1);
                 document.getElementById('cc_fecha_inicio').value = c.fecha_inicio || '';
                 document.getElementById('cc_fecha_fin').value = c.fecha_fin || '';
                 document.getElementById('cc_descripcion').value = c.descripcion || '';
@@ -890,7 +1482,7 @@
     // 3. GUARDAR CENTRO (CREAR O ACTUALIZAR)
     function guardarCentroCosto() {
         const id = document.getElementById('centro_id').value;
-        const codigo = document.getElementById('cc_codigo').value.trim();
+        const codigo = obtenerCodigoCompleto();
         const nombre = document.getElementById('cc_nombre').value.trim();
         const tipo = document.getElementById('cc_tipo').value;
         const parentId = document.getElementById('cc_parent').value;
@@ -898,6 +1490,8 @@
         const almacenId = document.getElementById('cc_almacen') ? document.getElementById('cc_almacen').value : '';
         const responsableId = document.getElementById('cc_responsable').value;
         const presupuesto = document.getElementById('cc_presupuesto').value;
+        const controlPresupuesto = document.getElementById('cc_control_presupuesto').value;
+        const toleranciaPresupuesto = document.getElementById('cc_tolerancia_presupuesto').value;
         const fechaInicio = document.getElementById('cc_fecha_inicio').value;
         const fechaFin = document.getElementById('cc_fecha_fin').value;
         const descripcion = document.getElementById('cc_descripcion').value.trim();
@@ -926,6 +1520,8 @@
             almacen_id: almacenId ? parseInt(almacenId) : null,
             responsable_id: responsableId ? parseInt(responsableId) : null,
             presupuesto_mensual: parseFloat(presupuesto || 0),
+            control_presupuesto: controlPresupuesto,
+            tolerancia_presupuesto: parseFloat(toleranciaPresupuesto || 0),
             fecha_inicio: fechaInicio || null,
             fecha_fin: fechaFin || null,
             descripcion: descripcion,
@@ -1181,6 +1777,7 @@
                                 <td class="text-center font-monospace small"><span class="text-dark">${oc.folio || ('OC-' + oc.id)}</span></td>
                                 <td class="text-center small"><div class="text-dark">${oc.fecha || '--'}</div></td>
                                 <td class="text-center small"><span class="text-dark fw-semibold">${oc.proveedor || '--'}</span></td>
+                                <td class="text-center small"><div class="text-dark font-monospace">${oc.clase_costo || '--'}</div></td>
                                 <td class="text-center small"><span class="text-dark fw-semibold">$${totalOC.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></td>
                                 <td class="text-center small"><span class="text-dark">$${saldoOC.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></td>
                                 <td class="text-center">${badgePago}</td>
@@ -1209,6 +1806,7 @@
                                 <td class="text-center small"><div class="text-dark">${e.fecha || '--'}</div></td>
                                 <td class="text-center small"><span class="text-dark fw-semibold">${e.concepto || '--'}</span></td>
                                 <td class="text-center small"><span class="text-dark">${e.proveedor && e.proveedor !== '--' ? e.proveedor : '--'}</span></td>
+                                <td class="text-center small"><div class="text-dark font-monospace">${e.clase_costo || '--'}</div></td>
                                 <td class="text-center small text-nowrap"><span class="text-dark">${e.caja_banco || '--'}</span></td>
                                 <td class="text-center small"><span class="text-dark">${e.forma_pago || '--'}</span></td>
                                 <td class="text-center small"><span class="text-dark fw-semibold">$${monto.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></td>
@@ -1314,6 +1912,46 @@
                 if (countAlmacen) countAlmacen.textContent = mercanciaGlobalLista.length;
 
                 renderizarTablaMercancia(mercanciaGlobalLista, esConsolidado);
+
+                // 6. Llenar Distribuciones y Prorrateos
+                const distribucionesList = data.distribuciones || [];
+                if (document.getElementById('countDistribuciones')) {
+                    document.getElementById('countDistribuciones').textContent = distribucionesList.length;
+                }
+                const tbodyDist = document.getElementById('tbodyDistribuciones');
+                if (tbodyDist) {
+                    if (distribucionesList.length === 0) {
+                        tbodyDist.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted fst-italic">No hay distribuciones o prorrateos registrados en este periodo.</td></tr>';
+                    } else {
+                        let htmlDist = '';
+                        distribucionesList.forEach(d => {
+                            const esRecibida = d.tipo === 'recibida';
+                            const badgeTipo = esRecibida
+                                ? '<span class="status-pill status-cancelada"><i class="bi bi-arrow-down-left me-1"></i>Cargo +</span>'
+                                : '<span class="status-pill status-recibida"><i class="bi bi-arrow-up-right me-1"></i>Crédito -</span>';
+
+                            const destinosDisplay = esRecibida
+                                ? `<span class="fw-semibold text-dark">${d.centro_destino || '--'}</span> <span class="badge bg-light text-secondary border">(${d.porcentaje}%)</span>`
+                                : `<span class="small text-dark">${d.receptores || '--'}</span>`;
+
+                            const montoNum = d.monto || 0;
+
+                            htmlDist += `
+                                <tr>
+                                    <td class="text-center">${badgeTipo}</td>
+                                    <td class="text-center font-monospace small"><span class="badge bg-light text-secondary border font-monospace">${d.ciclo_codigo || '--'}</span></td>
+                                    <td class="text-center small"><div class="text-dark">${d.fecha || '--'}</div></td>
+                                    <td class="text-center small"><span class="text-dark fw-semibold">${d.centro_origen || '--'}</span></td>
+                                    <td class="small">${destinosDisplay}</td>
+                                    <td class="text-center small font-monospace"><span class="badge bg-light text-dark border font-monospace">${d.clase_costo || '--'}</span></td>
+                                    <td class="text-center small"><span class="text-dark fw-semibold">$${montoNum.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></td>
+                                    <td class="text-center small"><span class="text-dark">${d.usuario || '--'}</span></td>
+                                </tr>
+                            `;
+                        });
+                        tbodyDist.innerHTML = htmlDist;
+                    }
+                }
             })
             .catch(err => {
                 console.error(err);
@@ -1375,6 +2013,789 @@
         }
         return cookieValue;
     }
+
+    // ===============================================
+    // GESTIÓN DE CLASES DE COSTO (COST ELEMENTS SAP)
+    // ===============================================
+    let modalClasesCostosInst = null;
+    let modalEditarClaseInst = null;
+
+    function abrirModalClasesCostos() {
+        if (!modalClasesCostosInst) {
+            modalClasesCostosInst = new bootstrap.Modal(document.getElementById('modalGestionClasesCostos'));
+        }
+        cargarTablaClasesCostos();
+        modalClasesCostosInst.show();
+    }
+
+    function cargarTablaClasesCostos() {
+        const tbody = document.getElementById('tbodyClasesCostos');
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted fst-italic">Cargando catálogo...</td></tr>';
+
+        fetch("{% url 'centros_costos:clases_api_list' %}?activas=false")
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-danger">Error: ${data.error}</td></tr>`;
+                return;
+            }
+            const clases = data.clases || [];
+            if (clases.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted fst-italic">No hay clases de costo registradas.</td></tr>';
+                return;
+            }
+
+            let html = '';
+            clases.forEach(c => {
+                const esPrimaria = c.tipo === 'primaria';
+                const badgeTipo = esPrimaria
+                    ? '<span class="status-pill status-aprobada">Primaria (Gasto externo)</span>'
+                    : '<span class="status-pill status-parcial">Secundaria (Gasto interno)</span>';
+                
+                const badgeEstado = c.activo
+                    ? '<span class="status-pill status-recibida">Activa</span>'
+                    : '<span class="status-pill status-borrador">Inactiva</span>';
+
+                html += `
+                    <tr>
+                        <td class="text-center align-middle">
+                            <div class="d-flex justify-content-center align-items-center gap-2">
+                                <div class="form-check form-switch m-0 p-0 d-flex align-items-center" style="min-height: auto;">
+                                    <input class="form-check-input switch-brand-sm" type="checkbox" role="switch" ${c.activo ? 'checked' : ''} onchange="toggleEstadoClase(${c.id})" title="${c.activo ? 'Desactivar' : 'Activar'}">
+                                </div>
+                                <button type="button" class="icon-action icon-action-edit" onclick="editarClaseCosto(${c.id})" title="Editar Clase">
+                                    <i class="bi bi-pencil-square"></i>
+                                </button>
+                                <button type="button" class="icon-action icon-action-delete" onclick="eliminarClaseCosto(${c.id}, '${c.codigo}')" title="Eliminar Clase">
+                                    <i class="bi bi-x-circle"></i>
+                                </button>
+                            </div>
+                        </td>
+                        <td class="text-center align-middle font-monospace fw-bold small text-dark">${c.codigo}</td>
+                        <td class="text-center align-middle small fw-semibold text-dark">${c.nombre}</td>
+                        <td class="text-center align-middle">${badgeTipo}</td>
+                        <td class="text-center align-middle small text-secondary">${c.categoria_display || c.categoria}</td>
+                        <td class="text-center align-middle">${badgeEstado}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        })
+        .catch(err => {
+            console.error(err);
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-danger">Error de comunicación.</td></tr>';
+        });
+    }
+
+    function abrirModalNuevaClase() {
+        document.getElementById('formClaseCosto').reset();
+        document.getElementById('clase_id').value = '';
+        document.getElementById('modalClaseCostoTitulo').textContent = 'Nueva Clase de Costo';
+        if (!modalEditarClaseInst) {
+            modalEditarClaseInst = new bootstrap.Modal(document.getElementById('modalEditarClaseCosto'));
+        }
+        modalEditarClaseInst.show();
+    }
+
+    function editarClaseCosto(id) {
+        fetch(`/centros-costos/clases-costos/${id}/json/`)
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) {
+                alert('Error al consultar: ' + data.error);
+                return;
+            }
+            const c = data.clase;
+            document.getElementById('clase_id').value = c.id;
+            document.getElementById('clase_codigo').value = c.codigo;
+            document.getElementById('clase_nombre').value = c.nombre;
+            document.getElementById('clase_tipo').value = c.tipo;
+            document.getElementById('clase_categoria').value = c.categoria;
+            document.getElementById('clase_descripcion').value = c.descripcion || '';
+            document.getElementById('modalClaseCostoTitulo').textContent = `Editar Clase de Costo: ${c.codigo}`;
+
+            if (!modalEditarClaseInst) {
+                modalEditarClaseInst = new bootstrap.Modal(document.getElementById('modalEditarClaseCosto'));
+            }
+            modalEditarClaseInst.show();
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error al consultar datos de la clase.');
+        });
+    }
+
+    function guardarClaseCosto() {
+        const id = document.getElementById('clase_id').value;
+        const codigo = document.getElementById('clase_codigo').value.trim();
+        const nombre = document.getElementById('clase_nombre').value.trim();
+        const tipo = document.getElementById('clase_tipo').value;
+        const categoria = document.getElementById('clase_categoria').value;
+        const descripcion = document.getElementById('clase_descripcion').value.trim();
+
+        if (!codigo || !nombre) {
+            alert('Por favor ingrese Código y Nombre.');
+            return;
+        }
+
+        const url = id 
+            ? `/centros-costos/clases-costos/${id}/actualizar/`
+            : "{% url 'centros_costos:crear_clase_ajax' %}";
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ codigo, nombre, tipo, categoria, descripcion })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                if (modalEditarClaseInst) modalEditarClaseInst.hide();
+                cargarTablaClasesCostos();
+            } else {
+                alert('Error: ' + (data.error || 'No se pudo guardar la clase de costo.'));
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error al comunicarse con el servidor.');
+        });
+    }
+
+    function toggleEstadoClase(id) {
+        fetch(`/centros-costos/clases-costos/${id}/toggle/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                cargarTablaClasesCostos();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    }
+
+    function eliminarClaseCosto(id, codigo) {
+        if (!confirm(`¿Desea eliminar la clase de costo ${codigo}?`)) return;
+
+        fetch(`/centros-costos/clases-costos/${id}/eliminar/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                cargarTablaClasesCostos();
+            } else {
+                alert('No se puede eliminar: ' + data.error);
+            }
+        });
+    }
+
+    function restablecerClasesEstandar() {
+        if (!confirm('¿Desea agregar las Clases de Costo estándar recomendadas (Primarias y Secundarias) que hagan falta en su catálogo?')) return;
+
+        fetch("{% url 'centros_costos:restablecer_clases_estandar_ajax' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                cargarTablaClasesCostos();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    }
+
+    // =========================================================================
+    // JAVASCRIPT: GESTIÓN DE CICLOS DE DISTRIBUCIÓN Y PRORRATEO (SAP ALLOCATION)
+    // =========================================================================
+    let ciclosDistribucionCache = [];
+    let gastoBaseEmisorActual = 0;
+
+    function abrirModalDistribucion() {
+        cargarTablaCiclosDistribucion();
+        const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalGestionDistribucion'));
+        modal.show();
+    }
+
+    function cargarTablaCiclosDistribucion() {
+        const tbody = document.getElementById('tbodyCiclosDistribucion');
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted fst-italic">Cargando ciclos...</td></tr>';
+
+        fetch("{% url 'centros_costos:ciclos_distribucion_api' %}")
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) {
+                    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger">${data.error}</td></tr>`;
+                    return;
+                }
+                ciclosDistribucionCache = data.ciclos || [];
+                if (ciclosDistribucionCache.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted">
+                                <div class="mb-2"><i class="bi bi-diagram-3 text-secondary fs-3"></i></div>
+                                No hay ciclos de distribución creados todavía.<br>
+                                <button type="button" class="btn btn-sm btn-primary mt-2" onclick="abrirModalCrearCiclo()">
+                                    <i class="bi bi-plus-lg me-1"></i> Crear Primer Ciclo de Prorrateo
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                let html = '';
+                ciclosDistribucionCache.forEach(c => {
+                    const badgeEstado = c.activo 
+                        ? '<span class="status-pill status-recibida">Activo</span>'
+                        : '<span class="status-pill status-cancelada">Inactivo</span>';
+
+                    let receptoresPills = '';
+                    c.segmentos.forEach(s => {
+                        receptoresPills += `<span class="badge bg-light text-dark border me-1 mb-1 font-monospace">${s.centro_receptor_codigo} (${s.porcentaje}%)</span>`;
+                    });
+
+                    const ultimaEjec = c.ultima_ejecucion 
+                        ? `<small class="text-muted d-block" style="font-size: 0.68rem;">Último: ${c.ultima_ejecucion.mes}/${c.ultima_ejecucion.anio} ($${c.ultima_ejecucion.monto.toLocaleString('en-US', {minimumFractionDigits: 2})})</small>`
+                        : '';
+
+                    html += `
+                        <tr>
+                            <td class="font-monospace fw-bold text-dark">${c.codigo}</td>
+                            <td>
+                                <div class="fw-semibold text-dark">${c.nombre}</div>
+                                ${c.descripcion ? `<small class="text-muted" style="font-size: 0.72rem;">${c.descripcion}</small>` : ''}
+                                ${ultimaEjec}
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-primary border font-monospace me-1">[${c.centro_emisor.codigo}]</span>
+                                <span class="small text-dark">${c.centro_emisor.nombre}</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border font-monospace">${c.clase_costo_secundaria ? c.clase_costo_secundaria.codigo : '--'}</span>
+                                <span class="small text-muted d-block text-truncate" style="max-width: 150px;">${c.clase_costo_secundaria ? c.clase_costo_secundaria.nombre : '--'}</span>
+                            </td>
+                            <td><span class="small text-secondary">${c.metodo_label}</span></td>
+                            <td>${receptoresPills || '<span class="text-muted small fst-italic">Sin receptores</span>'}</td>
+                            <td class="text-center">${badgeEstado}</td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-primary btn-sm py-0 px-2" title="Ejecutar prorrateo mensual" onclick="abrirModalEjecutarCiclo(${c.id})">
+                                        <i class="bi bi-play-fill me-1"></i> Prorratear
+                                    </button>
+                                    <button type="button" class="btn btn-light border btn-sm py-0 px-2" title="Editar regla" onclick="abrirModalEditarCiclo(${c.id})">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-light border text-danger btn-sm py-0 px-2" title="Eliminar ciclo" onclick="eliminarCicloDistribucion(${c.id}, '${c.codigo}')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = html;
+            })
+            .catch(err => {
+                console.error(err);
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-danger">Error de comunicación.</td></tr>';
+            });
+    }
+
+    function abrirModalCrearCiclo() {
+        document.getElementById('ciclo_id').value = '';
+        document.getElementById('tituloModalCiclo').innerHTML = '<i class="bi bi-gear-wide-connected text-primary me-2"></i> Nuevo Ciclo de Distribución';
+        document.getElementById('ciclo_codigo').value = '';
+        document.getElementById('ciclo_nombre').value = '';
+        document.getElementById('ciclo_descripcion').value = '';
+        document.getElementById('ciclo_centro_emisor').value = '';
+        document.getElementById('ciclo_clase_secundaria').value = '';
+        document.getElementById('ciclo_activo').checked = true;
+
+        const tbody = document.getElementById('tbodyReceptoresCiclo');
+        tbody.innerHTML = '';
+        agregarFilaReceptorCiclo(); // agregar primera fila vacía
+        calcularSumaPorcentajesCiclo();
+
+        const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalFormCicloDistribucion'));
+        modal.show();
+    }
+
+    function abrirModalEditarCiclo(id) {
+        const c = ciclosDistribucionCache.find(x => x.id === id);
+        if (!c) return;
+
+        document.getElementById('ciclo_id').value = c.id;
+        document.getElementById('tituloModalCiclo').innerHTML = `<i class="bi bi-pencil-square text-primary me-2"></i> Editar Ciclo: ${c.codigo}`;
+        document.getElementById('ciclo_codigo').value = c.codigo;
+        document.getElementById('ciclo_nombre').value = c.nombre;
+        document.getElementById('ciclo_descripcion').value = c.descripcion || '';
+        document.getElementById('ciclo_centro_emisor').value = c.centro_emisor.id;
+        document.getElementById('ciclo_clase_secundaria').value = c.clase_costo_secundaria ? c.clase_costo_secundaria.id : '';
+        document.getElementById('ciclo_activo').checked = c.activo;
+
+        const tbody = document.getElementById('tbodyReceptoresCiclo');
+        tbody.innerHTML = '';
+        if (c.segmentos && c.segmentos.length > 0) {
+            c.segmentos.forEach(s => {
+                agregarFilaReceptorCiclo(s.centro_receptor_id, s.porcentaje);
+            });
+        } else {
+            agregarFilaReceptorCiclo();
+        }
+        calcularSumaPorcentajesCiclo();
+
+        const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalFormCicloDistribucion'));
+        modal.show();
+    }
+
+    function agregarFilaReceptorCiclo(receptorId = '', porcentaje = '') {
+        const tbody = document.getElementById('tbodyReceptoresCiclo');
+        const rowId = 'row_rec_' + Math.random().toString(36).substring(2, 9);
+
+        // Opciones de centros excluyendo al emisor si está seleccionado
+        const emisorActualId = document.getElementById('ciclo_centro_emisor').value;
+        const selectPadre = document.getElementById('cc_parent');
+        let optionsHtml = '<option value="">Seleccione centro receptor...</option>';
+        if (selectPadre) {
+            for (let i = 0; i < selectPadre.options.length; i++) {
+                const opt = selectPadre.options[i];
+                if (!opt.value) continue;
+                if (emisorActualId && opt.value === emisorActualId) continue;
+                const isSelected = receptorId && String(opt.value) === String(receptorId) ? 'selected' : '';
+                optionsHtml += `<option value="${opt.value}" ${isSelected}>${opt.text}</option>`;
+            }
+        }
+
+        const tr = document.createElement('tr');
+        tr.id = rowId;
+        tr.innerHTML = `
+            <td>
+                <select class="form-select form-select-sm select-receptor-ciclo" onchange="validarReceptoresDuplicados()">
+                    ${optionsHtml}
+                </select>
+            </td>
+            <td>
+                <div class="input-group input-group-sm">
+                    <input type="number" class="form-control text-end input-pct-receptor font-monospace" step="0.01" min="0" max="100" value="${porcentaje !== '' ? porcentaje : ''}" placeholder="0.00" oninput="calcularSumaPorcentajesCiclo()">
+                    <span class="input-group-text bg-light text-muted">%</span>
+                </div>
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-link btn-sm text-danger p-0" onclick="eliminarFilaReceptorCiclo('${rowId}')" title="Quitar">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    }
+
+    function eliminarFilaReceptorCiclo(rowId) {
+        const el = document.getElementById(rowId);
+        if (el) el.remove();
+        calcularSumaPorcentajesCiclo();
+    }
+
+    function validarReceptoresDuplicados() {
+        const selects = document.querySelectorAll('.select-receptor-ciclo');
+        const vistos = new Set();
+        selects.forEach(sel => {
+            if (sel.value) {
+                if (vistos.has(sel.value)) {
+                    alert('Este centro receptor ya ha sido seleccionado en otra fila. Seleccione uno distinto.');
+                    sel.value = '';
+                } else {
+                    vistos.add(sel.value);
+                }
+            }
+        });
+    }
+
+    function calcularSumaPorcentajesCiclo() {
+        const inputs = document.querySelectorAll('.input-pct-receptor');
+        let suma = 0;
+        inputs.forEach(inp => {
+            const v = parseFloat(inp.value || 0);
+            if (!isNaN(v)) suma += v;
+        });
+
+        const badge = document.getElementById('badgeSumaPctCiclo');
+        if (badge) {
+            badge.textContent = `Suma: ${suma.toFixed(2)}%`;
+            badge.className = 'badge border font-monospace';
+            if (Math.abs(suma - 100.0) < 0.01) {
+                badge.classList.add('bg-success', 'text-white');
+            } else {
+                badge.classList.add('bg-warning', 'text-dark');
+            }
+        }
+        return suma;
+    }
+
+    function guardarCicloDistribucion() {
+        const id = document.getElementById('ciclo_id').value;
+        const codigo = document.getElementById('ciclo_codigo').value.trim().toUpperCase();
+        const nombre = document.getElementById('ciclo_nombre').value.trim();
+        const descripcion = document.getElementById('ciclo_descripcion').value.trim();
+        const emisorId = document.getElementById('ciclo_centro_emisor').value;
+        const claseSecId = document.getElementById('ciclo_clase_secundaria').value;
+        const activo = document.getElementById('ciclo_activo').checked;
+
+        if (!codigo || !nombre || !emisorId) {
+            alert('Por favor complete el Código, Nombre y Centro Emisor.');
+            return;
+        }
+
+        const segmentos = [];
+        const rows = document.querySelectorAll('#tbodyReceptoresCiclo tr');
+        let sumaPct = 0;
+
+        for (let i = 0; i < rows.length; i++) {
+            const sel = rows[i].querySelector('.select-receptor-ciclo');
+            const inp = rows[i].querySelector('.input-pct-receptor');
+            if (sel && sel.value) {
+                const pct = parseFloat(inp.value || 0);
+                if (pct <= 0) {
+                    alert('Todos los receptores deben tener un porcentaje mayor a 0%.');
+                    return;
+                }
+                sumaPct += pct;
+                segmentos.push({
+                    centro_receptor_id: parseInt(sel.value),
+                    porcentaje: pct,
+                    monto_fijo: 0
+                });
+            }
+        }
+
+        if (segmentos.length === 0) {
+            alert('Debe agregar al menos un centro receptor con porcentaje asignado.');
+            return;
+        }
+
+        if (Math.abs(sumaPct - 100.0) > 0.01) {
+            alert(`La suma de los porcentajes debe ser exactamente 100.00% (Suma actual: ${sumaPct.toFixed(2)}%).`);
+            return;
+        }
+
+        const payload = {
+            id: id ? parseInt(id) : null,
+            codigo: codigo,
+            nombre: nombre,
+            descripcion: descripcion,
+            centro_emisor_id: parseInt(emisorId),
+            clase_costo_secundaria_id: claseSecId ? parseInt(claseSecId) : null,
+            metodo: 'porcentaje_fijo',
+            activo: activo,
+            segmentos: segmentos
+        };
+
+        fetch("{% url 'centros_costos:guardar_ciclo_distribucion_ajax' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalFormCicloDistribucion'));
+                if (modal) modal.hide();
+                cargarTablaCiclosDistribucion();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error al comunicarse con el servidor.');
+        });
+    }
+
+    function eliminarCicloDistribucion(id, codigo) {
+        if (!confirm(`¿Está seguro de eliminar el ciclo de prorrateo "${codigo}"?\n\nEsta acción eliminará sus reglas de reparto.`)) return;
+
+        fetch(`/centros-costos/distribucion/ciclos/${id}/eliminar/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                cargarTablaCiclosDistribucion();
+            } else {
+                alert('No se puede eliminar: ' + data.error);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error al comunicarse con el servidor.');
+        });
+    }
+
+    // ==========================================
+    // ASISTENTE DE EJECUCIÓN DE PRORRATEO
+    // ==========================================
+    function abrirModalEjecutarCiclo(id) {
+        const c = ciclosDistribucionCache.find(x => x.id === id);
+        if (!c) return;
+
+        document.getElementById('ejec_ciclo_id').value = c.id;
+        document.getElementById('ejec_ciclo_titulo').textContent = `[${c.codigo}] ${c.nombre} (Emisor: ${c.centro_emisor.codigo})`;
+        document.getElementById('ejec_notas').value = `Prorrateo mensual de costos de ${c.centro_emisor.codigo}`;
+
+        actualizarSimulacionProrrateo(true);
+
+        const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEjecutarProrrateo'));
+        modal.show();
+    }
+
+    function actualizarSimulacionProrrateo(cargarMontoBase = true) {
+        const cicloId = document.getElementById('ejec_ciclo_id').value;
+        const anio = document.getElementById('ejec_anio').value;
+        const mes = document.getElementById('ejec_mes').value;
+        let monto = document.getElementById('ejec_monto_distribuir').value;
+
+        let url = `/centros-costos/distribucion/ciclos/${cicloId}/simular/?anio=${anio}&mes=${mes}`;
+        if (!cargarMontoBase && monto !== '') {
+            url += `&monto=${monto}`;
+        }
+
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) {
+                    alert('Error en simulación: ' + data.error);
+                    return;
+                }
+
+                gastoBaseEmisorActual = data.gasto_base_emisor || 0;
+                document.getElementById('ejec_monto_base_display').textContent = `$${gastoBaseEmisorActual.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+                if (cargarMontoBase || !monto) {
+                    document.getElementById('ejec_monto_distribuir').value = gastoBaseEmisorActual.toFixed(2);
+                }
+
+                // Alerta si ya fue ejecutado
+                const alerta = document.getElementById('alertaYaEjecutado');
+                const btnEjecutar = document.getElementById('btnConfirmarProrrateo');
+                if (data.ya_ejecutado) {
+                    alerta.classList.remove('d-none');
+                    btnEjecutar.disabled = true;
+                } else {
+                    alerta.classList.add('d-none');
+                    btnEjecutar.disabled = false;
+                }
+
+                // Renderizar tabla de receptores simulados
+                const tbody = document.getElementById('tbodySimulacionReceptores');
+                let html = '';
+                let totalPct = 0;
+                let totalMonto = 0;
+
+                (data.detalles || []).forEach(d => {
+                    totalPct += d.porcentaje;
+                    totalMonto += d.monto_cargado;
+                    html += `
+                        <tr>
+                            <td>
+                                <span class="badge bg-light text-primary border font-monospace me-1">[${d.codigo}]</span>
+                                <span class="fw-semibold text-dark">${d.nombre}</span>
+                            </td>
+                            <td class="text-center font-monospace">${d.porcentaje.toFixed(2)}%</td>
+                            <td class="text-end font-monospace fw-bold text-dark">$${d.monto_cargado.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = html;
+                document.getElementById('totalPctSimulacion').textContent = `${totalPct.toFixed(2)}%`;
+                document.getElementById('totalMontoSimulacion').textContent = `$${totalMonto.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            })
+            .catch(err => {
+                console.error(err);
+            });
+    }
+
+    function usarGastoBaseEmisor() {
+        document.getElementById('ejec_monto_distribuir').value = gastoBaseEmisorActual.toFixed(2);
+        actualizarSimulacionProrrateo(false);
+    }
+
+    function confirmarEjecucionProrrateo() {
+        const cicloId = document.getElementById('ejec_ciclo_id').value;
+        const anio = parseInt(document.getElementById('ejec_anio').value);
+        const mes = parseInt(document.getElementById('ejec_mes').value);
+        const monto = parseFloat(document.getElementById('ejec_monto_distribuir').value || 0);
+        const notas = document.getElementById('ejec_notas').value.trim();
+
+        if (monto <= 0) {
+            alert('El monto a transferir debe ser mayor a cero.');
+            return;
+        }
+
+        if (!confirm(`¿Confirma aplicar el prorrateo de $${monto.toLocaleString('en-US', {minimumFractionDigits: 2})} MXN para el periodo ${mes}/${anio}?\n\nEsta operación descontará el saldo del centro emisor y lo cargará a los centros receptores según sus porcentajes.`)) {
+            return;
+        }
+
+        const btn = document.getElementById('btnConfirmarProrrateo');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Procesando...';
+
+        fetch(`/centros-costos/distribucion/ciclos/${cicloId}/ejecutar/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                anio: anio,
+                mes: mes,
+                monto: monto,
+                notas: notas
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Aplicar Prorrateo Ahora';
+
+            if (data.success) {
+                alert(data.message);
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalEjecutarProrrateo'));
+                if (modal) modal.hide();
+                cargarTablaCiclosDistribucion();
+                // Si la ventana principal está abierta en este mes, recargar
+                window.location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Aplicar Prorrateo Ahora';
+            console.error(err);
+            alert('Error al comunicarse con el servidor.');
+        });
+    }
+
+    // ==========================================
+    // HISTORIAL Y REVERSIÓN DE PRORRATEOS
+    // ==========================================
+    function cargarHistorialDistribucion() {
+        const tbody = document.getElementById('tbodyHistorialDistribucion');
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted fst-italic">Cargando historial de distribuciones...</td></tr>';
+
+        fetch("{% url 'centros_costos:historial_distribucion_api' %}")
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) {
+                    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger">${data.error}</td></tr>`;
+                    return;
+                }
+
+                const list = data.historial || [];
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted fst-italic">No hay ejecuciones de prorrateo registradas.</td></tr>';
+                    return;
+                }
+
+                let html = '';
+                list.forEach(item => {
+                    const esRevertido = item.estado === 'revertido';
+                    const badgeEstado = esRevertido
+                        ? '<span class="status-pill status-cancelada">Revertido</span>'
+                        : '<span class="status-pill status-recibida">Aplicado</span>';
+
+                    let detallesStr = '';
+                    item.detalles.forEach(d => {
+                        detallesStr += `<span class="badge bg-light text-dark border me-1 mb-1 font-monospace">${d.centro_receptor_codigo}: $${d.monto.toLocaleString('en-US', {minimumFractionDigits: 2})}</span>`;
+                    });
+
+                    const accionBtn = !esRevertido
+                        ? `<button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="revertirEjecucionDistribucion(${item.id}, '${item.periodo}')">
+                             <i class="bi bi-arrow-counterclockwise me-1"></i> Revertir
+                           </button>`
+                        : `<small class="text-muted" style="font-size: 0.7rem;">${item.fecha_reversion ? item.fecha_reversion.split(' ')[0] : ''}</small>`;
+
+                    html += `
+                        <tr>
+                            <td class="font-monospace fw-bold text-dark text-center">${item.periodo}</td>
+                            <td class="font-monospace small"><span class="badge bg-light text-secondary border font-monospace">${item.ciclo_codigo}</span></td>
+                            <td>
+                                <span class="badge bg-light text-primary border font-monospace me-1">[${item.emisor_codigo}]</span>
+                                <span class="small text-dark">${item.emisor_nombre}</span>
+                            </td>
+                            <td>
+                                <div class="small text-dark">${item.fecha_ejecucion}</div>
+                                <small class="text-muted" style="font-size: 0.7rem;">Por: ${item.usuario}</small>
+                            </td>
+                            <td>${detallesStr}</td>
+                            <td class="text-end font-monospace fw-bold text-dark">$${item.monto_total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td class="text-center">${badgeEstado}</td>
+                            <td class="text-center">${accionBtn}</td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = html;
+            })
+            .catch(err => {
+                console.error(err);
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-danger">Error al cargar historial.</td></tr>';
+            });
+    }
+
+    function revertirEjecucionDistribucion(id, periodo) {
+        const motivo = prompt(`¿Está seguro de revertir la ejecución del periodo ${periodo}?\n\nEsta acción cancelará los cargos y abonos en los centros de costo involucrados.\n\nIngrese el motivo de la reversión (opcional):`);
+        if (motivo === null) return;
+
+        fetch(`/centros-costos/distribucion/ejecuciones/${id}/revertir/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ motivo: motivo })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                cargarHistorialDistribucion();
+                cargarTablaCiclosDistribucion();
+            } else {
+                alert('Error al revertir: ' + data.error);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error al comunicarse con el servidor.');
+        });
+    }
+
     // Búsqueda automática con debounce
     const inputBuscarCentros = document.querySelector('input[name="q"]');
     if (inputBuscarCentros) {

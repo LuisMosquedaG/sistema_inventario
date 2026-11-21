@@ -558,6 +558,16 @@ def cambiar_estado_compra(request, compra_id):
             return JsonResponse({'success': False, 'error': 'No tienes permisos para editar órdenes de compra.'}, status=403)
         compra = get_object_or_404(OrdenCompra, id=compra_id, empresa=empresa_actual)
 
+        # Control Activo de Disponibilidad Presupuestal (SAP Availability Control)
+        if nuevo_estado in ['aprobada', 'recibida', 'parcial'] and compra.centro_costo:
+            monto_oc_mxn = Decimal(str(compra.calcular_total or 0)) * Decimal(str(compra.tipo_cambio or 1))
+            val_pres = compra.centro_costo.validar_disponibilidad(monto_nuevo=monto_oc_mxn, exclude_orden_id=compra.id)
+            if val_pres.get('bloquea'):
+                from preferencias.permissions import is_admin_or_superuser, user_has_centros_costos_permission
+                puede_sobregirar = is_admin_or_superuser(request.user) or user_has_centros_costos_permission(request, 'centros_costos', 'autorizar_sobregiro')
+                if not puede_sobregirar:
+                    return JsonResponse({'success': False, 'error': val_pres.get('mensaje')}, status=400)
+
         if nuevo_estado in ['borrador', 'aprobada', 'recibida', 'cancelada', 'parcial']:
             compra.estado = nuevo_estado
             compra.save()
@@ -800,11 +810,24 @@ def actualizar_compra(request, compra_id):
                         cantidad_inventario=c_inv
                     )
 
+            # Control Activo de Disponibilidad Presupuestal (SAP AVC)
+            comentario_edicion = 'Orden de compra modificada.'
+            if orden.centro_costo:
+                monto_oc_mxn = Decimal(str(orden.calcular_total or 0)) * Decimal(str(orden.tipo_cambio or 1))
+                val_pres = orden.centro_costo.validar_disponibilidad(monto_nuevo=monto_oc_mxn, exclude_orden_id=orden.id)
+                if val_pres.get('bloquea'):
+                    from preferencias.permissions import is_admin_or_superuser, user_has_centros_costos_permission
+                    puede_sobregirar = is_admin_or_superuser(request.user) or user_has_centros_costos_permission(request, 'centros_costos', 'autorizar_sobregiro')
+                    if not puede_sobregirar:
+                        raise ValueError(val_pres.get('mensaje'))
+                    else:
+                        comentario_edicion = 'Orden modificada con autorización de sobregiro presupuestal.'
+
             HistorialOrdenCompra.objects.create(
                 orden_compra=orden,
                 usuario=request.user,
                 accion='edicion',
-                comentario='Orden de compra modificada.'
+                comentario=comentario_edicion
             )
 
             return JsonResponse({'success': True, 'message': 'Orden actualizada correctamente.'})

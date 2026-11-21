@@ -1502,6 +1502,11 @@ def dashboard_inventario(request):
             'conversiones': convs
         })
 
+    # Catálogo de Clases de Costo (para asignar clase predeterminada)
+    from centros_costos.models import ClaseCosto
+    ClaseCosto.sembrar_catalogo_estandar(empresa_actual)
+    clases_costos = ClaseCosto.objects.filter(empresa=empresa_actual, activo=True).order_by('codigo')
+
     contexto = {
         'page_obj': page_obj,
         'proximos_caducar': proximos_caducar,
@@ -1512,6 +1517,7 @@ def dashboard_inventario(request):
         'almacenes_todos': almacenes_todos,
         'sucursales': sucursales,
         'categorias': todas_categorias,
+        'clases_costos': clases_costos,
         'tests_calidad': tests_calidad,
         'productos_padre_receta': productos_padre_receta,
         'productos_componentes_receta': productos_componentes_receta,
@@ -1647,6 +1653,7 @@ def obtener_producto_json(request, producto_id):
             'mostrar_en_pos': producto.mostrar_en_pos,
             'permitir_modificadores': producto.permitir_modificadores,
             'test_calidad_id': producto.test_calidad.id if producto.test_calidad else "",
+            'clase_costo_predeterminada_id': producto.clase_costo_predeterminada_id or "",
             'imagen_url': producto.imagen.url if producto.imagen else '',
             'barcodes': list(producto.barcodes.values_list('codigo', flat=True)),
         })

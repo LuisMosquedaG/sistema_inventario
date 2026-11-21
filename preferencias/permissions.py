@@ -72,7 +72,7 @@ HR_PERMISSION_MATRIX = {
 }
 
 CENTROS_COSTOS_PERMISSION_MATRIX = {
-    'centros_costos': ['ver', 'crear', 'editar', 'eliminar', 'ver_movimientos'],
+    'centros_costos': ['ver', 'crear', 'editar', 'eliminar', 'ver_movimientos', 'autorizar_sobregiro', 'distribucion'],
 }
 
 

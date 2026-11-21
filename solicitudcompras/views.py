@@ -556,7 +556,7 @@ def obtener_solicitud_json(request, solicitud_id):
         detalles_list = []
         detalles_agrupados = {}
         
-        for det in solicitud.detalles.all().select_related('producto', 'proveedor', 'almacen', 'moneda', 'detalle_pedido_origen__producto'):
+        for det in solicitud.detalles.all().select_related('producto', 'proveedor', 'almacen', 'moneda', 'detalle_pedido_origen__producto', 'clase_costo'):
             # Info básica para ambos usos
             item_data = {
                 'id': det.id,
@@ -569,6 +569,8 @@ def obtener_solicitud_json(request, solicitud_id):
                 'sucursal_nombre': det.sucursal.nombre if det.sucursal else '',
                 'almacen_id': det.almacen.id if det.almacen else None,
                 'almacen_nombre': det.almacen.nombre if det.almacen else 'No asignado',
+                'clase_costo_id': det.clase_costo.id if det.clase_costo else (det.producto.clase_costo_predeterminada.id if det.producto.clase_costo_predeterminada else None),
+                'clase_costo_display': f"{det.clase_costo.codigo} - {det.clase_costo.nombre}" if det.clase_costo else (f"{det.producto.clase_costo_predeterminada.codigo} - {det.producto.clase_costo_predeterminada.nombre}" if det.producto.clase_costo_predeterminada else '--'),
                 'costo_unitario': str(det.costo_unitario),
                 'subtotal': str(det.subtotal),
                 'iva_porcentaje': str(det.producto.iva or 0),
@@ -789,6 +791,7 @@ def crear_solicitud_manual(request):
             unidades_compra = request.POST.getlist('unidad_compra[]')
             factores_conv = request.POST.getlist('factor_conversion[]')
             cantidades_inv = request.POST.getlist('cantidad_inventario[]')
+            clases_costos_ids = request.POST.getlist('clase_costo_id[]')
 
             from preferencias.models import Moneda
             from almacenes.models import Almacen
@@ -812,6 +815,13 @@ def crear_solicitud_manual(request):
 
                     mon_id_clean = _clean_id(mon_id) or (moneda_default.id if moneda_default else None)
                     alm_id_clean = _clean_id(alm_id) or (almacen_default.id if almacen_default else None)
+                    clase_id_clean = _clean_id(clases_costos_ids[i]) if i < len(clases_costos_ids) else None
+
+                    # Si no se pasó clase explícita, heredar la predeterminada del producto
+                    if not clase_id_clean:
+                        prod_obj = Producto.objects.filter(id=clean_p_id).first()
+                        if prod_obj and prod_obj.clase_costo_predeterminada_id:
+                            clase_id_clean = prod_obj.clase_costo_predeterminada_id
 
                     DetalleSolicitudCompra.objects.create(
                         solicitud=solicitud,
@@ -823,6 +833,7 @@ def crear_solicitud_manual(request):
                         almacen_id=alm_id_clean,
                         moneda_id=mon_id_clean,
                         lista_id=_clean_id(l_id),
+                        clase_costo_id=clase_id_clean,
                         unidad_compra=u_compra or None,
                         factor_conversion=f_conv,
                         cantidad_inventario=c_inv
@@ -996,6 +1007,24 @@ def autorizar_solicitud(request, solicitud_id):
         llave = (det.proveedor, det.sucursal, det.moneda, det.almacen)
         items_agrupados[llave].append(det)
 
+    # Validación de Control Activo de Disponibilidad (SAP Availability Control)
+    val_presupuesto = None
+    puede_sobregirar = True
+    if solicitud.centro_costo:
+        total_sol_mxn = Decimal('0.00')
+        for det in solicitud.detalles.all():
+            costo = Decimal(str(det.costo_unitario or 0))
+            cant = Decimal(str(det.cantidad_solicitada or 0))
+            sub = costo * cant
+            if solicitud.aplica_iva:
+                sub *= Decimal('1.16')
+            tc = (det.moneda.tipo_cambio if (det.moneda and det.moneda.tipo_cambio) else Decimal('1.0000'))
+            total_sol_mxn += sub * tc
+
+        val_presupuesto = solicitud.centro_costo.validar_disponibilidad(monto_nuevo=total_sol_mxn)
+        from preferencias.permissions import is_admin_or_superuser, user_has_centros_costos_permission
+        puede_sobregirar = is_admin_or_superuser(request.user) or user_has_centros_costos_permission(request, 'centros_costos', 'autorizar_sobregiro')
+
     # 3. Si es una previsualización (AJAX)
     if request.GET.get('preview') == '1':
         desglose = []
@@ -1013,11 +1042,16 @@ def autorizar_solicitud(request, solicitud_id):
         return JsonResponse({
             'success': True,
             'total_ordenes': len(items_agrupados),
-            'desglose': desglose
+            'desglose': desglose,
+            'presupuesto_alerta': val_presupuesto.get('mensaje') if (val_presupuesto and val_presupuesto.get('excede')) else None,
+            'presupuesto_bloquea': (val_presupuesto.get('bloquea') and not puede_sobregirar) if val_presupuesto else False
         })
 
     # 4. Procesar creación física (POST)
     if request.method == 'POST':
+        if val_presupuesto and val_presupuesto.get('bloquea') and not puede_sobregirar:
+            return JsonResponse({'success': False, 'error': val_presupuesto.get('mensaje')}, status=400)
+
         from compras.models import OrdenCompra, DetalleCompra, HistorialOrdenCompra
 
         ordenes_creadas_count = 0
@@ -1038,6 +1072,7 @@ def autorizar_solicitud(request, solicitud_id):
             )
 
             for det_solicitud in lista_detalles:
+                clase_partida = det_solicitud.clase_costo or det_solicitud.producto.clase_costo_predeterminada
                 DetalleCompra.objects.create(
                     orden_compra=nueva_oc,
                     producto=det_solicitud.producto,
@@ -1046,6 +1081,7 @@ def autorizar_solicitud(request, solicitud_id):
                     unidad_compra=det_solicitud.unidad_compra,
                     factor_conversion=det_solicitud.factor_conversion,
                     cantidad_inventario=det_solicitud.cantidad_inventario_calculada,
+                    clase_costo=clase_partida,
                     detalle_pedido_origen=det_solicitud.detalle_pedido_origen
                 )
 
