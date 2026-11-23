@@ -101,6 +101,15 @@ def api_registrar_pago_compra(request):
             fecha_pago = request.POST.get('fecha_pago')
             forma_pago = request.POST.get('forma_pago')
             referencia = request.POST.get('referencia', '')
+
+            # --- VALIDACIÓN DE PERIODO CONTABLE CERRADO ---
+            if fecha_pago:
+                from datetime import datetime
+                from centros_costos.models import PeriodoContable
+                f_pago = datetime.strptime(str(fecha_pago).split('T')[0], '%Y-%m-%d').date() if isinstance(fecha_pago, str) else fecha_pago
+                valido_per, err_per = PeriodoContable.validar_fecha_no_cerrada(empresa_actual, f_pago)
+                if not valido_per:
+                    return JsonResponse({'status': 'error', 'message': err_per}, status=400)
             
             # --- OBTENER SUCURSAL DE SESIÓN ---
             from preferencias.models import Sucursal
@@ -180,6 +189,12 @@ def api_cancelar_egreso(request, id):
 
             empresa_actual = get_empresa_actual(request)
             egreso = get_object_or_404(Egreso, id=id, empresa=empresa_actual)
+
+            # --- VALIDACIÓN DE PERIODO CONTABLE CERRADO ---
+            from centros_costos.models import PeriodoContable
+            valido_per, err_per = PeriodoContable.validar_fecha_no_cerrada(empresa_actual, egreso.fecha)
+            if not valido_per:
+                return JsonResponse({'success': False, 'error': f'No se puede cancelar el egreso: {err_per}'}, status=400)
             
             if egreso.estado == 'cancelado':
                 return JsonResponse({'success': False, 'error': 'Este egreso ya está cancelado.'})

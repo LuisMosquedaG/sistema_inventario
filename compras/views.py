@@ -558,6 +558,13 @@ def cambiar_estado_compra(request, compra_id):
             return JsonResponse({'success': False, 'error': 'No tienes permisos para editar órdenes de compra.'}, status=403)
         compra = get_object_or_404(OrdenCompra, id=compra_id, empresa=empresa_actual)
 
+        # Validación de Periodo Contable Cerrado
+        if nuevo_estado in ['aprobada', 'recibida', 'parcial', 'cancelada']:
+            from centros_costos.models import PeriodoContable
+            valido_per, err_per = PeriodoContable.validar_fecha_no_cerrada(empresa_actual, compra.fecha)
+            if not valido_per:
+                return JsonResponse({'success': False, 'error': f'No se puede modificar la orden de compra: {err_per}'}, status=400)
+
         # Control Activo de Disponibilidad Presupuestal (SAP Availability Control)
         if nuevo_estado in ['aprobada', 'recibida', 'parcial'] and compra.centro_costo:
             monto_oc_mxn = Decimal(str(compra.calcular_total or 0)) * Decimal(str(compra.tipo_cambio or 1))

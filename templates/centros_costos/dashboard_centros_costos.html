@@ -177,22 +177,52 @@
         border-bottom: 2px solid var(--cc-brand);
         background: transparent;
     }
+
+    /* LÍNEA DE TIEMPO / SEGUIMIENTO (ESTILO COMPRAS VER) */
+    .timeline-item { position: relative; padding-left: 22px; margin-bottom: 12px; }
+    .timeline-item:before {
+        content: ''; position: absolute; left: 7px; top: 16px; bottom: -8px;
+        width: 2px; background: #e9ecef;
+    }
+    .timeline-item:last-child:before { display: none; }
+    .timeline-dot {
+        position: absolute; left: 0; top: 2px; width: 16px; height: 16px;
+        border-radius: 50%; display: flex; align-items: center; justify-content: center;
+        font-size: 0.65rem; background: #fff; border: 2px solid #adb5bd;
+    }
+    .timeline-dot.dot-cancelada { border-color: #e03131; color: #e03131; }
+    .timeline-dot.dot-recibida { border-color: #2f9e44; color: #2f9e44; }
+    .timeline-dot.dot-parcial { border-color: #d9480f; color: #d9480f; }
+    .timeline-dot.dot-aprobada { border-color: #1971c2; color: #1971c2; }
+    .timeline-dot.dot-borrador { border-color: #868e96; color: #868e96; }
+    .timeline-comment-box {
+        margin-left: 4px;
+        padding: 4px 8px;
+        font-size: 0.72rem;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        border-left: 2px solid #dee2e6;
+    }
 </style>
 
 <div class="container-fluid py-3 px-4">
     <!-- ENCABEZADO PRINCIPAL -->
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
         <div>
-            <h4 class="section-title mb-1 fw-bold text-dark">
+            <h4 class="section-title mb-1 fw-bold text-dark" id="headerTituloPrincipal">
                 Centros de Costo
             </h4>
-            <span class="section-subtitle text-muted small">
+            <span class="section-subtitle text-muted small" id="headerSubtituloPrincipal">
                 Gestión presupuestal, clasificación financiera y trazabilidad de gastos ({{ mes_nombre }} {{ anio_actual }})
             </span>
         </div>
-        <div class="d-flex gap-2 flex-wrap">
-            <button type="button" class="btn btn-light border text-secondary btn-pro shadow-sm" onclick="abrirModalDistribucion()">
-                <i class="bi bi-diagram-3 me-1 text-primary"></i> Prorrateos y Distribución
+        <!-- BOTONES VISTA: CENTROS DE COSTOS -->
+        <div class="d-flex gap-2 flex-wrap" id="headerBotonesCentros">
+            <button type="button" class="btn btn-light border text-secondary btn-pro shadow-sm" onclick="abrirModalCierrePeriodos()">
+                <i class="bi bi-calendar-check me-1"></i> Cierre de Periodo
+            </button>
+            <button type="button" class="btn btn-light border text-secondary btn-pro shadow-sm" onclick="mostrarVistaDistribucion()">
+                <i class="bi bi-diagram-3 me-1"></i> Prorrateos y Distribución
             </button>
             <button type="button" class="btn btn-light border text-secondary btn-pro shadow-sm" onclick="abrirModalClasesCostos()">
                 <i class="bi bi-tags me-1"></i> Clases de Costo
@@ -203,8 +233,26 @@
             </button>
             {% endif %}
         </div>
+        <!-- BOTONES VISTA: PRORRATEOS Y DISTRIBUCIÓN -->
+        <div class="d-flex gap-2 flex-wrap d-none" id="headerBotonesDistribucion">
+            <button type="button" class="btn btn-light border text-secondary btn-pro shadow-sm" onclick="mostrarVistaCentros()">
+                <i class="bi bi-arrow-left me-1"></i> Volver a Centros de Costo
+            </button>
+            <button type="button" class="btn btn-light border text-secondary btn-pro shadow-sm" onclick="abrirModalCierrePeriodos()">
+                <i class="bi bi-calendar-check me-1"></i> Cierre de Periodo
+            </button>
+            {% if granular_centros_costos_perms.centros_costos.crear %}
+            <button type="button" class="btn btn-brand btn-sm px-3 shadow-sm d-flex align-items-center" onclick="abrirModalCrearCiclo()">
+                <i class="bi bi-plus-lg me-1"></i> Nuevo Ciclo
+            </button>
+            {% endif %}
+        </div>
     </div>
 
+    <!-- ========================================== -->
+    <!-- VISTA PRINCIPAL: CENTROS DE COSTO          -->
+    <!-- ========================================== -->
+    <div id="seccionCentrosCostos">
     <!-- BARRA DE FILTROS -->
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-3">
@@ -418,6 +466,76 @@
             {% endif %}
         </div>
     </div>
+    </div> <!-- FIN #seccionCentrosCostos -->
+
+    <!-- ======================================================= -->
+    <!-- VISTA IN-PAGE: CICLOS DE DISTRIBUCIÓN Y PRORRATEOS      -->
+    <!-- ======================================================= -->
+    <div id="seccionDistribucion" class="d-none">
+        <!-- BARRA DE FILTROS CICLOS -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-3">
+                <div class="row g-2 align-items-end" id="formFiltrosDistribucion">
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-bold text-secondary mb-1">Buscar</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                            <input type="text" id="filtroDistQ" class="form-control border-start-0" placeholder="Código, nombre, origen o receptor..." oninput="filtrarCiclosDistribucion()">
+                        </div>
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small fw-bold text-secondary mb-1">Método</label>
+                        <select id="filtroDistMetodo" class="form-select form-select-sm" onchange="filtrarCiclosDistribucion()">
+                            <option value="">Todos los métodos</option>
+                            <option value="porcentaje">Porcentajes Fijos (%)</option>
+                            <option value="partes_iguales">Partes Iguales</option>
+                            <option value="ponderado">Ponderado por Presupuesto</option>
+                        </select>
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small fw-bold text-secondary mb-1">Estado</label>
+                        <select id="filtroDistEstado" class="form-select form-select-sm" onchange="filtrarCiclosDistribucion()">
+                            <option value="">Todos</option>
+                            <option value="activos">Activos</option>
+                            <option value="inactivos">Inactivos</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12 col-md-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary w-100" onclick="limpiarFiltrosDistribucion()" title="Limpiar Filtros">
+                            <i class="bi bi-x-lg me-1"></i>Limpiar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLA 1: CICLOS CONFIGURADOS (MISMO ESTILO CENTROS DE COSTOS) -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-pro mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th class="text-center" style="width: 110px;">Acciones</th>
+                                <th class="text-center" style="width: 110px;">Código</th>
+                                <th class="text-center" style="min-width: 180px;">Nombre del Ciclo</th>
+                                <th class="text-center text-nowrap" style="min-width: 180px;">Centro Origen / Clase Secundaria</th>
+                                <th class="text-center" style="width: 130px;">Método</th>
+                                <th class="text-center" style="min-width: 220px;">Receptores Asignados</th>
+                                <th class="text-center" style="width: 100px;">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyCiclosDistribucion">
+                            <tr><td colspan="7" class="text-center py-4 text-muted fst-italic">Cargando ciclos de distribución...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div> <!-- FIN #seccionDistribucion -->
 </div>
 
 <!-- ========================================== -->
@@ -1013,177 +1131,95 @@
     </div>
 </div>
 
-<!-- =================================================================================== -->
-<!-- MODAL DE PRORRATEOS Y CICLOS DE DISTRIBUCIÓN (ALLOCATION / ASSESSMENT - SAP CO)     -->
-<!-- =================================================================================== -->
-<div class="modal fade" id="modalGestionDistribucion" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered" style="max-width: 1250px;">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header border-bottom py-3" style="background-color: #F8FAFC;">
-                <div class="d-flex align-items-center gap-2">
-                    <div class="rounded-circle p-2 d-flex align-items-center justify-content-center" style="background: rgba(13, 110, 253, 0.12); width: 38px; height: 38px;">
-                        <i class="bi bi-diagram-3-fill text-primary" style="font-size: 1.1rem;"></i>
-                    </div>
-                    <div>
-                        <h5 class="modal-title fw-bold text-dark mb-0" style="font-size: 1.05rem;">Ciclos de Distribución y Prorrateos</h5>
-                        <p class="text-muted small mb-0" style="font-size: 0.72rem;">Distribución y reparto mensual de gastos indirectos y costos corporativos a centros operativos</p>
-                    </div>
-                </div>
-                <div class="d-flex align-items-center gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="abrirModalCrearCiclo()">
-                        <i class="bi bi-plus-lg me-1"></i> Nuevo Ciclo
-                    </button>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-            </div>
 
-            <div class="modal-body p-3">
-                <ul class="nav nav-pills mb-3" id="pillsDistribucionTab" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active py-1 px-3 small fw-semibold" id="pills-ciclos-tab" data-bs-toggle="pill" data-bs-target="#pills-ciclos" type="button" role="tab">
-                            <i class="bi bi-gear-wide-connected me-1"></i> Ciclos Configurados
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link py-1 px-3 small fw-semibold" id="pills-historial-dist-tab" data-bs-toggle="pill" data-bs-target="#pills-historial-dist" type="button" role="tab" onclick="cargarHistorialDistribucion()">
-                            <i class="bi bi-clock-history me-1"></i> Historial de Ejecuciones
-                        </button>
-                    </li>
-                </ul>
-
-                <div class="tab-content" id="pillsDistribucionTabContent">
-                    <!-- TAB 1: CICLOS CONFIGURADOS -->
-                    <div class="tab-pane fade show active" id="pills-ciclos" role="tabpanel">
-                        <div class="table-responsive border rounded bg-white">
-                            <table class="table table-hover align-middle mb-0" style="font-size: 0.82rem;">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width: 100px;">Código</th>
-                                        <th>Nombre del Ciclo</th>
-                                        <th style="width: 170px;">Centro Emisor (Origen)</th>
-                                        <th style="width: 170px;">Clase Secundaria</th>
-                                        <th style="width: 110px;">Método</th>
-                                        <th>Receptores</th>
-                                        <th class="text-center" style="width: 80px;">Estado</th>
-                                        <th class="text-center" style="width: 160px;">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tbodyCiclosDistribucion">
-                                    <tr><td colspan="8" class="text-center py-4 text-muted fst-italic">Cargando ciclos de distribución...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- TAB 2: HISTORIAL DE EJECUCIONES -->
-                    <div class="tab-pane fade" id="pills-historial-dist" role="tabpanel">
-                        <div class="table-responsive border rounded bg-white">
-                            <table class="table table-hover align-middle mb-0" style="font-size: 0.82rem;">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width: 90px;">Periodo</th>
-                                        <th style="width: 110px;">Ciclo</th>
-                                        <th style="width: 160px;">Centro Origen</th>
-                                        <th style="width: 130px;">Fecha Ejecución</th>
-                                        <th>Detalle del Reparto</th>
-                                        <th class="text-end" style="width: 120px;">Monto Total</th>
-                                        <th class="text-center" style="width: 95px;">Estado</th>
-                                        <th class="text-center" style="width: 110px;">Acción</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tbodyHistorialDistribucion">
-                                    <tr><td colspan="8" class="text-center py-4 text-muted fst-italic">Cargando historial...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="modal-footer bg-light py-2">
-                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- =================================================================================== -->
 <!-- MODAL SECUNDARIO: CREAR / EDITAR CICLO DE DISTRIBUCIÓN                              -->
 <!-- =================================================================================== -->
-<div class="modal fade" id="modalFormCicloDistribucion" tabindex="-1" aria-hidden="true" style="z-index: 1065;">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header border-bottom py-2 bg-light">
-                <h6 class="modal-title fw-bold text-dark mb-0" id="tituloModalCiclo">
-                    <i class="bi bi-gear-wide-connected text-primary me-2"></i> Configurar Ciclo de Distribución
-                </h6>
+<div class="modal fade modal-sheet" id="modalFormCicloDistribucion" tabindex="-1" aria-hidden="true" style="z-index: 1065;">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <form id="formCicloDistribucion" class="modal-content form-clean" onsubmit="event.preventDefault(); guardarCicloDistribucion();">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold text-dark d-flex align-items-center mb-0" id="tituloModalCiclo" style="font-size: 1.05rem;">
+                    <i class="bi bi-diagram-3 me-2" style="color: var(--cc-brand); font-size: 1.2rem;"></i>
+                    <span>Nuevo Ciclo de Distribución</span>
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-3">
+            <div class="modal-body p-4 bg-light">
                 <input type="hidden" id="ciclo_id" value="">
-                <div class="row g-2 mb-3">
-                    <div class="col-md-3">
-                        <label class="form-label small fw-bold text-secondary mb-1">Código del Ciclo <span class="text-danger">*</span></label>
-                        <input type="text" id="ciclo_codigo" class="form-control form-control-sm font-monospace text-uppercase" placeholder="ej. DIST-RENTA" required>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label small fw-bold text-secondary mb-1">Nombre Descriptivo <span class="text-danger">*</span></label>
-                        <input type="text" id="ciclo_nombre" class="form-control form-control-sm" placeholder="ej. Reparto de Renta Corporativa" required>
-                    </div>
-                    <div class="col-md-3 d-flex align-items-end pb-1">
-                        <div class="form-check form-switch mb-0">
-                            <input class="form-check-input" type="checkbox" id="ciclo_activo" checked>
-                            <label class="form-check-label small text-dark" for="ciclo_activo">Ciclo Activo</label>
+                
+                <!-- 1. IDENTIFICACIÓN Y ORIGEN -->
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                                1. Identificación y Centro Emisor
+                            </h6>
+                            <div class="form-check form-switch mb-0 text-nowrap">
+                                <input class="form-check-input" type="checkbox" id="ciclo_activo" checked>
+                                <label class="form-check-label small text-dark" for="ciclo_activo">Ciclo Activo</label>
+                            </div>
                         </div>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label small fw-bold text-secondary mb-1">Centro Emisor (Origen del Gasto) <span class="text-danger">*</span></label>
-                        <select id="ciclo_centro_emisor" class="form-select form-select-sm" required>
-                            <option value="">Seleccione el centro que transfiere el costo...</option>
-                            {% for cp in centros_padres %}
-                            <option value="{{ cp.id }}">[{{ cp.codigo }}] {{ cp.nombre }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label small fw-bold text-secondary mb-1">Clase de Costo Secundaria (Imputación)</label>
-                        <select id="ciclo_clase_secundaria" class="form-select form-select-sm">
-                            <option value="">(Automática o estándar)</option>
-                            {% for cc_item in clases_costos %}
-                            {% if cc_item.tipo == 'secundaria' %}
-                            <option value="{{ cc_item.id }}">[{{ cc_item.codigo }}] {{ cc_item.nombre }}</option>
-                            {% endif %}
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label small fw-bold text-secondary mb-1">Descripción / Regla de negocio</label>
-                        <input type="text" id="ciclo_descripcion" class="form-control form-control-sm" placeholder="ej. Se prorratea el 100% de la renta entre sucursales operativas">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label>Código del Ciclo <span class="text-danger">*</span></label>
+                                <input type="text" id="ciclo_codigo" class="form-control form-control-sm font-monospace text-uppercase" placeholder="Ej: DIST-RENTA" required>
+                            </div>
+                            <div class="col-md-8">
+                                <label>Nombre Descriptivo <span class="text-danger">*</span></label>
+                                <input type="text" id="ciclo_nombre" class="form-control form-control-sm" placeholder="Ej: Reparto de Renta Corporativa..." required>
+                            </div>
+                            <div class="col-md-6">
+                                <label>Centro Emisor (Origen del Gasto) <span class="text-danger">*</span></label>
+                                <select id="ciclo_centro_emisor" class="form-select form-select-sm" required>
+                                    <option value="">Seleccione el centro que transfiere el costo...</option>
+                                    {% for cp in centros_padres %}
+                                    <option value="{{ cp.id }}">[{{ cp.codigo }}] {{ cp.nombre }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label>Clase de Costo Secundaria (Imputación)</label>
+                                <select id="ciclo_clase_secundaria" class="form-select form-select-sm">
+                                    <option value="">(Automática o estándar)</option>
+                                    {% for cc_item in clases_costos %}
+                                    {% if cc_item.tipo == 'secundaria' %}
+                                    <option value="{{ cc_item.id }}">[{{ cc_item.codigo }}] {{ cc_item.nombre }}</option>
+                                    {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label>Descripción / Regla de Negocio</label>
+                                <textarea id="ciclo_descripcion" class="form-control form-control-sm" rows="2" placeholder="Detalles de la regla de reparto o alcance del ciclo..."></textarea>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- REGLAS DE REPARTO (CENTROS RECEPTORES) -->
-                <div class="card border rounded bg-light mb-2">
-                    <div class="card-body p-2">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="small fw-bold text-uppercase text-secondary" style="font-size: 0.72rem;">
-                                Centros Receptores y Porcentajes de Absorción
-                            </span>
+                <!-- 2. REGLAS DE REPARTO (CENTROS RECEPTORES) -->
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                                2. Centros Receptores y Porcentajes de Absorción
+                            </h6>
                             <div class="d-flex align-items-center gap-2">
-                                <span class="badge bg-white text-dark border font-monospace" id="badgeSumaPctCiclo" style="font-size: 0.75rem;">Suma: 0.00%</span>
-                                <button type="button" class="btn btn-xs btn-outline-primary py-0 px-2" style="font-size: 0.72rem;" onclick="agregarFilaReceptorCiclo()">
+                                <span class="badge bg-light border text-secondary shadow-sm font-monospace px-2 py-1" id="badgeSumaPctCiclo" style="font-size: 0.75rem; font-weight: 600;">Suma: 0.00%</span>
+                                <button type="button" class="btn btn-brand btn-sm px-3 shadow-sm d-flex align-items-center" style="font-size: 0.75rem;" onclick="agregarFilaReceptorCiclo()">
                                     <i class="bi bi-plus-lg me-1"></i> Agregar Receptor
                                 </button>
                             </div>
                         </div>
 
                         <div class="table-responsive bg-white rounded border">
-                            <table class="table table-sm align-middle mb-0" style="font-size: 0.8rem;">
-                                <thead class="table-light">
+                            <table class="table table-sm align-middle mb-0" style="font-size: 0.82rem;">
+                                <thead class="bg-light">
                                     <tr>
-                                        <th>Centro Receptor (Destino)</th>
-                                        <th style="width: 140px;" class="text-end">Porcentaje (%)</th>
-                                        <th style="width: 50px;"></th>
+                                        <th class="ps-3 py-2 text-secondary" style="font-weight: 600; font-size: 0.75rem;">Centro Receptor (Destino)</th>
+                                        <th style="width: 150px; font-weight: 600; font-size: 0.75rem;" class="text-end py-2 text-secondary">Porcentaje (%)</th>
+                                        <th style="width: 50px;" class="text-center py-2"></th>
                                     </tr>
                                 </thead>
                                 <tbody id="tbodyReceptoresCiclo">
@@ -1194,10 +1230,186 @@
                     </div>
                 </div>
             </div>
-            <div class="modal-footer bg-light py-2">
-                <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-sm btn-primary px-3 fw-semibold" onclick="guardarCicloDistribucion()">
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-light border px-3" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btnGuardarCiclo" class="btn btn-sm btn-brand px-4 fw-semibold" onclick="guardarCicloDistribucion()">
                     <i class="bi bi-save me-1"></i> Guardar Ciclo
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- =================================================================================== -->
+<!-- MODAL DE EJECUCIÓN / SIMULACIÓN DE PRORRATEO (ASISTENTE MENSUAL)                    -->
+<!-- =================================================================================== -->
+<div class="modal fade modal-sheet" id="modalEjecutarProrrateo" tabindex="-1" aria-hidden="true" style="z-index: 1070;">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content form-clean">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold text-dark d-flex align-items-center mb-0" style="font-size: 1.05rem;">
+                    <i class="bi bi-play-circle me-2" style="color: var(--cc-brand); font-size: 1.25rem;"></i>
+                    <span>Ejecutar Ciclo de Prorrateo</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 bg-light">
+                <input type="hidden" id="ejec_ciclo_id" value="">
+
+                <!-- 1. PARÁMETROS DEL PERIODO Y CICLO -->
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body p-3">
+                        <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                            1. Parámetros del Periodo y Ciclo
+                        </h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label>Ciclo Seleccionado</label>
+                                <div class="p-2 border rounded bg-white fw-bold text-dark font-monospace" id="ejec_ciclo_titulo" style="font-size: 0.85rem;">--</div>
+                            </div>
+                            <div class="col-md-3">
+                                <label>Año</label>
+                                <input type="number" id="ejec_anio" class="form-control form-control-sm text-center font-monospace" value="{{ anio_actual }}" min="2020" max="2050" onchange="actualizarSimulacionProrrateo()">
+                            </div>
+                            <div class="col-md-3">
+                                <label>Mes</label>
+                                <select id="ejec_mes" class="form-select form-select-sm" onchange="actualizarSimulacionProrrateo()">
+                                    <option value="1">Enero</option>
+                                    <option value="2">Febrero</option>
+                                    <option value="3">Marzo</option>
+                                    <option value="4">Abril</option>
+                                    <option value="5">Mayo</option>
+                                    <option value="6">Junio</option>
+                                    <option value="7">Julio</option>
+                                    <option value="8">Agosto</option>
+                                    <option value="9">Septiembre</option>
+                                    <option value="10">Octubre</option>
+                                    <option value="11" selected>Noviembre</option>
+                                    <option value="12">Diciembre</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. BASE FINANCIERA Y MONTO A PRORRATEAR -->
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body p-3">
+                        <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                            2. Base Financiera y Control de Movimientos
+                        </h6>
+                        <div class="row g-3 align-items-center">
+                            <div class="col-md-7 border-end">
+                                <div class="row g-2 text-center text-md-start">
+                                    <div class="col-4">
+                                        <span class="text-muted d-block" style="font-size: 0.68rem; text-transform: uppercase;">Total Mes</span>
+                                        <h6 class="mb-0 fw-bold text-dark font-monospace" id="ejec_total_mes_display" style="font-size: 0.88rem;">$0.00</h6>
+                                    </div>
+                                    <div class="col-4">
+                                        <span class="text-muted d-block" style="font-size: 0.68rem; text-transform: uppercase;">Ya Prorrateado</span>
+                                        <h6 class="mb-0 fw-bold text-secondary font-monospace" id="ejec_ya_prorrateado_display" style="font-size: 0.88rem;">$0.00</h6>
+                                    </div>
+                                    <div class="col-4">
+                                        <span class="text-muted d-block" style="font-size: 0.68rem; text-transform: uppercase; font-weight: 600;">Saldo Posterior</span>
+                                        <h5 class="mb-0 fw-bold font-monospace" id="ejec_monto_base_display" style="color: var(--cc-brand); font-size: 1.05rem;">$0.00</h5>
+                                    </div>
+                                </div>
+                                <div class="mt-2 text-muted" style="font-size: 0.68rem;">
+                                    <i class="bi bi-shield-check text-success me-1"></i> Control anti-duplicidad: detecta comprobantes ya aplicados y aisla movimientos posteriores.
+                                </div>
+                            </div>
+                            <div class="col-md-5 ps-md-3">
+                                <label class="fw-semibold">Monto a Prorratear ($ MXN)</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-white text-muted">$</span>
+                                    <input type="number" id="ejec_monto_distribuir" class="form-control text-end font-monospace fw-bold" step="0.01" min="0" oninput="actualizarSimulacionProrrateo(false)">
+                                    <button class="btn btn-light border text-secondary" type="button" onclick="usarGastoBaseEmisor()" title="Restablecer al saldo pendiente no prorrateado">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </button>
+                                </div>
+                                <small class="text-muted d-block mt-1" style="font-size: 0.68rem;">Calculado sobre los comprobantes no prorrateados.</small>
+                            </div>
+                        </div>
+
+                        <!-- DESGLOSE DETALLADO DE COMPROBANTES (EXPANDIBLE) -->
+                        <div class="mt-3 pt-2 border-top">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="text-muted" style="font-size: 0.75rem;" id="resumenComprobantesTxt">
+                                    <i class="bi bi-receipt me-1"></i> Analizando comprobantes del emisor...
+                                </span>
+                                <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 text-secondary fw-semibold" style="font-size: 0.75rem;" onclick="toggleDetalleComprobantesProrrateo()">
+                                    <span id="txtToggleComprobantes">Ver desglose de comprobantes <i class="bi bi-chevron-down ms-1"></i></span>
+                                </button>
+                            </div>
+                            <div id="contenedorComprobantesProrrateo" class="d-none mt-2">
+                                <div class="table-responsive bg-white rounded border" style="max-height: 180px; overflow-y: auto;">
+                                    <table class="table table-sm align-middle mb-0" style="font-size: 0.78rem;">
+                                        <thead class="bg-light sticky-top">
+                                            <tr>
+                                                <th class="ps-2 py-1 text-secondary" style="width: 85px;">Folio</th>
+                                                <th class="py-1 text-secondary" style="width: 85px;">Fecha</th>
+                                                <th class="py-1 text-secondary">Concepto / Proveedor</th>
+                                                <th class="text-end py-1 text-secondary" style="width: 100px;">Monto</th>
+                                                <th class="text-center py-1 text-secondary" style="width: 120px;">Estado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tbodyComprobantesProrrateo">
+                                            <!-- Se rellena con JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. VISTA PREVIA DE DISTRIBUCIÓN A RECEPTORES -->
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                                3. Vista Previa de Distribución a Receptores
+                            </h6>
+                        </div>
+
+                        <div class="table-responsive bg-white rounded border mb-3">
+                            <table class="table table-sm align-middle mb-0" style="font-size: 0.82rem;">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th class="ps-3 py-2 text-secondary" style="font-weight: 600; font-size: 0.75rem;">Centro Receptor</th>
+                                        <th class="text-center py-2 text-secondary" style="width: 120px; font-weight: 600; font-size: 0.75rem;">% Asignado</th>
+                                        <th class="text-end pe-3 py-2 text-secondary" style="width: 160px; font-weight: 600; font-size: 0.75rem;">Monto Cargado ($)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodySimulacionReceptores">
+                                    <!-- Filas calculadas -->
+                                </tbody>
+                                <tfoot class="bg-light fw-bold">
+                                    <tr>
+                                        <td class="ps-3 py-2">Total a transferir:</td>
+                                        <td class="text-center font-monospace py-2" id="totalPctSimulacion">100.00%</td>
+                                        <td class="text-end pe-3 font-monospace py-2 text-dark" id="totalMontoSimulacion">$0.00</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <div>
+                            <label>Notas / Observaciones del Reparto</label>
+                            <input type="text" id="ejec_notas" class="form-control form-control-sm" placeholder="Ej. Prorrateo mensual de cierre según matriz de gastos...">
+                        </div>
+                        
+                        <div id="alertaYaEjecutado" class="alert alert-warning py-2 px-3 small d-none mt-3 mb-0">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                            <strong>Atención:</strong> Ya existe un prorrateo activo para este ciclo en este periodo. Si desea volver a aplicarlo, primero revierta la ejecución anterior.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-light border px-3" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btnConfirmarProrrateo" class="btn btn-sm btn-brand px-4 fw-semibold" onclick="confirmarEjecucionProrrateo()">
+                    <i class="bi bi-check-circle me-1"></i> Aplicar Prorrateo Ahora
                 </button>
             </div>
         </div>
@@ -1205,119 +1417,180 @@
 </div>
 
 <!-- =================================================================================== -->
-<!-- MODAL DE EJECUCIÓN / SIMULACIÓN DE PRORRATEO (ASISTENTE MENSUAL)                    -->
+<!-- MODAL DE CIERRE DE PERIODOS CONTABLES Y MENSUALES                                  -->
 <!-- =================================================================================== -->
-<div class="modal fade" id="modalEjecutarProrrateo" tabindex="-1" aria-hidden="true" style="z-index: 1070;">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header border-bottom py-2" style="background-color: #0D6EFD; color: white;">
-                <h6 class="modal-title fw-bold mb-0">
-                    <i class="bi bi-play-circle-fill me-2"></i> Ejecutar Ciclo de Prorrateo
-                </h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+<div class="modal fade modal-sheet" id="modalCierrePeriodos" tabindex="-1" aria-hidden="true" style="z-index: 1075;">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content form-clean">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold text-dark d-flex align-items-center mb-0" style="font-size: 1.05rem;">
+                    <i class="bi bi-calendar-check me-2" style="color: var(--cc-brand); font-size: 1.25rem;"></i>
+                    <span>Cierre de Periodos Contables</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-3">
-                <input type="hidden" id="ejec_ciclo_id" value="">
-                
-                <div class="alert alert-info py-2 px-3 small d-flex align-items-center gap-2 mb-3">
-                    <i class="bi bi-info-circle-fill fs-5"></i>
-                    <div>
-                        Se calculará el gasto acumulado en el centro emisor y se prorrateará entre los centros receptores según las reglas aprobadas.
-                    </div>
-                </div>
+            <div class="modal-body p-4 bg-light">
+                <div class="row g-3">
+                    <!-- ============================================== -->
+                    <!-- COLUMNA IZQUIERDA: CONTROLES Y OPERACIÓN       -->
+                    <!-- ============================================== -->
+                    <div class="col-12 col-lg-7 d-flex flex-column gap-3">
+                        <!-- 1. ESTADO Y OPERACIÓN DEL PERIODO -->
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body p-3">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                                        1. Estado y Operación del Periodo
+                                    </h6>
+                                    <span id="badgeEstadoPeriodoModal" class="status-pill status-recibida">
+                                        Abierto
+                                    </span>
+                                </div>
 
-                <div class="row g-2 mb-3">
-                    <div class="col-md-6">
-                        <label class="form-label small fw-bold text-secondary mb-1">Ciclo Seleccionado</label>
-                        <div class="p-2 border rounded bg-light fw-bold text-dark font-monospace" id="ejec_ciclo_titulo">--</div>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label small fw-bold text-secondary mb-1">Año</label>
-                        <input type="number" id="ejec_anio" class="form-control form-control-sm text-center font-monospace" value="{{ anio_actual }}" min="2020" max="2050" onchange="actualizarSimulacionProrrateo()">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label small fw-bold text-secondary mb-1">Mes</label>
-                        <select id="ejec_mes" class="form-select form-select-sm" onchange="actualizarSimulacionProrrateo()">
-                            <option value="1">Enero</option>
-                            <option value="2">Febrero</option>
-                            <option value="3">Marzo</option>
-                            <option value="4">Abril</option>
-                            <option value="5">Mayo</option>
-                            <option value="6">Junio</option>
-                            <option value="7">Julio</option>
-                            <option value="8">Agosto</option>
-                            <option value="9">Septiembre</option>
-                            <option value="10">Octubre</option>
-                            <option value="11" selected>Noviembre</option>
-                            <option value="12">Diciembre</option>
-                        </select>
-                    </div>
-                </div>
+                                <div class="row g-2 mb-3">
+                                    <div class="col-md-4">
+                                        <label>Año del Periodo</label>
+                                        <input type="number" id="cierre_anio" class="form-control form-control-sm text-center font-monospace" value="{{ anio_actual }}" min="2020" max="2050" onchange="alCambiarPeriodoCierre()">
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label>Mes del Periodo</label>
+                                        <select id="cierre_mes" class="form-select form-select-sm" onchange="alCambiarPeriodoCierre()">
+                                            <option value="1">1 - Enero</option>
+                                            <option value="2">2 - Febrero</option>
+                                            <option value="3">3 - Marzo</option>
+                                            <option value="4">4 - Abril</option>
+                                            <option value="5">5 - Mayo</option>
+                                            <option value="6">6 - Junio</option>
+                                            <option value="7">7 - Julio</option>
+                                            <option value="8">8 - Agosto</option>
+                                            <option value="9">9 - Septiembre</option>
+                                            <option value="10">10 - Octubre</option>
+                                            <option value="11" selected>11 - Noviembre</option>
+                                            <option value="12">12 - Diciembre</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3 d-flex align-items-end">
+                                        <button type="button" class="btn btn-light border text-secondary btn-sm w-100" onclick="alCambiarPeriodoCierre()">
+                                            <i class="bi bi-arrow-repeat me-1"></i> Actualizar
+                                        </button>
+                                    </div>
+                                </div>
 
-                <!-- RESUMEN FINANCIERO -->
-                <div class="card border rounded bg-light mb-3">
-                    <div class="card-body p-3">
-                        <div class="row g-2 align-items-center">
-                            <div class="col-md-6">
-                                <span class="text-muted small d-block">Gasto Real Acumulado en Emisor:</span>
-                                <h4 class="mb-0 fw-bold text-dark font-monospace" id="ejec_monto_base_display">$0.00</h4>
-                                <small class="text-muted" style="font-size: 0.7rem;">Suma neta de egresos del centro emisor en este mes</small>
+                                <!-- PANEL RESUMEN FINANCIERO DEL MES -->
+                                <div class="row g-2 mb-3">
+                                    <div class="col-4">
+                                        <div class="p-2 border rounded bg-white text-center">
+                                            <span class="text-muted d-block small" style="font-size: 0.68rem; text-transform: uppercase;">Egresos del Mes</span>
+                                            <h6 class="mb-0 fw-bold text-dark font-monospace" id="cierre_total_egresos">$0.00</h6>
+                                            <small class="text-muted" style="font-size: 0.65rem;" id="cierre_cant_egresos">0 comprobantes</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="p-2 border rounded bg-white text-center">
+                                            <span class="text-muted d-block small" style="font-size: 0.68rem; text-transform: uppercase;">Prorrateos Aplicados</span>
+                                            <h6 class="mb-0 fw-bold font-monospace" style="color: var(--cc-brand);" id="cierre_total_prorrateos">$0.00</h6>
+                                            <small class="text-muted" style="font-size: 0.65rem;" id="cierre_cant_prorrateos">0 ciclos</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="p-2 border rounded bg-white text-center">
+                                            <span class="text-muted d-block small" style="font-size: 0.68rem; text-transform: uppercase;">Estado Prorrateo</span>
+                                            <h6 class="mb-0 fw-bold font-monospace text-dark" id="cierre_estado_prorrateo">--</h6>
+                                            <small class="text-muted" style="font-size: 0.65rem;" id="cierre_detalle_prorrateo">--</small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- ACCIÓN DE CIERRE (SI ESTÁ ABIERTO) -->
+                                <div id="bloqueAccionCerrar" class="p-3 rounded border bg-white">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <span class="fw-semibold text-dark small">
+                                            <i class="bi bi-shield-lock me-1"></i> Bloquear Periodo (Cierre Contable)
+                                        </span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <input type="text" id="cierre_notas_input" class="form-control form-control-sm" placeholder="Observaciones o dictamen del cierre (ej. Cierre definitivo de gastos operativos)...">
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-muted" style="font-size: 0.7rem;">
+                                            Al cerrar, se bloquearán nuevos egresos, compras y prorrateos en este mes.
+                                        </small>
+                                        <button type="button" class="btn btn-sm btn-brand px-4 fw-semibold text-nowrap" onclick="ejecutarCierrePeriodo()">
+                                            <i class="bi bi-lock-fill me-1"></i> Cerrar Periodo
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- ACCIÓN DE REAPERTURA (SI ESTÁ CERRADO) -->
+                                <div id="bloqueAccionReabrir" class="p-3 rounded border bg-white d-none">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <span class="fw-semibold text-dark small">
+                                            <i class="bi bi-unlock me-1" style="color: var(--cc-brand);"></i> Reabrir Periodo para Modificaciones
+                                        </span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <input type="text" id="reapertura_motivo_input" class="form-control form-control-sm" placeholder="Motivo obligatorio de reapertura (ej. Ajuste extraordinario ordenado por auditoría)...">
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-muted" style="font-size: 0.7rem;">
+                                            Permite registrar movimientos o correcciones antes de volver a cerrar.
+                                        </small>
+                                        <button type="button" class="btn btn-sm btn-brand px-4 fw-semibold text-nowrap" onclick="ejecutarReaperturaPeriodo()">
+                                            <i class="bi bi-unlock-fill me-1"></i> Reabrir Periodo
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold text-secondary mb-1">Monto a Prorratear ($ MXN)</label>
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text bg-white">$</span>
-                                    <input type="number" id="ejec_monto_distribuir" class="form-control text-end font-monospace fw-bold" step="0.01" min="0" oninput="actualizarSimulacionProrrateo(false)">
-                                    <button class="btn btn-outline-secondary" type="button" onclick="usarGastoBaseEmisor()" title="Restablecer al gasto real del emisor">
-                                        <i class="bi bi-arrow-counterclockwise"></i>
-                                    </button>
+                        </div>
+
+                        <!-- 2. MATRIZ DE LOS 12 MESES DEL AÑO -->
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body p-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                                        2. Matriz Anual de Periodos (<span id="matrizAnioDisplay">2026</span>)
+                                    </h6>
+                                    <span class="text-muted small" style="font-size: 0.7rem;">Cierre y apertura rápida por mes</span>
+                                </div>
+                                <div class="table-responsive bg-white rounded border">
+                                    <table class="table table-sm align-middle mb-0" style="font-size: 0.8rem;">
+                                        <thead class="bg-light">
+                                            <tr>
+                                                <th class="ps-3 py-2 text-secondary" style="width: 140px; font-weight: 600; font-size: 0.75rem;">Periodo</th>
+                                                <th class="text-center py-2 text-secondary" style="width: 110px; font-weight: 600; font-size: 0.75rem;">Estado</th>
+                                                <th class="py-2 text-secondary" style="font-weight: 600; font-size: 0.75rem;">Fecha y Responsable</th>
+                                                <th class="text-end pe-3 py-2 text-secondary" style="width: 110px; font-weight: 600; font-size: 0.75rem;">Acción</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tbodyMatrizPeriodos">
+                                            <!-- Filas generadas dinámicamente -->
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- TABLA DE VISTA PREVIA DEL REPARTO -->
-                <h6 class="small fw-bold text-uppercase text-secondary mb-2" style="font-size: 0.72rem;">
-                    Vista Previa de Distribución a Receptores
-                </h6>
-                <div class="table-responsive border rounded bg-white mb-2">
-                    <table class="table table-sm align-middle mb-0" style="font-size: 0.8rem;">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Centro Receptor</th>
-                                <th class="text-center" style="width: 110px;">% Asignado</th>
-                                <th class="text-end" style="width: 140px;">Monto Cargado ($)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbodySimulacionReceptores">
-                            <!-- Filas calculadas -->
-                        </tbody>
-                        <tfoot class="table-light fw-bold">
-                            <tr>
-                                <td>Total a transferir:</td>
-                                <td class="text-center font-monospace" id="totalPctSimulacion">100.00%</td>
-                                <td class="text-end font-monospace" id="totalMontoSimulacion">$0.00</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-
-                <div class="mb-2">
-                    <label class="form-label small fw-bold text-secondary mb-1">Notas / Observaciones del Reparto</label>
-                    <input type="text" id="ejec_notas" class="form-control form-control-sm" placeholder="ej. Prorrateo mensual de cierre según matriz de gastos">
-                </div>
-                
-                <div id="alertaYaEjecutado" class="alert alert-warning py-2 px-3 small d-none mb-0">
-                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
-                    <strong>Atención:</strong> Ya existe un prorrateo activo para este ciclo en este periodo. Si desea volver a aplicarlo, primero revierta la ejecución anterior en el historial.
+                    <!-- ============================================== -->
+                    <!-- COLUMNA DERECHA: MOVIMIENTOS Y SEGUIMIENTO     -->
+                    <!-- ============================================== -->
+                    <div class="col-12 col-lg-5">
+                        <div class="card border-0 shadow-sm h-100 d-flex flex-column bg-white">
+                            <div class="card-header bg-white border-bottom py-2 px-3 d-flex justify-content-between align-items-center">
+                                <span class="fw-bold text-dark small text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">
+                                    <i class="bi bi-clock-history me-1" style="color: var(--cc-brand);"></i> Movimientos y Seguimiento
+                                </span>
+                                <span class="badge bg-light text-secondary border font-monospace" id="cierre_historial_count">0</span>
+                            </div>
+                            <div class="card-body p-3 flex-grow-1" id="cierre_contenedor_historial" style="max-height: 520px; overflow-y: auto;">
+                                <!-- Se llena dinámicamente vía JS -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="modal-footer bg-light py-2">
-                <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" id="btnConfirmarProrrateo" class="btn btn-sm btn-primary px-4 fw-semibold" onclick="confirmarEjecucionProrrateo()">
-                    <i class="bi bi-check-circle me-1"></i> Aplicar Prorrateo Ahora
-                </button>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-light border px-4" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -2232,101 +2505,199 @@
     // =========================================================================
     let ciclosDistribucionCache = [];
     let gastoBaseEmisorActual = 0;
+    let cambiosRealizadosEnDistribucion = false;
 
-    function abrirModalDistribucion() {
+    function mostrarVistaDistribucion() {
+        const titulo = document.getElementById('headerTituloPrincipal');
+        const subtitulo = document.getElementById('headerSubtituloPrincipal');
+        if (titulo) titulo.textContent = 'Ciclos de Distribución y Prorrateos';
+        if (subtitulo) subtitulo.textContent = 'Distribución y reparto mensual de gastos indirectos y costos corporativos a centros operativos';
+
+        const secCentros = document.getElementById('seccionCentrosCostos');
+        const secDist = document.getElementById('seccionDistribucion');
+        const btnsCentros = document.getElementById('headerBotonesCentros');
+        const btnsDist = document.getElementById('headerBotonesDistribucion');
+
+        if (secCentros) secCentros.classList.add('d-none');
+        if (secDist) secDist.classList.remove('d-none');
+        if (btnsCentros) btnsCentros.classList.add('d-none');
+        if (btnsDist) btnsDist.classList.remove('d-none');
+
         cargarTablaCiclosDistribucion();
-        const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalGestionDistribucion'));
-        modal.show();
+    }
+
+    function mostrarVistaCentros() {
+        if (cambiosRealizadosEnDistribucion) {
+            // Si se aplicaron o eliminaron prorrateos, recargar la página para recalcular saldos de centros
+            window.location.href = "{% url 'centros_costos:dashboard' %}";
+            return;
+        }
+
+        const titulo = document.getElementById('headerTituloPrincipal');
+        const subtitulo = document.getElementById('headerSubtituloPrincipal');
+        if (titulo) titulo.textContent = 'Centros de Costo';
+        if (subtitulo) subtitulo.textContent = 'Gestión presupuestal, clasificación financiera y trazabilidad de gastos ({{ mes_nombre }} {{ anio_actual }})';
+
+        const secCentros = document.getElementById('seccionCentrosCostos');
+        const secDist = document.getElementById('seccionDistribucion');
+        const btnsCentros = document.getElementById('headerBotonesCentros');
+        const btnsDist = document.getElementById('headerBotonesDistribucion');
+
+        if (secDist) secDist.classList.add('d-none');
+        if (secCentros) secCentros.classList.remove('d-none');
+        if (btnsDist) btnsDist.classList.add('d-none');
+        if (btnsCentros) btnsCentros.classList.remove('d-none');
     }
 
     function cargarTablaCiclosDistribucion() {
         const tbody = document.getElementById('tbodyCiclosDistribucion');
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted fst-italic">Cargando ciclos...</td></tr>';
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted fst-italic">Cargando ciclos de distribución...</td></tr>';
 
         fetch("{% url 'centros_costos:ciclos_distribucion_api' %}")
             .then(res => res.json())
             .then(data => {
                 if (!data.success) {
-                    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger">${data.error}</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">${data.error}</td></tr>`;
                     return;
                 }
                 ciclosDistribucionCache = data.ciclos || [];
-                if (ciclosDistribucionCache.length === 0) {
-                    tbody.innerHTML = `
-                        <tr>
-                            <td colspan="8" class="text-center py-4 text-muted">
-                                <div class="mb-2"><i class="bi bi-diagram-3 text-secondary fs-3"></i></div>
-                                No hay ciclos de distribución creados todavía.<br>
-                                <button type="button" class="btn btn-sm btn-primary mt-2" onclick="abrirModalCrearCiclo()">
-                                    <i class="bi bi-plus-lg me-1"></i> Crear Primer Ciclo de Prorrateo
-                                </button>
-                            </td>
-                        </tr>
-                    `;
-                    return;
-                }
-
-                let html = '';
-                ciclosDistribucionCache.forEach(c => {
-                    const badgeEstado = c.activo 
-                        ? '<span class="status-pill status-recibida">Activo</span>'
-                        : '<span class="status-pill status-cancelada">Inactivo</span>';
-
-                    let receptoresPills = '';
-                    c.segmentos.forEach(s => {
-                        receptoresPills += `<span class="badge bg-light text-dark border me-1 mb-1 font-monospace">${s.centro_receptor_codigo} (${s.porcentaje}%)</span>`;
-                    });
-
-                    const ultimaEjec = c.ultima_ejecucion 
-                        ? `<small class="text-muted d-block" style="font-size: 0.68rem;">Último: ${c.ultima_ejecucion.mes}/${c.ultima_ejecucion.anio} ($${c.ultima_ejecucion.monto.toLocaleString('en-US', {minimumFractionDigits: 2})})</small>`
-                        : '';
-
-                    html += `
-                        <tr>
-                            <td class="font-monospace fw-bold text-dark">${c.codigo}</td>
-                            <td>
-                                <div class="fw-semibold text-dark">${c.nombre}</div>
-                                ${c.descripcion ? `<small class="text-muted" style="font-size: 0.72rem;">${c.descripcion}</small>` : ''}
-                                ${ultimaEjec}
-                            </td>
-                            <td>
-                                <span class="badge bg-light text-primary border font-monospace me-1">[${c.centro_emisor.codigo}]</span>
-                                <span class="small text-dark">${c.centro_emisor.nombre}</span>
-                            </td>
-                            <td>
-                                <span class="badge bg-light text-dark border font-monospace">${c.clase_costo_secundaria ? c.clase_costo_secundaria.codigo : '--'}</span>
-                                <span class="small text-muted d-block text-truncate" style="max-width: 150px;">${c.clase_costo_secundaria ? c.clase_costo_secundaria.nombre : '--'}</span>
-                            </td>
-                            <td><span class="small text-secondary">${c.metodo_label}</span></td>
-                            <td>${receptoresPills || '<span class="text-muted small fst-italic">Sin receptores</span>'}</td>
-                            <td class="text-center">${badgeEstado}</td>
-                            <td class="text-center">
-                                <div class="btn-group btn-group-sm">
-                                    <button type="button" class="btn btn-primary btn-sm py-0 px-2" title="Ejecutar prorrateo mensual" onclick="abrirModalEjecutarCiclo(${c.id})">
-                                        <i class="bi bi-play-fill me-1"></i> Prorratear
-                                    </button>
-                                    <button type="button" class="btn btn-light border btn-sm py-0 px-2" title="Editar regla" onclick="abrirModalEditarCiclo(${c.id})">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-light border text-danger btn-sm py-0 px-2" title="Eliminar ciclo" onclick="eliminarCicloDistribucion(${c.id}, '${c.codigo}')">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    `;
-                });
-                tbody.innerHTML = html;
+                filtrarCiclosDistribucion();
             })
             .catch(err => {
                 console.error(err);
-                tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-danger">Error de comunicación.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-danger">Error de comunicación.</td></tr>';
             });
+    }
+
+    function filtrarCiclosDistribucion() {
+        const q = (document.getElementById('filtroDistQ')?.value || '').trim().toLowerCase();
+        const metodo = document.getElementById('filtroDistMetodo')?.value || '';
+        const estado = document.getElementById('filtroDistEstado')?.value || '';
+
+        let filtrados = ciclosDistribucionCache.filter(c => {
+            if (metodo && c.metodo !== metodo) return false;
+            if (estado === 'activos' && !c.activo) return false;
+            if (estado === 'inactivos' && c.activo) return false;
+
+            if (q) {
+                const matchCodigo = (c.codigo || '').toLowerCase().includes(q);
+                const matchNombre = (c.nombre || '').toLowerCase().includes(q);
+                const matchDesc = (c.descripcion || '').toLowerCase().includes(q);
+                const matchEmisor = (c.centro_emisor?.nombre || '').toLowerCase().includes(q) || (c.centro_emisor?.codigo || '').toLowerCase().includes(q);
+                const matchReceptor = (c.segmentos || []).some(s => (s.centro_receptor_codigo || '').toLowerCase().includes(q) || (s.centro_receptor_nombre || '').toLowerCase().includes(q));
+                if (!matchCodigo && !matchNombre && !matchDesc && !matchEmisor && !matchReceptor) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        renderTablaCiclos(filtrados);
+    }
+
+    function limpiarFiltrosDistribucion() {
+        const inputQ = document.getElementById('filtroDistQ');
+        const selMetodo = document.getElementById('filtroDistMetodo');
+        const selEstado = document.getElementById('filtroDistEstado');
+        if (inputQ) inputQ.value = '';
+        if (selMetodo) selMetodo.value = '';
+        if (selEstado) selEstado.value = '';
+        renderTablaCiclos(ciclosDistribucionCache);
+    }
+
+    function renderTablaCiclos(lista) {
+        const tbody = document.getElementById('tbodyCiclosDistribucion');
+        if (!tbody) return;
+
+        if (!lista || lista.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center py-5">
+                        <div class="text-muted">
+                            <i class="bi bi-diagram-3 display-5 mb-2 d-block text-secondary opacity-50"></i>
+                            <p class="mb-1 fw-semibold">No se encontraron ciclos de distribución</p>
+                            <small class="text-muted">Presiona "+ Nuevo Ciclo" para crear una regla de prorrateo.</small>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        let html = '';
+        lista.forEach(c => {
+            const badgeEstado = c.activo 
+                ? '<span class="status-pill status-recibida">Activo</span>'
+                : '<span class="status-pill status-cancelada">Inactivo</span>';
+
+            let receptoresPills = '';
+            (c.segmentos || []).forEach(s => {
+                receptoresPills += `<span class="badge bg-light text-dark border me-1 mb-1 font-monospace">${s.centro_receptor_codigo} (${s.porcentaje}%)</span>`;
+            });
+
+            const ultimaEjec = c.ultima_ejecucion 
+                ? `<small class="text-muted d-block mt-1" style="font-size: 0.7rem;"><i class="bi bi-check-circle me-1 text-success"></i>Último: ${c.ultima_ejecucion.mes}/${c.ultima_ejecucion.anio} ($${c.ultima_ejecucion.monto.toLocaleString('en-US', {minimumFractionDigits: 2})})</small>`
+                : '';
+
+            html += `
+                <tr id="filaCiclo${c.id}">
+                    <!-- ACCIONES -->
+                    <td class="text-center align-middle">
+                        <div class="d-flex justify-content-center align-items-center gap-1">
+                            <button type="button" class="icon-action icon-action-view" title="Ejecutar Prorrateo" onclick="abrirModalEjecutarCiclo(${c.id})">
+                                <i class="bi bi-play-circle"></i>
+                            </button>
+                            <button type="button" class="icon-action icon-action-edit" title="Editar regla de ciclo" onclick="abrirModalEditarCiclo(${c.id})">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                            <button type="button" class="icon-action icon-action-delete" title="Eliminar ciclo y deshacer prorrateos" onclick="eliminarCicloDistribucion(${c.id}, '${c.codigo}')">
+                                <i class="bi bi-x-circle"></i>
+                            </button>
+                        </div>
+                    </td>
+
+                    <!-- CÓDIGO -->
+                    <td class="text-center align-middle font-monospace small text-nowrap">
+                        <span class="text-dark fw-bold">${c.codigo}</span>
+                    </td>
+
+                    <!-- NOMBRE DEL CICLO -->
+                    <td class="text-center align-middle small">
+                        <div class="fw-semibold text-dark">${c.nombre}</div>
+                        ${c.descripcion ? `<small class="text-muted d-block" style="font-size: 0.72rem;">${c.descripcion}</small>` : ''}
+                        ${ultimaEjec}
+                    </td>
+
+                    <!-- CENTRO ORIGEN / CLASE SECUNDARIA -->
+                    <td class="text-center align-middle small text-nowrap">
+                        <div class="fw-semibold text-dark text-nowrap">${c.centro_emisor.nombre}</div>
+                        <small class="text-muted d-block text-nowrap" style="font-size: 0.72rem;">${c.clase_costo_secundaria ? c.clase_costo_secundaria.nombre : '--'}</small>
+                    </td>
+
+                    <!-- MÉTODO -->
+                    <td class="text-center align-middle small text-nowrap">
+                        <span class="text-dark">${c.metodo_label}</span>
+                    </td>
+
+                    <!-- RECEPTORES ASIGNADOS -->
+                    <td class="text-center align-middle small">
+                        ${receptoresPills || '<span class="text-muted small fst-italic">Sin receptores</span>'}
+                    </td>
+
+                    <!-- ESTADO -->
+                    <td class="text-center align-middle">
+                        ${badgeEstado}
+                    </td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
     }
 
     function abrirModalCrearCiclo() {
         document.getElementById('ciclo_id').value = '';
-        document.getElementById('tituloModalCiclo').innerHTML = '<i class="bi bi-gear-wide-connected text-primary me-2"></i> Nuevo Ciclo de Distribución';
+        document.getElementById('tituloModalCiclo').innerHTML = '<i class="bi bi-diagram-3 me-2" style="color: var(--cc-brand); font-size: 1.2rem;"></i><span>Nuevo Ciclo de Distribución</span>';
         document.getElementById('ciclo_codigo').value = '';
         document.getElementById('ciclo_nombre').value = '';
         document.getElementById('ciclo_descripcion').value = '';
@@ -2348,7 +2719,7 @@
         if (!c) return;
 
         document.getElementById('ciclo_id').value = c.id;
-        document.getElementById('tituloModalCiclo').innerHTML = `<i class="bi bi-pencil-square text-primary me-2"></i> Editar Ciclo: ${c.codigo}`;
+        document.getElementById('tituloModalCiclo').innerHTML = `<i class="bi bi-pencil-square me-2" style="color: var(--cc-brand); font-size: 1.2rem;"></i><span>Editar Ciclo: ${c.codigo}</span>`;
         document.getElementById('ciclo_codigo').value = c.codigo;
         document.getElementById('ciclo_nombre').value = c.nombre;
         document.getElementById('ciclo_descripcion').value = c.descripcion || '';
@@ -2392,7 +2763,7 @@
         const tr = document.createElement('tr');
         tr.id = rowId;
         tr.innerHTML = `
-            <td>
+            <td class="ps-3">
                 <select class="form-select form-select-sm select-receptor-ciclo" onchange="validarReceptoresDuplicados()">
                     ${optionsHtml}
                 </select>
@@ -2400,12 +2771,12 @@
             <td>
                 <div class="input-group input-group-sm">
                     <input type="number" class="form-control text-end input-pct-receptor font-monospace" step="0.01" min="0" max="100" value="${porcentaje !== '' ? porcentaje : ''}" placeholder="0.00" oninput="calcularSumaPorcentajesCiclo()">
-                    <span class="input-group-text bg-light text-muted">%</span>
+                    <span class="input-group-text bg-white text-muted">%</span>
                 </div>
             </td>
-            <td class="text-center">
-                <button type="button" class="btn btn-link btn-sm text-danger p-0" onclick="eliminarFilaReceptorCiclo('${rowId}')" title="Quitar">
-                    <i class="bi bi-trash"></i>
+            <td class="text-center align-middle">
+                <button type="button" class="icon-action icon-action-delete" onclick="eliminarFilaReceptorCiclo('${rowId}')" title="Quitar receptor">
+                    <i class="bi bi-x-circle"></i>
                 </button>
             </td>
         `;
@@ -2443,13 +2814,10 @@
 
         const badge = document.getElementById('badgeSumaPctCiclo');
         if (badge) {
+            badge.className = 'badge bg-light border text-secondary shadow-sm font-monospace px-2 py-1';
+            badge.style.fontSize = '0.75rem';
+            badge.style.fontWeight = '600';
             badge.textContent = `Suma: ${suma.toFixed(2)}%`;
-            badge.className = 'badge border font-monospace';
-            if (Math.abs(suma - 100.0) < 0.01) {
-                badge.classList.add('bg-success', 'text-white');
-            } else {
-                badge.classList.add('bg-warning', 'text-dark');
-            }
         }
         return suma;
     }
@@ -2537,7 +2905,7 @@
     }
 
     function eliminarCicloDistribucion(id, codigo) {
-        if (!confirm(`¿Está seguro de eliminar el ciclo de prorrateo "${codigo}"?\n\nEsta acción eliminará sus reglas de reparto.`)) return;
+        if (!confirm(`¿Está seguro de eliminar el ciclo de prorrateo "${codigo}"?\n\nAl eliminar este ciclo, el sistema deshará y revertirá automáticamente cualquier prorrateo aplicado previamente con esta regla, restaurando los saldos originales en los centros de costo afectados.`)) return;
 
         fetch(`/centros-costos/distribucion/ciclos/${id}/eliminar/`, {
             method: 'POST',
@@ -2549,6 +2917,8 @@
         .then(res => res.json())
         .then(data => {
             if (data.success) {
+                cambiosRealizadosEnDistribucion = true;
+                alert(data.message);
                 cargarTablaCiclosDistribucion();
             } else {
                 alert('No se puede eliminar: ' + data.error);
@@ -2577,6 +2947,19 @@
         modal.show();
     }
 
+    function toggleDetalleComprobantesProrrateo() {
+        const contenedor = document.getElementById('contenedorComprobantesProrrateo');
+        const txt = document.getElementById('txtToggleComprobantes');
+        if (!contenedor) return;
+        if (contenedor.classList.contains('d-none')) {
+            contenedor.classList.remove('d-none');
+            txt.innerHTML = 'Ocultar desglose de comprobantes <i class="bi bi-chevron-up ms-1"></i>';
+        } else {
+            contenedor.classList.add('d-none');
+            txt.innerHTML = 'Ver desglose de comprobantes <i class="bi bi-chevron-down ms-1"></i>';
+        }
+    }
+
     function actualizarSimulacionProrrateo(cargarMontoBase = true) {
         const cicloId = document.getElementById('ejec_ciclo_id').value;
         const anio = document.getElementById('ejec_anio').value;
@@ -2596,25 +2979,104 @@
                     return;
                 }
 
-                gastoBaseEmisorActual = data.gasto_base_emisor || 0;
-                document.getElementById('ejec_monto_base_display').textContent = `$${gastoBaseEmisorActual.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                // 1. Mostrar cifras de control de gastos
+                const gastoTotalMes = data.gasto_total_mes || 0;
+                const montoYaProrrateado = data.monto_ya_prorrateado || 0;
+                gastoBaseEmisorActual = data.gasto_base_emisor || 0; // Saldo posterior
+
+                const totalMesEl = document.getElementById('ejec_total_mes_display');
+                if (totalMesEl) totalMesEl.textContent = `$${gastoTotalMes.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+                const yaProrrateadoEl = document.getElementById('ejec_ya_prorrateado_display');
+                if (yaProrrateadoEl) yaProrrateadoEl.textContent = `$${montoYaProrrateado.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+                const montoBaseEl = document.getElementById('ejec_monto_base_display');
+                if (montoBaseEl) montoBaseEl.textContent = `$${gastoBaseEmisorActual.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 
                 if (cargarMontoBase || !monto) {
                     document.getElementById('ejec_monto_distribuir').value = gastoBaseEmisorActual.toFixed(2);
                 }
 
-                // Alerta si ya fue ejecutado
+                // 2. Renderizar tabla detallada de comprobantes (anteriores vs posteriores)
+                const tbodyComp = document.getElementById('tbodyComprobantesProrrateo');
+                const resumenComp = document.getElementById('resumenComprobantesTxt');
+                let htmlComp = '';
+
+                const compPendientes = data.comprobantes_pendientes || [];
+                const compProrrateados = data.comprobantes_prorrateados || [];
+
+                compPendientes.forEach(c => {
+                    htmlComp += `
+                        <tr class="table-light">
+                            <td class="ps-2 font-monospace fw-bold text-dark">${c.folio}</td>
+                            <td>${c.fecha}</td>
+                            <td class="text-truncate" style="max-width: 200px;" title="${c.concepto}">${c.concepto}</td>
+                            <td class="text-end font-monospace fw-bold text-dark">$${c.monto.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td class="text-center">
+                                <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.7rem;">Nuevo / Posterior</span>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                compProrrateados.forEach(c => {
+                    htmlComp += `
+                        <tr class="text-muted opacity-75">
+                            <td class="ps-2 font-monospace">${c.folio}</td>
+                            <td>${c.fecha}</td>
+                            <td class="text-truncate" style="max-width: 200px;" title="${c.concepto}">${c.concepto}</td>
+                            <td class="text-end font-monospace">$${c.monto.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td class="text-center">
+                                <span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.7rem;">Ya Prorrateado</span>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                if (htmlComp === '') {
+                    htmlComp = '<tr><td colspan="5" class="text-center py-2 text-muted fst-italic">No hay comprobantes de egreso registrados en este periodo.</td></tr>';
+                }
+                if (tbodyComp) tbodyComp.innerHTML = htmlComp;
+
+                if (resumenComp) {
+                    resumenComp.innerHTML = `<i class="bi bi-receipt me-1"></i> Comprobantes: <strong>${compPendientes.length} nuevos por prorratear</strong> (${compProrrateados.length} aplicados en ciclos previos)`;
+                }
+
+                // 3. Alertas inteligentes de ejecución y detección de duplicidades
                 const alerta = document.getElementById('alertaYaEjecutado');
                 const btnEjecutar = document.getElementById('btnConfirmarProrrateo');
-                if (data.ya_ejecutado) {
+
+                if (data.periodo_cerrado) {
+                    alerta.className = 'alert alert-danger border py-2 px-3 small mt-3 mb-0';
+                    alerta.innerHTML = `<i class="bi bi-lock-fill text-danger me-1"></i> <strong>Periodo Cerrado:</strong> El periodo ${mes}/${anio} se encuentra <strong>CERRADO</strong> para operaciones financieras. No se pueden aplicar nuevos prorrateos mientras permanezca cerrado. Para realizar ajustes, primero reabra el periodo desde 'Cierre de Periodo'.`;
                     alerta.classList.remove('d-none');
                     btnEjecutar.disabled = true;
+                    btnEjecutar.innerHTML = '<i class="bi bi-lock-fill me-1"></i> Periodo Cerrado';
+                } else if (data.todos_prorrateados) {
+                    alerta.className = 'alert alert-secondary border py-2 px-3 small mt-3 mb-0';
+                    alerta.innerHTML = `<i class="bi bi-check-circle-fill text-success me-1"></i> <strong>Todos los comprobantes del periodo ya han sido prorrateados</strong> ($${montoYaProrrateado.toLocaleString('en-US', {minimumFractionDigits: 2})} MXN aplicados previamente). No existen movimientos posteriores pendientes para este centro de costo.`;
+                    alerta.classList.remove('d-none');
+                    btnEjecutar.disabled = true;
+                    btnEjecutar.innerHTML = '<i class="bi bi-check-circle me-1"></i> Periodo Totalmente Prorrateado';
+                } else if (montoYaProrrateado > 0 && data.tiene_pendientes) {
+                    alerta.className = 'alert alert-info border py-2 px-3 small mt-3 mb-0';
+                    alerta.innerHTML = `<i class="bi bi-info-circle-fill text-primary me-1"></i> <strong>Prorrateo complementario:</strong> Se detectaron <strong>${compPendientes.length} nuevos comprobantes</strong> posteriores al ciclo previo por un saldo de <strong>$${gastoBaseEmisorActual.toLocaleString('en-US', {minimumFractionDigits: 2})} MXN</strong>. Este prorrateo aplicará únicamente sobre estos movimientos nuevos para evitar duplicar o inflar el saldo.`;
+                    alerta.classList.remove('d-none');
+                    btnEjecutar.disabled = false;
+                    btnEjecutar.innerHTML = '<i class="bi bi-plus-circle me-1"></i> Aplicar Prorrateo Posterior';
+                } else if (gastoTotalMes === 0) {
+                    alerta.className = 'alert alert-warning border py-2 px-3 small mt-3 mb-0';
+                    alerta.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> El centro emisor no cuenta con egresos o comprobantes registrados en este periodo.`;
+                    alerta.classList.remove('d-none');
+                    btnEjecutar.disabled = true;
+                    btnEjecutar.innerHTML = '<i class="bi bi-play-circle me-1"></i> Sin Movimientos';
                 } else {
                     alerta.classList.add('d-none');
                     btnEjecutar.disabled = false;
+                    btnEjecutar.innerHTML = '<i class="bi bi-check-circle me-1"></i> Aplicar Prorrateo Ahora';
                 }
 
-                // Renderizar tabla de receptores simulados
+                // 4. Renderizar tabla de receptores simulados
                 const tbody = document.getElementById('tbodySimulacionReceptores');
                 let html = '';
                 let totalPct = 0;
@@ -2626,7 +3088,7 @@
                     html += `
                         <tr>
                             <td>
-                                <span class="badge bg-light text-primary border font-monospace me-1">[${d.codigo}]</span>
+                                <span class="badge bg-light text-secondary border font-monospace me-1">[${d.codigo}]</span>
                                 <span class="fw-semibold text-dark">${d.nombre}</span>
                             </td>
                             <td class="text-center font-monospace">${d.porcentaje.toFixed(2)}%</td>
@@ -2687,12 +3149,11 @@
             btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Aplicar Prorrateo Ahora';
 
             if (data.success) {
+                cambiosRealizadosEnDistribucion = true;
                 alert(data.message);
                 const modal = bootstrap.Modal.getInstance(document.getElementById('modalEjecutarProrrateo'));
                 if (modal) modal.hide();
                 cargarTablaCiclosDistribucion();
-                // Si la ventana principal está abierta en este mes, recargar
-                window.location.reload();
             } else {
                 alert('Error: ' + data.error);
             }
@@ -2710,19 +3171,40 @@
     // ==========================================
     function cargarHistorialDistribucion() {
         const tbody = document.getElementById('tbodyHistorialDistribucion');
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted fst-italic">Cargando historial de distribuciones...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted fst-italic">Cargando historial de distribuciones...</td></tr>';
 
         fetch("{% url 'centros_costos:historial_distribucion_api' %}")
             .then(res => res.json())
             .then(data => {
                 if (!data.success) {
-                    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger">${data.error}</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-danger">${data.error}</td></tr>`;
                     return;
                 }
 
                 const list = data.historial || [];
+                const totalEjecs = list.length;
+                const aplicadas = list.filter(x => x.estado === 'aplicado');
+                const revertidas = list.filter(x => x.estado === 'revertido');
+                const montoTotalAplicado = aplicadas.reduce((acc, curr) => acc + (curr.monto_total || 0), 0);
+
+                if (document.getElementById('countHistorialDistTab')) {
+                    document.getElementById('countHistorialDistTab').textContent = totalEjecs;
+                }
+                if (document.getElementById('distResumenEjecAplicadas')) {
+                    document.getElementById('distResumenEjecAplicadas').textContent = aplicadas.length;
+                }
+                if (document.getElementById('distResumenEjecRevertidas')) {
+                    document.getElementById('distResumenEjecRevertidas').textContent = revertidas.length;
+                }
+                if (document.getElementById('distResumenMontoTotal')) {
+                    document.getElementById('distResumenMontoTotal').textContent = '$' + montoTotalAplicado.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                }
+                if (document.getElementById('distResumenTotalDisplay')) {
+                    document.getElementById('distResumenTotalDisplay').textContent = '$' + montoTotalAplicado.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                }
+
                 if (list.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted fst-italic">No hay ejecuciones de prorrateo registradas.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted fst-italic">No hay ejecuciones de prorrateo registradas.</td></tr>';
                     return;
                 }
 
@@ -2739,25 +3221,25 @@
                     });
 
                     const accionBtn = !esRevertido
-                        ? `<button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="revertirEjecucionDistribucion(${item.id}, '${item.periodo}')">
+                        ? `<button type="button" class="btn btn-outline-danger btn-sm py-0 px-2 fw-semibold" style="font-size: 0.75rem;" onclick="revertirEjecucionDistribucion(${item.id}, '${item.periodo}')">
                              <i class="bi bi-arrow-counterclockwise me-1"></i> Revertir
                            </button>`
                         : `<small class="text-muted" style="font-size: 0.7rem;">${item.fecha_reversion ? item.fecha_reversion.split(' ')[0] : ''}</small>`;
 
                     html += `
                         <tr>
-                            <td class="font-monospace fw-bold text-dark text-center">${item.periodo}</td>
-                            <td class="font-monospace small"><span class="badge bg-light text-secondary border font-monospace">${item.ciclo_codigo}</span></td>
-                            <td>
-                                <span class="badge bg-light text-primary border font-monospace me-1">[${item.emisor_codigo}]</span>
-                                <span class="small text-dark">${item.emisor_nombre}</span>
+                            <td class="text-center font-monospace small"><span class="badge bg-light text-secondary border font-monospace">${item.periodo}</span></td>
+                            <td class="text-center font-monospace small"><span class="text-dark">${item.ciclo_codigo}</span></td>
+                            <td class="text-center small">
+                                <span class="badge bg-light text-secondary border font-monospace me-1">[${item.emisor_codigo}]</span>
+                                <span class="text-dark fw-semibold">${item.emisor_nombre}</span>
                             </td>
-                            <td>
-                                <div class="small text-dark">${item.fecha_ejecucion}</div>
-                                <small class="text-muted" style="font-size: 0.7rem;">Por: ${item.usuario}</small>
+                            <td class="text-center small">
+                                <div class="text-dark">${item.fecha_ejecucion ? item.fecha_ejecucion.split(' ')[0] : '--'}</div>
                             </td>
-                            <td>${detallesStr}</td>
-                            <td class="text-end font-monospace fw-bold text-dark">$${item.monto_total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td class="small">${detallesStr}</td>
+                            <td class="text-center small"><span class="text-dark fw-semibold">$${item.monto_total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></td>
+                            <td class="text-center small"><span class="text-dark">${item.usuario}</span></td>
                             <td class="text-center">${badgeEstado}</td>
                             <td class="text-center">${accionBtn}</td>
                         </tr>
@@ -2767,7 +3249,7 @@
             })
             .catch(err => {
                 console.error(err);
-                tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-danger">Error al cargar historial.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-danger">Error al cargar historial.</td></tr>';
             });
     }
 
@@ -2791,6 +3273,248 @@
                 cargarTablaCiclosDistribucion();
             } else {
                 alert('Error al revertir: ' + data.error);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error al comunicarse con el servidor.');
+        });
+    }
+
+    // ==========================================
+    // CONTROL DE CIERRE DE PERIODOS CONTABLES
+    // ==========================================
+    function abrirModalCierrePeriodos() {
+        const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCierrePeriodos'));
+        modal.show();
+        alCambiarPeriodoCierre();
+    }
+
+    function alCambiarPeriodoCierre() {
+        const anio = parseInt(document.getElementById('cierre_anio').value || new Date().getFullYear());
+        const mes = parseInt(document.getElementById('cierre_mes').value || (new Date().getMonth() + 1));
+        document.getElementById('matrizAnioDisplay').textContent = anio;
+        cargarResumenPeriodo(anio, mes);
+        cargarMatrizAnualPeriodos(anio);
+    }
+
+    function cargarResumenPeriodo(anio, mes) {
+        const badge = document.getElementById('badgeEstadoPeriodoModal');
+        badge.className = 'status-pill status-borrador';
+        badge.textContent = 'Consultando...';
+
+        fetch(`/centros-costos/periodos/resumen/api/?anio=${anio}&mes=${mes}`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) {
+                    alert('Error al consultar periodo: ' + data.error);
+                    return;
+                }
+
+                // Egresos y Prorrateos
+                document.getElementById('cierre_total_egresos').textContent = `$${data.metricas.total_egresos.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                document.getElementById('cierre_cant_egresos').textContent = `${data.metricas.cant_egresos} comprobantes`;
+                document.getElementById('cierre_total_prorrateos').textContent = `$${data.metricas.total_prorrateado.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                document.getElementById('cierre_cant_prorrateos').textContent = `${data.metricas.cant_ejecuciones} ejecuciones`;
+
+                if (data.metricas.tiene_pendientes) {
+                    document.getElementById('cierre_estado_prorrateo').textContent = 'Pendiente';
+                    document.getElementById('cierre_estado_prorrateo').className = 'mb-0 fw-bold font-monospace text-warning';
+                    document.getElementById('cierre_detalle_prorrateo').textContent = `${data.metricas.emisores_pendientes.length} centro(s) con saldo`;
+                } else {
+                    document.getElementById('cierre_estado_prorrateo').textContent = 'Al día';
+                    document.getElementById('cierre_estado_prorrateo').className = 'mb-0 fw-bold font-monospace text-success';
+                    document.getElementById('cierre_detalle_prorrateo').textContent = 'Sin pendientes';
+                }
+
+                const bloqueCerrar = document.getElementById('bloqueAccionCerrar');
+                const bloqueReabrir = document.getElementById('bloqueAccionReabrir');
+
+                if (data.esta_cerrado) {
+                    badge.className = 'status-pill status-cancelada';
+                    badge.innerHTML = '<i class="bi bi-lock-fill me-1"></i> Periodo Cerrado';
+
+                    if (bloqueCerrar) bloqueCerrar.classList.add('d-none');
+                    if (bloqueReabrir) bloqueReabrir.classList.remove('d-none');
+                } else {
+                    badge.className = 'status-pill status-recibida';
+                    badge.innerHTML = '<i class="bi bi-unlock-fill me-1"></i> Periodo Abierto';
+
+                    if (bloqueCerrar) bloqueCerrar.classList.remove('d-none');
+                    if (bloqueReabrir) bloqueReabrir.classList.add('d-none');
+                }
+
+                // Renderizar Movimientos y Seguimiento (Columna Derecha)
+                renderizarHistorialSeguimientoCierre(data.historial || []);
+            })
+            .catch(err => {
+                console.error(err);
+            });
+    }
+
+    function renderizarHistorialSeguimientoCierre(items) {
+        const contenedor = document.getElementById('cierre_contenedor_historial');
+        const badgeCount = document.getElementById('cierre_historial_count');
+        if (!contenedor) return;
+
+        if (badgeCount) {
+            badgeCount.textContent = items.length;
+        }
+
+        if (!items || items.length === 0) {
+            contenedor.innerHTML = '<div class="text-center py-4 text-muted small fst-italic">Sin movimientos de cierre o prorrateos registrados en este mes.</div>';
+            return;
+        }
+
+        let html = '';
+        items.forEach(h => {
+            const colorClass = h.color || 'recibida';
+            const iconClass = h.icono || 'bi-circle-fill';
+
+            html += `
+                <div class="timeline-item">
+                    <div class="timeline-dot dot-${colorClass}">
+                        <i class="bi ${iconClass}"></i>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between gap-1 mb-1">
+                        <div class="d-flex align-items-center gap-2 text-truncate" style="min-width: 0;">
+                            <span class="status-pill status-${colorClass}">${h.tipo_label}</span>
+                            <span class="small fw-semibold text-dark text-truncate" style="font-size: 0.76rem;" title="${h.usuario}">
+                                <i class="bi bi-person-fill text-muted me-1"></i>${h.usuario}
+                            </span>
+                        </div>
+                        <span class="text-muted font-monospace flex-shrink-0" style="font-size: 0.68rem;">
+                            ${h.fecha}
+                        </span>
+                    </div>
+                    ${h.detalle ? `<div class="timeline-comment-box text-muted mt-1">${h.detalle}</div>` : ''}
+                </div>
+            `;
+        });
+        contenedor.innerHTML = html;
+    }
+
+    function cargarMatrizAnualPeriodos(anio) {
+        const tbody = document.getElementById('tbodyMatrizPeriodos');
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3 text-muted fst-italic">Cargando matriz anual...</td></tr>';
+
+        fetch(`/centros-costos/periodos/historial/api/?anio=${anio}`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3 text-danger">Error al cargar matriz.</td></tr>';
+                    return;
+                }
+
+                let html = '';
+                (data.periodos || []).forEach(p => {
+                    const badge = p.esta_cerrado
+                        ? '<span class="status-pill status-cancelada"><i class="bi bi-lock-fill me-1"></i>Cerrado</span>'
+                        : '<span class="status-pill status-recibida"><i class="bi bi-unlock-fill me-1"></i>Abierto</span>';
+
+                    let auditoriaTxt = '--';
+                    if (p.esta_cerrado && p.fecha_cierre) {
+                        auditoriaTxt = `<span class="text-dark fw-semibold">${p.fecha_cierre}</span> <small class="text-muted">(${p.usuario_cierre || '--'})</small>`;
+                    } else if (p.fecha_reapertura) {
+                        auditoriaTxt = `<small class="text-muted">Reabierto: ${p.fecha_reapertura} (${p.usuario_reapertura || '--'})</small>`;
+                    }
+
+                    const accionBtn = p.esta_cerrado
+                        ? `<button type="button" class="btn btn-sm btn-brand py-0 px-2 fw-semibold" style="font-size: 0.72rem;" onclick="seleccionarYAccionarPeriodo(${p.anio}, ${p.mes}, 'reabrir')"><i class="bi bi-unlock me-1"></i>Reabrir</button>`
+                        : `<button type="button" class="btn btn-sm btn-brand py-0 px-2 fw-semibold" style="font-size: 0.72rem;" onclick="seleccionarYAccionarPeriodo(${p.anio}, ${p.mes}, 'cerrar')"><i class="bi bi-lock me-1"></i>Cerrar</button>`;
+
+                    html += `
+                        <tr>
+                            <td class="ps-3 py-2 fw-semibold text-dark">${p.nombre} ${p.anio}</td>
+                            <td class="text-center py-2">${badge}</td>
+                            <td class="py-2 small">${auditoriaTxt}</td>
+                            <td class="text-end pe-3 py-2">${accionBtn}</td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = html;
+            })
+            .catch(err => {
+                console.error(err);
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3 text-danger">Error de comunicación.</td></tr>';
+            });
+    }
+
+    function seleccionarYAccionarPeriodo(anio, mes, accion) {
+        document.getElementById('cierre_anio').value = anio;
+        document.getElementById('cierre_mes').value = mes;
+        alCambiarPeriodoCierre();
+        if (accion === 'cerrar') {
+            document.getElementById('cierre_notas_input').focus();
+        } else {
+            document.getElementById('reapertura_motivo_input').focus();
+        }
+    }
+
+    function ejecutarCierrePeriodo() {
+        const anio = parseInt(document.getElementById('cierre_anio').value);
+        const mes = parseInt(document.getElementById('cierre_mes').value);
+        const notas = document.getElementById('cierre_notas_input').value.trim();
+
+        if (!confirm(`¿Confirma CERRAR el periodo ${mes}/${anio}?\n\nAl cerrarlo, quedarán BLOQUEADOS nuevos registros o modificaciones de compras, egresos y prorrateos en este mes.`)) {
+            return;
+        }
+
+        fetch('/centros-costos/periodos/cerrar/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ anio: anio, mes: mes, notas: notas })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                document.getElementById('cierre_notas_input').value = '';
+                alCambiarPeriodoCierre();
+            } else {
+                alert('No se pudo cerrar: ' + data.error);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error al comunicarse con el servidor.');
+        });
+    }
+
+    function ejecutarReaperturaPeriodo() {
+        const anio = parseInt(document.getElementById('cierre_anio').value);
+        const mes = parseInt(document.getElementById('cierre_mes').value);
+        const motivo = document.getElementById('reapertura_motivo_input').value.trim();
+
+        if (!motivo) {
+            alert('Por favor ingrese el motivo obligatorio de reapertura del periodo.');
+            document.getElementById('reapertura_motivo_input').focus();
+            return;
+        }
+
+        if (!confirm(`¿Confirma REABRIR el periodo ${mes}/${anio}?\n\nEl periodo quedará temporalmente abierto para correcciones contables.`)) {
+            return;
+        }
+
+        fetch('/centros-costos/periodos/reabrir/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ anio: anio, mes: mes, motivo: motivo })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                document.getElementById('reapertura_motivo_input').value = '';
+                alCambiarPeriodoCierre();
+            } else {
+                alert('No se pudo reabrir: ' + data.error);
             }
         })
         .catch(err => {

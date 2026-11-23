@@ -243,6 +243,141 @@ class CentroCosto(models.Model):
         dist_emitidas = self.calcular_distribuciones_emitidas_mes(anio, mes)
         return (egresos - ingresos) + dist_recibidas - dist_emitidas
 
+    def obtener_estado_prorrateo_mes(self, anio=None, mes=None):
+        """
+        Analiza detalladamente los comprobantes de egreso del periodo para este centro de costo.
+        Detecta comprobantes que ya fueron aplicados en ciclos anteriores y aísla los movimientos
+        posteriores no prorrateados para evitar inflar o duplicar los montos distribuidos.
+        """
+        now = timezone.now()
+        if not anio:
+            anio = now.year
+        if not mes:
+            mes = now.month
+
+        from tesoreria.models import Egreso
+        from django.db.models import Q
+
+        # 1. Obtener todos los comprobantes de egreso aplicados para este centro en el mes
+        egresos_qs = Egreso.objects.filter(
+            Q(centro_costo=self) | Q(pago_compra__orden_compra__centro_costo=self),
+            empresa=self.empresa,
+            estado='aplicado',
+            fecha__year=anio,
+            fecha__month=mes
+        ).select_related(
+            'caja_banco', 'proveedor', 'pago_compra__orden_compra__proveedor', 'clase_costo'
+        ).distinct().order_by('fecha', 'id')
+
+        # 2. Obtener ejecuciones aplicadas donde este centro fue emisor
+        ejecuciones_previas = self.ciclos_como_emisor.filter(
+            ejecuciones__anio=anio,
+            ejecuciones__mes=mes,
+            ejecuciones__estado='aplicado'
+        )
+        # Acceder a las instancias de EjecucionCicloDistribucion aplicadas
+        from centros_costos.models import EjecucionCicloDistribucion
+        ejecuciones_objs = EjecucionCicloDistribucion.objects.filter(
+            ciclo__centro_emisor=self,
+            empresa=self.empresa,
+            anio=anio,
+            mes=mes,
+            estado='aplicado'
+        ).select_related('ciclo', 'usuario').prefetch_related('comprobantes_egresos', 'detalles__centro_receptor').order_by('fecha_ejecucion')
+
+        ids_egresos_prorrateados = set()
+        monto_total_ya_prorrateado = Decimal('0.00')
+
+        for ejec in ejecuciones_objs:
+            monto_total_ya_prorrateado += Decimal(str(ejec.monto_total_distribuido or 0))
+            for eg in ejec.comprobantes_egresos.all():
+                ids_egresos_prorrateados.add(eg.id)
+
+        # 3. Clasificar cada comprobante: ya aplicado vs nuevo/posterior pendiente
+        comprobantes_prorrateados = []
+        comprobantes_pendientes = []
+        total_egresos_mes = Decimal('0.00')
+        total_pendientes = Decimal('0.00')
+
+        for eg in egresos_qs:
+            monto = Decimal(str(eg.monto_mxn or eg.monto or 0))
+            total_egresos_mes += monto
+
+            prov = '--'
+            if eg.proveedor:
+                prov = eg.proveedor.razon_social
+            elif eg.pago_compra and eg.pago_compra.orden_compra and eg.pago_compra.orden_compra.proveedor:
+                prov = eg.pago_compra.orden_compra.proveedor.razon_social
+
+            concepto_disp = eg.concepto or '--'
+            if eg.pago_compra and eg.pago_compra.orden_compra:
+                concepto_disp = f"OC-{eg.pago_compra.orden_compra.id:04d} - {prov}"
+
+            item = {
+                'id': eg.id,
+                'folio': f"EGR-{eg.id:04d}",
+                'fecha': eg.fecha.strftime('%d/%m/%Y'),
+                'fecha_iso': eg.fecha.isoformat(),
+                'concepto': concepto_disp,
+                'proveedor': prov,
+                'clase_costo': eg.clase_costo.codigo if eg.clase_costo else '--',
+                'monto': float(monto),
+            }
+
+            if eg.id in ids_egresos_prorrateados:
+                comprobantes_prorrateados.append(item)
+            else:
+                comprobantes_pendientes.append(item)
+                total_pendientes += monto
+
+        # Fallback de compatibilidad retroactiva si hubo ejecuciones previas sin relación M2M guardada
+        if not ids_egresos_prorrateados and monto_total_ya_prorrateado > 0:
+            acumulado_fallback = Decimal('0.00')
+            comp_prev = []
+            comp_pend = []
+            tot_pend = Decimal('0.00')
+            for c in comprobantes_pendientes:
+                m_dec = Decimal(str(c['monto']))
+                if acumulado_fallback + m_dec <= monto_total_ya_prorrateado:
+                    acumulado_fallback += m_dec
+                    comp_prev.append(c)
+                else:
+                    comp_pend.append(c)
+                    tot_pend += m_dec
+            comprobantes_prorrateados = comp_prev
+            comprobantes_pendientes = comp_pend
+            total_pendientes = max(Decimal('0.00'), total_egresos_mes - monto_total_ya_prorrateado)
+
+        # 4. Descontar ingresos acumulados del centro si existen
+        ingresos_emisor = self.calcular_ingresos_mes(anio, mes)
+        saldo_remanente_real = max(Decimal('0.00'), total_pendientes - ingresos_emisor)
+
+        # 5. Resumen estructurado de ejecuciones anteriores
+        historial_previo = []
+        for ej in ejecuciones_objs:
+            historial_previo.append({
+                'id': ej.id,
+                'ciclo_codigo': ej.ciclo.codigo,
+                'ciclo_nombre': ej.ciclo.nombre,
+                'fecha_ejecucion': ej.fecha_ejecucion.strftime('%d/%m/%Y %H:%M') if ej.fecha_ejecucion else '--',
+                'monto_distribuido': float(ej.monto_total_distribuido),
+                'usuario': (ej.usuario.get_full_name() or ej.usuario.username) if ej.usuario else '--',
+                'cant_comprobantes': ej.comprobantes_egresos.count()
+            })
+
+        return {
+            'total_egresos_mes': float(total_egresos_mes),
+            'monto_ya_prorrateado': float(monto_total_ya_prorrateado),
+            'total_pendiente': float(saldo_remanente_real),
+            'comprobantes_pendientes': comprobantes_pendientes,
+            'comprobantes_prorrateados': comprobantes_prorrateados,
+            'cant_pendientes': len(comprobantes_pendientes),
+            'cant_prorrateados': len(comprobantes_prorrateados),
+            'ejecuciones_previas': historial_previo,
+            'tiene_pendientes': saldo_remanente_real > 0,
+            'todos_prorrateados': (monto_total_ya_prorrateado > 0 and saldo_remanente_real == 0),
+        }
+
     def calcular_comprometido_mes(self, anio=None, mes=None, exclude_orden_id=None):
         """
         Calcula el monto comprometido en Órdenes de Compra vigentes
@@ -719,6 +854,12 @@ class EjecucionCicloDistribucion(models.Model):
     notas = models.TextField(blank=True, null=True, verbose_name="Notas / Observaciones")
 
     # Auditoría de reversión
+    comprobantes_egresos = models.ManyToManyField(
+        'tesoreria.Egreso',
+        blank=True,
+        related_name='ejecuciones_distribucion',
+        verbose_name="Comprobantes de Egreso Prorrateados"
+    )
     fecha_reversion = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de Reversión")
     usuario_reversion = models.ForeignKey(
         User,
@@ -775,5 +916,101 @@ class DetalleEjecucionCiclo(models.Model):
 
     def __str__(self):
         return f"{self.ejecucion.ciclo.codigo} -> {self.centro_receptor.codigo}: ${self.monto_cargado}"
+
+
+class PeriodoContable(models.Model):
+    """
+    Control de Cierre de Periodos Contables / Mensuales.
+    Impide que se sigan imputando o modificando egresos, órdenes de compra
+    o prorrateos en meses que han sido dictaminados y cerrados por finanzas.
+    """
+    ESTADO_CHOICES = [
+        ('abierto', 'Abierto'),
+        ('cerrado', 'Cerrado'),
+    ]
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name='periodos_contables',
+        verbose_name="Empresa"
+    )
+    anio = models.PositiveIntegerField(verbose_name="Año del Periodo")
+    mes = models.PositiveIntegerField(verbose_name="Mes del Periodo (1-12)")
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default='abierto',
+        verbose_name="Estado del Periodo"
+    )
+
+    # Auditoría de Cierre
+    fecha_cierre = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de Cierre")
+    usuario_cierre = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='periodos_cerrados',
+        verbose_name="Usuario que Cerró"
+    )
+    notas_cierre = models.TextField(blank=True, null=True, verbose_name="Notas del Cierre")
+
+    # Auditoría de Reapertura
+    fecha_reapertura = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de Reapertura")
+    usuario_reapertura = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='periodos_reabiertos',
+        verbose_name="Usuario que Reabrió"
+    )
+    motivo_reapertura = models.TextField(blank=True, null=True, verbose_name="Motivo de Reapertura")
+
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Periodo Contable"
+        verbose_name_plural = "Periodos Contables"
+        unique_together = ('empresa', 'anio', 'mes')
+        ordering = ['-anio', '-mes']
+
+    def __str__(self):
+        return f"{self.mes:02d}/{self.anio} ({self.get_estado_display()}) - {self.empresa.nombre}"
+
+    @classmethod
+    def esta_cerrado(cls, empresa, anio, mes):
+        """Devuelve True si el periodo está cerrado para esa empresa."""
+        if not empresa or not anio or not mes:
+            return False
+        return cls.objects.filter(
+            empresa=empresa,
+            anio=int(anio),
+            mes=int(mes),
+            estado='cerrado'
+        ).exists()
+
+    @classmethod
+    def validar_fecha_no_cerrada(cls, empresa, fecha, raise_exception=False):
+        """
+        Valida que una fecha (date o datetime) no pertenezca a un periodo cerrado.
+        Si está cerrado y raise_exception=True, lanza ValidationError.
+        Devuelve (es_valido, mensaje_error).
+        """
+        if not empresa or not fecha:
+            return True, None
+        anio = fecha.year
+        mes = fecha.month
+        cerrado = cls.esta_cerrado(empresa, anio, mes)
+        if cerrado:
+            msg = f"El periodo {mes:02d}/{anio} se encuentra CERRADO para operaciones financieras y contables. No se permiten nuevos registros ni cancelaciones en este periodo."
+            if raise_exception:
+                from django.core.exceptions import ValidationError
+                raise ValidationError(msg)
+            return False, msg
+        return True, None
+
 
 

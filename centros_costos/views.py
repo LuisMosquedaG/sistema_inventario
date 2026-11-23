@@ -1437,7 +1437,11 @@ def guardar_ciclo_distribucion_ajax(request):
 @login_required(login_url='/login/')
 @require_centros_costos_permission('centros_costos', 'eliminar', json_response=True)
 def eliminar_ciclo_distribucion_ajax(request, ciclo_id):
-    """Elimina un ciclo de distribución si no tiene ejecuciones históricas aplicadas."""
+    """
+    Elimina un ciclo de distribución.
+    Si tiene ejecuciones de prorrateo aplicadas, las revierte automáticamente
+    deshaciendo los prorrateos aplicados en los centros de costo antes de eliminar el ciclo.
+    """
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
 
@@ -1447,18 +1451,28 @@ def eliminar_ciclo_distribucion_ajax(request, ciclo_id):
 
     ciclo = get_object_or_404(CicloDistribucion, id=ciclo_id, empresa=empresa)
 
-    if ciclo.ejecuciones.filter(estado='aplicado').exists():
-        return JsonResponse({
-            'success': False,
-            'error': 'No se puede eliminar este ciclo porque tiene ejecuciones activas aplicadas en el historial. Primero revierta las ejecuciones o desactive el ciclo.'
-        }, status=400)
+    # Revertir automáticamente cualquier ejecución aplicada
+    ejecuciones_aplicadas = ciclo.ejecuciones.filter(estado='aplicado')
+    count_revertidas = 0
+    now = timezone.now()
+    for ej in ejecuciones_aplicadas:
+        ej.estado = 'revertido'
+        ej.fecha_reversion = now
+        ej.usuario_reversion = request.user
+        ej.motivo_reversion = f'Reversión automática por eliminación del ciclo {ciclo.codigo}'
+        ej.save(update_fields=['estado', 'fecha_reversion', 'usuario_reversion', 'motivo_reversion'])
+        count_revertidas += 1
 
     codigo = ciclo.codigo
     ciclo.delete()
 
+    msg = f'Ciclo de distribución "{codigo}" eliminado correctamente.'
+    if count_revertidas > 0:
+        msg += f' Se deshicieron {count_revertidas} prorrateo(s) previamente aplicado(s), restaurando los saldos de los centros.'
+
     return JsonResponse({
         'success': True,
-        'message': f'Ciclo de distribución {codigo} eliminado correctamente.'
+        'message': msg
     })
 
 
@@ -1466,8 +1480,9 @@ def eliminar_ciclo_distribucion_ajax(request, ciclo_id):
 @require_centros_costos_permission('centros_costos', 'ver', json_response=True)
 def simular_ejecucion_ciclo_ajax(request, ciclo_id):
     """
-    Calcula una vista previa del prorrateo para un periodo (año y mes) dado:
-    determina el gasto neto acumulado en el centro emisor y calcula cuánto recibiría cada receptor.
+    Calcula una vista previa del prorrateo para un periodo (año y mes) dado.
+    Detecta de forma inteligente los comprobantes aplicados en ciclos anteriores y determina
+    únicamente el saldo y comprobantes pendientes (movimientos posteriores) para evitar duplicar montos.
     """
     empresa = get_empresa_actual(request)
     if not empresa:
@@ -1479,17 +1494,20 @@ def simular_ejecucion_ciclo_ajax(request, ciclo_id):
     anio = int(request.GET.get('anio', now.year))
     mes = int(request.GET.get('mes', now.month))
 
-    # Verificar si ya existe una ejecución aplicada en ese periodo
-    ya_ejecutado = ciclo.ejecuciones.filter(anio=anio, mes=mes, estado='aplicado').first()
-
-    # Monto base: Gasto directo neto del emisor en el mes (Egresos - Ingresos)
     emisor = ciclo.centro_emisor
-    egresos_emisor = emisor.calcular_egresos_mes(anio, mes)
-    ingresos_emisor = emisor.calcular_ingresos_mes(anio, mes)
-    # Gasto real acumulado del emisor
-    gasto_base_emisor = max(Decimal('0.00'), egresos_emisor - ingresos_emisor)
+    # Analizar comprobantes del emisor en el periodo
+    analisis = emisor.obtener_estado_prorrateo_mes(anio, mes)
 
-    # Permitir monto manual si el usuario lo especifica o usar el gasto base
+    # Verificar si este ciclo específico ya tiene ejecuciones aplicadas
+    ejecucion_este_ciclo = ciclo.ejecuciones.filter(anio=anio, mes=mes, estado='aplicado').first()
+
+    from centros_costos.models import PeriodoContable
+    periodo_cerrado = PeriodoContable.esta_cerrado(empresa, anio, mes)
+
+    # El monto base sugerido es exclusivamente el saldo de movimientos posteriores no prorrateados
+    gasto_base_emisor = Decimal(str(analisis['total_pendiente']))
+
+    # Permitir monto manual si el usuario lo especifica o usar el saldo posterior no prorrateado
     monto_override = request.GET.get('monto')
     if monto_override is not None and monto_override != '':
         try:
@@ -1530,12 +1548,22 @@ def simular_ejecucion_ciclo_ajax(request, ciclo_id):
             'clase_costo_secundaria': ciclo.clase_costo_secundaria.codigo if ciclo.clase_costo_secundaria else '--'
         },
         'periodo': {'anio': anio, 'mes': mes},
-        'ya_ejecutado': bool(ya_ejecutado),
-        'ejecucion_previa_id': ya_ejecutado.id if ya_ejecutado else None,
+        'ya_ejecutado': bool(ejecucion_este_ciclo),
+        'ejecucion_previa_id': ejecucion_este_ciclo.id if ejecucion_este_ciclo else None,
+        'gasto_total_mes': analisis['total_egresos_mes'],
+        'monto_ya_prorrateado': analisis['monto_ya_prorrateado'],
         'gasto_base_emisor': float(gasto_base_emisor),
         'monto_a_distribuir': float(monto_distribuir),
         'total_prorrateado': float(total_calculado),
-        'detalles': segmentos_simulacion
+        'detalles': segmentos_simulacion,
+        'comprobantes_pendientes': analisis['comprobantes_pendientes'],
+        'comprobantes_prorrateados': analisis['comprobantes_prorrateados'],
+        'cant_pendientes': analisis['cant_pendientes'],
+        'cant_prorrateados': analisis['cant_prorrateados'],
+        'ejecuciones_previas': analisis['ejecuciones_previas'],
+        'tiene_pendientes': analisis['tiene_pendientes'],
+        'todos_prorrateados': analisis['todos_prorrateados'],
+        'periodo_cerrado': bool(periodo_cerrado)
     })
 
 
@@ -1544,7 +1572,8 @@ def simular_ejecucion_ciclo_ajax(request, ciclo_id):
 def ejecutar_ciclo_distribucion_ajax(request, ciclo_id):
     """
     Aplica formalmente el prorrateo del ciclo en el periodo seleccionado.
-    Genera el registro histórico EjecucionCicloDistribucion y los DetalleEjecucionCiclo.
+    Detecta los comprobantes aplicados en ciclos previos e incluye exclusivamente
+    los comprobantes y movimientos posteriores para evitar duplicar montos.
     """
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
@@ -1554,6 +1583,7 @@ def ejecutar_ciclo_distribucion_ajax(request, ciclo_id):
         return JsonResponse({'success': False, 'error': 'Empresa no encontrada'}, status=400)
 
     ciclo = get_object_or_404(CicloDistribucion, id=ciclo_id, empresa=empresa)
+    emisor = ciclo.centro_emisor
 
     try:
         data = json.loads(request.body)
@@ -1562,26 +1592,34 @@ def ejecutar_ciclo_distribucion_ajax(request, ciclo_id):
         monto_distribuir_in = data.get('monto')
         notas = (data.get('notas') or '').strip()
 
-        # Validar si ya hay una ejecución aplicada para este ciclo y periodo
-        existente = ciclo.ejecuciones.filter(anio=anio, mes=mes, estado='aplicado').first()
-        if existente:
+        # Validar si el periodo contable se encuentra cerrado
+        from centros_costos.models import PeriodoContable
+        if PeriodoContable.esta_cerrado(empresa, anio, mes):
             return JsonResponse({
                 'success': False,
-                'error': f'El ciclo "{ciclo.codigo}" ya fue ejecutado para el periodo {mes:02d}/{anio}. Si desea re-ejecutarlo, primero revierta la ejecución anterior.'
+                'error': f'El periodo {mes:02d}/{anio} se encuentra CERRADO. No se pueden aplicar prorrateos mientras permanezca cerrado. Si requiere realizar ajustes, primero reabra el periodo.'
             }, status=400)
 
-        emisor = ciclo.centro_emisor
+        # Analizar comprobantes del centro emisor en el mes
+        analisis = emisor.obtener_estado_prorrateo_mes(anio, mes)
+
+        # Si ya se prorrateó todo y no hay nuevos comprobantes pendientes
+        if analisis['todos_prorrateados'] or (analisis['total_pendiente'] <= 0 and not monto_distribuir_in):
+            return JsonResponse({
+                'success': False,
+                'error': f'Todos los comprobantes del centro emisor [{emisor.codigo}] para el periodo {mes:02d}/{anio} ya fueron aplicados en ciclos previos (${analisis["monto_ya_prorrateado"]:,.2f} MXN). No existen movimientos posteriores pendientes para prorratear.'
+            }, status=400)
+
+        # Determinar monto a prorratear (usa el saldo pendiente posterior si no se fuerza manualmente)
         if monto_distribuir_in is not None and monto_distribuir_in != '':
             monto_distribuir = Decimal(str(monto_distribuir_in))
         else:
-            egresos_emisor = emisor.calcular_egresos_mes(anio, mes)
-            ingresos_emisor = emisor.calcular_ingresos_mes(anio, mes)
-            monto_distribuir = max(Decimal('0.00'), egresos_emisor - ingresos_emisor)
+            monto_distribuir = Decimal(str(analisis['total_pendiente']))
 
         if monto_distribuir <= 0:
             return JsonResponse({
                 'success': False,
-                'error': 'El monto a distribuir debe ser mayor a cero. El centro emisor no cuenta con gastos acumulados en este periodo.'
+                'error': 'El monto a distribuir debe ser mayor a cero. No hay saldo pendiente de prorratear para este periodo.'
             }, status=400)
 
         # Crear ejecución
@@ -1591,11 +1629,18 @@ def ejecutar_ciclo_distribucion_ajax(request, ciclo_id):
             anio=anio,
             mes=mes,
             usuario=request.user,
-            monto_base_emisor=monto_distribuir,
+            monto_base_emisor=Decimal(str(analisis['total_egresos_mes'])),
             monto_total_distribuido=monto_distribuir,
             estado='aplicado',
             notas=notas
         )
+
+        # Asociar los comprobantes posteriores que se absorben en este ciclo
+        from tesoreria.models import Egreso
+        ids_pendientes = [c['id'] for c in analisis['comprobantes_pendientes']]
+        if ids_pendientes:
+            egresos_a_vincular = Egreso.objects.filter(id__in=ids_pendientes)
+            ejecucion.comprobantes_egresos.set(egresos_a_vincular)
 
         total_asignado = Decimal('0.00')
         segmentos = list(ciclo.segmentos.filter(activo=True))
@@ -1616,9 +1661,13 @@ def ejecutar_ciclo_distribucion_ajax(request, ciclo_id):
         ejecucion.monto_total_distribuido = total_asignado
         ejecucion.save(update_fields=['monto_total_distribuido'])
 
+        cant_comprobantes = len(ids_pendientes)
+        es_adicional = analisis['monto_ya_prorrateado'] > 0
+        tipo_ejec_txt = "complementario (movimientos posteriores)" if es_adicional else "de periodo"
+
         return JsonResponse({
             'success': True,
-            'message': f'Prorrateo del ciclo "{ciclo.codigo}" ejecutado exitosamente por ${total_asignado:,.2f} MXN para el periodo {mes:02d}/{anio}.',
+            'message': f'Prorrateo {tipo_ejec_txt} del ciclo "{ciclo.codigo}" ejecutado exitosamente por ${total_asignado:,.2f} MXN ({cant_comprobantes} comprobantes) para el periodo {mes:02d}/{anio}.',
             'ejecucion_id': ejecucion.id
         })
 
@@ -1640,6 +1689,13 @@ def revertir_ejecucion_ciclo_ajax(request, ejecucion_id):
         return JsonResponse({'success': False, 'error': 'Empresa no encontrada'}, status=400)
 
     ejecucion = get_object_or_404(EjecucionCicloDistribucion, id=ejecucion_id, empresa=empresa)
+
+    from centros_costos.models import PeriodoContable
+    if PeriodoContable.esta_cerrado(empresa, ejecucion.anio, ejecucion.mes):
+        return JsonResponse({
+            'success': False,
+            'error': f'El periodo {ejecucion.mes:02d}/{ejecucion.anio} se encuentra CERRADO. No se pueden revertir prorrateos en periodos contables cerrados.'
+        }, status=400)
 
     if ejecucion.estado == 'revertido':
         return JsonResponse({'success': False, 'error': 'Esta ejecución ya se encuentra revertida.'}, status=400)
@@ -1709,5 +1765,287 @@ def historial_ejecuciones_distribucion_ajax(request):
         })
 
     return JsonResponse({'success': True, 'historial': resultado})
+
+
+# ===================================================================================
+# CIERRE DE PERIODOS CONTABLES Y MENSUALES
+# ===================================================================================
+
+@login_required(login_url='/login/')
+@require_centros_costos_permission('centros_costos', 'ver', json_response=True)
+def api_resumen_periodo_contable(request):
+    """
+    Devuelve las métricas consolidadas y el estado de cierre de un periodo (año y mes) específico.
+    """
+    empresa = get_empresa_actual(request)
+    if not empresa:
+        return JsonResponse({'success': False, 'error': 'Empresa no encontrada'}, status=400)
+
+    now = timezone.now()
+    anio = int(request.GET.get('anio', now.year))
+    mes = int(request.GET.get('mes', now.month))
+
+    from centros_costos.models import PeriodoContable, EjecucionCicloDistribucion, CentroCosto
+    from tesoreria.models import Egreso
+
+    periodo_obj = PeriodoContable.objects.filter(empresa=empresa, anio=anio, mes=mes).select_related(
+        'usuario_cierre', 'usuario_reapertura'
+    ).first()
+
+    esta_cerrado = periodo_obj.estado == 'cerrado' if periodo_obj else False
+
+    # Métricas del mes
+    egresos_qs = Egreso.objects.filter(
+        empresa=empresa,
+        estado='aplicado',
+        fecha__year=anio,
+        fecha__month=mes
+    )
+    total_egresos = sum([Decimal(str(e.monto_mxn or e.monto or 0)) for e in egresos_qs], Decimal('0.00'))
+
+    ejecuciones_qs = EjecucionCicloDistribucion.objects.filter(
+        empresa=empresa,
+        anio=anio,
+        mes=mes,
+        estado='aplicado'
+    )
+    total_prorrateado = sum([Decimal(str(ej.monto_total_distribuido or 0)) for ej in ejecuciones_qs], Decimal('0.00'))
+
+    # Centros emisores con remanente sin prorratear
+    emisores_pendientes = []
+    centros_emisores = CentroCosto.objects.filter(empresa=empresa, activo=True, ciclos_como_emisor__isnull=False).distinct()
+    for emisor in centros_emisores:
+        st = emisor.obtener_estado_prorrateo_mes(anio, mes)
+        if st['tiene_pendientes']:
+            emisores_pendientes.append({
+                'codigo': emisor.codigo,
+                'nombre': emisor.nombre,
+                'pendiente': st['total_pendiente'],
+                'cant_comprobantes': st['cant_pendientes']
+            })
+
+    info_auditoria = None
+    if periodo_obj:
+        info_auditoria = {
+            'estado': periodo_obj.estado,
+            'estado_label': periodo_obj.get_estado_display(),
+            'fecha_cierre': periodo_obj.fecha_cierre.strftime('%d/%m/%Y %H:%M') if periodo_obj.fecha_cierre else None,
+            'usuario_cierre': (periodo_obj.usuario_cierre.get_full_name() or periodo_obj.usuario_cierre.username) if periodo_obj.usuario_cierre else None,
+            'notas_cierre': periodo_obj.notas_cierre or '',
+            'fecha_reapertura': periodo_obj.fecha_reapertura.strftime('%d/%m/%Y %H:%M') if periodo_obj.fecha_reapertura else None,
+            'usuario_reapertura': (periodo_obj.usuario_reapertura.get_full_name() or periodo_obj.usuario_reapertura.username) if periodo_obj.usuario_reapertura else None,
+            'motivo_reapertura': periodo_obj.motivo_reapertura or '',
+        }
+
+    # Línea de tiempo de movimientos y seguimiento del periodo
+    historial_seguimiento = []
+    if periodo_obj and periodo_obj.fecha_cierre and periodo_obj.estado == 'cerrado':
+        historial_seguimiento.append({
+            'tipo': 'cierre',
+            'tipo_label': 'Periodo Cerrado',
+            'icono': 'bi-lock-fill',
+            'color': 'cancelada',
+            'fecha': periodo_obj.fecha_cierre.strftime('%d/%m/%Y %H:%M'),
+            'fecha_raw': periodo_obj.fecha_cierre,
+            'usuario': (periodo_obj.usuario_cierre.get_full_name() or periodo_obj.usuario_cierre.username) if periodo_obj.usuario_cierre else 'Sistema',
+            'detalle': periodo_obj.notas_cierre or 'Cierre formal de periodo mensual.'
+        })
+
+    if periodo_obj and periodo_obj.fecha_reapertura:
+        historial_seguimiento.append({
+            'tipo': 'reapertura',
+            'tipo_label': 'Periodo Reabierto',
+            'icono': 'bi-unlock-fill',
+            'color': 'parcial',
+            'fecha': periodo_obj.fecha_reapertura.strftime('%d/%m/%Y %H:%M'),
+            'fecha_raw': periodo_obj.fecha_reapertura,
+            'usuario': (periodo_obj.usuario_reapertura.get_full_name() or periodo_obj.usuario_reapertura.username) if periodo_obj.usuario_reapertura else 'Sistema',
+            'detalle': periodo_obj.motivo_reapertura or 'Reapertura para ajustes contables.'
+        })
+
+    ejecuciones_todas = EjecucionCicloDistribucion.objects.filter(
+        empresa=empresa,
+        anio=anio,
+        mes=mes
+    ).select_related('ciclo', 'usuario', 'usuario_reversion')
+
+    for ej in ejecuciones_todas:
+        if ej.fecha_ejecucion:
+            historial_seguimiento.append({
+                'tipo': 'prorrateo_ejecutado',
+                'tipo_label': f'Prorrateo {ej.ciclo.codigo}',
+                'icono': 'bi-play-circle-fill',
+                'color': 'recibida',
+                'fecha': ej.fecha_ejecucion.strftime('%d/%m/%Y %H:%M'),
+                'fecha_raw': ej.fecha_ejecucion,
+                'usuario': (ej.usuario.get_full_name() or ej.usuario.username) if ej.usuario else '--',
+                'detalle': f'Prorrateo de ${ej.monto_total_distribuido:,.2f} MXN aplicado a centros receptores.'
+            })
+        if ej.estado == 'revertido' and ej.fecha_reversion:
+            historial_seguimiento.append({
+                'tipo': 'prorrateo_revertido',
+                'tipo_label': f'Reversión {ej.ciclo.codigo}',
+                'icono': 'bi-arrow-counterclockwise',
+                'color': 'cancelada',
+                'fecha': ej.fecha_reversion.strftime('%d/%m/%Y %H:%M'),
+                'fecha_raw': ej.fecha_reversion,
+                'usuario': (ej.usuario_reversion.get_full_name() or ej.usuario_reversion.username) if ej.usuario_reversion else '--',
+                'detalle': f'Reversión de prorrateo: {ej.motivo_reversion or "Sin motivo especificado."}'
+            })
+
+    historial_seguimiento.sort(key=lambda x: x['fecha_raw'], reverse=True)
+    for h in historial_seguimiento:
+        h.pop('fecha_raw', None)
+
+    return JsonResponse({
+        'success': True,
+        'periodo': {'anio': anio, 'mes': mes},
+        'esta_cerrado': esta_cerrado,
+        'info_auditoria': info_auditoria,
+        'historial': historial_seguimiento,
+        'metricas': {
+            'total_egresos': float(total_egresos),
+            'total_prorrateado': float(total_prorrateado),
+            'cant_egresos': egresos_qs.count(),
+            'cant_ejecuciones': ejecuciones_qs.count(),
+            'emisores_pendientes': emisores_pendientes,
+            'tiene_pendientes': len(emisores_pendientes) > 0
+        }
+    })
+
+
+@login_required(login_url='/login/')
+def api_cerrar_periodo_contable(request):
+    """
+    Cierra formalmente un periodo contable/mensual para la empresa.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    empresa = get_empresa_actual(request)
+    if not empresa:
+        return JsonResponse({'success': False, 'error': 'Empresa no encontrada'}, status=400)
+
+    from preferencias.permissions import is_admin_or_superuser, user_has_centros_costos_permission
+    puede_cerrar = is_admin_or_superuser(request.user) or user_has_centros_costos_permission(request, 'centros_costos', 'cerrar_periodo')
+    if not puede_cerrar:
+        return JsonResponse({'success': False, 'error': 'No cuenta con permisos para cerrar periodos contables.'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+        anio = int(data.get('anio'))
+        mes = int(data.get('mes'))
+        notas = (data.get('notas') or '').strip()
+
+        from centros_costos.models import PeriodoContable
+        periodo_obj, created = PeriodoContable.objects.get_or_create(
+            empresa=empresa,
+            anio=anio,
+            mes=mes,
+            defaults={'estado': 'abierto'}
+        )
+
+        if periodo_obj.estado == 'cerrado':
+            return JsonResponse({'success': False, 'error': f'El periodo {mes:02d}/{anio} ya se encuentra cerrado.'}, status=400)
+
+        periodo_obj.estado = 'cerrado'
+        periodo_obj.fecha_cierre = timezone.now()
+        periodo_obj.usuario_cierre = request.user
+        periodo_obj.notas_cierre = notas
+        periodo_obj.save(update_fields=['estado', 'fecha_cierre', 'usuario_cierre', 'notas_cierre'])
+
+        return JsonResponse({
+            'success': True,
+            'message': f'El periodo {mes:02d}/{anio} ha sido CERRADO exitosamente. Quedan bloqueadas las imputaciones y cancelaciones en este mes.'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Error al cerrar periodo: {str(e)}'}, status=400)
+
+
+@login_required(login_url='/login/')
+def api_reabrir_periodo_contable(request):
+    """
+    Reabre un periodo contable previamente cerrado, requiriendo motivo de reapertura.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    empresa = get_empresa_actual(request)
+    if not empresa:
+        return JsonResponse({'success': False, 'error': 'Empresa no encontrada'}, status=400)
+
+    from preferencias.permissions import is_admin_or_superuser, user_has_centros_costos_permission
+    puede_reabrir = is_admin_or_superuser(request.user) or user_has_centros_costos_permission(request, 'centros_costos', 'cerrar_periodo')
+    if not puede_reabrir:
+        return JsonResponse({'success': False, 'error': 'No cuenta con permisos para reabrir periodos contables.'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+        anio = int(data.get('anio'))
+        mes = int(data.get('mes'))
+        motivo = (data.get('motivo') or '').strip()
+
+        if not motivo:
+            return JsonResponse({'success': False, 'error': 'Debe ingresar el motivo de reapertura del periodo.'}, status=400)
+
+        from centros_costos.models import PeriodoContable
+        periodo_obj = PeriodoContable.objects.filter(empresa=empresa, anio=anio, mes=mes).first()
+
+        if not periodo_obj or periodo_obj.estado == 'abierto':
+            return JsonResponse({'success': False, 'error': f'El periodo {mes:02d}/{anio} ya se encuentra abierto.'}, status=400)
+
+        periodo_obj.estado = 'abierto'
+        periodo_obj.fecha_reapertura = timezone.now()
+        periodo_obj.usuario_reapertura = request.user
+        periodo_obj.motivo_reapertura = motivo
+        periodo_obj.save(update_fields=['estado', 'fecha_reapertura', 'usuario_reapertura', 'motivo_reapertura'])
+
+        return JsonResponse({
+            'success': True,
+            'message': f'El periodo {mes:02d}/{anio} ha sido REABIERTO exitosamente.'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Error al reabrir periodo: {str(e)}'}, status=400)
+
+
+@login_required(login_url='/login/')
+@require_centros_costos_permission('centros_costos', 'ver', json_response=True)
+def api_historial_periodos_contables(request):
+    """
+    Devuelve la matriz de estado de los 12 meses para el año consultado.
+    """
+    empresa = get_empresa_actual(request)
+    if not empresa:
+        return JsonResponse({'success': False, 'error': 'Empresa no encontrada'}, status=400)
+
+    now = timezone.now()
+    anio = int(request.GET.get('anio', now.year))
+
+    from centros_costos.models import PeriodoContable
+    periodos = {p.mes: p for p in PeriodoContable.objects.filter(empresa=empresa, anio=anio).select_related('usuario_cierre', 'usuario_reapertura')}
+
+    nombres_meses = [
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ]
+
+    matriz = []
+    for mes_idx in range(1, 13):
+        p = periodos.get(mes_idx)
+        esta_cerrado = p.estado == 'cerrado' if p else False
+        matriz.append({
+            'mes': mes_idx,
+            'nombre': nombres_meses[mes_idx - 1],
+            'anio': anio,
+            'estado': 'cerrado' if esta_cerrado else 'abierto',
+            'esta_cerrado': esta_cerrado,
+            'fecha_cierre': p.fecha_cierre.strftime('%d/%m/%Y %H:%M') if p and p.fecha_cierre else None,
+            'usuario_cierre': (p.usuario_cierre.get_full_name() or p.usuario_cierre.username) if p and p.usuario_cierre else None,
+            'notas_cierre': p.notas_cierre if p else '',
+            'fecha_reapertura': p.fecha_reapertura.strftime('%d/%m/%Y %H:%M') if p and p.fecha_reapertura else None,
+            'usuario_reapertura': (p.usuario_reapertura.get_full_name() or p.usuario_reapertura.username) if p and p.usuario_reapertura else None,
+        })
+
+    return JsonResponse({'success': True, 'anio': anio, 'periodos': matriz})
 
 

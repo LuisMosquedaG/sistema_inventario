@@ -30,4 +30,10 @@ urlpatterns = [
     path('distribucion/ciclos/<int:ciclo_id>/ejecutar/', views.ejecutar_ciclo_distribucion_ajax, name='ejecutar_ciclo_distribucion_ajax'),
     path('distribucion/ejecuciones/<int:ejecucion_id>/revertir/', views.revertir_ejecucion_ciclo_ajax, name='revertir_ejecucion_ciclo_ajax'),
     path('distribucion/historial/api/', views.historial_ejecuciones_distribucion_ajax, name='historial_distribucion_api'),
+
+    # Cierre de Periodos Contables / Mensuales (SAP Period-End Closing)
+    path('periodos/resumen/api/', views.api_resumen_periodo_contable, name='periodos_resumen_api'),
+    path('periodos/cerrar/', views.api_cerrar_periodo_contable, name='cerrar_periodo_api'),
+    path('periodos/reabrir/', views.api_reabrir_periodo_contable, name='reabrir_periodo_api'),
+    path('periodos/historial/api/', views.api_historial_periodos_contables, name='periodos_historial_api'),
 ]
