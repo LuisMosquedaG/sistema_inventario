@@ -486,7 +486,10 @@ def api_movimientos_centro_costo(request, centro_id):
         empresa=empresa,
         fecha__year=anio,
         fecha__month=mes
-    ).select_related('almacen', 'orden_compra', 'orden_compra__proveedor', 'orden_compra__centro_costo').prefetch_related('detalles__producto').order_by('-fecha')
+    ).select_related(
+        'almacen', 'orden_compra', 'orden_compra__proveedor', 'orden_compra__centro_costo',
+        'moneda', 'orden_compra__moneda'
+    ).prefetch_related('detalles__producto').order_by('-fecha')
 
     lista_recepciones = []
     total_recepciones = Decimal('0.00')
@@ -494,9 +497,16 @@ def api_movimientos_centro_costo(request, centro_id):
         oc_cc = (rec.orden_compra.centro_costo if rec.orden_compra else None) or cc
         cc_codigo = oc_cc.codigo if oc_cc else '--'
         cc_nombre = oc_cc.nombre if oc_cc else '--'
+        rec_tc = rec.tipo_cambio or (rec.orden_compra.tipo_cambio if rec.orden_compra else Decimal('1.0000')) or Decimal('1.0000')
+        rec_moneda = (rec.moneda.siglas if rec.moneda else (rec.orden_compra.moneda.siglas if rec.orden_compra and rec.orden_compra.moneda else 'MXN'))
+
         for det in rec.detalles.all():
-            costo_total = Decimal(str(det.total or det.subtotal or 0))
-            total_recepciones += costo_total
+            costo_total_orig = Decimal(str(det.total or det.subtotal or 0))
+            costo_unitario_orig = Decimal(str(det.costo_unitario or 0))
+            costo_total_mxn = costo_total_orig * rec_tc
+            costo_unitario_mxn = costo_unitario_orig * rec_tc
+            total_recepciones += costo_total_mxn
+
             lista_recepciones.append({
                 'tipo': 'recepcion_compra',
                 'movimiento': 'entrada',
@@ -510,8 +520,12 @@ def api_movimientos_centro_costo(request, centro_id):
                 'producto': det.producto.nombre,
                 'cantidad': float(det.cantidad_recibida),
                 'unidad': det.unidad_compra or 'pza',
-                'costo_unitario': float(det.costo_unitario),
-                'subtotal': float(costo_total),
+                'costo_unitario': float(costo_unitario_mxn),
+                'subtotal': float(costo_total_mxn),
+                'costo_unitario_origen': float(costo_unitario_orig),
+                'subtotal_origen': float(costo_total_orig),
+                'moneda': rec_moneda,
+                'tipo_cambio': float(rec_tc),
                 'estado': rec.get_estado_display() if hasattr(rec, 'get_estado_display') else rec.estado,
                 'centro_costo': cc_codigo,
                 'centro_costo_nombre': cc_nombre
@@ -613,7 +627,7 @@ def api_movimientos_centro_costo(request, centro_id):
         fecha__month=mes
     ).select_related(
         'caja_banco', 'proveedor', 'pago_compra__orden_compra__proveedor',
-        'centro_costo', 'pago_compra__orden_compra__centro_costo', 'clase_costo'
+        'centro_costo', 'pago_compra__orden_compra__centro_costo', 'clase_costo', 'moneda'
     ).prefetch_related(
         'pago_compra__orden_compra__detalles__clase_costo',
         'pago_compra__orden_compra__detalles__producto__clase_costo_predeterminada'
@@ -622,8 +636,8 @@ def api_movimientos_centro_costo(request, centro_id):
     lista_egresos = []
     total_egresos = Decimal('0.00')
     for eg in egresos:
-        m = Decimal(str(eg.monto_mxn or eg.monto or 0))
-        total_egresos += m
+        m_mxn = eg.monto_mxn if (eg.monto_mxn and eg.monto_mxn > 0) else (eg.monto * (eg.tipo_cambio or Decimal('1.0000')))
+        total_egresos += m_mxn
 
         prov_nombre = '--'
         if eg.proveedor:
@@ -660,8 +674,11 @@ def api_movimientos_centro_costo(request, centro_id):
             'fecha': eg.fecha.strftime('%d/%m/%Y'),
             'concepto': concepto_display,
             'clase_costo': clase_desc,
-            'monto': float(m),
-            'monto_mxn': float(m),
+            'monto': float(m_mxn),
+            'monto_mxn': float(m_mxn),
+            'monto_origen': float(eg.monto),
+            'moneda': eg.moneda.siglas if eg.moneda else 'MXN',
+            'tipo_cambio': float(eg.tipo_cambio or 1.0),
             'caja_banco': eg.caja_banco.nombre if eg.caja_banco else '--',
             'forma_pago': forma_pago_desc,
             'referencia': eg.referencia or '--',
@@ -676,7 +693,7 @@ def api_movimientos_centro_costo(request, centro_id):
         empresa=empresa,
         fecha__year=anio,
         fecha__month=mes
-    ).select_related('proveedor', 'centro_costo').prefetch_related(
+    ).select_related('proveedor', 'centro_costo', 'moneda').prefetch_related(
         'detalles__clase_costo',
         'detalles__producto__clase_costo_predeterminada'
     ).order_by('-fecha')
@@ -686,11 +703,15 @@ def api_movimientos_centro_costo(request, centro_id):
     total_comprometido_oc = Decimal('0.00')
     for oc in ordenes:
         oc_cc = oc.centro_costo or cc
+        tc = oc.tipo_cambio or Decimal('1.0000')
         sub = oc.calcular_total or Decimal('0.00')
-        total_oc += sub
-        saldo = oc.saldo_pendiente
+        sub_mxn = sub * tc
+        total_oc += sub_mxn
+
+        saldo = oc.saldo_pendiente or Decimal('0.00')
+        saldo_mxn = saldo * tc
         if oc.estado in ['aprobada', 'recibida', 'parcial'] and saldo > 0:
-            total_comprometido_oc += saldo * (oc.tipo_cambio or Decimal('1.0000'))
+            total_comprometido_oc += saldo_mxn
 
         # Clases de costo asociadas a las partidas de la OC (solo código)
         clases_oc = set()
@@ -706,8 +727,12 @@ def api_movimientos_centro_costo(request, centro_id):
             'fecha': oc.fecha.strftime('%d/%m/%Y'),
             'proveedor': oc.proveedor.razon_social if oc.proveedor else '--',
             'clase_costo': clases_oc_str,
-            'total': float(sub),
-            'saldo_pendiente': float(saldo),
+            'total': float(sub_mxn),
+            'total_origen': float(sub),
+            'saldo_pendiente': float(saldo_mxn),
+            'saldo_pendiente_origen': float(saldo),
+            'moneda': oc.moneda.siglas if oc.moneda else 'MXN',
+            'tipo_cambio': float(tc),
             'pago_estado': oc.pago_estado,
             'estado': oc.get_estado_display(),
             'centro_costo': oc_cc.codigo if oc_cc else '--',
@@ -720,18 +745,22 @@ def api_movimientos_centro_costo(request, centro_id):
         empresa=empresa,
         fecha_creacion__year=anio,
         fecha_creacion__month=mes
-    ).select_related('cliente', 'vendedor', 'centro_costo').order_by('-fecha_creacion')
+    ).select_related('cliente', 'vendedor', 'centro_costo', 'moneda').order_by('-fecha_creacion')
 
     lista_pedidos = []
     total_pedidos = Decimal('0.00')
     total_saldo_pedidos = Decimal('0.00')
     for ped in pedidos:
         ped_cc = ped.centro_costo or cc
+        tc = ped.tipo_cambio or Decimal('1.0000')
         tot = ped.total_pedido or Decimal('0.00')
-        total_pedidos += tot
+        tot_mxn = tot * tc
+        total_pedidos += tot_mxn
+
         saldo = ped.saldo_pendiente or Decimal('0.00')
+        saldo_mxn = saldo * tc
         if ped.estado != 'cancelado':
-            total_saldo_pedidos += saldo
+            total_saldo_pedidos += saldo_mxn
 
         cliente_nom = '--'
         if ped.cliente:
@@ -744,8 +773,12 @@ def api_movimientos_centro_costo(request, centro_id):
             'cliente': cliente_nom,
             'estado': ped.get_estado_display(),
             'pago_estado': ped.pago_estado,
-            'total': float(tot),
-            'saldo_pendiente': float(saldo),
+            'total': float(tot_mxn),
+            'total_origen': float(tot),
+            'saldo_pendiente': float(saldo_mxn),
+            'saldo_pendiente_origen': float(saldo),
+            'moneda': ped.moneda.siglas if ped.moneda else 'MXN',
+            'tipo_cambio': float(tc),
             'vendedor': (ped.vendedor.get_full_name() or ped.vendedor.username) if ped.vendedor else '--',
             'centro_costo': ped_cc.codigo if ped_cc else '--',
             'centro_costo_nombre': ped_cc.nombre if ped_cc else '--'
@@ -758,13 +791,13 @@ def api_movimientos_centro_costo(request, centro_id):
         estado='aplicado',
         fecha__year=anio,
         fecha__month=mes
-    ).select_related('caja_banco', 'cliente', 'pago_pedido__pedido__cliente', 'centro_costo', 'pago_pedido__pedido__centro_costo').distinct().order_by('-fecha')
+    ).select_related('caja_banco', 'cliente', 'pago_pedido__pedido__cliente', 'centro_costo', 'pago_pedido__pedido__centro_costo', 'moneda').distinct().order_by('-fecha')
 
     lista_ingresos = []
     total_ingresos = Decimal('0.00')
     for ing in ingresos:
-        m = Decimal(str(ing.monto_mxn or ing.monto or 0))
-        total_ingresos += m
+        m_mxn = ing.monto_mxn if (ing.monto_mxn and ing.monto_mxn > 0) else (ing.monto * (ing.tipo_cambio or Decimal('1.0000')))
+        total_ingresos += m_mxn
 
         cli_nom = '--'
         if ing.cliente:
@@ -787,8 +820,11 @@ def api_movimientos_centro_costo(request, centro_id):
             'folio': f"ING-{ing.id:05d}",
             'fecha': ing.fecha.strftime('%d/%m/%Y'),
             'concepto': concepto_display,
-            'monto': float(m),
-            'monto_mxn': float(m),
+            'monto': float(m_mxn),
+            'monto_mxn': float(m_mxn),
+            'monto_origen': float(ing.monto),
+            'moneda': ing.moneda.siglas if ing.moneda else 'MXN',
+            'tipo_cambio': float(ing.tipo_cambio or 1.0),
             'caja_banco': ing.caja_banco.nombre if ing.caja_banco else '--',
             'forma_pago': forma_pago_desc,
             'referencia': ing.referencia or '--',
@@ -960,9 +996,10 @@ def api_verificar_disponibilidad_centro(request, centro_id):
 
     cc = get_object_or_404(CentroCosto, id=centro_id, empresa=empresa)
     monto_raw = request.GET.get('monto') or request.POST.get('monto') or 0
+    tipo_cambio_raw = request.GET.get('tipo_cambio') or request.POST.get('tipo_cambio') or 1
     orden_id = request.GET.get('orden_id') or request.POST.get('orden_id') or None
     try:
-        monto_val = Decimal(str(monto_raw))
+        monto_val = Decimal(str(monto_raw)) * Decimal(str(tipo_cambio_raw or 1))
     except Exception:
         monto_val = Decimal('0.00')
 
@@ -1800,8 +1837,8 @@ def api_resumen_periodo_contable(request):
         estado='aplicado',
         fecha__year=anio,
         fecha__month=mes
-    )
-    total_egresos = sum([Decimal(str(e.monto_mxn or e.monto or 0)) for e in egresos_qs], Decimal('0.00'))
+    ).select_related('moneda')
+    total_egresos = sum([Decimal(str(e.monto_mxn if (e.monto_mxn and e.monto_mxn > 0) else (e.monto * (e.tipo_cambio or Decimal('1.0000'))))) for e in egresos_qs], Decimal('0.00'))
 
     ejecuciones_qs = EjecucionCicloDistribucion.objects.filter(
         empresa=empresa,

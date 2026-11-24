@@ -793,6 +793,22 @@
                                         <input type="date" name="fecha" id="inputFechaPedido" class="form-control form-control-sm" value="{% now 'Y-m-d' %}">
                                     </div>
 
+                                    <!-- MONEDA -->
+                                    <div class="col-md-2">
+                                        <label class="form-label small fw-bold text-secondary">Moneda</label>
+                                        <select name="moneda" id="selectMonedaPedido" class="form-select form-select-sm" onchange="alCambiarMonedaPedido(this)">
+                                            {% for m in monedas %}
+                                            <option value="{{ m.id }}" data-siglas="{{ m.siglas }}" data-factor="{{ m.factor }}" {% if m.siglas == 'MXN' %}selected{% endif %}>{{ m.siglas }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+
+                                    <!-- TIPO DE CAMBIO -->
+                                    <div class="col-md-2" id="divTipoCambioPedido" style="display: none;">
+                                        <label class="form-label small fw-bold text-secondary">T.C.</label>
+                                        <input type="number" name="tipo_cambio" id="inputTipoCambioPedido" class="form-control form-control-sm font-monospace" value="1.0000" step="0.0001" min="0.0001">
+                                    </div>
+
                                     <!-- CENTRO DE COSTOS -->
                                     {% if empresa.modulo_centros_costos %}
                                     <div class="col-md-3">
@@ -1455,6 +1471,32 @@
             const _n = new Date();
             inputFecha.value = `${_n.getFullYear()}-${String(_n.getMonth() + 1).padStart(2, '0')}-${String(_n.getDate()).padStart(2, '0')}`;
         }
+
+        const selMon = document.getElementById('selectMonedaPedido');
+        if (selMon) {
+            selMon.value = selMon.querySelector('option[data-siglas="MXN"]')?.value || selMon.options[0]?.value || "";
+            alCambiarMonedaPedido(selMon);
+        }
+    };
+
+    window.alCambiarMonedaPedido = function(sel) {
+        if (!sel) return;
+        const opt = sel.options[sel.selectedIndex];
+        const siglas = opt ? opt.dataset.siglas : 'MXN';
+        const factor = opt ? (opt.dataset.factor || '1.0000') : '1.0000';
+        const divTC = document.getElementById('divTipoCambioPedido');
+        const inpTC = document.getElementById('inputTipoCambioPedido');
+        if (divTC) {
+            if (siglas && siglas !== 'MXN') {
+                divTC.style.display = 'block';
+                if (inpTC && (!inpTC.value || inpTC.value === '1' || inpTC.value === '1.0000')) {
+                    inpTC.value = parseFloat(factor).toFixed(4);
+                }
+            } else {
+                divTC.style.display = 'none';
+                if (inpTC) inpTC.value = '1.0000';
+            }
+        }
     };
 
     /**
@@ -1511,6 +1553,17 @@
                 const selectCC = document.getElementById('selectCentroCostoPedido');
                 if (selectCC) {
                     selectCC.value = data.centro_costo_id || "";
+                }
+
+                // 3.7 Cargar Moneda y Tipo de Cambio
+                const selMon = document.getElementById('selectMonedaPedido');
+                if (selMon && data.moneda_id) {
+                    selMon.value = data.moneda_id;
+                    alCambiarMonedaPedido(selMon);
+                    const inpTC = document.getElementById('inputTipoCambioPedido');
+                    if (inpTC && data.tipo_cambio) {
+                        inpTC.value = parseFloat(data.tipo_cambio).toFixed(4);
+                    }
                 }
 
                 // 4. Cargar Artículos

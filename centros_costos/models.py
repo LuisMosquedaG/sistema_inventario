@@ -157,7 +157,8 @@ class CentroCosto(models.Model):
             fecha__month=mes
         ).distinct()
         for eg in egresos:
-            total_egresos += Decimal(str(eg.monto_mxn or eg.monto or 0))
+            m_mxn = eg.monto_mxn if (eg.monto_mxn and eg.monto_mxn > 0) else (eg.monto * (eg.tipo_cambio or Decimal('1.0000')))
+            total_egresos += Decimal(str(m_mxn or 0))
 
         return total_egresos
 
@@ -225,7 +226,8 @@ class CentroCosto(models.Model):
             fecha__month=mes
         ).distinct()
         for ing in ingresos:
-            total_ingresos += Decimal(str(ing.monto_mxn or ing.monto or 0))
+            m_mxn = ing.monto_mxn if (ing.monto_mxn and ing.monto_mxn > 0) else (ing.monto * (ing.tipo_cambio or Decimal('1.0000')))
+            total_ingresos += Decimal(str(m_mxn or 0))
 
         return total_ingresos
 
@@ -300,7 +302,8 @@ class CentroCosto(models.Model):
         total_pendientes = Decimal('0.00')
 
         for eg in egresos_qs:
-            monto = Decimal(str(eg.monto_mxn or eg.monto or 0))
+            m_mxn = eg.monto_mxn if (eg.monto_mxn and eg.monto_mxn > 0) else (eg.monto * (eg.tipo_cambio or Decimal('1.0000')))
+            monto = Decimal(str(m_mxn or 0))
             total_egresos_mes += monto
 
             prov = '--'
@@ -321,6 +324,9 @@ class CentroCosto(models.Model):
                 'concepto': concepto_disp,
                 'proveedor': prov,
                 'clase_costo': eg.clase_costo.codigo if eg.clase_costo else '--',
+                'moneda': eg.moneda.siglas if eg.moneda else 'MXN',
+                'tipo_cambio': float(eg.tipo_cambio or 1.0),
+                'monto_origen': float(eg.monto),
                 'monto': float(monto),
             }
 

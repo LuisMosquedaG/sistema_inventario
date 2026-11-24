@@ -305,6 +305,18 @@ def crear_pedido_manual(request):
                 from centros_costos.models import CentroCosto
                 centro_costo = CentroCosto.objects.filter(id=centro_costo_id, empresa=empresa_actual, activo=True).first()
 
+            moneda_id = request.POST.get('moneda') or request.POST.get('moneda_id')
+            moneda_obj = None
+            if moneda_id:
+                from preferencias.models import Moneda
+                moneda_obj = Moneda.objects.filter(id=moneda_id, empresa=empresa_actual).first()
+
+            tipo_cambio_raw = request.POST.get('tipo_cambio', '1.0000')
+            try:
+                tipo_cambio_val = Decimal(str(tipo_cambio_raw or '1.0000'))
+            except Exception:
+                tipo_cambio_val = Decimal('1.0000')
+
             create_kwargs = {
                 'cliente': cliente,
                 'contacto': contacto,
@@ -312,6 +324,8 @@ def crear_pedido_manual(request):
                 'empresa': empresa_actual,
                 'sucursal': sucursal_obj,
                 'centro_costo': centro_costo,
+                'moneda': moneda_obj,
+                'tipo_cambio': tipo_cambio_val,
                 'estado': 'borrador',
                 'notas': notas,
                 'aplica_iva': aplica_iva
@@ -1085,6 +1099,9 @@ def obtener_pedido_json(request, pedido_id):
         data['subtotal_total'] = str(pedido.calcular_subtotal)
         data['iva_total'] = str(pedido.calcular_iva)
         data['gran_total'] = str(pedido.calcular_total)
+        data['moneda'] = pedido.moneda.siglas if pedido.moneda else 'MXN'
+        data['tipo_cambio'] = float(pedido.tipo_cambio or 1.0)
+        data['total_en_pesos'] = float(pedido.total_en_pesos)
 
         return JsonResponse(data)
     except Exception as e:
@@ -1169,6 +1186,8 @@ def api_detalle_pedido_edicion(request, pedido_id):
         'notas': pedido.notas or '',
         'aplica_iva': pedido.aplica_iva,
         'centro_costo_id': pedido.centro_costo_id or '',
+        'moneda_id': pedido.moneda_id or '',
+        'tipo_cambio': float(pedido.tipo_cambio or 1.0),
         'detalles': detalles,
         'subtotal_total': float(pedido.calcular_subtotal),
         'iva_total': float(pedido.calcular_iva),
@@ -1230,6 +1249,17 @@ def editar_pedido_ajax(request, pedido_id):
                 pedido.centro_costo = CentroCosto.objects.filter(id=centro_costo_id, empresa=empresa_actual, activo=True).first()
             elif 'centro_costo' in request.POST:
                 pedido.centro_costo = None
+
+            if 'moneda' in request.POST or 'moneda_id' in request.POST:
+                m_id = request.POST.get('moneda') or request.POST.get('moneda_id')
+                from preferencias.models import Moneda
+                pedido.moneda = Moneda.objects.filter(id=m_id, empresa=empresa_actual).first() if m_id else None
+
+            if 'tipo_cambio' in request.POST:
+                try:
+                    pedido.tipo_cambio = Decimal(str(request.POST.get('tipo_cambio') or '1.0000'))
+                except Exception:
+                    pedido.tipo_cambio = Decimal('1.0000')
 
             pedido.save()
 

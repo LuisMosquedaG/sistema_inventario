@@ -49,6 +49,10 @@ class Pedido(models.Model):
     # Referencia a la cotización origen (opcional)
     cotizacion_origen_id = models.PositiveIntegerField(null=True, blank=True, verbose_name="ID Cotización")
 
+    # NUEVOS CAMPOS: MONEDA Y TIPO DE CAMBIO
+    moneda = models.ForeignKey('preferencias.Moneda', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Moneda")
+    tipo_cambio = models.DecimalField(max_digits=10, decimal_places=4, default=Decimal('1.0000'), verbose_name="Tipo de Cambio")
+
     fecha_creacion = models.DateTimeField(default=timezone.now, verbose_name="Creado el")
     fecha_confirmacion = models.DateTimeField(null=True, blank=True, verbose_name="Confirmado el")
     aplica_iva = models.BooleanField(default=True, verbose_name="Aplica IVA")
@@ -93,6 +97,18 @@ class Pedido(models.Model):
         total = self.calcular_total
         # Redondeo hacia arriba (Ceiling) a 2 decimales para evitar residuos de milésimas de centavo
         return total.quantize(Decimal('0.01'), rounding='ROUND_CEILING')
+
+    @property
+    def total_en_pesos(self):
+        """Devuelve el total del pedido convertido a MXN usando el TC del pedido"""
+        tc = self.tipo_cambio or Decimal('1.0000')
+        return (self.total_pedido * tc).quantize(Decimal('0.01'))
+
+    @property
+    def saldo_pendiente_en_pesos(self):
+        """Devuelve el saldo pendiente del pedido convertido a MXN usando el TC del pedido"""
+        tc = self.tipo_cambio or Decimal('1.0000')
+        return (self.saldo_pendiente * tc).quantize(Decimal('0.01'))
     
     @property
     def calcular_subtotal(self):
