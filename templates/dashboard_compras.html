@@ -854,7 +854,7 @@
 
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold text-secondary">Moneda</label>
-                                        <select name="moneda_id" id="pago_moneda" class="form-select form-select-sm" required onchange="actualizarConversionPago()">
+                                        <select name="moneda_id" id="pago_moneda" class="form-select form-select-sm" required onchange="alCambiarMonedaPago()">
                                             {% for m in monedas %}
                                             <option value="{{ m.id }}" data-siglas="{{ m.siglas }}" {% if m.siglas == 'MXN' %}selected{% endif %}>{{ m.nombre }} ({{ m.siglas }})</option>
                                             {% endfor %}
@@ -1118,6 +1118,7 @@
 
         // Variables globales para el modal de pago
         let saldoActualCompra = 0;
+        let saldoActualCompraMxn = 0;
         let tipoCambioOC = 1;
         let monedaOC = 'MXN';
 
@@ -1127,6 +1128,7 @@
                 .then(r => r.json())
                 .then(data => {
                     saldoActualCompra = data.saldo_pendiente;
+                    saldoActualCompraMxn = data.saldo_pendiente_mxn;
                     tipoCambioOC = data.tipo_cambio_oc || 1;
                     monedaOC = (data.moneda_siglas || 'MXN').trim().toUpperCase();
                     
@@ -1135,8 +1137,8 @@
                     document.getElementById('pago_proveedor_rfc').innerText = data.rfc;
                     document.getElementById('pago_fecha_compra').innerText = data.fecha_compra;
                     
-                    const fmt = (v, m) => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2}) + ' ' + m;
-                    const fmtMxn = (v) => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2}) + ' MXN';
+                    const fmt = (v, m) => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ' + m;
+                    const fmtMxn = (v) => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' MXN';
 
                     // 1. Mostrar Totales Originales
                     document.getElementById('pago_total_display').innerText = fmt(data.total_compra, monedaOC);
@@ -1156,7 +1158,33 @@
                         saldoMxn.style.setProperty('display', 'none', 'important');
                     }
                     
-                    document.getElementById('pago_monto').value = data.saldo_pendiente.toFixed(2);
+                    // Preseleccionar moneda correspondiente
+                    const monedaSelect = document.getElementById('pago_moneda');
+                    if (data.moneda_id) {
+                        monedaSelect.value = data.moneda_id;
+                    } else {
+                        for (let opt of monedaSelect.options) {
+                            if (opt.dataset.siglas === monedaOC) {
+                                monedaSelect.value = opt.value;
+                                break;
+                            }
+                        }
+                    }
+
+                    const selectedOpt = monedaSelect.options[monedaSelect.selectedIndex];
+                    const selectedSiglas = selectedOpt ? selectedOpt.dataset.siglas : 'MXN';
+
+                    if (selectedSiglas === 'MXN') {
+                        document.getElementById('pago_tipo_cambio').value = "1.0000";
+                        if (monedaOC === 'MXN') {
+                            document.getElementById('pago_monto').value = data.saldo_pendiente.toFixed(2);
+                        } else {
+                            document.getElementById('pago_monto').value = data.saldo_pendiente_mxn.toFixed(2);
+                        }
+                    } else {
+                        document.getElementById('pago_tipo_cambio').value = (tipoCambioOC || 1).toFixed(4);
+                        document.getElementById('pago_monto').value = data.saldo_pendiente.toFixed(2);
+                    }
                     
                     document.getElementById('pago_tipo_destino').value = "";
                     filtrarDestinosPago("");
@@ -1165,6 +1193,24 @@
                     modal.show();
                     actualizarConversionPago();
                 });
+        }
+
+        function alCambiarMonedaPago() {
+            const monedaSelect = document.getElementById('pago_moneda');
+            const selectedOption = monedaSelect.options[monedaSelect.selectedIndex];
+            if (!selectedOption) return;
+            const monedaPagoSiglas = selectedOption.dataset.siglas;
+
+            if (monedaPagoSiglas === 'MXN') {
+                document.getElementById('pago_tipo_cambio').value = "1.0000";
+                document.getElementById('pago_monto').value = saldoActualCompraMxn.toFixed(2);
+            } else if (monedaPagoSiglas === monedaOC) {
+                document.getElementById('pago_tipo_cambio').value = parseFloat(tipoCambioOC || 1).toFixed(4);
+                document.getElementById('pago_monto').value = saldoActualCompra.toFixed(2);
+            } else {
+                document.getElementById('pago_tipo_cambio').value = "1.0000";
+            }
+            actualizarConversionPago();
         }
 
         function filtrarDestinosPago(tipo) {
@@ -1199,23 +1245,20 @@
             const tipoCambioPago = parseFloat(document.getElementById('pago_tipo_cambio').value) || 1;
             const montoAbono = parseFloat(document.getElementById('pago_monto').value) || 0;
             
-            // Calculamos cuánto abona a la deuda original
-            let abonoADeudaOriginal = 0;
-            if (monedaPagoSiglas === monedaOC) {
-                abonoADeudaOriginal = montoAbono;
-            } else if (monedaPagoSiglas === 'MXN' && monedaOC !== 'MXN') {
-                // Si pago en MXN y la deuda es USD, usamos el TC de la OC para descontar
-                abonoADeudaOriginal = montoAbono / tipoCambioOC;
+            // Abono convertido a base MXN
+            let abonoMxn = 0;
+            if (monedaPagoSiglas === 'MXN') {
+                abonoMxn = montoAbono;
             } else {
-                // Caso genérico (debería ser similar)
-                abonoADeudaOriginal = (montoAbono * tipoCambioPago) / tipoCambioOC;
+                abonoMxn = montoAbono * tipoCambioPago;
             }
 
-            const nuevoSaldoOrig = saldoActualCompra - abonoADeudaOriginal;
-            const nuevoSaldoMxn = nuevoSaldoOrig * tipoCambioOC;
+            // Saldo restante en MXN y en la moneda original de la OC
+            const nuevoSaldoMxn = Math.max(0, saldoActualCompraMxn - abonoMxn);
+            const nuevoSaldoOrig = tipoCambioOC > 0 ? (nuevoSaldoMxn / tipoCambioOC) : nuevoSaldoMxn;
 
-            const fmt = (v, m) => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2}) + ' ' + m;
-            const fmtMxn = (v) => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2}) + ' MXN';
+            const fmt = (v, m) => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ' + m;
+            const fmtMxn = (v) => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' MXN';
 
             document.getElementById('pago_restante_display').innerText = fmt(nuevoSaldoOrig, monedaOC);
             
@@ -1235,9 +1278,6 @@
                 display.innerText = fmtMxn(montoAbono * tipoCambioPago);
             } else {
                 wrapper.style.display = "none";
-                if (monedaPagoSiglas === 'MXN') {
-                    document.getElementById('pago_tipo_cambio').value = "1.0000";
-                }
             }
         }
 

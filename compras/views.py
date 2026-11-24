@@ -716,10 +716,12 @@ def api_info_pago_compra(request, compra_id):
         'total_compra': float(compra.total),
         'total_pagado': float(compra.total_pagado),
         'saldo_pendiente': float(compra.saldo_pendiente),
+        'moneda_id': compra.moneda.id if compra.moneda else None,
         'moneda_siglas': compra.moneda.siglas if compra.moneda else 'MXN',
         'tipo_cambio_oc': float(compra.tipo_cambio),
         'total_compra_mxn': float(compra.total_en_pesos),
-        'saldo_pendiente_mxn': float(compra.saldo_pendiente * compra.tipo_cambio),
+        'total_pagado_mxn': float(compra.total_pagado_en_pesos),
+        'saldo_pendiente_mxn': float(compra.saldo_pendiente_en_pesos),
     }
     return JsonResponse(data)
 

@@ -84,29 +84,52 @@ class OrdenCompra(models.Model):
     @property
     def total_en_pesos(self):
         """Devuelve el total convertido a MXN usando el TC de la OC"""
-        return self.total * self.tipo_cambio
+        tc = self.tipo_cambio or Decimal('1.0000')
+        return (self.total * tc).quantize(Decimal('0.01'))
     
     @property
+    def total_pagado_en_pesos(self):
+        """Suma de todos los pagos aplicados convertidos a MXN"""
+        total_mxn = Decimal('0.00')
+        for p in self.pagos.filter(estado='aplicado'):
+            if p.monto_mxn is not None and p.monto_mxn > Decimal('0'):
+                m_mxn = p.monto_mxn
+            else:
+                m_mxn = p.monto * (p.tipo_cambio or Decimal('1.0000'))
+            total_mxn += Decimal(str(m_mxn))
+        return total_mxn.quantize(Decimal('0.01'))
+
+    @property
+    def saldo_pendiente_en_pesos(self):
+        """Diferencia en MXN entre el total de la compra y lo pagado en MXN"""
+        saldo = self.total_en_pesos - self.total_pagado_en_pesos
+        return max(Decimal('0.00'), saldo.quantize(Decimal('0.01')))
+
+    @property
     def total_pagado(self):
-        """Suma de todos los pagos registrados para esta compra"""
-        from django.db.models import Sum
-        total = self.pagos.filter(estado='aplicado').aggregate(Sum('monto'))['monto__sum']
-        return total or Decimal('0')
+        """Suma pagada expresada en la moneda original de la orden de compra"""
+        tc = self.tipo_cambio or Decimal('1.0000')
+        if tc > 0:
+            return (self.total_pagado_en_pesos / tc).quantize(Decimal('0.01'))
+        return self.total_pagado_en_pesos
 
     @property
     def saldo_pendiente(self):
-        """Diferencia entre el total de la compra y lo pagado"""
-        return self.total - self.total_pagado
+        """Saldo pendiente expresado en la moneda original de la orden de compra"""
+        tc = self.tipo_cambio or Decimal('1.0000')
+        if tc > 0:
+            return (self.saldo_pendiente_en_pesos / tc).quantize(Decimal('0.01'))
+        return self.saldo_pendiente_en_pesos
 
     @property
     def pago_estado(self):
-        """Calcula el estado de pago basado en los abonos registrados"""
-        total = self.total
-        pagado = self.total_pagado
+        """Calcula el estado de pago basado en los abonos registrados normalizados a MXN"""
+        tot_mxn = self.total_en_pesos
+        pag_mxn = self.total_pagado_en_pesos
         
-        if pagado <= 0:
+        if pag_mxn <= 0:
             return 'pendiente'
-        elif pagado < total:
+        elif pag_mxn < (tot_mxn - Decimal('0.01')):
             return 'parcial'
         else:
             return 'pagado'

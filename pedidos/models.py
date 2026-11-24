@@ -105,10 +105,22 @@ class Pedido(models.Model):
         return (self.total_pedido * tc).quantize(Decimal('0.01'))
 
     @property
+    def total_pagado_en_pesos(self):
+        """Suma de todos los pagos aplicados convertidos a MXN"""
+        total_mxn = Decimal('0.00')
+        for p in self.pagos.filter(estado='aplicado'):
+            if p.monto_mxn is not None and p.monto_mxn > Decimal('0'):
+                m_mxn = p.monto_mxn
+            else:
+                m_mxn = p.monto * (p.tipo_cambio or Decimal('1.0000'))
+            total_mxn += Decimal(str(m_mxn))
+        return total_mxn.quantize(Decimal('0.01'))
+
+    @property
     def saldo_pendiente_en_pesos(self):
-        """Devuelve el saldo pendiente del pedido convertido a MXN usando el TC del pedido"""
-        tc = self.tipo_cambio or Decimal('1.0000')
-        return (self.saldo_pendiente * tc).quantize(Decimal('0.01'))
+        """Diferencia en MXN entre el total del pedido y lo pagado en MXN"""
+        saldo = self.total_en_pesos - self.total_pagado_en_pesos
+        return max(Decimal('0.00'), saldo.quantize(Decimal('0.01')))
     
     @property
     def calcular_subtotal(self):
@@ -130,33 +142,33 @@ class Pedido(models.Model):
     
     @property
     def total_pagado(self):
-        """Suma de todos los pagos aplicados para este pedido (efectivo, transferéncia, crédito, etc.)."""
-        from django.db.models import Sum
-        total = self.pagos.filter(estado='aplicado').aggregate(Sum('monto'))['monto__sum']
-        return total or Decimal('0')
+        """Suma pagada expresada en la moneda original del pedido"""
+        tc = self.tipo_cambio or Decimal('1.0000')
+        if tc > 0:
+            return (self.total_pagado_en_pesos / tc).quantize(Decimal('0.01'))
+        return self.total_pagado_en_pesos
 
     @property
     def saldo_pendiente(self):
-        """Diferencia entre el total del pedido y lo pagado"""
-        saldo = self.total_pedido - self.total_pagado
-        if saldo < 0:
-            return Decimal('0.00')
-        # Redondeamos también el saldo para asegurar que no haya milésimas en el abono sugerido
-        return saldo.quantize(Decimal('0.01'), rounding='ROUND_CEILING')
+        """Saldo pendiente expresado en la moneda original del pedido"""
+        tc = self.tipo_cambio or Decimal('1.0000')
+        if tc > 0:
+            return (self.saldo_pendiente_en_pesos / tc).quantize(Decimal('0.01'))
+        return self.saldo_pendiente_en_pesos
 
     @property
     def pago_estado(self):
-        """Calcula el estado de pago basado en los abonos registrados"""
+        """Calcula el estado de pago basado en los abonos registrados normalizados a MXN"""
         # Si el pedido tiene un crédito activo (con saldo > 0), su estado es 'credito'
         if self.creditos.filter(saldo__gt=0).exists():
             return 'credito'
 
-        total = self.total_pedido
-        pagado = self.total_pagado
+        tot_mxn = self.total_en_pesos
+        pag_mxn = self.total_pagado_en_pesos
         
-        if pagado <= 0:
+        if pag_mxn <= 0:
             return 'pendiente'
-        elif pagado < total:
+        elif pag_mxn < (tot_mxn - Decimal('0.01')):
             return 'parcial'
         else:
             return 'pagado'

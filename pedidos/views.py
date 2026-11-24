@@ -1145,6 +1145,12 @@ def api_info_pago_pedido(request, pedido_id):
         'total_pedido': float(pedido.total_pedido),
         'total_pagado': float(pedido.total_pagado),
         'saldo_pendiente': float(pedido.saldo_pendiente),
+        'moneda_id': pedido.moneda.id if pedido.moneda else None,
+        'moneda_siglas': pedido.moneda.siglas if pedido.moneda else 'MXN',
+        'tipo_cambio_pedido': float(pedido.tipo_cambio or 1.0),
+        'total_pedido_mxn': float(pedido.total_en_pesos),
+        'total_pagado_mxn': float(pedido.total_pagado_en_pesos),
+        'saldo_pendiente_mxn': float(pedido.saldo_pendiente_en_pesos),
         # Información de crédito activo
         'tiene_credito': credito_obj is not None,
         'saldo_credito': float(credito_obj.saldo) if credito_obj else 0,

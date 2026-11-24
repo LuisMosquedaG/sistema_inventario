@@ -1473,6 +1473,9 @@
             .then(r => r.json())
             .then(data => {
                 saldoActualPedido = data.saldo_pendiente;
+                saldoActualPedidoMxn = data.saldo_pendiente_mxn;
+                tipoCambioPedido = data.tipo_cambio_pedido || 1;
+                monedaPedido = (data.moneda_siglas || 'MXN').trim().toUpperCase();
                 
                 document.getElementById('pago_pedido_id').value = data.id;
                 document.getElementById('pago_cliente_nombre').innerText = data.cliente_nombre;
@@ -1480,24 +1483,69 @@
                 document.getElementById('pago_fecha_pedido').innerText = data.fecha_pedido;
                 
                 // Formateo de montos
-                const fmt = (v) => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2});
+                const fmt = (v, m) => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ' + m;
+                const fmtMxn = (v) => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' MXN';
+
+                // 1. Mostrar Totales Originales
+                document.getElementById('pago_total_display').innerText = fmt(data.total_pedido, monedaPedido);
+                document.getElementById('pago_saldo_display').innerText = fmt(data.saldo_pendiente, monedaPedido);
                 
-                document.getElementById('pago_total_display').innerText = fmt(data.total_pedido);
-                document.getElementById('pago_saldo_display').innerText = fmt(data.saldo_pendiente);
-                document.getElementById('pago_restante_display').innerText = fmt(0);
+                // 2. Mostrar Conversión a Pesos (SOLO SI NO ES MXN)
+                const totalMxn = document.getElementById('pago_total_mxn_display');
+                const saldoMxn = document.getElementById('pago_saldo_mxn_display');
+
+                if (monedaPedido !== 'MXN') {
+                    if (totalMxn) {
+                        totalMxn.innerText = fmtMxn(data.total_pedido_mxn);
+                        totalMxn.style.setProperty('display', 'block', 'important');
+                    }
+                    if (saldoMxn) {
+                        saldoMxn.innerText = fmtMxn(data.saldo_pendiente_mxn);
+                        saldoMxn.style.setProperty('display', 'block', 'important');
+                    }
+                } else {
+                    if (totalMxn) totalMxn.style.setProperty('display', 'none', 'important');
+                    if (saldoMxn) saldoMxn.style.setProperty('display', 'none', 'important');
+                }
+
+                // Preseleccionar moneda correspondiente
+                const monedaSelect = document.getElementById('pago_moneda');
+                if (data.moneda_id) {
+                    monedaSelect.value = data.moneda_id;
+                } else {
+                    for (let opt of monedaSelect.options) {
+                        if (opt.dataset.siglas === monedaPedido) {
+                            monedaSelect.value = opt.value;
+                            break;
+                        }
+                    }
+                }
+
+                const selectedOpt = monedaSelect.options[monedaSelect.selectedIndex];
+                const selectedSiglas = selectedOpt ? selectedOpt.dataset.siglas : 'MXN';
 
                 // --- Sección de Crédito Activo ---
                 const creditoWrapper = document.getElementById('pago_credito_wrapper');
                 if (data.tiene_credito) {
                     creditoWrapper.style.display = '';
-                    document.getElementById('pago_monto_credito_display').innerText = fmt(data.monto_credito);
-                    document.getElementById('pago_saldo_credito_display').innerText = fmt(data.saldo_credito);
+                    document.getElementById('pago_monto_credito_display').innerText = fmt(data.monto_credito, monedaPedido);
+                    document.getElementById('pago_saldo_credito_display').innerText = fmt(data.saldo_credito, monedaPedido);
                     // Pre-llenar el abono con el saldo de crédito pendiente
                     document.getElementById('pago_monto').value = data.saldo_credito.toFixed(2);
                     document.getElementById('pago_es_abono_credito').value = "true";
                 } else {
                     creditoWrapper.style.display = 'none';
-                    document.getElementById('pago_monto').value = data.saldo_pendiente.toFixed(2);
+                    if (selectedSiglas === 'MXN') {
+                        document.getElementById('pago_tipo_cambio').value = "1.0000";
+                        if (monedaPedido === 'MXN') {
+                            document.getElementById('pago_monto').value = data.saldo_pendiente.toFixed(2);
+                        } else {
+                            document.getElementById('pago_monto').value = data.saldo_pendiente_mxn.toFixed(2);
+                        }
+                    } else {
+                        document.getElementById('pago_tipo_cambio').value = (tipoCambioPedido || 1).toFixed(4);
+                        document.getElementById('pago_monto').value = data.saldo_pendiente.toFixed(2);
+                    }
                     document.getElementById('pago_es_abono_credito').value = "false";
                 }
                 
@@ -1519,6 +1567,24 @@
                 modalPago.show();
                 actualizarConversion();
             });
+    }
+
+    function alCambiarMonedaPagoClientes() {
+        const monedaSelect = document.getElementById('pago_moneda');
+        const selectedOption = monedaSelect.options[monedaSelect.selectedIndex];
+        if (!selectedOption) return;
+        const monedaPagoSiglas = selectedOption.dataset.siglas;
+
+        if (monedaPagoSiglas === 'MXN') {
+            document.getElementById('pago_tipo_cambio').value = "1.0000";
+            document.getElementById('pago_monto').value = saldoActualPedidoMxn.toFixed(2);
+        } else if (monedaPagoSiglas === monedaPedido) {
+            document.getElementById('pago_tipo_cambio').value = parseFloat(tipoCambioPedido || 1).toFixed(4);
+            document.getElementById('pago_monto').value = saldoActualPedido.toFixed(2);
+        } else {
+            document.getElementById('pago_tipo_cambio').value = "1.0000";
+        }
+        actualizarConversion();
     }
 
     function filtrarDestinosPago(tipo) {
@@ -1554,19 +1620,39 @@
         const tipoCambio = parseFloat(document.getElementById('pago_tipo_cambio').value) || 1;
         const montoAbono = parseFloat(document.getElementById('pago_monto').value) || 0;
         
-        // Calcular Nuevo Saldo (Saldo Pendiente - Abono)
-        const nuevoSaldo = saldoActualPedido - montoAbono;
-        document.getElementById('pago_restante_display').innerText = '$' + nuevoSaldo.toLocaleString('en-US', {minimumFractionDigits: 2});
+        // Abono normalizado a base MXN
+        let abonoMxn = 0;
+        if (monedaSiglas === 'MXN') {
+            abonoMxn = montoAbono;
+        } else {
+            abonoMxn = montoAbono * tipoCambio;
+        }
+
+        // Saldo restante en MXN y en la moneda original del pedido
+        const nuevoSaldoMxn = Math.max(0, (typeof saldoActualPedidoMxn !== 'undefined' ? saldoActualPedidoMxn : (saldoActualPedido * (tipoCambioPedido || 1))) - abonoMxn);
+        const nuevoSaldoOrig = tipoCambioPedido > 0 ? (nuevoSaldoMxn / tipoCambioPedido) : nuevoSaldoMxn;
+
+        const fmt = (v, m) => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ' + m;
+        const fmtMxn = (v) => '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' MXN';
+
+        document.getElementById('pago_restante_display').innerText = fmt(nuevoSaldoOrig, typeof monedaPedido !== 'undefined' ? monedaPedido : 'MXN');
+        
+        const restanteMxnDisplay = document.getElementById('pago_restante_mxn_display');
+        if (typeof monedaPedido !== 'undefined' && monedaPedido !== 'MXN' && restanteMxnDisplay) {
+            restanteMxnDisplay.innerText = fmtMxn(nuevoSaldoMxn);
+            restanteMxnDisplay.style.setProperty('display', 'block', 'important');
+        } else if (restanteMxnDisplay) {
+            restanteMxnDisplay.style.setProperty('display', 'none', 'important');
+        }
         
         const wrapper = document.getElementById('pago_conversion_wrapper');
         const display = document.getElementById('pago_conversion_display');
         
         if (monedaSiglas !== 'MXN') {
             wrapper.style.display = "block";
-            display.innerText = '$' + (montoAbono * tipoCambio).toLocaleString('en-US', {minimumFractionDigits: 2}) + ' MXN';
+            display.innerText = fmtMxn(montoAbono * tipoCambio);
         } else {
             wrapper.style.display = "none";
-            document.getElementById('pago_tipo_cambio').value = "1.0000";
         }
     }
 
@@ -1768,7 +1854,7 @@
 
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold text-secondary">Moneda</label>
-                                        <select name="moneda_id" id="pago_moneda" class="form-select form-select-sm" required onchange="actualizarConversion()">
+                                        <select name="moneda_id" id="pago_moneda" class="form-select form-select-sm" required onchange="alCambiarMonedaPagoClientes()">
                                             {% for m in monedas %}
                                             <option value="{{ m.id }}" data-siglas="{{ m.siglas }}" {% if m.siglas == 'MXN' %}selected{% endif %}>{{ m.nombre }} ({{ m.siglas }})</option>
                                             {% endfor %}
@@ -1788,15 +1874,24 @@
                                     <div class="row g-2">
                                         <div class="col-4 text-center border-end">
                                             <span class="d-block small text-muted text-uppercase fw-bold" style="font-size: 0.6rem;">Total Pedido</span>
-                                            <span class="text-dark" id="pago_total_display" style="font-weight: 600;">$0.00</span>
+                                            <div id="pago_total_wrapper">
+                                                <span class="text-dark d-block fw-bold" id="pago_total_display" style="font-size: 1.1rem;">$0.00</span>
+                                                <span class="text-muted small d-block" id="pago_total_mxn_display" style="display: none; font-size: 0.75rem;">$0.00 MXN</span>
+                                            </div>
                                         </div>
                                         <div class="col-4 text-center border-end">
                                             <span class="d-block small text-muted text-uppercase fw-bold" style="font-size: 0.6rem;">Saldo Pendiente</span>
-                                            <span class="text-dark" id="pago_saldo_display" style="font-weight: 600;">$0.00</span>
+                                            <div id="pago_saldo_wrapper">
+                                                <span class="text-dark d-block fw-bold" id="pago_saldo_display" style="font-size: 1.1rem;">$0.00</span>
+                                                <span class="text-muted small d-block" id="pago_saldo_mxn_display" style="display: none; font-size: 0.75rem;">$0.00 MXN</span>
+                                            </div>
                                         </div>
                                         <div class="col-4 text-center">
                                             <span class="d-block small text-muted text-uppercase fw-bold" style="font-size: 0.6rem;">Nuevo Saldo</span>
-                                            <span class="text-dark" id="pago_restante_display" style="font-weight: 600;">$0.00</span>
+                                            <div id="pago_restante_wrapper">
+                                                <span class="text-dark d-block fw-bold" id="pago_restante_display" style="font-size: 1.1rem;">$0.00</span>
+                                                <span class="text-muted small d-block" id="pago_restante_mxn_display" style="display: none; font-size: 0.75rem;">$0.00 MXN</span>
+                                            </div>
                                         </div>
                                     </div>
 
