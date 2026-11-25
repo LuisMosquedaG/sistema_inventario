@@ -740,7 +740,14 @@
                             <i class="bi bi-diagram-3-fill me-1" style="color: var(--cc-brand);"></i> Consolidado (+ Subcentros)
                         </span>
                     </h5>
-                    <span class="text-muted small" id="detMovPeriodoDisplay">Cargando periodo...</span>
+                    <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
+                        <span class="text-muted small" id="detMovPeriodoDisplay">Cargando periodo...</span>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Filtro Periodo" style="font-size: 0.72rem;">
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 active fw-semibold" id="btnPeriodoMes" onclick="cambiarFiltroPeriodoMov('mes')">Mes Actual</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 fw-semibold" id="btnPeriodoAnio" onclick="cambiarFiltroPeriodoMov('anio')">Todo el Año</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 fw-semibold" id="btnPeriodoHistorico" onclick="cambiarFiltroPeriodoMov('historico')">Histórico</button>
+                        </div>
+                    </div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -938,6 +945,15 @@
 
                             <!-- TAB 4: INGRESOS -->
                             <div class="tab-pane fade" id="panel-ingresos" role="tabpanel">
+                                <div id="bannerCobranzaPendiente" class="alert alert-light border d-flex align-items-center justify-content-between p-2 mb-2 d-none" style="font-size: 0.8rem; background-color: #f8fbfd;">
+                                    <div class="d-flex align-items-center">
+                                        <i class="bi bi-info-circle text-primary fs-5 me-2"></i>
+                                        <div>
+                                            <span class="fw-semibold text-dark">Información de Cobranza:</span>
+                                            <span class="text-secondary" id="txtCobranzaPendiente"></span>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div class="table-responsive">
                                     <table class="table table-pro mb-0 align-middle">
                                         <thead>
@@ -2013,6 +2029,22 @@
 
     // 6. VER MOVIMIENTOS Y DESGLOSE EN MODAL
     let centroSeleccionadoNombre = '';
+    let filtroPeriodoMovActual = 'mes';
+
+    function cambiarFiltroPeriodoMov(modo) {
+        filtroPeriodoMovActual = modo;
+        ['btnPeriodoMes', 'btnPeriodoAnio', 'btnPeriodoHistorico'].forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) btn.classList.remove('active');
+        });
+        const activeBtn = document.getElementById(modo === 'mes' ? 'btnPeriodoMes' : (modo === 'anio' ? 'btnPeriodoAnio' : 'btnPeriodoHistorico'));
+        if (activeBtn) activeBtn.classList.add('active');
+
+        if (centroSeleccionadoId) {
+            const switchConsolidar = document.getElementById('switchConsolidarHijos');
+            cargarMovimientosModal(centroSeleccionadoId, switchConsolidar ? switchConsolidar.checked : false);
+        }
+    }
 
     function toggleConsolidarMovimientos(checked) {
         if (!centroSeleccionadoId) return;
@@ -2033,6 +2065,15 @@
         const badgeConsolidado = document.getElementById('badgeConsolidado');
         if (badgeConsolidado) badgeConsolidado.classList.add('d-none');
 
+        // Reset selector periodo a mes actual
+        filtroPeriodoMovActual = 'mes';
+        ['btnPeriodoMes', 'btnPeriodoAnio', 'btnPeriodoHistorico'].forEach(idBtn => {
+            const btn = document.getElementById(idBtn);
+            if (btn) btn.classList.remove('active');
+        });
+        const btnMes = document.getElementById('btnPeriodoMes');
+        if (btnMes) btnMes.classList.add('active');
+
         const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalMovimientosCentro'));
         modal.show();
 
@@ -2041,7 +2082,12 @@
 
     function cargarMovimientosModal(id, consolidar) {
         document.getElementById('detMovPeriodoDisplay').textContent = 'Consultando movimientos...';
-        const url = `/centros-costos/${id}/movimientos/?consolidar=${consolidar ? '1' : '0'}`;
+        let url = `/centros-costos/${id}/movimientos/?consolidar=${consolidar ? '1' : '0'}`;
+        if (filtroPeriodoMovActual === 'anio') {
+            url += '&mes=todos';
+        } else if (filtroPeriodoMovActual === 'historico') {
+            url += '&anio=todos&mes=todos';
+        }
 
         fetch(url)
             .then(res => res.json())
@@ -2132,7 +2178,11 @@
                     }
                 }
 
-                document.getElementById('detMovPeriodoDisplay').textContent = `Periodo: ${data.periodo.mes_nombre || ''} ${data.periodo.anio}`;
+                let textoPeriodo = `Periodo: ${data.periodo.mes_nombre || ''}`;
+                if (data.periodo.anio && data.periodo.anio !== 'Todos') {
+                    textoPeriodo += ` ${data.periodo.anio}`;
+                }
+                document.getElementById('detMovPeriodoDisplay').textContent = textoPeriodo;
 
                 const esConsolidado = !!data.consolidado;
 
@@ -2313,10 +2363,27 @@
                 if (document.getElementById('countIngresos')) {
                     document.getElementById('countIngresos').textContent = ingresosList.length;
                 }
+                const bannerCobranza = document.getElementById('bannerCobranzaPendiente');
+                const txtCobranza = document.getElementById('txtCobranzaPendiente');
+                const saldoPendPedidos = Number(r.total_saldo_pedidos || 0);
+                const countPendPedidos = Number(r.pedidos_pendientes_cobro || 0);
+
+                if (bannerCobranza && txtCobranza) {
+                    if (saldoPendPedidos > 0) {
+                        bannerCobranza.classList.remove('d-none');
+                        txtCobranza.innerHTML = ` Los ingresos reflejan cobros aplicados en Tesorería. Actualmente hay <strong>${countPendPedidos} pedido(s)</strong> con saldo pendiente de cobro por <strong>$${saldoPendPedidos.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} MXN</strong>.`;
+                    } else {
+                        bannerCobranza.classList.add('d-none');
+                    }
+                }
+
                 const tbodyIngresos = document.getElementById('tbodyIngresosTesoreria');
                 if (tbodyIngresos) {
                     if (ingresosList.length === 0) {
-                        tbodyIngresos.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted fst-italic">No hay ingresos registrados en este periodo.</td></tr>';
+                        const extraNota = saldoPendPedidos > 0
+                            ? ` (Se tienen $${saldoPendPedidos.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} MXN pendientes de cobro en pedidos de venta; se reflejarán aquí al aplicar el cobro en Tesorería)`
+                            : '';
+                        tbodyIngresos.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted fst-italic">No hay ingresos aplicados en este periodo.${extraNota}</td></tr>`;
                     } else {
                         let htmlIngresos = '';
                         ingresosList.forEach(ing => {
@@ -2416,10 +2483,16 @@
 
         let htmlMercancia = '';
         lista.forEach(m => {
-            const esEntrada = m.movimiento === 'entrada' || m.tipo === 'recepcion_compra';
-            const badgeMovimiento = esEntrada
-                ? '<span class="status-pill status-recibida">Entrada</span>'
-                : '<span class="status-pill status-cancelada">Salida</span>';
+            let badgeMovimiento = '';
+            if (m.tipo === 'recepcion_compra' || m.movimiento === 'entrada') {
+                badgeMovimiento = '<span class="status-pill status-recibida">Entrada (OC)</span>';
+            } else if (m.tipo === 'pedido_comprometido') {
+                badgeMovimiento = `<span class="status-pill status-parcial" title="${m.tipo_label || 'Comprometido'}">Comprometido</span>`;
+            } else if (m.tipo === 'salida_venta') {
+                badgeMovimiento = '<span class="status-pill status-cancelada">Salida (Venta)</span>';
+            } else {
+                badgeMovimiento = '<span class="status-pill status-borrador">Salida (Uso)</span>';
+            }
 
             const cantNum = typeof m.cantidad === 'number' ? m.cantidad : parseFloat(m.cantidad || 0);
             const subtotalNum = typeof m.subtotal === 'number' ? m.subtotal : parseFloat(m.subtotal || 0);
@@ -3965,6 +4038,17 @@
             btn.disabled = false;
             btn.innerHTML = originalHtml;
             alert('Error de comunicación con el servidor al asignar documento.');
+        });
+    }
+
+    // Asegurar que al cerrar el modal de asignación el modal principal de movimientos mantenga el scroll
+    const modalAsignarEl = document.getElementById('modalAsignarDocumentoCC');
+    if (modalAsignarEl) {
+        modalAsignarEl.addEventListener('hidden.bs.modal', function() {
+            const modalMov = document.getElementById('modalMovimientosCentro');
+            if (modalMov && modalMov.classList.contains('show')) {
+                document.body.classList.add('modal-open');
+            }
         });
     }
 
