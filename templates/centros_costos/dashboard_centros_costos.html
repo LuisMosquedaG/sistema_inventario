@@ -203,6 +203,35 @@
         border-radius: 4px;
         border-left: 2px solid #dee2e6;
     }
+
+    /* Botones pastilla de filtro de periodo (Estilo Reportes de Ventas) */
+    .filter-badge-btn {
+        border-radius: 20px;
+        font-size: 0.76rem;
+        font-weight: 600;
+        padding: 4px 13px;
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        color: #475569;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        white-space: nowrap;
+        cursor: pointer;
+        line-height: 1.25;
+    }
+    .filter-badge-btn:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+        border-color: #94a3b8;
+    }
+    .filter-badge-btn.active {
+        background: #00b8b9 !important;
+        color: #ffffff !important;
+        border-color: #00b8b9 !important;
+        box-shadow: 0 2px 6px rgba(0, 184, 185, 0.3);
+    }
 </style>
 
 <div class="container-fluid py-3 px-4">
@@ -740,13 +769,12 @@
                             <i class="bi bi-diagram-3-fill me-1" style="color: var(--cc-brand);"></i> Consolidado (+ Subcentros)
                         </span>
                     </h5>
-                    <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
-                        <span class="text-muted small" id="detMovPeriodoDisplay">Cargando periodo...</span>
-                        <div class="btn-group btn-group-sm" role="group" aria-label="Filtro Periodo" style="font-size: 0.72rem;">
-                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 active fw-semibold" id="btnPeriodoMes" onclick="cambiarFiltroPeriodoMov('mes')">Mes Actual</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 fw-semibold" id="btnPeriodoAnio" onclick="cambiarFiltroPeriodoMov('anio')">Todo el Año</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 fw-semibold" id="btnPeriodoHistorico" onclick="cambiarFiltroPeriodoMov('historico')">Histórico</button>
-                        </div>
+                    <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
+                        <span class="small fw-bold text-muted me-1"><i class="bi bi-calendar3 me-1"></i> Periodo:</span>
+                        <button type="button" class="filter-badge-btn active" id="btnPeriodoMes" onclick="cambiarFiltroPeriodoMov('mes')">Mes Actual</button>
+                        <button type="button" class="filter-badge-btn" id="btnPeriodoAnio" onclick="cambiarFiltroPeriodoMov('anio')">Todo el Año</button>
+                        <button type="button" class="filter-badge-btn" id="btnPeriodoHistorico" onclick="cambiarFiltroPeriodoMov('historico')">Histórico</button>
+                        <span class="text-muted small ms-2 ps-2 border-start" id="detMovPeriodoDisplay">Cargando periodo...</span>
                     </div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
