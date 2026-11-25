@@ -4145,13 +4145,6 @@
             alert('Error de comunicación con el servidor al asignar documentos.');
         });
     }
-        .catch(err => {
-            console.error(err);
-            btn.disabled = false;
-            btn.innerHTML = originalHtml;
-            alert('Error de comunicación con el servidor al asignar documento.');
-        });
-    }
 
     // Asegurar que al cerrar el modal de asignación el modal principal de movimientos mantenga el scroll
     const modalAsignarEl = document.getElementById('modalAsignarDocumentoCC');
