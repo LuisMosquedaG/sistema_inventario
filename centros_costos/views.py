@@ -109,6 +109,7 @@ def dashboard_centros_costos(request):
 
         gasto_global_mes += gastado_historico
         remanente = pres - gastado_historico
+        disponible = remanente  # Disponible = Presupuesto - Gasto Histórico
 
         # Alerta si supera 80% o está excedido
         if pres > 0 and (pct >= 80 or pct_total >= 80):
@@ -120,6 +121,7 @@ def dashboard_centros_costos(request):
             'gastado': gastado_historico,
             'egresos': egresos_historico,
             'ingresos': ingresos_historico,
+            'disponible': disponible,
             'pct_presupuesto': pct,
             'pct_total': pct_total,
             'remanente': remanente,

@@ -423,12 +423,12 @@
                                 {% endif %}
                             </td>
 
-                            <!-- CONSUMO (HISTÓRICO ACUMULADO) -->
+                            <!-- CONSUMO / DISPONIBLE -->
                             <td class="text-center align-middle">
-                                <div class="mx-auto" style="max-width: 170px;" {% if item.ingresos > 0 %}title="Egresos: ${{ item.egresos|floatformat:2|intcomma }} | Ingresos: -${{ item.ingresos|floatformat:2|intcomma }} | Gasto Neto Histórico: ${{ gastado|floatformat:2|intcomma }}"{% else %}title="Consumo histórico acumulado: ${{ gastado|floatformat:2|intcomma }}"{% endif %}>
+                                <div class="mx-auto" style="max-width: 170px;" {% if item.ingresos > 0 %}title="Gasto Neto Histórico: ${{ gastado|floatformat:2|intcomma }} (Egresos: ${{ item.egresos|floatformat:2|intcomma }} | Ingresos: -${{ item.ingresos|floatformat:2|intcomma }}) | Disponible: ${{ item.disponible|floatformat:2|intcomma }}"{% else %}title="Gasto Neto Histórico: ${{ gastado|floatformat:2|intcomma }} | Disponible: ${{ item.disponible|floatformat:2|intcomma }}"{% endif %}>
                                     <div class="d-flex justify-content-between align-items-center mb-1">
-                                        <span class="progress-label">Gasto Hist.</span>
-                                        <span class="progress-label text-dark fw-bold">${{ gastado|floatformat:2|intcomma }}</span>
+                                        <span class="progress-label">Disponible</span>
+                                        <span class="progress-label text-dark fw-bold">${{ item.disponible|floatformat:2|intcomma }}</span>
                                     </div>
                                     <div class="d-flex align-items-center gap-2">
                                         <div class="progress-slim flex-grow-1 m-0">
