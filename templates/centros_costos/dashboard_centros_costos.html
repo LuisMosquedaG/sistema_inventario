@@ -1146,7 +1146,9 @@
                             <table class="table table-hover table-sm align-middle mb-0" style="font-size: 0.8rem;">
                                 <thead class="table-light sticky-top" style="z-index: 1;">
                                     <tr>
-                                        <th style="width: 36px;" class="text-center">#</th>
+                                        <th style="width: 38px;" class="text-center">
+                                            <input type="checkbox" id="checkTodosDocsSinAsignar" class="form-check-input" onchange="toggleSeleccionarTodosDocs(this.checked)" title="Seleccionar todos">
+                                        </th>
                                         <th style="width: 105px;">Folio</th>
                                         <th style="width: 90px;" class="text-center">Fecha</th>
                                         <th id="thBeneficiario">Proveedor</th>
@@ -3809,10 +3811,11 @@
     }
 
     // ==============================================================================
-    // ASIGNACIÓN DE DOCUMENTOS (OC / PEDIDOS) AL CENTRO DE COSTOS
+    // ASIGNACIÓN DE DOCUMENTOS (OC / PEDIDOS) AL CENTRO DE COSTOS - MULTISELECCIÓN
     // ==============================================================================
     let docsSinAsignarGlobal = [];
-    let docSinAsignarSeleccionado = null;
+    let docsSinAsignarFiltrados = [];
+    let docsSinAsignarSeleccionados = new Set();
     let tipoDocAsignarActual = 'orden_compra';
 
     function abrirModalAsignarDocumentoCC() {
@@ -3825,10 +3828,15 @@
         document.getElementById('asignarDocCentroNombre').textContent = nombreCC;
 
         // Reset estado modal
-        docSinAsignarSeleccionado = null;
+        docsSinAsignarSeleccionados.clear();
+        docsSinAsignarFiltrados = [];
         document.getElementById('btnConfirmarAsignacionDoc').disabled = true;
+        document.getElementById('btnConfirmarAsignacionDoc').innerHTML = '<i class="bi bi-link-45deg me-1"></i> Confirmar Asignación';
         document.getElementById('wrapperAvisoAsignacion').classList.add('d-none');
         document.getElementById('inputBuscarDocSinAsignar').value = '';
+
+        const chkMaster = document.getElementById('checkTodosDocsSinAsignar');
+        if (chkMaster) { chkMaster.checked = false; chkMaster.indeterminate = false; }
 
         // Reset selección de tipo a Orden de Compra
         const radioOC = document.getElementById('tipoDocOC');
@@ -3842,19 +3850,24 @@
 
     function cambiarTipoDocAsignar(tipo) {
         tipoDocAsignarActual = tipo;
-        docSinAsignarSeleccionado = null;
+        docsSinAsignarSeleccionados.clear();
+        docsSinAsignarFiltrados = [];
         document.getElementById('btnConfirmarAsignacionDoc').disabled = true;
+        document.getElementById('btnConfirmarAsignacionDoc').innerHTML = '<i class="bi bi-link-45deg me-1"></i> Confirmar Asignación';
         document.getElementById('wrapperAvisoAsignacion').classList.add('d-none');
         document.getElementById('inputBuscarDocSinAsignar').value = '';
+
+        const chkMaster = document.getElementById('checkTodosDocsSinAsignar');
+        if (chkMaster) { chkMaster.checked = false; chkMaster.indeterminate = false; }
 
         const lblTitulo = document.getElementById('lblTituloDocListado');
         const thBeneficiario = document.getElementById('thBeneficiario');
 
         if (tipo === 'orden_compra') {
-            if (lblTitulo) lblTitulo.textContent = '2. Selecciona la Orden de Compra sin asignación';
+            if (lblTitulo) lblTitulo.textContent = '2. Selecciona las Órdenes de Compra sin asignación';
             if (thBeneficiario) thBeneficiario.textContent = 'Proveedor';
         } else {
-            if (lblTitulo) lblTitulo.textContent = '2. Selecciona el Pedido de Venta sin asignación';
+            if (lblTitulo) lblTitulo.textContent = '2. Selecciona los Pedidos de Venta sin asignación';
             if (thBeneficiario) thBeneficiario.textContent = 'Cliente';
         }
 
@@ -3890,6 +3903,7 @@
                 if (bPed && data.count_ped !== undefined) bPed.textContent = `${data.count_ped} sin asignar`;
 
                 docsSinAsignarGlobal = data.documentos || [];
+                docsSinAsignarFiltrados = [];
                 renderizarTablaDocsSinAsignar(docsSinAsignarGlobal);
             })
             .catch(err => {
@@ -3916,6 +3930,8 @@
                 </tr>
             `;
             if (contador) contador.textContent = '0 documentos';
+            const chkMaster = document.getElementById('checkTodosDocsSinAsignar');
+            if (chkMaster) { chkMaster.checked = false; chkMaster.indeterminate = false; }
             return;
         }
 
@@ -3923,7 +3939,7 @@
 
         let html = '';
         lista.forEach(d => {
-            const isChecked = docSinAsignarSeleccionado && docSinAsignarSeleccionado.id === d.id;
+            const isChecked = docsSinAsignarSeleccionados.has(d.id);
             const rowClass = isChecked ? 'table-active' : '';
 
             // Importe con formato y divisa
@@ -3942,9 +3958,9 @@
                 : (d.estado === 'Cancelada' || d.estado === 'Cancelado' ? 'status-cancelada' : 'status-borrador');
 
             html += `
-                <tr id="fila_doc_${d.id}" class="${rowClass}" onclick="seleccionarDocSinAsignar(${d.id})" style="cursor: pointer;">
+                <tr id="fila_doc_${d.id}" class="${rowClass}" onclick="toggleSeleccionDoc(${d.id})" style="cursor: pointer;">
                     <td class="text-center">
-                        <input type="radio" name="radioDocSeleccionado" id="radio_doc_${d.id}" value="${d.id}" ${isChecked ? 'checked' : ''} onchange="seleccionarDocSinAsignar(${d.id})" onclick="event.stopPropagation();">
+                        <input type="checkbox" name="checkDocSeleccionado" id="check_doc_${d.id}" value="${d.id}" class="form-check-input" ${isChecked ? 'checked' : ''} onchange="toggleSeleccionDoc(${d.id})" onclick="event.stopPropagation();">
                     </td>
                     <td>
                         <span class="badge bg-light text-dark border font-monospace fw-bold">${d.folio}</span>
@@ -3960,16 +3976,18 @@
         });
 
         tbody.innerHTML = html;
+        actualizarMasterCheckbox(lista);
     }
 
     function filtrarDocumentosSinAsignar() {
         const q = (document.getElementById('inputBuscarDocSinAsignar').value || '').toLowerCase().trim();
         if (!q) {
+            docsSinAsignarFiltrados = [];
             renderizarTablaDocsSinAsignar(docsSinAsignarGlobal);
             return;
         }
 
-        const filtrados = docsSinAsignarGlobal.filter(d => {
+        docsSinAsignarFiltrados = docsSinAsignarGlobal.filter(d => {
             const folio = (d.folio || '').toLowerCase();
             const bene = (d.beneficiario || '').toLowerCase();
             const fecha = (d.fecha || '').toLowerCase();
@@ -3977,27 +3995,74 @@
             return folio.includes(q) || bene.includes(q) || fecha.includes(q) || estado.includes(q);
         });
 
-        renderizarTablaDocsSinAsignar(filtrados);
+        renderizarTablaDocsSinAsignar(docsSinAsignarFiltrados);
     }
 
-    function seleccionarDocSinAsignar(id) {
-        const d = docsSinAsignarGlobal.find(x => x.id === id);
-        if (!d) return;
+    function toggleSeleccionDoc(id) {
+        if (docsSinAsignarSeleccionados.has(id)) {
+            docsSinAsignarSeleccionados.delete(id);
+        } else {
+            docsSinAsignarSeleccionados.add(id);
+        }
+        actualizarVistaSeleccionados();
+    }
 
-        docSinAsignarSeleccionado = d;
+    function toggleSeleccionarTodosDocs(checked) {
+        const listaActual = docsSinAsignarFiltrados.length > 0 ? docsSinAsignarFiltrados : docsSinAsignarGlobal;
+        if (checked) {
+            listaActual.forEach(d => docsSinAsignarSeleccionados.add(d.id));
+        } else {
+            listaActual.forEach(d => docsSinAsignarSeleccionados.delete(d.id));
+        }
+        actualizarVistaSeleccionados();
+    }
 
-        // Marcar radio
-        const rad = document.getElementById('radio_doc_' + id);
-        if (rad) rad.checked = true;
+    function actualizarMasterCheckbox(listaVisible) {
+        const chkMaster = document.getElementById('checkTodosDocsSinAsignar');
+        if (!chkMaster) return;
+        const lista = listaVisible || (docsSinAsignarFiltrados.length > 0 ? docsSinAsignarFiltrados : docsSinAsignarGlobal);
+        if (!lista || lista.length === 0) {
+            chkMaster.checked = false;
+            chkMaster.indeterminate = false;
+            return;
+        }
+        const todos = lista.every(d => docsSinAsignarSeleccionados.has(d.id));
+        const alguno = lista.some(d => docsSinAsignarSeleccionados.has(d.id));
+        chkMaster.checked = todos;
+        chkMaster.indeterminate = (!todos && alguno);
+    }
 
-        // Quitar active de todas las filas y poner a la seleccionada
-        document.querySelectorAll('#tbodyDocsSinAsignar tr').forEach(tr => tr.classList.remove('table-active'));
-        const fila = document.getElementById('fila_doc_' + id);
-        if (fila) fila.classList.add('table-active');
+    function actualizarVistaSeleccionados() {
+        // Actualizar checkboxes y filas visibles
+        const listaActual = docsSinAsignarFiltrados.length > 0 ? docsSinAsignarFiltrados : docsSinAsignarGlobal;
+        listaActual.forEach(d => {
+            const fila = document.getElementById('fila_doc_' + d.id);
+            const chk = document.getElementById('check_doc_' + d.id);
+            const isSel = docsSinAsignarSeleccionados.has(d.id);
+            if (fila) {
+                if (isSel) fila.classList.add('table-active');
+                else fila.classList.remove('table-active');
+            }
+            if (chk) chk.checked = isSel;
+        });
+
+        actualizarMasterCheckbox(listaActual);
+
+        // Calcular cantidades y sumas de los seleccionados
+        const seleccionadosArray = docsSinAsignarGlobal.filter(d => docsSinAsignarSeleccionados.has(d.id));
+        const cant = seleccionadosArray.length;
+        const sumMxn = seleccionadosArray.reduce((acc, d) => acc + (d.total_mxn || 0), 0);
 
         // Habilitar botón de confirmación
         const btnConfirmar = document.getElementById('btnConfirmarAsignacionDoc');
-        if (btnConfirmar) btnConfirmar.disabled = false;
+        if (btnConfirmar) {
+            btnConfirmar.disabled = (cant === 0);
+            if (cant > 0) {
+                btnConfirmar.innerHTML = `<i class="bi bi-link-45deg me-1"></i> Asignar ${cant} Documento(s)`;
+            } else {
+                btnConfirmar.innerHTML = '<i class="bi bi-link-45deg me-1"></i> Confirmar Asignación';
+            }
+        }
 
         // Mostrar aviso explicativo
         const wrapperAviso = document.getElementById('wrapperAvisoAsignacion');
@@ -4006,20 +4071,32 @@
         const nombreCC = centroSeleccionadoNombre || ('Centro #' + centroSeleccionadoId);
 
         if (wrapperAviso && avisoDoc && avisoEfecto) {
-            wrapperAviso.classList.remove('d-none');
-            avisoDoc.textContent = `Seleccionado: ${d.folio} · ${d.beneficiario} ($${(d.total_mxn || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} MXN)`;
+            if (cant > 0) {
+                wrapperAviso.classList.remove('d-none');
+                const foliosStr = seleccionadosArray.map(d => d.folio).slice(0, 4).join(', ') + (cant > 4 ? ` y ${cant - 4} más` : '');
+                avisoDoc.textContent = `${cant} documento(s) seleccionado(s) (${foliosStr}) · Total: $${sumMxn.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} MXN`;
 
-            if (tipoDocAsignarActual === 'orden_compra') {
-                avisoEfecto.innerHTML = `Se vinculará la Orden de Compra y todos sus <strong>Egresos de tesorería</strong> asociados al Centro de Costos <strong>${nombreCC}</strong> como si se hubiera asignado desde su creación.`;
+                if (tipoDocAsignarActual === 'orden_compra') {
+                    avisoEfecto.innerHTML = `Se vincularán las ${cant} Órdenes de Compra y todos sus <strong>Egresos de tesorería</strong> asociados al Centro de Costos <strong>${nombreCC}</strong>.`;
+                } else {
+                    avisoEfecto.innerHTML = `Se vincularán los ${cant} Pedidos de Venta y todos sus <strong>Ingresos de tesorería</strong> asociados al Centro de Costos <strong>${nombreCC}</strong>.`;
+                }
             } else {
-                avisoEfecto.innerHTML = `Se vinculará el Pedido de Venta y todos sus <strong>Ingresos de tesorería</strong> asociados al Centro de Costos <strong>${nombreCC}</strong> como si se hubiera asignado desde su creación.`;
+                wrapperAviso.classList.add('d-none');
             }
         }
     }
 
     function confirmarAsignacionDocumento() {
-        if (!docSinAsignarSeleccionado || !centroSeleccionadoId) {
-            alert('Por favor selecciona un documento para asignar.');
+        if (docsSinAsignarSeleccionados.size === 0 || !centroSeleccionadoId) {
+            alert('Por favor selecciona al menos un documento para asignar.');
+            return;
+        }
+
+        const ids = Array.from(docsSinAsignarSeleccionados);
+        const docNombre = tipoDocAsignarActual === 'orden_compra' ? 'orden(es) de compra' : 'pedido(s)';
+
+        if (!confirm(`¿Confirma asignar los ${ids.length} ${docNombre} seleccionados al Centro de Costos?`)) {
             return;
         }
 
@@ -4031,7 +4108,7 @@
         const payload = {
             centro_costo_id: centroSeleccionadoId,
             tipo: tipoDocAsignarActual,
-            documento_id: docSinAsignarSeleccionado.id
+            documento_ids: ids
         };
 
         fetch('/centros-costos/asignar-documento/', {
@@ -4058,9 +4135,16 @@
                 const switchConsolidar = document.getElementById('switchConsolidarHijos');
                 cargarMovimientosModal(centroSeleccionadoId, switchConsolidar ? switchConsolidar.checked : false);
             } else {
-                alert('No se pudo asignar el documento: ' + (data.error || 'Error desconocido'));
+                alert('No se pudo asignar: ' + (data.error || 'Error desconocido'));
             }
         })
+        .catch(err => {
+            console.error(err);
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            alert('Error de comunicación con el servidor al asignar documentos.');
+        });
+    }
         .catch(err => {
             console.error(err);
             btn.disabled = false;
