@@ -458,8 +458,30 @@ def api_movimientos_centro_costo(request, centro_id):
     cc = get_object_or_404(CentroCosto, id=centro_id, empresa=empresa)
 
     now = timezone.now()
-    anio = int(request.GET.get('anio', now.year))
-    mes = int(request.GET.get('mes', now.month))
+    anio_param = request.GET.get('anio')
+    mes_param = request.GET.get('mes')
+
+    MESES_MAP = {
+        1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril', 5: 'Mayo', 6: 'Junio',
+        7: 'Julio', 8: 'Agosto', 9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+    }
+
+    if str(anio_param).lower() in ['0', 'todos', 'all']:
+        anio = None
+    else:
+        try:
+            anio = int(anio_param) if anio_param is not None and anio_param != '' else now.year
+        except (ValueError, TypeError):
+            anio = now.year
+
+    if str(mes_param).lower() in ['0', 'todos', 'all']:
+        mes = None
+    else:
+        try:
+            mes = int(mes_param) if mes_param is not None and mes_param != '' else now.month
+        except (ValueError, TypeError):
+            mes = now.month
+
     consolidar_param = request.GET.get('consolidar') in ['1', 'true', 'True']
 
     es_padre = cc.es_padre
@@ -481,12 +503,13 @@ def api_movimientos_centro_costo(request, centro_id):
     # 1. Movimientos de Almacén y Mercancía (Entradas y Salidas)
     
     # 1.A. ENTRADAS: Recepciones de compras vinculadas a este centro de costos
-    recepciones = Recepcion.objects.filter(
-        orden_compra__centro_costo_id__in=centros_ids,
-        empresa=empresa,
-        fecha__year=anio,
-        fecha__month=mes
-    ).select_related(
+    filtro_rec = Q(orden_compra__centro_costo_id__in=centros_ids, empresa=empresa)
+    if anio:
+        filtro_rec &= Q(fecha__year=anio)
+    if mes:
+        filtro_rec &= Q(fecha__month=mes)
+
+    recepciones = Recepcion.objects.filter(filtro_rec).select_related(
         'almacen', 'orden_compra', 'orden_compra__proveedor', 'orden_compra__centro_costo',
         'moneda', 'orden_compra__moneda'
     ).prefetch_related('detalles__producto').order_by('-fecha')
@@ -532,13 +555,17 @@ def api_movimientos_centro_costo(request, centro_id):
             })
 
     # 1.B. SALIDAS: Salidas internas de almacén por uso / consumo
-    spu_detalles = DetalleSalidaPorUso.objects.filter(
-        Q(centro_costo_id__in=centros_ids) | Q(salida__centro_costo_id__in=centros_ids, centro_costo__isnull=True),
-        salida__empresa=empresa
-    ).exclude(salida__estado='cancelada').filter(
-        Q(salida__fecha_salida__year=anio, salida__fecha_salida__month=mes) |
-        Q(salida__fecha_salida__isnull=True, salida__fecha_creacion__year=anio, salida__fecha_creacion__month=mes)
-    ).select_related('salida', 'producto', 'salida__usuario_recibe', 'salida__almacen', 'centro_costo', 'salida__centro_costo').order_by('-salida__fecha_creacion')
+    filtro_spu = (Q(centro_costo_id__in=centros_ids) | Q(salida__centro_costo_id__in=centros_ids, centro_costo__isnull=True)) & Q(salida__empresa=empresa)
+    if anio and mes:
+        filtro_spu &= (Q(salida__fecha_salida__year=anio, salida__fecha_salida__month=mes) | Q(salida__fecha_salida__isnull=True, salida__fecha_creacion__year=anio, salida__fecha_creacion__month=mes))
+    elif anio:
+        filtro_spu &= (Q(salida__fecha_salida__year=anio) | Q(salida__fecha_salida__isnull=True, salida__fecha_creacion__year=anio))
+    elif mes:
+        filtro_spu &= (Q(salida__fecha_salida__month=mes) | Q(salida__fecha_salida__isnull=True, salida__fecha_creacion__month=mes))
+
+    spu_detalles = DetalleSalidaPorUso.objects.filter(filtro_spu).exclude(salida__estado='cancelada').select_related(
+        'salida', 'producto', 'salida__usuario_recibe', 'salida__almacen', 'centro_costo', 'salida__centro_costo'
+    ).order_by('-salida__fecha_creacion')
 
     lista_spu = []
     total_spu = Decimal('0.00')
@@ -568,13 +595,17 @@ def api_movimientos_centro_costo(request, centro_id):
         })
 
     # 1.C. SALIDAS: Salidas físicas por ventas / despacho de pedidos del centro de costo
-    ordenes_venta = OrdenVenta.objects.filter(
-        pedido_origen__centro_costo_id__in=centros_ids,
-        empresa=empresa
-    ).exclude(estado='cancelada').filter(
-        Q(fecha_surtido__year=anio, fecha_surtido__month=mes) |
-        Q(fecha_surtido__isnull=True, fecha_creacion__year=anio, fecha_creacion__month=mes)
-    ).select_related('almacen', 'pedido_origen', 'cliente', 'pedido_origen__centro_costo').prefetch_related('detalles__producto').order_by('-fecha_creacion')
+    filtro_ov = Q(pedido_origen__centro_costo_id__in=centros_ids, empresa=empresa)
+    if anio and mes:
+        filtro_ov &= (Q(fecha_surtido__year=anio, fecha_surtido__month=mes) | Q(fecha_surtido__isnull=True, fecha_creacion__year=anio, fecha_creacion__month=mes))
+    elif anio:
+        filtro_ov &= (Q(fecha_surtido__year=anio) | Q(fecha_surtido__isnull=True, fecha_creacion__year=anio))
+    elif mes:
+        filtro_ov &= (Q(fecha_surtido__month=mes) | Q(fecha_surtido__isnull=True, fecha_creacion__month=mes))
+
+    ordenes_venta = OrdenVenta.objects.filter(filtro_ov).exclude(estado='cancelada').select_related(
+        'almacen', 'pedido_origen', 'cliente', 'pedido_origen__centro_costo'
+    ).prefetch_related('detalles__producto').order_by('-fecha_creacion')
 
     lista_salidas_ventas = []
     total_salidas_ventas = Decimal('0.00')
@@ -611,21 +642,78 @@ def api_movimientos_centro_costo(request, centro_id):
                 'centro_costo_nombre': ov_cc.nombre if ov_cc else '--'
             })
 
+    # 1.D. PRODUCTOS Y SERVICIOS EN PEDIDOS DE VENTA (Pendientes de surtido / Comprometidos)
+    # Refleja de inmediato los productos solicitados en pedidos del centro de costo que aún no han generado una Orden de Venta
+    pedidos_con_ov_ids = OrdenVenta.objects.filter(
+        pedido_origen__centro_costo_id__in=centros_ids,
+        empresa=empresa
+    ).exclude(estado='cancelada').values_list('pedido_origen_id', flat=True)
+
+    filtro_ped_comp = Q(centro_costo_id__in=centros_ids, empresa=empresa)
+    if anio:
+        filtro_ped_comp &= Q(fecha_creacion__year=anio)
+    if mes:
+        filtro_ped_comp &= Q(fecha_creacion__month=mes)
+
+    pedidos_pendientes_qs = Pedido.objects.filter(filtro_ped_comp).exclude(estado='cancelado').exclude(
+        id__in=pedidos_con_ov_ids
+    ).select_related('cliente', 'sucursal', 'centro_costo', 'moneda').prefetch_related('detalles__producto').order_by('-fecha_creacion')
+
+    lista_pedidos_comprometidos = []
+    total_pedidos_comprometidos = Decimal('0.00')
+    for ped in pedidos_pendientes_qs:
+        f_ped = ped.fecha_creacion.date() if hasattr(ped.fecha_creacion, 'date') else ped.fecha_creacion
+        ped_cc = ped.centro_costo or cc
+        tc_ped = ped.tipo_cambio or Decimal('1.0000')
+        cli_nom = ped.cliente.nombre_completo if ped.cliente else '--'
+
+        for det in ped.detalles.all():
+            cant = det.cantidad_solicitada or Decimal('0.00')
+            prec_orig = det.precio_unitario or Decimal('0.00')
+            prec_mxn = prec_orig * tc_ped
+            sub_orig = det.subtotal or (cant * prec_orig)
+            sub_mxn = sub_orig * tc_ped
+            total_pedidos_comprometidos += sub_mxn
+
+            lista_pedidos_comprometidos.append({
+                'tipo': 'pedido_comprometido',
+                'movimiento': 'salida',
+                'tipo_label': f"Comprometido ({ped.get_estado_display()})",
+                'folio': f"PED-{ped.id:04d}",
+                'doc_origen': 'Pedido de Venta',
+                'fecha': f_ped.strftime('%d/%m/%Y'),
+                'fecha_dt': f_ped,
+                'almacen': ped.sucursal.nombre if ped.sucursal else '--',
+                'recibe': cli_nom,
+                'producto': det.producto.nombre,
+                'cantidad': float(cant),
+                'unidad': getattr(det.producto, 'unidad_medida', 'pza') or 'pza',
+                'costo_unitario': float(prec_mxn),
+                'subtotal': float(sub_mxn),
+                'costo_unitario_origen': float(prec_orig),
+                'subtotal_origen': float(sub_orig),
+                'moneda': ped.moneda.siglas if ped.moneda else 'MXN',
+                'tipo_cambio': float(tc_ped),
+                'estado': ped.get_estado_display(),
+                'centro_costo': ped_cc.codigo if ped_cc else '--',
+                'centro_costo_nombre': ped_cc.nombre if ped_cc else '--'
+            })
+
     # Combinamos todas las entradas y salidas de mercancía
-    lista_salidas_totales = lista_spu + lista_salidas_ventas
+    lista_salidas_totales = lista_spu + lista_salidas_ventas + lista_pedidos_comprometidos
     lista_mercancia = lista_recepciones + lista_salidas_totales
     lista_mercancia.sort(key=lambda x: x['fecha_dt'], reverse=True)
     for item in lista_mercancia:
         item.pop('fecha_dt', None)
 
     # 2. Egresos de tesorería
-    egresos = Egreso.objects.filter(
-        Q(centro_costo_id__in=centros_ids) | Q(pago_compra__orden_compra__centro_costo_id__in=centros_ids),
-        empresa=empresa,
-        estado='aplicado',
-        fecha__year=anio,
-        fecha__month=mes
-    ).select_related(
+    filtro_egr = (Q(centro_costo_id__in=centros_ids) | Q(pago_compra__orden_compra__centro_costo_id__in=centros_ids)) & Q(empresa=empresa, estado='aplicado')
+    if anio:
+        filtro_egr &= Q(fecha__year=anio)
+    if mes:
+        filtro_egr &= Q(fecha__month=mes)
+
+    egresos = Egreso.objects.filter(filtro_egr).select_related(
         'caja_banco', 'proveedor', 'pago_compra__orden_compra__proveedor',
         'centro_costo', 'pago_compra__orden_compra__centro_costo', 'clase_costo', 'moneda'
     ).prefetch_related(
@@ -688,12 +776,13 @@ def api_movimientos_centro_costo(request, centro_id):
         })
 
     # 3. Órdenes de compra
-    ordenes = OrdenCompra.objects.filter(
-        centro_costo_id__in=centros_ids,
-        empresa=empresa,
-        fecha__year=anio,
-        fecha__month=mes
-    ).select_related('proveedor', 'centro_costo', 'moneda').prefetch_related(
+    filtro_oc = Q(centro_costo_id__in=centros_ids, empresa=empresa)
+    if anio:
+        filtro_oc &= Q(fecha__year=anio)
+    if mes:
+        filtro_oc &= Q(fecha__month=mes)
+
+    ordenes = OrdenCompra.objects.filter(filtro_oc).select_related('proveedor', 'centro_costo', 'moneda').prefetch_related(
         'detalles__clase_costo',
         'detalles__producto__clase_costo_predeterminada'
     ).order_by('-fecha')
@@ -740,12 +829,13 @@ def api_movimientos_centro_costo(request, centro_id):
         })
 
     # 4. Pedidos de venta
-    pedidos = Pedido.objects.filter(
-        centro_costo_id__in=centros_ids,
-        empresa=empresa,
-        fecha_creacion__year=anio,
-        fecha_creacion__month=mes
-    ).select_related('cliente', 'vendedor', 'centro_costo', 'moneda').order_by('-fecha_creacion')
+    filtro_ped = Q(centro_costo_id__in=centros_ids, empresa=empresa)
+    if anio:
+        filtro_ped &= Q(fecha_creacion__year=anio)
+    if mes:
+        filtro_ped &= Q(fecha_creacion__month=mes)
+
+    pedidos = Pedido.objects.filter(filtro_ped).select_related('cliente', 'vendedor', 'centro_costo', 'moneda').order_by('-fecha_creacion')
 
     lista_pedidos = []
     total_pedidos = Decimal('0.00')
@@ -785,13 +875,15 @@ def api_movimientos_centro_costo(request, centro_id):
         })
 
     # 5. Ingresos de tesorería
-    ingresos = Ingreso.objects.filter(
-        Q(centro_costo_id__in=centros_ids) | Q(pago_pedido__pedido__centro_costo_id__in=centros_ids),
-        empresa=empresa,
-        estado='aplicado',
-        fecha__year=anio,
-        fecha__month=mes
-    ).select_related('caja_banco', 'cliente', 'pago_pedido__pedido__cliente', 'centro_costo', 'pago_pedido__pedido__centro_costo', 'moneda').distinct().order_by('-fecha')
+    filtro_ing = (Q(centro_costo_id__in=centros_ids) | Q(pago_pedido__pedido__centro_costo_id__in=centros_ids)) & Q(empresa=empresa, estado='aplicado')
+    if anio:
+        filtro_ing &= Q(fecha__year=anio)
+    if mes:
+        filtro_ing &= Q(fecha__month=mes)
+
+    ingresos = Ingreso.objects.filter(filtro_ing).select_related(
+        'caja_banco', 'cliente', 'pago_pedido__pedido__cliente', 'centro_costo', 'pago_pedido__pedido__centro_costo', 'moneda'
+    ).distinct().order_by('-fecha')
 
     lista_ingresos = []
     total_ingresos = Decimal('0.00')
@@ -835,13 +927,15 @@ def api_movimientos_centro_costo(request, centro_id):
 
     # 6. Distribuciones y Prorrateos (SAP Allocation / Assessment)
     # A) Como centro emisor (distribuciones realizadas hacia otros centros)
-    ejecuciones_emitidas = EjecucionCicloDistribucion.objects.filter(
-        ciclo__centro_emisor_id__in=centros_ids,
-        empresa=empresa,
-        anio=anio,
-        mes=mes,
-        estado='aplicado'
-    ).select_related('ciclo', 'ciclo__centro_emisor', 'ciclo__clase_costo_secundaria', 'usuario').prefetch_related('detalles__centro_receptor')
+    filtro_ejec_em = Q(ciclo__centro_emisor_id__in=centros_ids, empresa=empresa, estado='aplicado')
+    if anio:
+        filtro_ejec_em &= Q(anio=anio)
+    if mes:
+        filtro_ejec_em &= Q(mes=mes)
+
+    ejecuciones_emitidas = EjecucionCicloDistribucion.objects.filter(filtro_ejec_em).select_related(
+        'ciclo', 'ciclo__centro_emisor', 'ciclo__clase_costo_secundaria', 'usuario'
+    ).prefetch_related('detalles__centro_receptor')
 
     lista_distribuciones_emitidas = []
     total_distribuciones_emitidas = Decimal('0.00')
@@ -867,13 +961,15 @@ def api_movimientos_centro_costo(request, centro_id):
         })
 
     # B) Como centro receptor (distribuciones recibidas absorbidas de emisores)
-    detalles_recibidos = DetalleEjecucionCiclo.objects.filter(
-        centro_receptor_id__in=centros_ids,
-        ejecucion__empresa=empresa,
-        ejecucion__anio=anio,
-        ejecucion__mes=mes,
-        ejecucion__estado='aplicado'
-    ).select_related('ejecucion', 'ejecucion__ciclo', 'ejecucion__ciclo__centro_emisor', 'ejecucion__ciclo__clase_costo_secundaria', 'centro_receptor')
+    filtro_ejec_rec = Q(centro_receptor_id__in=centros_ids, ejecucion__empresa=empresa, ejecucion__estado='aplicado')
+    if anio:
+        filtro_ejec_rec &= Q(ejecucion__anio=anio)
+    if mes:
+        filtro_ejec_rec &= Q(ejecucion__mes=mes)
+
+    detalles_recibidos = DetalleEjecucionCiclo.objects.filter(filtro_ejec_rec).select_related(
+        'ejecucion', 'ejecucion__ciclo', 'ejecucion__ciclo__centro_emisor', 'ejecucion__ciclo__clase_costo_secundaria', 'centro_receptor'
+    )
 
     lista_distribuciones_recibidas = []
     total_distribuciones_recibidas = Decimal('0.00')
@@ -936,12 +1032,15 @@ def api_movimientos_centro_costo(request, centro_id):
             'presupuesto_mensual': float(presupuesto),
         },
         'periodo': {
-            'anio': anio,
-            'mes': mes,
+            'anio': anio if anio else 'Todos',
+            'mes': mes if mes else 'Todos',
+            'mes_nombre': MESES_MAP.get(mes, 'Todos los meses') if mes else 'Todos los meses',
+            'filtro_modo': 'mes' if (anio and mes) else ('anio' if anio else 'historico')
         },
         'resumen': {
             'total_spu': float(total_spu),
             'total_salidas_ventas': float(total_salidas_ventas),
+            'total_pedidos_comprometidos': float(total_pedidos_comprometidos),
             'total_recepciones': float(total_recepciones),
             'total_entradas_piezas': sum(m['cantidad'] for m in lista_recepciones),
             'total_salidas_piezas': sum(m['cantidad'] for m in lista_salidas_totales),
@@ -954,6 +1053,7 @@ def api_movimientos_centro_costo(request, centro_id):
             'consumo_total': float(gran_total_gastado),
             'total_pedidos': float(total_pedidos),
             'total_saldo_pedidos': float(total_saldo_pedidos),
+            'pedidos_pendientes_cobro': len([p for p in pedidos if (p.saldo_pendiente or 0) > 0 and p.estado != 'cancelado']),
             'total_ingresos': float(total_ingresos),
             'gasto_neto': float(gasto_neto),
             'impacto_neto': float(gasto_neto),
