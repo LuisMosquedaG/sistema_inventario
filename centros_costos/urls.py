@@ -36,4 +36,8 @@ urlpatterns = [
     path('periodos/cerrar/', views.api_cerrar_periodo_contable, name='cerrar_periodo_api'),
     path('periodos/reabrir/', views.api_reabrir_periodo_contable, name='reabrir_periodo_api'),
     path('periodos/historial/api/', views.api_historial_periodos_contables, name='periodos_historial_api'),
+
+    # Asignación de Documentos (OC / Pedidos) a Centros de Costo
+    path('documentos-sin-asignar/api/', views.api_documentos_sin_centro_costo, name='documentos_sin_asignar_api'),
+    path('asignar-documento/', views.api_asignar_documento_centro_costo, name='asignar_documento_api'),
 ]

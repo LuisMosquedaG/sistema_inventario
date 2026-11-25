@@ -2086,3 +2086,226 @@ def api_historial_periodos_contables(request):
     return JsonResponse({'success': True, 'anio': anio, 'periodos': matriz})
 
 
+# ==============================================================================
+# ASIGNACIÓN DE DOCUMENTOS (OC / PEDIDOS) AL CENTRO DE COSTOS
+# ==============================================================================
+
+@login_required(login_url='/login/')
+@require_centros_costos_permission('centros_costos', 'ver', json_response=True)
+def api_documentos_sin_centro_costo(request):
+    """
+    Devuelve las órdenes de compra o pedidos de venta que no tienen
+    un Centro de Costos asignado (centro_costo__isnull=True).
+    """
+    empresa = get_empresa_actual(request)
+    if not empresa:
+        return JsonResponse({'success': False, 'error': 'Empresa no encontrada'}, status=400)
+
+    tipo = (request.GET.get('tipo') or 'orden_compra').strip().lower()
+    q = request.GET.get('q', '').strip()
+
+    documentos = []
+
+    if tipo in ['orden_compra', 'oc', 'compras']:
+        ocs = OrdenCompra.objects.filter(
+            empresa=empresa,
+            centro_costo__isnull=True
+        ).exclude(estado='cancelada').select_related('proveedor', 'moneda').order_by('-fecha', '-id')
+
+        if q:
+            clean_q = q.replace('OC-', '').replace('oc-', '').strip()
+            ocs = ocs.filter(
+                Q(id__icontains=clean_q) |
+                Q(proveedor__razon_social__icontains=q) |
+                Q(proveedor__rfc__icontains=q)
+            )
+
+        for oc in ocs[:150]:
+            tc = oc.tipo_cambio or Decimal('1.0000')
+            tot = oc.total or Decimal('0.00')
+            tot_mxn = oc.total_en_pesos if hasattr(oc, 'total_en_pesos') else (tot * tc)
+            mon_siglas = oc.moneda.siglas if oc.moneda else 'MXN'
+            prov_nom = oc.proveedor.razon_social if oc.proveedor else 'Sin proveedor'
+
+            documentos.append({
+                'id': oc.id,
+                'folio': f"OC-{oc.id:04d}",
+                'fecha': oc.fecha.strftime('%d/%m/%Y'),
+                'beneficiario': prov_nom,
+                'total': float(tot),
+                'total_mxn': float(tot_mxn),
+                'moneda': mon_siglas,
+                'tipo_cambio': float(tc),
+                'estado': oc.get_estado_display(),
+                'pago_estado': oc.pago_estado,
+                'items_count': oc.cantidad_items,
+            })
+
+    elif tipo in ['pedido', 'pedidos', 'ventas']:
+        peds = Pedido.objects.filter(
+            empresa=empresa,
+            centro_costo__isnull=True
+        ).exclude(estado='cancelado').select_related('cliente', 'moneda').order_by('-fecha_creacion', '-id')
+
+        if q:
+            clean_q = q.replace('PED-', '').replace('ped-', '').strip()
+            peds = peds.filter(
+                Q(id__icontains=clean_q) |
+                Q(cliente__nombre__icontains=q) |
+                Q(cliente__apellidos__icontains=q) |
+                Q(cliente__razon_social__icontains=q) |
+                Q(cliente__rfc__icontains=q)
+            )
+
+        for ped in peds[:150]:
+            tc = ped.tipo_cambio or Decimal('1.0000')
+            tot = ped.total_pedido or Decimal('0.00')
+            tot_mxn = ped.total_en_pesos if hasattr(ped, 'total_en_pesos') else (tot * tc)
+            mon_siglas = ped.moneda.siglas if ped.moneda else 'MXN'
+            cli_nom = ped.cliente.nombre_completo if ped.cliente else 'Sin cliente'
+
+            documentos.append({
+                'id': ped.id,
+                'folio': f"PED-{ped.id:04d}",
+                'fecha': ped.fecha_creacion.strftime('%d/%m/%Y'),
+                'beneficiario': cli_nom,
+                'total': float(tot),
+                'total_mxn': float(tot_mxn),
+                'moneda': mon_siglas,
+                'tipo_cambio': float(tc),
+                'estado': ped.get_estado_display(),
+                'pago_estado': ped.pago_estado,
+                'items_count': ped.detalles.count(),
+            })
+
+    count_oc = OrdenCompra.objects.filter(empresa=empresa, centro_costo__isnull=True).exclude(estado='cancelada').count()
+    count_ped = Pedido.objects.filter(empresa=empresa, centro_costo__isnull=True).exclude(estado='cancelado').count()
+
+    return JsonResponse({
+        'success': True,
+        'tipo': tipo,
+        'count_oc': count_oc,
+        'count_ped': count_ped,
+        'documentos': documentos
+    })
+
+
+@login_required(login_url='/login/')
+@require_centros_costos_permission('centros_costos', 'editar', json_response=True)
+def api_asignar_documento_centro_costo(request):
+    """
+    Asigna una o varias Órdenes de Compra o Pedidos sin centro de costos a un Centro de Costos,
+    vinculando automáticamente todos los registros y movimientos contables asociados (Egresos o Ingresos).
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    empresa = get_empresa_actual(request)
+    if not empresa:
+        return JsonResponse({'success': False, 'error': 'Empresa no encontrada'}, status=400)
+
+    try:
+        from django.db import transaction
+        from centros_costos.models import PeriodoContable
+        from compras.models import HistorialOrdenCompra
+
+        data = json.loads(request.body)
+        centro_costo_id = data.get('centro_costo_id')
+        tipo = (data.get('tipo') or '').strip().lower()
+        
+        # Soportar asignación individual o múltiple
+        documento_ids = data.get('documento_ids')
+        if not documento_ids and data.get('documento_id'):
+            documento_ids = [data.get('documento_id')]
+
+        if not centro_costo_id or not tipo or not documento_ids:
+            return JsonResponse({'success': False, 'error': 'Parámetros incompletos para la asignación.'}, status=400)
+
+        cc = get_object_or_404(CentroCosto, id=centro_costo_id, empresa=empresa)
+
+        if not cc.activo:
+            return JsonResponse({'success': False, 'error': 'El centro de costos seleccionado no se encuentra activo.'}, status=400)
+
+        folios_asignados = []
+        total_movimientos_vinculados = 0
+
+        with transaction.atomic():
+            if tipo in ['orden_compra', 'oc', 'compras']:
+                ocs = OrdenCompra.objects.filter(id__in=documento_ids, empresa=empresa)
+                if not ocs.exists():
+                    return JsonResponse({'success': False, 'error': 'No se encontraron las órdenes de compra solicitadas.'}, status=404)
+
+                for oc in ocs:
+                    # Validar que el periodo contable no esté cerrado
+                    valido_per, err_per = PeriodoContable.validar_fecha_no_cerrada(empresa, oc.fecha)
+                    if not valido_per:
+                        return JsonResponse({'success': False, 'error': f"No se puede asignar OC-{oc.id:04d}: {err_per}"}, status=400)
+
+                    # Asignar centro de costos a la OC
+                    oc.centro_costo = cc
+                    oc.save(update_fields=['centro_costo'])
+
+                    # Asignar centro de costos a todos los egresos vinculados a sus pagos
+                    egresos_actualizados = Egreso.objects.filter(
+                        pago_compra__orden_compra=oc,
+                        empresa=empresa
+                    ).update(centro_costo=cc)
+
+                    total_movimientos_vinculados += egresos_actualizados
+                    folios_asignados.append(f"OC-{oc.id:04d}")
+
+                    # Registrar en historial
+                    HistorialOrdenCompra.objects.create(
+                        orden_compra=oc,
+                        usuario=request.user,
+                        accion='edicion',
+                        comentario=f"Asignado al Centro de Costos: {cc.codigo} - {cc.nombre}. Egresos vinculados: {egresos_actualizados}"
+                    )
+
+                msg = f"Se asignaron exitosamente {len(folios_asignados)} Orden(es) de Compra ({', '.join(folios_asignados)}) y {total_movimientos_vinculados} egreso(s) de tesorería al Centro de Costos {cc.codigo}."
+
+            elif tipo in ['pedido', 'pedidos', 'ventas']:
+                peds = Pedido.objects.filter(id__in=documento_ids, empresa=empresa)
+                if not peds.exists():
+                    return JsonResponse({'success': False, 'error': 'No se encontraron los pedidos solicitados.'}, status=404)
+
+                for ped in peds:
+                    # Validar que el periodo contable no esté cerrado
+                    f_ped = ped.fecha_creacion.date() if hasattr(ped.fecha_creacion, 'date') else ped.fecha_creacion
+                    valido_per, err_per = PeriodoContable.validar_fecha_no_cerrada(empresa, f_ped)
+                    if not valido_per:
+                        return JsonResponse({'success': False, 'error': f"No se puede asignar PED-{ped.id:04d}: {err_per}"}, status=400)
+
+                    # Asignar centro de costos al Pedido
+                    ped.centro_costo = cc
+                    ped.save(update_fields=['centro_costo'])
+
+                    # Asignar centro de costos a todos los ingresos vinculados a sus pagos
+                    ingresos_actualizados = Ingreso.objects.filter(
+                        pago_pedido__pedido=ped,
+                        empresa=empresa
+                    ).update(centro_costo=cc)
+
+                    total_movimientos_vinculados += ingresos_actualizados
+                    folios_asignados.append(f"PED-{ped.id:04d}")
+
+                msg = f"Se asignaron exitosamente {len(folios_asignados)} Pedido(s) ({', '.join(folios_asignados)}) y {total_movimientos_vinculados} ingreso(s) de tesorería al Centro de Costos {cc.codigo}."
+
+            else:
+                return JsonResponse({'success': False, 'error': f"Tipo de documento '{tipo}' no soportado."}, status=400)
+
+        return JsonResponse({
+            'success': True,
+            'message': msg,
+            'folios': folios_asignados,
+            'movimientos_vinculados': total_movimientos_vinculados,
+            'centro_id': cc.id,
+            'centro_codigo': cc.codigo,
+            'centro_nombre': cc.nombre
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+
