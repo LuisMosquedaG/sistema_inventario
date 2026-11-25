@@ -139,23 +139,23 @@ class CentroCosto(models.Model):
         """
         Calcula el total consumido en Egresos de tesorería pagados
         (pagos de OCs de productos y servicios + egresos directos).
+        Si no se especifican anio y mes, calcula el total histórico.
         """
-        now = timezone.now()
-        if not anio:
-            anio = now.year
-        if not mes:
-            mes = now.month
-
         total_egresos = Decimal('0.00')
         from tesoreria.models import Egreso
         from django.db.models import Q
+        filtro = Q(centro_costo=self) | Q(pago_compra__orden_compra__centro_costo=self)
         egresos = Egreso.objects.filter(
-            Q(centro_costo=self) | Q(pago_compra__orden_compra__centro_costo=self),
+            filtro,
             empresa=self.empresa,
-            estado='aplicado',
-            fecha__year=anio,
-            fecha__month=mes
-        ).distinct()
+            estado='aplicado'
+        )
+        if anio:
+            egresos = egresos.filter(fecha__year=anio)
+        if mes:
+            egresos = egresos.filter(fecha__month=mes)
+        egresos = egresos.distinct()
+
         for eg in egresos:
             m_mxn = eg.monto_mxn if (eg.monto_mxn and eg.monto_mxn > 0) else (eg.monto * (eg.tipo_cambio or Decimal('1.0000')))
             total_egresos += Decimal(str(m_mxn or 0))
@@ -166,19 +166,16 @@ class CentroCosto(models.Model):
         """
         Total de costos transferidos/prorrateados hacia otros centros
         donde este centro actuó como emisor (disminuye su saldo de gasto).
+        Si no se especifican anio y mes, calcula el total histórico.
         """
-        now = timezone.now()
-        if not anio:
-            anio = now.year
-        if not mes:
-            mes = now.month
-
         total = Decimal('0.00')
-        ejecuciones = self.ciclos_como_emisor.filter(
-            ejecuciones__anio=anio,
-            ejecuciones__mes=mes,
-            ejecuciones__estado='aplicado'
-        ).values_list('ejecuciones__monto_total_distribuido', flat=True)
+        filtro = {'ejecuciones__estado': 'aplicado'}
+        if anio:
+            filtro['ejecuciones__anio'] = anio
+        if mes:
+            filtro['ejecuciones__mes'] = mes
+
+        ejecuciones = self.ciclos_como_emisor.filter(**filtro).values_list('ejecuciones__monto_total_distribuido', flat=True)
         for m in ejecuciones:
             total += Decimal(str(m or 0))
         return total
@@ -187,19 +184,16 @@ class CentroCosto(models.Model):
         """
         Total de costos recibidos por distribución/prorrateo de centros emisores
         (incrementa el gasto real absorbido por este centro).
+        Si no se especifican anio y mes, calcula el total histórico.
         """
-        now = timezone.now()
-        if not anio:
-            anio = now.year
-        if not mes:
-            mes = now.month
-
         total = Decimal('0.00')
-        detalles = self.distribuciones_recibidas.filter(
-            ejecucion__anio=anio,
-            ejecucion__mes=mes,
-            ejecucion__estado='aplicado'
-        )
+        filtro = {'ejecucion__estado': 'aplicado'}
+        if anio:
+            filtro['ejecucion__anio'] = anio
+        if mes:
+            filtro['ejecucion__mes'] = mes
+
+        detalles = self.distribuciones_recibidas.filter(**filtro)
         for d in detalles:
             total += Decimal(str(d.monto_cargado or 0))
         return total
@@ -208,23 +202,23 @@ class CentroCosto(models.Model):
         """
         Calcula el total de Ingresos de tesorería cobrados
         (cobros de Pedidos de venta + ingresos directos).
+        Si no se especifican anio y mes, calcula el total histórico.
         """
-        now = timezone.now()
-        if not anio:
-            anio = now.year
-        if not mes:
-            mes = now.month
-
         total_ingresos = Decimal('0.00')
         from tesoreria.models import Ingreso
         from django.db.models import Q
+        filtro = Q(centro_costo=self) | Q(pago_pedido__pedido__centro_costo=self)
         ingresos = Ingreso.objects.filter(
-            Q(centro_costo=self) | Q(pago_pedido__pedido__centro_costo=self),
+            filtro,
             empresa=self.empresa,
-            estado='aplicado',
-            fecha__year=anio,
-            fecha__month=mes
-        ).distinct()
+            estado='aplicado'
+        )
+        if anio:
+            ingresos = ingresos.filter(fecha__year=anio)
+        if mes:
+            ingresos = ingresos.filter(fecha__month=mes)
+        ingresos = ingresos.distinct()
+
         for ing in ingresos:
             m_mxn = ing.monto_mxn if (ing.monto_mxn and ing.monto_mxn > 0) else (ing.monto * (ing.tipo_cambio or Decimal('1.0000')))
             total_ingresos += Decimal(str(m_mxn or 0))
@@ -233,17 +227,30 @@ class CentroCosto(models.Model):
 
     def calcular_gastos_mes(self, anio=None, mes=None):
         """
-        Calcula el gasto neto financiero en el mes considerando prorrateos internos:
+        Calcula el gasto neto financiero considerando prorrateos internos:
         Total Egresos Directos 
         - Total Ingresos 
         + Prorrateos Recibidos (absorbidos)
         - Prorrateos Emitidos (distribuidos hacia otros)
+        Si no se especifican anio y mes, calcula el total histórico.
         """
         egresos = self.calcular_egresos_mes(anio, mes)
         ingresos = self.calcular_ingresos_mes(anio, mes)
         dist_recibidas = self.calcular_distribuciones_recibidas_mes(anio, mes)
         dist_emitidas = self.calcular_distribuciones_emitidas_mes(anio, mes)
         return (egresos - ingresos) + dist_recibidas - dist_emitidas
+
+    def calcular_gastos_historico(self):
+        """Calcula el gasto neto financiero acumulado histórico sin filtrar por fecha."""
+        return self.calcular_gastos_mes(anio=None, mes=None)
+
+    def calcular_egresos_historico(self):
+        """Calcula los egresos acumulados históricos."""
+        return self.calcular_egresos_mes(anio=None, mes=None)
+
+    def calcular_ingresos_historico(self):
+        """Calcula los ingresos acumulados históricos."""
+        return self.calcular_ingresos_mes(anio=None, mes=None)
 
     def obtener_estado_prorrateo_mes(self, anio=None, mes=None):
         """

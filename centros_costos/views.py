@@ -82,27 +82,33 @@ def dashboard_centros_costos(request):
     total_activos = todos_empresa.filter(activo=True).count()
     presupuesto_global = sum([c.presupuesto_mensual for c in todos_empresa.filter(activo=True)], Decimal('0.00'))
 
-    # Calcular gastos de centros para la vista actual
+    # Calcular gastos de centros para la vista actual (Consumo Histórico Acumulado)
     centros_con_metricas = []
     gasto_global_mes = Decimal('0.00')
     centros_alerta_count = 0
 
     for c in centros_qs:
-        gastado = c.calcular_gastos_mes(anio_actual, mes_actual)
+        # Consumo histórico acumulado
+        gastado_historico = c.calcular_gastos_historico()
+        egresos_historico = c.calcular_egresos_historico()
+        ingresos_historico = c.calcular_ingresos_historico()
+
+        # Consumo mensual (para métricas y control)
+        gastado_mes = c.calcular_gastos_mes(anio_actual, mes_actual)
         egresos_mes = c.calcular_egresos_mes(anio_actual, mes_actual)
         ingresos_mes = c.calcular_ingresos_mes(anio_actual, mes_actual)
         comprometido = c.calcular_comprometido_mes(anio_actual, mes_actual)
         
-        # Porcentaje sobre presupuesto mensual
+        # Porcentaje de la barra de consumo histórica sobre presupuesto mensual
         pres = c.presupuesto_mensual or Decimal('0.00')
         pct = Decimal('0.0')
         pct_total = Decimal('0.0')
         if pres > 0:
-            pct = (gastado / pres) * Decimal('100.0')
-            pct_total = ((gastado + comprometido) / pres) * Decimal('100.0')
+            pct = (gastado_historico / pres) * Decimal('100.0')
+            pct_total = ((gastado_historico + comprometido) / pres) * Decimal('100.0')
 
-        gasto_global_mes += gastado
-        remanente = pres - gastado
+        gasto_global_mes += gastado_historico
+        remanente = pres - gastado_historico
 
         # Alerta si supera 80% o está excedido
         if pres > 0 and (pct >= 80 or pct_total >= 80):
@@ -110,13 +116,18 @@ def dashboard_centros_costos(request):
 
         centros_con_metricas.append({
             'obj': c,
-            'egresos_mes': egresos_mes,
-            'ingresos_mes': ingresos_mes,
-            'gastado_mes': gastado,
-            'comprometido_mes': comprometido,
+            # Histórico
+            'gastado': gastado_historico,
+            'egresos': egresos_historico,
+            'ingresos': ingresos_historico,
             'pct_presupuesto': pct,
             'pct_total': pct_total,
             'remanente': remanente,
+            # Mensual (retrocompatibilidad)
+            'gastado_mes': gastado_mes,
+            'egresos_mes': egresos_mes,
+            'ingresos_mes': ingresos_mes,
+            'comprometido_mes': comprometido,
         })
 
     # Paginación

@@ -369,7 +369,7 @@
                     </thead>
                     <tbody>
                         {% for item in page_obj %}
-                        {% with c=item.obj gastado=item.gastado_mes pct=item.pct_presupuesto %}
+                        {% with c=item.obj gastado=item.gastado pct=item.pct_presupuesto %}
                         <tr id="filaCentro{{ c.id }}">
                             <!-- ACCIONES -->
                             <td class="text-center align-middle">
@@ -423,11 +423,11 @@
                                 {% endif %}
                             </td>
 
-                            <!-- CONSUMO (ESTILO MODAL / PRODUCCIÓN) -->
+                            <!-- CONSUMO (HISTÓRICO ACUMULADO) -->
                             <td class="text-center align-middle">
-                                <div class="mx-auto" style="max-width: 170px;" {% if item.ingresos_mes > 0 %}title="Egresos: ${{ item.egresos_mes|floatformat:2|intcomma }} | Ingresos: -${{ item.ingresos_mes|floatformat:2|intcomma }} | Gasto Neto: ${{ gastado|floatformat:2|intcomma }}"{% endif %}>
+                                <div class="mx-auto" style="max-width: 170px;" {% if item.ingresos > 0 %}title="Egresos: ${{ item.egresos|floatformat:2|intcomma }} | Ingresos: -${{ item.ingresos|floatformat:2|intcomma }} | Gasto Neto Histórico: ${{ gastado|floatformat:2|intcomma }}"{% else %}title="Consumo histórico acumulado: ${{ gastado|floatformat:2|intcomma }}"{% endif %}>
                                     <div class="d-flex justify-content-between align-items-center mb-1">
-                                        <span class="progress-label">Gasto</span>
+                                        <span class="progress-label">Gasto Hist.</span>
                                         <span class="progress-label text-dark fw-bold">${{ gastado|floatformat:2|intcomma }}</span>
                                     </div>
                                     <div class="d-flex align-items-center gap-2">
