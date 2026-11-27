@@ -638,28 +638,32 @@ def exportar_reporte_sdi_sua(request):
             if not nss_clean:
                 continue
 
-            if nss_clean not in trabajadores_map:
-                trabajadores_map[nss_clean] = {
-                    'registro_patronal': (imp.registro_patronal or '').strip(),
+            reg_pat_clean = (imp.registro_patronal or '').strip()
+            ubicacion_clean = (t.clave_ubicacion or '').strip()
+
+            # Desglosar por Registro Patronal, NSS y Ubicación como registros independientes
+            key = (reg_pat_clean, nss_clean, ubicacion_clean)
+
+            if key not in trabajadores_map:
+                trabajadores_map[key] = {
+                    'registro_patronal': reg_pat_clean,
                     'nss': nss_clean,
                     'nombre': (t.nombre or '').strip(),
                     'rfc_curp': (t.rfc_curp or '').strip(),
-                    'ubicacion': (t.clave_ubicacion or '').strip(),
+                    'ubicacion': ubicacion_clean,
                     'sdi_values': {}
                 }
             else:
-                if not trabajadores_map[nss_clean]['registro_patronal'] and imp.registro_patronal:
-                    trabajadores_map[nss_clean]['registro_patronal'] = (imp.registro_patronal or '').strip()
-                if not trabajadores_map[nss_clean]['rfc_curp'] and t.rfc_curp:
-                    trabajadores_map[nss_clean]['rfc_curp'] = (t.rfc_curp or '').strip()
-                if not trabajadores_map[nss_clean]['ubicacion'] and t.clave_ubicacion:
-                    trabajadores_map[nss_clean]['ubicacion'] = (t.clave_ubicacion or '').strip()
+                if not trabajadores_map[key]['rfc_curp'] and t.rfc_curp:
+                    trabajadores_map[key]['rfc_curp'] = (t.rfc_curp or '').strip()
+                if not trabajadores_map[key]['nombre'] and t.nombre:
+                    trabajadores_map[key]['nombre'] = (t.nombre or '').strip()
 
             val_sdi = float(t.sdi or 0)
             if val_sdi > 0:
-                trabajadores_map[nss_clean]['sdi_values'][cuatrimestre] = val_sdi
-                trabajadores_map[nss_clean]['sdi_values'][f'cuat_{cuatrimestre}'] = val_sdi
-                trabajadores_map[nss_clean]['sdi_values'][f'bim_{bimestre}'] = val_sdi
+                trabajadores_map[key]['sdi_values'][cuatrimestre] = val_sdi
+                trabajadores_map[key]['sdi_values'][f'cuat_{cuatrimestre}'] = val_sdi
+                trabajadores_map[key]['sdi_values'][f'bim_{bimestre}'] = val_sdi
 
     # Construir el libro de Excel con openpyxl siguiendo el mismo estilo que exportar_sua_excel
     wb = openpyxl.Workbook()
@@ -712,8 +716,8 @@ def exportar_reporte_sdi_sua(request):
 
     # 3. Filas de datos
     current_row = 8
-    # Ordenar trabajadores alfabéticamente por nombre
-    lista_trabajadores = sorted(trabajadores_map.values(), key=lambda x: x['nombre'])
+    # Ordenar trabajadores alfabéticamente por nombre, registro patronal y ubicación
+    lista_trabajadores = sorted(trabajadores_map.values(), key=lambda x: (x['nombre'], x['registro_patronal'], x['ubicacion']))
 
     for t_data in lista_trabajadores:
         row_vals = [
