@@ -2207,8 +2207,10 @@ def api_historial_periodos_contables(request):
 @require_centros_costos_permission('centros_costos', 'ver', json_response=True)
 def api_documentos_sin_centro_costo(request):
     """
-    Devuelve las órdenes de compra o pedidos de venta que no tienen
-    un Centro de Costos asignado (centro_costo__isnull=True).
+    Devuelve las órdenes de compra o pedidos de venta.
+    Parámetro 'modo':
+      - 'asignar' (por defecto): documentos sin Centro de Costos asignado (centro_costo__isnull=True).
+      - 'desvincular': documentos asignados al Centro de Costos indicado en 'centro_costo_id'.
     """
     empresa = get_empresa_actual(request)
     if not empresa:
@@ -2216,14 +2218,19 @@ def api_documentos_sin_centro_costo(request):
 
     tipo = (request.GET.get('tipo') or 'orden_compra').strip().lower()
     q = request.GET.get('q', '').strip()
+    modo = (request.GET.get('modo') or 'asignar').strip().lower()
+    centro_costo_id = request.GET.get('centro_costo_id')
 
     documentos = []
 
     if tipo in ['orden_compra', 'oc', 'compras']:
-        ocs = OrdenCompra.objects.filter(
-            empresa=empresa,
-            centro_costo__isnull=True
-        ).exclude(estado='cancelada').select_related('proveedor', 'moneda').order_by('-fecha', '-id')
+        ocs = OrdenCompra.objects.filter(empresa=empresa)
+        if modo == 'desvincular' and centro_costo_id:
+            ocs = ocs.filter(centro_costo_id=centro_costo_id)
+        else:
+            ocs = ocs.filter(centro_costo__isnull=True)
+
+        ocs = ocs.exclude(estado='cancelada').select_related('proveedor', 'moneda').order_by('-fecha', '-id')
 
         if q:
             clean_q = q.replace('OC-', '').replace('oc-', '').strip()
@@ -2250,15 +2257,19 @@ def api_documentos_sin_centro_costo(request):
                 'moneda': mon_siglas,
                 'tipo_cambio': float(tc),
                 'estado': oc.get_estado_display(),
+                'estado_raw': oc.estado,
                 'pago_estado': oc.pago_estado,
                 'items_count': oc.cantidad_items,
             })
 
     elif tipo in ['pedido', 'pedidos', 'ventas']:
-        peds = Pedido.objects.filter(
-            empresa=empresa,
-            centro_costo__isnull=True
-        ).exclude(estado='cancelado').select_related('cliente', 'moneda').order_by('-fecha_creacion', '-id')
+        peds = Pedido.objects.filter(empresa=empresa)
+        if modo == 'desvincular' and centro_costo_id:
+            peds = peds.filter(centro_costo_id=centro_costo_id)
+        else:
+            peds = peds.filter(centro_costo__isnull=True)
+
+        peds = peds.exclude(estado='cancelado').select_related('cliente', 'moneda').order_by('-fecha_creacion', '-id')
 
         if q:
             clean_q = q.replace('PED-', '').replace('ped-', '').strip()
@@ -2287,16 +2298,23 @@ def api_documentos_sin_centro_costo(request):
                 'moneda': mon_siglas,
                 'tipo_cambio': float(tc),
                 'estado': ped.get_estado_display(),
+                'estado_raw': ped.estado,
                 'pago_estado': ped.pago_estado,
                 'items_count': ped.detalles.count(),
             })
 
-    count_oc = OrdenCompra.objects.filter(empresa=empresa, centro_costo__isnull=True).exclude(estado='cancelada').count()
-    count_ped = Pedido.objects.filter(empresa=empresa, centro_costo__isnull=True).exclude(estado='cancelado').count()
+    # Contadores según el modo
+    if modo == 'desvincular' and centro_costo_id:
+        count_oc = OrdenCompra.objects.filter(empresa=empresa, centro_costo_id=centro_costo_id).exclude(estado='cancelada').count()
+        count_ped = Pedido.objects.filter(empresa=empresa, centro_costo_id=centro_costo_id).exclude(estado='cancelado').count()
+    else:
+        count_oc = OrdenCompra.objects.filter(empresa=empresa, centro_costo__isnull=True).exclude(estado='cancelada').count()
+        count_ped = Pedido.objects.filter(empresa=empresa, centro_costo__isnull=True).exclude(estado='cancelado').count()
 
     return JsonResponse({
         'success': True,
         'tipo': tipo,
+        'modo': modo,
         'count_oc': count_oc,
         'count_ped': count_ped,
         'documentos': documentos
@@ -2307,8 +2325,9 @@ def api_documentos_sin_centro_costo(request):
 @require_centros_costos_permission('centros_costos', 'editar', json_response=True)
 def api_asignar_documento_centro_costo(request):
     """
-    Asigna una o varias Órdenes de Compra o Pedidos sin centro de costos a un Centro de Costos,
-    vinculando automáticamente todos los registros y movimientos contables asociados (Egresos o Ingresos).
+    Asigna o desvincula una o varias Órdenes de Compra o Pedidos respecto a un Centro de Costos,
+    vinculando o desvinculando automáticamente todos los registros y movimientos contables asociados (Egresos o Ingresos).
+    Acción: 'asignar' (por defecto) o 'desvincular'.
     """
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
@@ -2325,22 +2344,23 @@ def api_asignar_documento_centro_costo(request):
         data = json.loads(request.body)
         centro_costo_id = data.get('centro_costo_id')
         tipo = (data.get('tipo') or '').strip().lower()
+        accion = (data.get('accion') or 'asignar').strip().lower()
         
-        # Soportar asignación individual o múltiple
+        # Soportar selección individual o múltiple
         documento_ids = data.get('documento_ids')
         if not documento_ids and data.get('documento_id'):
             documento_ids = [data.get('documento_id')]
 
         if not centro_costo_id or not tipo or not documento_ids:
-            return JsonResponse({'success': False, 'error': 'Parámetros incompletos para la asignación.'}, status=400)
+            return JsonResponse({'success': False, 'error': 'Parámetros incompletos para la operación.'}, status=400)
 
         cc = get_object_or_404(CentroCosto, id=centro_costo_id, empresa=empresa)
 
-        if not cc.activo:
+        if not cc.activo and accion == 'asignar':
             return JsonResponse({'success': False, 'error': 'El centro de costos seleccionado no se encuentra activo.'}, status=400)
 
-        folios_asignados = []
-        total_movimientos_vinculados = 0
+        folios_procesados = []
+        total_movimientos_afectados = 0
 
         with transaction.atomic():
             if tipo in ['orden_compra', 'oc', 'compras']:
@@ -2352,30 +2372,49 @@ def api_asignar_documento_centro_costo(request):
                     # Validar que el periodo contable no esté cerrado
                     valido_per, err_per = PeriodoContable.validar_fecha_no_cerrada(empresa, oc.fecha)
                     if not valido_per:
-                        return JsonResponse({'success': False, 'error': f"No se puede asignar OC-{oc.id:04d}: {err_per}"}, status=400)
+                        return JsonResponse({'success': False, 'error': f"No se puede procesar OC-{oc.id:04d}: {err_per}"}, status=400)
 
-                    # Asignar centro de costos a la OC
-                    oc.centro_costo = cc
-                    oc.save(update_fields=['centro_costo'])
+                    if accion == 'desvincular':
+                        oc.centro_costo = None
+                        oc.save(update_fields=['centro_costo'])
 
-                    # Asignar centro de costos a todos los egresos vinculados a sus pagos
-                    egresos_actualizados = Egreso.objects.filter(
-                        pago_compra__orden_compra=oc,
-                        empresa=empresa
-                    ).update(centro_costo=cc)
+                        egresos_actualizados = Egreso.objects.filter(
+                            pago_compra__orden_compra=oc,
+                            empresa=empresa
+                        ).update(centro_costo=None)
 
-                    total_movimientos_vinculados += egresos_actualizados
-                    folios_asignados.append(f"OC-{oc.id:04d}")
+                        total_movimientos_afectados += egresos_actualizados
+                        folios_procesados.append(f"OC-{oc.id:04d}")
 
-                    # Registrar en historial
-                    HistorialOrdenCompra.objects.create(
-                        orden_compra=oc,
-                        usuario=request.user,
-                        accion='edicion',
-                        comentario=f"Asignado al Centro de Costos: {cc.codigo} - {cc.nombre}. Egresos vinculados: {egresos_actualizados}"
-                    )
+                        HistorialOrdenCompra.objects.create(
+                            orden_compra=oc,
+                            usuario=request.user,
+                            accion='edicion',
+                            comentario=f"Desvinculado del Centro de Costos: {cc.codigo} - {cc.nombre}. Egresos desvinculados: {egresos_actualizados}"
+                        )
+                    else:
+                        oc.centro_costo = cc
+                        oc.save(update_fields=['centro_costo'])
 
-                msg = f"Se asignaron exitosamente {len(folios_asignados)} Orden(es) de Compra ({', '.join(folios_asignados)}) y {total_movimientos_vinculados} egreso(s) de tesorería al Centro de Costos {cc.codigo}."
+                        egresos_actualizados = Egreso.objects.filter(
+                            pago_compra__orden_compra=oc,
+                            empresa=empresa
+                        ).update(centro_costo=cc)
+
+                        total_movimientos_afectados += egresos_actualizados
+                        folios_procesados.append(f"OC-{oc.id:04d}")
+
+                        HistorialOrdenCompra.objects.create(
+                            orden_compra=oc,
+                            usuario=request.user,
+                            accion='edicion',
+                            comentario=f"Asignado al Centro de Costos: {cc.codigo} - {cc.nombre}. Egresos vinculados: {egresos_actualizados}"
+                        )
+
+                if accion == 'desvincular':
+                    msg = f"Se desvincularon exitosamente {len(folios_procesados)} Orden(es) de Compra ({', '.join(folios_procesados)}) y {total_movimientos_afectados} egreso(s) del Centro de Costos {cc.codigo}."
+                else:
+                    msg = f"Se asignaron exitosamente {len(folios_procesados)} Orden(es) de Compra ({', '.join(folios_procesados)}) y {total_movimientos_afectados} egreso(s) al Centro de Costos {cc.codigo}."
 
             elif tipo in ['pedido', 'pedidos', 'ventas']:
                 peds = Pedido.objects.filter(id__in=documento_ids, empresa=empresa)
@@ -2387,22 +2426,35 @@ def api_asignar_documento_centro_costo(request):
                     f_ped = ped.fecha_creacion.date() if hasattr(ped.fecha_creacion, 'date') else ped.fecha_creacion
                     valido_per, err_per = PeriodoContable.validar_fecha_no_cerrada(empresa, f_ped)
                     if not valido_per:
-                        return JsonResponse({'success': False, 'error': f"No se puede asignar PED-{ped.id:04d}: {err_per}"}, status=400)
+                        return JsonResponse({'success': False, 'error': f"No se puede procesar PED-{ped.id:04d}: {err_per}"}, status=400)
 
-                    # Asignar centro de costos al Pedido
-                    ped.centro_costo = cc
-                    ped.save(update_fields=['centro_costo'])
+                    if accion == 'desvincular':
+                        ped.centro_costo = None
+                        ped.save(update_fields=['centro_costo'])
 
-                    # Asignar centro de costos a todos los ingresos vinculados a sus pagos
-                    ingresos_actualizados = Ingreso.objects.filter(
-                        pago_pedido__pedido=ped,
-                        empresa=empresa
-                    ).update(centro_costo=cc)
+                        ingresos_actualizados = Ingreso.objects.filter(
+                            pago_pedido__pedido=ped,
+                            empresa=empresa
+                        ).update(centro_costo=None)
 
-                    total_movimientos_vinculados += ingresos_actualizados
-                    folios_asignados.append(f"PED-{ped.id:04d}")
+                        total_movimientos_afectados += ingresos_actualizados
+                        folios_procesados.append(f"PED-{ped.id:04d}")
+                    else:
+                        ped.centro_costo = cc
+                        ped.save(update_fields=['centro_costo'])
 
-                msg = f"Se asignaron exitosamente {len(folios_asignados)} Pedido(s) ({', '.join(folios_asignados)}) y {total_movimientos_vinculados} ingreso(s) de tesorería al Centro de Costos {cc.codigo}."
+                        ingresos_actualizados = Ingreso.objects.filter(
+                            pago_pedido__pedido=ped,
+                            empresa=empresa
+                        ).update(centro_costo=cc)
+
+                        total_movimientos_afectados += ingresos_actualizados
+                        folios_procesados.append(f"PED-{ped.id:04d}")
+
+                if accion == 'desvincular':
+                    msg = f"Se desvincularon exitosamente {len(folios_procesados)} Pedido(s) ({', '.join(folios_procesados)}) y {total_movimientos_afectados} ingreso(s) del Centro de Costos {cc.codigo}."
+                else:
+                    msg = f"Se asignaron exitosamente {len(folios_procesados)} Pedido(s) ({', '.join(folios_procesados)}) y {total_movimientos_afectados} ingreso(s) al Centro de Costos {cc.codigo}."
 
             else:
                 return JsonResponse({'success': False, 'error': f"Tipo de documento '{tipo}' no soportado."}, status=400)
@@ -2410,8 +2462,9 @@ def api_asignar_documento_centro_costo(request):
         return JsonResponse({
             'success': True,
             'message': msg,
-            'folios': folios_asignados,
-            'movimientos_vinculados': total_movimientos_vinculados,
+            'accion': accion,
+            'folios': folios_procesados,
+            'movimientos_vinculados': total_movimientos_afectados,
             'centro_id': cc.id,
             'centro_codigo': cc.codigo,
             'centro_nombre': cc.nombre

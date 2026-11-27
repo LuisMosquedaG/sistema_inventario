@@ -13,6 +13,28 @@
         --cc-border: #E2E8F0;
     }
 
+    /* ESTILO BOTÓN BRAND NATIVO */
+    .btn-brand {
+        background-color: #00b8b9 !important;
+        border-color: #00b8b9 !important;
+        color: #ffffff !important;
+        font-weight: 600;
+        opacity: 1 !important;
+    }
+    .btn-brand:hover, .btn-brand:focus, .btn-brand:active {
+        background-color: #009ea0 !important;
+        border-color: #009ea0 !important;
+        color: #ffffff !important;
+        opacity: 1 !important;
+    }
+    .btn-brand:disabled, .btn-brand.disabled {
+        background-color: #00b8b9 !important;
+        border-color: #00b8b9 !important;
+        color: #ffffff !important;
+        opacity: 0.85 !important;
+        cursor: not-allowed;
+    }
+
 
     .table-pro {
         border-collapse: separate;
@@ -80,6 +102,20 @@
         box-shadow: 0 0 0 0.2rem rgba(0, 184, 185, 0.25) !important;
     }
 
+    /* Switch estilo Danger (Rojo) para desvincular documentos */
+    .switch-danger-sm {
+        cursor: pointer;
+        margin: 0 !important;
+    }
+    .switch-danger-sm:checked {
+        background-color: #dc3545 !important;
+        border-color: #dc3545 !important;
+    }
+    .switch-danger-sm:focus {
+        border-color: #dc3545 !important;
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+    }
+
     .status-pill {
         display: inline-flex;
         align-items: center;
@@ -97,6 +133,11 @@
     .status-recibida { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
     .status-parcial { background-color: #fff4e6; color: #d9480f; border: 1px solid #ffe8cc; }
     .status-cancelada { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
+    .status-revision { background-color: #fff3bf; color: #f08c00; border: 1px solid #ffec99; }
+    .status-pendiente { background-color: #fff4e6; color: #d9480f; border: 1px solid #ffe8cc; }
+    .status-confirmado { background-color: #e7f5ff; color: #1971c2; border: 1px solid #d0ebff; }
+    .status-completo { background-color: #ebfbee; color: #2f9e44; border: 1px solid #b2f2bb; }
+    .status-cancelado { background-color: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
     .status-activo { background-color: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; }
     .status-inactivo { background-color: #F1F5F9; color: #64748B; border: 1px solid #CBD5E1; }
 
@@ -231,6 +272,36 @@
         color: #ffffff !important;
         border-color: #00b8b9 !important;
         box-shadow: 0 2px 6px rgba(0, 184, 185, 0.3);
+    }
+
+    /* Pestañas tipo tarjeta de selección para Modal Asignar Documento */
+    .tab-doc-asignar {
+        background-color: #f8fafc;
+        border: 1px solid #dee2e6;
+        color: #6c757d;
+        transition: all 0.2s ease;
+    }
+    .tab-doc-asignar .tab-doc-icon {
+        background: #e9ecef !important;
+        color: #6c757d !important;
+        transition: all 0.2s ease;
+    }
+    .tab-doc-asignar .tab-doc-title {
+        color: #495057;
+        font-weight: 600;
+    }
+    .btn-check:checked + .tab-doc-asignar {
+        background-color: #ffffff !important;
+        border: 1.5px solid var(--cc-brand) !important;
+        box-shadow: 0 2px 8px rgba(0, 184, 185, 0.15) !important;
+    }
+    .btn-check:checked + .tab-doc-asignar .tab-doc-icon {
+        background: rgba(0, 184, 185, 0.12) !important;
+        color: var(--cc-brand) !important;
+    }
+    .btn-check:checked + .tab-doc-asignar .tab-doc-title {
+        color: #1a252f !important;
+        font-weight: 700 !important;
     }
 </style>
 
@@ -1057,7 +1128,7 @@
 
             <div class="modal-footer">
                 <button type="button" class="btn btn-sm btn-brand text-white fw-semibold shadow-sm" onclick="abrirModalAsignarDocumentoCC()">
-                    <i class="bi bi-link-45deg me-1"></i> Asignar Documento
+                    <i class="bi bi-link-45deg me-1"></i> Gestión de Documentos
                 </button>
                 <button type="button" class="btn btn-sm btn-light border px-3" data-bs-dismiss="modal">Cerrar</button>
             </div>
@@ -1075,9 +1146,9 @@
                 <div>
                     <h5 class="modal-title fw-bold text-dark d-flex align-items-center mb-0" style="font-size: 1.05rem;">
                         <i class="bi bi-link-45deg me-2" style="color: var(--cc-brand); font-size: 1.25rem;"></i>
-                        <span>Asignar Documento al Centro de Costo</span>
+                        <span>Gestión de Documentos</span>
                     </h5>
-                    <span class="text-muted small">Destino: <span id="asignarDocCentroNombre" class="fw-semibold text-dark">--</span></span>
+                    <span class="text-muted small">Centro de Costo: <span id="asignarDocCentroNombre" class="fw-semibold text-dark">--</span></span>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -1086,38 +1157,44 @@
                 <!-- PASO 1: SELECCIONAR TIPO DE DOCUMENTO -->
                 <div class="card border-0 shadow-sm mb-3">
                     <div class="card-body p-3">
-                        <label class="form-label small fw-bold text-secondary mb-2 text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.5px;">
-                            1. ¿Qué tipo de documento deseas vincular?
-                        </label>
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <label class="form-label small fw-bold text-secondary mb-0 text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                                1. TIPO DE DOCUMENTO
+                            </label>
+                            <div class="form-check form-switch m-0 d-flex align-items-center gap-2">
+                                <input class="form-check-input switch-danger-sm" type="checkbox" role="switch" id="switchModoGestionDoc" onchange="toggleModoGestionDocumentos(this.checked)">
+                                <label class="form-check-label small fw-semibold user-select-none mb-0 text-dark" for="switchModoGestionDoc" id="lblSwitchModoDoc">
+                                    Vincular
+                                </label>
+                            </div>
+                        </div>
                         <div class="row g-2">
                             <div class="col-6">
                                 <input type="radio" class="btn-check" name="radioTipoDocAsignar" id="tipoDocOC" value="orden_compra" checked onchange="cambiarTipoDocAsignar('orden_compra')">
-                                <label class="btn btn-outline-secondary w-100 p-2 text-start d-flex align-items-center justify-content-between rounded border" for="tipoDocOC" style="cursor: pointer;">
+                                <label class="btn tab-doc-asignar w-100 p-2 text-start d-flex align-items-center justify-content-between rounded" for="tipoDocOC" style="cursor: pointer;">
                                     <div class="d-flex align-items-center">
-                                        <div class="rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px; background: rgba(0,184,185,0.1); color: var(--cc-brand);">
+                                        <div class="tab-doc-icon rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
                                             <i class="bi bi-cart-check fs-6"></i>
                                         </div>
                                         <div>
-                                            <div class="fw-bold text-dark small">Orden de Compra</div>
+                                            <div class="tab-doc-title small">Orden de Compra</div>
                                             <div class="text-muted" style="font-size: 0.7rem;">Compras y egresos vinculados</div>
                                         </div>
                                     </div>
-                                    <span class="badge bg-light text-secondary border" id="badgeCountOC">0 sin asignar</span>
                                 </label>
                             </div>
                             <div class="col-6">
                                 <input type="radio" class="btn-check" name="radioTipoDocAsignar" id="tipoDocPed" value="pedido" onchange="cambiarTipoDocAsignar('pedido')">
-                                <label class="btn btn-outline-secondary w-100 p-2 text-start d-flex align-items-center justify-content-between rounded border" for="tipoDocPed" style="cursor: pointer;">
+                                <label class="btn tab-doc-asignar w-100 p-2 text-start d-flex align-items-center justify-content-between rounded" for="tipoDocPed" style="cursor: pointer;">
                                     <div class="d-flex align-items-center">
-                                        <div class="rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px; background: rgba(16,185,129,0.1); color: #10b981;">
+                                        <div class="tab-doc-icon rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
                                             <i class="bi bi-receipt fs-6"></i>
                                         </div>
                                         <div>
-                                            <div class="fw-bold text-dark small">Pedido de Venta</div>
+                                            <div class="tab-doc-title small">Pedido de Venta</div>
                                             <div class="text-muted" style="font-size: 0.7rem;">Ventas e ingresos vinculados</div>
                                         </div>
                                     </div>
-                                    <span class="badge bg-light text-secondary border" id="badgeCountPed">0 sin asignar</span>
                                 </label>
                             </div>
                         </div>
@@ -1183,8 +1260,8 @@
 
             <div class="modal-footer">
                 <button type="button" class="btn btn-sm btn-light border px-3" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" id="btnConfirmarAsignacionDoc" class="btn btn-sm btn-brand text-white px-4 fw-semibold shadow-sm" onclick="confirmarAsignacionDocumento()" disabled>
-                    <i class="bi bi-link-45deg me-1"></i> Asignar al Centro de Costo
+                <button type="button" id="btnConfirmarAsignacionDoc" class="btn btn-sm btn-brand text-white fw-semibold shadow-sm" onclick="confirmarAsignacionDocumento()" disabled>
+                    <i class="bi bi-link-45deg me-1"></i> Asignar Documento
                 </button>
             </div>
         </div>
@@ -3811,12 +3888,13 @@
     }
 
     // ==============================================================================
-    // ASIGNACIÓN DE DOCUMENTOS (OC / PEDIDOS) AL CENTRO DE COSTOS - MULTISELECCIÓN
+    // GESTIÓN DE DOCUMENTOS (OC / PEDIDOS) - VINCULAR O DESVINCULAR MULTISELECCIÓN
     // ==============================================================================
     let docsSinAsignarGlobal = [];
     let docsSinAsignarFiltrados = [];
     let docsSinAsignarSeleccionados = new Set();
     let tipoDocAsignarActual = 'orden_compra';
+    let modoGestionDocActual = 'asignar'; // 'asignar' o 'desvincular'
 
     function abrirModalAsignarDocumentoCC() {
         if (!centroSeleccionadoId) {
@@ -3827,11 +3905,15 @@
         const nombreCC = centroSeleccionadoNombre || ('Centro #' + centroSeleccionadoId);
         document.getElementById('asignarDocCentroNombre').textContent = nombreCC;
 
+        // Reset modo a vincular (switch apagado)
+        const swModo = document.getElementById('switchModoGestionDoc');
+        if (swModo) swModo.checked = false;
+        modoGestionDocActual = 'asignar';
+        actualizarUIModoGestionDoc();
+
         // Reset estado modal
         docsSinAsignarSeleccionados.clear();
         docsSinAsignarFiltrados = [];
-        document.getElementById('btnConfirmarAsignacionDoc').disabled = true;
-        document.getElementById('btnConfirmarAsignacionDoc').innerHTML = '<i class="bi bi-link-45deg me-1"></i> Confirmar Asignación';
         document.getElementById('wrapperAvisoAsignacion').classList.add('d-none');
         document.getElementById('inputBuscarDocSinAsignar').value = '';
 
@@ -3848,59 +3930,114 @@
         modal.show();
     }
 
-    function cambiarTipoDocAsignar(tipo) {
-        tipoDocAsignarActual = tipo;
+    function toggleModoGestionDocumentos(checked) {
+        modoGestionDocActual = checked ? 'desvincular' : 'asignar';
+        actualizarUIModoGestionDoc();
         docsSinAsignarSeleccionados.clear();
         docsSinAsignarFiltrados = [];
-        document.getElementById('btnConfirmarAsignacionDoc').disabled = true;
-        document.getElementById('btnConfirmarAsignacionDoc').innerHTML = '<i class="bi bi-link-45deg me-1"></i> Confirmar Asignación';
         document.getElementById('wrapperAvisoAsignacion').classList.add('d-none');
         document.getElementById('inputBuscarDocSinAsignar').value = '';
 
         const chkMaster = document.getElementById('checkTodosDocsSinAsignar');
         if (chkMaster) { chkMaster.checked = false; chkMaster.indeterminate = false; }
 
+        actualizarTitulosDocListado();
+        cargarDocumentosSinAsignar(tipoDocAsignarActual);
+    }
+
+    function actualizarUIModoGestionDoc() {
+        const lblSwitch = document.getElementById('lblSwitchModoDoc');
+        const btnConfirmar = document.getElementById('btnConfirmarAsignacionDoc');
+
+        if (modoGestionDocActual === 'desvincular') {
+            if (lblSwitch) {
+                lblSwitch.className = 'form-check-label small fw-bold user-select-none mb-0 text-danger';
+                lblSwitch.textContent = 'Desvincular';
+            }
+            if (btnConfirmar) {
+                btnConfirmar.className = 'btn btn-sm btn-brand text-white fw-semibold shadow-sm';
+                btnConfirmar.innerHTML = '<i class="bi bi-link-45deg me-1"></i> Desvincular Documento';
+                btnConfirmar.disabled = true;
+            }
+        } else {
+            if (lblSwitch) {
+                lblSwitch.className = 'form-check-label small fw-semibold user-select-none mb-0 text-dark';
+                lblSwitch.textContent = 'Vincular';
+            }
+            if (btnConfirmar) {
+                btnConfirmar.className = 'btn btn-sm btn-brand text-white fw-semibold shadow-sm';
+                btnConfirmar.innerHTML = '<i class="bi bi-link-45deg me-1"></i> Asignar Documento';
+                btnConfirmar.disabled = true;
+            }
+        }
+    }
+
+    function actualizarTitulosDocListado() {
         const lblTitulo = document.getElementById('lblTituloDocListado');
         const thBeneficiario = document.getElementById('thBeneficiario');
 
-        if (tipo === 'orden_compra') {
-            if (lblTitulo) lblTitulo.textContent = '2. Selecciona las Órdenes de Compra sin asignación';
-            if (thBeneficiario) thBeneficiario.textContent = 'Proveedor';
+        if (modoGestionDocActual === 'desvincular') {
+            if (tipoDocAsignarActual === 'orden_compra') {
+                if (lblTitulo) lblTitulo.textContent = '2. Selecciona las Órdenes de Compra a desvincular de este centro';
+                if (thBeneficiario) thBeneficiario.textContent = 'Proveedor';
+            } else {
+                if (lblTitulo) lblTitulo.textContent = '2. Selecciona los Pedidos de Venta a desvincular de este centro';
+                if (thBeneficiario) thBeneficiario.textContent = 'Cliente';
+            }
         } else {
-            if (lblTitulo) lblTitulo.textContent = '2. Selecciona los Pedidos de Venta sin asignación';
-            if (thBeneficiario) thBeneficiario.textContent = 'Cliente';
+            if (tipoDocAsignarActual === 'orden_compra') {
+                if (lblTitulo) lblTitulo.textContent = '2. Selecciona las Órdenes de Compra sin asignación';
+                if (thBeneficiario) thBeneficiario.textContent = 'Proveedor';
+            } else {
+                if (lblTitulo) lblTitulo.textContent = '2. Selecciona los Pedidos de Venta sin asignación';
+                if (thBeneficiario) thBeneficiario.textContent = 'Cliente';
+            }
         }
+    }
 
+    function cambiarTipoDocAsignar(tipo) {
+        tipoDocAsignarActual = tipo;
+        docsSinAsignarSeleccionados.clear();
+        docsSinAsignarFiltrados = [];
+        actualizarUIModoGestionDoc();
+        document.getElementById('wrapperAvisoAsignacion').classList.add('d-none');
+        document.getElementById('inputBuscarDocSinAsignar').value = '';
+
+        const chkMaster = document.getElementById('checkTodosDocsSinAsignar');
+        if (chkMaster) { chkMaster.checked = false; chkMaster.indeterminate = false; }
+
+        actualizarTitulosDocListado();
         cargarDocumentosSinAsignar(tipo);
     }
 
     function cargarDocumentosSinAsignar(tipo) {
         const tbody = document.getElementById('tbodyDocsSinAsignar');
+        const accionTexto = modoGestionDocActual === 'desvincular' ? 'asignados a este centro' : 'sin asignar';
         if (tbody) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="6" class="text-center py-4 text-muted">
                         <div class="spinner-border spinner-border-sm text-secondary me-2" role="status"></div>
-                        Cargando ${tipo === 'orden_compra' ? 'órdenes de compra' : 'pedidos'} sin asignar...
+                        Cargando ${tipo === 'orden_compra' ? 'órdenes de compra' : 'pedidos'} ${accionTexto}...
                     </td>
                 </tr>
             `;
         }
         document.getElementById('contadorDocsDisponibles').textContent = 'Consultando...';
 
-        fetch(`/centros-costos/documentos-sin-asignar/api/?tipo=${tipo}`)
+        const params = new URLSearchParams({
+            tipo: tipo,
+            modo: modoGestionDocActual,
+            centro_costo_id: centroSeleccionadoId || ''
+        });
+
+        fetch(`/centros-costos/documentos-sin-asignar/api/?${params.toString()}`)
             .then(res => res.json())
             .then(data => {
                 if (!data.success) {
                     alert('Error al consultar documentos: ' + (data.error || 'Desconocido'));
                     return;
                 }
-
-                // Actualizar contadores en badges
-                const bOC = document.getElementById('badgeCountOC');
-                if (bOC && data.count_oc !== undefined) bOC.textContent = `${data.count_oc} sin asignar`;
-                const bPed = document.getElementById('badgeCountPed');
-                if (bPed && data.count_ped !== undefined) bPed.textContent = `${data.count_ped} sin asignar`;
 
                 docsSinAsignarGlobal = data.documentos || [];
                 docsSinAsignarFiltrados = [];
@@ -3921,11 +4058,12 @@
 
         if (!lista || lista.length === 0) {
             const docNombre = tipoDocAsignarActual === 'orden_compra' ? 'órdenes de compra' : 'pedidos';
+            const estadoDesc = modoGestionDocActual === 'desvincular' ? 'asignados a este centro de costos' : 'pendientes de asignar';
             tbody.innerHTML = `
                 <tr>
                     <td colspan="6" class="text-center py-4 text-muted">
-                        <i class="bi bi-check-circle text-success fs-5 d-block mb-1"></i>
-                        No hay ${docNombre} pendientes de asignar.
+                        <i class="bi bi-info-circle text-secondary fs-5 d-block mb-1"></i>
+                        No hay ${docNombre} ${estadoDesc}.
                     </td>
                 </tr>
             `;
@@ -3952,10 +4090,27 @@
                 importeDisplay += `<div class="text-muted" style="font-size: 0.7rem;">$${totalOrig.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ${d.moneda} (TC: ${d.tipo_cambio})</div>`;
             }
 
-            // Status badge
-            const statusClass = d.estado === 'Aprobada' || d.estado === 'Aprobado' || d.estado === 'Recibida'
-                ? 'status-recibida'
-                : (d.estado === 'Cancelada' || d.estado === 'Cancelado' ? 'status-cancelada' : 'status-borrador');
+            // Status badge adaptado al estilo nativo del módulo de Pedidos o Compras
+            let statusClass = 'status-borrador';
+            const rawEst = (d.estado_raw || '').toLowerCase().trim();
+            const estLabel = (d.estado || '').toLowerCase().trim();
+
+            if (tipoDocAsignarActual === 'pedido') {
+                if (rawEst === 'borrador' || estLabel === 'borrador') statusClass = 'status-borrador';
+                else if (rawEst === 'revision' || estLabel === 'en revisión' || estLabel === 'revision') statusClass = 'status-revision';
+                else if (rawEst === 'pendiente' || estLabel === 'pendiente') statusClass = 'status-pendiente';
+                else if (rawEst === 'confirmado' || estLabel === 'confirmado') statusClass = 'status-confirmado';
+                else if (rawEst === 'completo' || estLabel === 'completo') statusClass = 'status-completo';
+                else if (rawEst === 'cancelado' || estLabel === 'cancelado') statusClass = 'status-cancelado';
+                else statusClass = 'status-borrador';
+            } else {
+                if (rawEst === 'borrador' || estLabel === 'borrador') statusClass = 'status-borrador';
+                else if (rawEst === 'aprobada' || estLabel === 'aprobada') statusClass = 'status-aprobada';
+                else if (rawEst === 'parcial' || estLabel === 'parcial') statusClass = 'status-parcial';
+                else if (rawEst === 'recibida' || estLabel === 'recibida') statusClass = 'status-recibida';
+                else if (rawEst === 'cancelada' || estLabel === 'cancelada') statusClass = 'status-cancelada';
+                else statusClass = 'status-borrador';
+            }
 
             html += `
                 <tr id="fila_doc_${d.id}" class="${rowClass}" onclick="toggleSeleccionDoc(${d.id})" style="cursor: pointer;">
@@ -4057,10 +4212,18 @@
         const btnConfirmar = document.getElementById('btnConfirmarAsignacionDoc');
         if (btnConfirmar) {
             btnConfirmar.disabled = (cant === 0);
-            if (cant > 0) {
-                btnConfirmar.innerHTML = `<i class="bi bi-link-45deg me-1"></i> Asignar ${cant} Documento(s)`;
+            if (modoGestionDocActual === 'desvincular') {
+                if (cant > 0) {
+                    btnConfirmar.innerHTML = `<i class="bi bi-link-45deg me-1"></i> Desvincular ${cant} Documento(s)`;
+                } else {
+                    btnConfirmar.innerHTML = '<i class="bi bi-link-45deg me-1"></i> Desvincular Documento';
+                }
             } else {
-                btnConfirmar.innerHTML = '<i class="bi bi-link-45deg me-1"></i> Confirmar Asignación';
+                if (cant > 0) {
+                    btnConfirmar.innerHTML = `<i class="bi bi-link-45deg me-1"></i> Asignar ${cant} Documento(s)`;
+                } else {
+                    btnConfirmar.innerHTML = '<i class="bi bi-link-45deg me-1"></i> Asignar Documento';
+                }
             }
         }
 
@@ -4076,10 +4239,18 @@
                 const foliosStr = seleccionadosArray.map(d => d.folio).slice(0, 4).join(', ') + (cant > 4 ? ` y ${cant - 4} más` : '');
                 avisoDoc.textContent = `${cant} documento(s) seleccionado(s) (${foliosStr}) · Total: $${sumMxn.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} MXN`;
 
-                if (tipoDocAsignarActual === 'orden_compra') {
-                    avisoEfecto.innerHTML = `Se vincularán las ${cant} Órdenes de Compra y todos sus <strong>Egresos de tesorería</strong> asociados al Centro de Costos <strong>${nombreCC}</strong>.`;
+                if (modoGestionDocActual === 'desvincular') {
+                    if (tipoDocAsignarActual === 'orden_compra') {
+                        avisoEfecto.innerHTML = `<span class="text-danger fw-semibold">Se desvincularán</span> las ${cant} Órdenes de Compra y todos sus <strong>Egresos de tesorería</strong> asociados del Centro de Costos <strong>${nombreCC}</strong>, quedando libres sin asignación.`;
+                    } else {
+                        avisoEfecto.innerHTML = `<span class="text-danger fw-semibold">Se desvincularán</span> los ${cant} Pedidos de Venta y todos sus <strong>Ingresos de tesorería</strong> asociados del Centro de Costos <strong>${nombreCC}</strong>, quedando libres sin asignación.`;
+                    }
                 } else {
-                    avisoEfecto.innerHTML = `Se vincularán los ${cant} Pedidos de Venta y todos sus <strong>Ingresos de tesorería</strong> asociados al Centro de Costos <strong>${nombreCC}</strong>.`;
+                    if (tipoDocAsignarActual === 'orden_compra') {
+                        avisoEfecto.innerHTML = `Se vincularán las ${cant} Órdenes de Compra y todos sus <strong>Egresos de tesorería</strong> asociados al Centro de Costos <strong>${nombreCC}</strong>.`;
+                    } else {
+                        avisoEfecto.innerHTML = `Se vincularán los ${cant} Pedidos de Venta y todos sus <strong>Ingresos de tesorería</strong> asociados al Centro de Costos <strong>${nombreCC}</strong>.`;
+                    }
                 }
             } else {
                 wrapperAviso.classList.add('d-none');
@@ -4089,25 +4260,27 @@
 
     function confirmarAsignacionDocumento() {
         if (docsSinAsignarSeleccionados.size === 0 || !centroSeleccionadoId) {
-            alert('Por favor selecciona al menos un documento para asignar.');
+            alert('Por favor selecciona al menos un documento.');
             return;
         }
 
         const ids = Array.from(docsSinAsignarSeleccionados);
         const docNombre = tipoDocAsignarActual === 'orden_compra' ? 'orden(es) de compra' : 'pedido(s)';
+        const accionVerbo = modoGestionDocActual === 'desvincular' ? 'desvincular' : 'asignar';
 
-        if (!confirm(`¿Confirma asignar los ${ids.length} ${docNombre} seleccionados al Centro de Costos?`)) {
+        if (!confirm(`¿Confirma ${accionVerbo} los ${ids.length} ${docNombre} seleccionados respecto al Centro de Costos?`)) {
             return;
         }
 
         const btn = document.getElementById('btnConfirmarAsignacionDoc');
         const originalHtml = btn.innerHTML;
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Asignando...';
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status"></span> ${modoGestionDocActual === 'desvincular' ? 'Desvinculando...' : 'Asignando...'}`;
 
         const payload = {
             centro_costo_id: centroSeleccionadoId,
             tipo: tipoDocAsignarActual,
+            accion: modoGestionDocActual,
             documento_ids: ids
         };
 
@@ -4127,7 +4300,7 @@
             if (data.success) {
                 alert(data.message);
 
-                // Ocultar modal de asignación
+                // Ocultar modal de gestión de documentos
                 const modal = bootstrap.Modal.getInstance(document.getElementById('modalAsignarDocumentoCC'));
                 if (modal) modal.hide();
 
@@ -4135,14 +4308,14 @@
                 const switchConsolidar = document.getElementById('switchConsolidarHijos');
                 cargarMovimientosModal(centroSeleccionadoId, switchConsolidar ? switchConsolidar.checked : false);
             } else {
-                alert('No se pudo asignar: ' + (data.error || 'Error desconocido'));
+                alert('No se pudo procesar: ' + (data.error || 'Error desconocido'));
             }
         })
         .catch(err => {
             console.error(err);
             btn.disabled = false;
             btn.innerHTML = originalHtml;
-            alert('Error de comunicación con el servidor al asignar documentos.');
+            alert('Error de comunicación con el servidor al procesar documentos.');
         });
     }
 
