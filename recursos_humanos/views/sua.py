@@ -68,6 +68,15 @@ def lista_sua(request):
         
     importaciones_list.sort(key=get_periodo_sort_key, reverse=True)
 
+    # Años disponibles para el modal exportador
+    anios_set = set(imp.fecha_importacion.year for imp in importaciones_list if imp.fecha_importacion)
+    for imp in importaciones_list:
+        m_a = re.search(r'\b(20\d{2})\b', imp.periodo or '')
+        if m_a:
+            anios_set.add(int(m_a.group(1)))
+    anios_set.add(datetime.now().year)
+    anios_disponibles = sorted(list(anios_set), reverse=True)
+
     # PAGINACIÓN
     paginator = Paginator(importaciones_list, 20)
     page_number = request.GET.get('page')
@@ -79,6 +88,7 @@ def lista_sua(request):
         'empresa': empresa_actual,
         'reg_patronales_unicos': reg_patronales_unicos,
         'razones_sociales_unicas': razones_sociales_unicas,
+        'anios_disponibles': anios_disponibles,
         'filtros': {
             'reg_patronal': q_reg_pat, 
             'razon_social': q_razon, 
@@ -89,11 +99,13 @@ def lista_sua(request):
 
 @login_required(login_url='/login/')
 @require_POST
-@require_hr_permission('sua', 'importar', json_response=True)
 def importar_sua_ajax(request):
+    tipo_importacion = request.POST.get('tipo', 'bimestral')
+    accion_permiso = 'sua_bim' if tipo_importacion == 'bimestral' else 'sua_men'
+    if not user_has_hr_permission(request, 'sua', accion_permiso):
+        return JsonResponse({'success': False, 'error': f'No cuentas con permiso para importar SUA {tipo_importacion}.'}, status=403)
     empresa_actual = get_empresa_actual(request)
     pdf_file = request.FILES.get('archivo_sua')
-    tipo_importacion = request.POST.get('tipo', 'bimestral')
     if not pdf_file: return JsonResponse({'success': False, 'error': 'No se proporcionó ningún archivo.'})
     try:
         if not pdfplumber: return JsonResponse({'success': False, 'error': 'Librería pdfplumber no instalada.'})
@@ -526,6 +538,238 @@ def obtener_rango_fechas_periodo(periodo_str, tipo_sua):
         return start_date, end_date
         
     return datetime.date(anio, 1, 1), datetime.date(anio, 12, 31)
+
+@login_required(login_url='/login/')
+@require_hr_permission('sua', 'exportar_excel')
+def exportar_reporte_sdi_sua(request):
+    empresa_actual = get_empresa_actual(request)
+    if not empresa_actual:
+        return HttpResponse("Empresa no detectada", status=403)
+
+    razon_social = request.GET.get('razon_social', '').strip()
+    tipo_periodo = request.GET.get('tipo_periodo', 'anual').strip().lower()
+    try:
+        anio = int(request.GET.get('anio', datetime.now().year))
+    except (ValueError, TypeError):
+        anio = datetime.now().year
+    subperiodo = request.GET.get('subperiodo', 'todos').strip().lower()
+
+    # Base queryset de importaciones
+    importaciones_qs = ImportacionSUA.objects.filter(empresa=empresa_actual).prefetch_related('trabajadores')
+    if razon_social and razon_social.lower() != 'todas':
+        importaciones_qs = importaciones_qs.filter(nombre_razon_social__iexact=razon_social)
+
+    # Determinar columnas de SDI según tipo_periodo
+    cuat_labels = {
+        1: '1er Cuatrimestre (Ene - Abr)',
+        2: '2do Cuatrimestre (May - Ago)',
+        3: '3er Cuatrimestre (Sep - Dic)'
+    }
+
+    if tipo_periodo == 'cuatrimestral':
+        if subperiodo in ('1', '2', '3'):
+            cuat_num = int(subperiodo)
+            sdi_columns = [(cuat_num, f'SDI {cuat_labels[cuat_num]}')]
+            periodo_titulo = f"{cuat_labels[cuat_num]} - {anio}"
+        else:
+            sdi_columns = [
+                (1, 'SDI 1er Cuatrimestre (Ene - Abr)'),
+                (2, 'SDI 2do Cuatrimestre (May - Ago)'),
+                (3, 'SDI 3er Cuatrimestre (Sep - Dic)')
+            ]
+            periodo_titulo = f"Cuatrimestres 1, 2 y 3 - {anio}"
+    elif tipo_periodo == 'bimestral':
+        bim_labels = {
+            1: '1er Bimestre (Ene - Feb)',
+            2: '2do Bimestre (Mar - Abr)',
+            3: '3er Bimestre (May - Jun)',
+            4: '4to Bimestre (Jul - Ago)',
+            5: '5to Bimestre (Sep - Oct)',
+            6: '6to Bimestre (Nov - Dic)'
+        }
+        if subperiodo in ('1', '2', '3', '4', '5', '6'):
+            bim_num = int(subperiodo)
+            cuat_del_bim = (bim_num - 1) // 2 + 1
+            sdi_columns = [
+                (f'bim_{bim_num}', f'SDI {bim_labels[bim_num]}'),
+                (cuat_del_bim, f'SDI {cuat_labels[cuat_del_bim]}')
+            ]
+            periodo_titulo = f"{bim_labels[bim_num]} - {anio}"
+        else:
+            sdi_columns = [
+                (1, 'SDI 1er Cuatrimestre (Ene - Abr)'),
+                (2, 'SDI 2do Cuatrimestre (May - Ago)'),
+                (3, 'SDI 3er Cuatrimestre (Sep - Dic)')
+            ]
+            periodo_titulo = f"Todos los Bimestres - {anio}"
+    else:  # anual
+        sdi_columns = [
+            (1, 'SDI 1er Cuatrimestre (Ene - Abr)'),
+            (2, 'SDI 2do Cuatrimestre (May - Ago)'),
+            (3, 'SDI 3er Cuatrimestre (Sep - Dic)')
+        ]
+        periodo_titulo = f"Año Completo {anio}"
+
+    # Mapeo de trabajadores
+    # Clave: NSS (limpio)
+    trabajadores_map = {}
+
+    for imp in importaciones_qs:
+        sua_start, sua_end = obtener_rango_fechas_periodo(imp.periodo, imp.tipo)
+        if sua_start.year != anio:
+            continue
+
+        mes = sua_start.month
+        cuatrimestre = (mes - 1) // 4 + 1
+        bimestre = (mes - 1) // 2 + 1
+
+        # Filtro de cuatrimestre específico
+        if tipo_periodo == 'cuatrimestral' and subperiodo in ('1', '2', '3'):
+            if cuatrimestre != int(subperiodo):
+                continue
+
+        # Filtro de bimestre específico
+        if tipo_periodo == 'bimestral' and subperiodo in ('1', '2', '3', '4', '5', '6'):
+            if bimestre != int(subperiodo):
+                continue
+
+        for t in imp.trabajadores.all():
+            nss_clean = (t.nss or '').strip()
+            if not nss_clean:
+                continue
+
+            if nss_clean not in trabajadores_map:
+                trabajadores_map[nss_clean] = {
+                    'registro_patronal': (imp.registro_patronal or '').strip(),
+                    'nss': nss_clean,
+                    'nombre': (t.nombre or '').strip(),
+                    'rfc_curp': (t.rfc_curp or '').strip(),
+                    'ubicacion': (t.clave_ubicacion or '').strip(),
+                    'sdi_values': {}
+                }
+            else:
+                if not trabajadores_map[nss_clean]['registro_patronal'] and imp.registro_patronal:
+                    trabajadores_map[nss_clean]['registro_patronal'] = (imp.registro_patronal or '').strip()
+                if not trabajadores_map[nss_clean]['rfc_curp'] and t.rfc_curp:
+                    trabajadores_map[nss_clean]['rfc_curp'] = (t.rfc_curp or '').strip()
+                if not trabajadores_map[nss_clean]['ubicacion'] and t.clave_ubicacion:
+                    trabajadores_map[nss_clean]['ubicacion'] = (t.clave_ubicacion or '').strip()
+
+            val_sdi = float(t.sdi or 0)
+            if val_sdi > 0:
+                trabajadores_map[nss_clean]['sdi_values'][cuatrimestre] = val_sdi
+                trabajadores_map[nss_clean]['sdi_values'][f'cuat_{cuatrimestre}'] = val_sdi
+                trabajadores_map[nss_clean]['sdi_values'][f'bim_{bimestre}'] = val_sdi
+
+    # Construir el libro de Excel con openpyxl siguiendo el mismo estilo que exportar_sua_excel
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Reporte Trabajadores SDI"
+
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    title_font = Font(name='Calibri', size=14, bold=True, color='000000')
+    meta_font = Font(name='Calibri', size=11, bold=True)
+    header_font = Font(name='Calibri', size=11, bold=True, color='FFFFFF')
+    data_font = Font(name='Calibri', size=11)
+
+    header_fill = PatternFill(start_color='00b8b9', end_color='00b8b9', fill_type='solid')
+    meta_fill = PatternFill(start_color='F2F2F2', end_color='F2F2F2', fill_type='solid')
+
+    thin_border = Border(
+        left=Side(style='thin', color='D3D3D3'),
+        right=Side(style='thin', color='D3D3D3'),
+        top=Side(style='thin', color='D3D3D3'),
+        bottom=Side(style='thin', color='D3D3D3')
+    )
+
+    # 1. Metadatos
+    ws.append(['REPORTE DE INTEGRACIÓN SUA - TRABAJADORES Y SDI'])
+    ws.cell(row=1, column=1).font = title_font
+
+    empresa_label = razon_social if (razon_social and razon_social.lower() != 'todas') else 'Todas las Empresas / Contratistas'
+    ws.append(['Razón Social (Contratista)', empresa_label])
+    ws.append(['Tipo de Periodo', tipo_periodo.capitalize()])
+    ws.append(['Periodo', periodo_titulo])
+    ws.append(['Fecha de Emisión', datetime.now().strftime('%d/%m/%Y %H:%M')])
+    ws.append([])
+
+    for r in range(2, 6):
+        ws.cell(row=r, column=1).font = meta_font
+        ws.cell(row=r, column=1).fill = meta_fill
+        ws.cell(row=r, column=2).font = data_font
+
+    # 2. Encabezados
+    headers = ['Registro Patronal', 'NSS', 'Nombre', 'RFC/CURP', 'Ubicación'] + [col_label for _, col_label in sdi_columns]
+    ws.append(headers)
+    header_row_idx = 7
+    for c in range(1, len(headers) + 1):
+        cell = ws.cell(row=header_row_idx, column=c)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        cell.border = thin_border
+    ws.row_dimensions[header_row_idx].height = 28
+
+    # 3. Filas de datos
+    current_row = 8
+    # Ordenar trabajadores alfabéticamente por nombre
+    lista_trabajadores = sorted(trabajadores_map.values(), key=lambda x: x['nombre'])
+
+    for t_data in lista_trabajadores:
+        row_vals = [
+            t_data['registro_patronal'],
+            t_data['nss'],
+            t_data['nombre'],
+            t_data['rfc_curp'],
+            t_data['ubicacion'],
+        ]
+        for col_key, _ in sdi_columns:
+            sdi_val = t_data['sdi_values'].get(col_key, None)
+            row_vals.append(sdi_val if sdi_val is not None else 0.0)
+
+        ws.append(row_vals)
+
+        # Formato de celdas
+        for c in range(1, len(headers) + 1):
+            cell = ws.cell(row=current_row, column=c)
+            cell.font = data_font
+            cell.border = thin_border
+
+            # Centrar campos de identificación
+            if c in (1, 2, 4, 5):
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+            elif c == 3:
+                cell.alignment = Alignment(horizontal='left', vertical='center')
+            elif c >= 6:  # Columnas SDI
+                cell.alignment = Alignment(horizontal='right', vertical='center')
+                cell.number_format = '$#,##0.00'
+
+        current_row += 1
+
+    # Auto-ajuste de anchos de columna
+    from openpyxl.utils import get_column_letter
+    for col in ws.columns:
+        max_len = 0
+        for cell in col:
+            if cell.value:
+                max_len = max(max_len, len(str(cell.value)))
+        col_letter = get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(max_len + 4, 14)
+
+    # Fijar ancho especial para Nombre y Columnas de identificación
+    ws.column_dimensions['A'].width = 18  # Registro Patronal
+    ws.column_dimensions['B'].width = 16  # NSS
+    ws.column_dimensions['C'].width = 35  # Nombre
+    ws.column_dimensions['D'].width = 20  # RFC/CURP
+    ws.column_dimensions['E'].width = 15  # Ubicación
+
+    # Generar respuesta HTTP para descarga
+    razon_slug = re.sub(r'[^A-Za-z0-9]', '_', razon_social)[:20] if (razon_social and razon_social.lower() != 'todas') else 'Todas'
+    filename = f"Reporte_SDI_{razon_slug}_{tipo_periodo}_{anio}.xlsx"
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
 
 @login_required(login_url='/login/')
 @require_POST

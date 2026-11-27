@@ -130,10 +130,17 @@
             <span class="section-subtitle">Gestión masiva de importaciones y reportes de cuotas</span>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
-            {% if granular_hr_perms.sua.importar %}
+            {% if granular_hr_perms.sua.exportar_excel %}
+            <button class="btn btn-light text-secondary btn-pro shadow-sm border" data-bs-toggle="modal" data-bs-target="#modalExportadorSDI" title="Exportar Reporte">
+                <i class="bi bi-download me-1"></i> Exportador
+            </button>
+            {% endif %}
+            {% if granular_hr_perms.sua.sua_bim %}
             <button class="btn btn-brand text-white btn-pro shadow-sm" onclick="abrirModalImportar('bimestral')">
                 + Sua bim
             </button>
+            {% endif %}
+            {% if granular_hr_perms.sua.sua_men %}
             <button class="btn btn-brand text-white btn-pro shadow-sm" onclick="abrirModalImportar('mensual')">
                 + Sua men
             </button>
@@ -370,6 +377,81 @@
                     <i class="bi bi-file-earmark-spreadsheet me-1"></i> CSV
                 </button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: EXPORTADOR DE REPORTE SUA (TRABAJADORES Y SDI) -->
+<div class="modal fade" id="modalExportadorSDI" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 480px;">
+        <div class="modal-content shadow-lg border-0" style="border-radius: 12px; overflow: hidden;">
+            <div class="modal-header border-bottom bg-white p-3">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-file-earmark-excel me-2 fs-5" style="color: #00b8b9;"></i>
+                    <h5 class="modal-title fw-bold text-dark mb-0" style="font-size: 1.05rem;">Exportador de Reporte SUA</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formExportadorSDI" method="get" action="{% url 'exportar_reporte_sdi_sua' %}">
+                <div class="modal-body p-3 bg-light">
+                    <!-- 1. Razón Social (Contratista) -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-secondary mb-1">
+                            Razón Social (Contratista)
+                        </label>
+                        <select name="razon_social" id="exportador_razon_social" class="form-select form-select-sm" required>
+                            <option value="todas">Todas las Razones Sociales</option>
+                            {% for rs in razones_sociales_unicas %}
+                            <option value="{{ rs }}">{{ rs }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- 2. Tipo de Periodo -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-secondary mb-1">
+                            Periodo
+                        </label>
+                        <select name="tipo_periodo" id="exportador_tipo_periodo" class="form-select form-select-sm" onchange="actualizarSubperiodosExportador(this.value)">
+                            <option value="anual" selected>Anual</option>
+                            <option value="cuatrimestral">Cuatrimestral</option>
+                            <option value="bimestral">Bimestral</option>
+                        </select>
+                    </div>
+
+                    <!-- 3. Año -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-secondary mb-1">
+                            Año
+                        </label>
+                        <select name="anio" id="exportador_anio" class="form-select form-select-sm">
+                            {% for a in anios_disponibles %}
+                            <option value="{{ a }}" {% if forloop.first %}selected{% endif %}>{{ a }}</option>
+                            {% empty %}
+                            <option value="2026" selected>2026</option>
+                            <option value="2025">2025</option>
+                            <option value="2024">2024</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- 4. Subperiodo (Cuatrimestre o Bimestre dinámico) -->
+                    <div class="mb-2 d-none" id="wrapperSubperiodoExportador">
+                        <label class="form-label small fw-bold text-secondary mb-1" id="lblSubperiodoExportador">
+                            Cuatrimestre / Bimestre
+                        </label>
+                        <select name="subperiodo" id="exportador_subperiodo" class="form-select form-select-sm">
+                            <option value="todos">Todos</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer bg-white border-top p-2 px-3 d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-sm btn-light border px-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-brand text-white fw-semibold shadow-sm px-3">
+                        <i class="bi bi-download me-1"></i> Descargar Excel
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -936,6 +1018,39 @@
         bootstrap.Modal.getOrCreateInstance(modalEl).hide();
         
         window.location.href = `/recursos-humanos/sua/exportar/${id}/?formato=${formato}`;
+    }
+
+    function actualizarSubperiodosExportador(tipo) {
+        const wrapper = document.getElementById('wrapperSubperiodoExportador');
+        const lbl = document.getElementById('lblSubperiodoExportador');
+        const select = document.getElementById('exportador_subperiodo');
+        if (!wrapper || !lbl || !select) return;
+
+        if (tipo === 'anual') {
+            wrapper.classList.add('d-none');
+            select.innerHTML = '<option value="todos">Todos los cuatrimestres</option>';
+        } else if (tipo === 'cuatrimestral') {
+            wrapper.classList.remove('d-none');
+            lbl.textContent = 'Cuatrimestre';
+            select.innerHTML = `
+                <option value="todos">Todos los Cuatrimestres (1C, 2C y 3C)</option>
+                <option value="1">1er Cuatrimestre (Enero - Abril)</option>
+                <option value="2">2do Cuatrimestre (Mayo - Agosto)</option>
+                <option value="3">3er Cuatrimestre (Septiembre - Diciembre)</option>
+            `;
+        } else if (tipo === 'bimestral') {
+            wrapper.classList.remove('d-none');
+            lbl.textContent = 'Bimestre';
+            select.innerHTML = `
+                <option value="todos">Todos los Bimestres</option>
+                <option value="1">1er Bimestre (Enero - Febrero)</option>
+                <option value="2">2do Bimestre (Marzo - Abril)</option>
+                <option value="3">3er Bimestre (Mayo - Junio)</option>
+                <option value="4">4to Bimestre (Julio - Agosto)</option>
+                <option value="5">5to Bimestre (Septiembre - Octubre)</option>
+                <option value="6">6to Bimestre (Noviembre - Diciembre)</option>
+            `;
+        }
     }
 
     document.getElementById('formImportarSUA').addEventListener('submit', function(e) {

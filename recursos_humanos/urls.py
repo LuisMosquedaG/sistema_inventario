@@ -64,6 +64,7 @@ urlpatterns = [
     path('sua/obtener/<int:id>/', views.obtener_registro_sua_json, name='obtener_registro_sua_json'),
     path('sua/eliminar/<int:id>/', views.eliminar_sua_ajax, name='eliminar_sua_ajax'),
     path('sua/exportar/<int:id>/', views.exportar_sua_excel, name='exportar_sua_excel'),
+    path('sua/exportar-reporte-sdi/', views.exportar_reporte_sdi_sua, name='exportar_reporte_sdi_sua'),
     path('sua/alta-empleados/<int:id>/', views.alta_empleados_sua_ajax, name='alta_empleados_sua_ajax'),
     path('sua/alta-empleados-cargador/<int:id>/', views.alta_empleados_cargador_sua_ajax, name='alta_empleados_cargador_sua_ajax'),
     path('sua/descargar-plantilla-cargador/', views.descargar_plantilla_cargador_sua, name='descargar_plantilla_cargador_sua'),

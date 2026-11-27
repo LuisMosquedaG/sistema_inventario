@@ -67,7 +67,7 @@ HR_PERMISSION_MATRIX = {
     'contratistas': ['ver', 'crear', 'editar', 'eliminar', 'importador', 'reporte_contratos', 'reporte_informacion', 'reporte_trabajadores', 'reporte_carga_trabajadores'],
     'beneficiarios': ['ver', 'crear', 'editar', 'eliminar', 'documentacion', 'documentacion_subir', 'documentacion_eliminar', 'documentacion_descargar', 'documentacion_aprobar', 'documentacion_rechazar'],
     'proveedores_contratistas': ['ver', 'crear', 'editar', 'eliminar', 'documentacion', 'documentacion_aprobar', 'documentacion_rechazar', 'documentacion_descargar'],
-    'sua': ['ver', 'importar', 'eliminar', 'alta_empleados', 'exportar_excel'],
+    'sua': ['ver', 'sua_bim', 'sua_men', 'eliminar', 'alta_empleados', 'exportar_excel'],
     'nomina': ['ver', 'crear', 'editar', 'eliminar', 'importador', 'exportador', 'xml_sat'],
 }
 
@@ -556,6 +556,17 @@ def user_has_hr_permission(request, submodulo, accion):
     ).first()
     if permiso_accion is not None:
         return bool(permiso_accion.permitido)
+
+    # Fallback para roles existentes que tenían configurado el permiso legado 'importar'
+    if submodulo == 'sua' and accion in ('sua_bim', 'sua_men'):
+        perm_importar = PermisoRolAccion.objects.filter(
+            rol=asignacion.rol,
+            area='recursos_humanos',
+            submodulo='sua',
+            accion='importar'
+        ).first()
+        if perm_importar is not None:
+            return bool(perm_importar.permitido)
 
     # Fallback: si el rol asignado aún no tiene registros de permisos en recursos_humanos
     if not PermisoRolAccion.objects.filter(rol=asignacion.rol, area='recursos_humanos').exists():
